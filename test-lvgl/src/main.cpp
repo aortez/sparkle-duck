@@ -1,22 +1,5 @@
-/*******************************************************************
- *
- * main.c - LVGL simulator for GNU/Linux
- *
- * Based on the original file from the repository
- *
- * @note eventually this file won't contain a main function and will
- * become a library supporting all major operating systems
- *
- * To see how each driver is initialized check the
- * 'src/lib/display_backends' directory
- *
- * - Clean up
- * - Support for multiple backends at once
- *   2025 EDGEMTech Ltd.
- *
- * Author: EDGEMTech Ltd, Erik Tagirov (erik.tagirov@edgemtech.ch)
- *
- ******************************************************************/
+#include "World.h"
+
 #include <unistd.h>
 #include <pthread.h>
 #include <time.h>
@@ -26,8 +9,6 @@
 #include <ctype.h>
 
 #include "lvgl/lvgl.h"
-#include "lvgl/demos/lv_demos.h"
-
 #include "src/lib/driver_backends.h"
 #include "src/lib/simulator_util.h"
 #include "src/lib/simulator_settings.h"
@@ -43,7 +24,6 @@ static char *selected_backend;
 
 /* Global simulator settings, defined in lv_linux_backend.c */
 extern simulator_settings_t settings;
-
 
 /**
  * @brief Print LVGL version
@@ -132,29 +112,74 @@ static void configure_simulator(int argc, char **argv)
  */
 int main(int argc, char **argv)
 {
-
     configure_simulator(argc, argv);
 
     /* Initialize LVGL. */
     lv_init();
 
-    /* Initialize the configured backend */
+    /* Initialize the configured backend. */
     if (driver_backends_init_backend(selected_backend) == -1) {
         die("Failed to initialize display backend");
     }
 
-    /* Enable for EVDEV support */
+    /* Enable for EVDEV support. */
 #if LV_USE_EVDEV
     if (driver_backends_init_backend("EVDEV") == -1) {
         die("Failed to initialize evdev");
     }
 #endif
 
-    /*Create a Demo*/
-    lv_demo_widgets();
-    lv_demo_widgets_start_slideshow();
+    World world(10, 10);
 
-    /* Enter the run loop of the selected backend */
+    world.makeWalls();
+
+    const int CANVAS_WIDTH = 200;
+    const int CANVAS_HEIGHT = 200;
+
+    LV_DRAW_BUF_DEFINE_STATIC(draw_buf, CANVAS_WIDTH, CANVAS_HEIGHT, LV_COLOR_FORMAT_ARGB8888);
+    LV_DRAW_BUF_INIT_STATIC(draw_buf);
+
+    /*Create a canvas and initialize its palette*/
+    lv_obj_t * canvas = lv_canvas_create(lv_screen_active());
+    lv_canvas_set_draw_buf(canvas, &draw_buf);
+
+    lv_canvas_fill_bg(canvas, lv_color_hex3(0xccc), LV_OPA_COVER);
+    lv_obj_center(canvas);
+
+    lv_layer_t layer;
+    lv_canvas_init_layer(canvas, &layer);
+
+    const float cell_width = static_cast<float>(CANVAS_WIDTH) / world.getWidth();
+    const float cell_height = static_cast<float>(CANVAS_HEIGHT) / world.getHeight();
+
+    for (int y = 0; y < world.getHeight(); y++) {
+        for (int x = 0; x < world.getWidth(); x++) {
+            
+            lv_draw_rect_dsc_t dsc;
+            lv_draw_rect_dsc_init(&dsc);
+            dsc.bg_color = lv_palette_main(LV_PALETTE_RED);
+            dsc.border_color = lv_palette_main(LV_PALETTE_BLUE);
+            dsc.border_width = 1;
+            dsc.outline_color = lv_palette_main(LV_PALETTE_GREEN);
+            dsc.outline_width = 1;
+            dsc.outline_pad = 1;
+            dsc.outline_opa = LV_OPA_50;
+            dsc.radius = 5;
+            dsc.border_width = 3;
+            if (world.at(x, y).dirty) {
+                dsc.bg_color = lv_palette_main(LV_PALETTE_RED);
+            } else {
+                dsc.bg_color = lv_palette_main(LV_PALETTE_GREEN);
+            }
+
+            const lv_area_t coords = {x * cell_width, y * cell_height, cell_width, cell_height};
+            lv_draw_rect(&layer, &dsc, &coords);
+        }
+    }
+
+    lv_canvas_finish_layer(canvas, &layer);
+
+    /* Enter the run loop of the selected backend. */
     driver_backends_run_loop();
 
     return 0;

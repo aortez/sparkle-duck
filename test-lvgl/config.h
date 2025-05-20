@@ -1,2 +1,0 @@
-#define test_lvgl_VERSION_MAJOR 
-#define test_lvgl_VERSION_MINOR 
