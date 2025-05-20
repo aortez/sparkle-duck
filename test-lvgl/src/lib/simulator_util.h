@@ -21,7 +21,6 @@ extern "C" {
  *********************/
 #include <stdarg.h>
 
-
 /**********************
  * GLOBAL PROTOTYPES
  **********************/
@@ -33,7 +32,6 @@ extern "C" {
  * @return default value or value of environment variable.
  */
 const char *getenv_default(const char *name, const char *default_val);
-
 
 /**
  * @description Centralized exit point, called due to an error
@@ -53,7 +51,6 @@ void die(const char *msg, ...);
 /**********************
  *      MACROS
  **********************/
-
 
 #ifdef __cplusplus
 } /*extern "C"*/

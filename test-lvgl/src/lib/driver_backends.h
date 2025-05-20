@@ -15,29 +15,9 @@
  *
  * Author: EDGEMTech Ltd, Erik Tagirov (erik.tagirov@edgemtech.ch)
  */
+#pragma once
 
-#ifndef DRIVER_BACKENDS_H
-#define DRIVER_BACKENDS_H
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-/*********************
- *      INCLUDES
- *********************/
-
-/*********************
- *      DEFINES
- *********************/
-
-/**********************
- *      TYPEDEFS
- **********************/
-
-/**********************
- * GLOBAL PROTOTYPES
- **********************/
+class World;
 
 /*
  * Register all available backends
@@ -76,18 +56,5 @@ int driver_backends_print_supported(void);
  * @brief Enter the run loop
  * @description enter the run loop of the selected backend
  */
-void driver_backends_run_loop(void);
-
-/**********************
- *      MACROS
- **********************/
-
-#ifdef __cplusplus
-} /*extern "C"*/
-#endif
-
-#endif /*DRIVER_BACKENDS_H*/
-
-
-
+void driver_backends_run_loop(World& world);
 

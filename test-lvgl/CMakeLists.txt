@@ -4,7 +4,7 @@ project(lvgl)
 
 set(CONF_PATH "${PROJECT_SOURCE_DIR}/lv_conf.h")
 
-foreach(BACKEND_NAME "SDL" "LINUX_DRM" "LINUX_FBDEV" "X11" "WAYLAND" "OPENGLES" "EVDEV")
+foreach(BACKEND_NAME "SDL" "LINUX_DRM" "LINUX_FBDEV" "X11" "WAYLAND" "OPENGLES")
 
     execute_process(WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
                     COMMAND "scripts/backend_conf.sh" ${BACKEND_NAME} ${CONF_PATH} OUTPUT_VARIABLE IS_BACKEND_ENABLED)
@@ -20,30 +20,7 @@ set(CMAKE_CXX_STANDARD 17) #C17
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR}/bin)
 
-if (LV_USE_EVDEV)
-    message("Including EVDEV support")
-    find_package(PkgConfig REQUIRED)
-    pkg_check_modules(EVDEV REQUIRED libevdev)
-
-    list(APPEND PKG_CONFIG_LIB ${EVDEV_LIBRARIES})
-    list(APPEND PKG_CONFIG_INC ${EVDEV_INCLUDE_DIRS})
-    list(APPEND LV_LINUX_BACKEND_SRC src/lib/indev_backends/evdev.c)
-
-endif()
-
 # Configuration
-if (LV_USE_LINUX_DRM)
-
-    message("Including DRM support")
-    find_package(PkgConfig REQUIRED)
-    pkg_check_modules(LIBDRM REQUIRED libdrm)
-
-    list(APPEND PKG_CONFIG_LIB ${LIBDRM_LIBRARIES})
-    list(APPEND PKG_CONFIG_INC ${LIBDRM_INCLUDE_DIRS})
-    list(APPEND LV_LINUX_BACKEND_SRC src/lib/display_backends/drm.c)
-
-endif()
-
 if (LV_USE_SDL)
 
     message("Including SDL2 support")
@@ -54,7 +31,7 @@ if (LV_USE_SDL)
     list(APPEND PKG_CONFIG_LIB ${SDL2_LIBRARIES} ${SDL2_IMAGE_LIBRARIES})
     list(APPEND PKG_CONFIG_INC ${SDL2_INCLUDE_DIRS} ${SDL2_IMAGE_INCLUDE_DIRS})
 
-    list(APPEND LV_LINUX_BACKEND_SRC src/lib/display_backends/sdl.c)
+    list(APPEND LV_LINUX_BACKEND_SRC src/lib/display_backends/sdl.cpp)
 endif()
 
 
@@ -78,7 +55,7 @@ if (LV_USE_WAYLAND)
     execute_process(COMMAND "scripts/gen_wl_protocols.sh" OUTPUT_VARIABLE WAYLAND_PROTOCOLS_SRC)
 
     list(APPEND PKG_CONFIG_INC "${PROJECT_SOURCE_DIR}/wl_protocols")
-    list(APPEND LV_LINUX_BACKEND_SRC src/lib/display_backends/wayland.c wl_protocols/wayland_xdg_shell.c)
+    list(APPEND LV_LINUX_BACKEND_SRC src/lib/display_backends/wayland.cpp wl_protocols/wayland_xdg_shell.c)
 
 endif()
 
@@ -91,7 +68,7 @@ if (LV_USE_X11)
 
     list(APPEND PKG_CONFIG_INC ${X11_INCLUDE_DIRS})
     list(APPEND PKG_CONFIG_LIB ${X11_LIBRARIES})
-    list(APPEND LV_LINUX_BACKEND_SRC src/lib/display_backends/x11.c)
+    list(APPEND LV_LINUX_BACKEND_SRC src/lib/display_backends/x11.cpp)
 
 endif()
 
@@ -99,20 +76,7 @@ if (LV_USE_LINUX_FBDEV)
 
     # FBDEV has no dependencies
     message("Including FBDEV support")
-    list(APPEND LV_LINUX_BACKEND_SRC src/lib/display_backends/fbdev.c)
-
-endif()
-
-if (LV_USE_OPENGLES)
-
-    message("Including OPENGLES support")
-    find_package(PkgConfig REQUIRED)
-    pkg_check_modules(GLFW3 REQUIRED glfw3)
-    pkg_check_modules(GLEW REQUIRED glew)
-
-    list(APPEND PKG_CONFIG_LIB ${GLFW3_LIBRARIES})
-    list(APPEND PKG_CONFIG_LIB ${GLEW_LIBRARIES})
-    list(APPEND LV_LINUX_BACKEND_SRC src/lib/display_backends/glfw3.c)
+    list(APPEND LV_LINUX_BACKEND_SRC src/lib/display_backends/fbdev.cpp)
 
 endif()
 
@@ -122,7 +86,7 @@ endforeach()
 
 string(APPEND LVGL_PKG_CONFIG_LIB "-llvgl_linux")
 
-file(GLOB LV_LINUX_SRC src/lib/*.c)
+file(GLOB LV_LINUX_SRC src/lib/*.c src/lib/*.cpp)
 set(LV_LINUX_INC src/lib)
 
 add_subdirectory(lvgl)

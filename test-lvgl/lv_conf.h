@@ -1232,7 +1232,7 @@
 #define LV_USE_TFT_ESPI         0
 
 /** Driver for evdev input devices */
-#define LV_USE_EVDEV    1
+#define LV_USE_EVDEV    0
 
 /** Driver for libinput input devices */
 #define LV_USE_LIBINPUT    0
