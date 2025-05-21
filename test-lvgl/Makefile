@@ -85,51 +85,6 @@ rebuild_cache:
 rebuild_cache/fast: rebuild_cache
 .PHONY : rebuild_cache/fast
 
-# Special rule for the target list_install_components
-list_install_components:
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --cyan "Available install components are: \"Unspecified\""
-.PHONY : list_install_components
-
-# Special rule for the target list_install_components
-list_install_components/fast: list_install_components
-.PHONY : list_install_components/fast
-
-# Special rule for the target install
-install: preinstall
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --cyan "Install the project..."
-	/usr/bin/cmake -P cmake_install.cmake
-.PHONY : install
-
-# Special rule for the target install
-install/fast: preinstall/fast
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --cyan "Install the project..."
-	/usr/bin/cmake -P cmake_install.cmake
-.PHONY : install/fast
-
-# Special rule for the target install/local
-install/local: preinstall
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --cyan "Installing only the local directory..."
-	/usr/bin/cmake -DCMAKE_INSTALL_LOCAL_ONLY=1 -P cmake_install.cmake
-.PHONY : install/local
-
-# Special rule for the target install/local
-install/local/fast: preinstall/fast
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --cyan "Installing only the local directory..."
-	/usr/bin/cmake -DCMAKE_INSTALL_LOCAL_ONLY=1 -P cmake_install.cmake
-.PHONY : install/local/fast
-
-# Special rule for the target install/strip
-install/strip: preinstall
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --cyan "Installing the project stripped..."
-	/usr/bin/cmake -DCMAKE_INSTALL_DO_STRIP=1 -P cmake_install.cmake
-.PHONY : install/strip
-
-# Special rule for the target install/strip
-install/strip/fast: preinstall/fast
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --cyan "Installing the project stripped..."
-	/usr/bin/cmake -DCMAKE_INSTALL_DO_STRIP=1 -P cmake_install.cmake
-.PHONY : install/strip/fast
-
 # The main all target
 all: cmake_check_build_system
 	$(CMAKE_COMMAND) -E cmake_progress_start /home/oldman/workspace/sparkle-duck/test-lvgl/CMakeFiles /home/oldman/workspace/sparkle-duck/test-lvgl//CMakeFiles/progress.marks
@@ -162,19 +117,6 @@ depend:
 .PHONY : depend
 
 #=============================================================================
-# Target rules for targets named lvgl_linux
-
-# Build rule for target.
-lvgl_linux: cmake_check_build_system
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 lvgl_linux
-.PHONY : lvgl_linux
-
-# fast build rule for target.
-lvgl_linux/fast:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvgl_linux.dir/build.make CMakeFiles/lvgl_linux.dir/build
-.PHONY : lvgl_linux/fast
-
-#=============================================================================
 # Target rules for targets named lvglsim
 
 # Build rule for target.
@@ -188,6 +130,19 @@ lvglsim/fast:
 .PHONY : lvglsim/fast
 
 #=============================================================================
+# Target rules for targets named vector2d_test
+
+# Build rule for target.
+vector2d_test: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 vector2d_test
+.PHONY : vector2d_test
+
+# fast build rule for target.
+vector2d_test/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/vector2d_test.dir/build.make CMakeFiles/vector2d_test.dir/build
+.PHONY : vector2d_test/fast
+
+#=============================================================================
 # Target rules for targets named run
 
 # Build rule for target.
@@ -199,58 +154,6 @@ run: cmake_check_build_system
 run/fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/run.dir/build.make CMakeFiles/run.dir/build
 .PHONY : run/fast
-
-#=============================================================================
-# Target rules for targets named lvgl
-
-# Build rule for target.
-lvgl: cmake_check_build_system
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 lvgl
-.PHONY : lvgl
-
-# fast build rule for target.
-lvgl/fast:
-	$(MAKE) $(MAKESILENT) -f lvgl/CMakeFiles/lvgl.dir/build.make lvgl/CMakeFiles/lvgl.dir/build
-.PHONY : lvgl/fast
-
-#=============================================================================
-# Target rules for targets named lvgl_thorvg
-
-# Build rule for target.
-lvgl_thorvg: cmake_check_build_system
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 lvgl_thorvg
-.PHONY : lvgl_thorvg
-
-# fast build rule for target.
-lvgl_thorvg/fast:
-	$(MAKE) $(MAKESILENT) -f lvgl/CMakeFiles/lvgl_thorvg.dir/build.make lvgl/CMakeFiles/lvgl_thorvg.dir/build
-.PHONY : lvgl_thorvg/fast
-
-#=============================================================================
-# Target rules for targets named lvgl_examples
-
-# Build rule for target.
-lvgl_examples: cmake_check_build_system
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 lvgl_examples
-.PHONY : lvgl_examples
-
-# fast build rule for target.
-lvgl_examples/fast:
-	$(MAKE) $(MAKESILENT) -f lvgl/CMakeFiles/lvgl_examples.dir/build.make lvgl/CMakeFiles/lvgl_examples.dir/build
-.PHONY : lvgl_examples/fast
-
-#=============================================================================
-# Target rules for targets named lvgl_demos
-
-# Build rule for target.
-lvgl_demos: cmake_check_build_system
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 lvgl_demos
-.PHONY : lvgl_demos
-
-# fast build rule for target.
-lvgl_demos/fast:
-	$(MAKE) $(MAKESILENT) -f lvgl/CMakeFiles/lvgl_demos.dir/build.make lvgl/CMakeFiles/lvgl_demos.dir/build
-.PHONY : lvgl_demos/fast
 
 src/Cell.o: src/Cell.cpp.o
 .PHONY : src/Cell.o
@@ -282,6 +185,7 @@ src/Vector2d.o: src/Vector2d.cpp.o
 # target to build an object file
 src/Vector2d.cpp.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvglsim.dir/build.make CMakeFiles/lvglsim.dir/src/Vector2d.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/vector2d_test.dir/build.make CMakeFiles/vector2d_test.dir/src/Vector2d.cpp.o
 .PHONY : src/Vector2d.cpp.o
 
 src/Vector2d.i: src/Vector2d.cpp.i
@@ -290,6 +194,7 @@ src/Vector2d.i: src/Vector2d.cpp.i
 # target to preprocess a source file
 src/Vector2d.cpp.i:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvglsim.dir/build.make CMakeFiles/lvglsim.dir/src/Vector2d.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/vector2d_test.dir/build.make CMakeFiles/vector2d_test.dir/src/Vector2d.cpp.i
 .PHONY : src/Vector2d.cpp.i
 
 src/Vector2d.s: src/Vector2d.cpp.s
@@ -298,6 +203,7 @@ src/Vector2d.s: src/Vector2d.cpp.s
 # target to generate assembly for a file
 src/Vector2d.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvglsim.dir/build.make CMakeFiles/lvglsim.dir/src/Vector2d.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/vector2d_test.dir/build.make CMakeFiles/vector2d_test.dir/src/Vector2d.cpp.s
 .PHONY : src/Vector2d.cpp.s
 
 src/World.o: src/World.cpp.o
@@ -324,141 +230,6 @@ src/World.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvglsim.dir/build.make CMakeFiles/lvglsim.dir/src/World.cpp.s
 .PHONY : src/World.cpp.s
 
-src/lib/display_backends/fbdev.o: src/lib/display_backends/fbdev.cpp.o
-.PHONY : src/lib/display_backends/fbdev.o
-
-# target to build an object file
-src/lib/display_backends/fbdev.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvgl_linux.dir/build.make CMakeFiles/lvgl_linux.dir/src/lib/display_backends/fbdev.cpp.o
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvglsim.dir/build.make CMakeFiles/lvglsim.dir/src/lib/display_backends/fbdev.cpp.o
-.PHONY : src/lib/display_backends/fbdev.cpp.o
-
-src/lib/display_backends/fbdev.i: src/lib/display_backends/fbdev.cpp.i
-.PHONY : src/lib/display_backends/fbdev.i
-
-# target to preprocess a source file
-src/lib/display_backends/fbdev.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvgl_linux.dir/build.make CMakeFiles/lvgl_linux.dir/src/lib/display_backends/fbdev.cpp.i
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvglsim.dir/build.make CMakeFiles/lvglsim.dir/src/lib/display_backends/fbdev.cpp.i
-.PHONY : src/lib/display_backends/fbdev.cpp.i
-
-src/lib/display_backends/fbdev.s: src/lib/display_backends/fbdev.cpp.s
-.PHONY : src/lib/display_backends/fbdev.s
-
-# target to generate assembly for a file
-src/lib/display_backends/fbdev.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvgl_linux.dir/build.make CMakeFiles/lvgl_linux.dir/src/lib/display_backends/fbdev.cpp.s
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvglsim.dir/build.make CMakeFiles/lvglsim.dir/src/lib/display_backends/fbdev.cpp.s
-.PHONY : src/lib/display_backends/fbdev.cpp.s
-
-src/lib/display_backends/wayland.o: src/lib/display_backends/wayland.cpp.o
-.PHONY : src/lib/display_backends/wayland.o
-
-# target to build an object file
-src/lib/display_backends/wayland.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvgl_linux.dir/build.make CMakeFiles/lvgl_linux.dir/src/lib/display_backends/wayland.cpp.o
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvglsim.dir/build.make CMakeFiles/lvglsim.dir/src/lib/display_backends/wayland.cpp.o
-.PHONY : src/lib/display_backends/wayland.cpp.o
-
-src/lib/display_backends/wayland.i: src/lib/display_backends/wayland.cpp.i
-.PHONY : src/lib/display_backends/wayland.i
-
-# target to preprocess a source file
-src/lib/display_backends/wayland.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvgl_linux.dir/build.make CMakeFiles/lvgl_linux.dir/src/lib/display_backends/wayland.cpp.i
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvglsim.dir/build.make CMakeFiles/lvglsim.dir/src/lib/display_backends/wayland.cpp.i
-.PHONY : src/lib/display_backends/wayland.cpp.i
-
-src/lib/display_backends/wayland.s: src/lib/display_backends/wayland.cpp.s
-.PHONY : src/lib/display_backends/wayland.s
-
-# target to generate assembly for a file
-src/lib/display_backends/wayland.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvgl_linux.dir/build.make CMakeFiles/lvgl_linux.dir/src/lib/display_backends/wayland.cpp.s
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvglsim.dir/build.make CMakeFiles/lvglsim.dir/src/lib/display_backends/wayland.cpp.s
-.PHONY : src/lib/display_backends/wayland.cpp.s
-
-src/lib/driver_backends.o: src/lib/driver_backends.cpp.o
-.PHONY : src/lib/driver_backends.o
-
-# target to build an object file
-src/lib/driver_backends.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvgl_linux.dir/build.make CMakeFiles/lvgl_linux.dir/src/lib/driver_backends.cpp.o
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvglsim.dir/build.make CMakeFiles/lvglsim.dir/src/lib/driver_backends.cpp.o
-.PHONY : src/lib/driver_backends.cpp.o
-
-src/lib/driver_backends.i: src/lib/driver_backends.cpp.i
-.PHONY : src/lib/driver_backends.i
-
-# target to preprocess a source file
-src/lib/driver_backends.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvgl_linux.dir/build.make CMakeFiles/lvgl_linux.dir/src/lib/driver_backends.cpp.i
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvglsim.dir/build.make CMakeFiles/lvglsim.dir/src/lib/driver_backends.cpp.i
-.PHONY : src/lib/driver_backends.cpp.i
-
-src/lib/driver_backends.s: src/lib/driver_backends.cpp.s
-.PHONY : src/lib/driver_backends.s
-
-# target to generate assembly for a file
-src/lib/driver_backends.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvgl_linux.dir/build.make CMakeFiles/lvgl_linux.dir/src/lib/driver_backends.cpp.s
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvglsim.dir/build.make CMakeFiles/lvglsim.dir/src/lib/driver_backends.cpp.s
-.PHONY : src/lib/driver_backends.cpp.s
-
-src/lib/mouse_cursor_icon.o: src/lib/mouse_cursor_icon.c.o
-.PHONY : src/lib/mouse_cursor_icon.o
-
-# target to build an object file
-src/lib/mouse_cursor_icon.c.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvgl_linux.dir/build.make CMakeFiles/lvgl_linux.dir/src/lib/mouse_cursor_icon.c.o
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvglsim.dir/build.make CMakeFiles/lvglsim.dir/src/lib/mouse_cursor_icon.c.o
-.PHONY : src/lib/mouse_cursor_icon.c.o
-
-src/lib/mouse_cursor_icon.i: src/lib/mouse_cursor_icon.c.i
-.PHONY : src/lib/mouse_cursor_icon.i
-
-# target to preprocess a source file
-src/lib/mouse_cursor_icon.c.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvgl_linux.dir/build.make CMakeFiles/lvgl_linux.dir/src/lib/mouse_cursor_icon.c.i
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvglsim.dir/build.make CMakeFiles/lvglsim.dir/src/lib/mouse_cursor_icon.c.i
-.PHONY : src/lib/mouse_cursor_icon.c.i
-
-src/lib/mouse_cursor_icon.s: src/lib/mouse_cursor_icon.c.s
-.PHONY : src/lib/mouse_cursor_icon.s
-
-# target to generate assembly for a file
-src/lib/mouse_cursor_icon.c.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvgl_linux.dir/build.make CMakeFiles/lvgl_linux.dir/src/lib/mouse_cursor_icon.c.s
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvglsim.dir/build.make CMakeFiles/lvglsim.dir/src/lib/mouse_cursor_icon.c.s
-.PHONY : src/lib/mouse_cursor_icon.c.s
-
-src/lib/simulator_util.o: src/lib/simulator_util.c.o
-.PHONY : src/lib/simulator_util.o
-
-# target to build an object file
-src/lib/simulator_util.c.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvgl_linux.dir/build.make CMakeFiles/lvgl_linux.dir/src/lib/simulator_util.c.o
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvglsim.dir/build.make CMakeFiles/lvglsim.dir/src/lib/simulator_util.c.o
-.PHONY : src/lib/simulator_util.c.o
-
-src/lib/simulator_util.i: src/lib/simulator_util.c.i
-.PHONY : src/lib/simulator_util.i
-
-# target to preprocess a source file
-src/lib/simulator_util.c.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvgl_linux.dir/build.make CMakeFiles/lvgl_linux.dir/src/lib/simulator_util.c.i
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvglsim.dir/build.make CMakeFiles/lvglsim.dir/src/lib/simulator_util.c.i
-.PHONY : src/lib/simulator_util.c.i
-
-src/lib/simulator_util.s: src/lib/simulator_util.c.s
-.PHONY : src/lib/simulator_util.s
-
-# target to generate assembly for a file
-src/lib/simulator_util.c.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvgl_linux.dir/build.make CMakeFiles/lvgl_linux.dir/src/lib/simulator_util.c.s
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvglsim.dir/build.make CMakeFiles/lvglsim.dir/src/lib/simulator_util.c.s
-.PHONY : src/lib/simulator_util.c.s
-
 src/main.o: src/main.cpp.o
 .PHONY : src/main.o
 
@@ -483,32 +254,29 @@ src/main.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvglsim.dir/build.make CMakeFiles/lvglsim.dir/src/main.cpp.s
 .PHONY : src/main.cpp.s
 
-wl_protocols/wayland_xdg_shell.o: wl_protocols/wayland_xdg_shell.c.o
-.PHONY : wl_protocols/wayland_xdg_shell.o
+src/tests/Vector2d_test.o: src/tests/Vector2d_test.cpp.o
+.PHONY : src/tests/Vector2d_test.o
 
 # target to build an object file
-wl_protocols/wayland_xdg_shell.c.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvgl_linux.dir/build.make CMakeFiles/lvgl_linux.dir/wl_protocols/wayland_xdg_shell.c.o
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvglsim.dir/build.make CMakeFiles/lvglsim.dir/wl_protocols/wayland_xdg_shell.c.o
-.PHONY : wl_protocols/wayland_xdg_shell.c.o
+src/tests/Vector2d_test.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/vector2d_test.dir/build.make CMakeFiles/vector2d_test.dir/src/tests/Vector2d_test.cpp.o
+.PHONY : src/tests/Vector2d_test.cpp.o
 
-wl_protocols/wayland_xdg_shell.i: wl_protocols/wayland_xdg_shell.c.i
-.PHONY : wl_protocols/wayland_xdg_shell.i
+src/tests/Vector2d_test.i: src/tests/Vector2d_test.cpp.i
+.PHONY : src/tests/Vector2d_test.i
 
 # target to preprocess a source file
-wl_protocols/wayland_xdg_shell.c.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvgl_linux.dir/build.make CMakeFiles/lvgl_linux.dir/wl_protocols/wayland_xdg_shell.c.i
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvglsim.dir/build.make CMakeFiles/lvglsim.dir/wl_protocols/wayland_xdg_shell.c.i
-.PHONY : wl_protocols/wayland_xdg_shell.c.i
+src/tests/Vector2d_test.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/vector2d_test.dir/build.make CMakeFiles/vector2d_test.dir/src/tests/Vector2d_test.cpp.i
+.PHONY : src/tests/Vector2d_test.cpp.i
 
-wl_protocols/wayland_xdg_shell.s: wl_protocols/wayland_xdg_shell.c.s
-.PHONY : wl_protocols/wayland_xdg_shell.s
+src/tests/Vector2d_test.s: src/tests/Vector2d_test.cpp.s
+.PHONY : src/tests/Vector2d_test.s
 
 # target to generate assembly for a file
-wl_protocols/wayland_xdg_shell.c.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvgl_linux.dir/build.make CMakeFiles/lvgl_linux.dir/wl_protocols/wayland_xdg_shell.c.s
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/lvglsim.dir/build.make CMakeFiles/lvglsim.dir/wl_protocols/wayland_xdg_shell.c.s
-.PHONY : wl_protocols/wayland_xdg_shell.c.s
+src/tests/Vector2d_test.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/vector2d_test.dir/build.make CMakeFiles/vector2d_test.dir/src/tests/Vector2d_test.cpp.s
+.PHONY : src/tests/Vector2d_test.cpp.s
 
 # Help Target
 help:
@@ -517,18 +285,10 @@ help:
 	@echo "... clean"
 	@echo "... depend"
 	@echo "... edit_cache"
-	@echo "... install"
-	@echo "... install/local"
-	@echo "... install/strip"
-	@echo "... list_install_components"
 	@echo "... rebuild_cache"
 	@echo "... run"
-	@echo "... lvgl"
-	@echo "... lvgl_demos"
-	@echo "... lvgl_examples"
-	@echo "... lvgl_linux"
-	@echo "... lvgl_thorvg"
 	@echo "... lvglsim"
+	@echo "... vector2d_test"
 	@echo "... src/Cell.o"
 	@echo "... src/Cell.i"
 	@echo "... src/Cell.s"
@@ -538,27 +298,12 @@ help:
 	@echo "... src/World.o"
 	@echo "... src/World.i"
 	@echo "... src/World.s"
-	@echo "... src/lib/display_backends/fbdev.o"
-	@echo "... src/lib/display_backends/fbdev.i"
-	@echo "... src/lib/display_backends/fbdev.s"
-	@echo "... src/lib/display_backends/wayland.o"
-	@echo "... src/lib/display_backends/wayland.i"
-	@echo "... src/lib/display_backends/wayland.s"
-	@echo "... src/lib/driver_backends.o"
-	@echo "... src/lib/driver_backends.i"
-	@echo "... src/lib/driver_backends.s"
-	@echo "... src/lib/mouse_cursor_icon.o"
-	@echo "... src/lib/mouse_cursor_icon.i"
-	@echo "... src/lib/mouse_cursor_icon.s"
-	@echo "... src/lib/simulator_util.o"
-	@echo "... src/lib/simulator_util.i"
-	@echo "... src/lib/simulator_util.s"
 	@echo "... src/main.o"
 	@echo "... src/main.i"
 	@echo "... src/main.s"
-	@echo "... wl_protocols/wayland_xdg_shell.o"
-	@echo "... wl_protocols/wayland_xdg_shell.i"
-	@echo "... wl_protocols/wayland_xdg_shell.s"
+	@echo "... src/tests/Vector2d_test.o"
+	@echo "... src/tests/Vector2d_test.i"
+	@echo "... src/tests/Vector2d_test.s"
 .PHONY : help
 
 

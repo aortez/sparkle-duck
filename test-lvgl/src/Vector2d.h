@@ -25,4 +25,7 @@ public:
   bool operator==(const Vector2d &other) const;
   Vector2d& operator+=(const Vector2d &other);
   Vector2d& operator-=(const Vector2d &other);
+  Vector2d& operator*=(double scalar);
+  Vector2d operator/(double scalar) const;
+  Vector2d& operator/=(double scalar);
 };

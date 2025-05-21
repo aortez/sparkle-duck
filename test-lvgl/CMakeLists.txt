@@ -1,6 +1,14 @@
 cmake_minimum_required(VERSION 3.10)
 project(lvgl)
 
+# Add Google Test
+include(FetchContent)
+FetchContent_Declare(
+    googletest
+    GIT_REPOSITORY https://github.com/google/googletest.git
+    GIT_TAG release-1.12.1
+)
+FetchContent_MakeAvailable(googletest)
 
 set(CONF_PATH "${PROJECT_SOURCE_DIR}/lv_conf.h")
 
@@ -115,3 +123,18 @@ install(TARGETS lvgl_linux
 )
 
 add_custom_target (run COMMAND ${EXECUTABLE_OUTPUT_PATH}/lvglsim DEPENDS lvglsim)
+
+# Add test executable
+add_executable(vector2d_test
+    src/tests/Vector2d_test.cpp
+    src/Vector2d.cpp
+)
+target_link_libraries(vector2d_test
+    PRIVATE
+    GTest::gtest_main
+    GTest::gmock_main
+)
+
+# Enable testing
+enable_testing()
+add_test(NAME vector2d_test COMMAND vector2d_test)

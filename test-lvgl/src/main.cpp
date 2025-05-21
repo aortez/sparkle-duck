@@ -1,4 +1,3 @@
-
 #include "World.h"
 #include "src/lib/driver_backends.h"
 #include "src/lib/simulator_settings.h"
@@ -131,7 +130,7 @@ int main(int argc, char** argv)
     lv_obj_set_size(draw_area, draw_area_width, draw_area_height);
 
     // Init the world.
-    World world(20, 20, draw_area);
+    World world(4, 4, draw_area);
     world.makeWalls();
     world.fillWithDirt();
 
