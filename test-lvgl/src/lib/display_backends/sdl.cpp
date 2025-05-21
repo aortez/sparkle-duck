@@ -42,13 +42,13 @@ extern simulator_settings_t settings;
  *  STATIC PROTOTYPES
  **********************/
 static void run_loop_sdl(void);
-static lv_display_t *init_sdl(void);
+static lv_display_t* init_sdl(void);
 
 /**********************
  *  STATIC VARIABLES
  **********************/
 
-static char *backend_name = "SDL";
+static char* backend_name = "SDL";
 
 /**********************
  *      MACROS
@@ -63,18 +63,19 @@ static char *backend_name = "SDL";
  * @param backend the backend descriptor
  * @description configures the descriptor
  */
-int backend_init_sdl(backend_t *backend) {
-  LV_ASSERT_NULL(backend);
+int backend_init_sdl(backend_t* backend)
+{
+    LV_ASSERT_NULL(backend);
 
-  backend->handle->display = malloc(sizeof(display_backend_t));
-  LV_ASSERT_NULL(backend->handle->display);
+    backend->handle->display = malloc(sizeof(display_backend_t));
+    LV_ASSERT_NULL(backend->handle->display);
 
-  backend->handle->display->init_display = init_sdl;
-  backend->handle->display->run_loop = run_loop_sdl;
-  backend->name = backend_name;
-  backend->type = BACKEND_DISPLAY;
+    backend->handle->display->init_display = init_sdl;
+    backend->handle->display->run_loop = run_loop_sdl;
+    backend->name = backend_name;
+    backend->type = BACKEND_DISPLAY;
 
-  return 0;
+    return 0;
 }
 
 /**********************
@@ -86,29 +87,31 @@ int backend_init_sdl(backend_t *backend) {
  *
  * @return the LVGL display
  */
-static lv_display_t *init_sdl(void) {
-  lv_display_t *disp;
+static lv_display_t* init_sdl(void)
+{
+    lv_display_t* disp;
 
-  disp = lv_sdl_window_create(settings.window_width, settings.window_height);
+    disp = lv_sdl_window_create(settings.window_width, settings.window_height);
 
-  if (disp == NULL) {
-    return NULL;
-  }
+    if (disp == NULL) {
+        return NULL;
+    }
 
-  return disp;
+    return disp;
 }
 
 /**
  * The run loop of the SDL driver
  */
-static void run_loop_sdl(void) {
-  uint32_t idle_time;
+static void run_loop_sdl(void)
+{
+    uint32_t idle_time;
 
-  /* Handle LVGL tasks */
-  while (true) {
-    /* Returns the time to the next timer execution */
-    idle_time = lv_timer_handler();
-    usleep(idle_time * 1000);
-  }
+    /* Handle LVGL tasks */
+    while (true) {
+        /* Returns the time to the next timer execution */
+        idle_time = lv_timer_handler();
+        usleep(idle_time * 1000);
+    }
 }
 #endif /*#if LV_USE_SDL*/

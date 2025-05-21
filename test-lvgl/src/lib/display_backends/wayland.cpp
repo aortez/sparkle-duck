@@ -38,13 +38,13 @@
 /**********************
  *  STATIC PROTOTYPES
  **********************/
-static lv_display_t *init_wayland(void);
-static void run_loop_wayland(World &world);
+static lv_display_t* init_wayland(void);
+static void run_loop_wayland(World& world);
 
 /**********************
  *  STATIC VARIABLES
  **********************/
-static char *backend_name = "WAYLAND";
+static char* backend_name = "WAYLAND";
 
 /**********************
  *  EXTERNAL VARIABLES
@@ -65,18 +65,18 @@ extern simulator_settings_t settings;
  * @param backend the backend descriptor
  * @description configures the descriptor
  */
-int backend_init_wayland(backend_t *backend) {
-  LV_ASSERT_NULL(backend);
-  backend->handle->display =
-      static_cast<display_backend_t *>(malloc(sizeof(display_backend_t)));
-  LV_ASSERT_NULL(backend->handle->display);
+int backend_init_wayland(backend_t* backend)
+{
+    LV_ASSERT_NULL(backend);
+    backend->handle->display = static_cast<display_backend_t*>(malloc(sizeof(display_backend_t)));
+    LV_ASSERT_NULL(backend->handle->display);
 
-  backend->handle->display->init_display = init_wayland;
-  backend->handle->display->run_loop = run_loop_wayland;
-  backend->name = backend_name;
-  backend->type = BACKEND_DISPLAY;
+    backend->handle->display->init_display = init_wayland;
+    backend->handle->display->run_loop = run_loop_wayland;
+    backend->name = backend_name;
+    backend->type = BACKEND_DISPLAY;
 
-  return 0;
+    return 0;
 }
 
 /**********************
@@ -88,29 +88,31 @@ int backend_init_wayland(backend_t *backend) {
  *
  * @return the LVGL display
  */
-static lv_display_t *init_wayland(void) {
-  lv_display_t *disp;
-  lv_group_t *g;
+static lv_display_t* init_wayland(void)
+{
+    lv_display_t* disp;
+    lv_group_t* g;
 
-  disp = lv_wayland_window_create(settings.window_width, settings.window_height,
-                                  "LVGL Simulator", NULL);
+    disp = lv_wayland_window_create(
+        settings.window_width, settings.window_height, "LVGL Simulator", NULL);
 
-  if (disp == NULL) {
-    die("Failed to initialize Wayland backend\n");
-  }
+    if (disp == NULL) {
+        die("Failed to initialize Wayland backend\n");
+    }
 
-  if (settings.fullscreen) {
-    lv_wayland_window_set_fullscreen(disp, true);
-  } else if (settings.maximize) {
-    lv_wayland_window_set_maximized(disp, true);
-  }
+    if (settings.fullscreen) {
+        lv_wayland_window_set_fullscreen(disp, true);
+    }
+    else if (settings.maximize) {
+        lv_wayland_window_set_maximized(disp, true);
+    }
 
-  g = lv_group_create();
-  lv_group_set_default(g);
-  lv_indev_set_group(lv_wayland_get_keyboard(disp), g);
-  lv_indev_set_group(lv_wayland_get_pointeraxis(disp), g);
+    g = lv_group_create();
+    lv_group_set_default(g);
+    lv_indev_set_group(lv_wayland_get_keyboard(disp), g);
+    lv_indev_set_group(lv_wayland_get_pointeraxis(disp), g);
 
-  return disp;
+    return disp;
 }
 #include "stdio.h"
 /**
@@ -119,28 +121,29 @@ static lv_display_t *init_wayland(void) {
  * @note Currently, the wayland driver calls lv_timer_handler internaly
  * The wayland driver needs to be re-written to match the other backends
  */
-static void run_loop_wayland(World &world) {
+static void run_loop_wayland(World& world)
+{
 
-  bool completed;
+    bool completed;
 
-  /* Handle LVGL tasks */
-  while (true) {
-    world.advanceTime(16);
+    /* Handle LVGL tasks */
+    while (true) {
+        world.advanceTime(16);
 
-    world.draw();
+        world.draw();
 
-    completed = lv_wayland_timer_handler();
+        completed = lv_wayland_timer_handler();
 
-    if (completed) {
-      /* wait only if the cycle was completed */
-      usleep(LV_DEF_REFR_PERIOD * 1000);
+        if (completed) {
+            /* wait only if the cycle was completed */
+            usleep(LV_DEF_REFR_PERIOD * 1000);
+        }
+
+        /* Run until the last window closes */
+        if (!lv_wayland_window_is_open(NULL)) {
+            break;
+        }
     }
-
-    /* Run until the last window closes */
-    if (!lv_wayland_window_is_open(NULL)) {
-      break;
-    }
-  }
 }
 
 #endif /*#if LV_USE_WAYLAND*/
