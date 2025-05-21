@@ -102,14 +102,14 @@ target_include_directories(lvgl PUBLIC ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DI
 add_library(lvgl_linux STATIC ${LV_LINUX_SRC} ${LV_LINUX_BACKEND_SRC})
 target_include_directories(lvgl_linux PRIVATE ${LV_LINUX_INC} ${PROJECT_SOURCE_DIR})
 
-add_executable(lvglsim 
+add_executable(sparkle-duck 
     src/main.cpp 
     src/Cell.cpp
     src/Vector2d.cpp
     src/World.cpp 
     ${LV_LINUX_SRC} 
     ${LV_LINUX_BACKEND_SRC})
-target_link_libraries(lvglsim lvgl_linux lvgl lvgl::examples lvgl::demos lvgl::thorvg m pthread ${PKG_CONFIG_LIB})
+target_link_libraries(sparkle-duck lvgl_linux lvgl lvgl::examples lvgl::demos lvgl::thorvg m pthread ${PKG_CONFIG_LIB})
 
 # Install the lvgl_linux library and its headers
 install(DIRECTORY src/lib/
@@ -122,14 +122,14 @@ install(TARGETS lvgl_linux
     ARCHIVE DESTINATION lib
 )
 
-add_custom_target (run COMMAND ${EXECUTABLE_OUTPUT_PATH}/lvglsim DEPENDS lvglsim)
+add_custom_target (run COMMAND ${EXECUTABLE_OUTPUT_PATH}/sparkle-duck DEPENDS sparkle-duck)
 
 # Add test executable
-add_executable(vector2d_test
+add_executable(sparkle-duck-tests
     src/tests/Vector2d_test.cpp
     src/Vector2d.cpp
 )
-target_link_libraries(vector2d_test
+target_link_libraries(sparkle-duck-tests
     PRIVATE
     GTest::gtest_main
     GTest::gmock_main
@@ -137,4 +137,4 @@ target_link_libraries(vector2d_test
 
 # Enable testing
 enable_testing()
-add_test(NAME vector2d_test COMMAND vector2d_test)
+add_test(NAME sparkle-duck-tests COMMAND sparkle-duck-tests)
