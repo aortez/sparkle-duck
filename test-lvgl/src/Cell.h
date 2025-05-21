@@ -1,10 +1,13 @@
 #pragma once
 
 #include "Vector2d.h"
-#include "lvgl/lvgl.h"
 
 #include <array>
+#include <cstdint>
 #include <string>
+
+// Forward declare LVGL types.
+typedef struct _lv_obj_t lv_obj_t;
 
 class Cell {
 public:

@@ -127,12 +127,18 @@ add_custom_target (run COMMAND ${EXECUTABLE_OUTPUT_PATH}/sparkle-duck DEPENDS sp
 # Add test executable
 add_executable(sparkle-duck-tests
     src/tests/Vector2d_test.cpp
+    src/tests/World_test.cpp
     src/Vector2d.cpp
+    src/World.cpp
+    src/Cell.cpp
 )
 target_link_libraries(sparkle-duck-tests
     PRIVATE
     GTest::gtest_main
     GTest::gmock_main
+    lvgl_linux
+    lvgl
+    lvgl::thorvg
 )
 
 # Enable testing

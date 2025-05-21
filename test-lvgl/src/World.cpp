@@ -131,7 +131,7 @@ size_t World::coordToIndex(uint32_t x, uint32_t y) const
 void World::draw()
 {
     if (draw_area == nullptr) {
-        throw std::runtime_error("World::draw: Parent is not set");
+        return;
     }
 
     for (uint32_t y = 0; y < height; y++) {
