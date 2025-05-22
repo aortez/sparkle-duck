@@ -20,6 +20,23 @@ static char* selected_backend;
 /* Global simulator settings, defined in lv_linux_backend.c */
 extern simulator_settings_t settings;
 
+// Static variables for callbacks
+static World* world_ptr = nullptr;
+static double timescale = 1.0;  // Default to 100% speed.
+static bool is_paused = false;  // Track pause state.
+static lv_obj_t* pause_label_ptr = nullptr;  // Store pause label pointer.
+
+// Static callback for pause button.
+static void pause_btn_event_cb(lv_event_t* e) {
+    if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
+        is_paused = !is_paused;
+        lv_label_set_text(pause_label_ptr, is_paused ? "Resume" : "Pause");
+        if (world_ptr) {
+            world_ptr->setTimescale(is_paused ? 0.0 : timescale);
+        }
+    }
+}
+
 /**
  * @brief Print LVGL version
  */
@@ -138,21 +155,30 @@ int main(int argc, char** argv)
     lv_label_set_text(reset_label, "Reset");
     lv_obj_center(reset_label);
 
+    // Create pause button.
+    lv_obj_t* pause_btn = lv_btn_create(lv_scr_act());
+    lv_obj_set_size(pause_btn, 100, 50);
+    lv_obj_align(pause_btn, LV_ALIGN_TOP_RIGHT, -10, 70);
+    
+    lv_obj_t* pause_label = lv_label_create(pause_btn);
+    lv_label_set_text(pause_label, "Pause");
+    lv_obj_center(pause_label);
+
     // Create timescale slider.
     lv_obj_t* slider_label = lv_label_create(lv_scr_act());
     lv_label_set_text(slider_label, "Timescale");
-    lv_obj_align(slider_label, LV_ALIGN_TOP_RIGHT, -10, 70);
+    lv_obj_align(slider_label, LV_ALIGN_TOP_RIGHT, -10, 130);
 
     lv_obj_t* slider = lv_slider_create(lv_scr_act());
     lv_obj_set_size(slider, 100, 10);
-    lv_obj_align(slider, LV_ALIGN_TOP_RIGHT, -10, 90);
-    lv_slider_set_range(slider, 1, 100);  // 1% to 100% speed.
+    lv_obj_align(slider, LV_ALIGN_TOP_RIGHT, -10, 150);
+    lv_slider_set_range(slider, 5, 500);  // 5% to 500% speed.
     lv_slider_set_value(slider, 100, LV_ANIM_OFF);  // Start at 100%.
 
     // Create quit button.
     lv_obj_t* quit_btn = lv_btn_create(lv_scr_act());
     lv_obj_set_size(quit_btn, 100, 50);
-    lv_obj_align(quit_btn, LV_ALIGN_TOP_RIGHT, -10, 110);
+    lv_obj_align(quit_btn, LV_ALIGN_TOP_RIGHT, -10, 170);
     
     // Make the button red.
     lv_obj_set_style_bg_color(quit_btn, lv_color_hex(0xFF0000), 0);
@@ -160,10 +186,6 @@ int main(int argc, char** argv)
     lv_obj_t* quit_label = lv_label_create(quit_btn);
     lv_label_set_text(quit_label, "Quit");
     lv_obj_center(quit_label);
-
-    // Create a static pointer to the world for the callback.
-    static World* world_ptr = nullptr;
-    static double timescale = 1.0;  // Default to 100% speed.
 
     // Create callback for quit button.
     lv_obj_add_event_cb(quit_btn, [](lv_event_t* e) {
@@ -177,7 +199,7 @@ int main(int argc, char** argv)
         lv_obj_t* slider = static_cast<lv_obj_t*>(lv_event_get_target(e));
         if (lv_event_get_code(e) == LV_EVENT_VALUE_CHANGED) {
             int32_t value = lv_slider_get_value(slider);
-            timescale = value / 100.0;  // Convert to 0.01 to 1.0 range.
+            timescale = value / 100.0;  // Convert to 0.05 to 5.0 range.
             if (world_ptr) {
                 world_ptr->setTimescale(timescale);
             }
@@ -191,8 +213,12 @@ int main(int argc, char** argv)
         }
     }, LV_EVENT_CLICKED, nullptr);
 
+    // Store pause label pointer and set up callback.
+    pause_label_ptr = pause_label;
+    lv_obj_add_event_cb(pause_btn, pause_btn_event_cb, LV_EVENT_CLICKED, nullptr);
+
     // Init the world.
-    World world(4, 4, draw_area);
+    World world(10, 10, draw_area);
     world_ptr = &world;  // Store pointer for callback.
     world.reset();
 
