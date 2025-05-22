@@ -29,3 +29,8 @@ public:
   Vector2d operator/(double scalar) const;
   Vector2d& operator/=(double scalar);
 };
+
+// Non-member operator for scalar multiplication from the left side.
+inline Vector2d operator*(double scalar, const Vector2d& v) {
+    return v * scalar;
+}

@@ -129,10 +129,72 @@ int main(int argc, char** argv)
     lv_obj_t* draw_area = lv_obj_create(lv_scr_act());
     lv_obj_set_size(draw_area, draw_area_width, draw_area_height);
 
+    // Create reset button.
+    lv_obj_t* reset_btn = lv_btn_create(lv_scr_act());
+    lv_obj_set_size(reset_btn, 100, 50);
+    lv_obj_align(reset_btn, LV_ALIGN_TOP_RIGHT, -10, 10);
+    
+    lv_obj_t* reset_label = lv_label_create(reset_btn);
+    lv_label_set_text(reset_label, "Reset");
+    lv_obj_center(reset_label);
+
+    // Create timescale slider.
+    lv_obj_t* slider_label = lv_label_create(lv_scr_act());
+    lv_label_set_text(slider_label, "Timescale");
+    lv_obj_align(slider_label, LV_ALIGN_TOP_RIGHT, -10, 70);
+
+    lv_obj_t* slider = lv_slider_create(lv_scr_act());
+    lv_obj_set_size(slider, 100, 10);
+    lv_obj_align(slider, LV_ALIGN_TOP_RIGHT, -10, 90);
+    lv_slider_set_range(slider, 1, 100);  // 1% to 100% speed.
+    lv_slider_set_value(slider, 100, LV_ANIM_OFF);  // Start at 100%.
+
+    // Create quit button.
+    lv_obj_t* quit_btn = lv_btn_create(lv_scr_act());
+    lv_obj_set_size(quit_btn, 100, 50);
+    lv_obj_align(quit_btn, LV_ALIGN_TOP_RIGHT, -10, 110);
+    
+    // Make the button red.
+    lv_obj_set_style_bg_color(quit_btn, lv_color_hex(0xFF0000), 0);
+    
+    lv_obj_t* quit_label = lv_label_create(quit_btn);
+    lv_label_set_text(quit_label, "Quit");
+    lv_obj_center(quit_label);
+
+    // Create a static pointer to the world for the callback.
+    static World* world_ptr = nullptr;
+    static double timescale = 1.0;  // Default to 100% speed.
+
+    // Create callback for quit button.
+    lv_obj_add_event_cb(quit_btn, [](lv_event_t* e) {
+        if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
+            exit(0);  // Exit the application.
+        }
+    }, LV_EVENT_ALL, nullptr);
+
+    // Create callback for timescale slider.
+    lv_obj_add_event_cb(slider, [](lv_event_t* e) {
+        lv_obj_t* slider = static_cast<lv_obj_t*>(lv_event_get_target(e));
+        if (lv_event_get_code(e) == LV_EVENT_VALUE_CHANGED) {
+            int32_t value = lv_slider_get_value(slider);
+            timescale = value / 100.0;  // Convert to 0.01 to 1.0 range.
+            if (world_ptr) {
+                world_ptr->setTimescale(timescale);
+            }
+        }
+    }, LV_EVENT_ALL, nullptr);
+
+    // Create callback for reset button.
+    lv_obj_add_event_cb(reset_btn, [](lv_event_t* e) {
+        if (world_ptr) {
+            world_ptr->reset();
+        }
+    }, LV_EVENT_CLICKED, nullptr);
+
     // Init the world.
     World world(4, 4, draw_area);
-    world.makeWalls();
-    world.fillWithDirt();
+    world_ptr = &world;  // Store pointer for callback.
+    world.reset();
 
     // Enter the run loop, using the selected backend.
     driver_backends_run_loop(world);

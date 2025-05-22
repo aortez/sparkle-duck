@@ -24,12 +24,15 @@ public:
   void fillWithDirt();
   void makeWalls();
 
+  void setTimescale(double scale) { timescale = scale; }
+
 private:
   lv_obj_t* draw_area;
 
   uint32_t width;
   uint32_t height;
   std::vector<Cell> cells;
+  double timescale = 1.0;  // Default to 100% speed.
 
   size_t coordToIndex(uint32_t x, uint32_t y) const;
 };

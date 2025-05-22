@@ -11,7 +11,7 @@ World::World(uint32_t width, uint32_t height, lv_obj_t* draw_area)
 void World::advanceTime(uint32_t deltaTimeMs)
 {
     const double gravity = 9.81;                  // m/s^2.
-    const double timeStep = deltaTimeMs / 1000.0; // Convert to seconds.
+    const double timeStep = deltaTimeMs / 1000.0 * timescale; // Convert to seconds and apply timescale.
 
     struct DirtMove
     {
@@ -31,41 +31,65 @@ void World::advanceTime(uint32_t deltaTimeMs)
         for (uint32_t x = 0; x < width; x++) {
             Cell& cell = at(x, y);
 
+            // Skip empty cells.
+            if (cell.dirty < 0.01) {
+            	// Reset them to initial conditions.
+              cell.dirty = 0.0;
+              cell.com = Vector2d(0.0, 0.0);
+              cell.v = Vector2d(0.0, 0.0);
+            	continue;
+            }
+
             // Apply gravity.
             cell.v.y += gravity * timeStep;
 
-            // Move internally.
+            // Move internally and clamp to cell boundaries.
             cell.com += cell.v * timeStep;
+            cell.com.x = std::clamp(cell.com.x, -1.0, 1.0);
+            cell.com.y = std::clamp(cell.com.y, -1.0, 1.0);
 
-            // Check if center of mass is outside cell bounds.
-            if (cell.com.x < -1.0 || cell.com.x > 1.0 || cell.com.y < -1.0 || cell.com.y > 1.0) {
-                // Determine target cell based on com direction.
+            // Calculate transfer amount based on 2D distance from center and dirt amount.
+            // When COM is at (0,0) or cell is empty, no transfer.
+            // When COM is at edge and cell is full, full transfer possible.
+            double comDistance = std::sqrt(cell.com.x * cell.com.x + cell.com.y * cell.com.y);
+            // Square the distance to make the effect more pronounced - max in corners, zero in center.
+            double transferAmount = (comDistance * comDistance) * cell.dirty;
+            
+            // Calculate directional components for the transfer
+            double xTransfer = (comDistance > 0.0) ? std::abs(cell.com.x / comDistance) * transferAmount : 0.0;
+            double yTransfer = (comDistance > 0.0) ? std::abs(cell.com.y / comDistance) * transferAmount : 0.0;
+
+            // Only queue moves if there's dirt to transfer and COM is off-center.
+            if (cell.dirty > 0.0 && (xTransfer > 0.0 || yTransfer > 0.0)) {
+                // Calculate target cell based on COM direction.
                 int targetX = x;
                 int targetY = y;
                 Vector2d comOffset;
-                
-                if (cell.com.x < -1.0) {
-                    targetX--;
-                    comOffset.x = 2.0;  // Move COM right by 2 units (cell width).
+
+                if (xTransfer > 0.0) {
+                    targetX += (cell.com.x > 0 ? 1 : -1);
+                    // When moving horizontally, place dirt in center of target cell
+                    comOffset.x = (cell.com.x > 0 ? -1.0 : 1.0);
                 }
-                else if (cell.com.x > 1.0) {
-                    targetX++;
-                    comOffset.x = -2.0; // Move COM left by 2 units.
-                }
-                
-                if (cell.com.y < -1.0) {
-                    targetY--;
-                    comOffset.y = 2.0;  // Move COM down by 2 units (cell height).
-                }
-                else if (cell.com.y > 1.0) {
-                    targetY++;
-                    comOffset.y = -2.0; // Move COM up by 2 units.
+                if (yTransfer > 0.0) {
+                    targetY += (cell.com.y > 0 ? 1 : -1);
+                    // When moving vertically, place dirt in center of target cell
+                    comOffset.y = (cell.com.y > 0 ? -1.0 : 1.0);
                 }
 
                 // Only queue move if target is within bounds.
                 if (targetX >= 0 && targetX < width && targetY >= 0 && targetY < height) {
-                    moves.push_back({x, y, static_cast<uint32_t>(targetX), static_cast<uint32_t>(targetY), 
-                                   cell.dirty, 0.0, comOffset});
+                    // Use the maximum transfer amount to determine the move amount.
+                    // This ensures we don't over-transfer when moving diagonally.
+                    double moveAmount = std::max(xTransfer, yTransfer);
+                    moves.push_back({
+                        x, y,
+                        static_cast<uint32_t>(targetX),
+                        static_cast<uint32_t>(targetY),
+                        cell.dirty * moveAmount,
+                        0.0,
+                        comOffset
+                    });
                 }
             }
         }
@@ -83,26 +107,64 @@ void World::advanceTime(uint32_t deltaTimeMs)
 
         // Only move if target cell isn't full.
         if (targetCell.dirty < 1.0) {
-            double moveAmount = std::min(move.amount, 1.0 - targetCell.dirty);
-            
+            const double moveAmount = std::min(move.amount, 1.0 - targetCell.dirty);
+           
             // Calculate the fraction of dirt being moved.
-            double fraction = moveAmount / sourceCell.dirty;
+            const double moveFraction = moveAmount / sourceCell.dirty;
+            
+            // Calculate the new COM for target cell after the move.
+            Vector2d newTargetCOM = targetCell.com + move.comOffset * moveFraction;
+            
+            // Calculate the maximum allowed move fraction to keep COM within bounds.
+            double maxMoveFraction = moveFraction;
+            
+            // Check each component of the COM and adjust if needed.
+            if (std::abs(newTargetCOM.x) > 1.0) {
+                double xFraction = (1.0 - std::abs(targetCell.com.x)) / std::abs(move.comOffset.x);
+                maxMoveFraction = std::min(maxMoveFraction, xFraction);
+            }
+            if (std::abs(newTargetCOM.y) > 1.0) {
+                double yFraction = (1.0 - std::abs(targetCell.com.y)) / std::abs(move.comOffset.y);
+                maxMoveFraction = std::min(maxMoveFraction, yFraction);
+            }
+            
+            // Use the limited move fraction.
+            const double actualMoveAmount = moveAmount * (maxMoveFraction / moveFraction);
+            const double actualMoveFraction = actualMoveAmount / sourceCell.dirty;
             
             // Update source cell.
-            sourceCell.dirty -= moveAmount;
+            sourceCell.dirty -= actualMoveAmount;
             
             // Update target cell.
-            targetCell.dirty += moveAmount;
+            targetCell.dirty += actualMoveAmount;
             
-            // Adjust COM of both cells.
-            // For source cell, scale down its COM by the remaining fraction.
-            sourceCell.com *= (1.0 - fraction);
+            // Transfer COM and velocity proportionally to the actual amount of dirt moved.
+            // When dirt is added to target cell, add it at the appropriate position based on direction.
+            // Calculate weighted average of COM based on mass.
+            double targetMass = targetCell.dirty - actualMoveAmount;  // Original mass.
+            double newMass = targetCell.dirty;  // New total mass.
             
-            // For target cell, blend its COM with the incoming COM.
-            // The incoming COM needs to be adjusted by the offset and scaled by the fraction.
-            Vector2d incomingCom = sourceCell.com + move.comOffset;
-            targetCell.com = (targetCell.com * targetCell.dirty + incomingCom * moveAmount) / 
-                           (targetCell.dirty + moveAmount);
+            // Weighted average: (old_mass * old_com + new_mass * new_com) / total_mass.
+            // New dirt is added at a position based on the direction of movement.
+            Vector2d newDirtCOM;
+            if (move.fromY < move.toY) {
+                // Moving downward, add dirt at top of cell
+                newDirtCOM = Vector2d(0.0, -1.0);
+            } else if (move.fromY > move.toY) {
+                // Moving upward, add dirt at bottom of cell
+                newDirtCOM = Vector2d(0.0, 1.0);
+            } else {
+                // Horizontal movement, add at center
+                newDirtCOM = Vector2d(0.0, 0.0);
+            }
+            targetCell.com = (targetCell.com * targetMass + newDirtCOM * actualMoveAmount) / newMass;
+    
+            // Transfer velocity with proper scaling
+            targetCell.v += sourceCell.v * actualMoveFraction;
+            
+            // Adjust source cell's COM and velocity to account for the transferred mass.
+            sourceCell.com *= (1.0 - actualMoveFraction);
+            sourceCell.v *= (1.0 - actualMoveFraction);
         }
     }
 }
@@ -177,4 +239,6 @@ void World::reset()
 {
     cells.clear();
     cells.resize(width * height);
+
+    makeWalls();
 }
