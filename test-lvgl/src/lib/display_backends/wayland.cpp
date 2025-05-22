@@ -94,7 +94,7 @@ static lv_display_t* init_wayland(void)
     lv_group_t* g;
 
     disp = lv_wayland_window_create(
-        settings.window_width, settings.window_height, "LVGL Simulator", NULL);
+        settings.window_width, settings.window_height, "Dirt Sim", NULL);
 
     if (disp == NULL) {
         die("Failed to initialize Wayland backend\n");

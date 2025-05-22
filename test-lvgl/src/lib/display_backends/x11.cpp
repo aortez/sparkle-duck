@@ -92,7 +92,7 @@ static lv_display_t* init_x11(void)
     lv_display_t* disp;
     LV_IMG_DECLARE(mouse_cursor_icon);
 
-    disp = lv_x11_window_create("LVGL simulator", settings.window_height, settings.window_width);
+    disp = lv_x11_window_create("Dirt Sim", settings.window_height, settings.window_width);
 
     disp = lv_display_get_default();
 
