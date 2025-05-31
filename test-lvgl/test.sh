@@ -1,6 +1,7 @@
 #!/bin/bash
 # Builds and runs it.
-set -euxo pipefail
+set -exo pipefail
 
-time ./build.sh 
+# Pass any arguments to build.sh
+./build.sh "$@"
 build/bin/sparkle-duck-tests

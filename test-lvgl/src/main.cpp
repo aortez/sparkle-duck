@@ -140,12 +140,42 @@ int main(int argc, char** argv)
         die("Failed to initialize display backend");
     }
 
-    // Create drawing area.
-    const uint32_t draw_area_width = 500;
-    const uint32_t draw_area_height = 500;
-
+    // Create a drawing area.
     lv_obj_t* draw_area = lv_obj_create(lv_scr_act());
-    lv_obj_set_size(draw_area, draw_area_width, draw_area_height);
+    lv_obj_set_size(draw_area, 600, 600);
+//    lv_obj_center(draw_area);
+
+    // Create a world.
+    World world(25, 25, draw_area);
+    world.fillWithDirt();
+    world.makeWalls();
+
+    // Add click event handler to draw area.
+    lv_obj_add_event_cb(draw_area, [](lv_event_t* e) {
+        lv_event_code_t code = lv_event_get_code(e);
+        World* world_ptr = static_cast<World*>(lv_event_get_user_data(e));
+        
+        if (code == LV_EVENT_CLICKED) {
+            lv_point_t point;
+            lv_indev_get_point(lv_indev_get_act(), &point);
+            world_ptr->addDirtAtPixel(point.x, point.y);
+        }
+        else if (code == LV_EVENT_PRESSED) {
+            lv_point_t point;
+            lv_indev_get_point(lv_indev_get_act(), &point);
+            world_ptr->startDragging(point.x, point.y);
+        }
+        else if (code == LV_EVENT_PRESSING) {
+            lv_point_t point;
+            lv_indev_get_point(lv_indev_get_act(), &point);
+            world_ptr->updateDrag(point.x, point.y);
+        }
+        else if (code == LV_EVENT_RELEASED) {
+            lv_point_t point;
+            lv_indev_get_point(lv_indev_get_act(), &point);
+            world_ptr->endDragging(point.x, point.y);
+        }
+    }, LV_EVENT_ALL, &world);
 
     // Create reset button.
     lv_obj_t* reset_btn = lv_btn_create(lv_scr_act());
@@ -237,7 +267,6 @@ int main(int argc, char** argv)
     lv_obj_add_event_cb(pause_btn, pause_btn_event_cb, LV_EVENT_CLICKED, nullptr);
 
     // Init the world.
-    World world(20, 20, draw_area);
     world_ptr = &world; // Store pointer for callback.
     world.reset();
 
