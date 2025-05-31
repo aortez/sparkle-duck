@@ -1,0 +1,128 @@
+# Use LLVM, a modern C++ library, as a starting point.
+BasedOnStyle: LLVM
+
+# The arbitrary stuff. What we do doesn't matter as much as consistency.
+
+# All spaces, all the time.
+UseTab: Never
+
+# Four spaces are an indent.
+IndentWidth: 4
+
+# Don't indent `public:`, `private:`, etc.
+AccessModifierOffset: -4
+
+# The star goes next to the type, i.e., `int* foo;`
+PointerAlignment: Left
+
+# Don't bother aligning consecutive assignments, declarations, or operators,
+# but do align trailing comments on consecutive lines, and backslashes
+# used as line continuations.
+AlignConsecutiveAssignments: false
+AlignConsecutiveDeclarations: false
+AlignEscapedNewlinesLeft: true
+AlignOperands: false
+AlignTrailingComments: true
+
+# Put a space beween { } and their enclosed contents.
+Cpp11BracedListStyle: false
+
+# Put template args on a separate line from the function or type declaration
+# that uses them.
+AlwaysBreakTemplateDeclarations: true
+
+# Encourage a function's return type and name to share a line:
+# (https://stackoverflow.com/a/46749925)
+PenaltyReturnTypeOnItsOwnLine: 9001
+
+# Break before binary ops that aren't an assignment:
+# LooooooooooongType loooooooooooooooooooooongVariable =
+#     someLooooooooooooooooongFunction();
+#
+# bool value = aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+#                      + aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+#                  == aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+#              && aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+#                     > ccccccccccccccccccccccccccccccccccccccccc;
+BreakBeforeBinaryOperators: NonAssignment
+
+# Brace style. Broadly, put the brace on the same line,
+# except when it comes to control statements (if, else, catch) and
+# functions (that aren't inline one-liners).
+# This more clearly marks where parameters (or, for constructors, init lists)
+# end and the body begins.
+# Foo::Foo() :
+#     memberA(42),
+#     memberB(LOL_AN_ENUM)
+# {
+# }
+# seems more readable than
+# Foo::Foo() :
+#     memberA(42),
+#     memberB(LOL_AN_ENUM) {
+# }
+# This is Stroustrup-style without SplitEmptyFunction and SplitEmptyRecord.
+AllowShortFunctionsOnASingleLine: InlineOnly
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterClass: false
+  AfterControlStatement: false
+  AfterEnum: false
+  AfterExternBlock: false
+  AfterFunction: true
+  AfterNamespace: false
+  AfterStruct: false
+  AfterUnion: false
+  BeforeCatch: true
+  BeforeElse: true
+  SplitEmptyFunction: false
+  SplitEmptyRecord: false
+
+# Allow short if statements on a single line for similar reasons.
+#
+# if (foo) doAThing();
+# else doAnotherThing();
+#
+# is fine.
+AllowShortIfStatementsOnASingleLine: true
+
+# `AllowShortBlocksOnASingleLine: false` prevents
+#
+# if (foo) { doAThing(); }
+# else {
+#     aLongerBlock();
+#     acrossSeveralLines();
+#     here();
+# }
+AllowShortBlocksOnASingleLine: false
+
+# Indent `case ...:` labels in switch statements.
+IndentCaseLabels: true
+
+# Disallow `case Foo: doAThing();` since Clang Format doesn't currently
+# auto-align each case.
+AllowShortCaseLabelsOnASingleLine: false
+
+
+# More meaningful decisions:
+
+# Use a conservative line length.
+# This discourages spreading the information too far right,
+# or introducing lots of scopes in one place.
+# Readability research suggests people read shorter lines easier,
+# which is why printed text is usually laid out in 45-90 character lines:
+# https://practicaltypography.com/line-length.html
+# https://youtu.be/ZsHMHukIlJY?t=716
+ColumnLimit: 100
+
+# Arguments should be all on one line, or all on their own lines.
+# This makes it clear that they're a visually unified list of things.
+# And don't align them all on the right, after the `(`.
+# This forces you to reflow all of the items whenever you rename a function
+# https://youtu.be/ZsHMHukIlJY?t=977
+AlignAfterOpenBracket: AlwaysBreak
+BinPackArguments: false
+BinPackParameters: false
+ConstructorInitializerAllOnOneLineOrOnePerLine: true
+# Putting them on the next line is fine:
+AllowAllParametersOfDeclarationOnNextLine: true

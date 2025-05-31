@@ -9,7 +9,8 @@ Cell::Cell() : dirty(0.0), buffer(), canvas(nullptr), com(0.0, 0.0), v(0.0, 0.0)
 {}
 
 // Helper function to safely set a pixel on the canvas.
-static void safe_set_pixel(lv_obj_t* canvas, int x, int y, lv_color_t color, lv_opa_t opa) {
+static void safe_set_pixel(lv_obj_t* canvas, int x, int y, lv_color_t color, lv_opa_t opa)
+{
     if (x >= 0 && x < Cell::WIDTH && y >= 0 && y < Cell::HEIGHT) {
         lv_canvas_set_px(canvas, x, y, color, opa);
     }
@@ -50,7 +51,7 @@ void Cell::draw(lv_obj_t* parent, uint32_t x, uint32_t y)
 
     // Draw a white cross at the center of mass with black border.
     lv_color_t white = lv_color_hex(0xFFFFFF);
-    
+
     // Draw black border first.
     // Horizontal line border.
     for (int x = -3; x <= 3; x++) {
@@ -62,7 +63,7 @@ void Cell::draw(lv_obj_t* parent, uint32_t x, uint32_t y)
         safe_set_pixel(canvas, pixel_x - 1, pixel_y + y, black, LV_OPA_COVER);
         safe_set_pixel(canvas, pixel_x + 1, pixel_y + y, black, LV_OPA_COVER);
     }
-    
+
     // Draw white cross on top.
     // Horizontal line.
     for (int x = -2; x <= 2; x++) {
@@ -76,13 +77,13 @@ void Cell::draw(lv_obj_t* parent, uint32_t x, uint32_t y)
     // Draw border around the cell.
     // Draw top and bottom borders.
     for (int i = 0; i < WIDTH; i++) {
-        safe_set_pixel(canvas, i, 0, yellow, LV_OPA_COVER); // Top border.
+        safe_set_pixel(canvas, i, 0, yellow, LV_OPA_COVER);          // Top border.
         safe_set_pixel(canvas, i, HEIGHT - 1, yellow, LV_OPA_COVER); // Bottom border.
     }
 
     // Draw left and right borders.
     for (int i = 0; i < HEIGHT; i++) {
-        safe_set_pixel(canvas, 0, i, yellow, LV_OPA_COVER); // Left border.
+        safe_set_pixel(canvas, 0, i, yellow, LV_OPA_COVER);         // Left border.
         safe_set_pixel(canvas, WIDTH - 1, i, yellow, LV_OPA_COVER); // Right border.
     }
 }
