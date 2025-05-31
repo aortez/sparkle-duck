@@ -187,17 +187,20 @@ int main(int argc, char** argv)
         point.x -= area.x1;
         point.y -= area.y1;
         
-        if (code == LV_EVENT_CLICKED) {
+        if (code == LV_EVENT_PRESSED) {
+            // Add dirt at the clicked location
             world_ptr->addDirtAtPixel(point.x, point.y);
-        }
-        else if (code == LV_EVENT_PRESSED) {
+            // Then start dragging from that location
             world_ptr->startDragging(point.x, point.y);
+            world_ptr->updateCursorForce(point.x, point.y, true);
         }
         else if (code == LV_EVENT_PRESSING) {
             world_ptr->updateDrag(point.x, point.y);
+            world_ptr->updateCursorForce(point.x, point.y, true);
         }
         else if (code == LV_EVENT_RELEASED) {
             world_ptr->endDragging(point.x, point.y);
+            world_ptr->clearCursorForce();
         }
     }, LV_EVENT_ALL, &world);
 
@@ -252,6 +255,32 @@ int main(int argc, char** argv)
     lv_label_set_text(mass_label, "Total Mass: 0.00");
     lv_obj_align(mass_label, LV_ALIGN_TOP_RIGHT, -10, 230);
     mass_label_ptr = mass_label; // Store pointer for updates.
+
+    // Create cursor force toggle button
+    lv_obj_t* force_btn = lv_btn_create(lv_scr_act());
+    lv_obj_set_size(force_btn, 100, 50);
+    lv_obj_align(force_btn, LV_ALIGN_TOP_RIGHT, -10, 290);
+
+    lv_obj_t* force_label = lv_label_create(force_btn);
+    lv_label_set_text(force_label, "Force: Off");
+    lv_obj_center(force_label);
+
+    // Create callback for force button
+    lv_obj_add_event_cb(
+        force_btn,
+        [](lv_event_t* e) {
+            if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
+                static bool force_enabled = false;
+                force_enabled = !force_enabled;
+                if (world_ptr) {
+                    world_ptr->setCursorForceEnabled(force_enabled);
+                }
+                lv_label_set_text(static_cast<lv_obj_t*>(lv_event_get_user_data(e)), 
+                                force_enabled ? "Force: On" : "Force: Off");
+            }
+        },
+        LV_EVENT_CLICKED,
+        force_label);
 
     // Create callback for quit button.
     lv_obj_add_event_cb(

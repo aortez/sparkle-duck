@@ -51,6 +51,11 @@ public:
 
     void setGravity(double g) { gravity = g; }
 
+    // Cursor force interaction
+    void setCursorForceEnabled(bool enabled) { cursorForceEnabled = enabled; }
+    void updateCursorForce(int pixelX, int pixelY, bool isActive);
+    void clearCursorForce() { cursorForceActive = false; }
+
 private:
     lv_obj_t* draw_area;
     uint32_t width;
@@ -58,6 +63,14 @@ private:
     std::vector<Cell> cells;
     double timescale = 1.0;
     uint32_t timestep = 0;
+
+    // Cursor force state
+    bool cursorForceEnabled = false;
+    bool cursorForceActive = false;
+    int cursorForceX = 0;
+    int cursorForceY = 0;
+    static constexpr double CURSOR_FORCE_STRENGTH = 50.0; // Adjust this to control force magnitude
+    static constexpr double CURSOR_FORCE_RADIUS = 3.0;    // Number of cells affected by cursor force
 
     // Minimum amount of dirt before it's considered "empty" and removed.
     static constexpr double MIN_DIRT_THRESHOLD = 0.001;
@@ -76,15 +89,27 @@ private:
 
     // Drag state
     bool isDragging = false;
-    int dragStartX = 0;
-    int dragStartY = 0;
+    int dragStartX = -1;
+    int dragStartY = -1;
     double draggedDirt = 0.0;
     Vector2d draggedVelocity;
+    Vector2d draggedCom;  // Track COM during drag
     int lastDragCellX = -1;
     int lastDragCellY = -1;
     double lastCellOriginalDirt = 0.0;
     std::vector<std::pair<int, int>> recentPositions;
     static const int MAX_RECENT_POSITIONS = 5;
+
+    // Track pending drag end state
+    struct PendingDragEnd {
+        bool hasPendingEnd = false;
+        int cellX = -1;
+        int cellY = -1;
+        double dirt = 0.0;
+        Vector2d velocity;
+        Vector2d com;
+    };
+    PendingDragEnd pendingDragEnd;
 
     size_t coordToIndex(uint32_t x, uint32_t y) const;
     
