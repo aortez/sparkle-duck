@@ -162,7 +162,7 @@ int main(int argc, char** argv)
 
     // Create a drawing area.
     lv_obj_t* draw_area = lv_obj_create(lv_scr_act());
-    lv_obj_set_size(draw_area, 600, 600);
+    lv_obj_set_size(draw_area, 800, 800);
     lv_obj_center(draw_area);
     lv_obj_set_style_pad_all(draw_area, 0, 0);  // Ensure no padding affects positioning
 

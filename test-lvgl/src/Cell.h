@@ -11,8 +11,8 @@ typedef struct _lv_obj_t lv_obj_t;
 
 class Cell {
 public:
-    static const int WIDTH = 20;
-    static const int HEIGHT = 20;
+    static const int WIDTH = 30;
+    static const int HEIGHT = 30;
 
     void draw(lv_obj_t* parent, uint32_t x, uint32_t y);
 
