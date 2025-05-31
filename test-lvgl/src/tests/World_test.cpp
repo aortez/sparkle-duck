@@ -147,4 +147,86 @@ TEST_F(WorldTest, DirtTransferHorizontalWithMomentum) {
     // At the end, most dirt should be in the right cell
     EXPECT_LT(world->at(0, 0).dirty, 0.5);
     EXPECT_GT(world->at(1, 0).dirty, 0.5);
-} 
+}
+
+TEST_F(WorldTest, GravityFreeDiagonalMovement) {
+    // Create a 2x2 world
+    width = 2;
+    height = 2;
+    createWorld();
+    world->setGravity(0.0); // Disable gravity for this test
+    
+    // Place all dirt in the top-left cell with diagonal velocity
+    world->at(0, 0).dirty = 1.0;
+    world->at(0, 0).com = Vector2d(0.0, 0.0);
+    world->at(0, 0).v = Vector2d(1.0, 1.0); // Diagonal movement
+
+    double prevTopLeft = world->at(0, 0).dirty;
+    double prevTopRight = world->at(1, 0).dirty;
+    double prevBottomLeft = world->at(0, 1).dirty;
+    double prevBottomRight = world->at(1, 1).dirty;
+    double initialTotal = prevTopLeft + prevTopRight + prevBottomLeft + prevBottomRight;
+    Vector2d prevCom = world->at(0, 0).com;
+
+    // Store initial velocity
+    Vector2d initialVelocity = world->at(0, 0).v;
+
+    for (int i = 0; i < 100; ++i) {
+        world->advanceTime(16); // 16ms per frame
+        
+        // Get current values
+        double topLeft = world->at(0, 0).dirty;
+        double topRight = world->at(1, 0).dirty;
+        double bottomLeft = world->at(0, 1).dirty;
+        double bottomRight = world->at(1, 1).dirty;
+        Vector2d currentCom = world->at(0, 0).com;
+
+        // Check mass conservation
+        double totalMass = topLeft + topRight + bottomLeft + bottomRight;
+        EXPECT_NEAR(totalMass, initialTotal, 1e-4);
+
+        // Check velocity conservation - the velocity of any cell with mass should match initial velocity
+        if (topLeft > 0.0) {
+            EXPECT_NEAR(world->at(0, 0).v.x, initialVelocity.x, 1e-4);
+            EXPECT_NEAR(world->at(0, 0).v.y, initialVelocity.y, 1e-4);
+        }
+        if (topRight > 0.0) {
+            EXPECT_NEAR(world->at(1, 0).v.x, initialVelocity.x, 1e-4);
+            EXPECT_NEAR(world->at(1, 0).v.y, initialVelocity.y, 1e-4);
+        }
+        if (bottomLeft > 0.0) {
+            EXPECT_NEAR(world->at(0, 1).v.x, initialVelocity.x, 1e-4);
+            EXPECT_NEAR(world->at(0, 1).v.y, initialVelocity.y, 1e-4);
+        }
+        if (bottomRight > 0.0) {
+            EXPECT_NEAR(world->at(1, 1).v.x, initialVelocity.x, 1e-4);
+            EXPECT_NEAR(world->at(1, 1).v.y, initialVelocity.y, 1e-4);
+        }
+
+        // Check COM movement
+        if (topLeft > 0.0) {
+            // If dirt is still in top-left cell, COM should be moving diagonally
+            EXPECT_GT(currentCom.x, prevCom.x);
+            EXPECT_GT(currentCom.y, prevCom.y);
+        }
+
+        // Check transfer to bottom-right cell
+        if (currentCom.x > 1.0 && currentCom.y > 1.0) {
+            // Once COM crosses threshold, dirt should start moving to bottom-right
+            EXPECT_GT(bottomRight, prevBottomRight);
+        }
+
+        // Update previous values
+        prevTopLeft = topLeft;
+        prevTopRight = topRight;
+        prevBottomLeft = bottomLeft;
+        prevBottomRight = bottomRight;
+        prevCom = currentCom;
+    }
+
+    // At the end, the dirt should be in the bottom-right cell.
+    EXPECT_NEAR(world->at(1, 1).dirty, 1.0, 0.0001);
+    EXPECT_NEAR(world->at(0, 0).dirty, 0.0, 0.0001);
+    EXPECT_NEAR(world->at(0, 1).dirty, 0.0, 0.0001);
+    EXPECT_NEAR(world->at(1, 0).dirty, 0.0, 0.0001);
+}

@@ -5,24 +5,76 @@
 #include <random>
 #include <stdexcept>
 
-#define LOG_DEBUG
+// #define LOG_DEBUG
 #ifdef LOG_DEBUG
 #define LOG_DEBUG(x) std::cout << x << std::endl
 #else
 #define LOG_DEBUG(x) ((void)0)
 #endif
 
+// Debug logging specifically for particle events
+#define LOG_PARTICLES(x) std::cout << "[Particles] " << x << std::endl
+
 namespace {
-void addParticles(World& world, uint32_t timestep)
+// Track the next expected time for each event
+struct EventState {
+    double nextTopDrop = 0.33;      // First top drop at 0.33s
+    double nextInitialThrow = 0.17; // First throw at 0.17s
+    double nextPeriodicThrow = 0.83; // First periodic throw at 0.83s
+    bool initialThrowDone = false;  // Track if initial throw has happened
+    bool topDropDone = false;       // Track if top drop has happened
+};
+
+void addParticles(World& world, uint32_t timestep, double deltaTimeMs, double timescale)
 {
-    // Add a particle at the center-top every 100th timestep.
-    if (timestep == 20) {
+    static double lastSimTime = 0.0;
+    static EventState eventState;
+    
+    // Convert deltaTimeMs to seconds and apply timescale
+    const double deltaTime = (deltaTimeMs / 1000.0) * timescale;
+    const double simTime = lastSimTime + deltaTime;
+
+    LOG_PARTICLES("Timestep " << timestep << ": simTime=" << simTime 
+                 << ", lastSimTime=" << lastSimTime 
+                 << ", deltaTime=" << deltaTime 
+                 << ", timescale=" << timescale);
+
+    // Drop a dirt from the top
+    if (!eventState.topDropDone && simTime >= eventState.nextTopDrop) {
+        LOG_PARTICLES("Adding top drop at time " << simTime);
         uint32_t centerX = world.getWidth() / 2;
         Cell& cell = world.at(centerX, 1); // 1 to be just below the top wall.
         cell.dirty = 1.0;
         cell.v = Vector2d(0.0, 0.0);
         cell.com = Vector2d(0.0, 0.0);
+        eventState.topDropDone = true;
     }
+
+    // Initial throw from left center
+    if (!eventState.initialThrowDone && simTime >= eventState.nextInitialThrow) {
+        LOG_PARTICLES("Adding initial throw at time " << simTime);
+        uint32_t centerY = world.getHeight() / 2;
+        Cell& cell = world.at(2, centerY); // Against the left wall.
+        cell.dirty = 1.0;
+        cell.v = Vector2d(5, -5);
+        cell.com = Vector2d(0.0, 0.0);
+        eventState.initialThrowDone = true;
+    }
+
+    // Recurring throws every ~0.83 seconds
+    const double period = 0.83;
+    if (simTime >= eventState.nextPeriodicThrow) {
+        LOG_PARTICLES("Adding periodic throw at time " << simTime);
+        uint32_t centerY = world.getHeight() / 2;
+        Cell& cell = world.at(2, centerY); // Against the left wall.
+        cell.dirty = 1.0;
+        cell.v = Vector2d(5, -5);
+        cell.com = Vector2d(0.0, 0.0);
+        // Schedule next throw
+        eventState.nextPeriodicThrow += period;
+    }
+
+    lastSimTime = simTime;
 }
 } // namespace
 
@@ -33,7 +85,7 @@ World::World(uint32_t width, uint32_t height, lv_obj_t* draw_area)
 void World::advanceTime(uint32_t deltaTimeMs)
 {
     if (addParticlesEnabled) {
-        addParticles(*this, timestep++);
+        addParticles(*this, timestep++, deltaTimeMs, timescale);
     }
     else {
         timestep++;
@@ -82,10 +134,10 @@ void World::advanceTime(uint32_t deltaTimeMs)
             // Calculate predicted COM position after this timestep.
             const Vector2d predictedCom = cell.com + cell.v * timeStep;
 
-            // Debug output for horizontal transfer logic.
+            // Debug output for transfer logic.
             LOG_DEBUG(
                 "Cell (" << x << "," << y << "): predictedCom=(" << predictedCom.x << ","
-                         << predictedCom.y << "), v=(" << cell.v.x << "," << cell.v.y << ")");
+                         << predictedCom.y << "), v=(" << cell.v.x << "," << cell.v.y << "), com=(" << cell.com.x << "," << cell.com.y << "), dirty=" << cell.dirty);
 
             // Calculate if predicted COM will be in neighboring cell space or moving toward it.
             bool shouldTransferX = false;
@@ -98,7 +150,7 @@ void World::advanceTime(uint32_t deltaTimeMs)
             if (predictedCom.x > 1.0) {
                 shouldTransferX = true;
                 targetX = x + 1;
-                comOffset.x = predictedCom.x > 1.0 ? predictedCom.x - 2.0 : -1.0;
+                comOffset.x = predictedCom.x - 2.0;
                 LOG_DEBUG(
                     "  Transfer right: predictedCom.x=" << predictedCom.x << ", v.x=" << cell.v.x
                                                         << ", com.x=" << cell.com.x);
@@ -106,7 +158,7 @@ void World::advanceTime(uint32_t deltaTimeMs)
             else if (predictedCom.x < -1.0) {
                 shouldTransferX = true;
                 targetX = x - 1;
-                comOffset.x = predictedCom.x < -1.0 ? predictedCom.x + 2.0 : 1.0;
+                comOffset.x = predictedCom.x + 2.0;
                 LOG_DEBUG(
                     "  Transfer left: predictedCom.x=" << predictedCom.x << ", v.x=" << cell.v.x
                                                        << ", com.x=" << cell.com.x);
@@ -116,7 +168,7 @@ void World::advanceTime(uint32_t deltaTimeMs)
             if (predictedCom.y > 1.0) {
                 shouldTransferY = true;
                 targetY = y + 1;
-                comOffset.y = predictedCom.y > 1.0 ? predictedCom.y - 2.0 : -1.0;
+                comOffset.y = predictedCom.y - 2.0;
                 LOG_DEBUG(
                     "  Transfer down: predictedCom.y=" << predictedCom.y << ", v.y=" << cell.v.y
                                                     << ", com.y=" << cell.com.y);
@@ -124,10 +176,18 @@ void World::advanceTime(uint32_t deltaTimeMs)
             else if (predictedCom.y < -1.0) {
                 shouldTransferY = true;
                 targetY = y - 1;
-                comOffset.y = predictedCom.y < -1.0 ? predictedCom.y + 2.0 : 1.0;
+                comOffset.y = predictedCom.y + 2.0;
                 LOG_DEBUG(
                     "  Transfer up: predictedCom.y=" << predictedCom.y << ", v.y=" << cell.v.y
                                                     << ", com.y=" << cell.com.y);
+            }
+
+            // If no transfer needed in a direction, preserve that component of the COM
+            if (!shouldTransferX) {
+                comOffset.x = predictedCom.x;
+            }
+            if (!shouldTransferY) {
+                comOffset.y = predictedCom.y;
             }
 
             // Only queue moves if the predicted COM will be in neighboring cell space.
@@ -143,14 +203,10 @@ void World::advanceTime(uint32_t deltaTimeMs)
             // TODO: Eventually we will want to implement reflections, rather than skipping the move.
             if (targetX >= 0 && targetX < width && targetY >= 0 && targetY < height) {
                 Cell& targetCell = at(targetX, targetY);
-                // Calculate how much space is available in target cell.
-                double availableSpace = 1.0 - targetCell.dirty;
-
-                // Calculate transfer amount based on velocity and available space.
-                double velocityFactor = cell.v.length() * timeStep;
-                double moveAmount = std::min({
+                // Calculate transfer amount based on available dirt and space.
+                const double moveAmount = std::min({
                     cell.dirty,                  // Can't move more than exists.
-                    availableSpace               // Can't exceed target cell's capacity.
+                    1 - targetCell.dirty               // Can't exceed target cell's capacity.
                 });
 
                 // Only queue move if there's actually dirt to move
@@ -184,15 +240,15 @@ void World::advanceTime(uint32_t deltaTimeMs)
         const double availableSpace = 1.0 - targetCell.dirty;
         const double moveAmount = std::min({
             move.amount,
-            sourceCell.dirty, // Can't move more than we have
-            availableSpace    // Can't exceed target capacity
+            sourceCell.dirty, // Can't move more than we have.
+            availableSpace    // Can't exceed target capacity.
         });
 
         if (moveAmount <= 0.0) {
             continue;
         }
 
-        // Calculate the fraction being moved
+        // Calculate the fraction being moved.
         const double moveFraction = moveAmount / sourceCell.dirty;
 
         // Update source cell
@@ -218,16 +274,16 @@ void World::advanceTime(uint32_t deltaTimeMs)
                 (targetCell.com * oldTargetMass + expectedCom * moveAmount) / targetCell.dirty;
         }
 
-        // Transfer momentum
-        if (targetCell.dirty > 0.0) { // Prevent division by zero
+        // Transfer momentum.
+        if (targetCell.dirty > 0.0) {
             targetCell.v =
                 (targetCell.v * oldTargetMass + sourceCell.v * moveAmount) / targetCell.dirty;
         }
 
-        // Update source cell's COM and velocity if any dirt remains
+        // Update source cell's COM and velocity if any dirt remains.
         if (sourceCell.dirty > 0.0) {
             sourceCell.v *= (1.0 - moveFraction);
-            // Adjust source COM to account for removed mass
+            // Adjust source COM to account for removed mass.
             sourceCell.com = sourceCell.com * (1.0 - moveFraction);
         }
         else {
@@ -320,7 +376,7 @@ void World::reset()
     timestep = 0;
     cells.clear();
     cells.resize(width * height);
-    makeWalls();
+    // makeWalls();
 }
 
 void World::addDirtAtPixel(int pixelX, int pixelY)

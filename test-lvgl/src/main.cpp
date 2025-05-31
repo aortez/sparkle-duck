@@ -5,6 +5,7 @@
 
 #include <string.h>
 #include <unistd.h>
+#include <math.h>
 
 #include "lvgl/lvgl.h"
 
@@ -36,6 +37,25 @@ static void pause_btn_event_cb(lv_event_t* e)
         if (world_ptr) {
             world_ptr->setTimescale(is_paused ? 0.0 : timescale);
         }
+    }
+}
+
+// Callback for timescale slider
+static void timescale_slider_event_cb(lv_event_t* e)
+{
+    lv_obj_t* slider = static_cast<lv_obj_t*>(lv_event_get_target(e));
+    lv_obj_t* timescale_value_label = static_cast<lv_obj_t*>(lv_event_get_user_data(e));
+    if (lv_event_get_code(e) == LV_EVENT_VALUE_CHANGED) {
+        int32_t value = lv_slider_get_value(slider);
+        // Logarithmic scale: timescale = 10^((value-50)/50)
+        timescale = pow(10.0, (value - 50) / 50.0);
+        if (world_ptr) {
+            world_ptr->setTimescale(timescale);
+        }
+        // Update the timescale value label
+        char buf[16];
+        snprintf(buf, sizeof(buf), "%.2fx", timescale);
+        lv_label_set_text(timescale_value_label, buf);
     }
 }
 
@@ -200,11 +220,16 @@ int main(int argc, char** argv)
     lv_label_set_text(slider_label, "Timescale");
     lv_obj_align(slider_label, LV_ALIGN_TOP_RIGHT, -10, 130);
 
+    // Create label to show current timescale value
+    lv_obj_t* timescale_value_label = lv_label_create(lv_scr_act());
+    lv_label_set_text(timescale_value_label, "1.0x");
+    lv_obj_align(timescale_value_label, LV_ALIGN_TOP_RIGHT, -120, 130);
+
     lv_obj_t* slider = lv_slider_create(lv_scr_act());
     lv_obj_set_size(slider, 100, 10);
     lv_obj_align(slider, LV_ALIGN_TOP_RIGHT, -10, 150);
-    lv_slider_set_range(slider, 5, 500);           // 5% to 500% speed.
-    lv_slider_set_value(slider, 100, LV_ANIM_OFF); // Start at 100%.
+    lv_slider_set_range(slider, 0, 100);           // Log scale: 0.1x to 10x, 1.0x at 50.
+    lv_slider_set_value(slider, 50, LV_ANIM_OFF);  // Start at 1.0x speed.
 
     // Create quit button.
     lv_obj_t* quit_btn = lv_btn_create(lv_scr_act());
@@ -238,18 +263,9 @@ int main(int argc, char** argv)
     // Create callback for timescale slider.
     lv_obj_add_event_cb(
         slider,
-        [](lv_event_t* e) {
-            lv_obj_t* slider = static_cast<lv_obj_t*>(lv_event_get_target(e));
-            if (lv_event_get_code(e) == LV_EVENT_VALUE_CHANGED) {
-                int32_t value = lv_slider_get_value(slider);
-                timescale = value / 100.0; // Convert to 0.05 to 5.0 range.
-                if (world_ptr) {
-                    world_ptr->setTimescale(timescale);
-                }
-            }
-        },
+        timescale_slider_event_cb,
         LV_EVENT_ALL,
-        nullptr);
+        timescale_value_label);
 
     // Create callback for reset button.
     lv_obj_add_event_cb(
