@@ -163,7 +163,8 @@ int main(int argc, char** argv)
     // Create a drawing area.
     lv_obj_t* draw_area = lv_obj_create(lv_scr_act());
     lv_obj_set_size(draw_area, 600, 600);
-//    lv_obj_center(draw_area);
+    lv_obj_center(draw_area);
+    lv_obj_set_style_pad_all(draw_area, 0, 0);  // Ensure no padding affects positioning
 
     // Create a world.
     World world(25, 25, draw_area);
@@ -175,24 +176,27 @@ int main(int argc, char** argv)
         lv_event_code_t code = lv_event_get_code(e);
         World* world_ptr = static_cast<World*>(lv_event_get_user_data(e));
         
+        lv_point_t point;
+        lv_indev_get_point(lv_indev_get_act(), &point);
+        
+        // Get draw area coordinates
+        lv_area_t area;
+        lv_obj_get_coords(static_cast<lv_obj_t*>(lv_event_get_target(e)), &area);
+        
+        // Adjust point coordinates relative to draw area
+        point.x -= area.x1;
+        point.y -= area.y1;
+        
         if (code == LV_EVENT_CLICKED) {
-            lv_point_t point;
-            lv_indev_get_point(lv_indev_get_act(), &point);
             world_ptr->addDirtAtPixel(point.x, point.y);
         }
         else if (code == LV_EVENT_PRESSED) {
-            lv_point_t point;
-            lv_indev_get_point(lv_indev_get_act(), &point);
             world_ptr->startDragging(point.x, point.y);
         }
         else if (code == LV_EVENT_PRESSING) {
-            lv_point_t point;
-            lv_indev_get_point(lv_indev_get_act(), &point);
             world_ptr->updateDrag(point.x, point.y);
         }
         else if (code == LV_EVENT_RELEASED) {
-            lv_point_t point;
-            lv_indev_get_point(lv_indev_get_act(), &point);
             world_ptr->endDragging(point.x, point.y);
         }
     }, LV_EVENT_ALL, &world);
