@@ -367,6 +367,34 @@ void World::advanceTime(uint32_t deltaTimeMs)
             continue;
         }
 
+        // --- ELASTIC COLLISION RESPONSE (only if both cells have dirt) ---
+        if (sourceCell.dirty > MIN_DIRT_THRESHOLD && targetCell.dirty > MIN_DIRT_THRESHOLD) {
+            // Normal vector from source to target
+            Vector2d normal = Vector2d((int)move.toX - (int)move.fromX, (int)move.toY - (int)move.fromY).normalize();
+            if (normal.mag() > 0.0) {
+                // Project velocities onto the normal
+                double v1n = sourceCell.v.dot(normal);
+                double v2n = targetCell.v.dot(normal);
+                // Tangential components (unchanged)
+                Vector2d v1t = sourceCell.v - normal * v1n;
+                Vector2d v2t = targetCell.v - normal * v2n;
+                // Masses (use dirt as mass)
+                double m1 = sourceCell.dirty;
+                double m2 = targetCell.dirty;
+                // 1D elastic collision formula (with elasticity factor)
+                double elasticity = World::ELASTICITY_FACTOR;
+                double v1n_after = (v1n * (m1 - m2) + 2 * m2 * v2n) / (m1 + m2);
+                double v2n_after = (v2n * (m2 - m1) + 2 * m1 * v1n) / (m1 + m2);
+                // Interpolate with elasticity
+                v1n_after = v1n + (v1n_after - v1n) * elasticity;
+                v2n_after = v2n + (v2n_after - v2n) * elasticity;
+                // Update velocities
+                sourceCell.v = v1t + normal * v1n_after;
+                targetCell.v = v2t + normal * v2n_after;
+            }
+        }
+        // --- END ELASTIC COLLISION RESPONSE ---
+
         // Calculate the fraction being moved.
         const double moveFraction = moveAmount / sourceCell.dirty;
 
@@ -383,8 +411,8 @@ void World::advanceTime(uint32_t deltaTimeMs)
 
         // Update target cell's COM using weighted average
         if (oldTargetMass == 0.0) {
-            // First dirt in cell, use the expected COM directly
-            targetCell.update(targetCell.dirty, expectedCom, targetCell.v);
+            // First dirt in cell, use the expected COM and transfer velocity
+            targetCell.update(targetCell.dirty, expectedCom, sourceCell.v);
         }
         else {
             // Weighted average of existing COM and the new COM based on mass.
@@ -394,16 +422,10 @@ void World::advanceTime(uint32_t deltaTimeMs)
             targetCell.update(targetCell.dirty, newCom, targetCell.v);
         }
 
-        // Transfer momentum.
-        if (targetCell.dirty > 0.0) {
-            Vector2d newV =
-                (targetCell.v * oldTargetMass + sourceCell.v * moveAmount) / targetCell.dirty;
-            targetCell.update(targetCell.dirty, targetCell.com, newV);
-        }
-
         // Update source cell's COM and velocity if any dirt remains.
         if (sourceCell.dirty > 0.0) {
-            Vector2d newV = sourceCell.v * (1.0 - moveFraction);
+            // Preserve velocity if no collision occurred
+            Vector2d newV = sourceCell.v;
             Vector2d newCom = sourceCell.com * (1.0 - moveFraction);
             sourceCell.update(sourceCell.dirty - moveAmount, newCom, newV);
         }
@@ -511,7 +533,7 @@ void World::reset()
     timestep = 0;
     cells.clear();
     cells.resize(width * height);
-    // makeWalls();
+    makeWalls();
 }
 
 void World::addDirtAtPixel(int pixelX, int pixelY)
