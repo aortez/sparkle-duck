@@ -339,8 +339,8 @@ void World::advanceTime(uint32_t deltaTimeMs)
                 
                 // Calculate fragmentation based on velocity
                 const double velocityMagnitude = cell.v.mag();
-                const double FRAGMENTATION_FACTOR = 0.01; // Reduced from 0.05 to minimize fragmentation
-                const double fragmentation = std::min(0.1, velocityMagnitude * FRAGMENTATION_FACTOR); // Reduced max from 0.2 to 0.1
+                const double FRAGMENTATION_FACTOR = 0.001; // Lowered further to minimize fragmentation
+                const double fragmentation = std::min(0.01, velocityMagnitude * FRAGMENTATION_FACTOR); // Lowered max from 0.1 to 0.01
                 
                 // Calculate how much mass will actually move
                 const double moveAmount = std::min({
