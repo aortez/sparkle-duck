@@ -310,14 +310,11 @@ void World::advanceTime(uint32_t deltaTimeMs)
             }
 
             // Queue moves for transfer.
-            // Clamp target to world bounds for edge transfers.
-            int clampedTargetX = std::max(0, std::min(targetX, static_cast<int>(width) - 1));
-            int clampedTargetY = std::max(0, std::min(targetY, static_cast<int>(height) - 1));
-            bool atEdge = (targetX != clampedTargetX) || (targetY != clampedTargetY);
+            // Only queue move if target is within bounds.
+            // TODO: Eventually we will want to implement reflections, rather than skipping the
+            if (targetX >= 0 && targetX < width && targetY >= 0 && targetY < height) {
+                Cell& targetCell = at(targetX, targetY);
 
-            if (clampedTargetX >= 0 && clampedTargetX < static_cast<int>(width) &&
-                clampedTargetY >= 0 && clampedTargetY < static_cast<int>(height)) {
-                Cell& targetCell = at(clampedTargetX, clampedTargetY);
                 // Calculate transfer amount based on available dirt and space.
                 const double moveAmount = std::min({
                     cell.dirty,          // Can't move more than exists.
@@ -326,177 +323,16 @@ void World::advanceTime(uint32_t deltaTimeMs)
 
                 // Only queue move if there's actually dirt to move
                 if (moveAmount > 0.0) {
-                    // If we're at the edge and the COM is still out of bounds, reflect it and velocity
-                    Vector2d adjustedCom = comOffset;
-                    Vector2d adjustedV = cell.v;
-                    if (atEdge) {
-                        if (clampedTargetX == 0 && adjustedCom.x < -1.0) {
-                            adjustedCom.x = -1.0 + (-1.0 - adjustedCom.x); // Reflect inside
-                            adjustedV.x = -adjustedV.x * ELASTICITY_FACTOR;
-                        } else if (clampedTargetX == static_cast<int>(width) - 1 && adjustedCom.x > 1.0) {
-                            adjustedCom.x = 1.0 - (adjustedCom.x - 1.0); // Reflect inside
-                            adjustedV.x = -adjustedV.x * ELASTICITY_FACTOR;
-                        }
-                        if (clampedTargetY == 0 && adjustedCom.y < -1.0) {
-                            adjustedCom.y = -1.0 + (-1.0 - adjustedCom.y);
-                            adjustedV.y = -adjustedV.y * ELASTICITY_FACTOR;
-                        } else if (clampedTargetY == static_cast<int>(height) - 1 && adjustedCom.y > 1.0) {
-                            adjustedCom.y = 1.0 - (adjustedCom.y - 1.0);
-                            adjustedV.y = -adjustedV.y * ELASTICITY_FACTOR;
-                        }
-                    }
                     moves.push_back({ x,
                                       y,
-                                      static_cast<uint32_t>(clampedTargetX),
-                                      static_cast<uint32_t>(clampedTargetY),
+                                      static_cast<uint32_t>(targetX),
+                                      static_cast<uint32_t>(targetY),
                                       moveAmount,
                                       0.0,
-                                      adjustedCom });
-                    // Immediately update the cell's velocity if it was reflected
-                    if (atEdge) {
-                        cell.update(cell.dirty, cell.com, adjustedV);
-                    }
+                                      comOffset });
                     LOG_DEBUG(
-                        "  Queued move: from=(" << x << "," << y << "), to=(" << clampedTargetX << ","
-                                                << clampedTargetY << "), amount=" << moveAmount);
-
-                    // Handle deflection if there's more dirt than can fit in target cell
-                    if (cell.dirty > moveAmount) {
-                        const double deflectedAmount = cell.dirty - moveAmount;
-                        Vector2d deflectedCom = adjustedCom;
-                        
-                        // Calculate weighted velocities based on mass
-                        const double totalMass = cell.dirty;
-                        const double targetMass = moveAmount;
-                        const double deflectedMass = deflectedAmount;
-                        
-                        // Calculate velocities that conserve momentum
-                        Vector2d targetV = cell.v;  // Keep original velocity for target
-                        Vector2d deflectedV = cell.v;  // Start with original velocity
-                        
-                        // Determine which wall was hit and calculate deflection
-                        if (shouldTransferX) {
-                            // Hit vertical wall, reflect X velocity and adjust COM
-                            // Apply equal and opposite force by reflecting velocity
-                            deflectedV.x = -deflectedV.x * ELASTICITY_FACTOR;  // Apply elasticity
-                            deflectedCom.x = -deflectedCom.x;
-                            
-                            // Calculate the impulse (change in momentum) from the collision
-                            double impulseX = deflectedMass * (deflectedV.x - cell.v.x);
-                            
-                            // Apply equal and opposite impulse to the target
-                            targetV.x = (targetMass * targetV.x - impulseX) / targetMass;
-                        }
-                        if (shouldTransferY) {
-                            // Hit horizontal wall, reflect Y velocity and adjust COM
-                            // Apply equal and opposite force by reflecting velocity
-                            deflectedV.y = -deflectedV.y * ELASTICITY_FACTOR;  // Apply elasticity
-                            deflectedCom.y = -deflectedCom.y;
-                            
-                            // Calculate the impulse (change in momentum) from the collision
-                            double impulseY = deflectedMass * (deflectedV.y - cell.v.y);
-                            
-                            // Apply equal and opposite impulse to the target
-                            targetV.y = (targetMass * targetV.y - impulseY) / targetMass;
-                        }
-
-                        // Calculate where the deflected dirt will go
-                        int deflectedX = x;
-                        int deflectedY = y;
-                        bool shouldDeflectX = false;
-                        bool shouldDeflectY = false;
-
-                        // Check if deflected COM will be in neighboring cell space
-                        if (deflectedCom.x > 1.0) {
-                            shouldDeflectX = true;
-                            deflectedX = x + 1;
-                            deflectedCom.x = deflectedCom.x - 2.0;
-                        }
-                        else if (deflectedCom.x < -1.0) {
-                            shouldDeflectX = true;
-                            deflectedX = x - 1;
-                            deflectedCom.x = deflectedCom.x + 2.0;
-                        }
-
-                        if (deflectedCom.y > 1.0) {
-                            shouldDeflectY = true;
-                            deflectedY = y + 1;
-                            deflectedCom.y = deflectedCom.y - 2.0;
-                        }
-                        else if (deflectedCom.y < -1.0) {
-                            shouldDeflectY = true;
-                            deflectedY = y - 1;
-                            deflectedCom.y = deflectedCom.y + 2.0;
-                        }
-
-                        // Clamp deflected dirt to world bounds for edge transfers
-                        int clampedDeflectedX = std::max(0, std::min(deflectedX, static_cast<int>(width) - 1));
-                        int clampedDeflectedY = std::max(0, std::min(deflectedY, static_cast<int>(height) - 1));
-
-                        // If deflected dirt stays in source cell, handle it immediately
-                        if (!shouldDeflectX && !shouldDeflectY) {
-                            // Update source cell with deflected dirt
-                            cell.update(deflectedAmount, deflectedCom, deflectedV);
-                            LOG_DEBUG(
-                                "  Deflected dirt stays in source cell: amount=" << deflectedAmount
-                                                                                << ", v=("
-                                                                                << deflectedV.x
-                                                                                << ","
-                                                                                << deflectedV.y
-                                                                                << ")");
-                        }
-                        // Otherwise queue it as a new move (to edge if needed)
-                        else if (clampedDeflectedX >= 0 && clampedDeflectedX < static_cast<int>(width)
-                                 && clampedDeflectedY >= 0 && clampedDeflectedY < static_cast<int>(height)) {
-                            moves.push_back({ x,
-                                              y,
-                                              static_cast<uint32_t>(clampedDeflectedX),
-                                              static_cast<uint32_t>(clampedDeflectedY),
-                                              deflectedAmount,
-                                              0.0,
-                                              deflectedCom });
-                            LOG_DEBUG(
-                                "  Queued deflected move: from=(" << x << "," << y << "), to=("
-                                                                 << clampedDeflectedX << ","
-                                                                 << clampedDeflectedY
-                                                                 << "), amount="
-                                                                 << deflectedAmount);
-                        }
-                    }
-                }
-                else {
-                    // Handle unblocked components of the move.
-                    Vector2d internalCom = comOffset;
-                    Vector2d internalV = cell.v;
-                    
-                    // If X transfer was blocked but Y wasn't, process Y component.
-                    if (shouldTransferX && !shouldTransferY) {
-                        // Apply elasticity to the blocked X component
-                        internalV.x = -internalV.x * ELASTICITY_FACTOR;
-                        internalCom.x = -internalCom.x;
-                        // Keep Y component of COM and velocity
-                        cell.update(cell.dirty, internalCom, internalV);
-                        LOG_DEBUG(
-                            "  Processed unblocked Y component with elastic X: com=(" << internalCom.x << ","
-                                                                      << internalCom.y
-                                                                      << "), v=("
-                                                                      << internalV.x << ","
-                                                                      << internalV.y << ")");
-                    }
-                    // If Y transfer was blocked but X wasn't, process X component.
-                    else if (!shouldTransferX && shouldTransferY) {
-                        // Apply elasticity to the blocked Y component
-                        internalV.y = -internalV.y * ELASTICITY_FACTOR;
-                        internalCom.y = -internalCom.y;
-                        // Keep X component of COM and velocity
-                        cell.update(cell.dirty, internalCom, internalV);
-                        LOG_DEBUG(
-                            "  Processed unblocked X component with elastic Y: com=(" << internalCom.x << ","
-                                                                      << internalCom.y
-                                                                      << "), v=("
-                                                                      << internalV.x << ","
-                                                                      << internalV.y << ")");
-                    }
+                        "  Queued move: from=(" << x << "," << y << "), to=(" << targetX << ","
+                                                << targetY << "), amount=" << moveAmount);
                 }
             }
         }
