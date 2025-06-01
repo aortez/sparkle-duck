@@ -251,37 +251,97 @@ int main(int argc, char** argv)
     lv_label_set_text(pause_label, "Pause");
     lv_obj_center(pause_label);
 
-    // Create timescale slider.
+    // Create debug toggle button (moved up)
+    lv_obj_t* debug_btn = lv_btn_create(lv_scr_act());
+    lv_obj_set_size(debug_btn, control_width, 50);
+    lv_obj_align(debug_btn, LV_ALIGN_TOP_RIGHT, -10, 130);
+    lv_obj_t* debug_label = lv_label_create(debug_btn);
+    lv_label_set_text(debug_label, "Debug: Off");
+    lv_obj_center(debug_label);
+    lv_obj_add_event_cb(debug_btn, [](lv_event_t* e) {
+        Cell::debugDraw = !Cell::debugDraw;
+        const lv_obj_t* btn = static_cast<const lv_obj_t*>(lv_event_get_target(e));
+        lv_obj_t* label = lv_obj_get_child(btn, 0);
+        lv_label_set_text(label, Cell::debugDraw ? "Debug: On" : "Debug: Off");
+    }, LV_EVENT_CLICKED, NULL);
+
+    // Create cursor force toggle button (moved up)
+    lv_obj_t* force_btn = lv_btn_create(lv_scr_act());
+    lv_obj_set_size(force_btn, control_width, 50);
+    lv_obj_align(force_btn, LV_ALIGN_TOP_RIGHT, -10, 190);
+    lv_obj_t* force_label = lv_label_create(force_btn);
+    lv_label_set_text(force_label, "Force: Off");
+    lv_obj_center(force_label);
+
+    // Create timescale slider (moved down)
     lv_obj_t* slider_label = lv_label_create(lv_scr_act());
     lv_label_set_text(slider_label, "Timescale");
-    lv_obj_align(slider_label, LV_ALIGN_TOP_RIGHT, -10, 130);
+    lv_obj_align(slider_label, LV_ALIGN_TOP_RIGHT, -10, 290);
 
     // Create label to show current timescale value
     lv_obj_t* timescale_value_label = lv_label_create(lv_scr_act());
     lv_label_set_text(timescale_value_label, "1.0x");
-    lv_obj_align(timescale_value_label, LV_ALIGN_TOP_RIGHT, -120, 130);
+    lv_obj_align(timescale_value_label, LV_ALIGN_TOP_RIGHT, -120, 290);
 
     lv_obj_t* slider = lv_slider_create(lv_scr_act());
     lv_obj_set_size(slider, control_width, 10);
-    lv_obj_align(slider, LV_ALIGN_TOP_RIGHT, -10, 150);
+    lv_obj_align(slider, LV_ALIGN_TOP_RIGHT, -10, 310);
     lv_slider_set_range(slider, 0, 100);           // Log scale: 0.1x to 10x, 1.0x at 50.
     lv_slider_set_value(slider, 50, LV_ANIM_OFF);  // Start at 1.0x speed.
 
-    // Create elasticity slider (move up below timescale slider)
+    // Create elasticity slider (moved down)
     lv_obj_t* elasticity_label = lv_label_create(lv_scr_act());
     lv_label_set_text(elasticity_label, "Elasticity");
-    lv_obj_align(elasticity_label, LV_ALIGN_TOP_RIGHT, -10, 170);
+    lv_obj_align(elasticity_label, LV_ALIGN_TOP_RIGHT, -10, 330);
 
     // Create label to show current elasticity value
     lv_obj_t* elasticity_value_label = lv_label_create(lv_scr_act());
     lv_label_set_text(elasticity_value_label, "0.8");
-    lv_obj_align(elasticity_value_label, LV_ALIGN_TOP_RIGHT, -120, 170);
+    lv_obj_align(elasticity_value_label, LV_ALIGN_TOP_RIGHT, -120, 330);
 
     lv_obj_t* elasticity_slider = lv_slider_create(lv_scr_act());
     lv_obj_set_size(elasticity_slider, control_width, 10);
-    lv_obj_align(elasticity_slider, LV_ALIGN_TOP_RIGHT, -10, 190);
+    lv_obj_align(elasticity_slider, LV_ALIGN_TOP_RIGHT, -10, 350);
     lv_slider_set_range(elasticity_slider, 0, 200);           // Range [0, 2] with 0.01 steps
     lv_slider_set_value(elasticity_slider, 80, LV_ANIM_OFF);  // Start at 0.8
+
+    // Create dirt fragmentation slider
+    lv_obj_t* fragmentation_label = lv_label_create(lv_scr_act());
+    lv_label_set_text(fragmentation_label, "Dirt Fragmentation");
+    lv_obj_align(fragmentation_label, LV_ALIGN_TOP_RIGHT, -10, 370);
+
+    // Create label to show current fragmentation value
+    lv_obj_t* fragmentation_value_label = lv_label_create(lv_scr_act());
+    lv_label_set_text(fragmentation_value_label, "0.0001");
+    lv_obj_align(fragmentation_value_label, LV_ALIGN_TOP_RIGHT, -165, 370);
+
+    lv_obj_t* fragmentation_slider = lv_slider_create(lv_scr_act());
+    lv_obj_set_size(fragmentation_slider, control_width, 10);
+    lv_obj_align(fragmentation_slider, LV_ALIGN_TOP_RIGHT, -10, 390);
+    lv_slider_set_range(fragmentation_slider, 0, 100);           // Range [0, 100] for quadratic mapping
+    lv_slider_set_value(fragmentation_slider, 20, LV_ANIM_OFF);  // Start at 0.1 (20^2/10000 = 0.04)
+
+    // Create callback for fragmentation slider
+    lv_obj_add_event_cb(
+        fragmentation_slider,
+        [](lv_event_t* e) {
+            lv_obj_t* slider = static_cast<lv_obj_t*>(lv_event_get_target(e));
+            lv_obj_t* fragmentation_value_label = static_cast<lv_obj_t*>(lv_event_get_user_data(e));
+            if (lv_event_get_code(e) == LV_EVENT_VALUE_CHANGED) {
+                int32_t value = lv_slider_get_value(slider);
+                // Quadratic scale: maps [0,100] to [0,0.5] with more precision at lower values
+                double fragmentation = (value * value) / 20000.0;  // value^2 / 20000 gives [0,0.5]
+                if (world_ptr) {
+                    world_ptr->setDirtFragmentationFactor(fragmentation);
+                }
+                // Update the fragmentation value label
+                char buf[16];
+                snprintf(buf, sizeof(buf), "%.3f", fragmentation);
+                lv_label_set_text(fragmentation_value_label, buf);
+            }
+        },
+        LV_EVENT_ALL,
+        fragmentation_value_label);
 
     // Create callback for elasticity slider
     lv_obj_add_event_cb(
@@ -307,7 +367,7 @@ int main(int argc, char** argv)
     // Create quit button.
     lv_obj_t* quit_btn = lv_btn_create(lv_scr_act());
     lv_obj_set_size(quit_btn, control_width, 50);
-    lv_obj_align(quit_btn, LV_ALIGN_TOP_RIGHT, -10, 210);
+    lv_obj_align(quit_btn, LV_ALIGN_BOTTOM_RIGHT, -10, -10); // Move to bottom right with margin
 
     // Make the button red.
     lv_obj_set_style_bg_color(quit_btn, lv_color_hex(0xFF0000), 0);
@@ -315,29 +375,6 @@ int main(int argc, char** argv)
     lv_obj_t* quit_label = lv_label_create(quit_btn);
     lv_label_set_text(quit_label, "Quit");
     lv_obj_center(quit_label);
-
-    // Create debug toggle button (move down)
-    lv_obj_t* debug_btn = lv_btn_create(lv_scr_act());
-    lv_obj_set_size(debug_btn, control_width, 50);
-    lv_obj_align(debug_btn, LV_ALIGN_TOP_RIGHT, -10, 290);
-    lv_obj_t* debug_label = lv_label_create(debug_btn);
-    lv_label_set_text(debug_label, "Debug: Off");
-    lv_obj_center(debug_label);
-    lv_obj_add_event_cb(debug_btn, [](lv_event_t* e) {
-        Cell::debugDraw = !Cell::debugDraw;
-        const lv_obj_t* btn = static_cast<const lv_obj_t*>(lv_event_get_target(e));
-        lv_obj_t* label = lv_obj_get_child(btn, 0);
-        lv_label_set_text(label, Cell::debugDraw ? "Debug: On" : "Debug: Off");
-    }, LV_EVENT_CLICKED, NULL);
-
-    // Create cursor force toggle button (move down)
-    lv_obj_t* force_btn = lv_btn_create(lv_scr_act());
-    lv_obj_set_size(force_btn, control_width, 50);
-    lv_obj_align(force_btn, LV_ALIGN_TOP_RIGHT, -10, 350);
-
-    lv_obj_t* force_label = lv_label_create(force_btn);
-    lv_label_set_text(force_label, "Force: Off");
-    lv_obj_center(force_label);
 
     // Create callback for quit button.
     lv_obj_add_event_cb(

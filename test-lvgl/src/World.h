@@ -77,6 +77,11 @@ public:
     // Minimum amount of dirt before it's considered "empty" and removed.
     static constexpr double MIN_DIRT_THRESHOLD = 0.01;
 
+    // Controls how much dirt is left behind during transfers.
+    static double DIRT_FRAGMENTATION_FACTOR;
+
+    void setDirtFragmentationFactor(double factor) { DIRT_FRAGMENTATION_FACTOR = factor; }
+
 private:
     lv_obj_t* draw_area;
     uint32_t width;

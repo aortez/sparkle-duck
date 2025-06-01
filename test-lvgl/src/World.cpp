@@ -1,6 +1,7 @@
 #include "World.h"
 #include "Cell.h"
 #include "Timers.h"
+#include <cassert>
 
 #include <algorithm>
 #include <iostream>
@@ -20,6 +21,11 @@
 #define LOG_PARTICLES(x) std::cout << "[Particles] " << x << std::endl
 #else
 #define LOG_PARTICLES(x) ((void)0)
+#endif
+
+// Define ASSERT macro if not already defined
+#ifndef ASSERT
+#define ASSERT(cond, msg, ...) assert(cond)
 #endif
 
 namespace {
@@ -132,6 +138,7 @@ void addParticles(World& world, uint32_t timestep, double deltaTimeMs, double ti
 
 // Initialize static member variables
 double World::ELASTICITY_FACTOR = 0.8;  // Energy preserved in reflections (0.0 to 1.0)
+double World::DIRT_FRAGMENTATION_FACTOR = 0.0001; // Default dirt fragmentation factor
 
 World::World(uint32_t width, uint32_t height, lv_obj_t* draw_area)
     : width(width), height(height), cells(width * height), draw_area(draw_area)
@@ -337,10 +344,9 @@ void World::advanceTime(uint32_t deltaTimeMs)
                 const double availableSpace = 1.0 - targetCell.percentFull();
                 const double totalMass = cell.dirt + cell.water;
                 
-                // Calculate fragmentation based on velocity
-                const double velocityMagnitude = cell.v.mag();
-                const double FRAGMENTATION_FACTOR = 0.001; // Lowered further to minimize fragmentation
-                const double fragmentation = std::min(0.01, velocityMagnitude * FRAGMENTATION_FACTOR); // Lowered max from 0.1 to 0.01
+                // Nonlinear fragmentation based on velocity squared, capped at 0.5
+                const double velocitySquared = cell.v.mag() * cell.v.mag();
+                const double fragmentation = std::min(0.5, velocitySquared * DIRT_FRAGMENTATION_FACTOR);
                 
                 // Calculate how much mass will actually move
                 const double moveAmount = std::min({
@@ -348,11 +354,22 @@ void World::advanceTime(uint32_t deltaTimeMs)
                     availableSpace      // Can't exceed target cell's capacity.
                 });
 
+                // If fragmentation would leave behind less than MIN_DIRT_THRESHOLD,
+                // move the entire mass instead
+                const double remainingMass = totalMass - moveAmount;
+                const double finalMoveAmount = (remainingMass < MIN_DIRT_THRESHOLD) ? totalMass : moveAmount;
+
+                if (finalMoveAmount <= 0) {
+                    continue;
+                }
+
                 // Calculate proportions of dirt and water to move
                 double dirtProportion = cell.dirt / totalMass;
                 double waterProportion = cell.water / totalMass;
-                double dirtAmount = moveAmount * dirtProportion;
-                double waterAmount = moveAmount * waterProportion;
+                
+                // Water always moves completely, dirt may fragment
+                double dirtAmount = finalMoveAmount * dirtProportion;
+                double waterAmount = cell.water; // Move all water
 
                 moves.push_back({ x,
                                     y,

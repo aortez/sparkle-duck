@@ -14,6 +14,8 @@ protected:
         width = 1;
         height = 2;
         createWorld();
+        // Disable fragmentation for all tests
+        World::DIRT_FRAGMENTATION_FACTOR = 0.0;
     }
 
     void createWorld() {
@@ -22,6 +24,8 @@ protected:
     }
 
     void TearDown() override {
+        // Restore default fragmentation factor
+        World::DIRT_FRAGMENTATION_FACTOR = 0.1;
     }
 
     std::unique_ptr<World> world;
