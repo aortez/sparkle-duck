@@ -173,7 +173,7 @@ int main(int argc, char** argv)
     // Create a drawing area.
     lv_obj_t* draw_area = lv_obj_create(lv_scr_act());
     lv_obj_set_size(draw_area, 800, 800);
-    lv_obj_center(draw_area);
+    lv_obj_align(draw_area, LV_ALIGN_LEFT_MID, 0, 0);
     lv_obj_set_style_pad_all(draw_area, 0, 0);  // Ensure no padding affects positioning
 
     // Create a world.
@@ -217,9 +217,27 @@ int main(int argc, char** argv)
     // Create simulation loop state and event context
     static SimulatorLoop::LoopState sim_state;
 
+    // Control column width
+    const int control_width = 200;
+
+    // Create mass label (move to left side, top of control column)
+    lv_obj_t* mass_label = lv_label_create(lv_scr_act());
+    lv_label_set_text(mass_label, "Total Mass: 0.00");
+    lv_obj_align(mass_label, LV_ALIGN_TOP_LEFT, 820, 10);
+    mass_label_ptr = mass_label; // Store pointer for updates.
+
+    // Create FPS label (move to left side, below mass label)
+    lv_obj_t* fps_label = lv_label_create(lv_scr_act());
+    lv_label_set_text(fps_label, "FPS: 0");
+    lv_obj_align(fps_label, LV_ALIGN_TOP_LEFT, 820, 40);
+    fps_label_ptr = fps_label; // Store pointer for updates.
+
+    // Controls start at x=800+control_width-10 (right edge of control column)
+    int control_x = 800 + control_width - 10;
+
     // Create reset button.
     lv_obj_t* reset_btn = lv_btn_create(lv_scr_act());
-    lv_obj_set_size(reset_btn, 100, 50);
+    lv_obj_set_size(reset_btn, control_width, 50);
     lv_obj_align(reset_btn, LV_ALIGN_TOP_RIGHT, -10, 10);
     lv_obj_t* reset_label = lv_label_create(reset_btn);
     lv_label_set_text(reset_label, "Reset");
@@ -227,7 +245,7 @@ int main(int argc, char** argv)
 
     // Create pause button.
     lv_obj_t* pause_btn = lv_btn_create(lv_scr_act());
-    lv_obj_set_size(pause_btn, 100, 50);
+    lv_obj_set_size(pause_btn, control_width, 50);
     lv_obj_align(pause_btn, LV_ALIGN_TOP_RIGHT, -10, 70);
     lv_obj_t* pause_label = lv_label_create(pause_btn);
     lv_label_set_text(pause_label, "Pause");
@@ -244,15 +262,52 @@ int main(int argc, char** argv)
     lv_obj_align(timescale_value_label, LV_ALIGN_TOP_RIGHT, -120, 130);
 
     lv_obj_t* slider = lv_slider_create(lv_scr_act());
-    lv_obj_set_size(slider, 100, 10);
+    lv_obj_set_size(slider, control_width, 10);
     lv_obj_align(slider, LV_ALIGN_TOP_RIGHT, -10, 150);
     lv_slider_set_range(slider, 0, 100);           // Log scale: 0.1x to 10x, 1.0x at 50.
     lv_slider_set_value(slider, 50, LV_ANIM_OFF);  // Start at 1.0x speed.
 
+    // Create elasticity slider (move up below timescale slider)
+    lv_obj_t* elasticity_label = lv_label_create(lv_scr_act());
+    lv_label_set_text(elasticity_label, "Elasticity");
+    lv_obj_align(elasticity_label, LV_ALIGN_TOP_RIGHT, -10, 170);
+
+    // Create label to show current elasticity value
+    lv_obj_t* elasticity_value_label = lv_label_create(lv_scr_act());
+    lv_label_set_text(elasticity_value_label, "0.8");
+    lv_obj_align(elasticity_value_label, LV_ALIGN_TOP_RIGHT, -120, 170);
+
+    lv_obj_t* elasticity_slider = lv_slider_create(lv_scr_act());
+    lv_obj_set_size(elasticity_slider, control_width, 10);
+    lv_obj_align(elasticity_slider, LV_ALIGN_TOP_RIGHT, -10, 190);
+    lv_slider_set_range(elasticity_slider, 0, 200);           // Range [0, 2] with 0.01 steps
+    lv_slider_set_value(elasticity_slider, 80, LV_ANIM_OFF);  // Start at 0.8
+
+    // Create callback for elasticity slider
+    lv_obj_add_event_cb(
+        elasticity_slider,
+        [](lv_event_t* e) {
+            lv_obj_t* slider = static_cast<lv_obj_t*>(lv_event_get_target(e));
+            lv_obj_t* elasticity_value_label = static_cast<lv_obj_t*>(lv_event_get_user_data(e));
+            if (lv_event_get_code(e) == LV_EVENT_VALUE_CHANGED) {
+                int32_t value = lv_slider_get_value(slider);
+                double elasticity = value / 100.0;  // Convert to [0, 2] range
+                if (world_ptr) {
+                    world_ptr->setElasticityFactor(elasticity);
+                }
+                // Update the elasticity value label
+                char buf[16];
+                snprintf(buf, sizeof(buf), "%.2f", elasticity);
+                lv_label_set_text(elasticity_value_label, buf);
+            }
+        },
+        LV_EVENT_ALL,
+        elasticity_value_label);
+
     // Create quit button.
     lv_obj_t* quit_btn = lv_btn_create(lv_scr_act());
-    lv_obj_set_size(quit_btn, 100, 50);
-    lv_obj_align(quit_btn, LV_ALIGN_TOP_RIGHT, -10, 170);
+    lv_obj_set_size(quit_btn, control_width, 50);
+    lv_obj_align(quit_btn, LV_ALIGN_TOP_RIGHT, -10, 210);
 
     // Make the button red.
     lv_obj_set_style_bg_color(quit_btn, lv_color_hex(0xFF0000), 0);
@@ -261,16 +316,10 @@ int main(int argc, char** argv)
     lv_label_set_text(quit_label, "Quit");
     lv_obj_center(quit_label);
 
-    // Create mass label.
-    lv_obj_t* mass_label = lv_label_create(lv_scr_act());
-    lv_label_set_text(mass_label, "Total Mass: 0.00");
-    lv_obj_align(mass_label, LV_ALIGN_TOP_RIGHT, -10, 230);
-    mass_label_ptr = mass_label; // Store pointer for updates.
-
-    // Create debug toggle button
+    // Create debug toggle button (move down)
     lv_obj_t* debug_btn = lv_btn_create(lv_scr_act());
-    lv_obj_set_size(debug_btn, 100, 50);
-    lv_obj_align(debug_btn, LV_ALIGN_TOP_RIGHT, -10, 270);
+    lv_obj_set_size(debug_btn, control_width, 50);
+    lv_obj_align(debug_btn, LV_ALIGN_TOP_RIGHT, -10, 290);
     lv_obj_t* debug_label = lv_label_create(debug_btn);
     lv_label_set_text(debug_label, "Debug: Off");
     lv_obj_center(debug_label);
@@ -281,37 +330,14 @@ int main(int argc, char** argv)
         lv_label_set_text(label, Cell::debugDraw ? "Debug: On" : "Debug: Off");
     }, LV_EVENT_CLICKED, NULL);
 
-    // Create FPS label
-    lv_obj_t* fps_label = lv_label_create(lv_scr_act());
-    lv_label_set_text(fps_label, "FPS: 0");
-    lv_obj_align(fps_label, LV_ALIGN_TOP_RIGHT, -10, 260);
-    fps_label_ptr = fps_label; // Store pointer for updates.
-
-    // Create cursor force toggle button
+    // Create cursor force toggle button (move down)
     lv_obj_t* force_btn = lv_btn_create(lv_scr_act());
-    lv_obj_set_size(force_btn, 100, 50);
-    lv_obj_align(force_btn, LV_ALIGN_TOP_RIGHT, -10, 330);
+    lv_obj_set_size(force_btn, control_width, 50);
+    lv_obj_align(force_btn, LV_ALIGN_TOP_RIGHT, -10, 350);
 
     lv_obj_t* force_label = lv_label_create(force_btn);
     lv_label_set_text(force_label, "Force: Off");
     lv_obj_center(force_label);
-
-    // Create callback for force button
-    lv_obj_add_event_cb(
-        force_btn,
-        [](lv_event_t* e) {
-            if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
-                static bool force_enabled = false;
-                force_enabled = !force_enabled;
-                if (world_ptr) {
-                    world_ptr->setCursorForceEnabled(force_enabled);
-                }
-                lv_label_set_text(static_cast<lv_obj_t*>(lv_event_get_user_data(e)), 
-                                force_enabled ? "Force: On" : "Force: Off");
-            }
-        },
-        LV_EVENT_CLICKED,
-        force_label);
 
     // Create callback for quit button.
     lv_obj_add_event_cb(

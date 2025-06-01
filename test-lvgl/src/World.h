@@ -7,6 +7,14 @@
 #include <vector>
 #include <utility>
 
+/**
+ * A grid-based physical simulation. Energy is approximately conserved.
+ * Particles are affected by gravity, kimenatics, and generally behavior like
+ * sand in an hourglass.
+ * 
+ * Within each Cell, the COM bounces within the [-1,1] bounds. It transfers
+ * to neighboring cells when space is available, otherwise reflecting internally.
+ */
 class World {
 public:
     World(uint32_t width, uint32_t height, lv_obj_t* draw_area);
@@ -54,6 +62,9 @@ public:
 
     void setGravity(double g) { gravity = g; }
 
+    // Set the elasticity factor for reflections
+    void setElasticityFactor(double e) { ELASTICITY_FACTOR = e; }
+
     // Cursor force interaction
     void setCursorForceEnabled(bool enabled) { cursorForceEnabled = enabled; }
     void updateCursorForce(int pixelX, int pixelY, bool isActive);
@@ -77,9 +88,10 @@ private:
     int cursorForceY = 0;
     static constexpr double CURSOR_FORCE_STRENGTH = 10.0; // Adjust this to control force magnitude
     static constexpr double CURSOR_FORCE_RADIUS = 5.0;    // Number of cells affected by cursor force
+    static double ELASTICITY_FACTOR;  // Energy preserved in reflections (0.0 to 1.0)
 
     // Minimum amount of dirt before it's considered "empty" and removed.
-    static constexpr double MIN_DIRT_THRESHOLD = 0.001;
+    static constexpr double MIN_DIRT_THRESHOLD = 0.01;
 
     // Track the total mass of dirt in the world.
     double totalMass = 0.0;
