@@ -43,6 +43,10 @@ public:
     Cell();
     std::string toString() const;
 
+    Vector2d calculateWaterCohesion(const Cell& cell, const Cell& neighbor) const;
+
+    void applyViscosity(const Cell& neighbor);
+
 private:
     std::array<uint8_t, WIDTH * HEIGHT * 4> buffer;
 

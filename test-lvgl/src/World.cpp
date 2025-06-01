@@ -226,6 +226,29 @@ void World::advanceTime(uint32_t deltaTimeMs)
             // Apply gravity.
             cell.v.y += gravity * timeStep;
 
+            // Apply water cohesion and viscosity if this is a water cell
+            if (cell.water >= MIN_DIRT_THRESHOLD) {
+                // Check all 8 neighboring cells for cohesion
+                for (int dy = -1; dy <= 1; dy++) {
+                    for (int dx = -1; dx <= 1; dx++) {
+                        if (dx == 0 && dy == 0) continue;
+                        
+                        int nx = x + dx;
+                        int ny = y + dy;
+                        if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                            Cell& neighbor = at(nx, ny);
+                            
+                            // Apply cohesion force
+                            Vector2d cohesion = cell.calculateWaterCohesion(cell, neighbor);
+                            cell.v += cohesion * timeStep;
+                            
+                            // Apply viscosity
+                            cell.applyViscosity(neighbor);
+                        }
+                    }
+                }
+            }
+
             // Apply cursor force if active
             if (cursorForceEnabled && cursorForceActive) {
                 double dx = cursorForceX - static_cast<int>(x);
@@ -313,8 +336,15 @@ void World::advanceTime(uint32_t deltaTimeMs)
                 // Calculate transfer amounts based on available space in target cell
                 const double availableSpace = 1.0 - targetCell.percentFull();
                 const double totalMass = cell.dirt + cell.water;
+                
+                // Calculate fragmentation based on velocity
+                const double velocityMagnitude = cell.v.mag();
+                const double FRAGMENTATION_FACTOR = 0.01; // Reduced from 0.05 to minimize fragmentation
+                const double fragmentation = std::min(0.1, velocityMagnitude * FRAGMENTATION_FACTOR); // Reduced max from 0.2 to 0.1
+                
+                // Calculate how much mass will actually move
                 const double moveAmount = std::min({
-                    totalMass,          // Can't move more than exists.
+                    totalMass * (1.0 - fragmentation),  // Leave some behind based on velocity
                     availableSpace      // Can't exceed target cell's capacity.
                 });
 
@@ -336,7 +366,8 @@ void World::advanceTime(uint32_t deltaTimeMs)
                 LOG_DEBUG(
                     "  Queued move: from=(" << x << "," << y << ") to=(" << targetX << ","
                                             << targetY << "), dirt=" << dirtAmount 
-                                            << ", water=" << waterAmount);
+                                            << ", water=" << waterAmount
+                                            << ", fragmentation=" << fragmentation);
             }
         }
     }
@@ -440,30 +471,28 @@ void World::advanceTime(uint32_t deltaTimeMs)
 
         // Update target cell
         const double oldTargetMass = targetCell.percentFull();
-        targetCell.update(targetCell.dirt + actualDirt, targetCell.com, targetCell.v);
-        targetCell.water += actualWater;
-
-        // Calculate the expected COM position in the target cell based on the actual movement
-        // The COM offset represents how far the mass moved during this timestep
         Vector2d expectedCom = move.comOffset;
 
         // Update target cell's COM using weighted average
         if (oldTargetMass == 0.0) {
             // First mass in cell, use the expected COM and transfer velocity
-            targetCell.update(targetCell.dirt, expectedCom, sourceCell.v);
+            targetCell.update(targetCell.dirt + actualDirt, expectedCom, sourceCell.v);
+            targetCell.water += actualWater;
         }
         else {
             // Weighted average of existing COM and the new COM based on mass.
             // This preserves both mass and energy in the system.
             Vector2d newCom =
-                (targetCell.com * oldTargetMass + expectedCom * moveAmount) / targetCell.percentFull();
-            targetCell.update(targetCell.dirt, newCom, targetCell.v);
+                (targetCell.com * oldTargetMass + expectedCom * moveAmount) / (oldTargetMass + moveAmount);
+            targetCell.update(targetCell.dirt + actualDirt, newCom, targetCell.v);
+            targetCell.water += actualWater;
         }
 
         // Update source cell's COM and velocity if any mass remains.
         if (sourceCell.percentFull() > 0.0) {
             // Preserve velocity if no collision occurred
             Vector2d newV = sourceCell.v;
+            // Scale COM based on remaining mass
             Vector2d newCom = sourceCell.com * (1.0 - moveFraction);
             sourceCell.update(sourceCell.dirt, newCom, newV);
         }

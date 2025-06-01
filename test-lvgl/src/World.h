@@ -4,14 +4,14 @@
 #include "Timers.h"
 
 #include <cstdint>
-#include <vector>
 #include <utility>
+#include <vector>
 
 /**
  * A grid-based physical simulation. Energy is approximately conserved.
  * Particles are affected by gravity, kimenatics, and generally behavior like
  * sand in an hourglass.
- * 
+ *
  * Within each Cell, the COM bounces within the [-1,1] bounds. It transfers
  * to neighboring cells when space is available, otherwise reflecting internally.
  */
@@ -52,10 +52,10 @@ public:
 
     // Start dragging dirt from a cell
     void startDragging(int pixelX, int pixelY);
-    
+
     // Update drag position
     void updateDrag(int pixelX, int pixelY);
-    
+
     // End dragging and place dirt
     void endDragging(int pixelX, int pixelY);
 
@@ -74,6 +74,9 @@ public:
     // Add method to dump timer stats
     void dumpTimerStats() const;
 
+    // Minimum amount of dirt before it's considered "empty" and removed.
+    static constexpr double MIN_DIRT_THRESHOLD = 0.01;
+
 private:
     lv_obj_t* draw_area;
     uint32_t width;
@@ -88,11 +91,8 @@ private:
     int cursorForceX = 0;
     int cursorForceY = 0;
     static constexpr double CURSOR_FORCE_STRENGTH = 10.0; // Adjust this to control force magnitude
-    static constexpr double CURSOR_FORCE_RADIUS = 5.0;    // Number of cells affected by cursor force
-    static double ELASTICITY_FACTOR;  // Energy preserved in reflections (0.0 to 1.0)
-
-    // Minimum amount of dirt before it's considered "empty" and removed.
-    static constexpr double MIN_DIRT_THRESHOLD = 0.01;
+    static constexpr double CURSOR_FORCE_RADIUS = 5.0; // Number of cells affected by cursor force
+    static double ELASTICITY_FACTOR; // Energy preserved in reflections (0.0 to 1.0)
 
     // Track the total mass of dirt in the world.
     double totalMass = 0.0;
@@ -112,7 +112,7 @@ private:
     int dragStartY = -1;
     double draggedDirt = 0.0;
     Vector2d draggedVelocity;
-    Vector2d draggedCom;  // Track COM during drag
+    Vector2d draggedCom; // Track COM during drag
     int lastDragCellX = -1;
     int lastDragCellY = -1;
     double lastCellOriginalDirt = 0.0;
@@ -131,7 +131,7 @@ private:
     PendingDragEnd pendingDragEnd;
 
     size_t coordToIndex(uint32_t x, uint32_t y) const;
-    
+
     // Helper to convert pixel coordinates to cell coordinates
     void pixelToCell(int pixelX, int pixelY, int& cellX, int& cellY) const;
 

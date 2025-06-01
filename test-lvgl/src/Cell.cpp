@@ -1,20 +1,31 @@
 #include "Cell.h"
 
+#include "World.h"
+
+#include <cstdio> // For snprintf
 #include <cstring>
 #include <string>
-#include <cstdio>  // For snprintf
 
 #include "lvgl/lvgl.h"
 
 bool Cell::debugDraw = true;
 
-Cell::Cell() : dirt(0.0), water(0.0), wood(0.0), leaf(0.0), metal(0.0), 
-               buffer(), canvas(nullptr), com(0.0, 0.0), v(0.0, 0.0), needsRedraw(true)
+Cell::Cell()
+    : dirt(0.0),
+      water(0.0),
+      wood(0.0),
+      leaf(0.0),
+      metal(0.0),
+      buffer(),
+      canvas(nullptr),
+      com(0.0, 0.0),
+      v(0.0, 0.0),
+      needsRedraw(true)
 {}
 
 void Cell::update(double newDirty, const Vector2d& newCom, const Vector2d& newV)
 {
-    dirt = newDirty;  // For backward compatibility, we'll use dirt as the main element for now
+    dirt = newDirty; // For backward compatibility, we'll use dirt as the main element for now
     com = newCom;
     v = newV;
     needsRedraw = true;
@@ -153,11 +164,44 @@ void Cell::markDirty()
 
 std::string Cell::toString() const
 {
-    return "Cell{dirt=" + std::to_string(dirt) + 
-           ", water=" + std::to_string(water) +
-           ", wood=" + std::to_string(wood) +
-           ", leaf=" + std::to_string(leaf) +
-           ", metal=" + std::to_string(metal) +
-           ", com=" + com.toString() + 
-           ", v=" + v.toString() + "}";
+    return "Cell{dirt=" + std::to_string(dirt) + ", water=" + std::to_string(water)
+        + ", wood=" + std::to_string(wood) + ", leaf=" + std::to_string(leaf) + ", metal="
+        + std::to_string(metal) + ", com=" + com.toString() + ", v=" + v.toString() + "}";
+}
+
+Vector2d Cell::calculateWaterCohesion(const Cell& cell, const Cell& neighbor) const
+{
+    // Only apply cohesion between water cells
+    if (cell.water < World::MIN_DIRT_THRESHOLD || neighbor.water < World::MIN_DIRT_THRESHOLD) {
+        return Vector2d(0.0, 0.0);
+    }
+
+    // Calculate force based on water amounts and distance
+    const double COHESION_STRENGTH = 0.1; // Adjust this value to control cohesion strength
+    double force = COHESION_STRENGTH * cell.water * neighbor.water;
+
+    // Calculate direction vector between cells
+    Vector2d direction = neighbor.com - cell.com;
+    double distance = direction.mag();
+
+    // Normalize and scale by force
+    if (distance > 0.0) {
+        return direction.normalize() * force;
+    }
+    return Vector2d(0.0, 0.0);
+}
+
+void Cell::applyViscosity(const Cell& neighbor)
+{
+    if (water < World::MIN_DIRT_THRESHOLD || neighbor.water < World::MIN_DIRT_THRESHOLD) {
+        return;
+    }
+
+    // Average velocities based on water amounts
+    const double VISCOSITY_FACTOR = 0.1; // Adjust this value to control viscosity
+    double totalMass = water + neighbor.water;
+    if (totalMass > 0) {
+        Vector2d avgVelocity = (v * water + neighbor.v * neighbor.water) / totalMass;
+        v = v + (avgVelocity - v) * VISCOSITY_FACTOR;
+    }
 }
