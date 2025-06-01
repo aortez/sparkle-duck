@@ -2,17 +2,19 @@
 
 #include <cstring>
 #include <string>
+#include <cstdio>  // For snprintf
 
 #include "lvgl/lvgl.h"
 
 bool Cell::debugDraw = true;
 
-Cell::Cell() : dirty(0.0), buffer(), canvas(nullptr), com(0.0, 0.0), v(0.0, 0.0), needsRedraw(true)
+Cell::Cell() : dirt(0.0), water(0.0), wood(0.0), leaf(0.0), metal(0.0), 
+               buffer(), canvas(nullptr), com(0.0, 0.0), v(0.0, 0.0), needsRedraw(true)
 {}
 
 void Cell::update(double newDirty, const Vector2d& newCom, const Vector2d& newV)
 {
-    dirty = newDirty;
+    dirt = newDirty;  // For backward compatibility, we'll use dirt as the main element for now
     com = newCom;
     v = newV;
     needsRedraw = true;
@@ -51,11 +53,36 @@ void Cell::draw(lv_obj_t* parent, uint32_t x, uint32_t y)
     std::fill(buffer.begin(), buffer.end(), 0);
 
     // Calculate opacity based on dirt amount (0.0 to 1.0)
-    lv_opa_t opacity = static_cast<lv_opa_t>(dirty * LV_OPA_COVER);
+    lv_opa_t opacity_dirt = static_cast<lv_opa_t>(dirt * LV_OPA_COVER);
+    lv_opa_t opacity_water = static_cast<lv_opa_t>(water * LV_OPA_COVER);
 
     if (!debugDraw) {
-        // Normal mode: simple filled cell.
-        lv_canvas_fill_bg(canvas, brown, opacity);
+        // Normal mode: draw dirt and water layers
+        lv_layer_t layer;
+        lv_canvas_init_layer(canvas, &layer);
+
+        // Draw dirt layer
+        lv_draw_rect_dsc_t rect_dsc;
+        lv_draw_rect_dsc_init(&rect_dsc);
+        rect_dsc.bg_color = brown;
+        rect_dsc.bg_opa = opacity_dirt;
+        rect_dsc.border_color = lv_color_hex(0x000000);
+        rect_dsc.border_width = 1;
+        rect_dsc.radius = 1;
+        lv_area_t coords = { 0, 0, WIDTH, HEIGHT };
+        lv_draw_rect(&layer, &rect_dsc, &coords);
+
+        // Draw water layer on top
+        lv_draw_rect_dsc_t rect_dsc_water;
+        lv_draw_rect_dsc_init(&rect_dsc_water);
+        rect_dsc_water.bg_color = lv_color_hex(0x0000FF);
+        rect_dsc_water.bg_opa = opacity_water;
+        rect_dsc_water.border_color = lv_color_hex(0x000000);
+        rect_dsc_water.border_width = 1;
+        rect_dsc_water.radius = 1;
+        lv_draw_rect(&layer, &rect_dsc_water, &coords);
+
+        lv_canvas_finish_layer(canvas, &layer);
     }
     else {
         lv_layer_t layer;
@@ -66,12 +93,22 @@ void Cell::draw(lv_obj_t* parent, uint32_t x, uint32_t y)
         lv_draw_rect_dsc_t rect_dsc;
         lv_draw_rect_dsc_init(&rect_dsc);
         rect_dsc.bg_color = brown;
-        rect_dsc.bg_opa = opacity;
+        rect_dsc.bg_opa = opacity_dirt;
         rect_dsc.border_color = lv_color_hex(0x000000);
         rect_dsc.border_width = 1;
         rect_dsc.radius = 1;
         lv_area_t coords = { 0, 0, WIDTH, HEIGHT };
         lv_draw_rect(&layer, &rect_dsc, &coords);
+
+        // 1.5. Draw transparent blue water.
+        lv_draw_rect_dsc_t rect_dsc_water;
+        lv_draw_rect_dsc_init(&rect_dsc_water);
+        rect_dsc_water.bg_color = lv_color_hex(0x0000FF);
+        rect_dsc_water.bg_opa = opacity_water;
+        rect_dsc_water.border_color = lv_color_hex(0x000000);
+        rect_dsc_water.border_width = 1;
+        rect_dsc_water.radius = 1;
+        lv_draw_rect(&layer, &rect_dsc_water, &coords);
 
         // 2. Draw center of mass.
         int pixel_x = static_cast<int>((com.x + 1.0) * (WIDTH - 1) / 2.0);
@@ -116,6 +153,11 @@ void Cell::markDirty()
 
 std::string Cell::toString() const
 {
-    return "Cell{dirty=" + std::to_string(dirty) + ", com=" + com.toString() + ", v=" + v.toString()
-        + "}";
+    return "Cell{dirt=" + std::to_string(dirt) + 
+           ", water=" + std::to_string(water) +
+           ", wood=" + std::to_string(wood) +
+           ", leaf=" + std::to_string(leaf) +
+           ", metal=" + std::to_string(metal) +
+           ", com=" + com.toString() + 
+           ", v=" + v.toString() + "}";
 }

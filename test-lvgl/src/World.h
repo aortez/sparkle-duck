@@ -48,6 +48,7 @@ public:
 
     // Add dirt at a specific pixel coordinate
     void addDirtAtPixel(int pixelX, int pixelY);
+    void addWaterAtPixel(int pixelX, int pixelY);
 
     // Start dragging dirt from a cell
     void startDragging(int pixelX, int pixelY);

@@ -187,9 +187,11 @@ void World::advanceTime(uint32_t deltaTimeMs)
         uint32_t fromY;
         uint32_t toX;
         uint32_t toY;
-        double amount;       // Original amount of dirt to move.
-        double actualAmount; // Actual amount moved after capacity checks.
-        Vector2d comOffset;  // COM offset to apply to the target cell.
+        double dirtAmount;    // Amount of dirt to move
+        double waterAmount;   // Amount of water to move
+        double actualDirt;    // Actual amount of dirt moved after capacity checks
+        double actualWater;   // Actual amount of water moved after capacity checks
+        Vector2d comOffset;   // COM offset to apply to the target cell.
     };
 
     std::vector<DirtMove> moves;
@@ -204,12 +206,13 @@ void World::advanceTime(uint32_t deltaTimeMs)
             }
             Cell& cell = at(x, y);
 
-            // Skip empty cells or cells with dirt below threshold.
-            if (cell.dirty < MIN_DIRT_THRESHOLD) {
+            // Skip empty cells or cells with mass below threshold.
+            if (cell.percentFull() < MIN_DIRT_THRESHOLD) {
                 // Track the mass being removed.
-                removedMass += cell.dirty;
+                removedMass += cell.percentFull();
                 // Reset them to initial conditions.
                 cell.update(0.0, Vector2d(0.0, 0.0), Vector2d(0.0, 0.0));
+                cell.water = 0.0;
                 continue;
             }
 
@@ -248,7 +251,8 @@ void World::advanceTime(uint32_t deltaTimeMs)
             LOG_DEBUG(
                 "Cell (" << x << "," << y << "): predictedCom=(" << predictedCom.x << ","
                          << predictedCom.y << "), v=(" << cell.v.x << "," << cell.v.y << "), com=("
-                         << cell.com.x << "," << cell.com.y << "), dirty=" << cell.dirty);
+                         << cell.com.x << "," << cell.com.y << "), dirt=" << cell.dirt
+                         << ", water=" << cell.water);
 
             // Calculate if predicted COM will be in neighboring cell space or moving toward it.
             bool shouldTransferX = false;
@@ -297,35 +301,42 @@ void World::advanceTime(uint32_t deltaTimeMs)
             // Otherwise go ahead and execute local moves immediately.
             if (!shouldTransferX && !shouldTransferY) {
                 // Move COM internally.
-                cell.update(cell.dirty, predictedCom, cell.v);
+                cell.update(cell.dirt, predictedCom, cell.v);
                 continue;
             }
 
             // Queue moves for transfer.
             // Only queue move if target is within bounds.
-            // TODO: Eventually we will want to implement reflections, rather than skipping the
             if (targetX >= 0 && targetX < width && targetY >= 0 && targetY < height) {
                 Cell& targetCell = at(targetX, targetY);
 
-                // Calculate transfer amount based on available dirt and space.
+                // Calculate transfer amounts based on available space in target cell
+                const double availableSpace = 1.0 - targetCell.percentFull();
+                const double totalMass = cell.dirt + cell.water;
                 const double moveAmount = std::min({
-                    cell.dirty,          // Can't move more than exists.
-                    1 - targetCell.dirty // Can't exceed target cell's capacity.
+                    totalMass,          // Can't move more than exists.
+                    availableSpace      // Can't exceed target cell's capacity.
                 });
 
-                // Only queue move if there's actually dirt to move
-                // if (moveAmount > 0.0) {
-                    moves.push_back({ x,
-                                      y,
-                                      static_cast<uint32_t>(targetX),
-                                      static_cast<uint32_t>(targetY),
-                                      moveAmount,
-                                      0.0,
-                                      comOffset });
-                    LOG_DEBUG(
-                        "  Queued move: from=(" << x << "," << y << "), to=(" << targetX << ","
-                                                << targetY << "), amount=" << moveAmount);
-                // }
+                // Calculate proportions of dirt and water to move
+                double dirtProportion = cell.dirt / totalMass;
+                double waterProportion = cell.water / totalMass;
+                double dirtAmount = moveAmount * dirtProportion;
+                double waterAmount = moveAmount * waterProportion;
+
+                moves.push_back({ x,
+                                    y,
+                                    static_cast<uint32_t>(targetX),
+                                    static_cast<uint32_t>(targetY),
+                                    dirtAmount,
+                                    waterAmount,
+                                    0.0,
+                                    0.0,
+                                    comOffset });
+                LOG_DEBUG(
+                    "  Queued move: from=(" << x << "," << y << ") to=(" << targetX << ","
+                                            << targetY << "), dirt=" << dirtAmount 
+                                            << ", water=" << waterAmount);
             }
         }
     }
@@ -348,10 +359,11 @@ void World::advanceTime(uint32_t deltaTimeMs)
                                << targetCell.v.y << ")");
 
         // Calculate maximum possible transfer while respecting capacity
-        const double availableSpace = 1.0 - targetCell.dirty;
+        const double availableSpace = 1.0 - targetCell.percentFull();
+        const double totalMass = move.dirtAmount + move.waterAmount;
         const double moveAmount = std::min({
-            move.amount,
-            sourceCell.dirty, // Can't move more than we have.
+            totalMass,
+            sourceCell.percentFull(), // Can't move more than we have.
             availableSpace    // Can't exceed target capacity.
         });
 
@@ -381,12 +393,12 @@ void World::advanceTime(uint32_t deltaTimeMs)
             }
             
             // Update the cell with new COM and reflected velocity
-            sourceCell.update(sourceCell.dirty, newCom, sourceCell.v);
+            sourceCell.update(sourceCell.dirt, newCom, sourceCell.v);
             continue;
         }
 
-        // --- ELASTIC COLLISION RESPONSE (only if both cells have dirt) ---
-        if (sourceCell.dirty > MIN_DIRT_THRESHOLD && targetCell.dirty > MIN_DIRT_THRESHOLD) {
+        // --- ELASTIC COLLISION RESPONSE (only if both cells have mass) ---
+        if (sourceCell.percentFull() > MIN_DIRT_THRESHOLD && targetCell.percentFull() > MIN_DIRT_THRESHOLD) {
             // Normal vector from source to target
             Vector2d normal = Vector2d((int)move.toX - (int)move.fromX, (int)move.toY - (int)move.fromY).normalize();
             if (normal.mag() > 0.0) {
@@ -396,9 +408,9 @@ void World::advanceTime(uint32_t deltaTimeMs)
                 // Tangential components (unchanged)
                 Vector2d v1t = sourceCell.v - normal * v1n;
                 Vector2d v2t = targetCell.v - normal * v2n;
-                // Masses (use dirt as mass)
-                double m1 = sourceCell.dirty;
-                double m2 = targetCell.dirty;
+                // Masses (use total mass)
+                double m1 = sourceCell.percentFull();
+                double m2 = targetCell.percentFull();
                 // 1D elastic collision formula (with elasticity factor)
                 double elasticity = World::ELASTICITY_FACTOR;
                 double v1n_after = (v1n * (m1 - m2) + 2 * m2 * v2n) / (m1 + m2);
@@ -414,41 +426,50 @@ void World::advanceTime(uint32_t deltaTimeMs)
         // --- END ELASTIC COLLISION RESPONSE ---
 
         // Calculate the fraction being moved.
-        const double moveFraction = moveAmount / sourceCell.dirty;
+        const double moveFraction = moveAmount / sourceCell.percentFull();
+
+        // Calculate actual amounts to move based on proportions
+        const double dirtProportion = sourceCell.dirt / sourceCell.percentFull();
+        const double waterProportion = sourceCell.water / sourceCell.percentFull();
+        const double actualDirt = moveAmount * dirtProportion;
+        const double actualWater = moveAmount * waterProportion;
 
         // Update source cell
-        sourceCell.update(sourceCell.dirty - moveAmount, sourceCell.com, sourceCell.v);
+        sourceCell.update(sourceCell.dirt - actualDirt, sourceCell.com, sourceCell.v);
+        sourceCell.water -= actualWater;
 
         // Update target cell
-        const double oldTargetMass = targetCell.dirty;
-        targetCell.update(targetCell.dirty + moveAmount, targetCell.com, targetCell.v);
+        const double oldTargetMass = targetCell.percentFull();
+        targetCell.update(targetCell.dirt + actualDirt, targetCell.com, targetCell.v);
+        targetCell.water += actualWater;
 
         // Calculate the expected COM position in the target cell based on the actual movement
-        // The COM offset represents how far the dirt moved during this timestep
+        // The COM offset represents how far the mass moved during this timestep
         Vector2d expectedCom = move.comOffset;
 
         // Update target cell's COM using weighted average
         if (oldTargetMass == 0.0) {
-            // First dirt in cell, use the expected COM and transfer velocity
-            targetCell.update(targetCell.dirty, expectedCom, sourceCell.v);
+            // First mass in cell, use the expected COM and transfer velocity
+            targetCell.update(targetCell.dirt, expectedCom, sourceCell.v);
         }
         else {
             // Weighted average of existing COM and the new COM based on mass.
             // This preserves both mass and energy in the system.
             Vector2d newCom =
-                (targetCell.com * oldTargetMass + expectedCom * moveAmount) / targetCell.dirty;
-            targetCell.update(targetCell.dirty, newCom, targetCell.v);
+                (targetCell.com * oldTargetMass + expectedCom * moveAmount) / targetCell.percentFull();
+            targetCell.update(targetCell.dirt, newCom, targetCell.v);
         }
 
-        // Update source cell's COM and velocity if any dirt remains.
-        if (sourceCell.dirty > 0.0) {
+        // Update source cell's COM and velocity if any mass remains.
+        if (sourceCell.percentFull() > 0.0) {
             // Preserve velocity if no collision occurred
             Vector2d newV = sourceCell.v;
             Vector2d newCom = sourceCell.com * (1.0 - moveFraction);
-            sourceCell.update(sourceCell.dirty - moveAmount, newCom, newV);
+            sourceCell.update(sourceCell.dirt, newCom, newV);
         }
         else {
             sourceCell.update(0.0, Vector2d(0.0, 0.0), Vector2d(0.0, 0.0));
+            sourceCell.water = 0.0;
         }
 
         // Debug: Log final state
@@ -462,7 +483,7 @@ void World::advanceTime(uint32_t deltaTimeMs)
     totalMass = 0.0;
     for (uint32_t y = 0; y < height; y++) {
         for (uint32_t x = 0; x < width; x++) {
-            totalMass += at(x, y).dirty;
+            totalMass += at(x, y).percentFull();
         }
     }
 
@@ -569,6 +590,22 @@ void World::addDirtAtPixel(int pixelX, int pixelY)
     }
 }
 
+void World::addWaterAtPixel(int pixelX, int pixelY)
+{
+    // Convert pixel coordinates to cell coordinates
+    int cellX = pixelX / Cell::WIDTH;
+    int cellY = pixelY / Cell::HEIGHT;
+
+    // Check if coordinates are within bounds
+    if (cellX >= 0 && cellX < static_cast<int>(width) && cellY >= 0
+        && cellY < static_cast<int>(height)) {
+        Cell& cell = at(cellX, cellY);
+        // Keep existing dirt amount but add water
+        cell.water = 1.0;
+        cell.markDirty();
+    }
+}
+
 void World::pixelToCell(int pixelX, int pixelY, int& cellX, int& cellY) const
 {
     cellX = pixelX / Cell::WIDTH;
@@ -600,11 +637,11 @@ void World::startDragging(int pixelX, int pixelY)
         Cell& cell = at(cellX, cellY);
 
         // Only start dragging if there's dirt to drag
-        if (cell.dirty > MIN_DIRT_THRESHOLD) {
+        if (cell.dirt > MIN_DIRT_THRESHOLD) {
             isDragging = true;
             dragStartX = cellX;
             dragStartY = cellY;
-            draggedDirt = cell.dirty;
+            draggedDirt = cell.dirt;
             draggedVelocity = cell.v;
 
             // Calculate initial COM based on cursor position within cell
@@ -658,14 +695,14 @@ void World::updateDrag(int pixelX, int pixelY)
             Cell& cell = at(cellX, cellY);
             lastDragCellX = cellX;
             lastDragCellY = cellY;
-            lastCellOriginalDirt = cell.dirty;
+            lastCellOriginalDirt = cell.dirt;
             cell.update(draggedDirt, draggedCom, cell.v);
             cell.markDirty();
         }
         else {
             // Update COM even if we're in the same cell
             Cell& cell = at(cellX, cellY);
-            cell.update(cell.dirty, draggedCom, cell.v);
+            cell.update(cell.dirt, draggedCom, cell.v);
             cell.markDirty();
         }
 

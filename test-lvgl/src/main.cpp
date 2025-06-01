@@ -198,8 +198,8 @@ int main(int argc, char** argv)
         point.y -= area.y1;
         
         if (code == LV_EVENT_PRESSED) {
-            // Add dirt at the clicked location
-            world_ptr->addDirtAtPixel(point.x, point.y);
+            // Add water at the clicked location
+            world_ptr->addWaterAtPixel(point.x, point.y);
             // Then start dragging from that location
             world_ptr->startDragging(point.x, point.y);
             world_ptr->updateCursorForce(point.x, point.y, true);

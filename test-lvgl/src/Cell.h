@@ -22,13 +22,20 @@ public:
     // Update cell properties and mark dirty
     void update(double newDirty, const Vector2d& newCom, const Vector2d& newV);
 
-    // Amount of dirt in cell [0,1].
-    double dirty;
+    // Calculate total percentage of cell filled with elements
+    double percentFull() const { return dirt + water + wood + leaf + metal; }
 
-    // Center of mass of dirt, range [-1,1].
+    // Element amounts in cell [0,1]
+    double dirt; 
+    double water;
+    double wood; 
+    double leaf; 
+    double metal;
+
+    // Center of mass of elements, range [-1,1].
     Vector2d com;
 
-    // Velocity of dirt.
+    // Velocity of elements.
     Vector2d v;
 
     static bool debugDraw; // If true, draw in debug mode

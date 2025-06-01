@@ -37,12 +37,12 @@ TEST_F(WorldTest, EmptyWorldAdvance) {
 TEST_F(WorldTest, DirtTransferVerticalWithMomentum)
 {
     // Fill the top cell with dirt and give it some velocity.
-    world->at(0, 0).dirty = 1.0;
+    world->at(0, 0).dirt = 1.0;
     world->at(0, 0).com = Vector2d(0.0, 0.0);  // COM starts in center.
     world->at(0, 0).v = Vector2d(0.0, 1.0);    // Moving downward.
 
     // Store initial values for comparison.
-    double initialDirt = world->at(0, 0).dirty;
+    double initialDirt = world->at(0, 0).dirt;
     Vector2d initialCom = world->at(0, 0).com;
     Vector2d initialVel = world->at(0, 0).v;
 
@@ -56,19 +56,19 @@ TEST_F(WorldTest, DirtTransferVerticalWithMomentum)
         world->advanceTime(16); 
 
         // Check invariants at each step
-        EXPECT_LE(world->at(0, 0).dirty, prevSourceDirt);     // Source cell should always lose dirt.
-        EXPECT_GE(world->at(0, 1).dirty, prevTargetDirt);     // Target cell should always gain dirt.
-        EXPECT_LE(world->at(0, 0).dirty + world->at(0, 1).dirty, initialDirt + 0.0001); // Conservation of mass (with small epsilon).
-        EXPECT_GE(world->at(0, 0).dirty + world->at(0, 1).dirty, initialDirt - 0.0001); // Conservation of mass (with small epsilon).
+        EXPECT_LE(world->at(0, 0).dirt, prevSourceDirt);     // Source cell should always lose dirt.
+        EXPECT_GE(world->at(0, 1).dirt, prevTargetDirt);     // Target cell should always gain dirt.
+        EXPECT_LE(world->at(0, 0).dirt + world->at(0, 1).dirt, initialDirt + 0.0001); // Conservation of mass (with small epsilon).
+        EXPECT_GE(world->at(0, 0).dirt + world->at(0, 1).dirt, initialDirt - 0.0001); // Conservation of mass (with small epsilon).
 
-        if (world->at(0, 0).dirty > 0.0) {
+        if (world->at(0, 0).dirt > 0.0) {
             // If source cell has dirt, its COM should be moving down as dirt falls.
             EXPECT_GE(world->at(0, 0).com.y, prevSourceCom.y);
         }
 
         // Update previous values for next iteration.
-        prevSourceDirt = world->at(0, 0).dirty;
-        prevTargetDirt = world->at(0, 1).dirty;
+        prevSourceDirt = world->at(0, 0).dirt;
+        prevTargetDirt = world->at(0, 1).dirt;
         prevSourceCom = world->at(0, 0).com;
     }
 }
@@ -88,7 +88,7 @@ TEST_F(WorldTest, DirtTransferVerticalWithMomentum)
 //             bool foundNaN = false;
 //             for (int x = 0; x < 20; x++) {
 //                 for (int y = 0; y < 20; y++) {
-//                     double cellMass = world->at(x, y).dirty;
+//                     double cellMass = world->at(x, y).dirt;
 //                     if (std::isnan(cellMass)) {
 //                         if (!foundNaN) {
 //                             std::cout << "\nFound NaN at frame " << i << " in cell (" << x << "," << y << "):" << std::endl;
@@ -117,21 +117,21 @@ TEST_F(WorldTest, DirtTransferHorizontalWithMomentum) {
     world->setGravity(0.0); // Disable gravity for this test
     
     // Place all dirt in the left cell, with rightward velocity
-    world->at(0, 0).dirty = 1.0;
+    world->at(0, 0).dirt = 1.0;
     world->at(0, 0).com = Vector2d(0.0, 0.0);
     world->at(0, 0).v = Vector2d(1.0, 0.0); // Rightward
-    world->at(1, 0).dirty = 0.0;
+    world->at(1, 0).dirt = 0.0;
     world->at(1, 0).com = Vector2d(0.0, 0.0);
     world->at(1, 0).v = Vector2d(0.0, 0.0);
 
-    double prevLeft = world->at(0, 0).dirty;
-    double prevRight = world->at(1, 0).dirty;
+    double prevLeft = world->at(0, 0).dirt;
+    double prevRight = world->at(1, 0).dirt;
     double initialTotal = prevLeft + prevRight;
 
     for (int i = 0; i < 100; ++i) {
         world->advanceTime(16); // 16ms per frame
-        double left = world->at(0, 0).dirty;
-        double right = world->at(1, 0).dirty;
+        double left = world->at(0, 0).dirt;
+        double right = world->at(1, 0).dirt;
         std::cout << "Step " << i << ": left=" << left << ", right=" << right << std::endl;
         // Dirt should move from left to right
         EXPECT_LE(left, prevLeft);
@@ -145,8 +145,8 @@ TEST_F(WorldTest, DirtTransferHorizontalWithMomentum) {
         EXPECT_NEAR(world->at(1, 0).com.y, 0.0, 1e-4);
     }
     // At the end, most dirt should be in the right cell
-    EXPECT_LT(world->at(0, 0).dirty, 0.5);
-    EXPECT_GT(world->at(1, 0).dirty, 0.5);
+    EXPECT_LT(world->at(0, 0).dirt, 0.5);
+    EXPECT_GT(world->at(1, 0).dirt, 0.5);
 }
 
 TEST_F(WorldTest, GravityFreeDiagonalMovement) {
@@ -157,14 +157,14 @@ TEST_F(WorldTest, GravityFreeDiagonalMovement) {
     world->setGravity(0.0); // Disable gravity for this test
     
     // Place all dirt in the top-left cell with diagonal velocity
-    world->at(0, 0).dirty = 1.0;
+    world->at(0, 0).dirt = 1.0;
     world->at(0, 0).com = Vector2d(0.0, 0.0);
     world->at(0, 0).v = Vector2d(1.0, 1.0); // Diagonal movement
 
-    double prevTopLeft = world->at(0, 0).dirty;
-    double prevTopRight = world->at(1, 0).dirty;
-    double prevBottomLeft = world->at(0, 1).dirty;
-    double prevBottomRight = world->at(1, 1).dirty;
+    double prevTopLeft = world->at(0, 0).dirt;
+    double prevTopRight = world->at(1, 0).dirt;
+    double prevBottomLeft = world->at(0, 1).dirt;
+    double prevBottomRight = world->at(1, 1).dirt;
     double initialTotal = prevTopLeft + prevTopRight + prevBottomLeft + prevBottomRight;
     Vector2d prevCom = world->at(0, 0).com;
 
@@ -175,10 +175,10 @@ TEST_F(WorldTest, GravityFreeDiagonalMovement) {
         world->advanceTime(16); // 16ms per frame
         
         // Get current values
-        double topLeft = world->at(0, 0).dirty;
-        double topRight = world->at(1, 0).dirty;
-        double bottomLeft = world->at(0, 1).dirty;
-        double bottomRight = world->at(1, 1).dirty;
+        double topLeft = world->at(0, 0).dirt;
+        double topRight = world->at(1, 0).dirt;
+        double bottomLeft = world->at(0, 1).dirt;
+        double bottomRight = world->at(1, 1).dirt;
         Vector2d currentCom = world->at(0, 0).com;
 
         // Check mass conservation
@@ -225,8 +225,8 @@ TEST_F(WorldTest, GravityFreeDiagonalMovement) {
     }
 
     // At the end, the dirt should be in the bottom-right cell.
-    EXPECT_NEAR(world->at(1, 1).dirty, 1.0, 0.0001);
-    EXPECT_NEAR(world->at(0, 0).dirty, 0.0, 0.0001);
-    EXPECT_NEAR(world->at(0, 1).dirty, 0.0, 0.0001);
-    EXPECT_NEAR(world->at(1, 0).dirty, 0.0, 0.0001);
+    EXPECT_NEAR(world->at(1, 1).dirt, 1.0, 0.0001);
+    EXPECT_NEAR(world->at(0, 0).dirt, 0.0, 0.0001);
+    EXPECT_NEAR(world->at(0, 1).dirt, 0.0, 0.0001);
+    EXPECT_NEAR(world->at(1, 0).dirt, 0.0, 0.0001);
 }
