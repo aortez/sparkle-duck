@@ -2,12 +2,16 @@
 #include "src/lib/driver_backends.h"
 #include "src/lib/simulator_settings.h"
 #include "src/lib/simulator_util.h"
+#include "src/lib/simulator_loop.h"
 
 #include <string.h>
 #include <unistd.h>
 #include <math.h>
+#include <stdio.h>  // For fprintf and stdout
 
 #include "lvgl/lvgl.h"
+#include "lvgl/src/misc/lv_event.h"  // For LV_EVENT_* definitions
+#include "lvgl/src/core/lv_obj_event.h"  // For lv_event_code_t and other event types
 
 /* Internal functions */
 static void configure_simulator(int argc, char** argv);
@@ -16,7 +20,7 @@ static void print_usage();
 
 /* contains the name of the selected backend if user
  * has specified one on the command line */
-static char* selected_backend;
+static const char* selected_backend;
 
 /* Global simulator settings, defined in lv_linux_backend.c */
 extern simulator_settings_t settings;
@@ -27,6 +31,12 @@ static double timescale = 1.0;              // Default to 100% speed.
 static bool is_paused = false;              // Track pause state.
 static lv_obj_t* pause_label_ptr = nullptr; // Store pause label pointer.
 lv_obj_t* mass_label_ptr = nullptr;         // Store mass label pointer.
+lv_obj_t* fps_label_ptr = nullptr;          // Store FPS label pointer.
+
+// FPS tracking variables
+uint32_t frame_count = 0;      // Define frame counter
+uint32_t last_fps_update = 0;  // Define last FPS update time
+uint32_t fps = 0;              // Define FPS value
 
 // Static callback for pause button.
 static void pause_btn_event_cb(lv_event_t* e)
@@ -204,11 +214,13 @@ int main(int argc, char** argv)
         }
     }, LV_EVENT_ALL, &world);
 
+    // Create simulation loop state and event context
+    static SimulatorLoop::LoopState sim_state;
+
     // Create reset button.
     lv_obj_t* reset_btn = lv_btn_create(lv_scr_act());
     lv_obj_set_size(reset_btn, 100, 50);
     lv_obj_align(reset_btn, LV_ALIGN_TOP_RIGHT, -10, 10);
-
     lv_obj_t* reset_label = lv_label_create(reset_btn);
     lv_label_set_text(reset_label, "Reset");
     lv_obj_center(reset_label);
@@ -217,7 +229,6 @@ int main(int argc, char** argv)
     lv_obj_t* pause_btn = lv_btn_create(lv_scr_act());
     lv_obj_set_size(pause_btn, 100, 50);
     lv_obj_align(pause_btn, LV_ALIGN_TOP_RIGHT, -10, 70);
-
     lv_obj_t* pause_label = lv_label_create(pause_btn);
     lv_label_set_text(pause_label, "Pause");
     lv_obj_center(pause_label);
@@ -256,10 +267,30 @@ int main(int argc, char** argv)
     lv_obj_align(mass_label, LV_ALIGN_TOP_RIGHT, -10, 230);
     mass_label_ptr = mass_label; // Store pointer for updates.
 
+    // Create debug toggle button
+    lv_obj_t* debug_btn = lv_btn_create(lv_scr_act());
+    lv_obj_set_size(debug_btn, 100, 50);
+    lv_obj_align(debug_btn, LV_ALIGN_TOP_RIGHT, -10, 270);
+    lv_obj_t* debug_label = lv_label_create(debug_btn);
+    lv_label_set_text(debug_label, "Debug: Off");
+    lv_obj_center(debug_label);
+    lv_obj_add_event_cb(debug_btn, [](lv_event_t* e) {
+        Cell::debugDraw = !Cell::debugDraw;
+        const lv_obj_t* btn = static_cast<const lv_obj_t*>(lv_event_get_target(e));
+        lv_obj_t* label = lv_obj_get_child(btn, 0);
+        lv_label_set_text(label, Cell::debugDraw ? "Debug: On" : "Debug: Off");
+    }, LV_EVENT_CLICKED, NULL);
+
+    // Create FPS label
+    lv_obj_t* fps_label = lv_label_create(lv_scr_act());
+    lv_label_set_text(fps_label, "FPS: 0");
+    lv_obj_align(fps_label, LV_ALIGN_TOP_RIGHT, -10, 260);
+    fps_label_ptr = fps_label; // Store pointer for updates.
+
     // Create cursor force toggle button
     lv_obj_t* force_btn = lv_btn_create(lv_scr_act());
     lv_obj_set_size(force_btn, 100, 50);
-    lv_obj_align(force_btn, LV_ALIGN_TOP_RIGHT, -10, 290);
+    lv_obj_align(force_btn, LV_ALIGN_TOP_RIGHT, -10, 330);
 
     lv_obj_t* force_label = lv_label_create(force_btn);
     lv_label_set_text(force_label, "Force: Off");
@@ -300,7 +331,7 @@ int main(int argc, char** argv)
         LV_EVENT_ALL,
         timescale_value_label);
 
-    // Create callback for reset button.
+   // Create callback for reset button.
     lv_obj_add_event_cb(
         reset_btn,
         [](lv_event_t* e) {

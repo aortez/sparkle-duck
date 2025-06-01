@@ -2,4 +2,4 @@
 # Builds and runs it.
 set -uxo pipefail
 
-time ./build.sh && ./run.sh -b wayland
+time ./build.sh && ./run.sh

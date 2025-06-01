@@ -15,12 +15,14 @@
 /*********************
  *      INCLUDES
  *********************/
+#include "stdio.h"
 #include <stdbool.h>
 #include <stdlib.h>
 #include <unistd.h>
 
 #include "../World.h"
 #include "lvgl/lvgl.h"
+#include "simulator_loop.h"
 
 #if LV_USE_WAYLAND
 #include "../backends.h"
@@ -50,7 +52,7 @@ static char* backend_name = "WAYLAND";
  *  EXTERNAL VARIABLES
  **********************/
 extern simulator_settings_t settings;
-extern lv_obj_t* mass_label_ptr;  // Declare external mass label pointer.
+extern lv_obj_t* mass_label_ptr; // Declare external mass label pointer.
 
 /**********************
  *      MACROS
@@ -94,8 +96,8 @@ static lv_display_t* init_wayland(void)
     lv_display_t* disp;
     lv_group_t* g;
 
-    disp = lv_wayland_window_create(
-        settings.window_width, settings.window_height, "Dirt Sim", NULL);
+    disp =
+        lv_wayland_window_create(settings.window_width, settings.window_height, "Dirt Sim", NULL);
 
     if (disp == NULL) {
         die("Failed to initialize Wayland backend\n");
@@ -115,22 +117,25 @@ static lv_display_t* init_wayland(void)
 
     return disp;
 }
-#include "stdio.h"
+
 /**
+ *
  * The run loop of the DRM driver
  *
- * @note Currently, the wayland driver calls lv_timer_handler internaly
- * The wayland driver needs to be re-written to match the other backends
+ * @note Currently, the wayland driver calls lv_timer_handler internally.
+ * The wayland driver needs to be re-written to match the other backends.
  */
 static void run_loop_wayland(World& world)
 {
+    SimulatorLoop::LoopState state;
+    SimulatorLoop::initState(state);
+
     bool completed;
 
     /* Handle LVGL tasks */
     while (true) {
-        world.advanceTime(16);
-
-        world.draw();
+        // Process one frame of simulation.
+        SimulatorLoop::processFrame(world, state, 8);
 
         // Update mass label if it exists
         if (mass_label_ptr) {

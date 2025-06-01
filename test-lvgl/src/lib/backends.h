@@ -46,7 +46,7 @@ typedef enum { BACKEND_DISPLAY, BACKEND_INDEV } backend_type_t;
 /* Driver backend descriptor */
 typedef struct {
   backend_handle_t *handle;
-  char *name;
+  const char *name;
   backend_type_t type;
 } backend_t;
 

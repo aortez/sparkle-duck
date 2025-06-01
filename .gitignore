@@ -1,10 +1,13 @@
 *CMakeFiles*
+*CMakeCache.txt
+
 
 .cmake/
 .idea/
 .venv/
 .vscode/
 
+lvgl/
 test-lvgl/_deps
 test-lvgl/build/
 test-lvgl/wl_protocols/

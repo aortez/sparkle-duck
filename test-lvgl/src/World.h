@@ -1,13 +1,16 @@
 #pragma once
 
 #include "Cell.h"
+#include "Timers.h"
 
 #include <cstdint>
 #include <vector>
+#include <utility>
 
 class World {
 public:
     World(uint32_t width, uint32_t height, lv_obj_t* draw_area);
+    ~World();
 
     void advanceTime(uint32_t deltaTimeMs);
 
@@ -56,6 +59,9 @@ public:
     void updateCursorForce(int pixelX, int pixelY, bool isActive);
     void clearCursorForce() { cursorForceActive = false; }
 
+    // Add method to dump timer stats
+    void dumpTimerStats() const;
+
 private:
     lv_obj_t* draw_area;
     uint32_t width;
@@ -65,12 +71,12 @@ private:
     uint32_t timestep = 0;
 
     // Cursor force state
-    bool cursorForceEnabled = false;
+    bool cursorForceEnabled = true;
     bool cursorForceActive = false;
     int cursorForceX = 0;
     int cursorForceY = 0;
-    static constexpr double CURSOR_FORCE_STRENGTH = 50.0; // Adjust this to control force magnitude
-    static constexpr double CURSOR_FORCE_RADIUS = 3.0;    // Number of cells affected by cursor force
+    static constexpr double CURSOR_FORCE_STRENGTH = 10.0; // Adjust this to control force magnitude
+    static constexpr double CURSOR_FORCE_RADIUS = 5.0;    // Number of cells affected by cursor force
 
     // Minimum amount of dirt before it's considered "empty" and removed.
     static constexpr double MIN_DIRT_THRESHOLD = 0.001;
@@ -98,7 +104,7 @@ private:
     int lastDragCellY = -1;
     double lastCellOriginalDirt = 0.0;
     std::vector<std::pair<int, int>> recentPositions;
-    static const int MAX_RECENT_POSITIONS = 5;
+    static constexpr size_t MAX_RECENT_POSITIONS = 5;
 
     // Track pending drag end state
     struct PendingDragEnd {
@@ -115,4 +121,7 @@ private:
     
     // Helper to convert pixel coordinates to cell coordinates
     void pixelToCell(int pixelX, int pixelY, int& cellX, int& cellY) const;
+
+    // Add Timers member
+    Timers timers;
 };

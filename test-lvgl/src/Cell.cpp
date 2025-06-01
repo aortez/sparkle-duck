@@ -5,8 +5,18 @@
 
 #include "lvgl/lvgl.h"
 
-Cell::Cell() : dirty(0.0), buffer(), canvas(nullptr), com(0.0, 0.0), v(0.0, 0.0)
+bool Cell::debugDraw = true;
+
+Cell::Cell() : dirty(0.0), buffer(), canvas(nullptr), com(0.0, 0.0), v(0.0, 0.0), needsRedraw(true)
 {}
+
+void Cell::update(double newDirty, const Vector2d& newCom, const Vector2d& newV)
+{
+    dirty = newDirty;
+    com = newCom;
+    v = newV;
+    needsRedraw = true;
+}
 
 // Helper function to safely set a pixel on the canvas.
 static void safe_set_pixel(lv_obj_t* canvas, int x, int y, lv_color_t color, lv_opa_t opa)
@@ -18,6 +28,11 @@ static void safe_set_pixel(lv_obj_t* canvas, int x, int y, lv_color_t color, lv_
 
 void Cell::draw(lv_obj_t* parent, uint32_t x, uint32_t y)
 {
+    // Skip drawing if nothing has changed and canvas exists
+    if (!needsRedraw && canvas != nullptr) {
+        return;
+    }
+
     if (canvas == nullptr) {
         canvas = lv_canvas_create(parent);
         lv_obj_set_size(canvas, Cell::WIDTH, Cell::HEIGHT);
@@ -30,6 +45,7 @@ void Cell::draw(lv_obj_t* parent, uint32_t x, uint32_t y)
     lv_color_t black = lv_color_hex(0x000000);
     lv_color_t brown = lv_color_hex(0x8B4513); // Saddle brown color
     lv_color_t yellow = lv_color_hex(0xFFFF00);
+    lv_color_t white = lv_color_hex(0xFFFFFF);
 
     // Zero buffer.
     std::fill(buffer.begin(), buffer.end(), 0);
@@ -37,55 +53,65 @@ void Cell::draw(lv_obj_t* parent, uint32_t x, uint32_t y)
     // Calculate opacity based on dirt amount (0.0 to 1.0)
     lv_opa_t opacity = static_cast<lv_opa_t>(dirty * LV_OPA_COVER);
 
-    // Fill each pixel with brown color, using opacity based on dirt amount.
-    for (int y = 1; y < HEIGHT - 1; y++) {
-        for (int x = 1; x < WIDTH - 1; x++) {
-            safe_set_pixel(canvas, x, y, brown, opacity);
-        }
+    if (!debugDraw) {
+        // Normal mode: simple filled cell.
+        lv_canvas_fill_bg(canvas, brown, opacity);
+    }
+    else {
+        lv_layer_t layer;
+        lv_canvas_init_layer(canvas, &layer);
+
+        // Debug mode:
+        // 1. Fill background brown (opaque) and draw black border:
+        lv_draw_rect_dsc_t rect_dsc;
+        lv_draw_rect_dsc_init(&rect_dsc);
+        rect_dsc.bg_color = brown;
+        rect_dsc.bg_opa = opacity;
+        rect_dsc.border_color = lv_color_hex(0x000000);
+        rect_dsc.border_width = 1;
+        rect_dsc.radius = 1;
+        lv_area_t coords = { 0, 0, WIDTH, HEIGHT };
+        lv_draw_rect(&layer, &rect_dsc, &coords);
+
+        // 2. Draw center of mass.
+        int pixel_x = static_cast<int>((com.x + 1.0) * (WIDTH - 1) / 2.0);
+        int pixel_y = static_cast<int>((com.y + 1.0) * (HEIGHT - 1) / 2.0);
+
+        // 3. Draw center of mass.
+        lv_draw_arc_dsc_t dsc;
+        lv_draw_arc_dsc_init(&dsc);
+        dsc.color = lv_color_hex(0xFFFFFF);
+        dsc.center.x = pixel_x;
+        dsc.center.y = pixel_y;
+        dsc.width = 1;
+        dsc.radius = 3;
+        dsc.start_angle = 0;
+        dsc.end_angle = 360;
+
+        lv_draw_arc(&layer, &dsc);
+
+        // 4. Draw green velocity vector.
+        lv_draw_line_dsc_t line_dsc;
+        lv_draw_line_dsc_init(&line_dsc);
+        line_dsc.color = lv_color_hex(0x00FF00);
+        line_dsc.width = 2;
+        line_dsc.p1.x = pixel_x;
+        line_dsc.p1.y = pixel_y;
+        line_dsc.p2.x = pixel_x + static_cast<int>(v.x);
+        line_dsc.p2.y = pixel_y + static_cast<int>(v.y);
+
+        lv_draw_line(&layer, &line_dsc);
+
+        lv_canvas_finish_layer(canvas, &layer);
     }
 
-    // Draw a cross at the center of mass.
-    // First, scale the center of mass to the range [0,CELL_WIDTH/HEIGHT].
-    int pixel_x = static_cast<int>((com.x + 1.0) * (WIDTH - 1) / 2.0);
-    int pixel_y = static_cast<int>((com.y + 1.0) * (HEIGHT - 1) / 2.0);
+    // Mark that we've drawn the cell
+    needsRedraw = false;
+}
 
-    // Draw a white cross at the center of mass with black border.
-    lv_color_t white = lv_color_hex(0xFFFFFF);
-
-    // Draw black border first.
-    // Horizontal line border.
-    for (int x = -3; x <= 3; x++) {
-        safe_set_pixel(canvas, pixel_x + x, pixel_y - 1, black, LV_OPA_COVER);
-        safe_set_pixel(canvas, pixel_x + x, pixel_y + 1, black, LV_OPA_COVER);
-    }
-    // Vertical line border.
-    for (int y = -3; y <= 3; y++) {
-        safe_set_pixel(canvas, pixel_x - 1, pixel_y + y, black, LV_OPA_COVER);
-        safe_set_pixel(canvas, pixel_x + 1, pixel_y + y, black, LV_OPA_COVER);
-    }
-
-    // Draw white cross on top.
-    // Horizontal line.
-    for (int x = -2; x <= 2; x++) {
-        safe_set_pixel(canvas, pixel_x + x, pixel_y, white, LV_OPA_COVER);
-    }
-    // Vertical line.
-    for (int y = -2; y <= 2; y++) {
-        safe_set_pixel(canvas, pixel_x, pixel_y + y, white, LV_OPA_COVER);
-    }
-
-    // Draw border around the cell.
-    // Draw top and bottom borders.
-    for (int i = 0; i < WIDTH; i++) {
-        safe_set_pixel(canvas, i, 0, yellow, LV_OPA_COVER);          // Top border.
-        safe_set_pixel(canvas, i, HEIGHT - 1, yellow, LV_OPA_COVER); // Bottom border.
-    }
-
-    // Draw left and right borders.
-    for (int i = 0; i < HEIGHT; i++) {
-        safe_set_pixel(canvas, 0, i, yellow, LV_OPA_COVER);         // Left border.
-        safe_set_pixel(canvas, WIDTH - 1, i, yellow, LV_OPA_COVER); // Right border.
-    }
+void Cell::markDirty()
+{
+    needsRedraw = true;
 }
 
 std::string Cell::toString() const

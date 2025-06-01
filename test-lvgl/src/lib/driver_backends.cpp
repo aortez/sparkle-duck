@@ -137,11 +137,12 @@ void driver_backends_register(void)
 
         init_backend(b);
         backends[i] = b;
+        printf("[DEBUG] Registered backend: %s\n", b->name);
         i++;
     }
 }
 
-int driver_backends_init_backend(char* backend_name)
+int driver_backends_init_backend(const char* backend_name)
 {
     backend_t* b;
     int i;
@@ -170,12 +171,14 @@ int driver_backends_init_backend(char* backend_name)
         backend_name = backends[0]->name;
     }
 
+    printf("[DEBUG] Requested backend: %s\n", backend_name);
+
     i = 0;
     while ((b = backends[i]) != NULL) {
-
+        printf("[DEBUG] Checking backend: %s\n", b->name);
         /* Check if such a backend exists */
-        if (strcmp(b->name, backend_name) == 0) {
-
+        if (strcasecmp(b->name, backend_name) == 0) {
+            printf("[DEBUG] Selected backend: %s\n", b->name);
             if (b->type == BACKEND_DISPLAY) {
                 /* Initialize the display */
 
@@ -246,24 +249,23 @@ int driver_backends_print_supported(void)
     return 0;
 }
 
-int driver_backends_is_supported(char* backend_name)
+int driver_backends_is_supported(const char* backend_name)
 {
-    char c;
     backend_t* b;
-    char* name = backend_name;
     int i = 0;
-
-    while ((c = *backend_name) != '\0') {
-        *backend_name = toupper(c);
-        *backend_name++;
+    char name_buf[128];
+    size_t len = strlen(backend_name);
+    if (len >= sizeof(name_buf)) len = sizeof(name_buf) - 1;
+    for (size_t j = 0; j < len; ++j) {
+        name_buf[j] = toupper((unsigned char)backend_name[j]);
     }
+    name_buf[len] = '\0';
 
     while ((b = backends[i++]) != NULL) {
-        if (strcmp(b->name, name) == 0) {
+        if (strcmp(b->name, name_buf) == 0) {
             return 1;
         }
     }
-
     return 0;
 }
 

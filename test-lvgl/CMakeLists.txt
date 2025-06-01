@@ -97,7 +97,7 @@ string(APPEND LVGL_PKG_CONFIG_LIB "-llvgl_linux")
 file(GLOB LV_LINUX_SRC src/lib/*.c src/lib/*.cpp)
 set(LV_LINUX_INC src/lib)
 
-add_subdirectory(lvgl)
+add_subdirectory(../lvgl ${CMAKE_BINARY_DIR}/lvgl)
 target_include_directories(lvgl PUBLIC ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/src/lib ${PKG_CONFIG_INC})
 add_library(lvgl_linux STATIC ${LV_LINUX_SRC} ${LV_LINUX_BACKEND_SRC})
 target_include_directories(lvgl_linux PRIVATE ${LV_LINUX_INC} ${PROJECT_SOURCE_DIR})
@@ -107,9 +107,12 @@ add_executable(sparkle-duck
     src/Cell.cpp
     src/Vector2d.cpp
     src/World.cpp 
+    src/Timers.cpp
     ${LV_LINUX_SRC} 
     ${LV_LINUX_BACKEND_SRC})
-target_link_libraries(sparkle-duck lvgl_linux lvgl lvgl::examples lvgl::demos lvgl::thorvg m pthread ${PKG_CONFIG_LIB})
+target_link_libraries(sparkle-duck lvgl_linux lvgl lvgl::examples lvgl::demos lvgl::thorvg m pthread ${PKG_CONFIG_LIB} ${EXTRA_SDL_LDFLAGS})
+target_include_directories(sparkle-duck PRIVATE ${SDL2_INCLUDE_DIRS} ${SDL2_IMAGE_INCLUDE_DIRS})
+target_link_libraries(sparkle-duck lvgl_linux lvgl lvgl::examples lvgl::demos lvgl::thorvg m pthread ${PKG_CONFIG_LIB} ${SDL2_LIBRARIES} ${SDL2_IMAGE_LIBRARIES})
 
 # Install the lvgl_linux library and its headers
 install(DIRECTORY src/lib/
@@ -131,6 +134,7 @@ add_executable(sparkle-duck-tests
     src/Vector2d.cpp
     src/World.cpp
     src/Cell.cpp
+    src/Timers.cpp
 )
 target_link_libraries(sparkle-duck-tests
     PRIVATE

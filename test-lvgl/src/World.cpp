@@ -6,12 +6,11 @@
 #include <stdexcept>
 
 // #define LOG_DEBUG
-#ifdef LOG_DEBUG
+#ifdef LOG_DEBU
 #define LOG_DEBUG(x) std::cout << x << std::endl
 #else
 #define LOG_DEBUG(x) ((void)0)
 #endif
-
 
 // Debug logging specifically for particle events
 // #define LOG_PARTICLES
@@ -24,35 +23,32 @@
 namespace {
 // Track the next expected time for each event
 struct EventState {
-    double nextTopDrop = 0.33;      // First top drop at 0.33s
-    double nextInitialThrow = 0.17; // First throw at 0.17s
+    double nextTopDrop = 0.33;       // First top drop at 0.33s
+    double nextInitialThrow = 0.17;  // First throw at 0.17s
     double nextPeriodicThrow = 0.83; // First periodic throw at 0.83s
-    bool initialThrowDone = false;  // Track if initial throw has happened
-    bool topDropDone = false;       // Track if top drop has happened
+    bool initialThrowDone = false;   // Track if initial throw has happened
+    bool topDropDone = false;        // Track if top drop has happened
 };
 
 void addParticles(World& world, uint32_t timestep, double deltaTimeMs, double timescale)
 {
     static double lastSimTime = 0.0;
     static EventState eventState;
-    
+
     // Convert deltaTimeMs to seconds and apply timescale
     const double deltaTime = (deltaTimeMs / 1000.0) * timescale;
     const double simTime = lastSimTime + deltaTime;
 
-    LOG_PARTICLES("Timestep " << timestep << ": simTime=" << simTime 
-                 << ", lastSimTime=" << lastSimTime 
-                 << ", deltaTime=" << deltaTime 
-                 << ", timescale=" << timescale);
+    LOG_PARTICLES(
+        "Timestep " << timestep << ": simTime=" << simTime << ", lastSimTime=" << lastSimTime
+                    << ", deltaTime=" << deltaTime << ", timescale=" << timescale);
 
     // Drop a dirt from the top
     if (!eventState.topDropDone && simTime >= eventState.nextTopDrop) {
         LOG_PARTICLES("Adding top drop at time " << simTime);
         uint32_t centerX = world.getWidth() / 2;
         Cell& cell = world.at(centerX, 1); // 1 to be just below the top wall.
-        cell.dirty = 1.0;
-        cell.v = Vector2d(0.0, 0.0);
-        cell.com = Vector2d(0.0, 0.0);
+        cell.update(1.0, Vector2d(0.0, 0.0), Vector2d(0.0, 0.0));
         eventState.topDropDone = true;
     }
 
@@ -61,9 +57,7 @@ void addParticles(World& world, uint32_t timestep, double deltaTimeMs, double ti
         LOG_PARTICLES("Adding initial throw at time " << simTime);
         uint32_t centerY = world.getHeight() / 2;
         Cell& cell = world.at(2, centerY); // Against the left wall.
-        cell.dirty = 1.0;
-        cell.v = Vector2d(5, -5);
-        cell.com = Vector2d(0.0, 0.0);
+        cell.update(1.0, Vector2d(0.0, 0.0), Vector2d(5, -5));
         eventState.initialThrowDone = true;
     }
 
@@ -73,9 +67,7 @@ void addParticles(World& world, uint32_t timestep, double deltaTimeMs, double ti
         LOG_PARTICLES("Adding periodic throw at time " << simTime);
         uint32_t centerY = world.getHeight() / 2;
         Cell& cell = world.at(2, centerY); // Against the left wall.
-        cell.dirty = 1.0;
-        cell.v = Vector2d(10, -10);
-        cell.com = Vector2d(0.0, 0.0);
+        cell.update(1.0, Vector2d(0.0, 0.0), Vector2d(10, -10));
         // Schedule next throw
         eventState.nextPeriodicThrow += period;
     }
@@ -86,12 +78,26 @@ void addParticles(World& world, uint32_t timestep, double deltaTimeMs, double ti
 
 World::World(uint32_t width, uint32_t height, lv_obj_t* draw_area)
     : width(width), height(height), cells(width * height), draw_area(draw_area)
-{}
+{
+    // Initialize timers
+    timers.startTimer("total_simulation");
+}
+
+World::~World()
+{
+    // Stop the total simulation timer and dump stats
+    timers.stopTimer("total_simulation");
+    dumpTimerStats();
+}
 
 void World::advanceTime(uint32_t deltaTimeMs)
 {
+    timers.startTimer("advance_time");
+
     if (addParticlesEnabled) {
+        timers.startTimer("add_particles");
         addParticles(*this, timestep++, deltaTimeMs, timescale);
+        timers.stopTimer("add_particles");
     }
     else {
         timestep++;
@@ -103,18 +109,20 @@ void World::advanceTime(uint32_t deltaTimeMs)
 
     // Process any pending drag end
     if (pendingDragEnd.hasPendingEnd) {
-        if (pendingDragEnd.cellX >= 0 && pendingDragEnd.cellX < static_cast<int>(width) 
+        timers.startTimer("process_drag_end");
+        if (pendingDragEnd.cellX >= 0 && pendingDragEnd.cellX < static_cast<int>(width)
             && pendingDragEnd.cellY >= 0 && pendingDragEnd.cellY < static_cast<int>(height)) {
             Cell& cell = at(pendingDragEnd.cellX, pendingDragEnd.cellY);
-            cell.dirty = pendingDragEnd.dirt;
-            cell.v = pendingDragEnd.velocity;
-            cell.com = pendingDragEnd.com;
+            cell.update(pendingDragEnd.dirt, pendingDragEnd.com, pendingDragEnd.velocity);
 
-            LOG_DEBUG("Processed drag end at (" << pendingDragEnd.cellX << "," << pendingDragEnd.cellY 
-                      << ") with velocity (" << cell.v.x << "," << cell.v.y
-                      << ") and COM (" << cell.com.x << "," << cell.com.y << ")");
+            LOG_DEBUG(
+                "Processed drag end at (" << pendingDragEnd.cellX << "," << pendingDragEnd.cellY
+                                          << ") with velocity (" << cell.v.x << "," << cell.v.y
+                                          << ") and COM (" << cell.com.x << "," << cell.com.y
+                                          << ")");
         }
         pendingDragEnd.hasPendingEnd = false;
+        timers.stopTimer("process_drag_end");
     }
 
     struct DirtMove {
@@ -144,17 +152,15 @@ void World::advanceTime(uint32_t deltaTimeMs)
                 // Track the mass being removed.
                 removedMass += cell.dirty;
                 // Reset them to initial conditions.
-                cell.dirty = 0.0;
-                cell.com = Vector2d(0.0, 0.0);
-                cell.v = Vector2d(0.0, 0.0);
+                cell.update(0.0, Vector2d(0.0, 0.0), Vector2d(0.0, 0.0));
                 continue;
             }
 
             // Debug: Log initial state
             if (cell.v.x != 0.0 || cell.v.y != 0.0) {
-                LOG_DEBUG("Cell (" << x << "," << y << ") initial state: v=(" 
-                         << cell.v.x << "," << cell.v.y << "), com=(" 
-                         << cell.com.x << "," << cell.com.y << ")");
+                LOG_DEBUG(
+                    "Cell (" << x << "," << y << ") initial state: v=(" << cell.v.x << ","
+                             << cell.v.y << "), com=(" << cell.com.x << "," << cell.com.y << ")");
             }
 
             // Apply gravity.
@@ -165,10 +171,11 @@ void World::advanceTime(uint32_t deltaTimeMs)
                 double dx = cursorForceX - static_cast<int>(x);
                 double dy = cursorForceY - static_cast<int>(y);
                 double distance = std::sqrt(dx * dx + dy * dy);
-                
+
                 if (distance <= CURSOR_FORCE_RADIUS) {
                     // Calculate force based on distance (stronger when closer)
-                    double forceFactor = (1.0 - distance / CURSOR_FORCE_RADIUS) * CURSOR_FORCE_STRENGTH;
+                    double forceFactor =
+                        (1.0 - distance / CURSOR_FORCE_RADIUS) * CURSOR_FORCE_STRENGTH;
                     // Normalize direction and apply force
                     if (distance > 0) {
                         cell.v.x += (dx / distance) * forceFactor * timeStep;
@@ -183,7 +190,8 @@ void World::advanceTime(uint32_t deltaTimeMs)
             // Debug output for transfer logic.
             LOG_DEBUG(
                 "Cell (" << x << "," << y << "): predictedCom=(" << predictedCom.x << ","
-                         << predictedCom.y << "), v=(" << cell.v.x << "," << cell.v.y << "), com=(" << cell.com.x << "," << cell.com.y << "), dirty=" << cell.dirty);
+                         << predictedCom.y << "), v=(" << cell.v.x << "," << cell.v.y << "), com=("
+                         << cell.com.x << "," << cell.com.y << "), dirty=" << cell.dirty);
 
             // Calculate if predicted COM will be in neighboring cell space or moving toward it.
             bool shouldTransferX = false;
@@ -217,7 +225,7 @@ void World::advanceTime(uint32_t deltaTimeMs)
                 comOffset.y = predictedCom.y - 2.0;
                 LOG_DEBUG(
                     "  Transfer down: predictedCom.y=" << predictedCom.y << ", v.y=" << cell.v.y
-                                                    << ", com.y=" << cell.com.y);
+                                                       << ", com.y=" << cell.com.y);
             }
             else if (predictedCom.y < -1.0) {
                 shouldTransferY = true;
@@ -225,7 +233,7 @@ void World::advanceTime(uint32_t deltaTimeMs)
                 comOffset.y = predictedCom.y + 2.0;
                 LOG_DEBUG(
                     "  Transfer up: predictedCom.y=" << predictedCom.y << ", v.y=" << cell.v.y
-                                                    << ", com.y=" << cell.com.y);
+                                                     << ", com.y=" << cell.com.y);
             }
 
             // If no transfer needed in a direction, preserve that component of the COM
@@ -240,30 +248,31 @@ void World::advanceTime(uint32_t deltaTimeMs)
             // Otherwise go ahead and execute local moves immediately.
             if (!shouldTransferX && !shouldTransferY) {
                 // Move COM internally.
-                cell.com = predictedCom;
+                cell.update(cell.dirty, predictedCom, cell.v);
                 continue;
             }
-            
+
             // Queue moves for transfer.
             // Only queue move if target is within bounds.
-            // TODO: Eventually we will want to implement reflections, rather than skipping the move.
+            // TODO: Eventually we will want to implement reflections, rather than skipping the
+            // move.
             if (targetX >= 0 && targetX < width && targetY >= 0 && targetY < height) {
                 Cell& targetCell = at(targetX, targetY);
                 // Calculate transfer amount based on available dirt and space.
                 const double moveAmount = std::min({
-                    cell.dirty,                  // Can't move more than exists.
-                    1 - targetCell.dirty               // Can't exceed target cell's capacity.
+                    cell.dirty,          // Can't move more than exists.
+                    1 - targetCell.dirty // Can't exceed target cell's capacity.
                 });
 
                 // Only queue move if there's actually dirt to move
                 if (moveAmount > 0.0) {
                     moves.push_back({ x,
-                                        y,
-                                        static_cast<uint32_t>(targetX),
-                                        static_cast<uint32_t>(targetY),
-                                        moveAmount,
-                                        0.0,
-                                        comOffset });
+                                      y,
+                                      static_cast<uint32_t>(targetX),
+                                      static_cast<uint32_t>(targetY),
+                                      moveAmount,
+                                      0.0,
+                                      comOffset });
                     LOG_DEBUG(
                         "  Queued move: from=(" << x << "," << y << "), to=(" << targetX << ","
                                                 << targetY << "), amount=" << moveAmount);
@@ -283,10 +292,11 @@ void World::advanceTime(uint32_t deltaTimeMs)
         Cell& targetCell = at(move.toX, move.toY);
 
         // Debug: Log transfer state
-        LOG_DEBUG("Transfer: from=(" << move.fromX << "," << move.fromY 
-                  << ") to=(" << move.toX << "," << move.toY 
-                  << ") source_v=(" << sourceCell.v.x << "," << sourceCell.v.y 
-                  << ") target_v=(" << targetCell.v.x << "," << targetCell.v.y << ")");
+        LOG_DEBUG(
+            "Transfer: from=(" << move.fromX << "," << move.fromY << ") to=(" << move.toX << ","
+                               << move.toY << ") source_v=(" << sourceCell.v.x << ","
+                               << sourceCell.v.y << ") target_v=(" << targetCell.v.x << ","
+                               << targetCell.v.y << ")");
 
         // Calculate maximum possible transfer while respecting capacity
         const double availableSpace = 1.0 - targetCell.dirty;
@@ -304,11 +314,11 @@ void World::advanceTime(uint32_t deltaTimeMs)
         const double moveFraction = moveAmount / sourceCell.dirty;
 
         // Update source cell
-        sourceCell.dirty -= moveAmount;
+        sourceCell.update(sourceCell.dirty - moveAmount, sourceCell.com, sourceCell.v);
 
         // Update target cell
         const double oldTargetMass = targetCell.dirty;
-        targetCell.dirty += moveAmount;
+        targetCell.update(targetCell.dirty + moveAmount, targetCell.com, targetCell.v);
 
         // Calculate the expected COM position in the target cell based on the actual movement
         // The COM offset represents how far the dirt moved during this timestep
@@ -317,35 +327,38 @@ void World::advanceTime(uint32_t deltaTimeMs)
         // Update target cell's COM using weighted average
         if (oldTargetMass == 0.0) {
             // First dirt in cell, use the expected COM directly
-            targetCell.com = expectedCom;
+            targetCell.update(targetCell.dirty, expectedCom, targetCell.v);
         }
         else {
             // Weighted average of existing COM and the new COM based on mass.
             // This preserves both mass and energy in the system.
-            targetCell.com =
+            Vector2d newCom =
                 (targetCell.com * oldTargetMass + expectedCom * moveAmount) / targetCell.dirty;
+            targetCell.update(targetCell.dirty, newCom, targetCell.v);
         }
 
         // Transfer momentum.
         if (targetCell.dirty > 0.0) {
-            targetCell.v =
+            Vector2d newV =
                 (targetCell.v * oldTargetMass + sourceCell.v * moveAmount) / targetCell.dirty;
+            targetCell.update(targetCell.dirty, targetCell.com, newV);
         }
 
         // Update source cell's COM and velocity if any dirt remains.
         if (sourceCell.dirty > 0.0) {
-            sourceCell.v *= (1.0 - moveFraction);
-            // Adjust source COM to account for removed mass.
-            sourceCell.com = sourceCell.com * (1.0 - moveFraction);
+            Vector2d newV = sourceCell.v * (1.0 - moveFraction);
+            Vector2d newCom = sourceCell.com * (1.0 - moveFraction);
+            sourceCell.update(sourceCell.dirty - moveAmount, newCom, newV);
         }
         else {
-            sourceCell.v = Vector2d(0.0, 0.0);
-            sourceCell.com = Vector2d(0.0, 0.0);
+            sourceCell.update(0.0, Vector2d(0.0, 0.0), Vector2d(0.0, 0.0));
         }
 
         // Debug: Log final state
-        LOG_DEBUG("After transfer: source_v=(" << sourceCell.v.x << "," << sourceCell.v.y 
-                  << ") target_v=(" << targetCell.v.x << "," << targetCell.v.y << ")");
+        LOG_DEBUG(
+            "After transfer: source_v=(" << sourceCell.v.x << "," << sourceCell.v.y
+                                         << ") target_v=(" << targetCell.v.x << ","
+                                         << targetCell.v.y << ")");
     }
 
     // Update total mass after all moves are complete.
@@ -355,13 +368,16 @@ void World::advanceTime(uint32_t deltaTimeMs)
             totalMass += at(x, y).dirty;
         }
     }
+
+    timers.stopTimer("advance_time");
 }
 
 Cell& World::at(uint32_t x, uint32_t y)
 {
     if (x >= width || y >= height) {
-        LOG_DEBUG("World::at: Attempted to access coordinates (" << x << "," << y
-                  << ") but world size is " << width << "x" << height);
+        LOG_DEBUG(
+            "World::at: Attempted to access coordinates ("
+            << x << "," << y << ") but world size is " << width << "x" << height);
         throw std::out_of_range("World::at: Coordinates out of range");
     }
     return cells[coordToIndex(x, y)];
@@ -370,8 +386,9 @@ Cell& World::at(uint32_t x, uint32_t y)
 const Cell& World::at(uint32_t x, uint32_t y) const
 {
     if (x >= width || y >= height) {
-        LOG_DEBUG("World::at: Attempted to access coordinates (" << x << "," << y
-                  << ") but world size is " << width << "x" << height);
+        LOG_DEBUG(
+            "World::at: Attempted to access coordinates ("
+            << x << "," << y << ") but world size is " << width << "x" << height);
         throw std::out_of_range("World::at: Coordinates out of range");
     }
     return cells[coordToIndex(x, y)];
@@ -388,11 +405,13 @@ void World::draw()
         return;
     }
 
+    timers.startTimer("draw");
     for (uint32_t y = 0; y < height; y++) {
         for (uint32_t x = 0; x < width; x++) {
             at(x, y).draw(draw_area, x, y);
         }
     }
+    timers.stopTimer("draw");
 }
 
 uint32_t World::getWidth() const
@@ -409,8 +428,8 @@ void World::fillWithDirt()
 {
     for (uint32_t y = 0; y < height; y++) {
         for (uint32_t x = 0; x < width; x++) {
-            at(x, y).dirty = 0.5;
-            at(x, y).v = Vector2d(1, 0.0);
+            at(x, y).update(0.5, Vector2d(0.0, 0.0), Vector2d(1, 0.0));
+            at(x, y).markDirty();
         }
     }
 }
@@ -419,11 +438,14 @@ void World::makeWalls()
 {
     for (uint32_t x = 0; x < width; x++) {
         //        at(x, 0).dirty = 1.0;
-        at(x, height - 1).dirty = 1.0;
+        at(x, height - 1).update(1.0, Vector2d(0.0, 0.0), Vector2d(0.0, 0.0));
+        at(x, height - 1).markDirty();
     }
     for (uint32_t y = 0; y < height; y++) {
-        at(0, y).dirty = 1.0;
-        at(width - 1, y).dirty = 1.0;
+        at(0, y).update(1.0, Vector2d(0.0, 0.0), Vector2d(0.0, 0.0));
+        at(0, y).markDirty();
+        at(width - 1, y).update(1.0, Vector2d(0.0, 0.0), Vector2d(0.0, 0.0));
+        at(width - 1, y).markDirty();
     }
 }
 
@@ -445,9 +467,8 @@ void World::addDirtAtPixel(int pixelX, int pixelY)
     if (cellX >= 0 && cellX < static_cast<int>(width) && cellY >= 0
         && cellY < static_cast<int>(height)) {
         Cell& cell = at(cellX, cellY);
-        cell.dirty = 1.0;
-        cell.v = Vector2d(0.0, 0.0);
-        cell.com = Vector2d(0.0, 0.0);
+        cell.update(1.0, Vector2d(0.0, 0.0), Vector2d(0.0, 0.0));
+        cell.markDirty();
     }
 }
 
@@ -462,7 +483,8 @@ void World::restoreLastDragCell()
     if (lastDragCellX >= 0 && lastDragCellY >= 0 && lastDragCellX < static_cast<int>(width)
         && lastDragCellY < static_cast<int>(height)) {
         Cell& cell = at(lastDragCellX, lastDragCellY);
-        cell.dirty = lastCellOriginalDirt;
+        cell.update(lastCellOriginalDirt, cell.com, cell.v);
+        cell.markDirty();
         // Don't modify velocity or COM when restoring - they'll be set properly in endDragging
     }
     lastDragCellX = -1;
@@ -495,17 +517,16 @@ void World::startDragging(int pixelX, int pixelY)
             draggedCom = Vector2d(subCellX * 2.0 - 1.0, subCellY * 2.0 - 1.0);
 
             // Clear the source cell
-            cell.dirty = 0.0;
-            cell.v = Vector2d(0.0, 0.0);
-            cell.com = Vector2d(0.0, 0.0);
+            cell.update(0.0, Vector2d(0.0, 0.0), Vector2d(0.0, 0.0));
+            cell.markDirty();
 
             // Visual feedback: fill the cell under the cursor
             restoreLastDragCell();
             lastDragCellX = cellX;
             lastDragCellY = cellY;
             lastCellOriginalDirt = 0.0; // Already set to 0 above
-            cell.dirty = draggedDirt;
-            cell.com = draggedCom;
+            cell.update(draggedDirt, draggedCom, cell.v);
+            cell.markDirty();
 
             // Initialize recent positions
             recentPositions.clear();
@@ -541,12 +562,14 @@ void World::updateDrag(int pixelX, int pixelY)
             lastDragCellX = cellX;
             lastDragCellY = cellY;
             lastCellOriginalDirt = cell.dirty;
-            cell.dirty = draggedDirt;
-            cell.com = draggedCom;
-        } else {
+            cell.update(draggedDirt, draggedCom, cell.v);
+            cell.markDirty();
+        }
+        else {
             // Update COM even if we're in the same cell
             Cell& cell = at(cellX, cellY);
-            cell.com = draggedCom;
+            cell.update(cell.dirty, draggedCom, cell.v);
+            cell.markDirty();
         }
 
         // Track recent positions
@@ -556,10 +579,11 @@ void World::updateDrag(int pixelX, int pixelY)
         }
 
         // Debug: Print current drag state
-        LOG_DEBUG("Drag Update - Cell: (" << cellX << "," << cellY
-                  << ") COM: (" << draggedCom.x << "," << draggedCom.y
-                  << ") Recent positions: " << recentPositions.size() 
-                  << " Current velocity: (" << draggedVelocity.x << "," << draggedVelocity.y << ")");
+        LOG_DEBUG(
+            "Drag Update - Cell: ("
+            << cellX << "," << cellY << ") COM: (" << draggedCom.x << "," << draggedCom.y
+            << ") Recent positions: " << recentPositions.size() << " Current velocity: ("
+            << draggedVelocity.x << "," << draggedVelocity.y << ")");
     }
 }
 
@@ -606,8 +630,9 @@ void World::endDragging(int pixelX, int pixelY)
             // Scale by cell size and a factor for better feel
             draggedVelocity = Vector2d(avgDx * Cell::WIDTH * 2.0, avgDy * Cell::HEIGHT * 2.0);
 
-            LOG_DEBUG("Final velocity before placement: (" << draggedVelocity.x << "," << draggedVelocity.y
-                      << ")");
+            LOG_DEBUG(
+                "Final velocity before placement: (" << draggedVelocity.x << ","
+                                                     << draggedVelocity.y << ")");
         }
         else {
             LOG_DEBUG("Not enough positions for velocity calculation");
@@ -621,9 +646,10 @@ void World::endDragging(int pixelX, int pixelY)
         pendingDragEnd.velocity = draggedVelocity;
         pendingDragEnd.com = draggedCom;
 
-        LOG_DEBUG("Queued drag end at (" << cellX << "," << cellY 
-                  << ") with velocity (" << draggedVelocity.x << "," << draggedVelocity.y
-                  << ") and COM (" << draggedCom.x << "," << draggedCom.y << ")");
+        LOG_DEBUG(
+            "Queued drag end at (" << cellX << "," << cellY << ") with velocity ("
+                                   << draggedVelocity.x << "," << draggedVelocity.y << ") and COM ("
+                                   << draggedCom.x << "," << draggedCom.y << ")");
     }
 
     // Reset drag state
@@ -637,9 +663,56 @@ void World::endDragging(int pixelX, int pixelY)
 void World::updateCursorForce(int pixelX, int pixelY, bool isActive)
 {
     if (!cursorForceEnabled) return;
-    
+
     cursorForceActive = isActive;
     if (isActive) {
         pixelToCell(pixelX, pixelY, cursorForceX, cursorForceY);
     }
+}
+
+void World::dumpTimerStats() const
+{
+    std::cout << "\nTimer Statistics:" << std::endl;
+    std::cout << "----------------" << std::endl;
+
+    // Get total simulation time
+    double totalTime = timers.getAccumulatedTime("total_simulation");
+    uint32_t totalCalls = timers.getCallCount("total_simulation");
+    std::cout << "Total Simulation Time: " << totalTime << "ms ("
+              << (totalCalls > 0 ? totalTime / totalCalls : 0) << "ms avg per call, " << totalCalls
+              << " calls)" << std::endl;
+
+    // Get advance time stats
+    double advanceTime = timers.getAccumulatedTime("advance_time");
+    uint32_t advanceCalls = timers.getCallCount("advance_time");
+    std::cout << "Physics Update Time: " << advanceTime << "ms ("
+              << (advanceTime / totalTime * 100.0) << "% of total, "
+              << (advanceCalls > 0 ? advanceTime / advanceCalls : 0) << "ms avg per call, "
+              << advanceCalls << " calls)" << std::endl;
+
+    // Get draw time stats
+    double drawTime = timers.getAccumulatedTime("draw");
+    uint32_t drawCalls = timers.getCallCount("draw");
+    std::cout << "Drawing Time: " << drawTime << "ms (" << (drawTime / totalTime * 100.0)
+              << "% of total, " << (drawCalls > 0 ? drawTime / drawCalls : 0) << "ms avg per call, "
+              << drawCalls << " calls)" << std::endl;
+
+    // Get particle addition time if enabled
+    if (addParticlesEnabled) {
+        double particleTime = timers.getAccumulatedTime("add_particles");
+        uint32_t particleCalls = timers.getCallCount("add_particles");
+        std::cout << "Particle Addition Time: " << particleTime << "ms ("
+                  << (particleTime / totalTime * 100.0) << "% of total, "
+                  << (particleCalls > 0 ? particleTime / particleCalls : 0) << "ms avg per call, "
+                  << particleCalls << " calls)" << std::endl;
+    }
+
+    // Get drag processing time
+    double dragTime = timers.getAccumulatedTime("process_drag_end");
+    uint32_t dragCalls = timers.getCallCount("process_drag_end");
+    std::cout << "Drag Processing Time: " << dragTime << "ms (" << (dragTime / totalTime * 100.0)
+              << "% of total, " << (dragCalls > 0 ? dragTime / dragCalls : 0) << "ms avg per call, "
+              << dragCalls << " calls)" << std::endl;
+
+    std::cout << "----------------" << std::endl;
 }
