@@ -261,7 +261,7 @@ void World::advanceTime(uint32_t deltaTimeMs)
             if (predictedCom.x > 1.0) {
                 shouldTransferX = true;
                 targetX = x + 1;
-                comOffset.x = predictedCom.x - 2.0;
+                comOffset.x = std::min(predictedCom.x - 2.0, 1.0);
                 LOG_DEBUG(
                     "  Transfer right: predictedCom.x=" << predictedCom.x << ", v.x=" << cell.v.x
                                                         << ", com.x=" << cell.com.x);
@@ -269,7 +269,7 @@ void World::advanceTime(uint32_t deltaTimeMs)
             else if (predictedCom.x < -1.0) {
                 shouldTransferX = true;
                 targetX = x - 1;
-                comOffset.x = predictedCom.x + 2.0;
+                comOffset.x = std::max(predictedCom.x + 2.0, -1.0);
                 LOG_DEBUG(
                     "  Transfer left: predictedCom.x=" << predictedCom.x << ", v.x=" << cell.v.x
                                                        << ", com.x=" << cell.com.x);
@@ -279,7 +279,7 @@ void World::advanceTime(uint32_t deltaTimeMs)
             if (predictedCom.y > 1.0) {
                 shouldTransferY = true;
                 targetY = y + 1;
-                comOffset.y = predictedCom.y - 2.0;
+                comOffset.y = std::min(predictedCom.y - 2.0, 1.0);
                 LOG_DEBUG(
                     "  Transfer down: predictedCom.y=" << predictedCom.y << ", v.y=" << cell.v.y
                                                        << ", com.y=" << cell.com.y);
@@ -287,18 +287,10 @@ void World::advanceTime(uint32_t deltaTimeMs)
             else if (predictedCom.y < -1.0) {
                 shouldTransferY = true;
                 targetY = y - 1;
-                comOffset.y = predictedCom.y + 2.0;
+                comOffset.y = std::max(predictedCom.y + 2.0, -1.0);
                 LOG_DEBUG(
                     "  Transfer up: predictedCom.y=" << predictedCom.y << ", v.y=" << cell.v.y
                                                      << ", com.y=" << cell.com.y);
-            }
-
-            // If no transfer needed in a direction, preserve that component of the COM
-            if (!shouldTransferX) {
-                comOffset.x = predictedCom.x;
-            }
-            if (!shouldTransferY) {
-                comOffset.y = predictedCom.y;
             }
 
             // Only queue moves if the predicted COM will be in neighboring cell space.
@@ -322,7 +314,7 @@ void World::advanceTime(uint32_t deltaTimeMs)
                 });
 
                 // Only queue move if there's actually dirt to move
-                if (moveAmount > 0.0) {
+                // if (moveAmount > 0.0) {
                     moves.push_back({ x,
                                       y,
                                       static_cast<uint32_t>(targetX),
@@ -333,7 +325,7 @@ void World::advanceTime(uint32_t deltaTimeMs)
                     LOG_DEBUG(
                         "  Queued move: from=(" << x << "," << y << "), to=(" << targetX << ","
                                                 << targetY << "), amount=" << moveAmount);
-                }
+                // }
             }
         }
     }
@@ -364,6 +356,32 @@ void World::advanceTime(uint32_t deltaTimeMs)
         });
 
         if (moveAmount <= 0.0) {
+            // Instead of skipping, handle internal reflection
+            // Calculate the normal vector for reflection
+            Vector2d normal = Vector2d((int)move.toX - (int)move.fromX, (int)move.toY - (int)move.fromY).normalize();
+            
+            // Project velocity onto normal and reflect it
+            double vn = sourceCell.v.dot(normal);
+            Vector2d vt = sourceCell.v - normal * vn;
+            
+            // Reflect with elasticity
+            double elasticity = World::ELASTICITY_FACTOR;
+            double vn_after = -vn * elasticity;
+            
+            // Update velocity with reflected component
+            sourceCell.v = vt + normal * vn_after;
+            
+            // Update COM to stay within cell bounds
+            Vector2d newCom = sourceCell.com;
+            if (normal.x != 0.0) {
+                newCom.x = std::clamp(newCom.x, -1.0, 1.0);
+            }
+            if (normal.y != 0.0) {
+                newCom.y = std::clamp(newCom.y, -1.0, 1.0);
+            }
+            
+            // Update the cell with new COM and reflected velocity
+            sourceCell.update(sourceCell.dirty, newCom, sourceCell.v);
             continue;
         }
 
