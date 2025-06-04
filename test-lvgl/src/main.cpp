@@ -172,12 +172,16 @@ int main(int argc, char** argv)
 
     // Create a drawing area.
     lv_obj_t* draw_area = lv_obj_create(lv_scr_act());
-    lv_obj_set_size(draw_area, 800, 800);
+    lv_obj_set_size(draw_area, 850, 850);  // Slightly larger than 800x800
     lv_obj_align(draw_area, LV_ALIGN_LEFT_MID, 0, 0);
     lv_obj_set_style_pad_all(draw_area, 0, 0);  // Ensure no padding affects positioning
 
+    // Calculate grid size based on cell size and drawing area
+    const int grid_width = (850 / Cell::WIDTH) - 1;  // One fewer than would fit perfectly
+    const int grid_height = (850 / Cell::HEIGHT) - 1; // One fewer than would fit perfectly
+
     // Create a world.
-    World world(25, 25, draw_area);
+    World world(grid_width, grid_height, draw_area);
     world.fillWithDirt();
     world.makeWalls();
 
@@ -273,6 +277,24 @@ int main(int argc, char** argv)
     lv_label_set_text(force_label, "Force: Off");
     lv_obj_center(force_label);
 
+    // Create gravity toggle button
+    lv_obj_t* gravity_btn = lv_btn_create(lv_scr_act());
+    lv_obj_set_size(gravity_btn, control_width, 50);
+    lv_obj_align(gravity_btn, LV_ALIGN_TOP_RIGHT, -10, 250);
+    lv_obj_t* gravity_label = lv_label_create(gravity_btn);
+    lv_label_set_text(gravity_label, "Gravity: On");
+    lv_obj_center(gravity_label);
+    lv_obj_add_event_cb(gravity_btn, [](lv_event_t* e) {
+        if (world_ptr) {
+            static bool gravity_enabled = true;
+            gravity_enabled = !gravity_enabled;
+            world_ptr->setGravity(gravity_enabled ? 9.81 : 0.0);
+            const lv_obj_t* btn = static_cast<const lv_obj_t*>(lv_event_get_target(e));
+            lv_obj_t* label = lv_obj_get_child(btn, 0);
+            lv_label_set_text(label, gravity_enabled ? "Gravity: On" : "Gravity: Off");
+        }
+    }, LV_EVENT_CLICKED, NULL);
+
     // Create timescale slider (moved down)
     lv_obj_t* slider_label = lv_label_create(lv_scr_act());
     lv_label_set_text(slider_label, "Timescale");
@@ -312,14 +334,171 @@ int main(int argc, char** argv)
 
     // Create label to show current fragmentation value
     lv_obj_t* fragmentation_value_label = lv_label_create(lv_scr_act());
-    lv_label_set_text(fragmentation_value_label, "0.0001");
+    lv_label_set_text(fragmentation_value_label, "0.0");
     lv_obj_align(fragmentation_value_label, LV_ALIGN_TOP_RIGHT, -165, 370);
 
     lv_obj_t* fragmentation_slider = lv_slider_create(lv_scr_act());
     lv_obj_set_size(fragmentation_slider, control_width, 10);
     lv_obj_align(fragmentation_slider, LV_ALIGN_TOP_RIGHT, -10, 390);
     lv_slider_set_range(fragmentation_slider, 0, 100);           // Range [0, 100] for quadratic mapping
-    lv_slider_set_value(fragmentation_slider, 20, LV_ANIM_OFF);  // Start at 0.1 (20^2/10000 = 0.04)
+    lv_slider_set_value(fragmentation_slider, 0, LV_ANIM_OFF);
+
+    // Create cell size slider
+    lv_obj_t* cell_size_label = lv_label_create(lv_scr_act());
+    lv_label_set_text(cell_size_label, "Cell Size");
+    lv_obj_align(cell_size_label, LV_ALIGN_TOP_RIGHT, -10, 410);
+
+    // Create label to show current cell size value
+    lv_obj_t* cell_size_value_label = lv_label_create(lv_scr_act());
+    lv_label_set_text(cell_size_value_label, "50");
+    lv_obj_align(cell_size_value_label, LV_ALIGN_TOP_RIGHT, -120, 410);
+
+    lv_obj_t* cell_size_slider = lv_slider_create(lv_scr_act());
+    lv_obj_set_size(cell_size_slider, control_width, 10);
+    lv_obj_align(cell_size_slider, LV_ALIGN_TOP_RIGHT, -10, 430);
+    lv_slider_set_range(cell_size_slider, 10, 50);           // Range [10, 50] pixels
+    lv_slider_set_value(cell_size_slider, 50, LV_ANIM_OFF);  // Start at 50 pixels
+
+    // Create pressure scale slider
+    lv_obj_t* pressure_label = lv_label_create(lv_scr_act());
+    lv_label_set_text(pressure_label, "Pressure Scale");
+    lv_obj_align(pressure_label, LV_ALIGN_TOP_RIGHT, -10, 450);
+
+    // Create label to show current pressure scale value
+    lv_obj_t* pressure_value_label = lv_label_create(lv_scr_act());
+    lv_label_set_text(pressure_value_label, "1.0");
+    lv_obj_align(pressure_value_label, LV_ALIGN_TOP_RIGHT, -120, 450);
+
+    lv_obj_t* pressure_slider = lv_slider_create(lv_scr_act());
+    lv_obj_set_size(pressure_slider, control_width, 10);
+    lv_obj_align(pressure_slider, LV_ALIGN_TOP_RIGHT, -10, 470);
+    lv_slider_set_range(pressure_slider, 0, 200);           // Range [0, 2] with 0.01 steps
+    lv_slider_set_value(pressure_slider, 100, LV_ANIM_OFF);  // Start at 1.0
+
+    // Create callback for pressure scale slider
+    lv_obj_add_event_cb(
+        pressure_slider,
+        [](lv_event_t* e) {
+            lv_obj_t* slider = static_cast<lv_obj_t*>(lv_event_get_target(e));
+            lv_obj_t* pressure_value_label = static_cast<lv_obj_t*>(lv_event_get_user_data(e));
+            if (lv_event_get_code(e) == LV_EVENT_VALUE_CHANGED) {
+                int32_t value = lv_slider_get_value(slider);
+                double pressure_scale = value / 100.0;  // Convert to [0, 2] range
+                if (world_ptr) {
+                    world_ptr->setPressureScale(pressure_scale);
+                }
+                // Update the pressure scale value label
+                char buf[16];
+                snprintf(buf, sizeof(buf), "%.2f", pressure_scale);
+                lv_label_set_text(pressure_value_label, buf);
+            }
+        },
+        LV_EVENT_ALL,
+        pressure_value_label);
+
+    // Create callback for cell size slider
+    lv_obj_add_event_cb(
+        cell_size_slider,
+        [](lv_event_t* e) {
+            lv_obj_t* slider = static_cast<lv_obj_t*>(lv_event_get_target(e));
+            lv_obj_t* cell_size_value_label = static_cast<lv_obj_t*>(lv_event_get_user_data(e));
+            if (lv_event_get_code(e) == LV_EVENT_VALUE_CHANGED) {
+                int32_t value = lv_slider_get_value(slider);
+                Cell::setSize(value);
+                if (world_ptr) {
+                    // Calculate new grid dimensions to maintain roughly constant total area
+                    // Target area is approximately 850x850 pixels
+                    const int target_width = 850;
+                    const int target_height = 850;
+                    const int new_width = std::max(10, (target_width / value) - 1);  // One fewer than would fit perfectly
+                    const int new_height = std::max(10, (target_height / value) - 1); // One fewer than would fit perfectly
+                    
+                    // Store old world dimensions and cell data
+                    const uint32_t old_width = world_ptr->getWidth();
+                    const uint32_t old_height = world_ptr->getHeight();
+                    std::vector<double> old_dirt(old_width * old_height);
+                    std::vector<double> old_water(old_width * old_height);
+                    
+                    // Copy old world data
+                    for (uint32_t y = 0; y < old_height; y++) {
+                        for (uint32_t x = 0; x < old_width; x++) {
+                            const Cell& cell = world_ptr->at(x, y);
+                            old_dirt[y * old_width + x] = cell.dirt;
+                            old_water[y * old_width + x] = cell.water;
+                        }
+                    }
+                    
+                    // Create new world in temporary location
+                    World* new_world = new World(new_width, new_height, world_ptr->getDrawArea());
+                    
+                    // Bilinear interpolation for all cells
+                    for (uint32_t y = 0; y < new_height; y++) {
+                        for (uint32_t x = 0; x < new_width; x++) {
+                            // Calculate corresponding position in old world
+                            double old_x = (x * (old_width - 1.0)) / (new_width - 1.0);
+                            double old_y = (y * (old_height - 1.0)) / (new_height - 1.0);
+                            
+                            // Get the four surrounding cells in old world
+                            int x0 = static_cast<int>(old_x);
+                            int y0 = static_cast<int>(old_y);
+                            int x1 = std::min(x0 + 1, static_cast<int>(old_width) - 1);
+                            int y1 = std::min(y0 + 1, static_cast<int>(old_height) - 1);
+                            
+                            // Calculate interpolation weights
+                            double wx = old_x - x0;
+                            double wy = old_y - y0;
+                            
+                            // Get values from surrounding cells
+                            double d00 = old_dirt[y0 * old_width + x0];
+                            double d10 = old_dirt[y0 * old_width + x1];
+                            double d01 = old_dirt[y1 * old_width + x0];
+                            double d11 = old_dirt[y1 * old_width + x1];
+                            
+                            double w00 = old_water[y0 * old_width + x0];
+                            double w10 = old_water[y0 * old_width + x1];
+                            double w01 = old_water[y1 * old_width + x0];
+                            double w11 = old_water[y1 * old_width + x1];
+                            
+                            // Bilinear interpolation
+                            double new_dirt = (1 - wx) * (1 - wy) * d00 +
+                                            wx * (1 - wy) * d10 +
+                                            (1 - wx) * wy * d01 +
+                                            wx * wy * d11;
+                                            
+                            double new_water = (1 - wx) * (1 - wy) * w00 +
+                                             wx * (1 - wy) * w10 +
+                                             (1 - wx) * wy * w01 +
+                                             wx * wy * w11;
+                            
+                            // Update new cell
+                            Cell& cell = new_world->at(x, y);
+                            cell.update(new_dirt, Vector2d(0.0, 0.0), Vector2d(0.0, 0.0));
+                            cell.water = new_water;
+                            cell.markDirty();
+                        }
+                    }
+                    
+                    // Now that new world is ready, swap it with the old one
+                    world_ptr->~World();
+                    new (world_ptr) World(*new_world);
+                    delete new_world;
+                    
+                    // Resize the drawing area based on new cell size and grid dimensions
+                    lv_obj_t* draw_area = lv_obj_get_child(lv_scr_act(), 0);
+                    lv_obj_set_size(draw_area, new_width * value + 50, new_height * value + 50);  // Add 50px padding
+                    
+                    // Clear the screen to prevent graphical artifacts
+                    lv_obj_clean(draw_area);
+                    lv_obj_invalidate(draw_area);
+                }
+                // Update the cell size value label
+                char buf[16];
+                snprintf(buf, sizeof(buf), "%d", value);
+                lv_label_set_text(cell_size_value_label, buf);
+            }
+        },
+        LV_EVENT_ALL,
+        cell_size_value_label);
 
     // Create callback for fragmentation slider
     lv_obj_add_event_cb(
@@ -399,7 +578,13 @@ int main(int argc, char** argv)
         reset_btn,
         [](lv_event_t* e) {
             if (world_ptr) {
+                // Just reset the world's state without changing its size
                 world_ptr->reset();
+                
+                // Clear the screen to prevent graphical artifacts
+                lv_obj_t* draw_area = lv_obj_get_child(lv_scr_act(), 0);
+                lv_obj_clean(draw_area);
+                lv_obj_invalidate(draw_area);
             }
         },
         LV_EVENT_CLICKED,

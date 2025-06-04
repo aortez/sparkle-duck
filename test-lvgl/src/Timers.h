@@ -30,6 +30,9 @@ public:
     // Reset a timer's call count to 0
     void resetCallCount(const std::string& name);
 
+    // Dump statistics for all timers
+    void dumpTimerStats() const;
+
 private:
     using TimePoint = std::chrono::steady_clock::time_point;
     

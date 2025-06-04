@@ -5,14 +5,25 @@
 #include <array>
 #include <cstdint>
 #include <string>
+#include <vector>
 
 // Forward declare LVGL types.
 typedef struct _lv_obj_t lv_obj_t;
 
 class Cell {
 public:
-    static const int WIDTH = 30;
-    static const int HEIGHT = 30;
+    static bool debugDraw;
+    static uint32_t WIDTH;
+    static uint32_t HEIGHT;
+    
+    static void setSize(uint32_t newSize) {
+        WIDTH = newSize;
+        HEIGHT = newSize;
+    }
+    
+    static uint32_t getSize() {
+        return WIDTH;
+    }
 
     void draw(lv_obj_t* parent, uint32_t x, uint32_t y);
 
@@ -38,9 +49,11 @@ public:
     // Velocity of elements.
     Vector2d v;
 
-    static bool debugDraw; // If true, draw in debug mode
+    // Pressure force vector
+    Vector2d pressure;
 
     Cell();
+    ~Cell(); // Add destructor to clean up buffer
     std::string toString() const;
 
     Vector2d calculateWaterCohesion(const Cell& cell, const Cell& neighbor) const;
@@ -48,7 +61,7 @@ public:
     void applyViscosity(const Cell& neighbor);
 
 private:
-    std::array<uint8_t, WIDTH * HEIGHT * 4> buffer;
+    std::vector<uint8_t> buffer; // Use vector instead of array for dynamic sizing
 
     lv_obj_t* canvas;
     bool needsRedraw = true; // Flag to track if cell needs redrawing

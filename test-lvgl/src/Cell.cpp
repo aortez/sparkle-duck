@@ -9,6 +9,8 @@
 #include "lvgl/lvgl.h"
 
 bool Cell::debugDraw = true;
+uint32_t Cell::WIDTH = 50;  // Default size
+uint32_t Cell::HEIGHT = 50; // Default size
 
 Cell::Cell()
     : dirt(0.0),
@@ -16,12 +18,17 @@ Cell::Cell()
       wood(0.0),
       leaf(0.0),
       metal(0.0),
-      buffer(),
+      buffer(WIDTH * HEIGHT * 4),
       canvas(nullptr),
       com(0.0, 0.0),
       v(0.0, 0.0),
+      pressure(0.0, 0.0),
       needsRedraw(true)
 {}
+
+Cell::~Cell() {
+    // No explicit cleanup needed for vector
+}
 
 void Cell::update(double newDirty, const Vector2d& newCom, const Vector2d& newV)
 {
@@ -143,12 +150,30 @@ void Cell::draw(lv_obj_t* parent, uint32_t x, uint32_t y)
         lv_draw_line_dsc_init(&line_dsc);
         line_dsc.color = lv_color_hex(0x00FF00);
         line_dsc.width = 2;
+        line_dsc.opa = opacity_dirt;
+        // Originate from cell center.
         line_dsc.p1.x = pixel_x;
         line_dsc.p1.y = pixel_y;
         line_dsc.p2.x = pixel_x + static_cast<int>(v.x);
         line_dsc.p2.y = pixel_y + static_cast<int>(v.y);
 
         lv_draw_line(&layer, &line_dsc);
+
+        // Draw red pressure vector if there is pressure
+        if (pressure.mag() > 0.01) {  // Only draw if pressure is significant
+            lv_draw_line_dsc_t pressure_dsc;
+            lv_draw_line_dsc_init(&pressure_dsc);
+            pressure_dsc.color = lv_color_hex(0xFFFFFF);  // White color
+            pressure_dsc.width = 2;
+            pressure_dsc.opa = opacity_dirt;
+            // Originate from cell center.
+            pressure_dsc.p1.x = WIDTH / 2;
+            pressure_dsc.p1.y = HEIGHT / 2;
+            pressure_dsc.p2.x = WIDTH / 2 + static_cast<int>(pressure.x * 20.0);  // Scale up for visibility
+            pressure_dsc.p2.y = HEIGHT / 2 + static_cast<int>(pressure.y * 20.0);
+            
+            lv_draw_line(&layer, &pressure_dsc);
+        }
 
         lv_canvas_finish_layer(canvas, &layer);
     }
@@ -177,7 +202,7 @@ Vector2d Cell::calculateWaterCohesion(const Cell& cell, const Cell& neighbor) co
     }
 
     // Calculate force based on water amounts and distance
-    const double COHESION_STRENGTH = 0.1; // Adjust this value to control cohesion strength
+    const double COHESION_STRENGTH = 0.1;
     double force = COHESION_STRENGTH * cell.water * neighbor.water;
 
     // Calculate direction vector between cells
@@ -198,7 +223,7 @@ void Cell::applyViscosity(const Cell& neighbor)
     }
 
     // Average velocities based on water amounts
-    const double VISCOSITY_FACTOR = 0.1; // Adjust this value to control viscosity
+    const double VISCOSITY_FACTOR = 0.1;
     double totalMass = water + neighbor.water;
     if (totalMass > 0) {
         Vector2d avgVelocity = (v * water + neighbor.v * neighbor.water) / totalMass;

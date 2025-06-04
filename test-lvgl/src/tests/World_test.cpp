@@ -16,11 +16,22 @@ protected:
         createWorld();
         // Disable fragmentation for all tests
         World::DIRT_FRAGMENTATION_FACTOR = 0.0;
+        // Don't fill bottom right quadrant by default
+        // fillBottomRightQuadrantWithDirt();
     }
 
     void createWorld() {
         world = std::make_unique<World>(width, height, nullptr);
         world->setAddParticlesEnabled(false);
+    }
+
+    void fillBottomRightQuadrantWithDirt() {
+        // Fill the bottom right quadrant with dirt
+        for (uint32_t y = height / 2; y < height; ++y) {
+            for (uint32_t x = width / 2; x < width; ++x) {
+                world->at(x, y).dirt = 1.0;
+            }
+        }
     }
 
     void TearDown() override {
@@ -221,4 +232,107 @@ TEST_F(WorldTest, GravityFreeDiagonalMovement) {
     EXPECT_NEAR(world->at(0, 0).dirt, 0.0, 0.1);
     EXPECT_NEAR(world->at(0, 1).dirt, 0.0, 0.1);
     EXPECT_NEAR(world->at(1, 0).dirt, 0.0, 0.1);
+}
+
+TEST_F(WorldTest, DiagonalComPreservation) {
+    // Create a 2x2 world
+    width = 2;
+    height = 2;
+    createWorld();
+    world->setGravity(0.0); // Disable gravity for this test
+    
+    // Place dirt in the top-left cell with COM in the corner and diagonal velocity
+    world->at(0, 0).dirt = 1.0;
+    world->at(0, 0).com = Vector2d(0.9, 0.9); // COM near top-right corner of cell
+    world->at(0, 0).v = Vector2d(1.0, 1.0);   // Diagonal movement
+
+    // Store initial COM for comparison
+    Vector2d initialCom = world->at(0, 0).com;
+    
+    // Advance time until transfer occurs
+    bool transferOccurred = false;
+    for (int i = 0; i < 100; ++i) {
+        world->advanceTime(16); // 16ms per frame
+        
+        // Check if transfer has occurred
+        if (world->at(1, 1).dirt > 0.0) {
+            transferOccurred = true;
+            
+            // After transfer, the COM in the target cell should preserve the diagonal position
+            // The COM should be offset by -2.0 in both dimensions (since we moved one cell right and down)
+            EXPECT_NEAR(world->at(1, 1).com.x, initialCom.x - 2.0, 0.1);
+            EXPECT_NEAR(world->at(1, 1).com.y, initialCom.y - 2.0, 0.1);
+            
+            // The source cell should be empty
+            EXPECT_NEAR(world->at(0, 0).dirt, 0.0, 0.1);
+            
+            // The target cell should have all the mass
+            EXPECT_NEAR(world->at(1, 1).dirt, 1.0, 0.1);
+            
+            break;
+        }
+    }
+    
+    // Verify that transfer did occur
+    EXPECT_TRUE(transferOccurred) << "Transfer did not occur within expected timeframe";
+}
+
+TEST_F(WorldTest, BlockedDiagonalAllowsDownwardMovement) {
+    // Create a 2x2 world
+    width = 2;
+    height = 2;
+    createWorld();
+    world->setGravity(0.0); // Disable gravity for this test
+
+    // Place all dirt in the top-left cell with diagonal velocity
+    world->at(0, 0).dirt = 1.0;
+    world->at(0, 0).com = Vector2d(1.0, 1.0); // COM at top-right corner
+    world->at(0, 0).v = Vector2d(1.0, 1.0);   // Diagonal movement
+
+    // Block the right and down-right cells
+    world->at(1, 0).dirt = 1.0; // Right cell full
+    world->at(1, 1).dirt = 1.0; // Down-right cell full
+    // Leave (0,1) empty (down)
+    world->at(0, 1).dirt = 0.0;
+
+    // Advance time until transfer occurs
+    bool movedDown = false;
+    for (int i = 0; i < 20; ++i) {
+        world->advanceTime(16); // 16ms per frame
+        if (world->at(0, 1).dirt > 0.0) {
+            movedDown = true;
+            // The source cell should be empty
+            EXPECT_NEAR(world->at(0, 0).dirt, 0.0, 0.1);
+            // The mass should have moved down
+            EXPECT_NEAR(world->at(0, 1).dirt, 1.0, 0.1);
+            // The right and down-right cells should remain full
+            EXPECT_NEAR(world->at(1, 0).dirt, 1.0, 0.1);
+            EXPECT_NEAR(world->at(1, 1).dirt, 1.0, 0.1);
+            break;
+        }
+    }
+    EXPECT_TRUE(movedDown) << "Dirt did not move down as expected when right was blocked.";
+}
+
+TEST_F(WorldTest, UpdateAllPressures_SimpleDeflection) {
+    width = 2;
+    height = 2;
+    createWorld();
+    // Set the COM of (0,0) to be deflected right and down
+    world->at(0, 0).com = Vector2d(0.5, 0.7);
+    world->at(1, 0).com = Vector2d(0.0, 0.0);
+    world->at(0, 1).com = Vector2d(0.0, 0.0);
+    world->at(1, 1).com = Vector2d(0.0, 0.0);
+    // Run pressure update
+    world->updateAllPressures();
+    // (0,0) should have positive pressure in x and y
+    EXPECT_NEAR(world->at(0, 0).pressure.x, 0.5, 1e-6);
+    EXPECT_NEAR(world->at(0, 0).pressure.y, 0.7, 1e-6);
+    // All others should be zero
+    EXPECT_NEAR(world->at(1, 0).pressure.x, 0.0, 1e-6);
+    EXPECT_NEAR(world->at(1, 0).pressure.y, 0.0, 1e-6);
+    EXPECT_NEAR(world->at(0, 1).pressure.x, 0.0, 1e-6);
+    EXPECT_NEAR(world->at(0, 1).pressure.y, 0.0, 1e-6);
+    EXPECT_NEAR(world->at(1, 1).pressure.x, 0.0, 1e-6);
+    EXPECT_NEAR(world->at(1, 1).pressure.y, 0.0, 1e-6);
 }

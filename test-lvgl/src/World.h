@@ -31,6 +31,7 @@ public:
 
     uint32_t getWidth() const;
     uint32_t getHeight() const;
+    lv_obj_t* getDrawArea() const { return draw_area; }
 
     void fillWithDirt();
     void makeWalls();
@@ -66,13 +67,16 @@ public:
     // Set the elasticity factor for reflections
     void setElasticityFactor(double e) { ELASTICITY_FACTOR = e; }
 
+    // Set the pressure scale factor
+    void setPressureScale(double scale) { pressureScale = scale; }
+
     // Cursor force interaction
     void setCursorForceEnabled(bool enabled) { cursorForceEnabled = enabled; }
     void updateCursorForce(int pixelX, int pixelY, bool isActive);
     void clearCursorForce() { cursorForceActive = false; }
 
-    // Add method to dump timer stats
-    void dumpTimerStats() const;
+    // Dump timer statistics
+    void dumpTimerStats() const { timers.dumpTimerStats(); }
 
     // Minimum amount of dirt before it's considered "empty" and removed.
     static constexpr double MIN_DIRT_THRESHOLD = 0.01;
@@ -82,6 +86,18 @@ public:
 
     void setDirtFragmentationFactor(double factor) { DIRT_FRAGMENTATION_FACTOR = factor; }
 
+    // Update pressure for all cells based on COM deflection into neighbors
+    void updateAllPressures();
+
+    // Control whether to fill the lower right quadrant during reset
+    void setFillLowerRightQuadrant(bool enabled) { shouldFillLowerRightQuadrant = enabled; }
+
+    // Fill the lower right quadrant with dirt
+    void fillLowerRightQuadrant();
+
+protected:
+    Timers timers;
+
 private:
     lv_obj_t* draw_area;
     uint32_t width;
@@ -89,6 +105,9 @@ private:
     std::vector<Cell> cells;
     double timescale = 1.0;
     uint32_t timestep = 0;
+
+    // Pressure scale factor (default 1.0)
+    double pressureScale = 1.0;
 
     // Cursor force state
     bool cursorForceEnabled = true;
@@ -135,11 +154,11 @@ private:
     };
     PendingDragEnd pendingDragEnd;
 
+    // Control whether to fill the lower right quadrant during reset
+    bool shouldFillLowerRightQuadrant = true;
+
     size_t coordToIndex(uint32_t x, uint32_t y) const;
 
     // Helper to convert pixel coordinates to cell coordinates
     void pixelToCell(int pixelX, int pixelY, int& cellX, int& cellY) const;
-
-    // Add Timers member
-    Timers timers;
 };

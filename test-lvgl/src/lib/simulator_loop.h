@@ -4,6 +4,7 @@
 #include "lvgl/lvgl.h"
 #include "lvgl/src/misc/lv_timer.h"
 #include <chrono>
+#include <cstdio>
 
 // Forward declarations
 extern lv_obj_t* mass_label_ptr;
