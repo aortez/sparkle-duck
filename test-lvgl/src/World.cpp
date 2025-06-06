@@ -628,41 +628,6 @@ uint32_t World::getHeight() const
     return height;
 }
 
-void World::fillWithDirt()
-{
-    for (uint32_t y = 0; y < height; y++) {
-        for (uint32_t x = 0; x < width; x++) {
-            at(x, y).update(0.5, Vector2d(0.0, 0.0), Vector2d(1, 0.0));
-            at(x, y).markDirty();
-        }
-    }
-}
-
-void World::makeWalls()
-{
-    for (uint32_t x = 0; x < width; x++) {
-        //        at(x, 0).dirty = 1.0;
-        at(x, height - 1).update(1.0, Vector2d(0.0, 0.0), Vector2d(0.0, 0.0));
-        at(x, height - 1).markDirty();
-    }
-    for (uint32_t y = 0; y < height; y++) {
-        at(0, y).update(1.0, Vector2d(0.0, 0.0), Vector2d(0.0, 0.0));
-        at(0, y).markDirty();
-        at(width - 1, y).update(1.0, Vector2d(0.0, 0.0), Vector2d(0.0, 0.0));
-        at(width - 1, y).markDirty();
-    }
-}
-
-void World::fillLowerRightQuadrant()
-{
-    for (uint32_t y = height / 2; y < height; ++y) {
-        for (uint32_t x = width / 2; x < width; ++x) {
-            at(x, y).update(1.0, Vector2d(0.0, 0.0), Vector2d(0.0, 0.0));
-            at(x, y).markDirty();
-        }
-    }
-}
-
 void World::reset()
 {
     // Clear all cells

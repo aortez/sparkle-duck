@@ -18,6 +18,10 @@ public:
     // Add particles to the world during simulation
     virtual void addParticles(
         World& world, uint32_t timestep, double deltaTimeMs, double timescale) = 0;
+
+    virtual void fillLowerRightQuadrant(World& world);
+    virtual void makeWalls(World& world);
+    virtual void fillWithDirt(World& world);
 };
 
 /**

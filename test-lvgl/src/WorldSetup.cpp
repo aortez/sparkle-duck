@@ -13,39 +13,48 @@
 #define LOG_PARTICLES(x) ((void)0)
 #endif
 
-void DefaultWorldSetup::setup(World& world)
+void WorldSetup::fillLowerRightQuadrant(World& world)
 {
-    // Clear the world first
-    for (uint32_t y = 0; y < world.getHeight(); ++y) {
-        for (uint32_t x = 0; x < world.getWidth(); ++x) {
-            world.at(x, y).dirt = 0.0;
-        }
-    }
-
-    // Fill the lower right quadrant with dirt
     for (uint32_t y = world.getHeight() / 2; y < world.getHeight(); ++y) {
         for (uint32_t x = world.getWidth() / 2; x < world.getWidth(); ++x) {
-            world.at(x, y).dirt = 1.0;
+            world.at(x, y).update(1.0, Vector2d(0.0, 0.0), Vector2d(0.0, 0.0));
+            world.at(x, y).markDirty();
         }
     }
+}
 
-    // Make walls
-    // Top wall
-    for (uint32_t x = 0; x < world.getWidth(); ++x) {
-        world.at(x, 0).dirt = 1.0;
+void WorldSetup::makeWalls(World& world)
+{
+    // Top and bottom walls
+    for (uint32_t x = 0; x < world.getWidth(); x++) {
+        world.at(x, 0).update(1.0, Vector2d(0.0, 0.0), Vector2d(0.0, 0.0));
+        world.at(x, 0).markDirty();
+        world.at(x, world.getHeight() - 1).update(1.0, Vector2d(0.0, 0.0), Vector2d(0.0, 0.0));
+        world.at(x, world.getHeight() - 1).markDirty();
     }
-    // Bottom wall
-    for (uint32_t x = 0; x < world.getWidth(); ++x) {
-        world.at(x, world.getHeight() - 1).dirt = 1.0;
+    // Left and right walls
+    for (uint32_t y = 1; y < world.getHeight() - 1; y++) {
+        world.at(0, y).update(1.0, Vector2d(0.0, 0.0), Vector2d(0.0, 0.0));
+        world.at(0, y).markDirty();
+        world.at(world.getWidth() - 1, y).update(1.0, Vector2d(0.0, 0.0), Vector2d(0.0, 0.0));
+        world.at(world.getWidth() - 1, y).markDirty();
     }
-    // Left wall
-    for (uint32_t y = 0; y < world.getHeight(); ++y) {
-        world.at(0, y).dirt = 1.0;
+}
+
+void WorldSetup::fillWithDirt(World& world)
+{
+    for (uint32_t y = 0; y < world.getHeight(); y++) {
+        for (uint32_t x = 0; x < world.getWidth(); x++) {
+            world.at(x, y).update(0.5, Vector2d(0.0, 0.0), Vector2d(1, 0.0));
+            world.at(x, y).markDirty();
+        }
     }
-    // Right wall
-    for (uint32_t y = 0; y < world.getHeight(); ++y) {
-        world.at(world.getWidth() - 1, y).dirt = 1.0;
-    }
+}
+
+void DefaultWorldSetup::setup(World& world)
+{
+    fillLowerRightQuadrant(world);
+    makeWalls(world);
 }
 
 void DefaultWorldSetup::addParticles(

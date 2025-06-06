@@ -5,9 +5,9 @@
 #include "WorldSetup.h"
 
 #include <cstdint>
-#include <memory>
 #include <utility>
 #include <vector>
+#include <memory>
 
 /**
  * A grid-based physical simulation. Energy is approximately conserved.
@@ -38,9 +38,6 @@ public:
     uint32_t getWidth() const;
     uint32_t getHeight() const;
     lv_obj_t* getDrawArea() const { return draw_area; }
-
-    void fillWithDirt();
-    void makeWalls();
 
     void setTimescale(double scale) { timescale = scale; }
 
@@ -92,6 +89,8 @@ public:
 
     void setDirtFragmentationFactor(double factor) { DIRT_FRAGMENTATION_FACTOR = factor; }
 
+    void applyPressure(const double timestep);
+
     // Update pressure for all cells based on COM deflection into neighbors
     void updateAllPressures(double timestep);
 
@@ -100,12 +99,6 @@ public:
 
     // Get the current world setup strategy
     std::unique_ptr<WorldSetup> getWorldSetup() { return std::move(worldSetup); }
-
-    // Control whether to fill the lower right quadrant during reset
-    void setFillLowerRightQuadrant(bool enabled) { shouldFillLowerRightQuadrant = enabled; }
-
-    // Fill the lower right quadrant with dirt
-    void fillLowerRightQuadrant();
 
 protected:
     Timers timers;
@@ -168,9 +161,6 @@ private:
 
     // World setup strategy
     std::unique_ptr<WorldSetup> worldSetup;
-
-    // Control whether to fill the lower right quadrant during reset
-    bool shouldFillLowerRightQuadrant = true;
 
     size_t coordToIndex(uint32_t x, uint32_t y) const;
 
