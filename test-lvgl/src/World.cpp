@@ -63,22 +63,18 @@ World::~World()
     timers.dumpTimerStats();
 }
 
-void World::advanceTime(uint32_t deltaTimeMs)
+void World::advanceTime(const double deltaTimeSeconds)
 {
     timers.startTimer("advance_time");
 
     if (addParticlesEnabled) {
         timers.startTimer("add_particles");
-        worldSetup->addParticles(*this, timestep++, deltaTimeMs, timescale);
+        worldSetup->addParticles(*this, timestep++, deltaTimeSeconds);
         timers.stopTimer("add_particles");
     }
     else {
         timestep++;
     }
-
-    // Use the member gravity variable
-    const double timeStep =
-        deltaTimeMs / 1000.0 * timescale; // Convert to seconds and apply timescale.
 
     // Process any pending drag end
     if (pendingDragEnd.hasPendingEnd) {
@@ -140,7 +136,7 @@ void World::advanceTime(uint32_t deltaTimeMs)
             }
 
             // Apply gravity.
-            cell.v.y += gravity * timeStep;
+            cell.v.y += gravity * deltaTimeSeconds;
 
             // Apply water cohesion and viscosity if this is a water cell.
             if (cell.water >= MIN_DIRT_THRESHOLD) {
@@ -156,7 +152,7 @@ void World::advanceTime(uint32_t deltaTimeMs)
 
                             // Apply cohesion force
                             Vector2d cohesion = cell.calculateWaterCohesion(cell, neighbor);
-                            cell.v += cohesion * timeStep;
+                            cell.v += cohesion * deltaTimeSeconds;
 
                             // Apply viscosity
                             cell.applyViscosity(neighbor);
@@ -177,14 +173,14 @@ void World::advanceTime(uint32_t deltaTimeMs)
                         (1.0 - distance / CURSOR_FORCE_RADIUS) * CURSOR_FORCE_STRENGTH;
                     // Normalize direction and apply force
                     if (distance > 0) {
-                        cell.v.x += (dx / distance) * forceFactor * timeStep;
-                        cell.v.y += (dy / distance) * forceFactor * timeStep;
+                        cell.v.x += (dx / distance) * forceFactor * deltaTimeSeconds;
+                        cell.v.y += (dy / distance) * forceFactor * deltaTimeSeconds;
                     }
                 }
             }
 
             // Calculate predicted COM position after this timestep.
-            const Vector2d predictedCom = cell.com + cell.v * timeStep;
+            const Vector2d predictedCom = cell.com + cell.v * deltaTimeSeconds;
 
             // Debug output for transfer logic.
             LOG_DEBUG(
@@ -443,9 +439,9 @@ void World::advanceTime(uint32_t deltaTimeMs)
                                          << targetCell.v.y << ")");
     }
 
-    updateAllPressures(timestep);
+    updateAllPressures(deltaTimeSeconds);
 
-    applyPressure(timestep);
+    applyPressure(deltaTimeSeconds);
 
     // Update total mass after all moves are complete.
     totalMass = 0.0;
@@ -458,49 +454,55 @@ void World::advanceTime(uint32_t deltaTimeMs)
     timers.stopTimer("advance_time");
 }
 
-void World::applyPressure(const double timestep)
+void World::applyPressure(const double deltaTimeSeconds)
 {
     for (uint32_t y = 0; y < height; y++) {
         for (uint32_t x = 0; x < width; x++) {
             Cell& cell = at(x, y);
 
             // Skip cells with no pressure
-            if (cell.pressure.mag() < 0.1) continue;
+            if (cell.pressure.mag() < 0.001) continue;
 
-            // Find the direction with most available space
-            Vector2d pressureDirection(0.0, 0.0);
-            double maxSpace = 0.0;
+            // Find the direction that is emptiest and lowest
+            Vector2d bestDirection(0.0, 0.0);
+            double bestScore = -1e9; // Initialize with a very small number
 
-            // Check all 8 neighboring cells
+            // Check all 8 neighboring cells.
+            // Target cell is the one that maximizes a score based on emptiness and "lowness"
             for (int dy = -1; dy <= 1; dy++) {
                 for (int dx = -1; dx <= 1; dx++) {
                     if (dx == 0 && dy == 0) continue;
 
                     int nx = x + dx;
                     int ny = y + dy;
-                    if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                    if (nx >= 0 && nx < static_cast<int>(width) && ny >= 0
+                        && ny < static_cast<int>(height)) {
                         Cell& neighbor = at(nx, ny);
                         double availableSpace = 1.0 - neighbor.percentFull();
-                        if (availableSpace > maxSpace) {
-                            maxSpace = availableSpace;
-                            pressureDirection = Vector2d(dx, dy).normalize();
+
+                        // Score combines available space and "lowness" (preferring dy=1)
+                        // A small weight for dy makes "lowness" a secondary factor.
+                        double score = availableSpace + 0.1 * dy;
+
+                        if (score > bestScore) {
+                            bestScore = score;
+                            bestDirection = Vector2d(dx, dy).normalize();
                         }
                     }
                 }
             }
 
-            // Apply pressure in the direction of most available space
-            const double PRESSURE_STRENGTH = 5.0;
-            cell.v += pressureDirection * cell.pressure.mag() * PRESSURE_STRENGTH * pressureScale
-                * timescale * 0.001;
+            // Apply pressure in the target direction.
+            const double PRESSURE_STRENGTH = 1;
+            cell.v += bestDirection * cell.pressure.mag() * PRESSURE_STRENGTH * pressureScale;
 
-            // Clear pressure for next frame
+            // Clear pressure for next frame.
             cell.pressure = Vector2d(0.0, 0.0);
         }
     }
 }
 
-void World::updateAllPressures(double timestep)
+void World::updateAllPressures(double deltaTimeSeconds)
 {
     // First clear all pressures.
     for (uint32_t y = 0; y < height; ++y) {
@@ -508,6 +510,8 @@ void World::updateAllPressures(double timestep)
             at(x, y).pressure = Vector2d(0.0, 0.0);
         }
     }
+
+    // deltaTimeSeconds *= 100;
 
     // Then calculate pressures that cells exert on their neighbor.
     for (uint32_t y = 0; y < height; ++y) {
@@ -519,28 +523,28 @@ void World::updateAllPressures(double timestep)
             if (x + 1 < width) {
                 if (cell.com.x > 0.0) {
                     Cell& neighbor = at(x + 1, y);
-                    neighbor.pressure.x += cell.com.x * mass * timestep * 0.001;
+                    neighbor.pressure.x += cell.com.x * mass * deltaTimeSeconds;
                 }
             }
             // Left neighbor
             if (x > 0) {
                 if (cell.com.x < 0.0) {
                     Cell& neighbor = at(x - 1, y);
-                    neighbor.pressure.x += -cell.com.x * mass * timestep * 0.001;
+                    neighbor.pressure.x += -cell.com.x * mass * deltaTimeSeconds;
                 }
             }
             // Down neighbor
             if (y + 1 < height) {
                 if (cell.com.y > 0.0) {
                     Cell& neighbor = at(x, y + 1);
-                    neighbor.pressure.y += cell.com.y * mass * timestep * 0.001;
+                    neighbor.pressure.y += cell.com.y * mass * deltaTimeSeconds;
                 }
             }
             // Up neighbor
             if (y > 0) {
                 if (cell.com.y < 0.0) {
                     Cell& neighbor = at(x, y - 1);
-                    neighbor.pressure.y += -cell.com.y * mass * timestep * 0.001;
+                    neighbor.pressure.y += -cell.com.y * mass * deltaTimeSeconds;
                 }
             }
         }

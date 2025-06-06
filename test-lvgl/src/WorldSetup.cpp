@@ -6,7 +6,7 @@
 #include <cstdint>
 #include <iostream>
 
-// Debug logging specifically for particle events
+// Debug logging specifically for particle events.
 #ifdef LOG_PARTICLES
 #define LOG_PARTICLES(x) std::cout << "[Particles] " << x << std::endl
 #else
@@ -27,8 +27,8 @@ void WorldSetup::makeWalls(World& world)
 {
     // Top and bottom walls
     for (uint32_t x = 0; x < world.getWidth(); x++) {
-        world.at(x, 0).update(1.0, Vector2d(0.0, 0.0), Vector2d(0.0, 0.0));
-        world.at(x, 0).markDirty();
+        // world.at(x, 0).update(1.0, Vector2d(0.0, 0.0), Vector2d(0.0, 0.0));
+        // world.at(x, 0).markDirty();
         world.at(x, world.getHeight() - 1).update(1.0, Vector2d(0.0, 0.0), Vector2d(0.0, 0.0));
         world.at(x, world.getHeight() - 1).markDirty();
     }
@@ -58,7 +58,7 @@ void DefaultWorldSetup::setup(World& world)
 }
 
 void DefaultWorldSetup::addParticles(
-    World& world, uint32_t timestep, double deltaTimeMs, double timescale)
+    World& world, uint32_t timestep, double deltaTimeSeconds)
 {
     static double lastSimTime = 0.0;
     static struct EventState {
@@ -72,13 +72,11 @@ void DefaultWorldSetup::addParticles(
         bool topDropDone = false;        // Track if top drop has happened
     } eventState;
 
-    // Convert deltaTimeMs to seconds and apply timescale
-    const double deltaTime = (deltaTimeMs / 1000.0) * timescale;
-    const double simTime = lastSimTime + deltaTime;
+    const double simTime = lastSimTime + deltaTimeSeconds;
 
     LOG_PARTICLES(
         "Timestep " << timestep << ": simTime=" << simTime << ", lastSimTime=" << lastSimTime
-                    << ", deltaTime=" << deltaTime << ", timescale=" << timescale);
+                    << ", deltaTime=" << deltaTimeSeconds);
 
     // Constants for sweep behavior
     const double SWEEP_PERIOD = 2.0; // Time for one complete sweep (left to right and back)
@@ -91,19 +89,20 @@ void DefaultWorldSetup::addParticles(
     const int BEATS_ON = 2;          // Number of beats the emitter is on
 
     // Update beat time
-    eventState.beatTime += deltaTime;
+    eventState.beatTime += deltaTimeSeconds;
     if (eventState.beatTime >= BEAT_PERIOD * BEATS_PER_PATTERN) {
         eventState.beatTime -= BEAT_PERIOD * BEATS_PER_PATTERN;
     }
 
     // Calculate current beat in the pattern (0 to BEATS_PER_PATTERN-1)
     int currentBeat = static_cast<int>(eventState.beatTime / BEAT_PERIOD);
-    bool isEmitterOn = currentBeat < BEATS_ON;
+    // bool isEmitterOn = currentBeat < BEATS_ON;
+    bool isEmitterOn = false;
 
     // Only update sweep and emit particles if the emitter is on
     if (isEmitterOn) {
         // Update sweep time
-        eventState.sweepTime += deltaTime;
+        eventState.sweepTime += deltaTimeSeconds;
 
         // Calculate sweep position (x coordinate)
         double sweepPhase = (eventState.sweepTime / SWEEP_PERIOD) * 2.0 * M_PI;
@@ -154,14 +153,14 @@ void DefaultWorldSetup::addParticles(
     }
 
     // Recurring throws from right side every ~0.83 seconds
-    if (simTime >= eventState.nextRightThrow) {
-        LOG_PARTICLES("Adding right periodic throw at time " << simTime);
-        uint32_t centerY = world.getHeight() / 2;
-        Cell& cell = world.at(world.getWidth() - 3, centerY); // Against the right wall.
-        cell.update(1.0, Vector2d(0.0, 0.0), Vector2d(-10, -10));
-        // Schedule next throw
-        eventState.nextRightThrow += period;
-    }
+    // if (simTime >= eventState.nextRightThrow) {
+    //     LOG_PARTICLES("Adding right periodic throw at time " << simTime);
+    //     uint32_t centerY = world.getHeight() / 2 - 2;
+    //     Cell& cell = world.at(world.getWidth() - 3, centerY); // Against the right wall.
+    //     cell.update(1.0, Vector2d(0.0, 0.0), Vector2d(-10, -10));
+    //     // Schedule next throw
+    //     eventState.nextRightThrow += period;
+    // }
 
     lastSimTime = simTime;
 }

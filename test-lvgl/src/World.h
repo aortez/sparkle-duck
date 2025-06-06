@@ -26,7 +26,7 @@ public:
     World(const World&) = delete;
     World& operator=(const World&) = delete;
 
-    void advanceTime(uint32_t deltaTimeMs);
+    void advanceTime(const double deltaTimeSeconds);
 
     void draw();
 
@@ -100,6 +100,8 @@ public:
     // Get the current world setup strategy
     std::unique_ptr<WorldSetup> getWorldSetup() { return std::move(worldSetup); }
 
+    double timescale = 1.0;
+
 protected:
     Timers timers;
 
@@ -108,7 +110,7 @@ private:
     uint32_t width;
     uint32_t height;
     std::vector<Cell> cells;
-    double timescale = 1.0;
+    
     uint32_t timestep = 0;
 
     // Pressure scale factor (default 1.0)

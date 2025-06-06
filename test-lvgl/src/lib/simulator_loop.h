@@ -53,7 +53,7 @@ inline void initState(LoopState& state) {
 // Process one frame of simulation
 inline void processFrame(World& world, LoopState& state, uint32_t delta_time_ms = 16) {
     // Advance simulation
-    world.advanceTime(delta_time_ms);
+    world.advanceTime(delta_time_ms * world.timescale * 0.001);
     
     // Always draw every frame to avoid flicker
     world.draw();
