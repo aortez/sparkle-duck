@@ -15,15 +15,14 @@ public:
     static bool debugDraw;
     static uint32_t WIDTH;
     static uint32_t HEIGHT;
-    
-    static void setSize(uint32_t newSize) {
+
+    static void setSize(uint32_t newSize)
+    {
         WIDTH = newSize;
         HEIGHT = newSize;
     }
-    
-    static uint32_t getSize() {
-        return WIDTH;
-    }
+
+    static uint32_t getSize() { return WIDTH; }
 
     void draw(lv_obj_t* parent, uint32_t x, uint32_t y);
 
@@ -37,10 +36,10 @@ public:
     double percentFull() const { return dirt + water + wood + leaf + metal; }
 
     // Element amounts in cell [0,1]
-    double dirt; 
+    double dirt;
     double water;
-    double wood; 
-    double leaf; 
+    double wood;
+    double leaf;
     double metal;
 
     // Center of mass of elements, range [-1,1].

@@ -1,16 +1,18 @@
 #include "Timers.h"
 #include <iostream>
 
-void Timers::startTimer(const std::string& name) {
+void Timers::startTimer(const std::string& name)
+{
     auto& timer = timers[name];
     if (!timer.isRunning) {
         timer.startTime = std::chrono::steady_clock::now();
         timer.isRunning = true;
-        timer.callCount++;  // Increment call count when timer starts
+        timer.callCount++; // Increment call count when timer starts
     }
 }
 
-double Timers::stopTimer(const std::string& name) {
+double Timers::stopTimer(const std::string& name)
+{
     auto it = timers.find(name);
     if (it == timers.end()) {
         return -1.0; // Timer not found
@@ -28,11 +30,13 @@ double Timers::stopTimer(const std::string& name) {
     return timer.accumulatedTime;
 }
 
-bool Timers::hasTimer(const std::string& name) const {
+bool Timers::hasTimer(const std::string& name) const
+{
     return timers.find(name) != timers.end();
 }
 
-double Timers::getAccumulatedTime(const std::string& name) const {
+double Timers::getAccumulatedTime(const std::string& name) const
+{
     auto it = timers.find(name);
     if (it == timers.end()) {
         return -1.0; // Timer not found
@@ -45,11 +49,13 @@ double Timers::getAccumulatedTime(const std::string& name) const {
 
     // If timer is running, include current session
     auto current = std::chrono::steady_clock::now();
-    auto currentDuration = std::chrono::duration_cast<std::chrono::milliseconds>(current - timer.startTime);
+    auto currentDuration =
+        std::chrono::duration_cast<std::chrono::milliseconds>(current - timer.startTime);
     return timer.accumulatedTime + currentDuration.count();
 }
 
-void Timers::resetTimer(const std::string& name) {
+void Timers::resetTimer(const std::string& name)
+{
     auto it = timers.find(name);
     if (it != timers.end()) {
         it->second.accumulatedTime = 0.0;
@@ -59,7 +65,8 @@ void Timers::resetTimer(const std::string& name) {
     }
 }
 
-uint32_t Timers::getCallCount(const std::string& name) const {
+uint32_t Timers::getCallCount(const std::string& name) const
+{
     auto it = timers.find(name);
     if (it == timers.end()) {
         return 0; // Return 0 for non-existent timer
@@ -67,14 +74,16 @@ uint32_t Timers::getCallCount(const std::string& name) const {
     return it->second.callCount;
 }
 
-void Timers::resetCallCount(const std::string& name) {
+void Timers::resetCallCount(const std::string& name)
+{
     auto it = timers.find(name);
     if (it != timers.end()) {
         it->second.callCount = 0;
     }
 }
 
-void Timers::dumpTimerStats() const {
+void Timers::dumpTimerStats() const
+{
     std::cout << "\nTimer Statistics:" << std::endl;
     std::cout << "----------------" << std::endl;
 
@@ -118,5 +127,4 @@ void Timers::dumpTimerStats() const {
               << dragCalls << " calls)" << std::endl;
 
     std::cout << "----------------" << std::endl;
-} 
- 
+}

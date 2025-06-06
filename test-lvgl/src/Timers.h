@@ -1,8 +1,8 @@
 #pragma once
 
+#include <chrono>
 #include <string>
 #include <unordered_map>
-#include <chrono>
 
 class Timers {
 public:
@@ -35,14 +35,13 @@ public:
 
 private:
     using TimePoint = std::chrono::steady_clock::time_point;
-    
+
     struct TimerData {
         TimePoint startTime;
         double accumulatedTime = 0.0;
         bool isRunning = false;
-        uint32_t callCount = 0;  // Track number of times timer has been called
+        uint32_t callCount = 0; // Track number of times timer has been called
     };
-    
+
     std::unordered_map<std::string, TimerData> timers;
-}; 
- 
+};

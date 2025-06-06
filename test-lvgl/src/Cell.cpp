@@ -26,7 +26,8 @@ Cell::Cell()
       needsRedraw(true)
 {}
 
-Cell::~Cell() {
+Cell::~Cell()
+{
     // No explicit cleanup needed for vector
 }
 
@@ -160,18 +161,19 @@ void Cell::draw(lv_obj_t* parent, uint32_t x, uint32_t y)
         lv_draw_line(&layer, &line_dsc);
 
         // Draw red pressure vector if there is pressure
-        if (pressure.mag() > 0.01) {  // Only draw if pressure is significant
+        if (pressure.mag() > 0.01) { // Only draw if pressure is significant
             lv_draw_line_dsc_t pressure_dsc;
             lv_draw_line_dsc_init(&pressure_dsc);
-            pressure_dsc.color = lv_color_hex(0xFFFFFF);  // White color
+            pressure_dsc.color = lv_color_hex(0xFFFFFF); // White color
             pressure_dsc.width = 2;
             pressure_dsc.opa = opacity_dirt;
             // Originate from cell center.
             pressure_dsc.p1.x = WIDTH / 2;
             pressure_dsc.p1.y = HEIGHT / 2;
-            pressure_dsc.p2.x = WIDTH / 2 + static_cast<int>(pressure.x * 20.0);  // Scale up for visibility
+            pressure_dsc.p2.x =
+                WIDTH / 2 + static_cast<int>(pressure.x * 20.0); // Scale up for visibility
             pressure_dsc.p2.y = HEIGHT / 2 + static_cast<int>(pressure.y * 20.0);
-            
+
             lv_draw_line(&layer, &pressure_dsc);
         }
 

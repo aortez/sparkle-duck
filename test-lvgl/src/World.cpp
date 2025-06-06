@@ -9,7 +9,7 @@
 #include <stdexcept>
 
 // #define LOG_DEBUG
-#ifdef LOG_DEBU
+#ifdef LOG_DEBUG
 #define LOG_DEBUG(x) std::cout << x << std::endl
 #else
 #define LOG_DEBUG(x) ((void)0)
@@ -40,104 +40,10 @@ struct EventState {
     bool initialThrowDone = false;   // Track if initial throw has happened
     bool topDropDone = false;        // Track if top drop has happened
 };
-
-void addParticles(World& world, uint32_t timestep, double deltaTimeMs, double timescale)
-{
-    static double lastSimTime = 0.0;
-    static EventState eventState;
-
-    // Convert deltaTimeMs to seconds and apply timescale
-    const double deltaTime = (deltaTimeMs / 1000.0) * timescale;
-    const double simTime = lastSimTime + deltaTime;
-
-    LOG_PARTICLES(
-        "Timestep " << timestep << ": simTime=" << simTime << ", lastSimTime=" << lastSimTime
-                    << ", deltaTime=" << deltaTime << ", timescale=" << timescale);
-
-    // Constants for sweep behavior
-    const double SWEEP_PERIOD = 2.0;  // Time for one complete sweep (left to right and back)
-    const double DIRT_PERIOD = 0.5;   // Period for dirt amount oscillation
-    const double SWEEP_SPEED = 2.0;   // Speed of the sweep
-    const double DIRT_AMPLITUDE = 0.5; // Amplitude of dirt oscillation (0.5 means dirt varies from 0.5 to 1.0)
-    const double BEAT_PERIOD = 0.5;   // Length of one beat in seconds
-    const int BEATS_PER_PATTERN = 8;  // Total beats in the pattern
-    const int BEATS_ON = 2;           // Number of beats the emitter is on
-
-    // Update beat time
-    eventState.beatTime += deltaTime;
-    if (eventState.beatTime >= BEAT_PERIOD * BEATS_PER_PATTERN) {
-        eventState.beatTime -= BEAT_PERIOD * BEATS_PER_PATTERN;
-    }
-
-    // Calculate current beat in the pattern (0 to BEATS_PER_PATTERN-1)
-    int currentBeat = static_cast<int>(eventState.beatTime / BEAT_PERIOD);
-    bool isEmitterOn = currentBeat < BEATS_ON;
-
-    // Only update sweep and emit particles if the emitter is on
-    if (isEmitterOn) {
-        // Update sweep time
-        eventState.sweepTime += deltaTime;
-
-        // Calculate sweep position (x coordinate)
-        double sweepPhase = (eventState.sweepTime / SWEEP_PERIOD) * 2.0 * M_PI;
-        double sweepX = (std::sin(sweepPhase) + 1.0) * 0.5; // Maps to [0,1]
-        uint32_t xPos = static_cast<uint32_t>(sweepX * (world.getWidth() - 2)) + 1; // Maps to [1,width-2]
-
-        // Calculate dirt amount oscillation
-        double dirtPhase = (eventState.sweepTime / DIRT_PERIOD) * 2.0 * M_PI;
-        double dirtAmount = 0.5 + DIRT_AMPLITUDE * std::sin(dirtPhase); // Oscillates between 0.5 and 1.0
-
-        // Emit particle at current sweep position
-        Cell& cell = world.at(xPos, 1); // 1 to be just below the top wall
-        cell.update(dirtAmount, Vector2d(0.0, 0.0), Vector2d(0.0, 0.0));
-        LOG_PARTICLES("Sweep emitter at x=" << xPos << " with dirt=" << dirtAmount << " (beat " << currentBeat << ")");
-    }
-
-    // Drop a dirt from the top
-    if (!eventState.topDropDone && simTime >= eventState.nextTopDrop) {
-        LOG_PARTICLES("Adding top drop at time " << simTime);
-        uint32_t centerX = world.getWidth() / 2;
-        Cell& cell = world.at(centerX, 1); // 1 to be just below the top wall.
-        cell.update(1.0, Vector2d(0.0, 0.0), Vector2d(0.0, 0.0));
-        eventState.topDropDone = true;
-    }
-
-    // Initial throw from left center
-    if (!eventState.initialThrowDone && simTime >= eventState.nextInitialThrow) {
-        LOG_PARTICLES("Adding initial throw at time " << simTime);
-        uint32_t centerY = world.getHeight() / 2;
-        Cell& cell = world.at(2, centerY); // Against the left wall.
-        cell.update(1.0, Vector2d(0.0, 0.0), Vector2d(5, -5));
-        eventState.initialThrowDone = true;
-    }
-
-    // Recurring throws every ~0.83 seconds
-    const double period = 0.83;
-    if (simTime >= eventState.nextPeriodicThrow) {
-        LOG_PARTICLES("Adding periodic throw at time " << simTime);
-        uint32_t centerY = world.getHeight() / 2;
-        Cell& cell = world.at(2, centerY); // Against the left wall.
-        cell.update(1.0, Vector2d(0.0, 0.0), Vector2d(10, -10));
-        // Schedule next throw
-        eventState.nextPeriodicThrow += period;
-    }
-
-    // Recurring throws from right side every ~0.83 seconds
-    if (simTime >= eventState.nextRightThrow) {
-        LOG_PARTICLES("Adding right periodic throw at time " << simTime);
-        uint32_t centerY = world.getHeight() / 2;
-        Cell& cell = world.at(world.getWidth() - 3, centerY); // Against the right wall.
-        cell.update(1.0, Vector2d(0.0, 0.0), Vector2d(-10, -10));
-        // Schedule next throw
-        eventState.nextRightThrow += period;
-    }
-
-    lastSimTime = simTime;
-}
 } // namespace
 
 // Initialize static member variables
-double World::ELASTICITY_FACTOR = 0.8;  // Energy preserved in reflections (0.0 to 1.0)
+double World::ELASTICITY_FACTOR = 0.8;         // Energy preserved in reflections (0.0 to 1.0)
 double World::DIRT_FRAGMENTATION_FACTOR = 0.0; // Default dirt fragmentation factor
 
 World::World(uint32_t width, uint32_t height, lv_obj_t* draw_area)
@@ -145,6 +51,9 @@ World::World(uint32_t width, uint32_t height, lv_obj_t* draw_area)
 {
     // Initialize timers
     timers.startTimer("total_simulation");
+
+    // Create default world setup
+    worldSetup = std::make_unique<DefaultWorldSetup>();
 }
 
 World::~World()
@@ -160,7 +69,7 @@ void World::advanceTime(uint32_t deltaTimeMs)
 
     if (addParticlesEnabled) {
         timers.startTimer("add_particles");
-        addParticles(*this, timestep++, deltaTimeMs, timescale);
+        worldSetup->addParticles(*this, timestep++, deltaTimeMs, timescale);
         timers.stopTimer("add_particles");
     }
     else {
@@ -194,11 +103,11 @@ void World::advanceTime(uint32_t deltaTimeMs)
         uint32_t fromY;
         uint32_t toX;
         uint32_t toY;
-        double dirtAmount;    // Amount of dirt to move
-        double waterAmount;   // Amount of water to move
-        double actualDirt;    // Actual amount of dirt moved after capacity checks
-        double actualWater;   // Actual amount of water moved after capacity checks
-        Vector2d comOffset;   // COM offset to apply to the target cell.
+        double dirtAmount;  // Amount of dirt to move
+        double waterAmount; // Amount of water to move
+        double actualDirt;  // Actual amount of dirt moved after capacity checks
+        double actualWater; // Actual amount of water moved after capacity checks
+        Vector2d comOffset; // COM offset to apply to the target cell.
     };
 
     std::vector<DirtMove> moves;
@@ -239,16 +148,16 @@ void World::advanceTime(uint32_t deltaTimeMs)
                 for (int dy = -1; dy <= 1; dy++) {
                     for (int dx = -1; dx <= 1; dx++) {
                         if (dx == 0 && dy == 0) continue;
-                        
+
                         int nx = x + dx;
                         int ny = y + dy;
                         if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
                             Cell& neighbor = at(nx, ny);
-                            
+
                             // Apply cohesion force
                             Vector2d cohesion = cell.calculateWaterCohesion(cell, neighbor);
                             cell.v += cohesion * timeStep;
-                            
+
                             // Apply viscosity
                             cell.applyViscosity(neighbor);
                         }
@@ -295,7 +204,7 @@ void World::advanceTime(uint32_t deltaTimeMs)
             if (predictedCom.x > 1.0) {
                 shouldTransferX = true;
                 targetX = x + 1;
-                comOffset.x = cell.com.x - 2.0;  // Use original COM instead of predicted COM
+                comOffset.x = cell.com.x - 2.0; // Use original COM instead of predicted COM
                 LOG_DEBUG(
                     "  Transfer right: predictedCom.x=" << predictedCom.x << ", v.x=" << cell.v.x
                                                         << ", com.x=" << cell.com.x);
@@ -303,7 +212,7 @@ void World::advanceTime(uint32_t deltaTimeMs)
             else if (predictedCom.x < -1.0) {
                 shouldTransferX = true;
                 targetX = x - 1;
-                comOffset.x = cell.com.x + 2.0;  // Use original COM instead of predicted COM
+                comOffset.x = cell.com.x + 2.0; // Use original COM instead of predicted COM
                 LOG_DEBUG(
                     "  Transfer left: predictedCom.x=" << predictedCom.x << ", v.x=" << cell.v.x
                                                        << ", com.x=" << cell.com.x);
@@ -313,7 +222,7 @@ void World::advanceTime(uint32_t deltaTimeMs)
             if (predictedCom.y > 1.0) {
                 shouldTransferY = true;
                 targetY = y + 1;
-                comOffset.y = cell.com.y - 2.0;  // Use original COM instead of predicted COM
+                comOffset.y = cell.com.y - 2.0; // Use original COM instead of predicted COM
                 LOG_DEBUG(
                     "  Transfer down: predictedCom.y=" << predictedCom.y << ", v.y=" << cell.v.y
                                                        << ", com.y=" << cell.com.y);
@@ -321,7 +230,7 @@ void World::advanceTime(uint32_t deltaTimeMs)
             else if (predictedCom.y < -1.0) {
                 shouldTransferY = true;
                 targetY = y - 1;
-                comOffset.y = cell.com.y + 2.0;  // Use original COM instead of predicted COM
+                comOffset.y = cell.com.y + 2.0; // Use original COM instead of predicted COM
                 LOG_DEBUG(
                     "  Transfer up: predictedCom.y=" << predictedCom.y << ", v.y=" << cell.v.y
                                                      << ", com.y=" << cell.com.y);
@@ -354,12 +263,22 @@ void World::advanceTime(uint32_t deltaTimeMs)
                             Vector2d xComOffset = comOffset;
                             xComOffset.y = cell.com.y; // Keep original Y component
 
-                            moves.push_back({ x, y, static_cast<uint32_t>(checkX), static_cast<uint32_t>(checkY),
-                                            dirtAmount, waterAmount, 0.0, 0.0, xComOffset });
-                            LOG_DEBUG("  Queued X move: from=(" << x << "," << y << ") to=(" << checkX << "," << checkY 
-                                    << "), dirt=" << dirtAmount << ", water=" << waterAmount);
+                            moves.push_back({ x,
+                                              y,
+                                              static_cast<uint32_t>(checkX),
+                                              static_cast<uint32_t>(checkY),
+                                              dirtAmount,
+                                              waterAmount,
+                                              0.0,
+                                              0.0,
+                                              xComOffset });
+                            LOG_DEBUG(
+                                "  Queued X move: from=("
+                                << x << "," << y << ") to=(" << checkX << "," << checkY
+                                << "), dirt=" << dirtAmount << ", water=" << waterAmount);
                             transferOccurred = true;
-                        } else {
+                        }
+                        else {
                             // X transfer blocked, reflect velocity
                             cell.v.x = -cell.v.x * World::ELASTICITY_FACTOR;
                         }
@@ -383,17 +302,28 @@ void World::advanceTime(uint32_t deltaTimeMs)
                             Vector2d yComOffset = comOffset;
                             yComOffset.x = cell.com.x; // Keep original X component
 
-                            moves.push_back({ x, y, static_cast<uint32_t>(checkX), static_cast<uint32_t>(checkY),
-                                            dirtAmount, waterAmount, 0.0, 0.0, yComOffset });
-                            LOG_DEBUG("  Queued Y move: from=(" << x << "," << y << ") to=(" << checkX << "," << checkY 
-                                    << "), dirt=" << dirtAmount << ", water=" << waterAmount);
-                        } else {
+                            moves.push_back({ x,
+                                              y,
+                                              static_cast<uint32_t>(checkX),
+                                              static_cast<uint32_t>(checkY),
+                                              dirtAmount,
+                                              waterAmount,
+                                              0.0,
+                                              0.0,
+                                              yComOffset });
+                            LOG_DEBUG(
+                                "  Queued Y move: from=("
+                                << x << "," << y << ") to=(" << checkX << "," << checkY
+                                << "), dirt=" << dirtAmount << ", water=" << waterAmount);
+                        }
+                        else {
                             // Y transfer blocked, reflect velocity
                             cell.v.y = -cell.v.y * World::ELASTICITY_FACTOR;
                         }
                     }
                 }
-            } else {
+            }
+            else {
                 // No transfer needed, move COM internally
                 cell.update(cell.dirt, predictedCom, cell.v);
             }
@@ -421,14 +351,18 @@ void World::advanceTime(uint32_t deltaTimeMs)
         const double totalMass = move.dirtAmount + move.waterAmount;
         const double moveAmount = std::min({
             totalMass,
-            sourceCell.percentFull(), // Can't move more than we have. TODO: should take into account water vs dirt
-            availableSpace    // Can't exceed target capacity.
+            sourceCell.percentFull(), // Can't move more than we have. TODO: should take into
+                                      // account water vs dirt
+            availableSpace            // Can't exceed target capacity.
         });
 
         // --- ELASTIC COLLISION RESPONSE (only if both cells have mass) ---
-        if (sourceCell.percentFull() > MIN_DIRT_THRESHOLD && targetCell.percentFull() > MIN_DIRT_THRESHOLD) {
+        if (sourceCell.percentFull() > MIN_DIRT_THRESHOLD
+            && targetCell.percentFull() > MIN_DIRT_THRESHOLD) {
             // Normal vector from source to target
-            Vector2d normal = Vector2d((int)move.toX - (int)move.fromX, (int)move.toY - (int)move.fromY).normalize();
+            Vector2d normal =
+                Vector2d((int)move.toX - (int)move.fromX, (int)move.toY - (int)move.fromY)
+                    .normalize();
             if (normal.mag() > 0.0) {
                 // Project velocities onto the normal
                 double v1n = sourceCell.v.dot(normal);
@@ -480,8 +414,8 @@ void World::advanceTime(uint32_t deltaTimeMs)
             // Weighted average of existing COM and the new COM based on mass.
             // This preserves both mass and energy in the system.
             const double newMass = actualDirt + actualWater;
-            Vector2d newCom =
-                (targetCell.com * oldTargetMass + expectedCom * newMass) / (oldTargetMass + newMass);
+            Vector2d newCom = (targetCell.com * oldTargetMass + expectedCom * newMass)
+                / (oldTargetMass + newMass);
             targetCell.update(targetCell.dirt + actualDirt, newCom, targetCell.v);
             targetCell.water += actualWater;
         }
@@ -492,7 +426,8 @@ void World::advanceTime(uint32_t deltaTimeMs)
             Vector2d newV = sourceCell.v;
             // Scale COM based on remaining mass
             const double remainingMass = sourceCell.dirt + sourceCell.water;
-            const double moveFraction = (actualDirt + actualWater) / (sourceCell.dirt + sourceCell.water);
+            const double moveFraction =
+                (actualDirt + actualWater) / (sourceCell.dirt + sourceCell.water);
             Vector2d newCom = sourceCell.com * (1.0 - moveFraction);
             sourceCell.update(sourceCell.dirt, newCom, newV);
         }
@@ -508,46 +443,9 @@ void World::advanceTime(uint32_t deltaTimeMs)
                                          << targetCell.v.y << ")");
     }
 
-    // After all moves are complete, apply pressure to COM and clear it
-    // for (uint32_t y = 0; y < height; y++) {
-    //     for (uint32_t x = 0; x < width; x++) {
-    //         Cell& cell = at(x, y);
-            
-    //         // Skip cells with no pressure
-    //         if (cell.pressure.mag() < 0.1) continue;
-            
-    //         // Find the direction with most available space
-    //         Vector2d pressureDirection(0.0, 0.0);
-    //         double maxSpace = 0.0;
-            
-    //         // Check all 8 neighboring cells
-    //         for (int dy = -1; dy <= 1; dy++) {
-    //             for (int dx = -1; dx <= 1; dx++) {
-    //                 if (dx == 0 && dy == 0) continue;
-                    
-    //                 int nx = x + dx;
-    //                 int ny = y + dy;
-    //                 if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
-    //                     Cell& neighbor = at(nx, ny);
-    //                     double availableSpace = 1.0 - neighbor.percentFull();
-    //                     if (availableSpace > maxSpace) {
-    //                         maxSpace = availableSpace;
-    //                         pressureDirection = Vector2d(dx, dy).normalize();
-    //                     }
-    //                 }
-    //             }
-    //         }
-            
-    //         // Apply pressure in the direction of most available space
-    //         const double PRESSURE_STRENGTH = 5.0;
-    //         cell.v += pressureDirection * cell.pressure.mag() * timeStep * PRESSURE_STRENGTH * pressureScale;
-           
-    //         // Clear pressure for next frame
-    //         cell.pressure = Vector2d(0.0, 0.0);
-    //     }
-    // }
+    updateAllPressures(timestep);
 
-    updateAllPressures();
+    applyPressure(timestep);
 
     // Update total mass after all moves are complete.
     totalMass = 0.0;
@@ -558,6 +456,124 @@ void World::advanceTime(uint32_t deltaTimeMs)
     }
 
     timers.stopTimer("advance_time");
+}
+
+void World::applyPressure(const double timestep)
+{
+    for (uint32_t y = 0; y < height; y++) {
+        for (uint32_t x = 0; x < width; x++) {
+            Cell& cell = at(x, y);
+
+            // Skip cells with no pressure
+            if (cell.pressure.mag() < 0.1) continue;
+
+            // Find the direction with most available space
+            Vector2d pressureDirection(0.0, 0.0);
+            double maxSpace = 0.0;
+
+            // Check all 8 neighboring cells
+            for (int dy = -1; dy <= 1; dy++) {
+                for (int dx = -1; dx <= 1; dx++) {
+                    if (dx == 0 && dy == 0) continue;
+
+                    int nx = x + dx;
+                    int ny = y + dy;
+                    if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                        Cell& neighbor = at(nx, ny);
+                        double availableSpace = 1.0 - neighbor.percentFull();
+                        if (availableSpace > maxSpace) {
+                            maxSpace = availableSpace;
+                            pressureDirection = Vector2d(dx, dy).normalize();
+                        }
+                    }
+                }
+            }
+
+            // Apply pressure in the direction of most available space
+            const double PRESSURE_STRENGTH = 5.0;
+            cell.v += pressureDirection * cell.pressure.mag() * PRESSURE_STRENGTH * pressureScale
+                * timescale * 0.001;
+
+            // Clear pressure for next frame
+            cell.pressure = Vector2d(0.0, 0.0);
+        }
+    }
+}
+
+void World::updateAllPressures(double timestep)
+{
+    // First clear all pressures.
+    for (uint32_t y = 0; y < height; ++y) {
+        for (uint32_t x = 0; x < width; ++x) {
+            at(x, y).pressure = Vector2d(0.0, 0.0);
+        }
+    }
+
+    // Then calculate pressures that cells exert on their neighbor.
+    for (uint32_t y = 0; y < height; ++y) {
+        for (uint32_t x = 0; x < width; ++x) {
+            Cell& cell = at(x, y);
+            if (cell.percentFull() < MIN_DIRT_THRESHOLD) continue;
+            double mass = cell.percentFull();
+            // Right neighbor
+            if (x + 1 < width) {
+                if (cell.com.x > 0.0) {
+                    Cell& neighbor = at(x + 1, y);
+                    neighbor.pressure.x += cell.com.x * mass * timestep * 0.001;
+                }
+            }
+            // Left neighbor
+            if (x > 0) {
+                if (cell.com.x < 0.0) {
+                    Cell& neighbor = at(x - 1, y);
+                    neighbor.pressure.x += -cell.com.x * mass * timestep * 0.001;
+                }
+            }
+            // Down neighbor
+            if (y + 1 < height) {
+                if (cell.com.y > 0.0) {
+                    Cell& neighbor = at(x, y + 1);
+                    neighbor.pressure.y += cell.com.y * mass * timestep * 0.001;
+                }
+            }
+            // Up neighbor
+            if (y > 0) {
+                if (cell.com.y < 0.0) {
+                    Cell& neighbor = at(x, y - 1);
+                    neighbor.pressure.y += -cell.com.y * mass * timestep * 0.001;
+                }
+            }
+        }
+    }
+
+    // // Iterative pressure propagation
+    const int numPressureIterations = 8;
+    std::vector<Vector2d> nextPressure(width * height);
+    for (int iter = 0; iter < numPressureIterations; ++iter) {
+        for (uint32_t y = 0; y < height; ++y) {
+            for (uint32_t x = 0; x < width; ++x) {
+                Vector2d sum = at(x, y).pressure;
+                int count = 1;
+                for (int dy = -1; dy <= 1; ++dy) {
+                    for (int dx = -1; dx <= 1; ++dx) {
+                        if (dx == 0 && dy == 0) continue;
+                        int nx = x + dx, ny = y + dy;
+                        if (nx >= 0 && nx < (int)width && ny >= 0 && ny < (int)height) {
+                            sum += at(nx, ny).pressure;
+                            ++count;
+                        }
+                    }
+                }
+                nextPressure[y * width + x] = sum / count;
+            }
+        }
+        // Copy nextPressure back to cells
+        for (uint32_t y = 0; y < height; ++y) {
+            for (uint32_t x = 0; x < width; ++x) {
+                at(x, y).pressure = nextPressure[y * width + x];
+            }
+        }
+    }
 }
 
 Cell& World::at(uint32_t x, uint32_t y)
@@ -649,13 +665,14 @@ void World::fillLowerRightQuadrant()
 
 void World::reset()
 {
-    timestep = 0;
-    cells.clear();
-    cells.resize(width * height);
-    makeWalls();
-    if (shouldFillLowerRightQuadrant) {
-        fillLowerRightQuadrant();
+    // Clear all cells
+    for (auto& cell : cells) {
+        cell.update(0.0, Vector2d(0.0, 0.0), Vector2d(0.0, 0.0));
+        cell.water = 0.0;
     }
+
+    // Use the world setup strategy to initialize the world
+    worldSetup->setup(*this);
 }
 
 void World::addDirtAtPixel(int pixelX, int pixelY)
@@ -884,80 +901,5 @@ void World::updateCursorForce(int pixelX, int pixelY, bool isActive)
     cursorForceActive = isActive;
     if (isActive) {
         pixelToCell(pixelX, pixelY, cursorForceX, cursorForceY);
-    }
-}
-
-void World::updateAllPressures() {
-    // First clear all pressures
-    for (uint32_t y = 0; y < height; ++y) {
-        for (uint32_t x = 0; x < width; ++x) {
-            at(x, y).pressure = Vector2d(0.0, 0.0);
-        }
-    }
-
-    // Then calculate pressures that cells exert on their neighbors, scaled by mass
-    for (uint32_t y = 0; y < height; ++y) {
-        for (uint32_t x = 0; x < width; ++x) {
-            Cell& cell = at(x, y);
-            if (cell.percentFull() < MIN_DIRT_THRESHOLD) continue;
-            double mass = cell.percentFull();
-            // Right neighbor
-            if (x + 1 < width) {
-                if (cell.com.x > 0.0) {
-                    Cell& neighbor = at(x + 1, y);
-                    neighbor.pressure.x += cell.com.x * mass;
-                }
-            }
-            // Left neighbor
-            if (x > 0) {
-                if (cell.com.x < 0.0) {
-                    Cell& neighbor = at(x - 1, y);
-                    neighbor.pressure.x += -cell.com.x * mass;
-                }
-            }
-            // Down neighbor
-            if (y + 1 < height) {
-                if (cell.com.y > 0.0) {
-                    Cell& neighbor = at(x, y + 1);
-                    neighbor.pressure.y += cell.com.y * mass;
-                }
-            }
-            // Up neighbor
-            if (y > 0) {
-                if (cell.com.y < 0.0) {
-                    Cell& neighbor = at(x, y - 1);
-                    neighbor.pressure.y += -cell.com.y * mass;
-                }
-            }
-        }
-    }
-
-    // Iterative pressure propagation
-    const int numPressureIterations = 4;
-    std::vector<Vector2d> nextPressure(width * height);
-    for (int iter = 0; iter < numPressureIterations; ++iter) {
-        for (uint32_t y = 0; y < height; ++y) {
-            for (uint32_t x = 0; x < width; ++x) {
-                Vector2d sum = at(x, y).pressure;
-                int count = 1;
-                for (int dy = -1; dy <= 1; ++dy) {
-                    for (int dx = -1; dx <= 1; ++dx) {
-                        if (dx == 0 && dy == 0) continue;
-                        int nx = x + dx, ny = y + dy;
-                        if (nx >= 0 && nx < (int)width && ny >= 0 && ny < (int)height) {
-                            sum += at(nx, ny).pressure;
-                            ++count;
-                        }
-                    }
-                }
-                nextPressure[y * width + x] = sum / count;
-            }
-        }
-        // Copy nextPressure back to cells
-        for (uint32_t y = 0; y < height; ++y) {
-            for (uint32_t x = 0; x < width; ++x) {
-                at(x, y).pressure = nextPressure[y * width + x];
-            }
-        }
     }
 }

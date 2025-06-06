@@ -2,8 +2,10 @@
 
 #include "Cell.h"
 #include "Timers.h"
+#include "WorldSetup.h"
 
 #include <cstdint>
+#include <memory>
 #include <utility>
 #include <vector>
 
@@ -19,6 +21,10 @@ class World {
 public:
     World(uint32_t width, uint32_t height, lv_obj_t* draw_area);
     ~World();
+
+    // World is not copyable due to unique_ptr members
+    World(const World&) = delete;
+    World& operator=(const World&) = delete;
 
     void advanceTime(uint32_t deltaTimeMs);
 
@@ -87,7 +93,13 @@ public:
     void setDirtFragmentationFactor(double factor) { DIRT_FRAGMENTATION_FACTOR = factor; }
 
     // Update pressure for all cells based on COM deflection into neighbors
-    void updateAllPressures();
+    void updateAllPressures(double timestep);
+
+    // Set the world setup strategy
+    void setWorldSetup(std::unique_ptr<WorldSetup> setup) { worldSetup = std::move(setup); }
+
+    // Get the current world setup strategy
+    std::unique_ptr<WorldSetup> getWorldSetup() { return std::move(worldSetup); }
 
     // Control whether to fill the lower right quadrant during reset
     void setFillLowerRightQuadrant(bool enabled) { shouldFillLowerRightQuadrant = enabled; }
@@ -153,6 +165,9 @@ private:
         Vector2d com;
     };
     PendingDragEnd pendingDragEnd;
+
+    // World setup strategy
+    std::unique_ptr<WorldSetup> worldSetup;
 
     // Control whether to fill the lower right quadrant during reset
     bool shouldFillLowerRightQuadrant = true;
