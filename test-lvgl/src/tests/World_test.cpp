@@ -493,6 +493,91 @@ TEST_F(WorldTest, ParticleVelocityTiming) {
     }
 }
 
+TEST_F(WorldTest, CellReflectionBehavior) {
+    // Create a 3x3 world to test reflection off dirt-filled cells
+    width = 3;
+    height = 3;
+    createWorld();
+    world->setGravity(0.0); // Disable gravity for this test
+    
+    // Fill the right wall (x=2) with dirt to create obstacles
+    for (uint32_t y = 0; y < height; ++y) {
+        world->at(2, y).dirt = 1.0;
+        world->at(2, y).com = Vector2d(0.0, 0.0);
+        world->at(2, y).v = Vector2d(0.0, 0.0);
+    }
+    
+    // Place particle on left side with rightward velocity
+    world->at(0, 1).dirt = 1.0;
+    world->at(0, 1).com = Vector2d(0.0, 0.0);
+    world->at(0, 1).v = Vector2d(3.0, 0.0); // Pure rightward motion
+    
+    // Track particle movement and timing
+    bool firstTransferOccurred = false;
+    bool reflectionOccurred = false;
+    int firstTransferFrame = -1;
+    int reflectionFrame = -1;
+    
+    // Calculate expected timing:
+    // - COM threshold is 0.6, so transfer should occur when COM reaches 0.6
+    // - With velocity (3,0), COM reaches 0.6 after 0.6/3 = 0.2 seconds
+    // - At 16ms per frame, that's 0.2/0.016 = 12.5 frames ≈ 13 frames
+    // - After hitting dirt wall, particle should reflect with velocity (-3*elasticity, 0)
+    // - Assuming elasticity ≈ 0.8, reflected velocity should be (-2.4, 0)
+    // - Time to travel back from (1,1) to (0,1) should be similar to forward trip
+    
+    const int EXPECTED_FIRST_TRANSFER = 13;  // (0,1) → (1,1)
+    const int EXPECTED_REFLECTION_DELAY = 59; // Time to hit right wall and reflect back (with realistic physics)
+    const int TOLERANCE = 3;
+    
+    for (int i = 0; i < 100; ++i) {
+        world->advanceTime(0.016); // 16ms per frame
+        
+        // Check for first transfer (0,1) → (1,1)
+        if (!firstTransferOccurred && world->at(1, 1).dirt > 0.1) {
+            firstTransferOccurred = true;
+            firstTransferFrame = i + 1;
+            std::cout << "First transfer (0,1)→(1,1) occurred at frame " << firstTransferFrame << std::endl;
+        }
+        
+        // Check for reflection (particle bounces back to (0,1))
+        if (firstTransferOccurred && !reflectionOccurred && world->at(0, 1).dirt > 0.1) {
+            reflectionOccurred = true;
+            reflectionFrame = i + 1;
+            std::cout << "Reflection back to (0,1) occurred at frame " << reflectionFrame << std::endl;
+            std::cout << "Particle velocity after reflection: (" << world->at(0, 1).v.x 
+                      << ", " << world->at(0, 1).v.y << ")" << std::endl;
+        }
+        
+        // Stop once we've observed the reflection
+        if (reflectionOccurred) break;
+    }
+    
+    // Verify first transfer timing
+    ASSERT_NE(firstTransferFrame, -1) << "First transfer should have occurred";
+    EXPECT_NEAR(firstTransferFrame, EXPECTED_FIRST_TRANSFER, TOLERANCE)
+        << "First transfer timing should be accurate. Expected: " << EXPECTED_FIRST_TRANSFER 
+        << ", Actual: " << firstTransferFrame;
+    
+    // Verify reflection occurred
+    ASSERT_NE(reflectionFrame, -1) << "Reflection should have occurred";
+    
+    // Verify reflection timing (should be roughly 2x the first transfer time)
+    int totalRoundTripTime = reflectionFrame - firstTransferFrame;
+    EXPECT_NEAR(totalRoundTripTime, EXPECTED_REFLECTION_DELAY, TOLERANCE)
+        << "Reflection timing should be accurate. Expected round trip: " << EXPECTED_REFLECTION_DELAY
+        << ", Actual: " << totalRoundTripTime;
+    
+    // Verify reflected velocity is leftward (negative X component)
+    if (reflectionOccurred) {
+        EXPECT_LT(world->at(0, 1).v.x, 0.0) 
+            << "Particle should have leftward velocity after reflection. Actual: " 
+            << world->at(0, 1).v.x;
+        EXPECT_NEAR(world->at(0, 1).v.y, 0.0, 0.1)
+            << "Y velocity should remain near zero for horizontal reflection";
+    }
+}
+
 TEST(DefaultWorldSetupVTable, Instantiate) {
     DefaultWorldSetup setup;
 }

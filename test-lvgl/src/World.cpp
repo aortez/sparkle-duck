@@ -272,12 +272,23 @@ void World::advanceTime(const double deltaTimeSeconds)
                                 << "), dirt=" << dirtAmount << ", water=" << waterAmount);
                             transferOccurred = true;
                         }
-                        else {
-                            // Diagonal transfer blocked by full cell, reflect both velocity components
+                                                else {
+                            // Diagonal transfer blocked by full cell, reflect both velocity components and clamp COM
                             cell.v.x = -cell.v.x * World::ELASTICITY_FACTOR;
                             cell.v.y = -cell.v.y * World::ELASTICITY_FACTOR;
-                            LOG_DEBUG("  Diagonal transfer blocked by full cell, reflecting both velocities");
-                    }
+                            // Clamp COM to prevent getting stuck at boundary
+                            if (targetX > x) {
+                                cell.com.x = COM_DEFLECTION_THRESHOLD;   // Hit right obstacle
+                            } else {
+                                cell.com.x = -COM_DEFLECTION_THRESHOLD;  // Hit left obstacle
+                            }
+                            if (targetY > y) {
+                                cell.com.y = COM_DEFLECTION_THRESHOLD;   // Hit down obstacle
+                            } else {
+                                cell.com.y = -COM_DEFLECTION_THRESHOLD;  // Hit up obstacle
+                            }
+                            LOG_DEBUG("  Diagonal transfer blocked by full cell, reflecting both velocities and clamping COM to (" << cell.com.x << ", " << cell.com.y << ")");
+                        }
                 }
                     else {
                         // Diagonal transfer blocked by boundary, reflect appropriate components
@@ -337,8 +348,15 @@ void World::advanceTime(const double deltaTimeSeconds)
                             transferOccurred = true;
                         }
                         else {
-                            // X transfer blocked, reflect velocity
+                            // X transfer blocked by full cell, reflect velocity and clamp COM
                             cell.v.x = -cell.v.x * World::ELASTICITY_FACTOR;
+                            // Clamp COM to prevent getting stuck at boundary
+                            if (targetX > x) {
+                                cell.com.x = COM_DEFLECTION_THRESHOLD;   // Hit right obstacle
+                            } else {
+                                cell.com.x = -COM_DEFLECTION_THRESHOLD;  // Hit left obstacle
+                            }
+                            LOG_DEBUG("  X transfer blocked by full cell, reflecting v.x and clamping COM.x to " << cell.com.x);
                         }
                     }
                     else {
@@ -384,8 +402,15 @@ void World::advanceTime(const double deltaTimeSeconds)
                                 << "), dirt=" << dirtAmount << ", water=" << waterAmount);
                         }
                         else {
-                            // Y transfer blocked, reflect velocity
+                            // Y transfer blocked by full cell, reflect velocity and clamp COM
                             cell.v.y = -cell.v.y * World::ELASTICITY_FACTOR;
+                            // Clamp COM to prevent getting stuck at boundary
+                            if (targetY > y) {
+                                cell.com.y = COM_DEFLECTION_THRESHOLD;   // Hit down obstacle
+                            } else {
+                                cell.com.y = -COM_DEFLECTION_THRESHOLD;  // Hit up obstacle
+                            }
+                            LOG_DEBUG("  Y transfer blocked by full cell, reflecting v.y and clamping COM.y to " << cell.com.y);
                         }
                     }
                     else {
