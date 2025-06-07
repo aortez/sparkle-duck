@@ -20,7 +20,9 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+#include "../World.h"
 #include "lvgl/lvgl.h"
+#include "simulator_loop.h"
 #if LV_USE_X11
 #include "../backends.h"
 #include "../simulator_settings.h"
@@ -43,7 +45,7 @@ extern simulator_settings_t settings;
  *  STATIC PROTOTYPES
  **********************/
 static lv_display_t* init_x11(void);
-static void run_loop_x11(void);
+static void run_loop_x11(World& world);
 
 /**********************
  *  STATIC VARIABLES
@@ -108,12 +110,28 @@ static lv_display_t* init_x11(void)
 /**
  * The run loop of the X11 driver
  */
-void run_loop_x11(void)
+void run_loop_x11(World& world)
 {
+    // Initialize simulation loop state for step counting
+    SimulatorLoop::LoopState state;
+    SimulatorLoop::initState(state);
+    
+    // Set max_steps from global settings
+    state.max_steps = settings.max_steps;
+
     uint32_t idle_time;
 
     /* Handle LVGL tasks */
-    while (true) {
+    while (state.is_running) {
+        // Check if we've reached the step limit
+        if (state.max_steps > 0 && state.step_count >= state.max_steps) {
+            printf("Simulation completed after %u steps\n", state.step_count);
+            break;
+        }
+
+        // Increment step counter
+        state.step_count++;
+
         /* Returns the time to the next timer execution */
         idle_time = lv_timer_handler();
         usleep(idle_time * 1000);

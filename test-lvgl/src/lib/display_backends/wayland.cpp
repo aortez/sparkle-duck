@@ -129,13 +129,21 @@ static void run_loop_wayland(World& world)
 {
     SimulatorLoop::LoopState state;
     SimulatorLoop::initState(state);
+    
+    // Set max_steps from global settings
+    state.max_steps = settings.max_steps;
 
     bool completed;
 
     /* Handle LVGL tasks */
-    while (true) {
+    while (state.is_running) {
         // Process one frame of simulation.
         SimulatorLoop::processFrame(world, state, 8);
+
+        // Exit if step limit reached
+        if (!state.is_running) {
+            break;
+        }
 
         // Update mass label if it exists
         if (mass_label_ptr) {

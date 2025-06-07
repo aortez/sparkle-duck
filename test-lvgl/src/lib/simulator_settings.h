@@ -38,6 +38,7 @@ typedef struct {
   uint32_t window_height;
   bool maximize;
   bool fullscreen;
+  uint32_t max_steps;  // Maximum number of simulation steps to run (0 = unlimited)
 } simulator_settings_t;
 
 /**********************

@@ -91,9 +91,10 @@ static void print_usage(void)
     fprintf(
         stdout,
         "\nlvglsim [-V] [-B] [-b backend_name] [-W window_width] [-H "
-        "window_height]\n\n");
+        "window_height] [-s max_steps]\n\n");
     fprintf(stdout, "-V print LVGL version\n");
     fprintf(stdout, "-B list supported backends\n");
+    fprintf(stdout, "-s max_steps set maximum number of simulation steps (0 = unlimited)\n");
 }
 
 /**
@@ -113,9 +114,10 @@ static void configure_simulator(int argc, char** argv)
     /* Default values */
     settings.window_width = atoi(getenv("LV_SIM_WINDOW_WIDTH") ?: "800");
     settings.window_height = atoi(getenv("LV_SIM_WINDOW_HEIGHT") ?: "480");
+    settings.max_steps = 0; // Default to unlimited steps
 
     /* Parse the command-line options. */
-    while ((opt = getopt(argc, argv, "b:fmW:H:BVh")) != -1) {
+    while ((opt = getopt(argc, argv, "b:fmW:H:s:BVh")) != -1) {
         switch (opt) {
             case 'h':
                 print_usage();
@@ -140,6 +142,9 @@ static void configure_simulator(int argc, char** argv)
                 break;
             case 'H':
                 settings.window_height = atoi(optarg);
+                break;
+            case 's':
+                settings.max_steps = atoi(optarg);
                 break;
             case ':':
                 print_usage();

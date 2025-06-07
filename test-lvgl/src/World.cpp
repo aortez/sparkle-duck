@@ -16,7 +16,7 @@
 #endif
 
 // Debug logging specifically for particle events
-// #define LOG_PARTICLES
+#define LOG_PARTICLES
 #ifdef LOG_PARTICLES
 #define LOG_PARTICLES(x) std::cout << "[Particles] " << x << std::endl
 #else
@@ -93,20 +93,6 @@ void World::advanceTime(const double deltaTimeSeconds)
         pendingDragEnd.hasPendingEnd = false;
         timers.stopTimer("process_drag_end");
     }
-
-    struct DirtMove {
-        uint32_t fromX;
-        uint32_t fromY;
-        uint32_t toX;
-        uint32_t toY;
-        double dirtAmount;  // Amount of dirt to move
-        double waterAmount; // Amount of water to move
-        double actualDirt;  // Actual amount of dirt moved after capacity checks
-        double actualWater; // Actual amount of water moved after capacity checks
-        Vector2d comOffset; // COM offset to apply to the target cell.
-    };
-
-    std::vector<DirtMove> moves;
 
     // First pass: collect potential moves.
     for (uint32_t y = 0; y < height; y++) {
@@ -189,50 +175,65 @@ void World::advanceTime(const double deltaTimeSeconds)
                          << cell.com.x << "," << cell.com.y << "), dirt=" << cell.dirt
                          << ", water=" << cell.water);
 
-            // Calculate if predicted COM will be in neighboring cell space or moving toward it.
+            // COM deflection threshold for triggering transfers
+            static constexpr double COM_DEFLECTION_THRESHOLD = 0.6;
+
+            // Check for transfers based on COM deflection from center
             bool shouldTransferX = false;
             bool shouldTransferY = false;
             int targetX = x;
             int targetY = y;
             Vector2d comOffset;
 
-            // Check horizontal transfer.
-            if (predictedCom.x > 1.0) {
+            // Check horizontal transfer based on COM deflection.
+            if (cell.com.x > COM_DEFLECTION_THRESHOLD) {
                 shouldTransferX = true;
                 targetX = x + 1;
-                comOffset.x = cell.com.x - 2.0; // Use original COM instead of predicted COM
+                // Calculate natural position: source COM minus 2.0 (one cell width)
+                double naturalX = cell.com.x - 2.0;
+                // Clamp to dead zone to prevent immediate re-transfer
+                comOffset.x = std::max(-COM_DEFLECTION_THRESHOLD, std::min(COM_DEFLECTION_THRESHOLD, naturalX));
                 LOG_DEBUG(
-                    "  Transfer right: predictedCom.x=" << predictedCom.x << ", v.x=" << cell.v.x
-                                                        << ", com.x=" << cell.com.x);
+                    "  Transfer right: com.x=" << cell.com.x << " > threshold=" << COM_DEFLECTION_THRESHOLD
+                                              << ", v.x=" << cell.v.x << ", natural=" << naturalX << ", target_com.x=" << comOffset.x);
             }
-            else if (predictedCom.x < -1.0) {
+            else if (cell.com.x < -COM_DEFLECTION_THRESHOLD) {
                 shouldTransferX = true;
                 targetX = x - 1;
-                comOffset.x = cell.com.x + 2.0; // Use original COM instead of predicted COM
+                // Calculate natural position: source COM plus 2.0 (one cell width)
+                double naturalX = cell.com.x + 2.0;
+                // Clamp to dead zone to prevent immediate re-transfer
+                comOffset.x = std::max(-COM_DEFLECTION_THRESHOLD, std::min(COM_DEFLECTION_THRESHOLD, naturalX));
                 LOG_DEBUG(
-                    "  Transfer left: predictedCom.x=" << predictedCom.x << ", v.x=" << cell.v.x
-                                                       << ", com.x=" << cell.com.x);
+                    "  Transfer left: com.x=" << cell.com.x << " < threshold=" << -COM_DEFLECTION_THRESHOLD
+                                             << ", v.x=" << cell.v.x << ", natural=" << naturalX << ", target_com.x=" << comOffset.x);
             }
 
-            // Check vertical transfer.
-            if (predictedCom.y > 1.0) {
+            // Check vertical transfer based on COM deflection.
+            if (cell.com.y > COM_DEFLECTION_THRESHOLD) {
                 shouldTransferY = true;
                 targetY = y + 1;
-                comOffset.y = cell.com.y - 2.0; // Use original COM instead of predicted COM
+                // Calculate natural position: source COM minus 2.0 (one cell height)
+                double naturalY = cell.com.y - 2.0;
+                // Clamp to dead zone to prevent immediate re-transfer
+                comOffset.y = std::max(-COM_DEFLECTION_THRESHOLD, std::min(COM_DEFLECTION_THRESHOLD, naturalY));
                 LOG_DEBUG(
-                    "  Transfer down: predictedCom.y=" << predictedCom.y << ", v.y=" << cell.v.y
-                                                       << ", com.y=" << cell.com.y);
+                    "  Transfer down: com.y=" << cell.com.y << " > threshold=" << COM_DEFLECTION_THRESHOLD
+                                             << ", v.y=" << cell.v.y << ", natural=" << naturalY << ", target_com.y=" << comOffset.y);
             }
-            else if (predictedCom.y < -1.0) {
+            else if (cell.com.y < -COM_DEFLECTION_THRESHOLD) {
                 shouldTransferY = true;
                 targetY = y - 1;
-                comOffset.y = cell.com.y + 2.0; // Use original COM instead of predicted COM
+                // Calculate natural position: source COM plus 2.0 (one cell height)
+                double naturalY = cell.com.y + 2.0;
+                // Clamp to dead zone to prevent immediate re-transfer
+                comOffset.y = std::max(-COM_DEFLECTION_THRESHOLD, std::min(COM_DEFLECTION_THRESHOLD, naturalY));
                 LOG_DEBUG(
-                    "  Transfer up: predictedCom.y=" << predictedCom.y << ", v.y=" << cell.v.y
-                                                     << ", com.y=" << cell.com.y);
+                    "  Transfer up: com.y=" << cell.com.y << " < threshold=" << -COM_DEFLECTION_THRESHOLD
+                                           << ", v.y=" << cell.v.y << ", natural=" << naturalY << ", target_com.y=" << comOffset.y);
             }
 
-            // Handle transfers independently for X and Y directions
+            // Handle transfers - prioritize diagonal transfers when both X and Y are needed
             if (shouldTransferX || shouldTransferY) {
                 // Calculate total mass and proportions
                 const double totalMass = cell.dirt + cell.water;
@@ -242,8 +243,71 @@ void World::advanceTime(const double deltaTimeSeconds)
                 // Track if any transfer occurred
                 bool transferOccurred = false;
 
-                // Try X transfer first if needed
-                if (shouldTransferX) {
+                // Try diagonal transfer first if both X and Y are needed
+                if (shouldTransferX && shouldTransferY) {
+                    int checkX = targetX;
+                    int checkY = targetY;
+                    bool xInBounds = (checkX >= 0 && checkX < width);
+                    bool yInBounds = (checkY >= 0 && checkY < height);
+                    
+                    if (xInBounds && yInBounds) {
+                        Cell& targetCell = at(checkX, checkY);
+                        if (targetCell.percentFull() < 1.0) {
+                            // Calculate transfer amounts for diagonal direction
+                            const double availableSpace = 1.0 - targetCell.percentFull();
+                            const double moveAmount = std::min(totalMass, availableSpace);
+                            const double dirtAmount = moveAmount * dirtProportion;
+                            const double waterAmount = moveAmount * waterProportion;
+
+                            moves.push_back(DirtMove{ .fromX = x,
+                                              .fromY = y,
+                                              .toX = static_cast<uint32_t>(checkX),
+                                              .toY = static_cast<uint32_t>(checkY),
+                                              .dirtAmount = dirtAmount,
+                                              .waterAmount = waterAmount,
+                                              .comOffset = comOffset });
+                            LOG_DEBUG(
+                                "  Queued diagonal move: from=("
+                                << x << "," << y << ") to=(" << checkX << "," << checkY
+                                << "), dirt=" << dirtAmount << ", water=" << waterAmount);
+                            transferOccurred = true;
+                        }
+                        else {
+                            // Diagonal transfer blocked by full cell, reflect both velocity components
+                            cell.v.x = -cell.v.x * World::ELASTICITY_FACTOR;
+                            cell.v.y = -cell.v.y * World::ELASTICITY_FACTOR;
+                            LOG_DEBUG("  Diagonal transfer blocked by full cell, reflecting both velocities");
+                    }
+                }
+                    else {
+                        // Diagonal transfer blocked by boundary, reflect appropriate components
+                        if (!xInBounds) {
+                            cell.v.x = -cell.v.x * World::ELASTICITY_FACTOR;
+                            // Clamp COM to boundary to prevent accumulation
+                            if (targetX < 0) {
+                                cell.com.x = -COM_DEFLECTION_THRESHOLD;  // Hit left boundary
+                            } else if (targetX >= static_cast<int>(width)) {
+                                cell.com.x = COM_DEFLECTION_THRESHOLD;   // Hit right boundary
+                            }
+                            LOG_DEBUG("  Diagonal transfer blocked by X boundary, reflecting v.x and clamping COM.x to " << cell.com.x);
+                        }
+                        if (!yInBounds) {
+                            cell.v.y = -cell.v.y * World::ELASTICITY_FACTOR;
+                            // Clamp COM to boundary to prevent accumulation
+                            if (targetY < 0) {
+                                cell.com.y = -COM_DEFLECTION_THRESHOLD;  // Hit top boundary
+                            } else if (targetY >= static_cast<int>(height)) {
+                                cell.com.y = COM_DEFLECTION_THRESHOLD;   // Hit bottom boundary
+                            }
+                            LOG_DEBUG("  Diagonal transfer blocked by Y boundary, reflecting v.y and clamping COM.y to " << cell.com.y);
+                        }
+                        // Continue to try individual transfers for the valid direction
+                        shouldTransferX = shouldTransferX && xInBounds;
+                        shouldTransferY = shouldTransferY && yInBounds;
+                    }
+                }
+                // Try X transfer if no diagonal transfer occurred or if diagonal was blocked by boundary
+                if (shouldTransferX && !transferOccurred) {
                     int checkX = targetX;
                     int checkY = y;
                     if (checkX >= 0 && checkX < width && checkY >= 0 && checkY < height) {
@@ -259,15 +323,13 @@ void World::advanceTime(const double deltaTimeSeconds)
                             Vector2d xComOffset = comOffset;
                             xComOffset.y = cell.com.y; // Keep original Y component
 
-                            moves.push_back({ x,
-                                              y,
-                                              static_cast<uint32_t>(checkX),
-                                              static_cast<uint32_t>(checkY),
-                                              dirtAmount,
-                                              waterAmount,
-                                              0.0,
-                                              0.0,
-                                              xComOffset });
+                            moves.push_back(DirtMove{ .fromX = x,
+                                              .fromY = y,
+                                              .toX = static_cast<uint32_t>(checkX),
+                                              .toY = static_cast<uint32_t>(checkY),
+                                              .dirtAmount = dirtAmount,
+                                              .waterAmount = waterAmount,
+                                              .comOffset = xComOffset });
                             LOG_DEBUG(
                                 "  Queued X move: from=("
                                 << x << "," << y << ") to=(" << checkX << "," << checkY
@@ -278,6 +340,17 @@ void World::advanceTime(const double deltaTimeSeconds)
                             // X transfer blocked, reflect velocity
                             cell.v.x = -cell.v.x * World::ELASTICITY_FACTOR;
                         }
+                    }
+                    else {
+                        // X transfer blocked by boundary, reflect velocity
+                        cell.v.x = -cell.v.x * World::ELASTICITY_FACTOR;
+                        // Clamp COM to boundary to prevent accumulation
+                        if (targetX < 0) {
+                            cell.com.x = -COM_DEFLECTION_THRESHOLD;  // Hit left boundary
+                        } else if (targetX >= static_cast<int>(width)) {
+                            cell.com.x = COM_DEFLECTION_THRESHOLD;   // Hit right boundary
+                        }
+                        LOG_DEBUG("  X transfer blocked by boundary, reflecting v.x and clamping COM.x to " << cell.com.x);
                     }
                 }
 
@@ -304,8 +377,6 @@ void World::advanceTime(const double deltaTimeSeconds)
                                               static_cast<uint32_t>(checkY),
                                               dirtAmount,
                                               waterAmount,
-                                              0.0,
-                                              0.0,
                                               yComOffset });
                             LOG_DEBUG(
                                 "  Queued Y move: from=("
@@ -317,6 +388,17 @@ void World::advanceTime(const double deltaTimeSeconds)
                             cell.v.y = -cell.v.y * World::ELASTICITY_FACTOR;
                         }
                     }
+                    else {
+                        // Y transfer blocked by boundary, reflect velocity
+                        cell.v.y = -cell.v.y * World::ELASTICITY_FACTOR;
+                        // Clamp COM to boundary to prevent accumulation
+                        if (targetY < 0) {
+                            cell.com.y = -COM_DEFLECTION_THRESHOLD;  // Hit top boundary
+                        } else if (targetY >= static_cast<int>(height)) {
+                            cell.com.y = COM_DEFLECTION_THRESHOLD;   // Hit bottom boundary
+                        }
+                        LOG_DEBUG("  Y transfer blocked by boundary, reflecting v.y and clamping COM.y to " << cell.com.y);
+                    }
                 }
             }
             else {
@@ -326,6 +408,193 @@ void World::advanceTime(const double deltaTimeSeconds)
         }
     }
 
+    applyMoves();
+
+    updateAllPressures(deltaTimeSeconds);
+
+    applyPressure(deltaTimeSeconds);
+
+    applyMoves(); // Apply the pressure moves
+
+    // Update total mass after all moves are complete.
+    totalMass = 0.0;
+    for (uint32_t y = 0; y < height; y++) {
+        for (uint32_t x = 0; x < width; x++) {
+            totalMass += at(x, y).percentFull();
+        }
+    }
+
+    timers.stopTimer("advance_time");
+}
+
+void World::applyPressure(const double deltaTimeSeconds)
+{
+    for (uint32_t y = 0; y < height; y++) {
+        for (uint32_t x = 0; x < width; x++) {
+            Cell& cell = at(x, y);
+
+            if (cell.pressure.mag() < 0.001) continue;
+
+            double bestScore = -1e9;
+            double bestAvailableSpace = 0.0;
+            int bestTargetX = x;
+            int bestTargetY = y;
+
+            // Check all 8 neighboring cells.
+            // Target cell is the one that maximizes a score based on emptiness and "lowness"
+            for (int dy = -1; dy <= 1; dy++) {
+                for (int dx = -1; dx <= 1; dx++) {
+                    if (dx == 0 && dy == 0) continue;
+
+                    int nx = x + dx;
+                    int ny = y + dy;
+                    if (nx >= 0 && nx < static_cast<int>(width) && ny >= 0
+                        && ny < static_cast<int>(height)) {
+                        Cell& neighbor = at(nx, ny);
+                        double availableSpace = 1.0 - neighbor.percentFull();
+
+                        // Score combines available space and "lowness" (preferring dy=1)
+                        // A small weight for dy makes "lowness" a secondary factor.
+                        double score = availableSpace + 0.1 * dy;
+
+                        if (score > bestScore) {
+                            bestScore = score;
+                            bestTargetX = nx;
+                            bestTargetY = ny;
+                            bestAvailableSpace = availableSpace;
+                        }
+                    }
+                }
+            }
+
+            // Calculate movement amount based on cell properties and timestep
+            double pressureFactor = cell.pressure.mag();
+            double timeFactor = deltaTimeSeconds;
+            double dirtAmount = cell.dirt * bestAvailableSpace * pressureFactor * timeFactor;
+            double waterAmount = cell.water * bestAvailableSpace * pressureFactor * timeFactor;
+
+            // Queue a partial move using the existing 'moves' member
+            // moves.emplace_back(DirtMove{
+            //     .fromX = x,
+            //     .fromY = y,
+            //     .toX = static_cast<uint32_t>(bestTargetX),
+            //     .toY = static_cast<uint32_t>(bestTargetY),
+            //     .dirtAmount = dirtAmount,
+            //     .waterAmount = waterAmount,
+            //     .comOffset = Vector2d(0, 0)
+            // });
+
+            // Clear pressure for next frame
+            cell.pressure = Vector2d(0.0, 0.0);
+        }
+    }
+}
+
+void World::updateAllPressures(double deltaTimeSeconds)
+{
+    // First clear all pressures.
+    for (uint32_t y = 0; y < height; ++y) {
+        for (uint32_t x = 0; x < width; ++x) {
+            at(x, y).pressure = Vector2d(0.0, 0.0);
+        }
+    }
+
+    // Then calculate pressures that cells exert on their neighbor.
+    for (uint32_t y = 0; y < height; ++y) {
+        for (uint32_t x = 0; x < width; ++x) {
+            Cell& cell = at(x, y);
+            if (cell.percentFull() < MIN_DIRT_THRESHOLD) continue;
+            double mass = cell.percentFull();
+            // Right neighbor
+            if (x + 1 < width) {
+                if (cell.com.x > 0.0) {
+                    Cell& neighbor = at(x + 1, y);
+                    neighbor.pressure.x += cell.com.x * mass * deltaTimeSeconds;
+                }
+            }
+            // Left neighbor
+            if (x > 0) {
+                if (cell.com.x < 0.0) {
+                    Cell& neighbor = at(x - 1, y);
+                    neighbor.pressure.x += -cell.com.x * mass * deltaTimeSeconds;
+                }
+            }
+            // Down neighbor
+            if (y + 1 < height) {
+                if (cell.com.y > 0.0) {
+                    Cell& neighbor = at(x, y + 1);
+                    neighbor.pressure.y += cell.com.y * mass * deltaTimeSeconds;
+                }
+            }
+            // Up neighbor
+            if (y > 0) {
+                if (cell.com.y < 0.0) {
+                    Cell& neighbor = at(x, y - 1);
+                    neighbor.pressure.y += -cell.com.y * mass * deltaTimeSeconds;
+                }
+            }
+        }
+    }
+
+    // Iterative pressure propagation
+    const int numPressureIterations = 8;
+    std::vector<Vector2d> nextPressure(width * height);
+    for (int iter = 0; iter < numPressureIterations; ++iter) {
+        for (uint32_t y = 0; y < height; ++y) {
+            for (uint32_t x = 0; x < width; ++x) {
+                Vector2d sum = at(x, y).pressure;
+                int count = 1;
+                for (int dy = -1; dy <= 1; ++dy) {
+                    for (int dx = -1; dx <= 1; ++dx) {
+                        if (dx == 0 && dy == 0) continue;
+                        int nx = x + dx, ny = y + dy;
+                        if (nx >= 0 && nx < (int)width && ny >= 0 && ny < (int)height) {
+                            sum += at(nx, ny).pressure;
+                            ++count;
+                        }
+                    }
+                }
+                nextPressure[y * width + x] = sum / count;
+            }
+        }
+        // Copy nextPressure back to cells
+        for (uint32_t y = 0; y < height; ++y) {
+            for (uint32_t x = 0; x < width; ++x) {
+                at(x, y).pressure = nextPressure[y * width + x];
+            }
+        }
+    }
+}
+
+Cell& World::at(uint32_t x, uint32_t y)
+{
+    if (x >= width || y >= height) {
+        LOG_DEBUG(
+            "World::at: Attempted to access coordinates ("
+            << x << "," << y << ") but world size is " << width << "x" << height);
+        throw std::out_of_range("World::at: Coordinates out of range");
+    }
+    return cells[coordToIndex(x, y)];
+}
+
+const Cell& World::at(uint32_t x, uint32_t y) const
+{
+    if (x >= width || y >= height) {
+        LOG_DEBUG(
+            "World::at: Attempted to access coordinates ("
+            << x << "," << y << ") but world size is " << width << "x" << height);
+        throw std::out_of_range("World::at: Coordinates out of range");
+    }
+    return cells[coordToIndex(x, y)];
+}
+
+size_t World::coordToIndex(uint32_t x, uint32_t y) const
+{
+    return y * width + x;
+}
+
+void World::applyMoves()
+{
     // Shuffle moves to avoid bias (which ones are applied or not).
     std::random_device rd;
     std::mt19937 g(rd());
@@ -439,172 +708,7 @@ void World::advanceTime(const double deltaTimeSeconds)
                                          << targetCell.v.y << ")");
     }
 
-    updateAllPressures(deltaTimeSeconds);
-
-    applyPressure(deltaTimeSeconds);
-
-    // Update total mass after all moves are complete.
-    totalMass = 0.0;
-    for (uint32_t y = 0; y < height; y++) {
-        for (uint32_t x = 0; x < width; x++) {
-            totalMass += at(x, y).percentFull();
-        }
-    }
-
-    timers.stopTimer("advance_time");
-}
-
-void World::applyPressure(const double deltaTimeSeconds)
-{
-    for (uint32_t y = 0; y < height; y++) {
-        for (uint32_t x = 0; x < width; x++) {
-            Cell& cell = at(x, y);
-
-            // Skip cells with no pressure
-            if (cell.pressure.mag() < 0.001) continue;
-
-            // Find the direction that is emptiest and lowest
-            Vector2d bestDirection(0.0, 0.0);
-            double bestScore = -1e9; // Initialize with a very small number
-
-            // Check all 8 neighboring cells.
-            // Target cell is the one that maximizes a score based on emptiness and "lowness"
-            for (int dy = -1; dy <= 1; dy++) {
-                for (int dx = -1; dx <= 1; dx++) {
-                    if (dx == 0 && dy == 0) continue;
-
-                    int nx = x + dx;
-                    int ny = y + dy;
-                    if (nx >= 0 && nx < static_cast<int>(width) && ny >= 0
-                        && ny < static_cast<int>(height)) {
-                        Cell& neighbor = at(nx, ny);
-                        double availableSpace = 1.0 - neighbor.percentFull();
-
-                        // Score combines available space and "lowness" (preferring dy=1)
-                        // A small weight for dy makes "lowness" a secondary factor.
-                        double score = availableSpace + 0.1 * dy;
-
-                        if (score > bestScore) {
-                            bestScore = score;
-                            bestDirection = Vector2d(dx, dy).normalize();
-                        }
-                    }
-                }
-            }
-
-            // Apply pressure in the target direction.
-            const double PRESSURE_STRENGTH = 1;
-            cell.v += bestDirection * cell.pressure.mag() * PRESSURE_STRENGTH * pressureScale;
-
-            // Clear pressure for next frame.
-            cell.pressure = Vector2d(0.0, 0.0);
-        }
-    }
-}
-
-void World::updateAllPressures(double deltaTimeSeconds)
-{
-    // First clear all pressures.
-    for (uint32_t y = 0; y < height; ++y) {
-        for (uint32_t x = 0; x < width; ++x) {
-            at(x, y).pressure = Vector2d(0.0, 0.0);
-        }
-    }
-
-    // deltaTimeSeconds *= 100;
-
-    // Then calculate pressures that cells exert on their neighbor.
-    for (uint32_t y = 0; y < height; ++y) {
-        for (uint32_t x = 0; x < width; ++x) {
-            Cell& cell = at(x, y);
-            if (cell.percentFull() < MIN_DIRT_THRESHOLD) continue;
-            double mass = cell.percentFull();
-            // Right neighbor
-            if (x + 1 < width) {
-                if (cell.com.x > 0.0) {
-                    Cell& neighbor = at(x + 1, y);
-                    neighbor.pressure.x += cell.com.x * mass * deltaTimeSeconds;
-                }
-            }
-            // Left neighbor
-            if (x > 0) {
-                if (cell.com.x < 0.0) {
-                    Cell& neighbor = at(x - 1, y);
-                    neighbor.pressure.x += -cell.com.x * mass * deltaTimeSeconds;
-                }
-            }
-            // Down neighbor
-            if (y + 1 < height) {
-                if (cell.com.y > 0.0) {
-                    Cell& neighbor = at(x, y + 1);
-                    neighbor.pressure.y += cell.com.y * mass * deltaTimeSeconds;
-                }
-            }
-            // Up neighbor
-            if (y > 0) {
-                if (cell.com.y < 0.0) {
-                    Cell& neighbor = at(x, y - 1);
-                    neighbor.pressure.y += -cell.com.y * mass * deltaTimeSeconds;
-                }
-            }
-        }
-    }
-
-    // // Iterative pressure propagation
-    const int numPressureIterations = 8;
-    std::vector<Vector2d> nextPressure(width * height);
-    for (int iter = 0; iter < numPressureIterations; ++iter) {
-        for (uint32_t y = 0; y < height; ++y) {
-            for (uint32_t x = 0; x < width; ++x) {
-                Vector2d sum = at(x, y).pressure;
-                int count = 1;
-                for (int dy = -1; dy <= 1; ++dy) {
-                    for (int dx = -1; dx <= 1; ++dx) {
-                        if (dx == 0 && dy == 0) continue;
-                        int nx = x + dx, ny = y + dy;
-                        if (nx >= 0 && nx < (int)width && ny >= 0 && ny < (int)height) {
-                            sum += at(nx, ny).pressure;
-                            ++count;
-                        }
-                    }
-                }
-                nextPressure[y * width + x] = sum / count;
-            }
-        }
-        // Copy nextPressure back to cells
-        for (uint32_t y = 0; y < height; ++y) {
-            for (uint32_t x = 0; x < width; ++x) {
-                at(x, y).pressure = nextPressure[y * width + x];
-            }
-        }
-    }
-}
-
-Cell& World::at(uint32_t x, uint32_t y)
-{
-    if (x >= width || y >= height) {
-        LOG_DEBUG(
-            "World::at: Attempted to access coordinates ("
-            << x << "," << y << ") but world size is " << width << "x" << height);
-        throw std::out_of_range("World::at: Coordinates out of range");
-    }
-    return cells[coordToIndex(x, y)];
-}
-
-const Cell& World::at(uint32_t x, uint32_t y) const
-{
-    if (x >= width || y >= height) {
-        LOG_DEBUG(
-            "World::at: Attempted to access coordinates ("
-            << x << "," << y << ") but world size is " << width << "x" << height);
-        throw std::out_of_range("World::at: Coordinates out of range");
-    }
-    return cells[coordToIndex(x, y)];
-}
-
-size_t World::coordToIndex(uint32_t x, uint32_t y) const
-{
-    return y * width + x;
+    moves.clear();
 }
 
 void World::draw()
@@ -872,3 +976,4 @@ void World::updateCursorForce(int pixelX, int pixelY, bool isActive)
         pixelToCell(pixelX, pixelY, cursorForceX, cursorForceY);
     }
 }
+

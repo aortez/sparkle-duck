@@ -10,6 +10,7 @@
 // Forward declare LVGL types.
 typedef struct _lv_obj_t lv_obj_t;
 
+// A cell in grid-based simulation.
 class Cell {
 public:
     static bool debugDraw;

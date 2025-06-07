@@ -3,6 +3,7 @@
 #include "Cell.h"
 #include "Timers.h"
 #include "WorldSetup.h"
+#include "Cell.h"
 
 #include <cstdint>
 #include <utility>
@@ -17,6 +18,18 @@
  * Within each Cell, the COM bounces within the [-1,1] bounds. It transfers
  * to neighboring cells when space is available, otherwise reflecting internally.
  */
+#include "Cell.h"
+
+struct DirtMove {
+    uint32_t fromX;
+    uint32_t fromY;
+    uint32_t toX;
+    uint32_t toY;
+    double dirtAmount;
+    double waterAmount;
+    Vector2d comOffset;
+};
+
 class World {
 public:
     World(uint32_t width, uint32_t height, lv_obj_t* draw_area);
@@ -114,7 +127,7 @@ private:
     uint32_t width;
     uint32_t height;
     std::vector<Cell> cells;
-    
+
     uint32_t timestep = 0;
 
     // Pressure scale factor (default 1.0)
@@ -168,7 +181,12 @@ private:
     // World setup strategy
     std::unique_ptr<WorldSetup> worldSetup;
 
+    std::vector<DirtMove> moves;
+
     size_t coordToIndex(uint32_t x, uint32_t y) const;
+
+    // Apply all queued moves to the world.
+    void applyMoves();
 
     // Helper to convert pixel coordinates to cell coordinates
     void pixelToCell(int pixelX, int pixelY, int& cellX, int& cellY) const;

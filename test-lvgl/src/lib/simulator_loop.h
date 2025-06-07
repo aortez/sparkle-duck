@@ -22,6 +22,8 @@ struct LoopState {
     bool is_running = true;
     bool needs_redraw = false;
     bool paused = false;
+    uint32_t step_count = 0;     // Number of simulation steps executed
+    uint32_t max_steps = 0;      // Maximum steps to run (0 = unlimited)
 };
 
 struct TimerUserData {
@@ -48,10 +50,22 @@ inline void initState(LoopState& state) {
     state.is_running = true;
     state.needs_redraw = false;
     state.paused = false;
+    state.step_count = 0;
+    state.max_steps = 0;
 }
 
 // Process one frame of simulation
 inline void processFrame(World& world, LoopState& state, uint32_t delta_time_ms = 16) {
+    // Check if we've reached the step limit
+    if (state.max_steps > 0 && state.step_count >= state.max_steps) {
+        printf("Simulation completed after %u steps\n", state.step_count);
+        state.is_running = false;
+        return;
+    }
+
+    // Increment step counter
+    state.step_count++;
+
     // Advance simulation
     world.advanceTime(delta_time_ms * world.timescale * 0.001);
     
