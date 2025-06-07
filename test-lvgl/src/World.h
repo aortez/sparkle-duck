@@ -3,12 +3,11 @@
 #include "Cell.h"
 #include "Timers.h"
 #include "WorldSetup.h"
-#include "Cell.h"
 
 #include <cstdint>
+#include <memory>
 #include <utility>
 #include <vector>
-#include <memory>
 
 /**
  * A grid-based physical simulation. Energy is approximately conserved.

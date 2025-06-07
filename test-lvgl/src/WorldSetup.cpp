@@ -57,8 +57,7 @@ void DefaultWorldSetup::setup(World& world)
     makeWalls(world);
 }
 
-void DefaultWorldSetup::addParticles(
-    World& world, uint32_t timestep, double deltaTimeSeconds)
+void DefaultWorldSetup::addParticles(World& world, uint32_t timestep, double deltaTimeSeconds)
 {
     static double lastSimTime = 0.0;
     static struct EventState {

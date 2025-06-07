@@ -192,10 +192,13 @@ void World::advanceTime(const double deltaTimeSeconds)
                 // Calculate natural position: source COM minus 2.0 (one cell width)
                 double naturalX = cell.com.x - 2.0;
                 // Clamp to dead zone to prevent immediate re-transfer
-                comOffset.x = std::max(-COM_DEFLECTION_THRESHOLD, std::min(COM_DEFLECTION_THRESHOLD, naturalX));
+                comOffset.x = std::max(
+                    -COM_DEFLECTION_THRESHOLD, std::min(COM_DEFLECTION_THRESHOLD, naturalX));
                 LOG_DEBUG(
-                    "  Transfer right: com.x=" << cell.com.x << " > threshold=" << COM_DEFLECTION_THRESHOLD
-                                              << ", v.x=" << cell.v.x << ", natural=" << naturalX << ", target_com.x=" << comOffset.x);
+                    "  Transfer right: com.x=" << cell.com.x
+                                               << " > threshold=" << COM_DEFLECTION_THRESHOLD
+                                               << ", v.x=" << cell.v.x << ", natural=" << naturalX
+                                               << ", target_com.x=" << comOffset.x);
             }
             else if (cell.com.x < -COM_DEFLECTION_THRESHOLD) {
                 shouldTransferX = true;
@@ -203,10 +206,13 @@ void World::advanceTime(const double deltaTimeSeconds)
                 // Calculate natural position: source COM plus 2.0 (one cell width)
                 double naturalX = cell.com.x + 2.0;
                 // Clamp to dead zone to prevent immediate re-transfer
-                comOffset.x = std::max(-COM_DEFLECTION_THRESHOLD, std::min(COM_DEFLECTION_THRESHOLD, naturalX));
+                comOffset.x = std::max(
+                    -COM_DEFLECTION_THRESHOLD, std::min(COM_DEFLECTION_THRESHOLD, naturalX));
                 LOG_DEBUG(
-                    "  Transfer left: com.x=" << cell.com.x << " < threshold=" << -COM_DEFLECTION_THRESHOLD
-                                             << ", v.x=" << cell.v.x << ", natural=" << naturalX << ", target_com.x=" << comOffset.x);
+                    "  Transfer left: com.x=" << cell.com.x
+                                              << " < threshold=" << -COM_DEFLECTION_THRESHOLD
+                                              << ", v.x=" << cell.v.x << ", natural=" << naturalX
+                                              << ", target_com.x=" << comOffset.x);
             }
 
             // Check vertical transfer based on COM deflection.
@@ -216,10 +222,13 @@ void World::advanceTime(const double deltaTimeSeconds)
                 // Calculate natural position: source COM minus 2.0 (one cell height)
                 double naturalY = cell.com.y - 2.0;
                 // Clamp to dead zone to prevent immediate re-transfer
-                comOffset.y = std::max(-COM_DEFLECTION_THRESHOLD, std::min(COM_DEFLECTION_THRESHOLD, naturalY));
+                comOffset.y = std::max(
+                    -COM_DEFLECTION_THRESHOLD, std::min(COM_DEFLECTION_THRESHOLD, naturalY));
                 LOG_DEBUG(
-                    "  Transfer down: com.y=" << cell.com.y << " > threshold=" << COM_DEFLECTION_THRESHOLD
-                                             << ", v.y=" << cell.v.y << ", natural=" << naturalY << ", target_com.y=" << comOffset.y);
+                    "  Transfer down: com.y=" << cell.com.y
+                                              << " > threshold=" << COM_DEFLECTION_THRESHOLD
+                                              << ", v.y=" << cell.v.y << ", natural=" << naturalY
+                                              << ", target_com.y=" << comOffset.y);
             }
             else if (cell.com.y < -COM_DEFLECTION_THRESHOLD) {
                 shouldTransferY = true;
@@ -227,10 +236,13 @@ void World::advanceTime(const double deltaTimeSeconds)
                 // Calculate natural position: source COM plus 2.0 (one cell height)
                 double naturalY = cell.com.y + 2.0;
                 // Clamp to dead zone to prevent immediate re-transfer
-                comOffset.y = std::max(-COM_DEFLECTION_THRESHOLD, std::min(COM_DEFLECTION_THRESHOLD, naturalY));
+                comOffset.y = std::max(
+                    -COM_DEFLECTION_THRESHOLD, std::min(COM_DEFLECTION_THRESHOLD, naturalY));
                 LOG_DEBUG(
-                    "  Transfer up: com.y=" << cell.com.y << " < threshold=" << -COM_DEFLECTION_THRESHOLD
-                                           << ", v.y=" << cell.v.y << ", natural=" << naturalY << ", target_com.y=" << comOffset.y);
+                    "  Transfer up: com.y=" << cell.com.y
+                                            << " < threshold=" << -COM_DEFLECTION_THRESHOLD
+                                            << ", v.y=" << cell.v.y << ", natural=" << naturalY
+                                            << ", target_com.y=" << comOffset.y);
             }
 
             // Handle transfers - prioritize diagonal transfers when both X and Y are needed
@@ -249,7 +261,7 @@ void World::advanceTime(const double deltaTimeSeconds)
                     int checkY = targetY;
                     bool xInBounds = (checkX >= 0 && checkX < width);
                     bool yInBounds = (checkY >= 0 && checkY < height);
-                    
+
                     if (xInBounds && yInBounds) {
                         Cell& targetCell = at(checkX, checkY);
                         if (targetCell.percentFull() < 1.0) {
@@ -260,64 +272,79 @@ void World::advanceTime(const double deltaTimeSeconds)
                             const double waterAmount = moveAmount * waterProportion;
 
                             moves.push_back(DirtMove{ .fromX = x,
-                                              .fromY = y,
-                                              .toX = static_cast<uint32_t>(checkX),
-                                              .toY = static_cast<uint32_t>(checkY),
-                                              .dirtAmount = dirtAmount,
-                                              .waterAmount = waterAmount,
-                                              .comOffset = comOffset });
+                                                      .fromY = y,
+                                                      .toX = static_cast<uint32_t>(checkX),
+                                                      .toY = static_cast<uint32_t>(checkY),
+                                                      .dirtAmount = dirtAmount,
+                                                      .waterAmount = waterAmount,
+                                                      .comOffset = comOffset });
                             LOG_DEBUG(
                                 "  Queued diagonal move: from=("
                                 << x << "," << y << ") to=(" << checkX << "," << checkY
                                 << "), dirt=" << dirtAmount << ", water=" << waterAmount);
                             transferOccurred = true;
                         }
-                                                else {
-                            // Diagonal transfer blocked by full cell, reflect both velocity components and clamp COM
+                        else {
+                            // Diagonal transfer blocked by full cell, reflect both velocity
+                            // components and clamp COM
                             cell.v.x = -cell.v.x * World::ELASTICITY_FACTOR;
                             cell.v.y = -cell.v.y * World::ELASTICITY_FACTOR;
                             // Clamp COM to prevent getting stuck at boundary
                             if (targetX > x) {
-                                cell.com.x = COM_DEFLECTION_THRESHOLD;   // Hit right obstacle
-                            } else {
-                                cell.com.x = -COM_DEFLECTION_THRESHOLD;  // Hit left obstacle
+                                cell.com.x = COM_DEFLECTION_THRESHOLD; // Hit right obstacle
+                            }
+                            else {
+                                cell.com.x = -COM_DEFLECTION_THRESHOLD; // Hit left obstacle
                             }
                             if (targetY > y) {
-                                cell.com.y = COM_DEFLECTION_THRESHOLD;   // Hit down obstacle
-                            } else {
-                                cell.com.y = -COM_DEFLECTION_THRESHOLD;  // Hit up obstacle
+                                cell.com.y = COM_DEFLECTION_THRESHOLD; // Hit down obstacle
                             }
-                            LOG_DEBUG("  Diagonal transfer blocked by full cell, reflecting both velocities and clamping COM to (" << cell.com.x << ", " << cell.com.y << ")");
+                            else {
+                                cell.com.y = -COM_DEFLECTION_THRESHOLD; // Hit up obstacle
+                            }
+                            LOG_DEBUG(
+                                "  Diagonal transfer blocked by full cell, reflecting both "
+                                "velocities and clamping COM to ("
+                                << cell.com.x << ", " << cell.com.y << ")");
                         }
-                }
+                    }
                     else {
                         // Diagonal transfer blocked by boundary, reflect appropriate components
                         if (!xInBounds) {
                             cell.v.x = -cell.v.x * World::ELASTICITY_FACTOR;
                             // Clamp COM to boundary to prevent accumulation
                             if (targetX < 0) {
-                                cell.com.x = -COM_DEFLECTION_THRESHOLD;  // Hit left boundary
-                            } else if (targetX >= static_cast<int>(width)) {
-                                cell.com.x = COM_DEFLECTION_THRESHOLD;   // Hit right boundary
+                                cell.com.x = -COM_DEFLECTION_THRESHOLD; // Hit left boundary
                             }
-                            LOG_DEBUG("  Diagonal transfer blocked by X boundary, reflecting v.x and clamping COM.x to " << cell.com.x);
+                            else if (targetX >= static_cast<int>(width)) {
+                                cell.com.x = COM_DEFLECTION_THRESHOLD; // Hit right boundary
+                            }
+                            LOG_DEBUG(
+                                "  Diagonal transfer blocked by X boundary, reflecting v.x and "
+                                "clamping COM.x to "
+                                << cell.com.x);
                         }
                         if (!yInBounds) {
                             cell.v.y = -cell.v.y * World::ELASTICITY_FACTOR;
                             // Clamp COM to boundary to prevent accumulation
                             if (targetY < 0) {
-                                cell.com.y = -COM_DEFLECTION_THRESHOLD;  // Hit top boundary
-                            } else if (targetY >= static_cast<int>(height)) {
-                                cell.com.y = COM_DEFLECTION_THRESHOLD;   // Hit bottom boundary
+                                cell.com.y = -COM_DEFLECTION_THRESHOLD; // Hit top boundary
                             }
-                            LOG_DEBUG("  Diagonal transfer blocked by Y boundary, reflecting v.y and clamping COM.y to " << cell.com.y);
+                            else if (targetY >= static_cast<int>(height)) {
+                                cell.com.y = COM_DEFLECTION_THRESHOLD; // Hit bottom boundary
+                            }
+                            LOG_DEBUG(
+                                "  Diagonal transfer blocked by Y boundary, reflecting v.y and "
+                                "clamping COM.y to "
+                                << cell.com.y);
                         }
                         // Continue to try individual transfers for the valid direction
                         shouldTransferX = shouldTransferX && xInBounds;
                         shouldTransferY = shouldTransferY && yInBounds;
                     }
                 }
-                // Try X transfer if no diagonal transfer occurred or if diagonal was blocked by boundary
+                // Try X transfer if no diagonal transfer occurred or if diagonal was blocked by
+                // boundary
                 if (shouldTransferX && !transferOccurred) {
                     int checkX = targetX;
                     int checkY = y;
@@ -335,12 +362,12 @@ void World::advanceTime(const double deltaTimeSeconds)
                             xComOffset.y = cell.com.y; // Keep original Y component
 
                             moves.push_back(DirtMove{ .fromX = x,
-                                              .fromY = y,
-                                              .toX = static_cast<uint32_t>(checkX),
-                                              .toY = static_cast<uint32_t>(checkY),
-                                              .dirtAmount = dirtAmount,
-                                              .waterAmount = waterAmount,
-                                              .comOffset = xComOffset });
+                                                      .fromY = y,
+                                                      .toX = static_cast<uint32_t>(checkX),
+                                                      .toY = static_cast<uint32_t>(checkY),
+                                                      .dirtAmount = dirtAmount,
+                                                      .waterAmount = waterAmount,
+                                                      .comOffset = xComOffset });
                             LOG_DEBUG(
                                 "  Queued X move: from=("
                                 << x << "," << y << ") to=(" << checkX << "," << checkY
@@ -352,11 +379,15 @@ void World::advanceTime(const double deltaTimeSeconds)
                             cell.v.x = -cell.v.x * World::ELASTICITY_FACTOR;
                             // Clamp COM to prevent getting stuck at boundary
                             if (targetX > x) {
-                                cell.com.x = COM_DEFLECTION_THRESHOLD;   // Hit right obstacle
-                            } else {
-                                cell.com.x = -COM_DEFLECTION_THRESHOLD;  // Hit left obstacle
+                                cell.com.x = COM_DEFLECTION_THRESHOLD; // Hit right obstacle
                             }
-                            LOG_DEBUG("  X transfer blocked by full cell, reflecting v.x and clamping COM.x to " << cell.com.x);
+                            else {
+                                cell.com.x = -COM_DEFLECTION_THRESHOLD; // Hit left obstacle
+                            }
+                            LOG_DEBUG(
+                                "  X transfer blocked by full cell, reflecting v.x and clamping "
+                                "COM.x to "
+                                << cell.com.x);
                         }
                     }
                     else {
@@ -364,11 +395,15 @@ void World::advanceTime(const double deltaTimeSeconds)
                         cell.v.x = -cell.v.x * World::ELASTICITY_FACTOR;
                         // Clamp COM to boundary to prevent accumulation
                         if (targetX < 0) {
-                            cell.com.x = -COM_DEFLECTION_THRESHOLD;  // Hit left boundary
-                        } else if (targetX >= static_cast<int>(width)) {
-                            cell.com.x = COM_DEFLECTION_THRESHOLD;   // Hit right boundary
+                            cell.com.x = -COM_DEFLECTION_THRESHOLD; // Hit left boundary
                         }
-                        LOG_DEBUG("  X transfer blocked by boundary, reflecting v.x and clamping COM.x to " << cell.com.x);
+                        else if (targetX >= static_cast<int>(width)) {
+                            cell.com.x = COM_DEFLECTION_THRESHOLD; // Hit right boundary
+                        }
+                        LOG_DEBUG(
+                            "  X transfer blocked by boundary, reflecting v.x and clamping COM.x "
+                            "to "
+                            << cell.com.x);
                     }
                 }
 
@@ -406,11 +441,15 @@ void World::advanceTime(const double deltaTimeSeconds)
                             cell.v.y = -cell.v.y * World::ELASTICITY_FACTOR;
                             // Clamp COM to prevent getting stuck at boundary
                             if (targetY > y) {
-                                cell.com.y = COM_DEFLECTION_THRESHOLD;   // Hit down obstacle
-                            } else {
-                                cell.com.y = -COM_DEFLECTION_THRESHOLD;  // Hit up obstacle
+                                cell.com.y = COM_DEFLECTION_THRESHOLD; // Hit down obstacle
                             }
-                            LOG_DEBUG("  Y transfer blocked by full cell, reflecting v.y and clamping COM.y to " << cell.com.y);
+                            else {
+                                cell.com.y = -COM_DEFLECTION_THRESHOLD; // Hit up obstacle
+                            }
+                            LOG_DEBUG(
+                                "  Y transfer blocked by full cell, reflecting v.y and clamping "
+                                "COM.y to "
+                                << cell.com.y);
                         }
                     }
                     else {
@@ -418,11 +457,15 @@ void World::advanceTime(const double deltaTimeSeconds)
                         cell.v.y = -cell.v.y * World::ELASTICITY_FACTOR;
                         // Clamp COM to boundary to prevent accumulation
                         if (targetY < 0) {
-                            cell.com.y = -COM_DEFLECTION_THRESHOLD;  // Hit top boundary
-                        } else if (targetY >= static_cast<int>(height)) {
-                            cell.com.y = COM_DEFLECTION_THRESHOLD;   // Hit bottom boundary
+                            cell.com.y = -COM_DEFLECTION_THRESHOLD; // Hit top boundary
                         }
-                        LOG_DEBUG("  Y transfer blocked by boundary, reflecting v.y and clamping COM.y to " << cell.com.y);
+                        else if (targetY >= static_cast<int>(height)) {
+                            cell.com.y = COM_DEFLECTION_THRESHOLD; // Hit bottom boundary
+                        }
+                        LOG_DEBUG(
+                            "  Y transfer blocked by boundary, reflecting v.y and clamping COM.y "
+                            "to "
+                            << cell.com.y);
                     }
                 }
             }
@@ -1001,4 +1044,3 @@ void World::updateCursorForce(int pixelX, int pixelY, bool isActive)
         pixelToCell(pixelX, pixelY, cursorForceX, cursorForceY);
     }
 }
-

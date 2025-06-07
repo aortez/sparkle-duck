@@ -16,8 +16,7 @@ public:
     virtual void setup(World& world) = 0;
 
     // Add particles to the world during simulation.
-    virtual void addParticles(
-        World& world, uint32_t timestep, double deltaTimeSeconds) = 0;
+    virtual void addParticles(World& world, uint32_t timestep, double deltaTimeSeconds) = 0;
 
     virtual void fillLowerRightQuadrant(World& world);
     virtual void makeWalls(World& world);
@@ -30,9 +29,8 @@ public:
 class DefaultWorldSetup : public WorldSetup {
 public:
     ~DefaultWorldSetup() override;
-    
+
     void setup(World& world) override;
 
-    void addParticles(
-        World& world, uint32_t timestep, double deltaTimeSeconds) override;
+    void addParticles(World& world, uint32_t timestep, double deltaTimeSeconds) override;
 };
