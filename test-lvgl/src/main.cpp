@@ -552,19 +552,8 @@ int main(int argc, char** argv)
         reset_btn,
         [](lv_event_t* e) {
             if (world_ptr) {
-                // Store the current WorldSetup
-                auto currentSetup = std::move(world_ptr->getWorldSetup());
-
                 // Reset the world's state without changing its size
                 world_ptr->reset();
-
-                // Restore the WorldSetup
-                world_ptr->setWorldSetup(std::move(currentSetup));
-
-                // Clear the screen to prevent graphical artifacts
-                lv_obj_t* draw_area = lv_obj_get_child(lv_scr_act(), 0);
-                lv_obj_clean(draw_area);
-                lv_obj_invalidate(draw_area);
             }
         },
         LV_EVENT_CLICKED,

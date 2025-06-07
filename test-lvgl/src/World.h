@@ -26,6 +26,10 @@ public:
     World(const World&) = delete;
     World& operator=(const World&) = delete;
 
+    // Default move constructor and move assignment operator
+    World(World&&) = default;
+    World& operator=(World&&) = default;
+
     void advanceTime(const double deltaTimeSeconds);
 
     void draw();
