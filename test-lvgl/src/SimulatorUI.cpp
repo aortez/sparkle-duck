@@ -8,8 +8,8 @@
 #include <cstdlib>
 #include <vector>
 
-SimulatorUI::SimulatorUI(World* world, lv_obj_t* screen)
-    : world_(world),
+SimulatorUI::SimulatorUI(lv_obj_t* screen)
+    : world_(nullptr),
       screen_(screen),
       draw_area_(nullptr),
       mass_label_(nullptr),
@@ -18,6 +18,15 @@ SimulatorUI::SimulatorUI(World* world, lv_obj_t* screen)
       timescale_(1.0),
       is_paused_(false)
 {}
+
+void SimulatorUI::setWorld(World* world)
+{
+    world_ = world;
+    // Update all existing callback data
+    for (auto& data : callback_data_storage_) {
+        data->world = world_;
+    }
+}
 
 SimulatorUI::CallbackData* SimulatorUI::createCallbackData(lv_obj_t* label)
 {
@@ -71,7 +80,7 @@ void SimulatorUI::createControlButtons()
     lv_obj_t* reset_label = lv_label_create(reset_btn);
     lv_label_set_text(reset_label, "Reset");
     lv_obj_center(reset_label);
-    lv_obj_add_event_cb(reset_btn, resetBtnEventCb, LV_EVENT_CLICKED, world_);
+    lv_obj_add_event_cb(reset_btn, resetBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
 
     // Create pause button
     lv_obj_t* pause_btn = lv_btn_create(screen_);
@@ -98,7 +107,7 @@ void SimulatorUI::createControlButtons()
     lv_obj_t* force_label = lv_label_create(force_btn);
     lv_label_set_text(force_label, "Force: Off");
     lv_obj_center(force_label);
-    lv_obj_add_event_cb(force_btn, forceBtnEventCb, LV_EVENT_CLICKED, world_);
+    lv_obj_add_event_cb(force_btn, forceBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
 
     // Create gravity toggle button
     lv_obj_t* gravity_btn = lv_btn_create(screen_);
@@ -107,7 +116,7 @@ void SimulatorUI::createControlButtons()
     lv_obj_t* gravity_label = lv_label_create(gravity_btn);
     lv_label_set_text(gravity_label, "Gravity: On");
     lv_obj_center(gravity_label);
-    lv_obj_add_event_cb(gravity_btn, gravityBtnEventCb, LV_EVENT_CLICKED, world_);
+    lv_obj_add_event_cb(gravity_btn, gravityBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
 
     // Create quit button
     lv_obj_t* quit_btn = lv_btn_create(screen_);
@@ -222,9 +231,9 @@ void SimulatorUI::createSliders()
 
 void SimulatorUI::setupDrawAreaEvents()
 {
-    lv_obj_add_event_cb(draw_area_, drawAreaEventCb, LV_EVENT_PRESSED, world_);
-    lv_obj_add_event_cb(draw_area_, drawAreaEventCb, LV_EVENT_PRESSING, world_);
-    lv_obj_add_event_cb(draw_area_, drawAreaEventCb, LV_EVENT_RELEASED, world_);
+    lv_obj_add_event_cb(draw_area_, drawAreaEventCb, LV_EVENT_PRESSED, createCallbackData());
+    lv_obj_add_event_cb(draw_area_, drawAreaEventCb, LV_EVENT_PRESSING, createCallbackData());
+    lv_obj_add_event_cb(draw_area_, drawAreaEventCb, LV_EVENT_RELEASED, createCallbackData());
 }
 
 void SimulatorUI::updateMassLabel(double totalMass)
@@ -249,8 +258,9 @@ void SimulatorUI::updateFPSLabel(uint32_t fps)
 void SimulatorUI::drawAreaEventCb(lv_event_t* e)
 {
     lv_event_code_t code = lv_event_get_code(e);
-    World* world_ptr = static_cast<World*>(lv_event_get_user_data(e));
-    if (!world_ptr) return;
+    CallbackData* data = static_cast<CallbackData*>(lv_event_get_user_data(e));
+    if (!data || !data->world) return;
+    World* world_ptr = data->world;
 
     lv_point_t point;
     lv_indev_get_point(lv_indev_get_act(), &point);
@@ -310,9 +320,9 @@ void SimulatorUI::timescaleSliderEventCb(lv_event_t* e)
 void SimulatorUI::resetBtnEventCb(lv_event_t* e)
 {
     if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
-        World* world_ptr = static_cast<World*>(lv_event_get_user_data(e));
-        if (world_ptr) {
-            world_ptr->reset();
+        CallbackData* data = static_cast<CallbackData*>(lv_event_get_user_data(e));
+        if (data && data->world) {
+            data->world->reset();
         }
     }
 }
@@ -330,12 +340,12 @@ void SimulatorUI::debugBtnEventCb(lv_event_t* e)
 void SimulatorUI::forceBtnEventCb(lv_event_t* e)
 {
     if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
-        World* world_ptr = static_cast<World*>(lv_event_get_user_data(e));
-        if (world_ptr) {
+        CallbackData* data = static_cast<CallbackData*>(lv_event_get_user_data(e));
+        if (data && data->world) {
             // Toggle cursor force
             static bool force_enabled = false;
             force_enabled = !force_enabled;
-            world_ptr->setCursorForceEnabled(force_enabled);
+            data->world->setCursorForceEnabled(force_enabled);
             const lv_obj_t* btn = static_cast<const lv_obj_t*>(lv_event_get_target(e));
             lv_obj_t* label = lv_obj_get_child(btn, 0);
             lv_label_set_text(label, force_enabled ? "Force: On" : "Force: Off");
@@ -346,11 +356,11 @@ void SimulatorUI::forceBtnEventCb(lv_event_t* e)
 void SimulatorUI::gravityBtnEventCb(lv_event_t* e)
 {
     if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
-        World* world_ptr = static_cast<World*>(lv_event_get_user_data(e));
-        if (world_ptr) {
+        CallbackData* data = static_cast<CallbackData*>(lv_event_get_user_data(e));
+        if (data && data->world) {
             static bool gravity_enabled = true;
             gravity_enabled = !gravity_enabled;
-            world_ptr->setGravity(gravity_enabled ? 9.81 : 0.0);
+            data->world->setGravity(gravity_enabled ? 9.81 : 0.0);
             const lv_obj_t* btn = static_cast<const lv_obj_t*>(lv_event_get_target(e));
             lv_obj_t* label = lv_obj_get_child(btn, 0);
             lv_label_set_text(label, gravity_enabled ? "Gravity: On" : "Gravity: Off");

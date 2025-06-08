@@ -141,27 +141,26 @@ int main(int argc, char** argv)
         die("Failed to initialize display backend");
     }
 
-    // Calculate grid size based on cell size and drawing area
-    const int grid_width = (850 / Cell::WIDTH) - 1;   // One fewer than would fit perfectly
-    const int grid_height = (850 / Cell::HEIGHT) - 1; // One fewer than would fit perfectly
-
-    // Create a world with a temporary draw area (will be replaced by UI)
-    auto world = std::make_unique<World>(grid_width, grid_height, nullptr);
-    world_ptr = world.get();
-
-    // Create UI and connect it to the world
-    auto ui = std::make_unique<SimulatorUI>(world.get(), lv_scr_act());
+    // Create UI first without a world
+    auto ui = std::make_unique<SimulatorUI>(lv_scr_act());
     ui_ptr = ui.get();
     ui->initialize();
 
-    // Update the world's draw area to use the UI's draw area
-    world = std::make_unique<World>(grid_width, grid_height, ui->getDrawArea());
-    world_ptr = world.get();
+    // Calculate grid size based on cell size and drawing area.
+    // (One fewer than would fit perfectly).
+    const int grid_width = (850 / Cell::WIDTH) - 1;
+    const int grid_height = (850 / Cell::HEIGHT) - 1;
 
-    // Set the UI in the world
+    // Create the world.
+    auto world = std::make_unique<World>(grid_width, grid_height, ui->getDrawArea());
+
+    // Connect the UI to the world.
+    ui->setWorld(world.get());
+
+    // Give the world ownership of the UI.
     world->setUI(std::move(ui));
 
-    // Create simulation loop state and event context
+    // Create simulation loop state and event context.
     static SimulatorLoop::LoopState sim_state;
 
     // Initialize the world

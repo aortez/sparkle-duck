@@ -1,4 +1,14 @@
 #pragma once
+/**
+ * \file 
+ * A grid-based physical simulation. Energy is approximately conserved.
+ * Particles are affected by gravity, kimenatics, and generally behavior like
+ * sand in an hourglass.
+ *
+ * Within each Cell, the COM (center of mass) moves within the [-1,1] bounds. When it is within
+ * the cell's internal deadzone, the COM moves internally. When it moves outside the deadzone, 
+ * the cell's contents transfer to the neighboring cell.
+ */
 
 #include "Cell.h"
 #include "Timers.h"
@@ -11,16 +21,6 @@
 
 // Forward declarations
 class SimulatorUI;
-
-/**
- * A grid-based physical simulation. Energy is approximately conserved.
- * Particles are affected by gravity, kimenatics, and generally behavior like
- * sand in an hourglass.
- *
- * Within each Cell, the COM bounces within the [-1,1] bounds. It transfers
- * to neighboring cells when space is available, otherwise reflecting internally.
- */
-#include "Cell.h"
 
 struct DirtMove {
     uint32_t fromX;

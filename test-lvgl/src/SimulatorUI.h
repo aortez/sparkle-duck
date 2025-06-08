@@ -16,8 +16,11 @@ public:
         lv_obj_t* associated_label; // For sliders that need to update labels
     };
 
-    SimulatorUI(World* world, lv_obj_t* screen);
+    SimulatorUI(lv_obj_t* screen);
     ~SimulatorUI();
+
+    // Set the world after UI creation
+    void setWorld(World* world);
 
     // UI update methods
     void updateMassLabel(double totalMass);
