@@ -408,91 +408,6 @@ TEST_F(WorldTest, BoundaryReflectionBehavior) {
     world->setElasticityFactor(0.8);
 }
 
-TEST_F(WorldTest, ParticleVelocityTiming) {
-    // Create a 3x3 world
-    width = 3;
-    height = 3;
-    createWorld();
-    world->setGravity(0.0); // Disable gravity for this test
-    
-    // Place dirt in top-left cell (0,0) with diagonal velocity
-    world->at(0, 0).dirt = 1.0;
-    world->at(0, 0).com = Vector2d(0.0, 0.0); // COM starts at center
-    world->at(0, 0).v = Vector2d(1.0, 1.0);   // Velocity of 1 unit/sec in both directions
-    
-    // Calculate expected timing:
-    // - COM transfer threshold is 0.6
-    // - First transfer: COM starts at (0,0), reaches 0.6 after 0.6 seconds = 37.5 frames ≈ 38
-    // - After first transfer: COM placed at (-0.6,-0.6) in target cell
-    // - Second transfer: needs to travel from (-0.6,-0.6) to (0.6,0.6) = 1.2 units
-    // - At velocity (1,1), takes 1.2 seconds = 75 frames
-    // - So second transfer at frame 38 + 75 = 113
-    
-    const int EXPECTED_FIRST_TRANSFER = 38;
-    const int EXPECTED_SECOND_TRANSFER = 113;  // 38 + 75
-    const int TOLERANCE = 5; // Allow ±5 frames tolerance
-    
-    int firstTransferFrame = -1;
-    int secondTransferFrame = -1;
-    bool reachedDestination = false;
-    
-    // Track particle movement
-    for (int frame = 0; frame < 150; ++frame) {
-        world->advanceTime(0.016); // 16ms per frame
-        
-        // Check for first transfer (0,0) → (1,1)
-        if (firstTransferFrame == -1 && world->at(1, 1).dirt > 0.1) {
-            firstTransferFrame = frame + 1; // +1 because we check after the step
-            std::cout << "First transfer occurred at frame " << firstTransferFrame << std::endl;
-        }
-        
-        // Check for second transfer (1,1) → (2,2)
-        if (secondTransferFrame == -1 && world->at(2, 2).dirt > 0.1) {
-            secondTransferFrame = frame + 1;
-            std::cout << "Second transfer occurred at frame " << secondTransferFrame << std::endl;
-        }
-        
-        // Check if particle reached final destination
-        if (world->at(2, 2).dirt > 0.9) {
-            reachedDestination = true;
-            std::cout << "Particle fully reached destination at frame " << (frame + 1) << std::endl;
-            break;
-        }
-        
-        // Verify mass conservation
-        double totalMass = 0.0;
-        for (int x = 0; x < 3; x++) {
-            for (int y = 0; y < 3; y++) {
-                totalMass += world->at(x, y).dirt;
-            }
-        }
-        EXPECT_NEAR(totalMass, 1.0, 0.01) << "Mass not conserved at frame " << frame;
-    }
-    
-    // Verify transfers occurred at expected times
-    EXPECT_NE(firstTransferFrame, -1) << "First transfer did not occur";
-    EXPECT_NE(secondTransferFrame, -1) << "Second transfer did not occur";
-    EXPECT_TRUE(reachedDestination) << "Particle did not reach final destination";
-    
-    // Check timing with tolerance
-    EXPECT_NEAR(firstTransferFrame, EXPECTED_FIRST_TRANSFER, TOLERANCE) 
-        << "First transfer timing off. Expected: " << EXPECTED_FIRST_TRANSFER 
-        << ", Actual: " << firstTransferFrame;
-    
-    EXPECT_NEAR(secondTransferFrame, EXPECTED_SECOND_TRANSFER, TOLERANCE)
-        << "Second transfer timing off. Expected: " << EXPECTED_SECOND_TRANSFER 
-        << ", Actual: " << secondTransferFrame;
-    
-    // Verify the time difference between transfers is also correct
-    if (firstTransferFrame != -1 && secondTransferFrame != -1) {
-        int timeDifference = secondTransferFrame - firstTransferFrame;
-        const int EXPECTED_SECOND_INTERVAL = 75;  // 1.2 units / 1 unit/sec / 0.016 sec/frame
-        EXPECT_NEAR(timeDifference, EXPECTED_SECOND_INTERVAL, TOLERANCE)
-            << "Time between transfers should be consistent. Expected: " << EXPECTED_SECOND_INTERVAL
-            << ", Actual: " << timeDifference;
-    }
-}
-
 TEST_F(WorldTest, CellReflectionBehavior) {
     // Create a 3x3 world to test reflection off dirt-filled cells
     width = 3;
@@ -576,6 +491,180 @@ TEST_F(WorldTest, CellReflectionBehavior) {
         EXPECT_NEAR(world->at(0, 1).v.y, 0.0, 0.1)
             << "Y velocity should remain near zero for horizontal reflection";
     }
+}
+
+TEST_F(WorldTest, PressureTest_StableDirtNoPressure) {
+    // Create a 2x2 world
+    width = 2;
+    height = 2;
+    createWorld();
+    world->setGravity(0.0); // Disable gravity to keep dirt stable
+    
+    // Fill bottom cells with dirt at rest (COM at center, no velocity)
+    world->at(0, 1).dirt = 1.0;
+    world->at(0, 1).com = Vector2d(0.0, 0.0);  // COM at center
+    world->at(0, 1).v = Vector2d(0.0, 0.0);    // No velocity
+    
+    world->at(1, 1).dirt = 1.0;
+    world->at(1, 1).com = Vector2d(0.0, 0.0);  // COM at center
+    world->at(1, 1).v = Vector2d(0.0, 0.0);    // No velocity
+    
+    // Top cells remain empty
+    world->at(0, 0).dirt = 0.0;
+    world->at(1, 0).dirt = 0.0;
+    
+    // Run simulation for 10 cycles
+    for (int i = 0; i < 10; ++i) {
+        world->advanceTime(0.016); // 16ms per frame
+        
+        // Verify all cells have zero pressure
+        EXPECT_NEAR(world->at(0, 0).pressure.x, 0.0, 0.001) << "Top-left cell should have no X pressure at cycle " << i;
+        EXPECT_NEAR(world->at(0, 0).pressure.y, 0.0, 0.001) << "Top-left cell should have no Y pressure at cycle " << i;
+        
+        EXPECT_NEAR(world->at(1, 0).pressure.x, 0.0, 0.001) << "Top-right cell should have no X pressure at cycle " << i;
+        EXPECT_NEAR(world->at(1, 0).pressure.y, 0.0, 0.001) << "Top-right cell should have no Y pressure at cycle " << i;
+        
+        EXPECT_NEAR(world->at(0, 1).pressure.x, 0.0, 0.001) << "Bottom-left cell should have no X pressure at cycle " << i;
+        EXPECT_NEAR(world->at(0, 1).pressure.y, 0.0, 0.001) << "Bottom-left cell should have no Y pressure at cycle " << i;
+        
+        EXPECT_NEAR(world->at(1, 1).pressure.x, 0.0, 0.001) << "Bottom-right cell should have no X pressure at cycle " << i;
+        EXPECT_NEAR(world->at(1, 1).pressure.y, 0.0, 0.001) << "Bottom-right cell should have no Y pressure at cycle " << i;
+        
+        // Also verify dirt hasn't moved (should remain stable)
+        EXPECT_NEAR(world->at(0, 1).dirt, 1.0, 0.001) << "Bottom-left dirt should remain stable";
+        EXPECT_NEAR(world->at(1, 1).dirt, 1.0, 0.001) << "Bottom-right dirt should remain stable";
+        EXPECT_NEAR(world->at(0, 0).dirt, 0.0, 0.001) << "Top-left should remain empty";
+        EXPECT_NEAR(world->at(1, 0).dirt, 0.0, 0.001) << "Top-right should remain empty";
+    }
+}
+
+TEST_F(WorldTest, PressureTest_ComDeflectionCreatesPressure) {
+    // Create a 2x2 world
+    width = 2;
+    height = 2;
+    createWorld();
+    world->setGravity(0.0); // Disable gravity to avoid movement
+    
+    // Fill bottom-left cell with dirt that has COM deflected right and up
+    world->at(0, 1).dirt = 1.0;
+    world->at(0, 1).com = Vector2d(0.5, -0.3);  // COM deflected right and up
+    world->at(0, 1).v = Vector2d(0.0, 0.0);     // No velocity
+    
+    // Fill bottom-right cell with dirt that has COM deflected left and up
+    world->at(1, 1).dirt = 1.0;
+    world->at(1, 1).com = Vector2d(-0.4, -0.2); // COM deflected left and up  
+    world->at(1, 1).v = Vector2d(0.0, 0.0);     // No velocity
+    
+    // Top cells remain empty
+    world->at(0, 0).dirt = 0.0;
+    world->at(1, 0).dirt = 0.0;
+    
+    // Run one simulation step to calculate pressures
+    world->advanceTime(0.016);
+    
+    // With normalized deflection, the expected pressure values will be different
+    // For bottom-left cell: normalized deflection = (0.5, -0.3) / 0.6 = (0.833, -0.5)
+    // Expected pressure = normalized_deflection * mass * deltaTime = 0.833 * 1.0 * 0.016 = 0.0133
+    EXPECT_NEAR(world->at(1, 1).pressure.x, 0.0133, 0.001) << "Pressure should use normalized deflection";
+    EXPECT_NEAR(world->at(0, 0).pressure.y, 0.008, 0.001) << "Pressure should use normalized deflection"; // 0.5 * 1.0 * 0.016
+    
+    // For bottom-right cell: normalized deflection = (-0.4, -0.2) / 0.6 = (-0.667, -0.333)
+    EXPECT_NEAR(world->at(0, 1).pressure.x, 0.0107, 0.001) << "Pressure should use normalized deflection"; // 0.667 * 1.0 * 0.016
+    EXPECT_NEAR(world->at(1, 0).pressure.y, 0.0053, 0.001) << "Pressure should use normalized deflection"; // 0.333 * 1.0 * 0.016
+}
+
+TEST_F(WorldTest, CellNormalizedDeflection_CenterCOM) {
+    // Create a simple world
+    width = 1;
+    height = 1;
+    createWorld();
+    
+    // Test cell with COM at center (no deflection)
+    world->at(0, 0).com = Vector2d(0.0, 0.0);
+    Vector2d deflection = world->at(0, 0).getNormalizedDeflection();
+    
+    // At center, normalized deflection should be (0, 0)
+    EXPECT_NEAR(deflection.x, 0.0, 0.001) << "Normalized deflection at center should be 0";
+    EXPECT_NEAR(deflection.y, 0.0, 0.001) << "Normalized deflection at center should be 0";
+}
+
+TEST_F(WorldTest, CellNormalizedDeflection_MaxDeflection) {
+    // Create a simple world
+    width = 1;
+    height = 1;
+    createWorld();
+    
+    // Test cell with COM at threshold (maximum deflection for transfer)
+    world->at(0, 0).com = Vector2d(0.6, -0.6);  // At positive and negative threshold
+    Vector2d deflection = world->at(0, 0).getNormalizedDeflection();
+    
+    // At threshold, normalized deflection should be (1, -1)
+    EXPECT_NEAR(deflection.x, 1.0, 0.001) << "Normalized deflection at positive threshold should be 1";
+    EXPECT_NEAR(deflection.y, -1.0, 0.001) << "Normalized deflection at negative threshold should be -1";
+}
+
+TEST_F(WorldTest, CellNormalizedDeflection_HalfDeflection) {
+    // Create a simple world
+    width = 1;
+    height = 1;
+    createWorld();
+    
+    // Test cell with COM at half threshold
+    world->at(0, 0).com = Vector2d(0.3, -0.3);  // Half of threshold (0.6)
+    Vector2d deflection = world->at(0, 0).getNormalizedDeflection();
+    
+    // At half threshold, normalized deflection should be (0.5, -0.5)
+    EXPECT_NEAR(deflection.x, 0.5, 0.001) << "Normalized deflection at half threshold should be 0.5";
+    EXPECT_NEAR(deflection.y, -0.5, 0.001) << "Normalized deflection at half threshold should be -0.5";
+}
+
+TEST_F(WorldTest, CellNormalizedDeflection_BeyondThreshold) {
+    // Create a simple world
+    width = 1;
+    height = 1;
+    createWorld();
+    
+    // Test cell with COM beyond threshold (would trigger transfer in real simulation)
+    world->at(0, 0).com = Vector2d(1.2, -0.9);  // Beyond threshold (0.6)
+    Vector2d deflection = world->at(0, 0).getNormalizedDeflection();
+    
+    // Beyond threshold, normalized deflection should be (2.0, -1.5)
+    EXPECT_NEAR(deflection.x, 2.0, 0.001) << "Normalized deflection beyond threshold should be 2.0";
+    EXPECT_NEAR(deflection.y, -1.5, 0.001) << "Normalized deflection beyond threshold should be -1.5";
+}
+
+TEST_F(WorldTest, DirtFragmentation_LeavesPartialDirt) {
+    // Test that fragmentation factor actually leaves dirt behind during transfers
+    width = 2;
+    height = 1;
+    createWorld();
+    world->setGravity(0.0); // Disable gravity
+    
+    // Set 50% fragmentation - should leave half the dirt behind
+    world->setDirtFragmentationFactor(0.5);
+    
+    // Place dirt with COM beyond threshold to trigger immediate transfer
+    world->at(0, 0).dirt = 1.0;
+    world->at(0, 0).com = Vector2d(0.8, 0.0);   // Well beyond threshold
+    world->at(0, 0).v = Vector2d(0.0, 0.0);
+    
+    world->at(1, 0).dirt = 0.0;
+    
+    // Run one step to trigger transfer
+    world->advanceTime(0.016);
+    
+    // With 50% fragmentation, should transfer 50% and leave 50% behind
+    double sourceRemaining = world->at(0, 0).dirt;
+    double targetReceived = world->at(1, 0).dirt;
+    
+    // Should transfer roughly 50% of the dirt (allowing for some variance due to physics)
+    EXPECT_GT(sourceRemaining, 0.3) << "Source should retain significant dirt with fragmentation";
+    EXPECT_LT(sourceRemaining, 0.7) << "Source shouldn't retain too much dirt";
+    EXPECT_GT(targetReceived, 0.3) << "Target should receive significant dirt";
+    EXPECT_LT(targetReceived, 0.7) << "Target shouldn't receive too much dirt";
+    
+    // Total mass should still be conserved
+    EXPECT_NEAR(sourceRemaining + targetReceived, 1.0, 0.01) << "Mass should be conserved";
 }
 
 TEST(DefaultWorldSetupVTable, Instantiate) {

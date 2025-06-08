@@ -196,6 +196,13 @@ std::string Cell::toString() const
         + std::to_string(metal) + ", com=" + com.toString() + ", v=" + v.toString() + "}";
 }
 
+Vector2d Cell::getNormalizedDeflection() const
+{
+    // Normalize COM by the deflection threshold to get values in [-1, 1] range
+    // This shows how deflected the COM is relative to the transfer threshold
+    return Vector2d(com.x / COM_DEFLECTION_THRESHOLD, com.y / COM_DEFLECTION_THRESHOLD);
+}
+
 Vector2d Cell::calculateWaterCohesion(const Cell& cell, const Cell& neighbor) const
 {
     // Only apply cohesion between water cells

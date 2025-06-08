@@ -175,9 +175,6 @@ void World::advanceTime(const double deltaTimeSeconds)
                          << cell.com.x << "," << cell.com.y << "), dirt=" << cell.dirt
                          << ", water=" << cell.water);
 
-            // COM deflection threshold for triggering transfers
-            static constexpr double COM_DEFLECTION_THRESHOLD = 0.6;
-
             // Check for transfers based on COM deflection from center
             bool shouldTransferX = false;
             bool shouldTransferY = false;
@@ -186,65 +183,68 @@ void World::advanceTime(const double deltaTimeSeconds)
             Vector2d comOffset;
 
             // Check horizontal transfer based on COM deflection.
-            if (cell.com.x > COM_DEFLECTION_THRESHOLD) {
+            if (cell.com.x > Cell::COM_DEFLECTION_THRESHOLD) {
                 shouldTransferX = true;
                 targetX = x + 1;
                 // Calculate natural position: source COM minus 2.0 (one cell width)
                 double naturalX = cell.com.x - 2.0;
                 // Clamp to dead zone to prevent immediate re-transfer
                 comOffset.x = std::max(
-                    -COM_DEFLECTION_THRESHOLD, std::min(COM_DEFLECTION_THRESHOLD, naturalX));
+                    -Cell::COM_DEFLECTION_THRESHOLD, std::min(Cell::COM_DEFLECTION_THRESHOLD, naturalX));
                 LOG_DEBUG(
                     "  Transfer right: com.x=" << cell.com.x
-                                               << " > threshold=" << COM_DEFLECTION_THRESHOLD
+                                               << " > threshold=" << Cell::COM_DEFLECTION_THRESHOLD
                                                << ", v.x=" << cell.v.x << ", natural=" << naturalX
                                                << ", target_com.x=" << comOffset.x);
             }
-            else if (cell.com.x < -COM_DEFLECTION_THRESHOLD) {
+            else if (cell.com.x < -Cell::COM_DEFLECTION_THRESHOLD) {
                 shouldTransferX = true;
                 targetX = x - 1;
                 // Calculate natural position: source COM plus 2.0 (one cell width)
                 double naturalX = cell.com.x + 2.0;
                 // Clamp to dead zone to prevent immediate re-transfer
                 comOffset.x = std::max(
-                    -COM_DEFLECTION_THRESHOLD, std::min(COM_DEFLECTION_THRESHOLD, naturalX));
+                    -Cell::COM_DEFLECTION_THRESHOLD, std::min(Cell::COM_DEFLECTION_THRESHOLD, naturalX));
                 LOG_DEBUG(
                     "  Transfer left: com.x=" << cell.com.x
-                                              << " < threshold=" << -COM_DEFLECTION_THRESHOLD
+                                              << " < threshold=" << -Cell::COM_DEFLECTION_THRESHOLD
                                               << ", v.x=" << cell.v.x << ", natural=" << naturalX
                                               << ", target_com.x=" << comOffset.x);
             }
 
             // Check vertical transfer based on COM deflection.
-            if (cell.com.y > COM_DEFLECTION_THRESHOLD) {
+            if (cell.com.y > Cell::COM_DEFLECTION_THRESHOLD) {
                 shouldTransferY = true;
                 targetY = y + 1;
                 // Calculate natural position: source COM minus 2.0 (one cell height)
                 double naturalY = cell.com.y - 2.0;
                 // Clamp to dead zone to prevent immediate re-transfer
                 comOffset.y = std::max(
-                    -COM_DEFLECTION_THRESHOLD, std::min(COM_DEFLECTION_THRESHOLD, naturalY));
+                    -Cell::COM_DEFLECTION_THRESHOLD, std::min(Cell::COM_DEFLECTION_THRESHOLD, naturalY));
                 LOG_DEBUG(
                     "  Transfer down: com.y=" << cell.com.y
-                                              << " > threshold=" << COM_DEFLECTION_THRESHOLD
+                                              << " > threshold=" << Cell::COM_DEFLECTION_THRESHOLD
                                               << ", v.y=" << cell.v.y << ", natural=" << naturalY
                                               << ", target_com.y=" << comOffset.y);
             }
-            else if (cell.com.y < -COM_DEFLECTION_THRESHOLD) {
+            else if (cell.com.y < -Cell::COM_DEFLECTION_THRESHOLD) {
                 shouldTransferY = true;
                 targetY = y - 1;
                 // Calculate natural position: source COM plus 2.0 (one cell height)
                 double naturalY = cell.com.y + 2.0;
                 // Clamp to dead zone to prevent immediate re-transfer
                 comOffset.y = std::max(
-                    -COM_DEFLECTION_THRESHOLD, std::min(COM_DEFLECTION_THRESHOLD, naturalY));
+                    -Cell::COM_DEFLECTION_THRESHOLD, std::min(Cell::COM_DEFLECTION_THRESHOLD, naturalY));
                 LOG_DEBUG(
                     "  Transfer up: com.y=" << cell.com.y
-                                            << " < threshold=" << -COM_DEFLECTION_THRESHOLD
+                                            << " < threshold=" << -Cell::COM_DEFLECTION_THRESHOLD
                                             << ", v.y=" << cell.v.y << ", natural=" << naturalY
                                             << ", target_com.y=" << comOffset.y);
             }
 
+            // Track if any transfer occurred
+            bool transferOccurred = false;
+            
             // Handle transfers - prioritize diagonal transfers when both X and Y are needed
             if (shouldTransferX || shouldTransferY) {
                 // Calculate total mass and proportions
@@ -252,8 +252,8 @@ void World::advanceTime(const double deltaTimeSeconds)
                 const double dirtProportion = cell.dirt / totalMass;
                 const double waterProportion = cell.water / totalMass;
 
-                // Track if any transfer occurred
-                bool transferOccurred = false;
+                // Simple transfer behavior: always transfer 100% of available space
+                const double transferFactor = 1.0;
 
                 // Try diagonal transfer first if both X and Y are needed
                 if (shouldTransferX && shouldTransferY) {
@@ -267,7 +267,8 @@ void World::advanceTime(const double deltaTimeSeconds)
                         if (targetCell.percentFull() < 1.0) {
                             // Calculate transfer amounts for diagonal direction
                             const double availableSpace = 1.0 - targetCell.percentFull();
-                            const double moveAmount = std::min(totalMass, availableSpace);
+                            const double scaledAvailableSpace = availableSpace * transferFactor;
+                            const double moveAmount = std::min(totalMass, scaledAvailableSpace);
                             const double dirtAmount = moveAmount * dirtProportion;
                             const double waterAmount = moveAmount * waterProportion;
 
@@ -285,27 +286,12 @@ void World::advanceTime(const double deltaTimeSeconds)
                             transferOccurred = true;
                         }
                         else {
-                            // Diagonal transfer blocked by full cell, reflect both velocity
-                            // components and clamp COM
-                            cell.v.x = -cell.v.x * World::ELASTICITY_FACTOR;
-                            cell.v.y = -cell.v.y * World::ELASTICITY_FACTOR;
-                            // Clamp COM to prevent getting stuck at boundary
-                            if (targetX > x) {
-                                cell.com.x = COM_DEFLECTION_THRESHOLD; // Hit right obstacle
-                            }
-                            else {
-                                cell.com.x = -COM_DEFLECTION_THRESHOLD; // Hit left obstacle
-                            }
-                            if (targetY > y) {
-                                cell.com.y = COM_DEFLECTION_THRESHOLD; // Hit down obstacle
-                            }
-                            else {
-                                cell.com.y = -COM_DEFLECTION_THRESHOLD; // Hit up obstacle
-                            }
+                            // Diagonal transfer blocked by full cell - no immediate reflection
+                            // Instead, let the particle continue building up COM deflection
+                            // Reflection will happen naturally when it tries to transfer next frame
                             LOG_DEBUG(
-                                "  Diagonal transfer blocked by full cell, reflecting both "
-                                "velocities and clamping COM to ("
-                                << cell.com.x << ", " << cell.com.y << ")");
+                                "  Diagonal transfer blocked by full cell at ("
+                                << checkX << "," << checkY << "), continuing COM buildup");
                         }
                     }
                     else {
@@ -314,10 +300,10 @@ void World::advanceTime(const double deltaTimeSeconds)
                             cell.v.x = -cell.v.x * World::ELASTICITY_FACTOR;
                             // Clamp COM to boundary to prevent accumulation
                             if (targetX < 0) {
-                                cell.com.x = -COM_DEFLECTION_THRESHOLD; // Hit left boundary
+                                cell.com.x = -Cell::COM_DEFLECTION_THRESHOLD; // Hit left boundary
                             }
                             else if (targetX >= static_cast<int>(width)) {
-                                cell.com.x = COM_DEFLECTION_THRESHOLD; // Hit right boundary
+                                cell.com.x = Cell::COM_DEFLECTION_THRESHOLD; // Hit right boundary
                             }
                             LOG_DEBUG(
                                 "  Diagonal transfer blocked by X boundary, reflecting v.x and "
@@ -328,10 +314,10 @@ void World::advanceTime(const double deltaTimeSeconds)
                             cell.v.y = -cell.v.y * World::ELASTICITY_FACTOR;
                             // Clamp COM to boundary to prevent accumulation
                             if (targetY < 0) {
-                                cell.com.y = -COM_DEFLECTION_THRESHOLD; // Hit top boundary
+                                cell.com.y = -Cell::COM_DEFLECTION_THRESHOLD; // Hit top boundary
                             }
                             else if (targetY >= static_cast<int>(height)) {
-                                cell.com.y = COM_DEFLECTION_THRESHOLD; // Hit bottom boundary
+                                cell.com.y = Cell::COM_DEFLECTION_THRESHOLD; // Hit bottom boundary
                             }
                             LOG_DEBUG(
                                 "  Diagonal transfer blocked by Y boundary, reflecting v.y and "
@@ -353,7 +339,8 @@ void World::advanceTime(const double deltaTimeSeconds)
                         if (targetCell.percentFull() < 1.0) {
                             // Calculate transfer amounts for X direction
                             const double availableSpace = 1.0 - targetCell.percentFull();
-                            const double moveAmount = std::min(totalMass, availableSpace);
+                            const double scaledAvailableSpace = availableSpace * transferFactor;
+                            const double moveAmount = std::min(totalMass, scaledAvailableSpace);
                             const double dirtAmount = moveAmount * dirtProportion;
                             const double waterAmount = moveAmount * waterProportion;
 
@@ -375,19 +362,11 @@ void World::advanceTime(const double deltaTimeSeconds)
                             transferOccurred = true;
                         }
                         else {
-                            // X transfer blocked by full cell, reflect velocity and clamp COM
-                            cell.v.x = -cell.v.x * World::ELASTICITY_FACTOR;
-                            // Clamp COM to prevent getting stuck at boundary
-                            if (targetX > x) {
-                                cell.com.x = COM_DEFLECTION_THRESHOLD; // Hit right obstacle
-                            }
-                            else {
-                                cell.com.x = -COM_DEFLECTION_THRESHOLD; // Hit left obstacle
-                            }
+                            // X transfer blocked by full cell - continue building up COM deflection
+                            // This will eventually trigger reflection when deflection becomes excessive
                             LOG_DEBUG(
-                                "  X transfer blocked by full cell, reflecting v.x and clamping "
-                                "COM.x to "
-                                << cell.com.x);
+                                "  X transfer blocked by full cell at ("
+                                << checkX << "," << checkY << "), continuing COM buildup");
                         }
                     }
                     else {
@@ -395,10 +374,10 @@ void World::advanceTime(const double deltaTimeSeconds)
                         cell.v.x = -cell.v.x * World::ELASTICITY_FACTOR;
                         // Clamp COM to boundary to prevent accumulation
                         if (targetX < 0) {
-                            cell.com.x = -COM_DEFLECTION_THRESHOLD; // Hit left boundary
+                            cell.com.x = -Cell::COM_DEFLECTION_THRESHOLD; // Hit left boundary
                         }
                         else if (targetX >= static_cast<int>(width)) {
-                            cell.com.x = COM_DEFLECTION_THRESHOLD; // Hit right boundary
+                            cell.com.x = Cell::COM_DEFLECTION_THRESHOLD; // Hit right boundary
                         }
                         LOG_DEBUG(
                             "  X transfer blocked by boundary, reflecting v.x and clamping COM.x "
@@ -416,7 +395,8 @@ void World::advanceTime(const double deltaTimeSeconds)
                         if (targetCell.percentFull() < 1.0) {
                             // Calculate transfer amounts for Y direction
                             const double availableSpace = 1.0 - targetCell.percentFull();
-                            const double moveAmount = std::min(totalMass, availableSpace);
+                            const double scaledAvailableSpace = availableSpace * transferFactor;
+                            const double moveAmount = std::min(totalMass, scaledAvailableSpace);
                             const double dirtAmount = moveAmount * dirtProportion;
                             const double waterAmount = moveAmount * waterProportion;
 
@@ -437,19 +417,12 @@ void World::advanceTime(const double deltaTimeSeconds)
                                 << "), dirt=" << dirtAmount << ", water=" << waterAmount);
                         }
                         else {
-                            // Y transfer blocked by full cell, reflect velocity and clamp COM
-                            cell.v.y = -cell.v.y * World::ELASTICITY_FACTOR;
-                            // Clamp COM to prevent getting stuck at boundary
-                            if (targetY > y) {
-                                cell.com.y = COM_DEFLECTION_THRESHOLD; // Hit down obstacle
-                            }
-                            else {
-                                cell.com.y = -COM_DEFLECTION_THRESHOLD; // Hit up obstacle
-                            }
+                            // Y transfer blocked by full cell - no immediate reflection
+                            // Instead, let the particle continue building up COM deflection
+                            // Reflection will happen naturally when it tries to transfer next frame
                             LOG_DEBUG(
-                                "  Y transfer blocked by full cell, reflecting v.y and clamping "
-                                "COM.y to "
-                                << cell.com.y);
+                                "  Y transfer blocked by full cell at ("
+                                << checkX << "," << checkY << "), continuing COM buildup");
                         }
                     }
                     else {
@@ -457,10 +430,10 @@ void World::advanceTime(const double deltaTimeSeconds)
                         cell.v.y = -cell.v.y * World::ELASTICITY_FACTOR;
                         // Clamp COM to boundary to prevent accumulation
                         if (targetY < 0) {
-                            cell.com.y = -COM_DEFLECTION_THRESHOLD; // Hit top boundary
+                            cell.com.y = -Cell::COM_DEFLECTION_THRESHOLD; // Hit top boundary
                         }
                         else if (targetY >= static_cast<int>(height)) {
-                            cell.com.y = COM_DEFLECTION_THRESHOLD; // Hit bottom boundary
+                            cell.com.y = Cell::COM_DEFLECTION_THRESHOLD; // Hit bottom boundary
                         }
                         LOG_DEBUG(
                             "  Y transfer blocked by boundary, reflecting v.y and clamping COM.y "
@@ -469,9 +442,32 @@ void World::advanceTime(const double deltaTimeSeconds)
                     }
                 }
             }
-            else {
-                // No transfer needed, move COM internally
+            
+            // If no transfer occurred (either not needed or blocked), update COM internally
+            if (!transferOccurred) {
                 cell.update(cell.dirt, predictedCom, cell.v);
+            }
+            
+            // Check for reflection when COM deflection becomes excessive due to blocked transfers
+            const double REFLECTION_THRESHOLD = 1.2; // Trigger reflection at 1.2x normal threshold
+            Vector2d normalizedDeflection = cell.getNormalizedDeflection();
+            
+            if (std::abs(normalizedDeflection.x) > REFLECTION_THRESHOLD) {
+                // Horizontal reflection
+                cell.v.x = -cell.v.x * World::ELASTICITY_FACTOR;
+                // Clamp COM to prevent infinite buildup
+                cell.com.x = (normalizedDeflection.x > 0) ? 
+                    Cell::COM_DEFLECTION_THRESHOLD : -Cell::COM_DEFLECTION_THRESHOLD;
+                LOG_DEBUG("  Horizontal reflection: COM.x=" << cell.com.x << ", v.x=" << cell.v.x);
+            }
+            
+            if (std::abs(normalizedDeflection.y) > REFLECTION_THRESHOLD) {
+                // Vertical reflection
+                cell.v.y = -cell.v.y * World::ELASTICITY_FACTOR;
+                // Clamp COM to prevent infinite buildup
+                cell.com.y = (normalizedDeflection.y > 0) ? 
+                    Cell::COM_DEFLECTION_THRESHOLD : -Cell::COM_DEFLECTION_THRESHOLD;
+                LOG_DEBUG("  Vertical reflection: COM.y=" << cell.com.y << ", v.y=" << cell.v.y);
             }
         }
     }
@@ -552,8 +548,8 @@ void World::applyPressure(const double deltaTimeSeconds)
             //     .comOffset = Vector2d(0, 0)
             // });
 
-            // Clear pressure for next frame
-            cell.pressure = Vector2d(0.0, 0.0);
+            // Clear pressure for next frame - commented out for pressure testing
+            // cell.pressure = Vector2d(0.0, 0.0);
         }
     }
 }
@@ -573,65 +569,70 @@ void World::updateAllPressures(double deltaTimeSeconds)
             Cell& cell = at(x, y);
             if (cell.percentFull() < MIN_DIRT_THRESHOLD) continue;
             double mass = cell.percentFull();
+            
+            // Get normalized deflection in [-1, 1] range
+            Vector2d normalizedDeflection = cell.getNormalizedDeflection();
+            
             // Right neighbor
             if (x + 1 < width) {
-                if (cell.com.x > 0.0) {
+                if (normalizedDeflection.x > 0.0) {
                     Cell& neighbor = at(x + 1, y);
-                    neighbor.pressure.x += cell.com.x * mass * deltaTimeSeconds;
+                    neighbor.pressure.x += normalizedDeflection.x * mass * deltaTimeSeconds;
                 }
             }
             // Left neighbor
             if (x > 0) {
-                if (cell.com.x < 0.0) {
+                if (normalizedDeflection.x < 0.0) {
                     Cell& neighbor = at(x - 1, y);
-                    neighbor.pressure.x += -cell.com.x * mass * deltaTimeSeconds;
+                    neighbor.pressure.x += -normalizedDeflection.x * mass * deltaTimeSeconds;
                 }
             }
             // Down neighbor
             if (y + 1 < height) {
-                if (cell.com.y > 0.0) {
+                if (normalizedDeflection.y > 0.0) {
                     Cell& neighbor = at(x, y + 1);
-                    neighbor.pressure.y += cell.com.y * mass * deltaTimeSeconds;
+                    neighbor.pressure.y += normalizedDeflection.y * mass * deltaTimeSeconds;
                 }
             }
             // Up neighbor
             if (y > 0) {
-                if (cell.com.y < 0.0) {
+                if (normalizedDeflection.y < 0.0) {
                     Cell& neighbor = at(x, y - 1);
-                    neighbor.pressure.y += -cell.com.y * mass * deltaTimeSeconds;
+                    neighbor.pressure.y += -normalizedDeflection.y * mass * deltaTimeSeconds;
                 }
             }
         }
     }
 
-    // Iterative pressure propagation
-    const int numPressureIterations = 8;
-    std::vector<Vector2d> nextPressure(width * height);
-    for (int iter = 0; iter < numPressureIterations; ++iter) {
-        for (uint32_t y = 0; y < height; ++y) {
-            for (uint32_t x = 0; x < width; ++x) {
-                Vector2d sum = at(x, y).pressure;
-                int count = 1;
-                for (int dy = -1; dy <= 1; ++dy) {
-                    for (int dx = -1; dx <= 1; ++dx) {
-                        if (dx == 0 && dy == 0) continue;
-                        int nx = x + dx, ny = y + dy;
-                        if (nx >= 0 && nx < (int)width && ny >= 0 && ny < (int)height) {
-                            sum += at(nx, ny).pressure;
-                            ++count;
-                        }
-                    }
-                }
-                nextPressure[y * width + x] = sum / count;
-            }
-        }
-        // Copy nextPressure back to cells
-        for (uint32_t y = 0; y < height; ++y) {
-            for (uint32_t x = 0; x < width; ++x) {
-                at(x, y).pressure = nextPressure[y * width + x];
-            }
-        }
-    }
+    // Iterative pressure propagation disabled for basic COM deflection pressure physics
+    // This was causing pressure values to be averaged out to zero in small grids
+    // const int numPressureIterations = 8;
+    // std::vector<Vector2d> nextPressure(width * height);
+    // for (int iter = 0; iter < numPressureIterations; ++iter) {
+    //     for (uint32_t y = 0; y < height; ++y) {
+    //         for (uint32_t x = 0; x < width; ++x) {
+    //             Vector2d sum = at(x, y).pressure;
+    //             int count = 1;
+    //             for (int dy = -1; dy <= 1; ++dy) {
+    //                 for (int dx = -1; dx <= 1; ++dx) {
+    //                     if (dx == 0 && dy == 0) continue;
+    //                     int nx = x + dx, ny = y + dy;
+    //                     if (nx >= 0 && nx < (int)width && ny >= 0 && ny < (int)height) {
+    //                         sum += at(nx, ny).pressure;
+    //                         ++count;
+    //                     }
+    //                 }
+    //             }
+    //             nextPressure[y * width + x] = sum / count;
+    //         }
+    //     }
+    //     // Copy nextPressure back to cells
+    //     for (uint32_t y = 0; y < height; ++y) {
+    //         for (uint32_t x = 0; x < width; ++x) {
+    //             at(x, y).pressure = nextPressure[y * width + x];
+    //         }
+    //     }
+    // }
 }
 
 Cell& World::at(uint32_t x, uint32_t y)
@@ -726,8 +727,14 @@ void World::applyMoves()
         // Calculate actual amounts to move based on proportions
         const double dirtProportion = sourceCell.dirt / sourceCell.percentFull();
         const double waterProportion = sourceCell.water / sourceCell.percentFull();
-        const double actualDirt = moveAmount * dirtProportion;
-        const double actualWater = moveAmount * waterProportion;
+        
+        // Apply fragmentation: reduce dirt transfer by fragmentation factor
+        // Higher fragmentation factor means more dirt stays behind
+        const double dirtMoveAmount = moveAmount * dirtProportion * (1.0 - DIRT_FRAGMENTATION_FACTOR);
+        const double waterMoveAmount = moveAmount * waterProportion; // Water not affected by fragmentation
+        
+        const double actualDirt = dirtMoveAmount;
+        const double actualWater = waterMoveAmount;
 
         // Update source cell
         sourceCell.update(sourceCell.dirt - actualDirt, sourceCell.com, sourceCell.v);

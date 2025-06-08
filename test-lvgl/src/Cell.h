@@ -17,6 +17,9 @@ public:
     static uint32_t WIDTH;
     static uint32_t HEIGHT;
 
+    // COM deflection threshold for triggering transfers
+    static constexpr double COM_DEFLECTION_THRESHOLD = 0.6;
+
     static void setSize(uint32_t newSize)
     {
         WIDTH = newSize;
@@ -35,6 +38,10 @@ public:
 
     // Calculate total percentage of cell filled with elements
     double percentFull() const { return dirt + water + wood + leaf + metal; }
+
+    // Get normalized COM deflection in range [-1, 1]
+    // Returns COM normalized by the deflection threshold
+    Vector2d getNormalizedDeflection() const;
 
     // Element amounts in cell [0,1]
     double dirt;

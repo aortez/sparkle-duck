@@ -417,14 +417,14 @@ int main(int argc, char** argv)
 
     // Create label to show current fragmentation value
     lv_obj_t* fragmentation_value_label = lv_label_create(lv_scr_act());
-    lv_label_set_text(fragmentation_value_label, "0.0");
+    lv_label_set_text(fragmentation_value_label, "0.00");
     lv_obj_align(fragmentation_value_label, LV_ALIGN_TOP_RIGHT, -165, 370);
 
     lv_obj_t* fragmentation_slider = lv_slider_create(lv_scr_act());
     lv_obj_set_size(fragmentation_slider, control_width, 10);
     lv_obj_align(fragmentation_slider, LV_ALIGN_TOP_RIGHT, -10, 390);
-    lv_slider_set_range(fragmentation_slider, 0, 100); // Range [0, 100] for quadratic mapping
-    lv_slider_set_value(fragmentation_slider, 0, LV_ANIM_OFF);
+    lv_slider_set_range(fragmentation_slider, 0, 100); // Range [0, 100] maps to [0.0, 1.0]
+    lv_slider_set_value(fragmentation_slider, 0, LV_ANIM_OFF); // Start at 0.00 (0%)
 
     // Create cell size slider
     lv_obj_t* cell_size_label = lv_label_create(lv_scr_act());
@@ -483,7 +483,7 @@ int main(int argc, char** argv)
     lv_obj_add_event_cb(
         cell_size_slider, cell_size_slider_event_cb, LV_EVENT_ALL, cell_size_value_label);
 
-    // Create callback for fragmentation slider
+    // Create callback for dirt fragmentation slider
     lv_obj_add_event_cb(
         fragmentation_slider,
         [](lv_event_t* e) {
@@ -491,14 +491,14 @@ int main(int argc, char** argv)
             lv_obj_t* fragmentation_value_label = static_cast<lv_obj_t*>(lv_event_get_user_data(e));
             if (lv_event_get_code(e) == LV_EVENT_VALUE_CHANGED) {
                 int32_t value = lv_slider_get_value(slider);
-                // Quadratic scale: maps [0,100] to [0,0.5] with more precision at lower values
-                double fragmentation = (value * value) / 20000.0; // value^2 / 20000 gives [0,0.5]
+                // Convert to fragmentation factor (0.0 to 1.0)
+                double fragmentation_factor = value / 100.0;
                 if (world_ptr) {
-                    world_ptr->setDirtFragmentationFactor(fragmentation);
+                    world_ptr->setDirtFragmentationFactor(fragmentation_factor);
                 }
                 // Update the fragmentation value label
                 char buf[16];
-                snprintf(buf, sizeof(buf), "%.3f", fragmentation);
+                snprintf(buf, sizeof(buf), "%.2f", fragmentation_factor);
                 lv_label_set_text(fragmentation_value_label, buf);
             }
         },

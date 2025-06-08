@@ -2,4 +2,5 @@
 yocto/
 zephyrproject/
 lvgl/
-test-lvgl/build/
+*/build/
+build/
