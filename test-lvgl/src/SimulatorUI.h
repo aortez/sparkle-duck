@@ -83,6 +83,11 @@ private:
     static void rainSliderEventCb(lv_event_t* e);
     static void screenshotBtnEventCb(lv_event_t* e);
 
+    // Time reversal control buttons
+    static void backwardBtnEventCb(lv_event_t* e);
+    static void forwardBtnEventCb(lv_event_t* e);
+    static void timeReversalToggleBtnEventCb(lv_event_t* e);
+
     // Helper to create callback data
     CallbackData* createCallbackData(lv_obj_t* label = nullptr);
 };

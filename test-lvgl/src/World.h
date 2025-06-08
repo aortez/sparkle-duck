@@ -77,6 +77,25 @@ public:
     void addDirtAtPixel(int pixelX, int pixelY);
     void addWaterAtPixel(int pixelX, int pixelY);
 
+    // Time reversal functionality
+    void enableTimeReversal(bool enabled) { timeReversalEnabled = enabled; }
+    bool isTimeReversalEnabled() const { return timeReversalEnabled; }
+    void saveWorldState();
+    bool canGoBackward() const { return !stateHistory.empty(); }
+    bool canGoForward() const
+    {
+        return currentHistoryIndex < static_cast<int>(stateHistory.size()) - 1;
+    }
+    void goBackward();
+    void goForward();
+    void clearHistory()
+    {
+        stateHistory.clear();
+        currentHistoryIndex = -1;
+        hasStoredCurrentState = false; // Also clear stored current state
+    }
+    size_t getHistorySize() const { return stateHistory.size(); }
+
     // Start dragging dirt from a cell
     void startDragging(int pixelX, int pixelY);
 
@@ -97,7 +116,7 @@ public:
     void setPressureScale(double scale) { pressureScale = scale; }
 
     // Resize the world grid based on new cell size
-    void resizeGrid(uint32_t newWidth, uint32_t newHeight);
+    void resizeGrid(uint32_t newWidth, uint32_t newHeight, bool clearHistory = true);
 
     // Cursor force interaction
     void setCursorForceEnabled(bool enabled) { cursorForceEnabled = enabled; }
@@ -145,6 +164,9 @@ public:
     double getRainRate() const;
 
     double timescale = 1.0;
+
+    // Mark that user input has occurred (for triggering saves)
+    void markUserInput() { hasUserInputSinceLastSave = true; }
 
 protected:
     Timers timers;
@@ -245,6 +267,35 @@ private:
 
     std::vector<DirtMove> moves;
 
+    // Time reversal state history
+    struct WorldState {
+        std::vector<Cell> cells;
+        uint32_t width;      // Grid width when this state was saved
+        uint32_t height;     // Grid height when this state was saved
+        uint32_t cellWidth;  // Cell width when this state was saved
+        uint32_t cellHeight; // Cell height when this state was saved
+        uint32_t timestep;
+        double totalMass;
+        double removedMass;
+        double timestamp; // Time when this state was captured (in seconds)
+        // Optional: also store physics state like pendingDragEnd, etc.
+    };
+
+    bool timeReversalEnabled = true;      // Enable by default
+    std::vector<WorldState> stateHistory; // History of world states
+    int currentHistoryIndex = -1;         // Current position in history (-1 = most recent)
+    static constexpr size_t MAX_HISTORY_SIZE = 1000; // Limit history to prevent memory issues
+
+    // Enhanced save logic
+    bool hasUserInputSinceLastSave = false;               // Track user input for triggering saves
+    double lastSaveTime = 0.0;                            // Track when we last saved (in seconds)
+    double simulationTime = 0.0;                          // Total simulation time elapsed
+    static constexpr double PERIODIC_SAVE_INTERVAL = 0.5; // Save every 500ms
+
+    // Current state preservation for time reversal
+    WorldState currentLiveState;        // Stored current state when starting navigation
+    bool hasStoredCurrentState = false; // Whether we've captured the current state
+
     size_t coordToIndex(uint32_t x, uint32_t y) const;
 
     // Apply all queued moves to the world.
@@ -252,4 +303,10 @@ private:
 
     // Helper to convert pixel coordinates to cell coordinates
     void pixelToCell(int pixelX, int pixelY, int& cellX, int& cellY) const;
+
+    // Helper to get world setup for resize operations
+    const WorldSetup* getWorldSetup() const { return worldSetup.get(); }
+
+    // Helper method to restore state with potential grid size changes
+    void restoreWorldState(const WorldState& state);
 };

@@ -2,6 +2,7 @@
 #include "Cell.h"
 #include "Vector2d.h"
 #include "World.h"
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <iostream>
@@ -310,4 +311,197 @@ void ConfigurableWorldSetup::addParticles(World& world, uint32_t timestep, doubl
     }
 
     lastSimTime = simTime;
+}
+
+// Feature-preserving resize implementation
+std::vector<WorldSetup::ResizeData> WorldSetup::captureWorldState(const World& world) const
+{
+    std::vector<ResizeData> state;
+    state.reserve(world.getWidth() * world.getHeight());
+
+    for (uint32_t y = 0; y < world.getHeight(); y++) {
+        for (uint32_t x = 0; x < world.getWidth(); x++) {
+            const Cell& cell = world.at(x, y);
+            state.push_back({ cell.dirt, cell.water, cell.com, cell.v });
+        }
+    }
+
+    return state;
+}
+
+void WorldSetup::applyWorldState(
+    World& world,
+    const std::vector<ResizeData>& oldState,
+    uint32_t oldWidth,
+    uint32_t oldHeight) const
+{
+    uint32_t newWidth = world.getWidth();
+    uint32_t newHeight = world.getHeight();
+
+    // Calculate scaling factors
+    double scaleX = static_cast<double>(oldWidth) / newWidth;
+    double scaleY = static_cast<double>(oldHeight) / newHeight;
+
+    for (uint32_t y = 0; y < newHeight; y++) {
+        for (uint32_t x = 0; x < newWidth; x++) {
+            // Map new cell coordinates back to old coordinate space
+            double oldX = (x + 0.5) * scaleX - 0.5;
+            double oldY = (y + 0.5) * scaleY - 0.5;
+
+            // Calculate edge strength at the old position for adaptive interpolation
+            double edgeStrength = calculateEdgeStrength(
+                oldState,
+                oldWidth,
+                oldHeight,
+                static_cast<uint32_t>(std::round(oldX)),
+                static_cast<uint32_t>(std::round(oldY)));
+
+            // Interpolate the cell data
+            ResizeData newData =
+                interpolateCell(oldState, oldWidth, oldHeight, oldX, oldY, edgeStrength);
+
+            // Apply the interpolated data to the new cell
+            Cell& cell = world.at(x, y);
+            cell.update(newData.dirt, newData.com, newData.velocity);
+            cell.water = newData.water;
+            cell.markDirty();
+        }
+    }
+}
+
+double WorldSetup::calculateEdgeStrength(
+    const std::vector<ResizeData>& state,
+    uint32_t width,
+    uint32_t height,
+    uint32_t x,
+    uint32_t y) const
+{
+    // Clamp coordinates to valid range
+    x = std::min(x, width - 1);
+    y = std::min(y, height - 1);
+
+    // Use Sobel operator to detect edges based on mass density
+    double sobelX = 0.0, sobelY = 0.0;
+
+    // Sobel X kernel: [-1 0 1; -2 0 2; -1 0 1]
+    // Sobel Y kernel: [-1 -2 -1; 0 0 0; 1 2 1]
+    for (int dy = -1; dy <= 1; dy++) {
+        for (int dx = -1; dx <= 1; dx++) {
+            int nx = static_cast<int>(x) + dx;
+            int ny = static_cast<int>(y) + dy;
+
+            // Clamp to bounds
+            nx = std::max(0, std::min(nx, static_cast<int>(width) - 1));
+            ny = std::max(0, std::min(ny, static_cast<int>(height) - 1));
+
+            double mass = state[ny * width + nx].dirt + state[ny * width + nx].water;
+
+            // Sobel X weights
+            int sobelXWeight = 0;
+            if (dx == -1)
+                sobelXWeight = (dy == 0) ? -2 : -1;
+            else if (dx == 1)
+                sobelXWeight = (dy == 0) ? 2 : 1;
+
+            // Sobel Y weights
+            int sobelYWeight = 0;
+            if (dy == -1)
+                sobelYWeight = (dx == 0) ? -2 : -1;
+            else if (dy == 1)
+                sobelYWeight = (dx == 0) ? 2 : 1;
+
+            sobelX += mass * sobelXWeight;
+            sobelY += mass * sobelYWeight;
+        }
+    }
+
+    // Calculate edge magnitude and normalize
+    double edgeMagnitude = std::sqrt(sobelX * sobelX + sobelY * sobelY);
+    return std::min(1.0, edgeMagnitude * 2.0); // Scale and clamp to [0,1]
+}
+
+WorldSetup::ResizeData WorldSetup::interpolateCell(
+    const std::vector<ResizeData>& oldState,
+    uint32_t oldWidth,
+    uint32_t oldHeight,
+    double newX,
+    double newY,
+    double edgeStrength) const
+{
+    // Adaptive interpolation: use nearest neighbor for strong edges, bilinear for smooth areas
+    const double EDGE_THRESHOLD = 0.3;
+
+    if (edgeStrength > EDGE_THRESHOLD) {
+        // Strong edge: use nearest neighbor to preserve sharp features
+        double blendFactor = (edgeStrength - EDGE_THRESHOLD) / (1.0 - EDGE_THRESHOLD);
+        ResizeData nearest = nearestNeighborSample(oldState, oldWidth, oldHeight, newX, newY);
+        ResizeData bilinear = bilinearInterpolate(oldState, oldWidth, oldHeight, newX, newY);
+
+        // Blend between bilinear and nearest neighbor based on edge strength
+        ResizeData result;
+        result.dirt = bilinear.dirt * (1.0 - blendFactor) + nearest.dirt * blendFactor;
+        result.water = bilinear.water * (1.0 - blendFactor) + nearest.water * blendFactor;
+        result.com = bilinear.com * (1.0 - blendFactor) + nearest.com * blendFactor;
+        result.velocity = bilinear.velocity * (1.0 - blendFactor) + nearest.velocity * blendFactor;
+        return result;
+    }
+    else {
+        // Smooth area: use bilinear interpolation
+        return bilinearInterpolate(oldState, oldWidth, oldHeight, newX, newY);
+    }
+}
+
+WorldSetup::ResizeData WorldSetup::bilinearInterpolate(
+    const std::vector<ResizeData>& oldState,
+    uint32_t oldWidth,
+    uint32_t oldHeight,
+    double x,
+    double y) const
+{
+    // Clamp to valid range
+    x = std::max(0.0, std::min(x, static_cast<double>(oldWidth) - 1.0));
+    y = std::max(0.0, std::min(y, static_cast<double>(oldHeight) - 1.0));
+
+    // Get integer coordinates and fractions
+    int x0 = static_cast<int>(std::floor(x));
+    int y0 = static_cast<int>(std::floor(y));
+    int x1 = std::min(x0 + 1, static_cast<int>(oldWidth) - 1);
+    int y1 = std::min(y0 + 1, static_cast<int>(oldHeight) - 1);
+
+    double fx = x - x0;
+    double fy = y - y0;
+
+    // Get the four surrounding samples
+    const ResizeData& s00 = oldState[y0 * oldWidth + x0];
+    const ResizeData& s10 = oldState[y0 * oldWidth + x1];
+    const ResizeData& s01 = oldState[y1 * oldWidth + x0];
+    const ResizeData& s11 = oldState[y1 * oldWidth + x1];
+
+    // Bilinear interpolation
+    ResizeData result;
+    result.dirt = s00.dirt * (1 - fx) * (1 - fy) + s10.dirt * fx * (1 - fy)
+        + s01.dirt * (1 - fx) * fy + s11.dirt * fx * fy;
+    result.water = s00.water * (1 - fx) * (1 - fy) + s10.water * fx * (1 - fy)
+        + s01.water * (1 - fx) * fy + s11.water * fx * fy;
+    result.com = s00.com * (1 - fx) * (1 - fy) + s10.com * fx * (1 - fy) + s01.com * (1 - fx) * fy
+        + s11.com * fx * fy;
+    result.velocity = s00.velocity * (1 - fx) * (1 - fy) + s10.velocity * fx * (1 - fy)
+        + s01.velocity * (1 - fx) * fy + s11.velocity * fx * fy;
+
+    return result;
+}
+
+WorldSetup::ResizeData WorldSetup::nearestNeighborSample(
+    const std::vector<ResizeData>& oldState,
+    uint32_t oldWidth,
+    uint32_t oldHeight,
+    double x,
+    double y) const
+{
+    // Clamp and round to nearest integer coordinates
+    int nx = std::max(0, std::min(static_cast<int>(std::round(x)), static_cast<int>(oldWidth) - 1));
+    int ny =
+        std::max(0, std::min(static_cast<int>(std::round(y)), static_cast<int>(oldHeight) - 1));
+
+    return oldState[ny * oldWidth + nx];
 }

@@ -1,7 +1,10 @@
 #pragma once
 
+#include "Vector2d.h"
 #include <cstdint>
-// Forward declaration
+#include <vector>
+
+// Forward declarations
 class World;
 
 /**
@@ -10,6 +13,14 @@ class World;
  */
 class WorldSetup {
 public:
+    // Struct for storing cell data during resize operations
+    struct ResizeData {
+        double dirt;
+        double water;
+        Vector2d com;
+        Vector2d velocity;
+    };
+
     virtual ~WorldSetup() = default;
 
     // Setup the world's initial state.
@@ -18,9 +29,45 @@ public:
     // Add particles to the world during simulation.
     virtual void addParticles(World& world, uint32_t timestep, double deltaTimeSeconds) = 0;
 
+    // Resize functionality - can be overridden by different strategies
+    virtual std::vector<ResizeData> captureWorldState(const World& world) const;
+    virtual void applyWorldState(
+        World& world,
+        const std::vector<ResizeData>& oldState,
+        uint32_t oldWidth,
+        uint32_t oldHeight) const;
+
     virtual void fillLowerRightQuadrant(World& world);
     virtual void makeWalls(World& world);
     virtual void fillWithDirt(World& world);
+
+protected:
+    // Helper functions for feature-preserving resize
+    virtual double calculateEdgeStrength(
+        const std::vector<ResizeData>& state,
+        uint32_t width,
+        uint32_t height,
+        uint32_t x,
+        uint32_t y) const;
+    virtual ResizeData interpolateCell(
+        const std::vector<ResizeData>& oldState,
+        uint32_t oldWidth,
+        uint32_t oldHeight,
+        double newX,
+        double newY,
+        double edgeStrength) const;
+    virtual ResizeData bilinearInterpolate(
+        const std::vector<ResizeData>& oldState,
+        uint32_t oldWidth,
+        uint32_t oldHeight,
+        double x,
+        double y) const;
+    virtual ResizeData nearestNeighborSample(
+        const std::vector<ResizeData>& oldState,
+        uint32_t oldWidth,
+        uint32_t oldHeight,
+        double x,
+        double y) const;
 };
 
 /**

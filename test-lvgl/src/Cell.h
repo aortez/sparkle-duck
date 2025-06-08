@@ -69,6 +69,11 @@ public:
 
     Cell();
     ~Cell(); // Add destructor to clean up buffer
+
+    // Copy constructor and assignment operator to handle LVGL objects properly
+    Cell(const Cell& other);
+    Cell& operator=(const Cell& other);
+
     std::string toString() const;
 
     Vector2d calculateWaterCohesion(const Cell& cell, const Cell& neighbor) const;

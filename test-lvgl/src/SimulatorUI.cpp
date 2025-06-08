@@ -171,6 +171,34 @@ void SimulatorUI::createControlButtons()
     lv_obj_add_event_cb(
         screenshot_btn, screenshotBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
 
+    // Create time reversal toggle button
+    lv_obj_t* time_reversal_btn = lv_btn_create(screen_);
+    lv_obj_set_size(time_reversal_btn, CONTROL_WIDTH, 30);
+    lv_obj_align(time_reversal_btn, LV_ALIGN_TOP_RIGHT, -10, 550);
+    lv_obj_t* time_reversal_label = lv_label_create(time_reversal_btn);
+    lv_label_set_text(time_reversal_label, "Time History: On");
+    lv_obj_center(time_reversal_label);
+    lv_obj_add_event_cb(
+        time_reversal_btn, timeReversalToggleBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
+
+    // Create backward button (left half) - moved up to avoid overlap
+    lv_obj_t* backward_btn = lv_btn_create(screen_);
+    lv_obj_set_size(backward_btn, CONTROL_WIDTH / 2 - 5, 30);
+    lv_obj_align(backward_btn, LV_ALIGN_TOP_RIGHT, -10 - CONTROL_WIDTH / 2 - 5, 585);
+    lv_obj_t* backward_label = lv_label_create(backward_btn);
+    lv_label_set_text(backward_label, "<<");
+    lv_obj_center(backward_label);
+    lv_obj_add_event_cb(backward_btn, backwardBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
+
+    // Create forward button (right half) - moved up to avoid overlap
+    lv_obj_t* forward_btn = lv_btn_create(screen_);
+    lv_obj_set_size(forward_btn, CONTROL_WIDTH / 2 - 5, 30);
+    lv_obj_align(forward_btn, LV_ALIGN_TOP_RIGHT, -10, 585);
+    lv_obj_t* forward_label = lv_label_create(forward_btn);
+    lv_label_set_text(forward_label, ">>");
+    lv_obj_center(forward_label);
+    lv_obj_add_event_cb(forward_btn, forwardBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
+
     // Create quit button
     lv_obj_t* quit_btn = lv_btn_create(screen_);
     lv_obj_set_size(quit_btn, CONTROL_WIDTH, 50);
@@ -184,18 +212,18 @@ void SimulatorUI::createControlButtons()
 
 void SimulatorUI::createSliders()
 {
-    // Timescale slider
+    // Timescale slider - moved down to avoid overlap with time reversal buttons
     lv_obj_t* slider_label = lv_label_create(screen_);
     lv_label_set_text(slider_label, "Timescale");
-    lv_obj_align(slider_label, LV_ALIGN_TOP_RIGHT, -10, 570);
+    lv_obj_align(slider_label, LV_ALIGN_TOP_RIGHT, -10, 620);
 
     lv_obj_t* timescale_value_label = lv_label_create(screen_);
     lv_label_set_text(timescale_value_label, "1.0x");
-    lv_obj_align(timescale_value_label, LV_ALIGN_TOP_RIGHT, -120, 570);
+    lv_obj_align(timescale_value_label, LV_ALIGN_TOP_RIGHT, -120, 620);
 
     lv_obj_t* slider = lv_slider_create(screen_);
     lv_obj_set_size(slider, CONTROL_WIDTH, 10);
-    lv_obj_align(slider, LV_ALIGN_TOP_RIGHT, -10, 590);
+    lv_obj_align(slider, LV_ALIGN_TOP_RIGHT, -10, 640);
     lv_slider_set_range(slider, 0, 100);
     lv_slider_set_value(slider, 50, LV_ANIM_OFF);
     lv_obj_add_event_cb(
@@ -204,15 +232,15 @@ void SimulatorUI::createSliders()
     // Elasticity slider
     lv_obj_t* elasticity_label = lv_label_create(screen_);
     lv_label_set_text(elasticity_label, "Elasticity");
-    lv_obj_align(elasticity_label, LV_ALIGN_TOP_RIGHT, -10, 610);
+    lv_obj_align(elasticity_label, LV_ALIGN_TOP_RIGHT, -10, 660);
 
     lv_obj_t* elasticity_value_label = lv_label_create(screen_);
     lv_label_set_text(elasticity_value_label, "0.8");
-    lv_obj_align(elasticity_value_label, LV_ALIGN_TOP_RIGHT, -120, 610);
+    lv_obj_align(elasticity_value_label, LV_ALIGN_TOP_RIGHT, -120, 660);
 
     lv_obj_t* elasticity_slider = lv_slider_create(screen_);
     lv_obj_set_size(elasticity_slider, CONTROL_WIDTH, 10);
-    lv_obj_align(elasticity_slider, LV_ALIGN_TOP_RIGHT, -10, 630);
+    lv_obj_align(elasticity_slider, LV_ALIGN_TOP_RIGHT, -10, 680);
     lv_slider_set_range(elasticity_slider, 0, 200);
     lv_slider_set_value(elasticity_slider, 80, LV_ANIM_OFF);
     lv_obj_add_event_cb(
@@ -224,15 +252,15 @@ void SimulatorUI::createSliders()
     // Dirt fragmentation slider
     lv_obj_t* fragmentation_label = lv_label_create(screen_);
     lv_label_set_text(fragmentation_label, "Dirt Fragmentation");
-    lv_obj_align(fragmentation_label, LV_ALIGN_TOP_RIGHT, -10, 650);
+    lv_obj_align(fragmentation_label, LV_ALIGN_TOP_RIGHT, -10, 700);
 
     lv_obj_t* fragmentation_value_label = lv_label_create(screen_);
     lv_label_set_text(fragmentation_value_label, "0.00");
-    lv_obj_align(fragmentation_value_label, LV_ALIGN_TOP_RIGHT, -165, 650);
+    lv_obj_align(fragmentation_value_label, LV_ALIGN_TOP_RIGHT, -165, 700);
 
     lv_obj_t* fragmentation_slider = lv_slider_create(screen_);
     lv_obj_set_size(fragmentation_slider, CONTROL_WIDTH, 10);
-    lv_obj_align(fragmentation_slider, LV_ALIGN_TOP_RIGHT, -10, 670);
+    lv_obj_align(fragmentation_slider, LV_ALIGN_TOP_RIGHT, -10, 720);
     lv_slider_set_range(fragmentation_slider, 0, 100);
     lv_slider_set_value(fragmentation_slider, 0, LV_ANIM_OFF);
     lv_obj_add_event_cb(
@@ -244,17 +272,17 @@ void SimulatorUI::createSliders()
     // Cell size slider
     lv_obj_t* cell_size_label = lv_label_create(screen_);
     lv_label_set_text(cell_size_label, "Cell Size");
-    lv_obj_align(cell_size_label, LV_ALIGN_TOP_RIGHT, -10, 690);
+    lv_obj_align(cell_size_label, LV_ALIGN_TOP_RIGHT, -10, 740);
 
     lv_obj_t* cell_size_value_label = lv_label_create(screen_);
-    lv_label_set_text(cell_size_value_label, "50");
-    lv_obj_align(cell_size_value_label, LV_ALIGN_TOP_RIGHT, -120, 690);
+    lv_label_set_text(cell_size_value_label, "100");
+    lv_obj_align(cell_size_value_label, LV_ALIGN_TOP_RIGHT, -120, 740);
 
     lv_obj_t* cell_size_slider = lv_slider_create(screen_);
     lv_obj_set_size(cell_size_slider, CONTROL_WIDTH, 10);
-    lv_obj_align(cell_size_slider, LV_ALIGN_TOP_RIGHT, -10, 710);
-    lv_slider_set_range(cell_size_slider, 10, 50);
-    lv_slider_set_value(cell_size_slider, 50, LV_ANIM_OFF);
+    lv_obj_align(cell_size_slider, LV_ALIGN_TOP_RIGHT, -10, 760);
+    lv_slider_set_range(cell_size_slider, 10, 100);
+    lv_slider_set_value(cell_size_slider, 100, LV_ANIM_OFF);
     lv_obj_add_event_cb(
         cell_size_slider,
         cellSizeSliderEventCb,
@@ -264,15 +292,15 @@ void SimulatorUI::createSliders()
     // Pressure scale slider
     lv_obj_t* pressure_label = lv_label_create(screen_);
     lv_label_set_text(pressure_label, "Pressure Scale");
-    lv_obj_align(pressure_label, LV_ALIGN_TOP_RIGHT, -10, 730);
+    lv_obj_align(pressure_label, LV_ALIGN_TOP_RIGHT, -10, 780);
 
     lv_obj_t* pressure_value_label = lv_label_create(screen_);
     lv_label_set_text(pressure_value_label, "1.0");
-    lv_obj_align(pressure_value_label, LV_ALIGN_TOP_RIGHT, -120, 730);
+    lv_obj_align(pressure_value_label, LV_ALIGN_TOP_RIGHT, -120, 780);
 
     lv_obj_t* pressure_slider = lv_slider_create(screen_);
     lv_obj_set_size(pressure_slider, CONTROL_WIDTH, 10);
-    lv_obj_align(pressure_slider, LV_ALIGN_TOP_RIGHT, -10, 750);
+    lv_obj_align(pressure_slider, LV_ALIGN_TOP_RIGHT, -10, 800);
     lv_slider_set_range(pressure_slider, 0, 200);
     lv_slider_set_value(pressure_slider, 100, LV_ANIM_OFF);
     lv_obj_add_event_cb(
@@ -284,15 +312,15 @@ void SimulatorUI::createSliders()
     // Rain rate slider
     lv_obj_t* rain_label = lv_label_create(screen_);
     lv_label_set_text(rain_label, "Rain Rate");
-    lv_obj_align(rain_label, LV_ALIGN_TOP_RIGHT, -10, 770);
+    lv_obj_align(rain_label, LV_ALIGN_TOP_RIGHT, -10, 820);
 
     lv_obj_t* rain_value_label = lv_label_create(screen_);
     lv_label_set_text(rain_value_label, "0/s");
-    lv_obj_align(rain_value_label, LV_ALIGN_TOP_RIGHT, -120, 770);
+    lv_obj_align(rain_value_label, LV_ALIGN_TOP_RIGHT, -120, 820);
 
     lv_obj_t* rain_slider = lv_slider_create(screen_);
     lv_obj_set_size(rain_slider, CONTROL_WIDTH, 10);
-    lv_obj_align(rain_slider, LV_ALIGN_TOP_RIGHT, -10, 790);
+    lv_obj_align(rain_slider, LV_ALIGN_TOP_RIGHT, -10, 840);
     lv_slider_set_range(rain_slider, 0, 100);
     lv_slider_set_value(rain_slider, 0, LV_ANIM_OFF);
     lv_obj_add_event_cb(
@@ -500,8 +528,9 @@ void SimulatorUI::cellSizeSliderEventCb(lv_event_t* e)
         const int new_grid_height = (DRAW_AREA_SIZE / value) - 1;
 
         // Resize the world grid if we have a valid world
+        // For cell size changes, preserve time reversal history
         if (data->world) {
-            data->world->resizeGrid(new_grid_width, new_grid_height);
+            data->world->resizeGrid(new_grid_width, new_grid_height, false);
         }
 
         // Update the label
@@ -720,4 +749,57 @@ void SimulatorUI::takeExitScreenshot()
     lv_draw_buf_destroy(snapshot);
 
     printf("Exit screenshot saved as: %s\n", filename.c_str());
+}
+
+// Time reversal callback implementations
+void SimulatorUI::timeReversalToggleBtnEventCb(lv_event_t* e)
+{
+    if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
+        CallbackData* data = static_cast<CallbackData*>(lv_event_get_user_data(e));
+        if (data && data->world) {
+            bool current_state = data->world->isTimeReversalEnabled();
+            bool new_state = !current_state;
+            data->world->enableTimeReversal(new_state);
+            const lv_obj_t* btn = static_cast<const lv_obj_t*>(lv_event_get_target(e));
+            lv_obj_t* label = lv_obj_get_child(btn, 0);
+            lv_label_set_text(label, new_state ? "Time History: On" : "Time History: Off");
+
+            if (!new_state) {
+                // Clear history when disabled
+                data->world->clearHistory();
+            }
+        }
+    }
+}
+
+void SimulatorUI::backwardBtnEventCb(lv_event_t* e)
+{
+    if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
+        CallbackData* data = static_cast<CallbackData*>(lv_event_get_user_data(e));
+        if (data && data->world) {
+            if (data->world->canGoBackward()) {
+                data->world->goBackward();
+                printf("Went backward in time. History size: %zu\n", data->world->getHistorySize());
+            }
+            else {
+                printf("Cannot go backward - no history available\n");
+            }
+        }
+    }
+}
+
+void SimulatorUI::forwardBtnEventCb(lv_event_t* e)
+{
+    if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
+        CallbackData* data = static_cast<CallbackData*>(lv_event_get_user_data(e));
+        if (data && data->world) {
+            if (data->world->canGoForward()) {
+                data->world->goForward();
+                printf("Went forward in time. History size: %zu\n", data->world->getHistorySize());
+            }
+            else {
+                printf("Cannot go forward - already at most recent state\n");
+            }
+        }
+    }
 }

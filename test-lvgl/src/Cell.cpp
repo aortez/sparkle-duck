@@ -2,22 +2,28 @@
 
 #include "World.h"
 
+#include <cmath>
 #include <cstdio> // For snprintf
 #include <cstring>
 #include <string>
 
 #include "lvgl/lvgl.h"
 
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
 namespace {
 // Drawing constants.
-constexpr double COM_VISUALIZATION_RADIUS = 3.0;
-constexpr int VELOCITY_VISUALIZATION_SCALE = 1;
-constexpr int PRESSURE_VISUALIZATION_SCALE = 1000;
+constexpr double COM_VISUALIZATION_RADIUS = 6.0;  // Larger for 100px cells
+constexpr int VELOCITY_VISUALIZATION_SCALE = 15;  // Better visibility
+constexpr int PRESSURE_VISUALIZATION_SCALE = 800; // Adjusted for larger cells
+constexpr int DENSITY_GRID_SIZE = 10;             // Grid for density visualization
 } // namespace
 
 bool Cell::debugDraw = true;
-uint32_t Cell::WIDTH = 50;  // Default size
-uint32_t Cell::HEIGHT = 50; // Default size
+uint32_t Cell::WIDTH = 100;  // Increased size for better detail visibility
+uint32_t Cell::HEIGHT = 100; // Increased size for better detail visibility
 
 Cell::Cell()
     : dirt(0.0),
@@ -40,6 +46,48 @@ Cell::~Cell()
         lv_obj_del(canvas);
         canvas = nullptr;
     }
+}
+
+// Copy constructor - don't copy LVGL objects for time reversal
+Cell::Cell(const Cell& other)
+    : dirt(other.dirt),
+      water(other.water),
+      wood(other.wood),
+      leaf(other.leaf),
+      metal(other.metal),
+      com(other.com),
+      v(other.v),
+      pressure(other.pressure),
+      buffer(other.buffer.size()) // Create new buffer with same size
+      ,
+      canvas(nullptr) // Don't copy LVGL object
+      ,
+      needsRedraw(true) // New copy needs redraw
+{
+    // Buffer contents will be regenerated when drawn
+}
+
+// Assignment operator - don't copy LVGL objects for time reversal
+Cell& Cell::operator=(const Cell& other)
+{
+    if (this != &other) {
+        dirt = other.dirt;
+        water = other.water;
+        wood = other.wood;
+        leaf = other.leaf;
+        metal = other.metal;
+        com = other.com;
+        v = other.v;
+        pressure = other.pressure;
+
+        // Resize buffer if needed but don't copy contents
+        buffer.resize(other.buffer.size());
+
+        // Don't copy LVGL object - keep our own canvas
+        // canvas stays as is (either nullptr or our own object)
+        needsRedraw = true; // Assignment means we need redraw
+    }
+    return *this;
 }
 
 void Cell::update(double newDirty, const Vector2d& newCom, const Vector2d& newV)
@@ -138,30 +186,57 @@ void Cell::drawDebug(lv_obj_t* parent, uint32_t x, uint32_t y)
     lv_layer_t layer;
     lv_canvas_init_layer(canvas, &layer);
 
-    // Draw dirt background
+    // // Draw density variation background using a gradient effect
+    // double totalDensity = percentFull();
+    // if (totalDensity > 0.01) {
+    //     // Create density-based color variations
+    //     for (int dy = 0; dy < DENSITY_GRID_SIZE; dy++) {
+    //         for (int dx = 0; dx < DENSITY_GRID_SIZE; dx++) {
+    //             // Simulate density variation within the cell
+    //             double localDensity = totalDensity * (0.8 + 0.4 * sin(dx * 0.5) * cos(dy * 0.5));
+    //             lv_opa_t localOpacity = static_cast<lv_opa_t>(localDensity * LV_OPA_COVER);
+
+    //             lv_draw_rect_dsc_t rect_dsc;
+    //             lv_draw_rect_dsc_init(&rect_dsc);
+    //             rect_dsc.bg_color = (water > dirt) ? lv_color_hex(0x0066FF) : brown;
+    //             rect_dsc.bg_opa = localOpacity;
+    //             rect_dsc.border_width = 0;
+
+    //             lv_area_t coords = {
+    //                 dx * WIDTH / DENSITY_GRID_SIZE,
+    //                 dy * HEIGHT / DENSITY_GRID_SIZE,
+    //                 (dx + 1) * WIDTH / DENSITY_GRID_SIZE - 1,
+    //                 (dy + 1) * HEIGHT / DENSITY_GRID_SIZE - 1
+    //             };
+    //             lv_draw_rect(&layer, &rect_dsc, &coords);
+    //         }
+    //     }
+    // }
+
+    // Draw dirt background with enhanced border
     lv_draw_rect_dsc_t rect_dsc;
     lv_draw_rect_dsc_init(&rect_dsc);
     rect_dsc.bg_color = brown;
-    rect_dsc.bg_opa = opacity_dirt;
-    rect_dsc.border_color = brown; // Same color as background
-    rect_dsc.border_opa =
-        static_cast<lv_opa_t>(opacity_dirt * 0.3); // 30% of dirt opacity for softer look
-    rect_dsc.border_width = 1;
-    rect_dsc.radius = 1;
+    rect_dsc.bg_opa = static_cast<lv_opa_t>(opacity_dirt * 0.7); // More transparent for overlay
+    rect_dsc.border_color = lv_color_hex(0x5D2A0A);              // Darker brown border
+    rect_dsc.border_opa = opacity_dirt;
+    rect_dsc.border_width = 2;
+    rect_dsc.radius = 2;
     lv_area_t coords = { 0, 0, WIDTH, HEIGHT };
     lv_draw_rect(&layer, &rect_dsc, &coords);
 
-    // Draw water layer
-    lv_draw_rect_dsc_t rect_dsc_water;
-    lv_draw_rect_dsc_init(&rect_dsc_water);
-    rect_dsc_water.bg_color = lv_color_hex(0x0000FF);
-    rect_dsc_water.bg_opa = opacity_water;
-    rect_dsc_water.border_color = lv_color_hex(0x0000FF); // Same blue color as water
-    rect_dsc_water.border_opa =
-        static_cast<lv_opa_t>(opacity_water * 0.3); // 30% of water opacity for softer look
-    rect_dsc_water.border_width = 1;
-    rect_dsc_water.radius = 1;
-    lv_draw_rect(&layer, &rect_dsc_water, &coords);
+    // Draw water layer with enhanced visualization
+    if (opacity_water > 0) {
+        lv_draw_rect_dsc_t rect_dsc_water;
+        lv_draw_rect_dsc_init(&rect_dsc_water);
+        rect_dsc_water.bg_color = lv_color_hex(0x0066FF);
+        rect_dsc_water.bg_opa = static_cast<lv_opa_t>(opacity_water * 0.8);
+        rect_dsc_water.border_color = lv_color_hex(0x0044BB);
+        rect_dsc_water.border_opa = opacity_water;
+        rect_dsc_water.border_width = 2;
+        rect_dsc_water.radius = 3;
+        lv_draw_rect(&layer, &rect_dsc_water, &coords);
+    }
 
     // Calculate center of mass pixel position
     int pixel_x = static_cast<int>((com.x + 1.0) * (WIDTH - 1) / 2.0);
@@ -170,7 +245,7 @@ void Cell::drawDebug(lv_obj_t* parent, uint32_t x, uint32_t y)
     // Draw center of mass circle
     lv_draw_arc_dsc_t arc_dsc;
     lv_draw_arc_dsc_init(&arc_dsc);
-    arc_dsc.color = lv_color_hex(0xFFFFFF);
+    arc_dsc.color = lv_color_hex(0xFFFF00); // Bright yellow for better visibility
     arc_dsc.center.x = pixel_x;
     arc_dsc.center.y = pixel_y;
     arc_dsc.width = 1;
@@ -179,31 +254,56 @@ void Cell::drawDebug(lv_obj_t* parent, uint32_t x, uint32_t y)
     arc_dsc.end_angle = 360;
     lv_draw_arc(&layer, &arc_dsc);
 
-    // Draw velocity vector
-    lv_draw_line_dsc_t velocity_line_dsc;
-    lv_draw_line_dsc_init(&velocity_line_dsc);
-    velocity_line_dsc.color = lv_color_hex(0x00FF00); // Green
-    velocity_line_dsc.width = 2;
-    velocity_line_dsc.opa = opacity_dirt;
-    velocity_line_dsc.p1.x = pixel_x;
-    velocity_line_dsc.p1.y = pixel_y;
-    velocity_line_dsc.p2.x = pixel_x + static_cast<int>(v.x * VELOCITY_VISUALIZATION_SCALE);
-    velocity_line_dsc.p2.y = pixel_y + static_cast<int>(v.y * VELOCITY_VISUALIZATION_SCALE);
-    lv_draw_line(&layer, &velocity_line_dsc);
+    // Draw velocity vector with enhanced visualization
+    if (v.mag() > 0.01) {
+        lv_draw_line_dsc_t velocity_line_dsc;
+        lv_draw_line_dsc_init(&velocity_line_dsc);
+        velocity_line_dsc.color = lv_color_hex(0x00FF00); // Bright green
+        velocity_line_dsc.width = 3;
+        velocity_line_dsc.opa = LV_OPA_COVER;
+        velocity_line_dsc.p1.x = pixel_x;
+        velocity_line_dsc.p1.y = pixel_y;
+        velocity_line_dsc.p2.x = pixel_x + static_cast<int>(v.x * VELOCITY_VISUALIZATION_SCALE);
+        velocity_line_dsc.p2.y = pixel_y + static_cast<int>(v.y * VELOCITY_VISUALIZATION_SCALE);
+        lv_draw_line(&layer, &velocity_line_dsc);
 
-    // Draw pressure vector if significant
-    lv_draw_line_dsc_t pressure_line_dsc;
-    lv_draw_line_dsc_init(&pressure_line_dsc);
-    pressure_line_dsc.color = lv_color_hex(0xFFFFFF); // White
-    pressure_line_dsc.width = 2;
-    pressure_line_dsc.opa = opacity_dirt;
-    pressure_line_dsc.p1.x = WIDTH / 2;
-    pressure_line_dsc.p1.y = HEIGHT / 2;
-    pressure_line_dsc.p2.x =
-        WIDTH / 2 + static_cast<int>(pressure.x * PRESSURE_VISUALIZATION_SCALE);
-    pressure_line_dsc.p2.y =
-        HEIGHT / 2 + static_cast<int>(pressure.y * PRESSURE_VISUALIZATION_SCALE);
-    lv_draw_line(&layer, &pressure_line_dsc);
+        // Add arrowhead for velocity direction
+        int arrow_x = velocity_line_dsc.p2.x;
+        int arrow_y = velocity_line_dsc.p2.y;
+        double angle = atan2(v.y, v.x);
+        int arrow_len = 8;
+
+        lv_draw_line_dsc_t arrow_dsc = velocity_line_dsc;
+        arrow_dsc.width = 2;
+
+        // Left arrowhead line
+        arrow_dsc.p1.x = arrow_x;
+        arrow_dsc.p1.y = arrow_y;
+        arrow_dsc.p2.x = arrow_x - arrow_len * cos(angle - M_PI / 6);
+        arrow_dsc.p2.y = arrow_y - arrow_len * sin(angle - M_PI / 6);
+        lv_draw_line(&layer, &arrow_dsc);
+
+        // Right arrowhead line
+        arrow_dsc.p2.x = arrow_x - arrow_len * cos(angle + M_PI / 6);
+        arrow_dsc.p2.y = arrow_y - arrow_len * sin(angle + M_PI / 6);
+        lv_draw_line(&layer, &arrow_dsc);
+    }
+
+    // Draw pressure vector with enhanced visualization
+    if (pressure.mag() > 0.001) {
+        lv_draw_line_dsc_t pressure_line_dsc;
+        lv_draw_line_dsc_init(&pressure_line_dsc);
+        pressure_line_dsc.color = lv_color_hex(0xFF0080); // Magenta for pressure
+        pressure_line_dsc.width = 3;
+        pressure_line_dsc.opa = LV_OPA_COVER;
+        pressure_line_dsc.p1.x = WIDTH / 2;
+        pressure_line_dsc.p1.y = HEIGHT / 2;
+        pressure_line_dsc.p2.x =
+            WIDTH / 2 + static_cast<int>(pressure.x * PRESSURE_VISUALIZATION_SCALE);
+        pressure_line_dsc.p2.y =
+            HEIGHT / 2 + static_cast<int>(pressure.y * PRESSURE_VISUALIZATION_SCALE);
+        lv_draw_line(&layer, &pressure_line_dsc);
+    }
 
     lv_canvas_finish_layer(canvas, &layer);
 }

@@ -18,6 +18,7 @@
 // #define LOG_DEBUG
 #ifdef LOG_DEBU
 #define LOG_DEBUG(x) std::cout << x << std::endl
+#define LOG_DEBUG(x) std::cout << x << std::endl
 #else
 #define LOG_DEBUG(x) ((void)0)
 #endif
@@ -73,6 +74,30 @@ World::~World()
 void World::advanceTime(const double deltaTimeSeconds)
 {
     timers.startTimer("advance_time");
+
+    // Update simulation time
+    simulationTime += deltaTimeSeconds;
+
+    // Save state if time reversal is enabled and conditions are met
+    if (timeReversalEnabled) {
+        bool shouldSave = false;
+
+        // Save on user input
+        if (hasUserInputSinceLastSave) {
+            shouldSave = true;
+        }
+
+        // Save every 500ms (periodic fallback)
+        if (simulationTime - lastSaveTime >= PERIODIC_SAVE_INTERVAL) {
+            shouldSave = true;
+        }
+
+        if (shouldSave) {
+            saveWorldState();
+            hasUserInputSinceLastSave = false;
+            lastSaveTime = simulationTime;
+        }
+    }
 
     processParticleAddition(deltaTimeSeconds);
 
@@ -912,6 +937,9 @@ uint32_t World::getHeight() const
 
 void World::reset()
 {
+    // Mark user input for time reversal
+    markUserInput();
+
     // Clear all cells
     for (auto& cell : cells) {
         cell.update(0.0, Vector2d(0.0, 0.0), Vector2d(0.0, 0.0));
@@ -924,6 +952,9 @@ void World::reset()
 
 void World::addDirtAtPixel(int pixelX, int pixelY)
 {
+    // Mark user input for time reversal
+    markUserInput();
+
     // Convert pixel coordinates to cell coordinates
     int cellX = pixelX / Cell::WIDTH;
     int cellY = pixelY / Cell::HEIGHT;
@@ -939,6 +970,9 @@ void World::addDirtAtPixel(int pixelX, int pixelY)
 
 void World::addWaterAtPixel(int pixelX, int pixelY)
 {
+    // Mark user input for time reversal
+    markUserInput();
+
     // Convert pixel coordinates to cell coordinates
     int cellX = pixelX / Cell::WIDTH;
     int cellY = pixelY / Cell::HEIGHT;
@@ -975,6 +1009,9 @@ void World::restoreLastDragCell()
 
 void World::startDragging(int pixelX, int pixelY)
 {
+    // Mark user input for time reversal
+    markUserInput();
+
     int cellX, cellY;
     pixelToCell(pixelX, pixelY, cellX, cellY);
 
@@ -1071,6 +1108,9 @@ void World::updateDrag(int pixelX, int pixelY)
 void World::endDragging(int pixelX, int pixelY)
 {
     if (!isDragging) return;
+
+    // Mark user input for time reversal
+    markUserInput();
 
     int cellX, cellY;
     pixelToCell(pixelX, pixelY, cellX, cellY);
@@ -1192,20 +1232,48 @@ void World::setRainRate(double rate)
     }
 }
 
-void World::resizeGrid(uint32_t newWidth, uint32_t newHeight)
+void World::resizeGrid(uint32_t newWidth, uint32_t newHeight, bool clearHistoryFlag)
 {
-    // First, clear all existing cells - this will properly clean up their canvas objects
-    cells.clear();
+    // Don't resize if dimensions haven't changed
+    if (newWidth == width && newHeight == height) {
+        return;
+    }
 
-    // Store old world state if needed (for now, we'll just reset)
+    // Clear time reversal history only if requested (e.g., for structural changes vs cell size
+    // changes)
+    if (clearHistoryFlag) {
+        clearHistory();
+    }
+    else {
+        // Mark this as user input for time reversal when preserving history
+        markUserInput();
+    }
+
+    // Capture current world state before resizing using WorldSetup
+    uint32_t oldWidth = width;
+    uint32_t oldHeight = height;
+    std::vector<WorldSetup::ResizeData> oldState = worldSetup->captureWorldState(*this);
+
+    // Clear existing cells and resize
+    cells.clear();
     width = newWidth;
     height = newHeight;
-
-    // Resize the cells vector
     cells.resize(width * height);
 
-    // Reset the world with the new grid
-    reset();
+    // Initialize new cells with default values
+    for (auto& cell : cells) {
+        cell.update(0.0, Vector2d(0.0, 0.0), Vector2d(0.0, 0.0));
+        cell.water = 0.0;
+    }
+
+    // Apply the preserved state using feature-preserving interpolation
+    if (!oldState.empty()) {
+        worldSetup->applyWorldState(*this, oldState, oldWidth, oldHeight);
+    }
+    else {
+        // If no previous state, use the default world setup
+        reset();
+    }
 }
 
 bool World::isLeftThrowEnabled() const
@@ -1241,4 +1309,154 @@ double World::getRainRate() const
     const ConfigurableWorldSetup* configSetup =
         dynamic_cast<const ConfigurableWorldSetup*>(worldSetup.get());
     return configSetup ? configSetup->getRainRate() : 0.0;
+}
+
+// Time reversal implementation
+void World::saveWorldState()
+{
+    if (!timeReversalEnabled) return;
+
+    // If we're not at the most recent position, truncate history from current position
+    if (currentHistoryIndex >= 0) {
+        stateHistory.erase(stateHistory.begin() + currentHistoryIndex + 1, stateHistory.end());
+        currentHistoryIndex = -1;
+    }
+
+    // Create a snapshot of the current world state
+    WorldState state;
+    state.cells = cells;             // Deep copy of all cells
+    state.width = width;             // Capture current grid width
+    state.height = height;           // Capture current grid height
+    state.cellWidth = Cell::WIDTH;   // Capture current cell width
+    state.cellHeight = Cell::HEIGHT; // Capture current cell height
+    state.timestep = timestep;
+    state.totalMass = totalMass;
+    state.removedMass = removedMass;
+    state.timestamp = simulationTime; // Capture current simulation time
+
+    stateHistory.push_back(std::move(state));
+
+    // Limit history size to prevent memory issues
+    if (stateHistory.size() > MAX_HISTORY_SIZE) {
+        stateHistory.erase(stateHistory.begin());
+    }
+
+    LOG_DEBUG(
+        "Saved world state at time " << simulationTime
+                                     << "s. History size: " << stateHistory.size());
+}
+
+void World::goBackward()
+{
+    if (!canGoBackward()) return;
+
+    // If we're at the current state (not navigating history yet), capture current state
+    if (currentHistoryIndex == -1 && !hasStoredCurrentState) {
+        currentLiveState.cells = cells;
+        currentLiveState.width = width;
+        currentLiveState.height = height;
+        currentLiveState.cellWidth = Cell::WIDTH;
+        currentLiveState.cellHeight = Cell::HEIGHT;
+        currentLiveState.timestep = timestep;
+        currentLiveState.totalMass = totalMass;
+        currentLiveState.removedMass = removedMass;
+        currentLiveState.timestamp = simulationTime;
+        hasStoredCurrentState = true;
+        LOG_DEBUG("Captured current live state for time reversal navigation");
+    }
+
+    if (currentHistoryIndex == -1) {
+        // Moving back from current state - go to last saved state
+        currentHistoryIndex = static_cast<int>(stateHistory.size()) - 1;
+    }
+    else if (currentHistoryIndex > 0) {
+        // Move further back in history
+        currentHistoryIndex--;
+    }
+    else {
+        // Already at the earliest state
+        return;
+    }
+
+    // Restore the state using the helper method that handles grid size changes
+    const WorldState& state = stateHistory[currentHistoryIndex];
+    restoreWorldState(state);
+
+    LOG_DEBUG(
+        "Restored world state from history index: " << currentHistoryIndex
+                                                    << " (timestep: " << timestep
+                                                    << ", time: " << simulationTime << "s)");
+}
+
+void World::goForward()
+{
+    if (!canGoForward()) return;
+
+    currentHistoryIndex++;
+
+    // If we've reached beyond the saved history, restore to current live state
+    if (currentHistoryIndex >= static_cast<int>(stateHistory.size())) {
+        currentHistoryIndex = -1; // Reset to current state indicator
+
+        // Restore the captured current live state if we have it
+        if (hasStoredCurrentState) {
+            restoreWorldState(currentLiveState);
+            hasStoredCurrentState = false; // Clear the stored state
+            LOG_DEBUG("Restored captured current live state");
+        }
+        return;
+    }
+
+    // Restore the state using the helper method that handles grid size changes
+    const WorldState& state = stateHistory[currentHistoryIndex];
+    restoreWorldState(state);
+
+    LOG_DEBUG(
+        "Restored world state from history index: " << currentHistoryIndex
+                                                    << " (timestep: " << timestep
+                                                    << ", time: " << simulationTime << "s)");
+}
+
+void World::restoreWorldState(const WorldState& state)
+{
+    // Restore cell size first (affects grid calculations)
+    if (Cell::WIDTH != state.cellWidth || Cell::HEIGHT != state.cellHeight) {
+        LOG_DEBUG(
+            "Cell size changed from " << Cell::WIDTH << "x" << Cell::HEIGHT << " to "
+                                      << state.cellWidth << "x" << state.cellHeight
+                                      << " during restore");
+    }
+    Cell::WIDTH = state.cellWidth;
+    Cell::HEIGHT = state.cellHeight;
+
+    // Check if grid size has changed
+    if (state.width != width || state.height != height) {
+        LOG_DEBUG(
+            "Grid size changed from " << width << "x" << height << " to " << state.width << "x"
+                                      << state.height << " during restore");
+
+        // Resize the grid to match the stored state
+        cells.clear();
+        width = state.width;
+        height = state.height;
+        cells.resize(width * height);
+
+        // Initialize new cells with default values
+        for (auto& cell : cells) {
+            cell.update(0.0, Vector2d(0.0, 0.0), Vector2d(0.0, 0.0));
+            cell.water = 0.0;
+        }
+    }
+
+    // Now restore the cells (sizes are guaranteed to match)
+    cells = state.cells;
+    timestep = state.timestep;
+    totalMass = state.totalMass;
+    removedMass = state.removedMass;
+    simulationTime = state.timestamp;
+
+    // Mark all cells as needing redraw
+    for (auto& cell : cells) {
+        cell.markDirty();
+    }
 }
