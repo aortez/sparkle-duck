@@ -52,7 +52,6 @@ static char* backend_name = "WAYLAND";
  *  EXTERNAL VARIABLES
  **********************/
 extern simulator_settings_t settings;
-extern lv_obj_t* mass_label_ptr; // Declare external mass label pointer.
 
 /**********************
  *      MACROS
@@ -145,12 +144,7 @@ static void run_loop_wayland(World& world)
             break;
         }
 
-        // Update mass label if it exists
-        if (mass_label_ptr) {
-            char buf[32];
-            snprintf(buf, sizeof(buf), "Total Mass: %.2f", world.getTotalMass());
-            lv_label_set_text(mass_label_ptr, buf);
-        }
+        // Mass label is now updated automatically by the World through its UI
 
         completed = lv_wayland_timer_handler();
 

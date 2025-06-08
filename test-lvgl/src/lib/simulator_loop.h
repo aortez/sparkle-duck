@@ -1,14 +1,11 @@
 #pragma once
 
 #include "../World.h"
+#include "../SimulatorUI.h"
 #include "lvgl/lvgl.h"
 #include "lvgl/src/misc/lv_timer.h"
 #include <chrono>
 #include <cstdio>
-
-// Forward declarations
-extern lv_obj_t* mass_label_ptr;
-extern lv_obj_t* fps_label_ptr;
 
 namespace SimulatorLoop {
 
@@ -72,12 +69,7 @@ inline void processFrame(World& world, LoopState& state, uint32_t delta_time_ms 
     // Always draw every frame to avoid flicker
     world.draw();
 
-    // Update mass label if it exists
-    if (mass_label_ptr) {
-        char buf[32];
-        snprintf(buf, sizeof(buf), "Total Mass: %.2f", world.getTotalMass());
-        lv_label_set_text(mass_label_ptr, buf);
-    }
+    // Mass label is now updated automatically by the World through its UI
 
     // Update FPS counter
     state.frame_count++;
@@ -87,10 +79,9 @@ inline void processFrame(World& world, LoopState& state, uint32_t delta_time_ms 
         state.frame_count = 0;
         state.last_fps_update = current_time;
         
-        if (fps_label_ptr) {
-            char buf[32];
-            snprintf(buf, sizeof(buf), "FPS: %d", state.fps);
-            lv_label_set_text(fps_label_ptr, buf);
+        // Update FPS through the UI system
+        if (world.getUI()) {
+            world.getUI()->updateFPSLabel(state.fps);
         }
     }
 

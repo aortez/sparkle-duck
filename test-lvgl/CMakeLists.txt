@@ -109,6 +109,7 @@ add_executable(sparkle-duck
     src/World.cpp 
     src/Timers.cpp
     src/WorldSetup.cpp
+    src/SimulatorUI.cpp
     ${LV_LINUX_SRC} 
     ${LV_LINUX_BACKEND_SRC})
 target_link_libraries(sparkle-duck lvgl_linux lvgl lvgl::examples lvgl::demos lvgl::thorvg m pthread ${PKG_CONFIG_LIB} ${EXTRA_SDL_LDFLAGS})
@@ -137,6 +138,7 @@ add_executable(sparkle-duck-tests
     src/Cell.cpp
     src/Timers.cpp
     src/WorldSetup.cpp
+    src/SimulatorUI.cpp
 )
 target_link_libraries(sparkle-duck-tests
     PRIVATE

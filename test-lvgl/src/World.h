@@ -9,6 +9,9 @@
 #include <utility>
 #include <vector>
 
+// Forward declarations
+class SimulatorUI;
+
 /**
  * A grid-based physical simulation. Energy is approximately conserved.
  * Particles are affected by gravity, kimenatics, and generally behavior like
@@ -57,6 +60,10 @@ public:
 
     void setTimescale(double scale) { timescale = scale; }
 
+    // UI management
+    void setUI(std::unique_ptr<SimulatorUI> ui);
+    SimulatorUI* getUI() const { return ui_.get(); }
+
     // Get the total mass of dirt in the world.
     double getTotalMass() const { return totalMass; }
 
@@ -100,6 +107,12 @@ public:
     // Minimum amount of dirt before it's considered "empty" and removed.
     static constexpr double MIN_DIRT_THRESHOLD = 0.01;
 
+    // Physics constants
+    static constexpr double COM_CELL_WIDTH = 2.0; // COM coordinate system width per cell
+    static constexpr double REFLECTION_THRESHOLD =
+        1.2;                                       // Trigger reflection at 1.2x normal threshold
+    static constexpr double TRANSFER_FACTOR = 1.0; // Always transfer 100% of available space
+
     // Controls how much dirt is left behind during transfers.
     static double DIRT_FRAGMENTATION_FACTOR;
 
@@ -122,6 +135,38 @@ protected:
     Timers timers;
 
 private:
+    // Physics simulation methods (broken down from advanceTime)
+    void processParticleAddition(double deltaTimeSeconds);
+    void processDragEnd();
+    void applyPhysicsToCell(Cell& cell, uint32_t x, uint32_t y, double deltaTimeSeconds);
+    void processTransfers(double deltaTimeSeconds);
+    bool attemptTransfer(
+        Cell& cell,
+        uint32_t x,
+        uint32_t y,
+        int targetX,
+        int targetY,
+        const Vector2d& comOffset,
+        double totalMass);
+    void handleBoundaryReflection(
+        Cell& cell, int targetX, int targetY, bool shouldTransferX, bool shouldTransferY);
+    void checkExcessiveDeflectionReflection(Cell& cell);
+    void updateTotalMass();
+
+    // Transfer calculation helpers
+    void calculateTransferDirection(
+        const Cell& cell,
+        bool& shouldTransferX,
+        bool& shouldTransferY,
+        int& targetX,
+        int& targetY,
+        Vector2d& comOffset,
+        uint32_t x,
+        uint32_t y);
+    bool isWithinBounds(int x, int y) const;
+    Vector2d calculateNaturalCOM(const Vector2d& sourceCOM, int deltaX, int deltaY);
+    Vector2d clampCOMToDeadZone(const Vector2d& naturalCOM);
+
     lv_obj_t* draw_area;
     uint32_t width;
     uint32_t height;
@@ -179,6 +224,9 @@ private:
 
     // World setup strategy
     std::unique_ptr<WorldSetup> worldSetup;
+
+    // UI interface
+    std::unique_ptr<SimulatorUI> ui_;
 
     std::vector<DirtMove> moves;
 

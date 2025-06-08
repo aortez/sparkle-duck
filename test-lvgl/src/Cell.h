@@ -20,6 +20,10 @@ public:
     // COM deflection threshold for triggering transfers
     static constexpr double COM_DEFLECTION_THRESHOLD = 0.6;
 
+    // Water physics constants
+    static constexpr double COHESION_STRENGTH = 0.1;
+    static constexpr double VISCOSITY_FACTOR = 0.1;
+
     static void setSize(uint32_t newSize)
     {
         WIDTH = newSize;
@@ -29,6 +33,10 @@ public:
     static uint32_t getSize() { return WIDTH; }
 
     void draw(lv_obj_t* parent, uint32_t x, uint32_t y);
+
+    // Separate drawing methods for different modes
+    void drawNormal(lv_obj_t* parent, uint32_t x, uint32_t y);
+    void drawDebug(lv_obj_t* parent, uint32_t x, uint32_t y);
 
     // Mark the cell as needing to be redrawn
     void markDirty();
