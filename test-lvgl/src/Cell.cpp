@@ -12,7 +12,7 @@ namespace {
 // Drawing constants.
 constexpr double COM_VISUALIZATION_RADIUS = 3.0;
 constexpr int VELOCITY_VISUALIZATION_SCALE = 1;
-constexpr int PRESSURE_VISUALIZATION_SCALE = 100;
+constexpr int PRESSURE_VISUALIZATION_SCALE = 1000;
 } // namespace
 
 bool Cell::debugDraw = true;
@@ -177,20 +177,18 @@ void Cell::drawDebug(lv_obj_t* parent, uint32_t x, uint32_t y)
     lv_draw_line(&layer, &velocity_line_dsc);
 
     // Draw pressure vector if significant
-    if (pressure.mag() > 0.01) {
-        lv_draw_line_dsc_t pressure_line_dsc;
-        lv_draw_line_dsc_init(&pressure_line_dsc);
-        pressure_line_dsc.color = lv_color_hex(0xFFFFFF); // White
-        pressure_line_dsc.width = 2;
-        pressure_line_dsc.opa = opacity_dirt;
-        pressure_line_dsc.p1.x = WIDTH / 2;
-        pressure_line_dsc.p1.y = HEIGHT / 2;
-        pressure_line_dsc.p2.x =
-            WIDTH / 2 + static_cast<int>(pressure.x * PRESSURE_VISUALIZATION_SCALE);
-        pressure_line_dsc.p2.y =
-            HEIGHT / 2 + static_cast<int>(pressure.y * PRESSURE_VISUALIZATION_SCALE);
-        lv_draw_line(&layer, &pressure_line_dsc);
-    }
+    lv_draw_line_dsc_t pressure_line_dsc;
+    lv_draw_line_dsc_init(&pressure_line_dsc);
+    pressure_line_dsc.color = lv_color_hex(0xFFFFFF); // White
+    pressure_line_dsc.width = 2;
+    pressure_line_dsc.opa = opacity_dirt;
+    pressure_line_dsc.p1.x = WIDTH / 2;
+    pressure_line_dsc.p1.y = HEIGHT / 2;
+    pressure_line_dsc.p2.x =
+        WIDTH / 2 + static_cast<int>(pressure.x * PRESSURE_VISUALIZATION_SCALE);
+    pressure_line_dsc.p2.y =
+        HEIGHT / 2 + static_cast<int>(pressure.y * PRESSURE_VISUALIZATION_SCALE);
+    lv_draw_line(&layer, &pressure_line_dsc);
 
     lv_canvas_finish_layer(canvas, &layer);
 }

@@ -1,12 +1,12 @@
 #pragma once
 /**
- * \file 
+ * \file
  * A grid-based physical simulation. Energy is approximately conserved.
  * Particles are affected by gravity, kimenatics, and generally behavior like
  * sand in an hourglass.
  *
  * Within each Cell, the COM (center of mass) moves within the [-1,1] bounds. When it is within
- * the cell's internal deadzone, the COM moves internally. When it moves outside the deadzone, 
+ * the cell's internal deadzone, the COM moves internally. When it moves outside the deadzone,
  * the cell's contents transfer to the neighboring cell.
  */
 

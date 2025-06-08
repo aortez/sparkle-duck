@@ -141,7 +141,7 @@ int main(int argc, char** argv)
         die("Failed to initialize display backend");
     }
 
-    // Create UI first without a world
+    // Create UI first without a world.
     auto ui = std::make_unique<SimulatorUI>(lv_scr_act());
     ui_ptr = ui.get();
     ui->initialize();
@@ -163,7 +163,7 @@ int main(int argc, char** argv)
     // Create simulation loop state and event context.
     static SimulatorLoop::LoopState sim_state;
 
-    // Initialize the world
+    // Initialize the world.
     world->reset();
 
     // Enter the run loop, using the selected backend.

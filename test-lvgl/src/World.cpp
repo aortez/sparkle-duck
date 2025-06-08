@@ -414,59 +414,97 @@ void World::applyPressure(const double deltaTimeSeconds)
         for (uint32_t x = 0; x < width; x++) {
             Cell& cell = at(x, y);
 
-            if (cell.pressure.mag() < 0.001) continue;
+            // Skip empty cells or cells with negligible pressure
+            if (cell.percentFull() < MIN_DIRT_THRESHOLD || cell.pressure.mag() < 0.001) continue;
 
-            double bestScore = -1e9;
-            double bestAvailableSpace = 0.0;
-            int bestTargetX = x;
-            int bestTargetY = y;
+            // Calculate desired pressure direction
+            Vector2d desiredDirection = cell.pressure.normalize();
+            double pressureForce = cell.pressure.mag() * pressureScale;
 
-            // Check all 8 neighboring cells.
-            // Target cell is the one that maximizes a score based on emptiness and "lowness"
-            for (int dy = -1; dy <= 1; dy++) {
-                for (int dx = -1; dx <= 1; dx++) {
-                    if (dx == 0 && dy == 0) continue;
+            // First, try to apply pressure in the desired direction
+            // Calculate which neighbor cell the pressure is pointing toward
+            int targetDx = 0, targetDy = 0;
+            if (desiredDirection.x > 0.5)
+                targetDx = 1;
+            else if (desiredDirection.x < -0.5)
+                targetDx = -1;
+            if (desiredDirection.y > 0.5)
+                targetDy = 1;
+            else if (desiredDirection.y < -0.5)
+                targetDy = -1;
 
-                    int nx = x + dx;
-                    int ny = y + dy;
-                    if (nx >= 0 && nx < static_cast<int>(width) && ny >= 0
-                        && ny < static_cast<int>(height)) {
-                        Cell& neighbor = at(nx, ny);
-                        double availableSpace = 1.0 - neighbor.percentFull();
+            int targetX = static_cast<int>(x) + targetDx;
+            int targetY = static_cast<int>(y) + targetDy;
 
-                        // Score combines available space and "lowness" (preferring dy=1)
-                        // A small weight for dy makes "lowness" a secondary factor.
-                        double score = availableSpace + 0.1 * dy;
-
-                        if (score > bestScore) {
-                            bestScore = score;
-                            bestTargetX = nx;
-                            bestTargetY = ny;
-                            bestAvailableSpace = availableSpace;
-                        }
-                    }
+            // Check if the desired direction has available space
+            bool canApplyDirectly = false;
+            if (isWithinBounds(targetX, targetY)) {
+                Cell& targetCell = at(targetX, targetY);
+                if (targetCell.percentFull() < 0.95) { // Leave some margin for "available space"
+                    canApplyDirectly = true;
                 }
             }
 
-            // Calculate movement amount based on cell properties and timestep
-            double pressureFactor = cell.pressure.mag();
-            double timeFactor = deltaTimeSeconds;
-            double dirtAmount = cell.dirt * bestAvailableSpace * pressureFactor * timeFactor;
-            double waterAmount = cell.water * bestAvailableSpace * pressureFactor * timeFactor;
+            Vector2d appliedDirection;
+            double forceMultiplier = 1.0;
 
-            // Queue a partial move using the existing 'moves' member
-            // moves.emplace_back(DirtMove{
-            //     .fromX = x,
-            //     .fromY = y,
-            //     .toX = static_cast<uint32_t>(bestTargetX),
-            //     .toY = static_cast<uint32_t>(bestTargetY),
-            //     .dirtAmount = dirtAmount,
-            //     .waterAmount = waterAmount,
-            //     .comOffset = Vector2d(0, 0)
-            // });
+            if (canApplyDirectly) {
+                // Apply pressure directly in desired direction
+                appliedDirection = desiredDirection;
+            }
+            else {
+                // Find the nearest open neighbor and deflect toward it
+                double bestAngle = M_PI; // Start with worst possible angle (180°)
+                bool foundOpenNeighbor = false;
 
-            // Clear pressure for next frame - commented out for pressure testing
-            // cell.pressure = Vector2d(0.0, 0.0);
+                for (int dy = -1; dy <= 1; dy++) {
+                    for (int dx = -1; dx <= 1; dx++) {
+                        if (dx == 0 && dy == 0) continue;
+
+                        int nx = static_cast<int>(x) + dx;
+                        int ny = static_cast<int>(y) + dy;
+
+                        if (isWithinBounds(nx, ny)) {
+                            Cell& neighbor = at(nx, ny);
+                            if (neighbor.percentFull() < 0.95) { // Has available space
+                                // Calculate direction to this neighbor
+                                Vector2d neighborDirection = Vector2d(dx, dy).normalize();
+
+                                // Calculate angle between desired direction and neighbor direction
+                                double dotProduct = desiredDirection.dot(neighborDirection);
+                                double angle = std::acos(std::max(-1.0, std::min(1.0, dotProduct)));
+
+                                if (angle < bestAngle) {
+                                    bestAngle = angle;
+                                    appliedDirection = neighborDirection;
+                                    foundOpenNeighbor = true;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (!foundOpenNeighbor) {
+                    // No open neighbors, can't apply pressure
+                    continue;
+                }
+
+                // Scale force by cosine of deflection angle
+                forceMultiplier = std::cos(bestAngle);
+                // Ensure we don't apply negative force (angles > 90°)
+                forceMultiplier = std::max(0.0, forceMultiplier);
+            }
+
+            // Apply the pressure force
+            Vector2d pressureAcceleration =
+                appliedDirection * (pressureForce * forceMultiplier) * 20;
+            cell.v += pressureAcceleration * deltaTimeSeconds;
+
+            // Apply velocity limiting to prevent excessive velocities
+            const double MAX_PRESSURE_VELOCITY = 5.0;
+            if (cell.v.mag() > MAX_PRESSURE_VELOCITY) {
+                cell.v = cell.v.normalize() * MAX_PRESSURE_VELOCITY;
+            }
         }
     }
 }
@@ -521,35 +559,34 @@ void World::updateAllPressures(double deltaTimeSeconds)
         }
     }
 
-    // Iterative pressure propagation disabled for basic COM deflection pressure physics
-    // This was causing pressure values to be averaged out to zero in small grids
-    // const int numPressureIterations = 8;
-    // std::vector<Vector2d> nextPressure(width * height);
-    // for (int iter = 0; iter < numPressureIterations; ++iter) {
-    //     for (uint32_t y = 0; y < height; ++y) {
-    //         for (uint32_t x = 0; x < width; ++x) {
-    //             Vector2d sum = at(x, y).pressure;
-    //             int count = 1;
-    //             for (int dy = -1; dy <= 1; ++dy) {
-    //                 for (int dx = -1; dx <= 1; ++dx) {
-    //                     if (dx == 0 && dy == 0) continue;
-    //                     int nx = x + dx, ny = y + dy;
-    //                     if (nx >= 0 && nx < (int)width && ny >= 0 && ny < (int)height) {
-    //                         sum += at(nx, ny).pressure;
-    //                         ++count;
-    //                     }
-    //                 }
-    //             }
-    //             nextPressure[y * width + x] = sum / count;
-    //         }
-    //     }
-    //     // Copy nextPressure back to cells
-    //     for (uint32_t y = 0; y < height; ++y) {
-    //         for (uint32_t x = 0; x < width; ++x) {
-    //             at(x, y).pressure = nextPressure[y * width + x];
-    //         }
-    //     }
-    // }
+    // Disabled until we get basic pressure working right first.
+    const int numPressureIterations = 8;
+    std::vector<Vector2d> nextPressure(width * height);
+    for (int iter = 0; iter < numPressureIterations; ++iter) {
+        for (uint32_t y = 0; y < height; ++y) {
+            for (uint32_t x = 0; x < width; ++x) {
+                Vector2d sum = at(x, y).pressure;
+                int count = 1;
+                for (int dy = -1; dy <= 1; ++dy) {
+                    for (int dx = -1; dx <= 1; ++dx) {
+                        if (dx == 0 && dy == 0) continue;
+                        int nx = x + dx, ny = y + dy;
+                        if (nx >= 0 && nx < (int)width && ny >= 0 && ny < (int)height) {
+                            sum += at(nx, ny).pressure;
+                            ++count;
+                        }
+                    }
+                }
+                nextPressure[y * width + x] = sum / count;
+            }
+        }
+        // Copy nextPressure back to cells
+        for (uint32_t y = 0; y < height; ++y) {
+            for (uint32_t x = 0; x < width; ++x) {
+                at(x, y).pressure = nextPressure[y * width + x];
+            }
+        }
+    }
 }
 
 Cell& World::at(uint32_t x, uint32_t y)
