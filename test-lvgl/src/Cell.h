@@ -10,6 +10,9 @@
 // Forward declare LVGL types.
 typedef struct _lv_obj_t lv_obj_t;
 
+// Forward declare World class
+class World;
+
 // A cell in grid-based simulation.
 class Cell {
 public:
@@ -87,7 +90,12 @@ public:
 
     std::string toString() const;
 
-    Vector2d calculateWaterCohesion(const Cell& cell, const Cell& neighbor) const;
+    Vector2d calculateWaterCohesion(
+        const Cell& cell,
+        const Cell& neighbor,
+        const class World* world,
+        uint32_t cellX,
+        uint32_t cellY) const;
 
     void applyViscosity(const Cell& neighbor);
 

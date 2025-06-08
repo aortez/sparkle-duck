@@ -15,8 +15,8 @@
 
 namespace {
 // Drawing constants.
-constexpr double COM_VISUALIZATION_RADIUS = 6.0;  // Larger for 100px cells
-constexpr int VELOCITY_VISUALIZATION_SCALE = 15;  // Better visibility
+constexpr double COM_VISUALIZATION_RADIUS = 3.0;  // Larger for 100px cells
+constexpr int VELOCITY_VISUALIZATION_SCALE = 5;   // Better visibility
 constexpr int PRESSURE_VISUALIZATION_SCALE = 800; // Adjusted for larger cells
 constexpr int DENSITY_GRID_SIZE = 10;             // Grid for density visualization
 } // namespace
@@ -26,7 +26,8 @@ uint32_t Cell::WIDTH = 100;  // Increased size for better detail visibility
 uint32_t Cell::HEIGHT = 100; // Increased size for better detail visibility
 
 // Initialize water physics constants
-double Cell::COHESION_STRENGTH = 0.1; // Default cohesion strength
+double Cell::COHESION_STRENGTH =
+    0.5; // Default cohesion strength (increased for stronger water flow)
 double Cell::VISCOSITY_FACTOR = 0.1;  // Default viscosity factor
 double Cell::BUOYANCY_STRENGTH = 0.1; // Default buoyancy strength
 
@@ -349,15 +350,47 @@ Vector2d Cell::getNormalizedDeflection() const
     return Vector2d(com.x / COM_DEFLECTION_THRESHOLD, com.y / COM_DEFLECTION_THRESHOLD);
 }
 
-Vector2d Cell::calculateWaterCohesion(const Cell& cell, const Cell& neighbor) const
+Vector2d Cell::calculateWaterCohesion(
+    const Cell& cell,
+    const Cell& neighbor,
+    const World* world,
+    uint32_t cellX,
+    uint32_t cellY) const
 {
     // Only apply cohesion between water cells
     if (cell.water < World::MIN_DIRT_THRESHOLD || neighbor.water < World::MIN_DIRT_THRESHOLD) {
         return Vector2d(0.0, 0.0);
     }
 
-    // Calculate force based on water amounts and distance
-    double force = COHESION_STRENGTH * cell.water * neighbor.water;
+    // Calculate local water mass in a 2-cell radius for mass-weighted attraction
+    double localWaterMass = 0.0;
+    const int MASS_RADIUS = 2;
+
+    if (world != nullptr) {
+        for (int dy = -MASS_RADIUS; dy <= MASS_RADIUS; dy++) {
+            for (int dx = -MASS_RADIUS; dx <= MASS_RADIUS; dx++) {
+                int nx = static_cast<int>(cellX) + dx;
+                int ny = static_cast<int>(cellY) + dy;
+
+                // Check bounds
+                if (nx >= 0 && nx < static_cast<int>(world->getWidth()) && ny >= 0
+                    && ny < static_cast<int>(world->getHeight())) {
+                    localWaterMass += world->at(nx, ny).water;
+                }
+            }
+        }
+    }
+
+    // Mass attraction bonus: logarithmic scaling to prevent excessive forces
+    // More water nearby = stronger attraction, but with diminishing returns
+    static constexpr double MASS_ATTRACTION_FACTOR = 0.5;
+    double massAttractionBonus = std::log(1.0 + localWaterMass) * MASS_ATTRACTION_FACTOR;
+
+    // Enhanced cohesion strength with mass weighting
+    double enhancedCohesionStrength = COHESION_STRENGTH + massAttractionBonus;
+
+    // Calculate force based on water amounts and enhanced cohesion
+    double force = enhancedCohesionStrength * cell.water * neighbor.water;
 
     // Calculate direction vector between cells
     Vector2d direction = neighbor.com - cell.com;

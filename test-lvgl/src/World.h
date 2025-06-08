@@ -149,6 +149,22 @@ public:
     // Update pressure for all cells based on COM deflection into neighbors
     void updateAllPressures(double timestep);
 
+    // Alternative top-down pressure system with hydrostatic accumulation
+    void updateAllPressuresTopDown(double timestep);
+
+    // Iterative settling pressure system with multiple passes
+    void updateAllPressuresIterativeSettling(double timestep);
+
+    // Pressure system selection
+    enum class PressureSystem {
+        Original,         // COM deflection based pressure
+        TopDown,          // Hydrostatic accumulation top-down
+        IterativeSettling // Multiple settling passes
+    };
+
+    void setPressureSystem(PressureSystem system) { pressureSystem = system; }
+    PressureSystem getPressureSystem() const { return pressureSystem; }
+
     // Set the world setup strategy
     void setWorldSetup(std::unique_ptr<WorldSetup> setup) { worldSetup = std::move(setup); }
 
@@ -219,7 +235,8 @@ private:
     double pressureScale = 1.0;
 
     // Water physics configuration
-    double waterPressureThreshold = 0.005; // Default threshold for water pressure application
+    double waterPressureThreshold = 0.0004; // Default threshold for water pressure application
+                                            // (further lowered for easier flow)
 
     // Cursor force state
     bool cursorForceEnabled = true;
@@ -316,4 +333,7 @@ private:
 
     // Helper method to restore state with potential grid size changes
     void restoreWorldState(const WorldState& state);
+
+    // Pressure system selection
+    PressureSystem pressureSystem = PressureSystem::Original;
 };

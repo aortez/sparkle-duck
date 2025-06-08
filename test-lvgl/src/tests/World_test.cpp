@@ -1066,3 +1066,148 @@ TEST_F(WorldTest, TimeReversalPreservesCellSizeHistory) {
     Cell::WIDTH = originalWidth;
     Cell::HEIGHT = originalHeight;
 }
+
+TEST_F(WorldTest, TopDownPressureComparison) {
+    // Create a tall narrow world to test pressure accumulation
+    width = 3;
+    height = 10;
+    createWorld();
+    world->setGravity(9.81);
+    
+    std::cout << "\n=== PRESSURE SYSTEM COMPARISON TEST ===" << std::endl;
+    
+    // Create a column of material to test pressure accumulation
+    // Place varying amounts of dirt to create pressure differentials
+    for (uint32_t y = 0; y < height; y++) {
+        // Fill center column with decreasing amounts of dirt (top to bottom)
+        double fillAmount = 1.0 - (y * 0.1); // Top cells fuller than bottom
+        fillAmount = std::max(0.2, fillAmount); // Minimum 20% fill
+        
+        world->at(1, y).dirt = fillAmount;
+        world->at(1, y).com = Vector2d(0.0, 0.0);
+        world->at(1, y).v = Vector2d(0.0, 0.0);
+        
+        // Leave side columns mostly empty for pressure escape
+        world->at(0, y).dirt = 0.1;
+        world->at(2, y).dirt = 0.1;
+        world->at(0, y).com = Vector2d(0.0, 0.0);
+        world->at(2, y).com = Vector2d(0.0, 0.0);
+        world->at(0, y).v = Vector2d(0.0, 0.0);
+        world->at(2, y).v = Vector2d(0.0, 0.0);
+    }
+    
+    // Test all three pressure systems
+    std::vector<World::PressureSystem> systems = {
+        World::PressureSystem::Original,
+        World::PressureSystem::TopDown,
+        World::PressureSystem::IterativeSettling
+    };
+    
+    std::vector<std::string> systemNames = {
+        "Original (COM deflection)",
+        "TopDown (Hydrostatic)",
+        "IterativeSettling (Multi-pass)"
+    };
+    
+    for (size_t i = 0; i < systems.size(); i++) {
+        std::cout << "\n--- Testing " << systemNames[i] << " ---" << std::endl;
+        
+        // Reset world state
+        for (uint32_t y = 0; y < height; y++) {
+            double fillAmount = 1.0 - (y * 0.1);
+            fillAmount = std::max(0.2, fillAmount);
+            
+            world->at(1, y).dirt = fillAmount;
+            world->at(1, y).com = Vector2d(0.0, 0.0);
+            world->at(1, y).v = Vector2d(0.0, 0.0);
+            world->at(1, y).pressure = Vector2d(0.0, 0.0);
+            
+            world->at(0, y).dirt = 0.1;
+            world->at(2, y).dirt = 0.1;
+            world->at(0, y).pressure = Vector2d(0.0, 0.0);
+            world->at(2, y).pressure = Vector2d(0.0, 0.0);
+        }
+        
+        // Set pressure system
+        world->setPressureSystem(systems[i]);
+        
+        // Generate pressure for one timestep
+        double deltaTime = 0.016;
+        switch (systems[i]) {
+            case World::PressureSystem::TopDown:
+                world->updateAllPressuresTopDown(deltaTime);
+                break;
+            case World::PressureSystem::IterativeSettling:
+                world->updateAllPressuresIterativeSettling(deltaTime);
+                break;
+            default:
+                world->updateAllPressures(deltaTime);
+                break;
+        }
+        
+        // Analyze pressure distribution
+        std::cout << "Pressure distribution (center column, Y direction):" << std::endl;
+        double maxPressure = 0.0;
+        double totalPressure = 0.0;
+        
+        for (uint32_t y = 0; y < height; y++) {
+            double pressure = world->at(1, y).pressure.y;
+            maxPressure = std::max(maxPressure, pressure);
+            totalPressure += pressure;
+            
+            std::cout << "  Y=" << y << " pressure=" << pressure 
+                      << " dirt=" << world->at(1, y).dirt << std::endl;
+        }
+        
+        std::cout << "Max pressure: " << maxPressure << std::endl;
+        std::cout << "Total pressure: " << totalPressure << std::endl;
+        
+        // Analyze lateral pressure distribution
+        std::cout << "Lateral pressure at bottom (Y=9):" << std::endl;
+        std::cout << "  Left (X=0): " << world->at(0, 9).pressure.x << std::endl;
+        std::cout << "  Center (X=1): " << world->at(1, 9).pressure.x << std::endl;
+        std::cout << "  Right (X=2): " << world->at(2, 9).pressure.x << std::endl;
+        
+        // Expected behaviors:
+        if (systems[i] == World::PressureSystem::Original) {
+            // Original system: pressure only from immediate COM deflection
+            // Should have relatively uniform pressure distribution
+            std::cout << "Expected: Relatively uniform pressure (depends on COM deflection only)" << std::endl;
+        }
+        else if (systems[i] == World::PressureSystem::TopDown) {
+            // Top-down system: pressure should increase with depth
+            // Bottom cells should have much higher pressure than top cells
+            std::cout << "Expected: Pressure increases with depth (hydrostatic effect)" << std::endl;
+            
+            // Verify pressure increases with depth
+            for (uint32_t y = 1; y < height; y++) {
+                double upperPressure = world->at(1, y-1).pressure.y;
+                double lowerPressure = world->at(1, y).pressure.y;
+                if (lowerPressure > upperPressure + 0.001) {
+                    std::cout << "✓ Pressure increases with depth at Y=" << y << std::endl;
+                }
+            }
+        }
+        else if (systems[i] == World::PressureSystem::IterativeSettling) {
+            // Iterative system: should have graduated pressure with smoothing
+            std::cout << "Expected: Graduated pressure with settling effects" << std::endl;
+        }
+        
+        // Test pressure application effectiveness
+        world->at(1, 5).dirt = 0.8; // Add material to middle
+        world->at(1, 5).pressure.y = maxPressure; // Apply max pressure found
+        
+        Vector2d initialVelocity = world->at(1, 5).v;
+        world->applyPressure(deltaTime);
+        Vector2d finalVelocity = world->at(1, 5).v;
+        Vector2d velocityChange = finalVelocity - initialVelocity;
+        
+        std::cout << "Pressure application test (middle cell):" << std::endl;
+        std::cout << "  Velocity change: (" << velocityChange.x << "," << velocityChange.y << ")" << std::endl;
+        std::cout << "  Velocity magnitude change: " << velocityChange.mag() << std::endl;
+    }
+    
+    std::cout << "\n=== PRESSURE COMPARISON COMPLETE ===" << std::endl;
+    std::cout << "Top-down pressure should show increasing pressure with depth," << std::endl;
+    std::cout << "while original system shows pressure only from local COM deflection." << std::endl;
+}

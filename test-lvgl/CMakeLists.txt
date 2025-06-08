@@ -134,12 +134,18 @@ add_custom_target (run COMMAND ${EXECUTABLE_OUTPUT_PATH}/sparkle-duck DEPENDS sp
 add_executable(sparkle-duck-tests
     src/tests/Vector2d_test.cpp
     src/tests/World_test.cpp
+    src/tests/WaterPressure180_test.cpp
+    src/tests/PressureSystemUI_test.cpp
+    src/tests/PressureSystem_test.cpp
+    src/tests/TestUI.cpp
     src/Vector2d.cpp
     src/World.cpp
     src/Cell.cpp
     src/Timers.cpp
     src/WorldSetup.cpp
     src/SimulatorUI.cpp
+    ${LV_LINUX_SRC} 
+    ${LV_LINUX_BACKEND_SRC}
 )
 target_link_libraries(sparkle-duck-tests
     PRIVATE
@@ -148,7 +154,11 @@ target_link_libraries(sparkle-duck-tests
     lvgl_linux
     lvgl
     lvgl::thorvg
+    m
+    pthread
+    ${PKG_CONFIG_LIB}
 )
+target_include_directories(sparkle-duck-tests PRIVATE ${PKG_CONFIG_INC})
 
 # Enable testing
 enable_testing()
