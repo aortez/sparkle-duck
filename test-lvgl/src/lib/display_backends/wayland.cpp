@@ -19,6 +19,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <iostream>
 
 #include "../World.h"
 #include "lvgl/lvgl.h"
@@ -120,11 +121,7 @@ static lv_display_t* init_wayland(void)
 }
 
 /**
- *
- * The run loop of the DRM driver
- *
- * @note Currently, the wayland driver calls lv_timer_handler internally.
- * The wayland driver needs to be re-written to match the other backends.
+ * The run loop of the DRM driver.
  */
 static void run_loop_wayland(World& world)
 {
@@ -141,8 +138,9 @@ static void run_loop_wayland(World& world)
         // Process one frame of simulation.
         SimulatorLoop::processFrame(world, state, 8);
 
-        // Exit if step limit reached
+        // Exit immediately if step limit reached - don't wait for more events
         if (!state.is_running) {
+            std::cout << "Simulation completed (" << state.step_count << " steps), exiting..." << std::endl;
             break;
         }
 
@@ -159,6 +157,12 @@ static void run_loop_wayland(World& world)
         if (!lv_wayland_window_is_open(NULL)) {
             break;
         }
+    }
+    
+    // Process any final UI updates before taking screenshot
+    for (int i = 0; i < 3; ++i) {
+        lv_wayland_timer_handler();
+        usleep(10000); // 10ms
     }
     
     SimulatorUI::takeExitScreenshot();

@@ -133,11 +133,12 @@ add_custom_target (run COMMAND ${EXECUTABLE_OUTPUT_PATH}/sparkle-duck DEPENDS sp
 # Add test executable
 add_executable(sparkle-duck-tests
     src/tests/Vector2d_test.cpp
-    src/tests/World_test.cpp
+    src/tests/WorldVisual_test.cpp
     src/tests/WaterPressure180_test.cpp
-    src/tests/PressureSystemUI_test.cpp
+    src/tests/PressureSystemVisual_test.cpp
     src/tests/PressureSystem_test.cpp
     src/tests/TestUI.cpp
+    src/tests/visual_test_runner.cpp
     src/Vector2d.cpp
     src/World.cpp
     src/Cell.cpp

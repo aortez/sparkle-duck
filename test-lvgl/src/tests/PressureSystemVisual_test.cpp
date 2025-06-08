@@ -1,63 +1,16 @@
-#include "gtest/gtest.h"
+#include "visual_test_runner.h"
 #include "../World.h"
 #include "../Cell.h"
-#include "../tests/TestUI.h"
-#include "lvgl/lvgl.h"
-#include "../lib/driver_backends.h"
-#include "../lib/simulator_settings.h"
-
-#include <iostream>
-#include <memory>
 #include <cstdio>
-#include <unistd.h>
 
-// External global settings used by the backend system
-extern simulator_settings_t settings;
-
-// Static flag to track if backend is already initialized
-static bool backend_initialized = false;
-
-class PressureSystemUITest : public ::testing::Test {
+class PressureSystemVisualTest : public VisualTestBase {
 protected:
     void SetUp() override {
-        std::cout << "\n=== Setting up UI test ===" << std::endl;
+        VisualTestBase::SetUp();
         
-        // Only initialize LVGL and backend once for all tests
-        if (!backend_initialized) {
-            // Initialize LVGL
-            lv_init();
-            
-            // Configure global settings for time-limited execution
-            settings.window_width = 600;  
-            settings.window_height = 500;
-            settings.max_steps = 60;     // Default for individual test segments
-            
-            // Register and initialize display backend
-            driver_backends_register();
-            
-            // Use wayland backend (as specified in user rules)
-            if (driver_backends_init_backend("wayland") == -1) {
-                GTEST_SKIP() << "Failed to initialize Wayland backend - skipping visual test";
-            }
-            
-            backend_initialized = true;
-            std::cout << "Display backend initialized successfully" << std::endl;
-        }
-        
-        // Get the active screen from the initialized backend
-        screen = lv_scr_act();
-        ASSERT_NE(screen, nullptr) << "Failed to get active screen";
-        
-        // Create test UI
-        ui = std::make_unique<TestUI>(screen, "PressureSystemUITest");
-        ui->initialize();
-        
-        // Create a world for testing (small size for performance)
-        world = std::make_unique<World>(15, 15, ui->getDrawArea());
+        // Create a 15x15 world for pressure testing
+        world = createWorld(15, 15);
         world->setGravity(9.81);
-        
-        // Connect UI and world
-        ui->setWorld(world.get());
         
         // Add some material to see pressure differences
         // Add dirt in multiple locations to create a pile
@@ -67,40 +20,18 @@ protected:
             }
         }
         
-        std::cout << "World and UI setup complete" << std::endl;
+        std::cout << "Pressure test world setup complete" << std::endl;
     }
     
     void TearDown() override {
-        std::cout << "=== Cleaning up UI test ===" << std::endl;
-        ui.reset();
         world.reset();
-        
-        // Force a small delay to let any pending operations complete
-        usleep(10000); // 10ms
+        VisualTestBase::TearDown();
     }
     
-    // Helper method to run the visual simulation for the specified duration
-    void runVisualSimulation(const std::string& test_name) {
-        std::cout << "\n--- Running visual simulation for: " << test_name << " ---" << std::endl;
-        ui->updateTestLabel("Running " + test_name);
-        
-        // Ensure step counter is reset for this specific simulation run
-        settings.max_steps = 60;  // Shorter duration for individual test segments
-        
-        std::cout << "Starting simulation with max_steps=" << settings.max_steps << std::endl;
-        
-        // Enter the backend run loop - this will run for settings.max_steps then exit
-        driver_backends_run_loop(*world);
-        
-        std::cout << "Visual simulation completed for: " << test_name << std::endl;
-    }
-    
-    lv_obj_t* screen;
-    std::unique_ptr<TestUI> ui;
     std::unique_ptr<World> world;
 };
 
-TEST_F(PressureSystemUITest, PressureSystemSwitching) {
+TEST_F(PressureSystemVisualTest, PressureSystemSwitching) {
     std::cout << "\n=== PRESSURE SYSTEM SWITCHING TEST ===" << std::endl;
     
     // Test that all three pressure systems work
@@ -126,7 +57,7 @@ TEST_F(PressureSystemUITest, PressureSystemSwitching) {
         EXPECT_EQ(world->getPressureSystem(), systems[i]);
         
         // Run the visual simulation to show this pressure system in action
-        runVisualSimulation(system_names[i]);
+        runSimulation(world.get(), 30, system_names[i]);
         
         // Run a few more simulation steps for testing after display
         for (int step = 0; step < 5; ++step) {
@@ -155,7 +86,7 @@ TEST_F(PressureSystemUITest, PressureSystemSwitching) {
     std::cout << "\n=== Test completed successfully ===" << std::endl;
 }
 
-TEST_F(PressureSystemUITest, PressureSystemComparison) {
+TEST_F(PressureSystemVisualTest, PressureSystemComparison) {
     std::cout << "\n=== PRESSURE SYSTEM COMPARISON TEST ===" << std::endl;
     
     // Run same scenario with each pressure system and compare results
@@ -198,7 +129,7 @@ TEST_F(PressureSystemUITest, PressureSystemComparison) {
                 break;
         }
         
-        runVisualSimulation("Comparison: " + system_name);
+        runSimulation(world.get(), 30, "Comparison: " + system_name);
         
         // Run additional simulation steps for measurement
         for (int step = 0; step < 10; ++step) {
@@ -248,7 +179,7 @@ TEST_F(PressureSystemUITest, PressureSystemComparison) {
 }
 
 // Test specifically for pressure system API functionality
-TEST_F(PressureSystemUITest, PressureSystemAPI) {
+TEST_F(PressureSystemVisualTest, PressureSystemAPI) {
     std::cout << "\n=== PRESSURE SYSTEM API TEST ===" << std::endl;
     
     // Test that we can switch pressure systems programmatically
@@ -275,13 +206,13 @@ TEST_F(PressureSystemUITest, PressureSystemAPI) {
     std::cout << "✓ Switched back to Original system successfully" << std::endl;
     
     // Show the final API test running
-    runVisualSimulation("API Test - Final State");
+    runSimulation(world.get(), 30, "API Test - Final State");
     
     std::cout << "=== API test completed ===\n" << std::endl;
 }
 
 // Test top-down pressure accumulation specifically
-TEST_F(PressureSystemUITest, TopDownPressureAccumulation) {
+TEST_F(PressureSystemVisualTest, TopDownPressureAccumulation) {
     std::cout << "\n=== TOP-DOWN PRESSURE ACCUMULATION TEST ===" << std::endl;
     
     // Create a vertical column of material to test pressure accumulation
@@ -296,7 +227,7 @@ TEST_F(PressureSystemUITest, TopDownPressureAccumulation) {
     world->setPressureSystem(World::PressureSystem::TopDown);
     
     // Show the top-down pressure system in action
-    runVisualSimulation("Top-Down Pressure Column");
+    runSimulation(world.get(), 30, "Top-Down Pressure Column");
     
     // Run additional simulation to let pressure develop
     for (int step = 0; step < 15; ++step) {

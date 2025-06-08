@@ -122,7 +122,10 @@ void World::advanceTime(const double deltaTimeSeconds)
 
     applyMoves(); // Apply the pressure moves
 
-    updateTotalMass();
+    // Update UI with the new total mass, calculated on the fly.
+    if (ui_) {
+        ui_->updateMassLabel(getTotalMass());
+    }
 
     timers.stopTimer("advance_time");
 }
@@ -194,48 +197,43 @@ void World::processTransfers(double deltaTimeSeconds)
             bool transferOccurred = false;
             if (shouldTransferX || shouldTransferY) {
                 const double totalMass = cell.dirt + cell.water;
+                bool isTargetInBounds = isWithinBounds(targetX, targetY);
 
-                // Try diagonal transfer first if both X and Y are needed
-                if (shouldTransferX && shouldTransferY) {
+                // Try diagonal transfer first if both X and Y are needed and target is valid
+                if (shouldTransferX && shouldTransferY && isTargetInBounds) {
                     transferOccurred =
                         attemptTransfer(cell, x, y, targetX, targetY, comOffset, totalMass);
-                    if (!transferOccurred && !isWithinBounds(targetX, targetY)) {
-                        handleBoundaryReflection(
-                            cell, targetX, targetY, shouldTransferX, shouldTransferY);
-                        shouldTransferX = shouldTransferX && isWithinBounds(targetX, y);
-                        shouldTransferY = shouldTransferY && isWithinBounds(x, targetY);
+                }
+
+                // If no diagonal transfer, or it wasn't attempted, try cardinal directions
+                if (!transferOccurred) {
+                    // Try X transfer if needed and target is valid
+                    if (shouldTransferX && isWithinBounds(targetX, y)) {
+                        Vector2d xComOffset = comOffset;
+                        xComOffset.y = cell.com.y; // Keep original Y component
+                        transferOccurred =
+                            attemptTransfer(cell, x, y, targetX, y, xComOffset, totalMass);
+                    }
+                    // Try Y transfer if needed and target is valid
+                    if (shouldTransferY && isWithinBounds(x, targetY)) {
+                        Vector2d yComOffset = comOffset;
+                        yComOffset.x = cell.com.x; // Keep original X component
+                        transferOccurred =
+                            attemptTransfer(cell, x, y, x, targetY, yComOffset, totalMass);
                     }
                 }
 
-                // Try X transfer if no diagonal transfer occurred
-                if (shouldTransferX && !transferOccurred) {
-                    Vector2d xComOffset = comOffset;
-                    xComOffset.y = cell.com.y; // Keep original Y component
-                    transferOccurred =
-                        attemptTransfer(cell, x, y, targetX, y, xComOffset, totalMass);
-                    if (!transferOccurred && !isWithinBounds(targetX, y)) {
-                        handleBoundaryReflection(cell, targetX, y, true, false);
-                    }
-                }
-
-                // Try Y transfer if needed and no transfer occurred
-                if (shouldTransferY && !transferOccurred) {
-                    Vector2d yComOffset = comOffset;
-                    yComOffset.x = cell.com.x; // Keep original X component
-                    transferOccurred =
-                        attemptTransfer(cell, x, y, x, targetY, yComOffset, totalMass);
-                    if (!transferOccurred && !isWithinBounds(x, targetY)) {
-                        handleBoundaryReflection(cell, x, targetY, false, true);
-                    }
+                // If no transfer happened at all, it must be a boundary collision
+                if (!transferOccurred) {
+                    handleBoundaryReflection(cell, targetX, targetY, shouldTransferX, shouldTransferY);
                 }
             }
 
             // If no transfer occurred, update COM internally
             if (!transferOccurred) {
                 cell.update(cell.dirt, predictedCom, cell.v);
+                checkExcessiveDeflectionReflection(cell);
             }
-
-            checkExcessiveDeflectionReflection(cell);
         }
     }
 }
@@ -422,7 +420,32 @@ bool World::isWithinBounds(int x, int y) const
 
 Vector2d World::calculateNaturalCOM(const Vector2d& sourceCOM, int deltaX, int deltaY)
 {
-    return Vector2d(sourceCOM.x - deltaX * COM_CELL_WIDTH, sourceCOM.y - deltaY * COM_CELL_WIDTH);
+    // This function calculates the "natural" position of the COM in the target cell
+    // if it were to continue its trajectory uninterrupted.
+    // The old logic was a simple subtraction, which was incorrect.
+    // The new logic correctly "wraps" the COM around to the other side of the cell.
+    
+    Vector2d naturalCOM = sourceCOM;
+
+    // If moving right (deltaX = 1), COM enters from the left side.
+    if (deltaX > 0) {
+        naturalCOM.x -= COM_CELL_WIDTH;
+    } 
+    // If moving left (deltaX = -1), COM enters from the right side.
+    else if (deltaX < 0) {
+        naturalCOM.x += COM_CELL_WIDTH;
+    }
+
+    // If moving down (deltaY = 1), COM enters from the top side.
+    if (deltaY > 0) {
+        naturalCOM.y -= COM_CELL_WIDTH;
+    } 
+    // If moving up (deltaY = -1), COM enters from the bottom side.
+    else if (deltaY < 0) {
+        naturalCOM.y += COM_CELL_WIDTH;
+    }
+
+    return naturalCOM;
 }
 
 Vector2d World::clampCOMToDeadZone(const Vector2d& naturalCOM)
@@ -436,19 +459,15 @@ Vector2d World::clampCOMToDeadZone(const Vector2d& naturalCOM)
             std::min(Cell::COM_DEFLECTION_THRESHOLD, naturalCOM.y)));
 }
 
-void World::updateTotalMass()
+double World::getTotalMass() const
 {
-    totalMass = 0.0;
+    double currentTotalMass = 0.0;
     for (uint32_t y = 0; y < height; y++) {
         for (uint32_t x = 0; x < width; x++) {
-            totalMass += at(x, y).percentFull();
+            currentTotalMass += at(x, y).percentFull();
         }
     }
-
-    // Update UI if available
-    if (ui_) {
-        ui_->updateMassLabel(totalMass);
-    }
+    return currentTotalMass;
 }
 
 void World::setUI(std::unique_ptr<SimulatorUI> ui)
@@ -1734,7 +1753,7 @@ void World::saveWorldState()
     state.cellWidth = Cell::WIDTH;   // Capture current cell width
     state.cellHeight = Cell::HEIGHT; // Capture current cell height
     state.timestep = timestep;
-    state.totalMass = totalMass;
+    state.totalMass = getTotalMass(); // Use the getter
     state.removedMass = removedMass;
     state.timestamp = simulationTime; // Capture current simulation time
 
@@ -1754,19 +1773,20 @@ void World::goBackward()
 {
     if (!canGoBackward()) return;
 
-    // If we're at the current state (not navigating history yet), capture current state
-    if (currentHistoryIndex == -1 && !hasStoredCurrentState) {
+    // If we're at the 'present', save the current state before moving back
+    if (currentHistoryIndex == -1) {
+        WorldState currentLiveState;
         currentLiveState.cells = cells;
         currentLiveState.width = width;
         currentLiveState.height = height;
         currentLiveState.cellWidth = Cell::WIDTH;
         currentLiveState.cellHeight = Cell::HEIGHT;
         currentLiveState.timestep = timestep;
-        currentLiveState.totalMass = totalMass;
+        currentLiveState.totalMass = getTotalMass(); // Use the getter
         currentLiveState.removedMass = removedMass;
         currentLiveState.timestamp = simulationTime;
-        hasStoredCurrentState = true;
-        LOG_DEBUG("Captured current live state for time reversal navigation");
+        stateHistory.push_back(std::move(currentLiveState));
+        currentHistoryIndex = stateHistory.size() - 2;
     }
 
     if (currentHistoryIndex == -1) {
@@ -1855,7 +1875,6 @@ void World::restoreWorldState(const WorldState& state)
     // Now restore the cells (sizes are guaranteed to match)
     cells = state.cells;
     timestep = state.timestep;
-    totalMass = state.totalMass;
     removedMass = state.removedMass;
     simulationTime = state.timestamp;
 
@@ -1864,3 +1883,8 @@ void World::restoreWorldState(const WorldState& state)
         cell.markDirty();
     }
 }
+
+
+
+
+

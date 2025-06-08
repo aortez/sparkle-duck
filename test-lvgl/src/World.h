@@ -65,7 +65,7 @@ public:
     SimulatorUI* getUI() const { return ui_.get(); }
 
     // Get the total mass of dirt in the world.
-    double getTotalMass() const { return totalMass; }
+    double getTotalMass() const;
 
     // Get the amount of dirt that has been removed due to being below the threshold.
     double getRemovedMass() const { return removedMass; }
@@ -208,7 +208,6 @@ private:
     void handleBoundaryReflection(
         Cell& cell, int targetX, int targetY, bool shouldTransferX, bool shouldTransferY);
     void checkExcessiveDeflectionReflection(Cell& cell);
-    void updateTotalMass();
 
     // Transfer calculation helpers
     void calculateTransferDirection(
@@ -246,9 +245,6 @@ private:
     static constexpr double CURSOR_FORCE_STRENGTH = 10.0; // Adjust this to control force magnitude
     static constexpr double CURSOR_FORCE_RADIUS = 5.0; // Number of cells affected by cursor force
     static double ELASTICITY_FACTOR; // Energy preserved in reflections (0.0 to 1.0)
-
-    // Track the total mass of dirt in the world.
-    double totalMass = 0.0;
 
     // Track mass that has been removed due to being below the threshold.
     double removedMass = 0.0;
