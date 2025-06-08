@@ -33,7 +33,14 @@ Cell::Cell()
       needsRedraw(true)
 {}
 
-Cell::~Cell() = default;
+Cell::~Cell()
+{
+    // Clean up the LVGL canvas object if it exists
+    if (canvas != nullptr) {
+        lv_obj_del(canvas);
+        canvas = nullptr;
+    }
+}
 
 void Cell::update(double newDirty, const Vector2d& newCom, const Vector2d& newV)
 {
@@ -97,7 +104,9 @@ void Cell::drawNormal(lv_obj_t* parent, uint32_t x, uint32_t y)
     lv_draw_rect_dsc_init(&rect_dsc);
     rect_dsc.bg_color = brown;
     rect_dsc.bg_opa = opacity_dirt;
-    rect_dsc.border_color = lv_color_hex(0x000000);
+    rect_dsc.border_color = brown; // Same color as background
+    rect_dsc.border_opa =
+        static_cast<lv_opa_t>(opacity_dirt * 0.3); // 30% of dirt opacity for softer look
     rect_dsc.border_width = 1;
     rect_dsc.radius = 1;
     lv_area_t coords = { 0, 0, WIDTH, HEIGHT };
@@ -108,7 +117,9 @@ void Cell::drawNormal(lv_obj_t* parent, uint32_t x, uint32_t y)
     lv_draw_rect_dsc_init(&rect_dsc_water);
     rect_dsc_water.bg_color = lv_color_hex(0x0000FF);
     rect_dsc_water.bg_opa = opacity_water;
-    rect_dsc_water.border_color = lv_color_hex(0x000000);
+    rect_dsc_water.border_color = lv_color_hex(0x0000FF); // Same blue color as water
+    rect_dsc_water.border_opa =
+        static_cast<lv_opa_t>(opacity_water * 0.3); // 30% of water opacity for softer look
     rect_dsc_water.border_width = 1;
     rect_dsc_water.radius = 1;
     lv_draw_rect(&layer, &rect_dsc_water, &coords);
@@ -132,7 +143,9 @@ void Cell::drawDebug(lv_obj_t* parent, uint32_t x, uint32_t y)
     lv_draw_rect_dsc_init(&rect_dsc);
     rect_dsc.bg_color = brown;
     rect_dsc.bg_opa = opacity_dirt;
-    rect_dsc.border_color = lv_color_hex(0x000000);
+    rect_dsc.border_color = brown; // Same color as background
+    rect_dsc.border_opa =
+        static_cast<lv_opa_t>(opacity_dirt * 0.3); // 30% of dirt opacity for softer look
     rect_dsc.border_width = 1;
     rect_dsc.radius = 1;
     lv_area_t coords = { 0, 0, WIDTH, HEIGHT };
@@ -143,7 +156,9 @@ void Cell::drawDebug(lv_obj_t* parent, uint32_t x, uint32_t y)
     lv_draw_rect_dsc_init(&rect_dsc_water);
     rect_dsc_water.bg_color = lv_color_hex(0x0000FF);
     rect_dsc_water.bg_opa = opacity_water;
-    rect_dsc_water.border_color = lv_color_hex(0x000000);
+    rect_dsc_water.border_color = lv_color_hex(0x0000FF); // Same blue color as water
+    rect_dsc_water.border_opa =
+        static_cast<lv_opa_t>(opacity_water * 0.3); // 30% of water opacity for softer look
     rect_dsc_water.border_width = 1;
     rect_dsc_water.radius = 1;
     lv_draw_rect(&layer, &rect_dsc_water, &coords);

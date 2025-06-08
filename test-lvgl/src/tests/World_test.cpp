@@ -753,9 +753,10 @@ TEST_F(WorldTest, PressureTest_DebugPressureGeneration) {
     // STEP 3: Test full simulation step
     std::cout << "\nSTEP 3: Testing full simulation step..." << std::endl;
     
-    // Reset the scenario
+    // Reset the scenario - use moderate deflection that won't trigger transfer
+    // COM threshold is 0.6, so use 0.5 to stay within deadzone but still generate pressure
     sourceCell.dirt = 1.0;
-    sourceCell.com = Vector2d(0.9, 0.0);  // Even stronger deflection
+    sourceCell.com = Vector2d(0.5, 0.0);  // Strong deflection but below transfer threshold
     sourceCell.v = Vector2d(0.0, 0.0);
     
     world->at(2, 1).dirt = 0.3;

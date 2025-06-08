@@ -2,6 +2,7 @@
 #include "Cell.h"
 #include "SimulatorUI.h"
 #include "Timers.h"
+#include "WorldSetup.h"
 #include <cassert>
 #include <cmath>
 
@@ -15,14 +16,14 @@
 #include <stdexcept>
 
 // #define LOG_DEBUG
-#ifdef LOG_DEBUG
+#ifdef LOG_DEBU
 #define LOG_DEBUG(x) std::cout << x << std::endl
 #else
 #define LOG_DEBUG(x) ((void)0)
 #endif
 
 // Debug logging specifically for particle events
-#define LOG_PARTICLES
+// #define LOG_PARTICLES
 #ifdef LOG_PARTICLES
 #define LOG_PARTICLES(x) std::cout << "[Particles] " << x << std::endl
 #else
@@ -58,8 +59,8 @@ World::World(uint32_t width, uint32_t height, lv_obj_t* draw_area)
     // Initialize timers
     timers.startTimer("total_simulation");
 
-    // Create default world setup
-    worldSetup = std::make_unique<DefaultWorldSetup>();
+    // Create configurable world setup
+    worldSetup = std::make_unique<ConfigurableWorldSetup>();
 }
 
 World::~World()
@@ -1148,4 +1149,96 @@ void World::updateCursorForce(int pixelX, int pixelY, bool isActive)
     if (isActive) {
         pixelToCell(pixelX, pixelY, cursorForceX, cursorForceY);
     }
+}
+
+// ConfigurableWorldSetup control methods
+void World::setLeftThrowEnabled(bool enabled)
+{
+    ConfigurableWorldSetup* configSetup = dynamic_cast<ConfigurableWorldSetup*>(worldSetup.get());
+    if (configSetup) {
+        configSetup->setLeftThrowEnabled(enabled);
+    }
+}
+
+void World::setRightThrowEnabled(bool enabled)
+{
+    ConfigurableWorldSetup* configSetup = dynamic_cast<ConfigurableWorldSetup*>(worldSetup.get());
+    if (configSetup) {
+        configSetup->setRightThrowEnabled(enabled);
+    }
+}
+
+void World::setLowerRightQuadrantEnabled(bool enabled)
+{
+    ConfigurableWorldSetup* configSetup = dynamic_cast<ConfigurableWorldSetup*>(worldSetup.get());
+    if (configSetup) {
+        configSetup->setLowerRightQuadrantEnabled(enabled);
+    }
+}
+
+void World::setWallsEnabled(bool enabled)
+{
+    ConfigurableWorldSetup* configSetup = dynamic_cast<ConfigurableWorldSetup*>(worldSetup.get());
+    if (configSetup) {
+        configSetup->setWallsEnabled(enabled);
+    }
+}
+
+void World::setRainRate(double rate)
+{
+    ConfigurableWorldSetup* configSetup = dynamic_cast<ConfigurableWorldSetup*>(worldSetup.get());
+    if (configSetup) {
+        configSetup->setRainRate(rate);
+    }
+}
+
+void World::resizeGrid(uint32_t newWidth, uint32_t newHeight)
+{
+    // First, clear all existing cells - this will properly clean up their canvas objects
+    cells.clear();
+
+    // Store old world state if needed (for now, we'll just reset)
+    width = newWidth;
+    height = newHeight;
+
+    // Resize the cells vector
+    cells.resize(width * height);
+
+    // Reset the world with the new grid
+    reset();
+}
+
+bool World::isLeftThrowEnabled() const
+{
+    const ConfigurableWorldSetup* configSetup =
+        dynamic_cast<const ConfigurableWorldSetup*>(worldSetup.get());
+    return configSetup ? configSetup->isLeftThrowEnabled() : false;
+}
+
+bool World::isRightThrowEnabled() const
+{
+    const ConfigurableWorldSetup* configSetup =
+        dynamic_cast<const ConfigurableWorldSetup*>(worldSetup.get());
+    return configSetup ? configSetup->isRightThrowEnabled() : false;
+}
+
+bool World::isLowerRightQuadrantEnabled() const
+{
+    const ConfigurableWorldSetup* configSetup =
+        dynamic_cast<const ConfigurableWorldSetup*>(worldSetup.get());
+    return configSetup ? configSetup->isLowerRightQuadrantEnabled() : false;
+}
+
+bool World::areWallsEnabled() const
+{
+    const ConfigurableWorldSetup* configSetup =
+        dynamic_cast<const ConfigurableWorldSetup*>(worldSetup.get());
+    return configSetup ? configSetup->areWallsEnabled() : false;
+}
+
+double World::getRainRate() const
+{
+    const ConfigurableWorldSetup* configSetup =
+        dynamic_cast<const ConfigurableWorldSetup*>(worldSetup.get());
+    return configSetup ? configSetup->getRainRate() : 0.0;
 }

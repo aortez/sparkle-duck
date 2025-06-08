@@ -1,12 +1,26 @@
 #include "SimulatorUI.h"
 #include "Cell.h"
 #include "World.h"
+#include "lvgl/lvgl.h"
+#include "lvgl/src/others/snapshot/lv_snapshot.h"
 
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <ctime>
+#include <fstream>
+#include <libgen.h> // For dirname
+#include <limits.h> // For PATH_MAX
+#include <unistd.h> // For readlink on Linux
 #include <vector>
+
+// Forward declare lodepng functions to avoid header conflicts
+extern "C" {
+unsigned lodepng_encode24(
+    unsigned char** out, size_t* outsize, const unsigned char* image, unsigned w, unsigned h);
+const char* lodepng_error_text(unsigned error);
+}
 
 SimulatorUI::SimulatorUI(lv_obj_t* screen)
     : world_(nullptr),
@@ -118,6 +132,45 @@ void SimulatorUI::createControlButtons()
     lv_obj_center(gravity_label);
     lv_obj_add_event_cb(gravity_btn, gravityBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
 
+    // Create left throw toggle button
+    lv_obj_t* left_throw_btn = lv_btn_create(screen_);
+    lv_obj_set_size(left_throw_btn, CONTROL_WIDTH, 50);
+    lv_obj_align(left_throw_btn, LV_ALIGN_TOP_RIGHT, -10, 310);
+    lv_obj_t* left_throw_label = lv_label_create(left_throw_btn);
+    lv_label_set_text(left_throw_label, "Left Throw: On");
+    lv_obj_center(left_throw_label);
+    lv_obj_add_event_cb(
+        left_throw_btn, leftThrowBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
+
+    // Create right throw toggle button
+    lv_obj_t* right_throw_btn = lv_btn_create(screen_);
+    lv_obj_set_size(right_throw_btn, CONTROL_WIDTH, 50);
+    lv_obj_align(right_throw_btn, LV_ALIGN_TOP_RIGHT, -10, 370);
+    lv_obj_t* right_throw_label = lv_label_create(right_throw_btn);
+    lv_label_set_text(right_throw_label, "Right Throw: On");
+    lv_obj_center(right_throw_label);
+    lv_obj_add_event_cb(
+        right_throw_btn, rightThrowBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
+
+    // Create quadrant toggle button
+    lv_obj_t* quadrant_btn = lv_btn_create(screen_);
+    lv_obj_set_size(quadrant_btn, CONTROL_WIDTH, 50);
+    lv_obj_align(quadrant_btn, LV_ALIGN_TOP_RIGHT, -10, 430);
+    lv_obj_t* quadrant_label = lv_label_create(quadrant_btn);
+    lv_label_set_text(quadrant_label, "Quadrant: On");
+    lv_obj_center(quadrant_label);
+    lv_obj_add_event_cb(quadrant_btn, quadrantBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
+
+    // Create screenshot button
+    lv_obj_t* screenshot_btn = lv_btn_create(screen_);
+    lv_obj_set_size(screenshot_btn, CONTROL_WIDTH, 50);
+    lv_obj_align(screenshot_btn, LV_ALIGN_TOP_RIGHT, -10, 490);
+    lv_obj_t* screenshot_label = lv_label_create(screenshot_btn);
+    lv_label_set_text(screenshot_label, "Screenshot");
+    lv_obj_center(screenshot_label);
+    lv_obj_add_event_cb(
+        screenshot_btn, screenshotBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
+
     // Create quit button
     lv_obj_t* quit_btn = lv_btn_create(screen_);
     lv_obj_set_size(quit_btn, CONTROL_WIDTH, 50);
@@ -134,15 +187,15 @@ void SimulatorUI::createSliders()
     // Timescale slider
     lv_obj_t* slider_label = lv_label_create(screen_);
     lv_label_set_text(slider_label, "Timescale");
-    lv_obj_align(slider_label, LV_ALIGN_TOP_RIGHT, -10, 290);
+    lv_obj_align(slider_label, LV_ALIGN_TOP_RIGHT, -10, 570);
 
     lv_obj_t* timescale_value_label = lv_label_create(screen_);
     lv_label_set_text(timescale_value_label, "1.0x");
-    lv_obj_align(timescale_value_label, LV_ALIGN_TOP_RIGHT, -120, 290);
+    lv_obj_align(timescale_value_label, LV_ALIGN_TOP_RIGHT, -120, 570);
 
     lv_obj_t* slider = lv_slider_create(screen_);
     lv_obj_set_size(slider, CONTROL_WIDTH, 10);
-    lv_obj_align(slider, LV_ALIGN_TOP_RIGHT, -10, 310);
+    lv_obj_align(slider, LV_ALIGN_TOP_RIGHT, -10, 590);
     lv_slider_set_range(slider, 0, 100);
     lv_slider_set_value(slider, 50, LV_ANIM_OFF);
     lv_obj_add_event_cb(
@@ -151,15 +204,15 @@ void SimulatorUI::createSliders()
     // Elasticity slider
     lv_obj_t* elasticity_label = lv_label_create(screen_);
     lv_label_set_text(elasticity_label, "Elasticity");
-    lv_obj_align(elasticity_label, LV_ALIGN_TOP_RIGHT, -10, 330);
+    lv_obj_align(elasticity_label, LV_ALIGN_TOP_RIGHT, -10, 610);
 
     lv_obj_t* elasticity_value_label = lv_label_create(screen_);
     lv_label_set_text(elasticity_value_label, "0.8");
-    lv_obj_align(elasticity_value_label, LV_ALIGN_TOP_RIGHT, -120, 330);
+    lv_obj_align(elasticity_value_label, LV_ALIGN_TOP_RIGHT, -120, 610);
 
     lv_obj_t* elasticity_slider = lv_slider_create(screen_);
     lv_obj_set_size(elasticity_slider, CONTROL_WIDTH, 10);
-    lv_obj_align(elasticity_slider, LV_ALIGN_TOP_RIGHT, -10, 350);
+    lv_obj_align(elasticity_slider, LV_ALIGN_TOP_RIGHT, -10, 630);
     lv_slider_set_range(elasticity_slider, 0, 200);
     lv_slider_set_value(elasticity_slider, 80, LV_ANIM_OFF);
     lv_obj_add_event_cb(
@@ -171,15 +224,15 @@ void SimulatorUI::createSliders()
     // Dirt fragmentation slider
     lv_obj_t* fragmentation_label = lv_label_create(screen_);
     lv_label_set_text(fragmentation_label, "Dirt Fragmentation");
-    lv_obj_align(fragmentation_label, LV_ALIGN_TOP_RIGHT, -10, 370);
+    lv_obj_align(fragmentation_label, LV_ALIGN_TOP_RIGHT, -10, 650);
 
     lv_obj_t* fragmentation_value_label = lv_label_create(screen_);
     lv_label_set_text(fragmentation_value_label, "0.00");
-    lv_obj_align(fragmentation_value_label, LV_ALIGN_TOP_RIGHT, -165, 370);
+    lv_obj_align(fragmentation_value_label, LV_ALIGN_TOP_RIGHT, -165, 650);
 
     lv_obj_t* fragmentation_slider = lv_slider_create(screen_);
     lv_obj_set_size(fragmentation_slider, CONTROL_WIDTH, 10);
-    lv_obj_align(fragmentation_slider, LV_ALIGN_TOP_RIGHT, -10, 390);
+    lv_obj_align(fragmentation_slider, LV_ALIGN_TOP_RIGHT, -10, 670);
     lv_slider_set_range(fragmentation_slider, 0, 100);
     lv_slider_set_value(fragmentation_slider, 0, LV_ANIM_OFF);
     lv_obj_add_event_cb(
@@ -191,15 +244,15 @@ void SimulatorUI::createSliders()
     // Cell size slider
     lv_obj_t* cell_size_label = lv_label_create(screen_);
     lv_label_set_text(cell_size_label, "Cell Size");
-    lv_obj_align(cell_size_label, LV_ALIGN_TOP_RIGHT, -10, 410);
+    lv_obj_align(cell_size_label, LV_ALIGN_TOP_RIGHT, -10, 690);
 
     lv_obj_t* cell_size_value_label = lv_label_create(screen_);
     lv_label_set_text(cell_size_value_label, "50");
-    lv_obj_align(cell_size_value_label, LV_ALIGN_TOP_RIGHT, -120, 410);
+    lv_obj_align(cell_size_value_label, LV_ALIGN_TOP_RIGHT, -120, 690);
 
     lv_obj_t* cell_size_slider = lv_slider_create(screen_);
     lv_obj_set_size(cell_size_slider, CONTROL_WIDTH, 10);
-    lv_obj_align(cell_size_slider, LV_ALIGN_TOP_RIGHT, -10, 430);
+    lv_obj_align(cell_size_slider, LV_ALIGN_TOP_RIGHT, -10, 710);
     lv_slider_set_range(cell_size_slider, 10, 50);
     lv_slider_set_value(cell_size_slider, 50, LV_ANIM_OFF);
     lv_obj_add_event_cb(
@@ -211,15 +264,15 @@ void SimulatorUI::createSliders()
     // Pressure scale slider
     lv_obj_t* pressure_label = lv_label_create(screen_);
     lv_label_set_text(pressure_label, "Pressure Scale");
-    lv_obj_align(pressure_label, LV_ALIGN_TOP_RIGHT, -10, 450);
+    lv_obj_align(pressure_label, LV_ALIGN_TOP_RIGHT, -10, 730);
 
     lv_obj_t* pressure_value_label = lv_label_create(screen_);
     lv_label_set_text(pressure_value_label, "1.0");
-    lv_obj_align(pressure_value_label, LV_ALIGN_TOP_RIGHT, -120, 450);
+    lv_obj_align(pressure_value_label, LV_ALIGN_TOP_RIGHT, -120, 730);
 
     lv_obj_t* pressure_slider = lv_slider_create(screen_);
     lv_obj_set_size(pressure_slider, CONTROL_WIDTH, 10);
-    lv_obj_align(pressure_slider, LV_ALIGN_TOP_RIGHT, -10, 470);
+    lv_obj_align(pressure_slider, LV_ALIGN_TOP_RIGHT, -10, 750);
     lv_slider_set_range(pressure_slider, 0, 200);
     lv_slider_set_value(pressure_slider, 100, LV_ANIM_OFF);
     lv_obj_add_event_cb(
@@ -227,6 +280,23 @@ void SimulatorUI::createSliders()
         pressureSliderEventCb,
         LV_EVENT_ALL,
         createCallbackData(pressure_value_label));
+
+    // Rain rate slider
+    lv_obj_t* rain_label = lv_label_create(screen_);
+    lv_label_set_text(rain_label, "Rain Rate");
+    lv_obj_align(rain_label, LV_ALIGN_TOP_RIGHT, -10, 770);
+
+    lv_obj_t* rain_value_label = lv_label_create(screen_);
+    lv_label_set_text(rain_value_label, "0/s");
+    lv_obj_align(rain_value_label, LV_ALIGN_TOP_RIGHT, -120, 770);
+
+    lv_obj_t* rain_slider = lv_slider_create(screen_);
+    lv_obj_set_size(rain_slider, CONTROL_WIDTH, 10);
+    lv_obj_align(rain_slider, LV_ALIGN_TOP_RIGHT, -10, 790);
+    lv_slider_set_range(rain_slider, 0, 100);
+    lv_slider_set_value(rain_slider, 0, LV_ANIM_OFF);
+    lv_obj_add_event_cb(
+        rain_slider, rainSliderEventCb, LV_EVENT_ALL, createCallbackData(rain_value_label));
 }
 
 void SimulatorUI::setupDrawAreaEvents()
@@ -423,8 +493,18 @@ void SimulatorUI::cellSizeSliderEventCb(lv_event_t* e)
     if (lv_event_get_code(e) == LV_EVENT_VALUE_CHANGED && data) {
         int32_t value = lv_slider_get_value(slider);
         Cell::setSize(value);
-        // Note: Cell size change logic from main.cpp would need to be moved here
-        // For now, just update the label
+
+        // Recalculate grid dimensions based on new cell size
+        // (One fewer than would fit perfectly, same logic as main.cpp)
+        const int new_grid_width = (DRAW_AREA_SIZE / value) - 1;
+        const int new_grid_height = (DRAW_AREA_SIZE / value) - 1;
+
+        // Resize the world grid if we have a valid world
+        if (data->world) {
+            data->world->resizeGrid(new_grid_width, new_grid_height);
+        }
+
+        // Update the label
         char buf[16];
         snprintf(buf, sizeof(buf), "%d", value);
         lv_label_set_text(data->associated_label, buf);
@@ -436,4 +516,208 @@ void SimulatorUI::quitBtnEventCb(lv_event_t* e)
     if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
         exit(0);
     }
+}
+
+void SimulatorUI::leftThrowBtnEventCb(lv_event_t* e)
+{
+    if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
+        CallbackData* data = static_cast<CallbackData*>(lv_event_get_user_data(e));
+        if (data && data->world) {
+            bool current_state = data->world->isLeftThrowEnabled();
+            bool new_state = !current_state;
+            data->world->setLeftThrowEnabled(new_state);
+            const lv_obj_t* btn = static_cast<const lv_obj_t*>(lv_event_get_target(e));
+            lv_obj_t* label = lv_obj_get_child(btn, 0);
+            lv_label_set_text(label, new_state ? "Left Throw: On" : "Left Throw: Off");
+        }
+    }
+}
+
+void SimulatorUI::rightThrowBtnEventCb(lv_event_t* e)
+{
+    if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
+        CallbackData* data = static_cast<CallbackData*>(lv_event_get_user_data(e));
+        if (data && data->world) {
+            bool current_state = data->world->isRightThrowEnabled();
+            bool new_state = !current_state;
+            data->world->setRightThrowEnabled(new_state);
+            const lv_obj_t* btn = static_cast<const lv_obj_t*>(lv_event_get_target(e));
+            lv_obj_t* label = lv_obj_get_child(btn, 0);
+            lv_label_set_text(label, new_state ? "Right Throw: On" : "Right Throw: Off");
+        }
+    }
+}
+
+void SimulatorUI::quadrantBtnEventCb(lv_event_t* e)
+{
+    if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
+        CallbackData* data = static_cast<CallbackData*>(lv_event_get_user_data(e));
+        if (data && data->world) {
+            bool current_state = data->world->isLowerRightQuadrantEnabled();
+            bool new_state = !current_state;
+            data->world->setLowerRightQuadrantEnabled(new_state);
+            const lv_obj_t* btn = static_cast<const lv_obj_t*>(lv_event_get_target(e));
+            lv_obj_t* label = lv_obj_get_child(btn, 0);
+            lv_label_set_text(label, new_state ? "Quadrant: On" : "Quadrant: Off");
+        }
+    }
+}
+
+void SimulatorUI::rainSliderEventCb(lv_event_t* e)
+{
+    lv_obj_t* slider = static_cast<lv_obj_t*>(lv_event_get_target(e));
+    CallbackData* data = static_cast<CallbackData*>(lv_event_get_user_data(e));
+    if (lv_event_get_code(e) == LV_EVENT_VALUE_CHANGED && data) {
+        int32_t value = lv_slider_get_value(slider);
+        double rain_rate = value * 1.0; // Map 0-100 to 0-100 drops per second
+        if (data->world) {
+            data->world->setRainRate(rain_rate);
+        }
+        char buf[16];
+        snprintf(buf, sizeof(buf), "%.0f/s", rain_rate);
+        lv_label_set_text(data->associated_label, buf);
+    }
+}
+
+// Get the directory containing the executable
+std::string get_executable_directory()
+{
+    char path[PATH_MAX];
+    ssize_t count = readlink("/proc/self/exe", path, PATH_MAX);
+    if (count == -1) {
+        printf("Failed to get executable path\n");
+        return "."; // Return current directory as fallback
+    }
+    path[count] = '\0';
+    char* dir = dirname(path);
+    return std::string(dir);
+}
+
+// PNG writer using LODEPNG
+void write_png_file(const char* filename, const uint8_t* rgb_data, uint32_t width, uint32_t height)
+{
+    // Convert BGR to RGB since LVGL might be providing BGR data
+    std::vector<uint8_t> corrected_data(width * height * 3);
+    for (uint32_t i = 0; i < width * height; i++) {
+        uint32_t src_idx = i * 3;
+        uint32_t dst_idx = i * 3;
+        // Swap R and B channels (BGR -> RGB)
+        corrected_data[dst_idx + 0] = rgb_data[src_idx + 2]; // R from B
+        corrected_data[dst_idx + 1] = rgb_data[src_idx + 1]; // G stays G
+        corrected_data[dst_idx + 2] = rgb_data[src_idx + 0]; // B from R
+    }
+
+    unsigned char* png_data;
+    size_t png_size;
+
+    // Encode corrected RGB data to PNG
+    unsigned error = lodepng_encode24(&png_data, &png_size, corrected_data.data(), width, height);
+
+    if (error) {
+        printf("PNG encoding error %u: %s\n", error, lodepng_error_text(error));
+        return;
+    }
+
+    // Write PNG data to file
+    std::ofstream file(filename, std::ios::binary);
+    if (!file.is_open()) {
+        printf("Failed to open file: %s\n", filename);
+        free(png_data);
+        return;
+    }
+
+    file.write(reinterpret_cast<const char*>(png_data), png_size);
+    file.close();
+    free(png_data);
+
+    printf("Screenshot saved: %s (%zu bytes)\n", filename, png_size);
+}
+
+void SimulatorUI::screenshotBtnEventCb(lv_event_t* e)
+{
+    if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
+        // Generate ISO8601 timestamp
+        time_t now = time(nullptr);
+        struct tm* timeinfo = localtime(&now);
+        char timestamp[32];
+        strftime(timestamp, sizeof(timestamp), "%Y-%m-%dT%H:%M:%S", timeinfo);
+
+        // Get executable directory and create filename
+        std::string exe_dir = get_executable_directory();
+        char filename[512];
+        snprintf(filename, sizeof(filename), "%s/screenshot-%s.png", exe_dir.c_str(), timestamp);
+
+        CallbackData* data = static_cast<CallbackData*>(lv_event_get_user_data(e));
+        if (!data || !data->ui || !data->ui->screen_) {
+            printf("Screenshot failed: Invalid UI data\n");
+            return;
+        }
+
+        // Take screenshot using LVGL snapshot
+        lv_draw_buf_t* snapshot = lv_snapshot_take(data->ui->screen_, LV_COLOR_FORMAT_RGB888);
+        if (!snapshot) {
+            printf("Failed to take LVGL snapshot\n");
+            return;
+        }
+
+        // Get snapshot dimensions and data
+        uint32_t width = snapshot->header.w;
+        uint32_t height = snapshot->header.h;
+        uint8_t* rgb_data = static_cast<uint8_t*>(snapshot->data);
+
+        printf("Captured snapshot: %dx%d pixels\n", width, height);
+
+        // Save as PNG file in the same directory as the binary
+        write_png_file(filename, rgb_data, width, height);
+
+        // Clean up the snapshot
+        lv_draw_buf_destroy(snapshot);
+
+        // Print UI layout info for debugging overlap issues
+        lv_area_t screen_area;
+        lv_obj_get_coords(data->ui->screen_, &screen_area);
+        printf(
+            "UI Layout Info - Screen area: x1=%d, y1=%d, x2=%d, y2=%d (width=%d, height=%d)\n",
+            screen_area.x1,
+            screen_area.y1,
+            screen_area.x2,
+            screen_area.y2,
+            lv_area_get_width(&screen_area),
+            lv_area_get_height(&screen_area));
+    }
+}
+
+// Static function to take exit screenshot
+void SimulatorUI::takeExitScreenshot()
+{
+    // Get current screen
+    lv_obj_t* screen = lv_scr_act();
+    if (!screen) {
+        printf("No active screen found for exit screenshot\n");
+        return;
+    }
+
+    // Take screenshot using LVGL snapshot
+    lv_draw_buf_t* snapshot = lv_snapshot_take(screen, LV_COLOR_FORMAT_RGB888);
+    if (!snapshot) {
+        printf("Failed to take exit screenshot\n");
+        return;
+    }
+
+    // Get executable directory and create filename
+    std::string exec_dir = get_executable_directory();
+    std::string filename = exec_dir + "/screenshot-last-exit.png";
+
+    // Get buffer data and dimensions
+    const uint8_t* rgb_data = static_cast<const uint8_t*>(snapshot->data);
+    uint32_t width = snapshot->header.w;
+    uint32_t height = snapshot->header.h;
+
+    // Save PNG file
+    write_png_file(filename.c_str(), rgb_data, width, height);
+
+    // Clean up
+    lv_draw_buf_destroy(snapshot);
+
+    printf("Exit screenshot saved as: %s\n", filename.c_str());
 }

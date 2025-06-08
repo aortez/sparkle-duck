@@ -21,6 +21,7 @@ public:
 
     // Set the world after UI creation
     void setWorld(World* world);
+    World* getWorld() const { return world_; }
 
     // UI update methods
     void updateMassLabel(double totalMass);
@@ -31,6 +32,9 @@ public:
 
     // Initialize the UI after world is fully constructed
     void initialize();
+
+    // Static function to take exit screenshot
+    static void takeExitScreenshot();
 
 private:
     World* world_;
@@ -71,6 +75,13 @@ private:
     static void fragmentationSliderEventCb(lv_event_t* e);
     static void pressureSliderEventCb(lv_event_t* e);
     static void quitBtnEventCb(lv_event_t* e);
+
+    // WorldSetup control buttons
+    static void leftThrowBtnEventCb(lv_event_t* e);
+    static void rightThrowBtnEventCb(lv_event_t* e);
+    static void quadrantBtnEventCb(lv_event_t* e);
+    static void rainSliderEventCb(lv_event_t* e);
+    static void screenshotBtnEventCb(lv_event_t* e);
 
     // Helper to create callback data
     CallbackData* createCallbackData(lv_obj_t* label = nullptr);

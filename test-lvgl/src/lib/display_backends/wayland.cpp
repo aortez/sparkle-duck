@@ -29,6 +29,8 @@
 #include "../simulator_settings.h"
 #include "../simulator_util.h"
 
+#include "../../SimulatorUI.h"
+
 /*********************
  *      DEFINES
  *********************/
@@ -158,6 +160,8 @@ static void run_loop_wayland(World& world)
             break;
         }
     }
+    
+    SimulatorUI::takeExitScreenshot();
 }
 
 #endif /*#if LV_USE_WAYLAND*/

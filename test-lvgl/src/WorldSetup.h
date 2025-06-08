@@ -34,3 +34,46 @@ public:
 
     void addParticles(World& world, uint32_t timestep, double deltaTimeSeconds) override;
 };
+
+/**
+ * Configurable WorldSetup that allows toggling features on/off
+ */
+class ConfigurableWorldSetup : public WorldSetup {
+public:
+    ~ConfigurableWorldSetup() override = default;
+
+    void setup(World& world) override;
+    void addParticles(World& world, uint32_t timestep, double deltaTimeSeconds) override;
+
+    // Control flags for setup features
+    void setLowerRightQuadrantEnabled(bool enabled) { lowerRightQuadrantEnabled = enabled; }
+    void setWallsEnabled(bool enabled) { wallsEnabled = enabled; }
+
+    // Control flags for particle generation features
+    void setLeftThrowEnabled(bool enabled) { leftThrowEnabled = enabled; }
+    void setRightThrowEnabled(bool enabled) { rightThrowEnabled = enabled; }
+    void setTopDropEnabled(bool enabled) { topDropEnabled = enabled; }
+    void setSweepEnabled(bool enabled) { sweepEnabled = enabled; }
+    void setRainRate(double rate) { rainRate = rate; }
+
+    // Getters for current state
+    bool isLowerRightQuadrantEnabled() const { return lowerRightQuadrantEnabled; }
+    bool areWallsEnabled() const { return wallsEnabled; }
+    bool isLeftThrowEnabled() const { return leftThrowEnabled; }
+    bool isRightThrowEnabled() const { return rightThrowEnabled; }
+    bool isTopDropEnabled() const { return topDropEnabled; }
+    bool isSweepEnabled() const { return sweepEnabled; }
+    double getRainRate() const { return rainRate; }
+
+private:
+    // Setup control flags
+    bool lowerRightQuadrantEnabled = true;
+    bool wallsEnabled = true;
+
+    // Particle generation control flags
+    bool leftThrowEnabled = true;
+    bool rightThrowEnabled = true;
+    bool topDropEnabled = true;
+    bool sweepEnabled = false; // Currently disabled in DefaultWorldSetup
+    double rainRate = 0.0;     // Rain rate in drops per second, 0 = disabled
+};

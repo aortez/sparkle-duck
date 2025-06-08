@@ -96,6 +96,9 @@ public:
     // Set the pressure scale factor
     void setPressureScale(double scale) { pressureScale = scale; }
 
+    // Resize the world grid based on new cell size
+    void resizeGrid(uint32_t newWidth, uint32_t newHeight);
+
     // Cursor force interaction
     void setCursorForceEnabled(bool enabled) { cursorForceEnabled = enabled; }
     void updateCursorForce(int pixelX, int pixelY, bool isActive);
@@ -128,6 +131,18 @@ public:
 
     // Get the current world setup strategy
     std::unique_ptr<WorldSetup> getWorldSetup() { return std::move(worldSetup); }
+
+    // ConfigurableWorldSetup control methods
+    void setLeftThrowEnabled(bool enabled);
+    void setRightThrowEnabled(bool enabled);
+    void setLowerRightQuadrantEnabled(bool enabled);
+    void setWallsEnabled(bool enabled);
+    void setRainRate(double rate);
+    bool isLeftThrowEnabled() const;
+    bool isRightThrowEnabled() const;
+    bool isLowerRightQuadrantEnabled() const;
+    bool areWallsEnabled() const;
+    double getRainRate() const;
 
     double timescale = 1.0;
 

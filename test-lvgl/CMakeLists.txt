@@ -129,6 +129,7 @@ install(TARGETS lvgl_linux
 
 add_custom_target (run COMMAND ${EXECUTABLE_OUTPUT_PATH}/sparkle-duck DEPENDS sparkle-duck)
 
+
 # Add test executable
 add_executable(sparkle-duck-tests
     src/tests/Vector2d_test.cpp
