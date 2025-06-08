@@ -115,6 +115,10 @@ public:
     // Set the pressure scale factor
     void setPressureScale(double scale) { pressureScale = scale; }
 
+    // Water physics configuration
+    void setWaterPressureThreshold(double threshold) { waterPressureThreshold = threshold; }
+    double getWaterPressureThreshold() const { return waterPressureThreshold; }
+
     // Resize the world grid based on new cell size
     void resizeGrid(uint32_t newWidth, uint32_t newHeight, bool clearHistory = true);
 
@@ -213,6 +217,9 @@ private:
 
     // Pressure scale factor (default 1.0)
     double pressureScale = 1.0;
+
+    // Water physics configuration
+    double waterPressureThreshold = 0.005; // Default threshold for water pressure application
 
     // Cursor force state
     bool cursorForceEnabled = true;

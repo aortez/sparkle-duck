@@ -76,6 +76,12 @@ private:
     static void pressureSliderEventCb(lv_event_t* e);
     static void quitBtnEventCb(lv_event_t* e);
 
+    // Water physics sliders
+    static void waterCohesionSliderEventCb(lv_event_t* e);
+    static void waterViscositySliderEventCb(lv_event_t* e);
+    static void waterPressureThresholdSliderEventCb(lv_event_t* e);
+    static void waterBuoyancySliderEventCb(lv_event_t* e);
+
     // WorldSetup control buttons
     static void leftThrowBtnEventCb(lv_event_t* e);
     static void rightThrowBtnEventCb(lv_event_t* e);

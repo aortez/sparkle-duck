@@ -15,16 +15,15 @@
 #include <random>
 #include <stdexcept>
 
-// #define LOG_DEBUG
-#ifdef LOG_DEBU
-#define LOG_DEBUG(x) std::cout << x << std::endl
+#define LOG_DEBUG
+#ifdef LOG_DEBUG
 #define LOG_DEBUG(x) std::cout << x << std::endl
 #else
 #define LOG_DEBUG(x) ((void)0)
 #endif
 
 // Debug logging specifically for particle events
-// #define LOG_PARTICLES
+#define LOG_PARTICLES
 #ifdef LOG_PARTICLES
 #define LOG_PARTICLES(x) std::cout << "[Particles] " << x << std::endl
 #else
@@ -241,20 +240,26 @@ void World::applyPhysicsToCell(Cell& cell, uint32_t x, uint32_t y, double deltaT
     // Apply gravity
     cell.v.y += gravity * deltaTimeSeconds;
 
-    // Apply water cohesion and viscosity if this is a water cell
-    if (cell.water >= MIN_DIRT_THRESHOLD) {
-        for (int dy = -1; dy <= 1; dy++) {
-            for (int dx = -1; dx <= 1; dx++) {
-                if (dx == 0 && dy == 0) continue;
+    // Apply water physics (cohesion, viscosity) and buoyancy
+    for (int dy = -1; dy <= 1; dy++) {
+        for (int dx = -1; dx <= 1; dx++) {
+            if (dx == 0 && dy == 0) continue;
 
-                int nx = x + dx;
-                int ny = y + dy;
-                if (isWithinBounds(nx, ny)) {
-                    Cell& neighbor = at(nx, ny);
+            int nx = x + dx;
+            int ny = y + dy;
+            if (isWithinBounds(nx, ny)) {
+                Cell& neighbor = at(nx, ny);
+
+                // Apply water cohesion and viscosity if this is a water cell
+                if (cell.water >= MIN_DIRT_THRESHOLD) {
                     Vector2d cohesion = cell.calculateWaterCohesion(cell, neighbor);
                     cell.v += cohesion * deltaTimeSeconds;
                     cell.applyViscosity(neighbor);
                 }
+
+                // Apply buoyancy forces (works on any cell with dirt or water)
+                Vector2d buoyancy = cell.calculateBuoyancy(cell, neighbor, dx, dy);
+                cell.v += buoyancy * deltaTimeSeconds;
             }
         }
     }
@@ -468,7 +473,7 @@ void World::applyPressure(const double deltaTimeSeconds)
             double maxPressureForFullProb;
             if (cell.water > cell.dirt) {
                 // Water flows easily - very low threshold
-                pressureThreshold = 0.005; // Low enough to be triggered by typical pressure values
+                pressureThreshold = waterPressureThreshold; // Configurable water pressure threshold
                 maxPressureForFullProb = pressureThreshold * 10.0; // 100% at 10x threshold
             }
             else {
@@ -937,6 +942,10 @@ uint32_t World::getHeight() const
 
 void World::reset()
 {
+    // Exit time reversal navigation mode to ensure we're working with current state
+    currentHistoryIndex = -1;
+    hasStoredCurrentState = false;
+
     // Mark user input for time reversal
     markUserInput();
 

@@ -780,6 +780,190 @@ TEST_F(WorldTest, PressureTest_DebugPressureGeneration) {
     std::cout << "=== PRESSURE DEBUG TEST COMPLETE ===" << std::endl;
 }
 
+TEST_F(WorldTest, WaterPressureSystem_ComprehensiveTest) {
+    // Create a 3x3 world for comprehensive water pressure testing
+    width = 3;
+    height = 3;
+    createWorld();
+    world->setGravity(0.0); // Disable gravity to control the scenario
+    
+    std::cout << "\n=== WATER PRESSURE SYSTEM TEST ===" << std::endl;
+    
+    // STEP 1: Test water pressure generation from COM deflection
+    std::cout << "STEP 1: Testing water pressure generation..." << std::endl;
+    
+    // Create a water cell with significant COM deflection 
+    Cell& waterSource = world->at(1, 1); // Center cell
+    waterSource.dirt = 0.0;
+    waterSource.water = 1.0;  // Pure water cell
+    waterSource.com = Vector2d(0.5, -0.4);  // Deflected right and up
+    waterSource.v = Vector2d(0.0, 0.0);
+    
+    // Add some water neighbors to test cohesion effects
+    world->at(0, 1).water = 0.5;  // Left neighbor with water
+    world->at(0, 1).dirt = 0.0;
+    world->at(0, 1).com = Vector2d(0.0, 0.0);
+    world->at(0, 1).v = Vector2d(0.0, 0.0);
+    
+    world->at(2, 1).water = 0.0;  // Right neighbor empty (will receive pressure)
+    world->at(2, 1).dirt = 0.0;
+    world->at(2, 1).com = Vector2d(0.0, 0.0);
+    world->at(2, 1).v = Vector2d(0.0, 0.0);
+    
+    world->at(1, 0).water = 0.0;  // Up neighbor empty (will receive pressure)
+    world->at(1, 0).dirt = 0.0;
+    world->at(1, 0).com = Vector2d(0.0, 0.0);
+    world->at(1, 0).v = Vector2d(0.0, 0.0);
+    
+    // Clear all pressures first
+    for (uint32_t y = 0; y < height; ++y) {
+        for (uint32_t x = 0; x < width; ++x) {
+            world->at(x, y).pressure = Vector2d(0.0, 0.0);
+        }
+    }
+    
+    std::cout << "Water source cell (1,1) COM: (" << waterSource.com.x << ", " << waterSource.com.y << ")" << std::endl;
+    std::cout << "Water source normalized deflection: (" << waterSource.getNormalizedDeflection().x 
+              << ", " << waterSource.getNormalizedDeflection().y << ")" << std::endl;
+    
+    // Store initial velocity to check cohesion effects
+    Vector2d initialVelocity = waterSource.v;
+    
+    // Run one simulation step to generate pressure and apply water physics
+    double deltaTime = 0.016;
+    world->advanceTime(deltaTime);
+    
+    std::cout << "After one simulation step:" << std::endl;
+    std::cout << "  Right neighbor (2,1) pressure: (" << world->at(2, 1).pressure.x 
+              << ", " << world->at(2, 1).pressure.y << ")" << std::endl;
+    std::cout << "  Up neighbor (1,0) pressure: (" << world->at(1, 0).pressure.x 
+              << ", " << world->at(1, 0).pressure.y << ")" << std::endl;
+    
+    // Verify pressure was generated based on water COM deflection
+    EXPECT_GT(world->at(2, 1).pressure.x, 0.005) << "Right neighbor should have positive X pressure from water deflection";
+    EXPECT_GT(world->at(1, 0).pressure.y, 0.003) << "Up neighbor should have positive Y pressure from water deflection";
+    
+    // STEP 2: Test water cohesion effects
+    std::cout << "\nSTEP 2: Testing water cohesion..." << std::endl;
+    
+    Vector2d velocityAfterCohesion = waterSource.v;
+    Vector2d velocityChange = velocityAfterCohesion - initialVelocity;
+    
+    std::cout << "Water source velocity change from cohesion: (" << velocityChange.x 
+              << ", " << velocityChange.y << ")" << std::endl;
+    
+    // Water should be attracted to its water neighbor (left), so velocity should be leftward
+    EXPECT_LT(velocityChange.x, 0.0) << "Water should be attracted leftward to water neighbor due to cohesion";
+    
+    // STEP 3: Test water pressure application with lower threshold
+    std::cout << "\nSTEP 3: Testing water pressure application..." << std::endl;
+    
+    // Reset scenario for pressure application test
+    world->at(1, 1).water = 0.8;
+    world->at(1, 1).dirt = 0.0;
+    world->at(1, 1).com = Vector2d(0.3, 0.0);  // Moderate deflection
+    world->at(1, 1).v = Vector2d(0.0, 0.0);
+    world->at(1, 1).pressure = Vector2d(0.0, 0.0);
+    
+    // Add water to right neighbor to receive pressure
+    world->at(2, 1).water = 0.3;
+    world->at(2, 1).dirt = 0.0;
+    world->at(2, 1).com = Vector2d(0.0, 0.0);
+    world->at(2, 1).v = Vector2d(0.0, 0.0);
+    world->at(2, 1).pressure = Vector2d(0.02, 0.0);  // Artificial pressure for testing
+    
+    Vector2d initialWaterVelocity = world->at(2, 1).v;
+    
+    // Apply pressure directly
+    world->applyPressure(deltaTime);
+    
+    Vector2d finalWaterVelocity = world->at(2, 1).v;
+    Vector2d waterVelocityChange = finalWaterVelocity - initialWaterVelocity;
+    
+    std::cout << "Water velocity change from pressure: (" << waterVelocityChange.x 
+              << ", " << waterVelocityChange.y << ")" << std::endl;
+    
+    // Water should flow easily - should have significant velocity change from pressure
+    EXPECT_GT(waterVelocityChange.x, 0.1) << "Water should flow easily under pressure (low threshold)";
+    
+    // STEP 4: Test water mass conservation during pressure-driven flow
+    std::cout << "\nSTEP 4: Testing water mass conservation..." << std::endl;
+    
+    // Reset for flow test - create a pressure gradient
+    for (uint32_t y = 0; y < height; ++y) {
+        for (uint32_t x = 0; x < width; ++x) {
+            world->at(x, y).dirt = 0.0;
+            world->at(x, y).water = 0.0;
+            world->at(x, y).com = Vector2d(0.0, 0.0);
+            world->at(x, y).v = Vector2d(0.0, 0.0);
+            world->at(x, y).pressure = Vector2d(0.0, 0.0);
+        }
+    }
+    
+    // Create water gradient - more water on left, less on right
+    world->at(0, 1).water = 1.0;  // Full water
+    world->at(0, 1).com = Vector2d(0.4, 0.0);  // Slight rightward deflection
+    
+    world->at(1, 1).water = 0.5;  // Half water
+    world->at(1, 1).com = Vector2d(0.0, 0.0);
+    
+    world->at(2, 1).water = 0.1;  // Little water
+    world->at(2, 1).com = Vector2d(0.0, 0.0);
+    
+    double initialTotalWater = world->at(0, 1).water + world->at(1, 1).water + world->at(2, 1).water;
+    std::cout << "Initial total water: " << initialTotalWater << std::endl;
+    
+    // Run simulation for several steps to allow water flow
+    for (int i = 0; i < 20; ++i) {
+        world->advanceTime(deltaTime);
+        
+        // Check mass conservation each step
+        double currentTotalWater = world->at(0, 1).water + world->at(1, 1).water + world->at(2, 1).water;
+        EXPECT_NEAR(currentTotalWater, initialTotalWater, 0.01) 
+            << "Water mass should be conserved during pressure-driven flow at step " << i;
+    }
+    
+    double finalTotalWater = world->at(0, 1).water + world->at(1, 1).water + world->at(2, 1).water;
+    std::cout << "Final total water: " << finalTotalWater << std::endl;
+    
+    // Verify final mass conservation
+    EXPECT_NEAR(finalTotalWater, initialTotalWater, 0.01) << "Water mass should be conserved over full simulation";
+    
+    // STEP 5: Test water viscosity effects
+    std::cout << "\nSTEP 5: Testing water viscosity..." << std::endl;
+    
+    // Create two water cells with different velocities to test viscosity
+    world->at(0, 0).water = 1.0;
+    world->at(0, 0).dirt = 0.0;
+    world->at(0, 0).com = Vector2d(0.0, 0.0);
+    world->at(0, 0).v = Vector2d(2.0, 0.0);  // Fast moving water
+    
+    world->at(1, 0).water = 1.0;
+    world->at(1, 0).dirt = 0.0;
+    world->at(1, 0).com = Vector2d(0.0, 0.0);
+    world->at(1, 0).v = Vector2d(0.0, 0.0);  // Still water
+    
+    Vector2d fastWaterInitialV = world->at(0, 0).v;
+    Vector2d stillWaterInitialV = world->at(1, 0).v;
+    
+    // Run simulation to apply viscosity
+    world->advanceTime(deltaTime);
+    
+    Vector2d fastWaterFinalV = world->at(0, 0).v;
+    Vector2d stillWaterFinalV = world->at(1, 0).v;
+    
+    // Viscosity should reduce velocity difference between neighboring water cells
+    double initialVelocityDiff = (fastWaterInitialV - stillWaterInitialV).mag();
+    double finalVelocityDiff = (fastWaterFinalV - stillWaterFinalV).mag();
+    
+    std::cout << "Initial velocity difference: " << initialVelocityDiff << std::endl;
+    std::cout << "Final velocity difference: " << finalVelocityDiff << std::endl;
+    
+    EXPECT_LT(finalVelocityDiff, initialVelocityDiff) << "Viscosity should reduce velocity differences between water cells";
+    
+    std::cout << "=== WATER PRESSURE SYSTEM TEST COMPLETE ===" << std::endl;
+}
+
 // Time reversal unit tests
 // NOTE: These tests work individually but have a known interaction issue when run together.
 // The first test to run always passes, the second always fails with an out-of-bounds exception.

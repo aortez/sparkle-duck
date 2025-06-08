@@ -25,6 +25,11 @@ bool Cell::debugDraw = true;
 uint32_t Cell::WIDTH = 100;  // Increased size for better detail visibility
 uint32_t Cell::HEIGHT = 100; // Increased size for better detail visibility
 
+// Initialize water physics constants
+double Cell::COHESION_STRENGTH = 0.1; // Default cohesion strength
+double Cell::VISCOSITY_FACTOR = 0.1;  // Default viscosity factor
+double Cell::BUOYANCY_STRENGTH = 0.1; // Default buoyancy strength
+
 Cell::Cell()
     : dirt(0.0),
       water(0.0),
@@ -147,6 +152,15 @@ void Cell::drawNormal(lv_obj_t* parent, uint32_t x, uint32_t y)
     lv_layer_t layer;
     lv_canvas_init_layer(canvas, &layer);
 
+    // Draw black background for all cells
+    lv_draw_rect_dsc_t bg_rect_dsc;
+    lv_draw_rect_dsc_init(&bg_rect_dsc);
+    bg_rect_dsc.bg_color = lv_color_hex(0x000000); // Black background
+    bg_rect_dsc.bg_opa = LV_OPA_COVER;
+    bg_rect_dsc.border_width = 0;
+    lv_area_t coords = { 0, 0, WIDTH, HEIGHT };
+    lv_draw_rect(&layer, &bg_rect_dsc, &coords);
+
     // Draw dirt layer
     lv_draw_rect_dsc_t rect_dsc;
     lv_draw_rect_dsc_init(&rect_dsc);
@@ -157,7 +171,6 @@ void Cell::drawNormal(lv_obj_t* parent, uint32_t x, uint32_t y)
         static_cast<lv_opa_t>(opacity_dirt * 0.3); // 30% of dirt opacity for softer look
     rect_dsc.border_width = 1;
     rect_dsc.radius = 1;
-    lv_area_t coords = { 0, 0, WIDTH, HEIGHT };
     lv_draw_rect(&layer, &rect_dsc, &coords);
 
     // Draw water layer on top
@@ -185,6 +198,15 @@ void Cell::drawDebug(lv_obj_t* parent, uint32_t x, uint32_t y)
 
     lv_layer_t layer;
     lv_canvas_init_layer(canvas, &layer);
+
+    // Draw black background for all cells
+    lv_draw_rect_dsc_t bg_rect_dsc;
+    lv_draw_rect_dsc_init(&bg_rect_dsc);
+    bg_rect_dsc.bg_color = lv_color_hex(0x000000); // Black background
+    bg_rect_dsc.bg_opa = LV_OPA_COVER;
+    bg_rect_dsc.border_width = 0;
+    lv_area_t bg_coords = { 0, 0, WIDTH, HEIGHT };
+    lv_draw_rect(&layer, &bg_rect_dsc, &bg_coords);
 
     // // Draw density variation background using a gradient effect
     // double totalDensity = percentFull();
@@ -360,4 +382,39 @@ void Cell::applyViscosity(const Cell& neighbor)
         Vector2d avgVelocity = (v * water + neighbor.v * neighbor.water) / totalMass;
         v = v + (avgVelocity - v) * VISCOSITY_FACTOR;
     }
+}
+
+Vector2d Cell::calculateBuoyancy(const Cell& cell, const Cell& neighbor, int dx, int dy) const
+{
+    // Buoyancy occurs when dirt is surrounded by water
+    // Calculate upward force based on density difference and water amount
+
+    // Only apply buoyancy if this cell has dirt and the neighbor has water
+    if (cell.dirt < World::MIN_DIRT_THRESHOLD || neighbor.water < World::MIN_DIRT_THRESHOLD) {
+        return Vector2d(0.0, 0.0);
+    }
+
+    // Calculate density difference (water is less dense than dirt)
+    // In reality, dirt is denser than water, so buoyancy pushes dirt upward
+    double densityDifference =
+        neighbor.water - cell.water; // More water in neighbor = more buoyancy
+
+    // Only apply upward buoyancy force (negative y direction in our coordinate system)
+    // where positive y is downward due to gravity
+    Vector2d buoyancyForce = Vector2d(0.0, 0.0);
+
+    // Apply upward buoyancy if neighbor is below (dy > 0) and has more water
+    if (dy > 0 && densityDifference > 0) {
+        double force = BUOYANCY_STRENGTH * cell.dirt * neighbor.water * densityDifference;
+        buoyancyForce = Vector2d(0.0, -force); // Upward force (negative y)
+    }
+
+    // Apply sideways buoyancy for horizontal water displacement
+    if (dx != 0 && densityDifference > 0) {
+        double lateralForce = BUOYANCY_STRENGTH * cell.dirt * neighbor.water * densityDifference
+            * 0.3;                           // Weaker lateral effect
+        buoyancyForce.x = dx * lateralForce; // Push away from higher water concentration
+    }
+
+    return buoyancyForce;
 }

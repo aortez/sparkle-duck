@@ -325,6 +325,86 @@ void SimulatorUI::createSliders()
     lv_slider_set_value(rain_slider, 0, LV_ANIM_OFF);
     lv_obj_add_event_cb(
         rain_slider, rainSliderEventCb, LV_EVENT_ALL, createCallbackData(rain_value_label));
+
+    // Water cohesion slider
+    lv_obj_t* cohesion_label = lv_label_create(screen_);
+    lv_label_set_text(cohesion_label, "Water Cohesion");
+    lv_obj_align(cohesion_label, LV_ALIGN_TOP_RIGHT, -10, 860);
+
+    lv_obj_t* cohesion_value_label = lv_label_create(screen_);
+    lv_label_set_text(cohesion_value_label, "0.100");
+    lv_obj_align(cohesion_value_label, LV_ALIGN_TOP_RIGHT, -160, 860);
+
+    lv_obj_t* cohesion_slider = lv_slider_create(screen_);
+    lv_obj_set_size(cohesion_slider, CONTROL_WIDTH, 10);
+    lv_obj_align(cohesion_slider, LV_ALIGN_TOP_RIGHT, -10, 880);
+    lv_slider_set_range(cohesion_slider, 0, 1000);          // 0.0 to 1.0 range
+    lv_slider_set_value(cohesion_slider, 100, LV_ANIM_OFF); // Default 0.1 -> 100
+    lv_obj_add_event_cb(
+        cohesion_slider,
+        waterCohesionSliderEventCb,
+        LV_EVENT_ALL,
+        createCallbackData(cohesion_value_label));
+
+    // Water viscosity slider
+    lv_obj_t* viscosity_label = lv_label_create(screen_);
+    lv_label_set_text(viscosity_label, "Water Viscosity");
+    lv_obj_align(viscosity_label, LV_ALIGN_TOP_RIGHT, -10, 900);
+
+    lv_obj_t* viscosity_value_label = lv_label_create(screen_);
+    lv_label_set_text(viscosity_value_label, "0.100");
+    lv_obj_align(viscosity_value_label, LV_ALIGN_TOP_RIGHT, -160, 900);
+
+    lv_obj_t* viscosity_slider = lv_slider_create(screen_);
+    lv_obj_set_size(viscosity_slider, CONTROL_WIDTH, 10);
+    lv_obj_align(viscosity_slider, LV_ALIGN_TOP_RIGHT, -10, 920);
+    lv_slider_set_range(viscosity_slider, 0, 1000);          // 0.0 to 1.0 range
+    lv_slider_set_value(viscosity_slider, 100, LV_ANIM_OFF); // Default 0.1 -> 100
+    lv_obj_add_event_cb(
+        viscosity_slider,
+        waterViscositySliderEventCb,
+        LV_EVENT_ALL,
+        createCallbackData(viscosity_value_label));
+
+    // Water pressure threshold slider
+    lv_obj_t* water_pressure_label = lv_label_create(screen_);
+    lv_label_set_text(water_pressure_label, "Water Pressure Threshold");
+    lv_obj_align(water_pressure_label, LV_ALIGN_TOP_RIGHT, -10, 940);
+
+    lv_obj_t* water_pressure_value_label = lv_label_create(screen_);
+    lv_label_set_text(water_pressure_value_label, "0.0050");
+    lv_obj_align(water_pressure_value_label, LV_ALIGN_TOP_RIGHT, -200, 940);
+
+    lv_obj_t* water_pressure_slider = lv_slider_create(screen_);
+    lv_obj_set_size(water_pressure_slider, CONTROL_WIDTH, 10);
+    lv_obj_align(water_pressure_slider, LV_ALIGN_TOP_RIGHT, -10, 960);
+    lv_slider_set_range(water_pressure_slider, 0, 1000);         // 0.0 to 0.1
+    lv_slider_set_value(water_pressure_slider, 50, LV_ANIM_OFF); // Default 0.005 -> 50
+    lv_obj_add_event_cb(
+        water_pressure_slider,
+        waterPressureThresholdSliderEventCb,
+        LV_EVENT_ALL,
+        createCallbackData(water_pressure_value_label));
+
+    // Water buoyancy slider
+    lv_obj_t* buoyancy_label = lv_label_create(screen_);
+    lv_label_set_text(buoyancy_label, "Water Buoyancy:");
+    lv_obj_align(buoyancy_label, LV_ALIGN_TOP_RIGHT, -10, 980);
+
+    lv_obj_t* buoyancy_value_label = lv_label_create(screen_);
+    lv_label_set_text(buoyancy_value_label, "0.100");
+    lv_obj_align(buoyancy_value_label, LV_ALIGN_TOP_RIGHT, -160, 980);
+
+    lv_obj_t* buoyancy_slider = lv_slider_create(screen_);
+    lv_obj_set_size(buoyancy_slider, CONTROL_WIDTH, 10);
+    lv_obj_align(buoyancy_slider, LV_ALIGN_TOP_RIGHT, -10, 1000);
+    lv_slider_set_range(buoyancy_slider, 0, 1000);          // 0.0 to 1.0 range
+    lv_slider_set_value(buoyancy_slider, 100, LV_ANIM_OFF); // Default 0.1 -> 100
+    lv_obj_add_event_cb(
+        buoyancy_slider,
+        waterBuoyancySliderEventCb,
+        LV_EVENT_ALL,
+        createCallbackData(buoyancy_value_label));
 }
 
 void SimulatorUI::setupDrawAreaEvents()
@@ -604,6 +684,64 @@ void SimulatorUI::rainSliderEventCb(lv_event_t* e)
         }
         char buf[16];
         snprintf(buf, sizeof(buf), "%.0f/s", rain_rate);
+        lv_label_set_text(data->associated_label, buf);
+    }
+}
+
+void SimulatorUI::waterCohesionSliderEventCb(lv_event_t* e)
+{
+    lv_obj_t* slider = static_cast<lv_obj_t*>(lv_event_get_target(e));
+    CallbackData* data = static_cast<CallbackData*>(lv_event_get_user_data(e));
+    if (lv_event_get_code(e) == LV_EVENT_VALUE_CHANGED && data) {
+        int32_t value = lv_slider_get_value(slider);
+        double cohesion = value / 1000.0; // Map 0-1000 to 0.0-1.0
+        Cell::setCohesionStrength(cohesion);
+        char buf[16];
+        snprintf(buf, sizeof(buf), "%.3f", cohesion);
+        lv_label_set_text(data->associated_label, buf);
+    }
+}
+
+void SimulatorUI::waterViscositySliderEventCb(lv_event_t* e)
+{
+    lv_obj_t* slider = static_cast<lv_obj_t*>(lv_event_get_target(e));
+    CallbackData* data = static_cast<CallbackData*>(lv_event_get_user_data(e));
+    if (lv_event_get_code(e) == LV_EVENT_VALUE_CHANGED && data) {
+        int32_t value = lv_slider_get_value(slider);
+        double viscosity = value / 1000.0; // Map 0-1000 to 0.0-1.0
+        Cell::setViscosityFactor(viscosity);
+        char buf[16];
+        snprintf(buf, sizeof(buf), "%.3f", viscosity);
+        lv_label_set_text(data->associated_label, buf);
+    }
+}
+
+void SimulatorUI::waterPressureThresholdSliderEventCb(lv_event_t* e)
+{
+    lv_obj_t* slider = static_cast<lv_obj_t*>(lv_event_get_target(e));
+    CallbackData* data = static_cast<CallbackData*>(lv_event_get_user_data(e));
+    if (lv_event_get_code(e) == LV_EVENT_VALUE_CHANGED && data) {
+        int32_t value = lv_slider_get_value(slider);
+        double threshold = value / 10000.0; // Map 0-1000 to 0.0-0.1
+        if (data->world) {
+            data->world->setWaterPressureThreshold(threshold);
+        }
+        char buf[16];
+        snprintf(buf, sizeof(buf), "%.4f", threshold);
+        lv_label_set_text(data->associated_label, buf);
+    }
+}
+
+void SimulatorUI::waterBuoyancySliderEventCb(lv_event_t* e)
+{
+    lv_obj_t* slider = static_cast<lv_obj_t*>(lv_event_get_target(e));
+    CallbackData* data = static_cast<CallbackData*>(lv_event_get_user_data(e));
+    if (lv_event_get_code(e) == LV_EVENT_VALUE_CHANGED && data) {
+        int32_t value = lv_slider_get_value(slider);
+        double buoyancy = value / 1000.0; // Map 0-1000 to 0.0-1.0
+        Cell::setBuoyancyStrength(buoyancy);
+        char buf[16];
+        snprintf(buf, sizeof(buf), "%.3f", buoyancy);
         lv_label_set_text(data->associated_label, buf);
     }
 }
