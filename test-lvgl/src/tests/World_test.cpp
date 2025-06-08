@@ -670,3 +670,111 @@ TEST_F(WorldTest, DirtFragmentation_LeavesPartialDirt) {
 TEST(DefaultWorldSetupVTable, Instantiate) {
     DefaultWorldSetup setup;
 }
+
+// Dedicated test to analyze pressure system step by step
+TEST_F(WorldTest, PressureTest_DebugPressureGeneration) {
+    // Create a simple 3x3 world for testing
+    width = 3;
+    height = 3;
+    createWorld();
+    world->setGravity(0.0); // Disable gravity to control the scenario
+    
+    std::cout << "\n=== PRESSURE DEBUG TEST ===" << std::endl;
+    
+    // STEP 1: Test pressure generation from COM deflection
+    std::cout << "STEP 1: Testing pressure generation..." << std::endl;
+    
+    // Create a cell with significant COM deflection 
+    Cell& sourceCell = world->at(1, 1); // Center cell
+    sourceCell.dirt = 1.0;
+    sourceCell.com = Vector2d(0.8, 0.0);  // Strongly deflected to the right
+    sourceCell.v = Vector2d(0.0, 0.0);
+    
+    // Ensure neighbors are empty to receive pressure
+    world->at(2, 1).dirt = 0.0;  // Right neighbor
+    world->at(0, 1).dirt = 0.0;  // Left neighbor
+    world->at(1, 0).dirt = 0.0;  // Up neighbor  
+    world->at(1, 2).dirt = 0.0;  // Down neighbor
+    
+    // Clear all pressures first
+    for (uint32_t y = 0; y < height; ++y) {
+        for (uint32_t x = 0; x < width; ++x) {
+            world->at(x, y).pressure = Vector2d(0.0, 0.0);
+        }
+    }
+    
+    std::cout << "Before pressure update:" << std::endl;
+    std::cout << "  Source cell (1,1) COM: (" << sourceCell.com.x << ", " << sourceCell.com.y << ")" << std::endl;
+    std::cout << "  Source cell normalized deflection: (" << sourceCell.getNormalizedDeflection().x 
+              << ", " << sourceCell.getNormalizedDeflection().y << ")" << std::endl;
+    std::cout << "  Right neighbor (2,1) pressure: (" << world->at(2, 1).pressure.x 
+              << ", " << world->at(2, 1).pressure.y << ")" << std::endl;
+    
+    // Manually call pressure update to generate pressure
+    double deltaTime = 0.016; // 16ms timestep
+    world->updateAllPressures(deltaTime);
+    
+    std::cout << "After pressure update:" << std::endl;
+    std::cout << "  Right neighbor (2,1) pressure: (" << world->at(2, 1).pressure.x 
+              << ", " << world->at(2, 1).pressure.y << ")" << std::endl;
+    
+    // Verify pressure was generated on the right neighbor
+    double expectedPressure = sourceCell.getNormalizedDeflection().x * sourceCell.percentFull() * deltaTime;
+    std::cout << "  Expected pressure: " << expectedPressure << std::endl;
+    
+    EXPECT_GT(world->at(2, 1).pressure.x, 0.01) << "Right neighbor should have positive X pressure";
+    EXPECT_NEAR(world->at(2, 1).pressure.x, expectedPressure, 0.002) 
+        << "Pressure should match expected calculation";
+    
+    // STEP 2: Test pressure application
+    std::cout << "\nSTEP 2: Testing pressure application..." << std::endl;
+    
+    // Add some dirt to the neighbor so pressure can be applied
+    world->at(2, 1).dirt = 0.5;
+    world->at(2, 1).com = Vector2d(0.0, 0.0);
+    world->at(2, 1).v = Vector2d(0.0, 0.0);
+    
+    std::cout << "Before pressure application:" << std::endl;
+    std::cout << "  Target cell (2,1) velocity: (" << world->at(2, 1).v.x 
+              << ", " << world->at(2, 1).v.y << ")" << std::endl;
+    std::cout << "  Target cell pressure: (" << world->at(2, 1).pressure.x 
+              << ", " << world->at(2, 1).pressure.y << ")" << std::endl;
+    
+    // Manually call pressure application
+    world->applyPressure(deltaTime);
+    
+    std::cout << "After pressure application:" << std::endl;
+    std::cout << "  Target cell (2,1) velocity: (" << world->at(2, 1).v.x 
+              << ", " << world->at(2, 1).v.y << ")" << std::endl;
+    
+    // Verify pressure caused velocity change
+    EXPECT_GT(world->at(2, 1).v.x, 0.1) << "Pressure should have increased X velocity";
+    
+    // STEP 3: Test full simulation step
+    std::cout << "\nSTEP 3: Testing full simulation step..." << std::endl;
+    
+    // Reset the scenario
+    sourceCell.dirt = 1.0;
+    sourceCell.com = Vector2d(0.9, 0.0);  // Even stronger deflection
+    sourceCell.v = Vector2d(0.0, 0.0);
+    
+    world->at(2, 1).dirt = 0.3;
+    world->at(2, 1).com = Vector2d(0.0, 0.0);
+    world->at(2, 1).v = Vector2d(0.0, 0.0);
+    
+    Vector2d initialVelocity = world->at(2, 1).v;
+    
+    // Run a full simulation step
+    world->advanceTime(deltaTime);
+    
+    Vector2d finalVelocity = world->at(2, 1).v;
+    
+    std::cout << "Full step - Initial velocity: (" << initialVelocity.x << ", " << initialVelocity.y << ")" << std::endl;
+    std::cout << "Full step - Final velocity: (" << finalVelocity.x << ", " << finalVelocity.y << ")" << std::endl;
+    
+    // Verify the full pipeline worked
+    double velocityChange = finalVelocity.x - initialVelocity.x;
+    EXPECT_GT(velocityChange, 0.05) << "Full simulation step should apply pressure effects";
+    
+    std::cout << "=== PRESSURE DEBUG TEST COMPLETE ===" << std::endl;
+}

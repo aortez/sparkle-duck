@@ -3,6 +3,11 @@
 #include "SimulatorUI.h"
 #include "Timers.h"
 #include <cassert>
+#include <cmath>
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 
 #include <algorithm>
 #include <iostream>
@@ -72,11 +77,11 @@ void World::advanceTime(const double deltaTimeSeconds)
 
     processDragEnd();
 
-    processTransfers(deltaTimeSeconds);
-
     updateAllPressures(deltaTimeSeconds);
 
     applyPressure(deltaTimeSeconds);
+
+    processTransfers(deltaTimeSeconds);
 
     applyMoves(); // Apply the pressure moves
 
@@ -410,16 +415,70 @@ void World::setUI(std::unique_ptr<SimulatorUI> ui)
 
 void World::applyPressure(const double deltaTimeSeconds)
 {
+    // Random number generator for probabilistic pressure application
+    static std::mt19937 rng(std::random_device{}());
+    static std::uniform_real_distribution<double> dist(0.0, 1.0);
+
+    int pressureApplications = 0; // Debug counter
+
     for (uint32_t y = 0; y < height; y++) {
         for (uint32_t x = 0; x < width; x++) {
             Cell& cell = at(x, y);
 
             // Skip empty cells or cells with negligible pressure
-            if (cell.percentFull() < MIN_DIRT_THRESHOLD || cell.pressure.mag() < 0.001) continue;
+            if (cell.percentFull() < MIN_DIRT_THRESHOLD) continue;
+
+            // Debug: Log pressure values for non-empty cells
+            if (cell.pressure.mag() > 0.001) {
+                LOG_DEBUG(
+                    "Cell (" << x << "," << y
+                             << ") has pressure magnitude: " << cell.pressure.mag());
+            }
+
+            if (cell.pressure.mag() < 0.001) continue;
+
+            // Calculate pressure thresholds based on material type
+            double pressureThreshold;
+            double maxPressureForFullProb;
+            if (cell.water > cell.dirt) {
+                // Water flows easily - very low threshold
+                pressureThreshold = 0.005; // Low enough to be triggered by typical pressure values
+                maxPressureForFullProb = pressureThreshold * 10.0; // 100% at 10x threshold
+            }
+            else {
+                // Dirt is more solid - higher threshold but still reachable
+                pressureThreshold = 0.01; // Low enough to be triggered by typical pressure values
+                maxPressureForFullProb = pressureThreshold * 20.0; // 100% at 20x threshold
+            }
+
+            double pressureMagnitude = cell.pressure.mag();
+
+            LOG_DEBUG(
+                "Cell (" << x << "," << y << ") pressure=" << pressureMagnitude
+                         << " threshold=" << pressureThreshold);
+
+            // Skip if below threshold
+            if (pressureMagnitude < pressureThreshold) continue;
+
+            // TEMPORARILY DISABLE PROBABILISTIC APPLICATION FOR DEBUGGING
+            // Calculate probability of pressure application
+            // 0% at threshold, 100% at maxPressureForFullProb
+            double excessPressure = pressureMagnitude - pressureThreshold;
+            double maxExcess = maxPressureForFullProb - pressureThreshold;
+            double probability = std::min(1.0, excessPressure / maxExcess);
+
+            LOG_DEBUG("Cell (" << x << "," << y << ") probability=" << probability);
+
+            // ALWAYS APPLY FOR DEBUGGING - COMMENT OUT THE PROBABILISTIC CHECK
+            // if (dist(rng) > probability) continue;
 
             // Calculate desired pressure direction
             Vector2d desiredDirection = cell.pressure.normalize();
-            double pressureForce = cell.pressure.mag() * pressureScale;
+            double pressureForce = pressureMagnitude * pressureScale;
+
+            LOG_DEBUG(
+                "Cell (" << x << "," << y << ") desiredDirection=(" << desiredDirection.x << ","
+                         << desiredDirection.y << ")");
 
             // First, try to apply pressure in the desired direction
             // Calculate which neighbor cell the pressure is pointing toward
@@ -436,13 +495,26 @@ void World::applyPressure(const double deltaTimeSeconds)
             int targetX = static_cast<int>(x) + targetDx;
             int targetY = static_cast<int>(y) + targetDy;
 
+            LOG_DEBUG(
+                "Cell (" << x << "," << y << ") targetCell=(" << targetX << "," << targetY << ")");
+
             // Check if the desired direction has available space
             bool canApplyDirectly = false;
             if (isWithinBounds(targetX, targetY)) {
                 Cell& targetCell = at(targetX, targetY);
+                LOG_DEBUG(
+                    "Cell (" << x << "," << y
+                             << ") targetCell percentFull=" << targetCell.percentFull());
                 if (targetCell.percentFull() < 0.95) { // Leave some margin for "available space"
                     canApplyDirectly = true;
                 }
+            }
+            else {
+                LOG_DEBUG(
+                    "Cell (" << x << "," << y
+                             << ") targetCell out of bounds - applying pressure against boundary");
+                // Out of bounds means pressure against boundary - still apply force
+                canApplyDirectly = true;
             }
 
             Vector2d appliedDirection;
@@ -451,11 +523,14 @@ void World::applyPressure(const double deltaTimeSeconds)
             if (canApplyDirectly) {
                 // Apply pressure directly in desired direction
                 appliedDirection = desiredDirection;
+                LOG_DEBUG("Cell (" << x << "," << y << ") applying directly in desired direction");
             }
             else {
+                LOG_DEBUG("Cell (" << x << "," << y << ") searching for alternative neighbor");
                 // Find the nearest open neighbor and deflect toward it
                 double bestAngle = M_PI; // Start with worst possible angle (180°)
                 bool foundOpenNeighbor = false;
+                const double MAX_DEFLECTION_ANGLE = M_PI / 2.0; // 90 degrees max deflection
 
                 for (int dy = -1; dy <= 1; dy++) {
                     for (int dx = -1; dx <= 1; dx++) {
@@ -474,38 +549,73 @@ void World::applyPressure(const double deltaTimeSeconds)
                                 double dotProduct = desiredDirection.dot(neighborDirection);
                                 double angle = std::acos(std::max(-1.0, std::min(1.0, dotProduct)));
 
-                                if (angle < bestAngle) {
+                                LOG_DEBUG(
+                                    "  Neighbor (" << nx << "," << ny << ") direction=("
+                                                   << neighborDirection.x << ","
+                                                   << neighborDirection.y << ") angle=" << angle);
+
+                                // Only consider neighbors within reasonable deflection angle
+                                if (angle <= MAX_DEFLECTION_ANGLE && angle < bestAngle) {
                                     bestAngle = angle;
                                     appliedDirection = neighborDirection;
                                     foundOpenNeighbor = true;
+                                    LOG_DEBUG(
+                                        "  New best neighbor: (" << nx << "," << ny
+                                                                 << ") angle=" << angle);
                                 }
                             }
+                            else {
+                                LOG_DEBUG(
+                                    "  Neighbor (" << nx << "," << ny << ") is full ("
+                                                   << neighbor.percentFull() << ")");
+                            }
+                        }
+                        else {
+                            LOG_DEBUG("  Neighbor (" << nx << "," << ny << ") out of bounds");
                         }
                     }
                 }
 
                 if (!foundOpenNeighbor) {
-                    // No open neighbors, can't apply pressure
+                    // No open neighbors within reasonable angle, can't apply pressure
+                    LOG_DEBUG(
+                        "Cell (" << x << "," << y << ") no suitable neighbors found within "
+                                 << (MAX_DEFLECTION_ANGLE * 180.0 / M_PI) << " degrees");
                     continue;
                 }
 
                 // Scale force by cosine of deflection angle
                 forceMultiplier = std::cos(bestAngle);
                 // Ensure we don't apply negative force (angles > 90°)
-                forceMultiplier = std::max(0.0, forceMultiplier);
+                forceMultiplier = std::abs(forceMultiplier); // std::max(0.0, forceMultiplier);
+                LOG_DEBUG(
+                    "Cell (" << x << "," << y << ") bestAngle=" << bestAngle
+                             << " forceMultiplier=" << forceMultiplier);
             }
 
-            // Apply the pressure force
-            Vector2d pressureAcceleration =
-                appliedDirection * (pressureForce * forceMultiplier) * 20;
-            cell.v += pressureAcceleration * deltaTimeSeconds;
+            // Apply the pressure force as acceleration
+            // Scale by the probability to make higher pressure more effective
+            double effectiveForce = pressureForce * forceMultiplier * 20; // Reduced for debugging
+            Vector2d pressureAcceleration = appliedDirection * effectiveForce;
+
+            LOG_DEBUG(
+                "APPLYING PRESSURE at (" << x << "," << y << ") force=" << effectiveForce
+                                         << " direction=(" << appliedDirection.x << ","
+                                         << appliedDirection.y << ")");
+
+            cell.v += pressureAcceleration;
+            pressureApplications++;
 
             // Apply velocity limiting to prevent excessive velocities
-            const double MAX_PRESSURE_VELOCITY = 5.0;
+            const double MAX_PRESSURE_VELOCITY = 8.0;
             if (cell.v.mag() > MAX_PRESSURE_VELOCITY) {
                 cell.v = cell.v.normalize() * MAX_PRESSURE_VELOCITY;
             }
         }
+    }
+
+    if (pressureApplications > 0) {
+        LOG_DEBUG("Applied pressure to " << pressureApplications << " cells this frame");
     }
 }
 
@@ -518,6 +628,9 @@ void World::updateAllPressures(double deltaTimeSeconds)
         }
     }
 
+    LOG_DEBUG("=== PRESSURE GENERATION PHASE ===");
+    int pressuresGenerated = 0;
+
     // Then calculate pressures that cells exert on their neighbor.
     for (uint32_t y = 0; y < height; ++y) {
         for (uint32_t x = 0; x < width; ++x) {
@@ -528,39 +641,68 @@ void World::updateAllPressures(double deltaTimeSeconds)
             // Get normalized deflection in [-1, 1] range
             Vector2d normalizedDeflection = cell.getNormalizedDeflection();
 
+            if (normalizedDeflection.mag() > 0.01) {
+                LOG_DEBUG(
+                    "Cell (" << x << "," << y << ") deflection=(" << normalizedDeflection.x << ","
+                             << normalizedDeflection.y << ") mag=" << normalizedDeflection.mag());
+            }
+
             // Right neighbor
             if (x + 1 < width) {
                 if (normalizedDeflection.x > 0.0) {
                     Cell& neighbor = at(x + 1, y);
-                    neighbor.pressure.x += normalizedDeflection.x * mass * deltaTimeSeconds;
+                    double pressureAdded = normalizedDeflection.x * mass * deltaTimeSeconds;
+                    neighbor.pressure.x += pressureAdded;
+                    LOG_DEBUG(
+                        "Adding pressure " << pressureAdded << " to right neighbor (" << (x + 1)
+                                           << "," << y << ")");
+                    pressuresGenerated++;
                 }
             }
             // Left neighbor
             if (x > 0) {
                 if (normalizedDeflection.x < 0.0) {
                     Cell& neighbor = at(x - 1, y);
-                    neighbor.pressure.x += -normalizedDeflection.x * mass * deltaTimeSeconds;
+                    double pressureAdded = -normalizedDeflection.x * mass * deltaTimeSeconds;
+                    neighbor.pressure.x += pressureAdded;
+                    LOG_DEBUG(
+                        "Adding pressure " << pressureAdded << " to left neighbor (" << (x - 1)
+                                           << "," << y << ")");
+                    pressuresGenerated++;
                 }
             }
             // Down neighbor
             if (y + 1 < height) {
                 if (normalizedDeflection.y > 0.0) {
                     Cell& neighbor = at(x, y + 1);
-                    neighbor.pressure.y += normalizedDeflection.y * mass * deltaTimeSeconds;
+                    double pressureAdded = normalizedDeflection.y * mass * deltaTimeSeconds;
+                    neighbor.pressure.y += pressureAdded;
+                    LOG_DEBUG(
+                        "Adding pressure " << pressureAdded << " to down neighbor (" << x << ","
+                                           << (y + 1) << ")");
+                    pressuresGenerated++;
                 }
             }
             // Up neighbor
             if (y > 0) {
                 if (normalizedDeflection.y < 0.0) {
                     Cell& neighbor = at(x, y - 1);
-                    neighbor.pressure.y += -normalizedDeflection.y * mass * deltaTimeSeconds;
+                    double pressureAdded = -normalizedDeflection.y * mass * deltaTimeSeconds;
+                    neighbor.pressure.y += pressureAdded;
+                    LOG_DEBUG(
+                        "Adding pressure " << pressureAdded << " to up neighbor (" << x << ","
+                                           << (y - 1) << ")");
+                    pressuresGenerated++;
                 }
             }
         }
     }
 
-    // Disabled until we get basic pressure working right first.
-    const int numPressureIterations = 8;
+    LOG_DEBUG("Generated " << pressuresGenerated << " pressure contributions this frame");
+
+    // TEMPORARILY DISABLE PRESSURE DIFFUSION FOR DEBUGGING
+    // The diffusion is averaging pressure values and preventing threshold-based application
+    const int numPressureIterations = 0; // Was 8
     std::vector<Vector2d> nextPressure(width * height);
     for (int iter = 0; iter < numPressureIterations; ++iter) {
         for (uint32_t y = 0; y < height; ++y) {
