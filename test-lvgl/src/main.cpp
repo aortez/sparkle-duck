@@ -5,12 +5,12 @@
 #include "src/lib/simulator_settings.h"
 #include "src/lib/simulator_util.h"
 
+#include <cstdio>
+#include <cstdlib>
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
-#include <cstdio>
-#include <cstdlib>
 
 #include "lvgl/lvgl.h"
 

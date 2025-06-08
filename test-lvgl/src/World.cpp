@@ -225,7 +225,8 @@ void World::processTransfers(double deltaTimeSeconds)
 
                 // If no transfer happened at all, it must be a boundary collision
                 if (!transferOccurred) {
-                    handleBoundaryReflection(cell, targetX, targetY, shouldTransferX, shouldTransferY);
+                    handleBoundaryReflection(
+                        cell, targetX, targetY, shouldTransferX, shouldTransferY);
                 }
             }
 
@@ -424,13 +425,13 @@ Vector2d World::calculateNaturalCOM(const Vector2d& sourceCOM, int deltaX, int d
     // if it were to continue its trajectory uninterrupted.
     // The old logic was a simple subtraction, which was incorrect.
     // The new logic correctly "wraps" the COM around to the other side of the cell.
-    
+
     Vector2d naturalCOM = sourceCOM;
 
     // If moving right (deltaX = 1), COM enters from the left side.
     if (deltaX > 0) {
         naturalCOM.x -= COM_CELL_WIDTH;
-    } 
+    }
     // If moving left (deltaX = -1), COM enters from the right side.
     else if (deltaX < 0) {
         naturalCOM.x += COM_CELL_WIDTH;
@@ -439,7 +440,7 @@ Vector2d World::calculateNaturalCOM(const Vector2d& sourceCOM, int deltaX, int d
     // If moving down (deltaY = 1), COM enters from the top side.
     if (deltaY > 0) {
         naturalCOM.y -= COM_CELL_WIDTH;
-    } 
+    }
     // If moving up (deltaY = -1), COM enters from the bottom side.
     else if (deltaY < 0) {
         naturalCOM.y += COM_CELL_WIDTH;
@@ -518,6 +519,9 @@ void World::applyPressure(const double deltaTimeSeconds)
             LOG_DEBUG(
                 "Cell (" << x << "," << y << ") pressure=" << pressureMagnitude
                          << " threshold=" << pressureThreshold);
+
+            // Assert that pressure magnitude is a valid number
+            ASSERT(std::isfinite(pressureMagnitude), "Pressure magnitude is NaN or infinite");
 
             // Skip if below threshold
             if (pressureMagnitude < pressureThreshold) continue;
@@ -1215,6 +1219,13 @@ void World::applyMoves()
         Cell& sourceCell = at(move.fromX, move.fromY);
         Cell& targetCell = at(move.toX, move.toY);
 
+        // Skip moves from empty cells (can happen if multiple moves were queued from same cell)
+        if (sourceCell.percentFull() < MIN_DIRT_THRESHOLD) {
+            LOG_DEBUG(
+                "Skipping move from empty cell at (" << move.fromX << "," << move.fromY << ")");
+            continue;
+        }
+
         LOG_DEBUG(
             "Transfer: from=(" << move.fromX << "," << move.fromY << ") to=(" << move.toX << ","
                                << move.toY << ") source_v=(" << sourceCell.v.x << ","
@@ -1230,6 +1241,15 @@ void World::applyMoves()
                                       // account water vs dirt
             availableSpace            // Can't exceed target capacity.
         });
+
+        // Validate cell states before transfer
+        sourceCell.validateState("source before transfer");
+        targetCell.validateState("target before transfer");
+
+        // Assert that transfer calculations are valid
+        ASSERT(std::isfinite(availableSpace), "Available space is NaN or infinite");
+        ASSERT(std::isfinite(totalMass), "Total mass is NaN or infinite");
+        ASSERT(std::isfinite(moveAmount), "Move amount is NaN or infinite");
 
         // --- ELASTIC COLLISION RESPONSE (only if both cells have mass) ---
         if (sourceCell.percentFull() > MIN_DIRT_THRESHOLD
@@ -1269,6 +1289,15 @@ void World::applyMoves()
         const double dirtProportion = sourceCell.dirt / sourceCell.percentFull();
         const double waterProportion = sourceCell.water / sourceCell.percentFull();
 
+        // Assert that proportions are valid
+        ASSERT(std::isfinite(dirtProportion), "Dirt proportion is NaN or infinite");
+        ASSERT(std::isfinite(waterProportion), "Water proportion is NaN or infinite");
+        ASSERT(
+            dirtProportion >= 0.0 && dirtProportion <= 1.0, "Dirt proportion out of range [0,1]");
+        ASSERT(
+            waterProportion >= 0.0 && waterProportion <= 1.0,
+            "Water proportion out of range [0,1]");
+
         // Apply fragmentation: reduce dirt transfer by fragmentation factor
         // Higher fragmentation factor means more dirt stays behind
         const double dirtMoveAmount =
@@ -1279,13 +1308,22 @@ void World::applyMoves()
         const double actualDirt = dirtMoveAmount;
         const double actualWater = waterMoveAmount;
 
+        // Assert that actual transfer amounts are valid
+        ASSERT(std::isfinite(actualDirt) && actualDirt >= 0.0, "Actual dirt amount invalid");
+        ASSERT(std::isfinite(actualWater) && actualWater >= 0.0, "Actual water amount invalid");
+
         // Update source cell
         sourceCell.update(sourceCell.dirt - actualDirt, sourceCell.com, sourceCell.v);
         sourceCell.water -= actualWater;
+        sourceCell.validateState("source after update");
 
         // Update target cell
         const double oldTargetMass = targetCell.percentFull();
         Vector2d expectedCom = move.comOffset;
+        ASSERT(
+            std::isfinite(oldTargetMass) && std::isfinite(expectedCom.x)
+                && std::isfinite(expectedCom.y),
+            "Target update values invalid");
 
         // Update target cell's COM using weighted average
         if (oldTargetMass == 0.0) {
@@ -1299,9 +1337,18 @@ void World::applyMoves()
             const double newMass = actualDirt + actualWater;
             Vector2d newCom = (targetCell.com * oldTargetMass + expectedCom * newMass)
                 / (oldTargetMass + newMass);
+
+            // Assert weighted average calculation is valid
+            ASSERT(
+                std::isfinite(newMass) && std::isfinite(newCom.x) && std::isfinite(newCom.y),
+                "Weighted average calculation invalid");
+            ASSERT(oldTargetMass + newMass > 0.0, "Total mass is zero during weighted average");
+
             targetCell.update(targetCell.dirt + actualDirt, newCom, targetCell.v);
             targetCell.water += actualWater;
         }
+
+        targetCell.validateState("target after update");
 
         // Update source cell's COM and velocity if any mass remains.
         if (sourceCell.percentFull() > 0.0) {
@@ -1312,12 +1359,24 @@ void World::applyMoves()
             const double moveFraction =
                 (actualDirt + actualWater) / (sourceCell.dirt + sourceCell.water);
             Vector2d newCom = sourceCell.com * (1.0 - moveFraction);
+
+            // Assert source cell remaining calculations are valid
+            ASSERT(
+                std::isfinite(remainingMass) && std::isfinite(moveFraction)
+                    && std::isfinite(newCom.x) && std::isfinite(newCom.y),
+                "Source remaining calculations invalid");
+            ASSERT(moveFraction >= 0.0 && moveFraction <= 1.0, "Move fraction out of range [0,1]");
+
             sourceCell.update(sourceCell.dirt, newCom, newV);
         }
         else {
             sourceCell.update(0.0, Vector2d(0.0, 0.0), Vector2d(0.0, 0.0));
             sourceCell.water = 0.0;
         }
+
+        // Final validation of both cells
+        sourceCell.validateState("source final");
+        targetCell.validateState("target final");
 
         // Debug: Log final state
         LOG_DEBUG(
@@ -1883,8 +1942,3 @@ void World::restoreWorldState(const WorldState& state)
         cell.markDirty();
     }
 }
-
-
-
-
-

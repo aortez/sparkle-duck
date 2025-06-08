@@ -2,12 +2,18 @@
 
 #include "World.h"
 
+#include <cassert>
 #include <cmath>
 #include <cstdio> // For snprintf
 #include <cstring>
 #include <string>
 
 #include "lvgl/lvgl.h"
+
+// Define ASSERT macro if not already defined
+#ifndef ASSERT
+#define ASSERT(cond, msg, ...) assert(cond)
+#endif
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -345,9 +351,33 @@ std::string Cell::toString() const
 
 Vector2d Cell::getNormalizedDeflection() const
 {
+    // Assert that COM components are finite and within reasonable bounds
+    ASSERT(std::isfinite(com.x) && std::isfinite(com.y), "COM contains NaN or infinite values");
+    ASSERT(std::abs(com.x) < 10.0 && std::abs(com.y) < 10.0, "COM values are unreasonably large");
+
     // Normalize COM by the deflection threshold to get values in [-1, 1] range
     // This shows how deflected the COM is relative to the transfer threshold
     return Vector2d(com.x / COM_DEFLECTION_THRESHOLD, com.y / COM_DEFLECTION_THRESHOLD);
+}
+
+void Cell::validateState(const std::string& context) const
+{
+    ASSERT(std::isfinite(dirt), ("Cell dirt is NaN or infinite in " + context).c_str());
+    ASSERT(std::isfinite(water), ("Cell water is NaN or infinite in " + context).c_str());
+    ASSERT(
+        std::isfinite(com.x) && std::isfinite(com.y),
+        ("Cell COM is NaN or infinite in " + context).c_str());
+    ASSERT(
+        std::isfinite(v.x) && std::isfinite(v.y),
+        ("Cell velocity is NaN or infinite in " + context).c_str());
+    ASSERT(
+        std::isfinite(percentFull()),
+        ("Cell percentFull is NaN or infinite in " + context).c_str());
+    ASSERT(dirt >= 0.0, ("Cell dirt is negative in " + context).c_str());
+    ASSERT(water >= 0.0, ("Cell water is negative in " + context).c_str());
+    ASSERT(
+        percentFull() <= 1.01,
+        ("Cell overfull in " + context).c_str()); // Allow slight overfill due to floating point
 }
 
 Vector2d Cell::calculateWaterCohesion(

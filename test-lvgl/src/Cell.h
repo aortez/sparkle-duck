@@ -65,6 +65,9 @@ public:
     // Returns COM normalized by the deflection threshold
     Vector2d getNormalizedDeflection() const;
 
+    // Validate cell state for debugging
+    void validateState(const std::string& context) const;
+
     // Element amounts in cell [0,1]
     double dirt;
     double water;
