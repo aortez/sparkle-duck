@@ -66,13 +66,15 @@ public:
     void update(double newDirty, const Vector2d& newCom, const Vector2d& newV);
 
     // Calculate total percentage of cell filled with elements
-    double percentFull() const { 
+    double percentFull() const
+    {
         double total = dirt + water + wood + leaf + metal;
         return total;
     }
-    
+
     // Safe version that clamps overfill and logs warnings
-    double safePercentFull() const {
+    double safePercentFull() const
+    {
         double total = percentFull();
         if (total > 1.10) {
             // Log the overfill for debugging - but don't crash
@@ -81,9 +83,10 @@ public:
         }
         return total;
     }
-    
+
     // Method to safely add material while respecting capacity
-    void safeAddMaterial(double& material, double amount, double maxCapacity = 1.10) {
+    void safeAddMaterial(double& material, double amount, double maxCapacity = 1.10)
+    {
         // Calculate current total WITHOUT the material we're about to modify
         double currentTotal = percentFull() - material;
         double availableSpace = maxCapacity - currentTotal;

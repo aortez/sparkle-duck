@@ -219,54 +219,50 @@ void World::processTransfers(double deltaTimeSeconds)
 
                 // If no diagonal transfer, or it wasn't attempted, try cardinal directions
                 if (!transferOccurred) {
-                    // Try X transfer if needed and target is valid
-                    if (shouldTransferX && isWithinBounds(targetX, y)) {
-                        Vector2d xComOffset = comOffset;
-                        xComOffset.y = cell.com.y; // Keep original Y component
-                        transferOccurred =
-                            attemptTransfer(cell, x, y, targetX, y, xComOffset, totalMass);
+                    // GRAVITY PRIORITY: For dirt particles, prioritize downward movement over
+                    // horizontal This prevents dirt from getting "stuck" horizontally when it
+                    // should be falling
+                    bool isDirtCell = cell.dirt > MIN_DIRT_THRESHOLD;
+                    bool isDownwardTransfer = shouldTransferY && targetY > static_cast<int>(y);
+
+                    if (isDirtCell && isDownwardTransfer) {
+                        // Prioritize downward transfer for dirt (gravity wins)
+                        if (isWithinBounds(x, targetY)) {
+                            Vector2d yComOffset = comOffset;
+                            yComOffset.x = cell.com.x; // Keep original X component
+                            transferOccurred =
+                                attemptTransfer(cell, x, y, x, targetY, yComOffset, totalMass);
+                        }
+                        // Try horizontal only if downward failed
+                        if (!transferOccurred && shouldTransferX && isWithinBounds(targetX, y)) {
+                            Vector2d xComOffset = comOffset;
+                            xComOffset.y = cell.com.y; // Keep original Y component
+                            transferOccurred =
+                                attemptTransfer(cell, x, y, targetX, y, xComOffset, totalMass);
+                        }
                     }
-                    // Try Y transfer if needed and target is valid
-                    if (shouldTransferY && isWithinBounds(x, targetY)) {
-                        Vector2d yComOffset = comOffset;
-                        yComOffset.x = cell.com.x; // Keep original X component
-                        transferOccurred =
-                            attemptTransfer(cell, x, y, x, targetY, yComOffset, totalMass);
+                    else {
+                        // For water or upward movement, use original priority (horizontal first)
+                        if (shouldTransferX && isWithinBounds(targetX, y)) {
+                            Vector2d xComOffset = comOffset;
+                            xComOffset.y = cell.com.y; // Keep original Y component
+                            transferOccurred =
+                                attemptTransfer(cell, x, y, targetX, y, xComOffset, totalMass);
+                        }
+                        // Try Y transfer if X transfer didn't occur or wasn't needed
+                        if (!transferOccurred && shouldTransferY && isWithinBounds(x, targetY)) {
+                            Vector2d yComOffset = comOffset;
+                            yComOffset.x = cell.com.x; // Keep original X component
+                            transferOccurred =
+                                attemptTransfer(cell, x, y, x, targetY, yComOffset, totalMass);
+                        }
                     }
                 }
 
-                // If a transfer was attempted but failed, it's a collision.
+                // If a transfer was attempted but failed, handle the collision/blockage
                 if (!transferOccurred) {
-                    // Handle out-of-bounds collision
-                    handleBoundaryReflection(
-                        cell, targetX, targetY, shouldTransferX, shouldTransferY);
-
-                    // Handle in-bounds collision with a full cell by reflecting
-                    if (shouldTransferX && shouldTransferY && isWithinBounds(targetX, targetY)
-                        && at(targetX, targetY).percentFull() >= 1.0) {
-                        // Diagonal collision with full cell
-                        cell.v.x = -cell.v.x * ELASTICITY_FACTOR;
-                        cell.v.y = -cell.v.y * ELASTICITY_FACTOR;
-                        cell.com.x = (cell.com.x > 0) ? Cell::COM_DEFLECTION_THRESHOLD
-                                                      : -Cell::COM_DEFLECTION_THRESHOLD;
-                        cell.com.y = (cell.com.y > 0) ? Cell::COM_DEFLECTION_THRESHOLD
-                                                      : -Cell::COM_DEFLECTION_THRESHOLD;
-                    }
-                    else {
-                        // Cardinal direction collisions
-                        if (shouldTransferX && isWithinBounds(targetX, y)
-                            && at(targetX, y).percentFull() >= 1.0) {
-                            cell.v.x = -cell.v.x * ELASTICITY_FACTOR;
-                            cell.com.x = (cell.com.x > 0) ? Cell::COM_DEFLECTION_THRESHOLD
-                                                          : -Cell::COM_DEFLECTION_THRESHOLD;
-                        }
-                        if (shouldTransferY && isWithinBounds(x, targetY)
-                            && at(x, targetY).percentFull() >= 1.0) {
-                            cell.v.y = -cell.v.y * ELASTICITY_FACTOR;
-                            cell.com.y = (cell.com.y > 0) ? Cell::COM_DEFLECTION_THRESHOLD
-                                                          : -Cell::COM_DEFLECTION_THRESHOLD;
-                        }
-                    }
+                    handleTransferFailure(
+                        cell, x, y, targetX, targetY, shouldTransferX, shouldTransferY);
                 }
             }
 
@@ -397,14 +393,15 @@ bool World::attemptTransfer(
 
     // Calculate transfer amounts
     const double availableSpace = 1.0 - targetCell.percentFull();
-    const double safeAvailableSpace = std::max(0.0, availableSpace - 0.01); // Leave 1% safety margin
+    const double safeAvailableSpace =
+        std::max(0.0, availableSpace - 0.01); // Leave 1% safety margin
     const double moveAmount = std::min(totalMass, safeAvailableSpace * TRANSFER_FACTOR);
-    
+
     // Don't transfer if move amount is negligible
     if (moveAmount < MIN_DIRT_THRESHOLD) {
         return false;
     }
-    
+
     const double dirtProportion = cell.dirt / totalMass;
     const double waterProportion = cell.water / totalMass;
     const double dirtAmount = moveAmount * dirtProportion;
@@ -424,22 +421,127 @@ bool World::attemptTransfer(
     return true;
 }
 
-void World::handleBoundaryReflection(
-    Cell& cell, int targetX, int targetY, bool shouldTransferX, bool shouldTransferY)
+void World::handleTransferFailure(
+    Cell& cell,
+    uint32_t x,
+    uint32_t y,
+    int targetX,
+    int targetY,
+    bool shouldTransferX,
+    bool shouldTransferY)
 {
-    if (shouldTransferX && !isWithinBounds(targetX, 0)) {
+    // Comprehensive transfer failure handling that conserves momentum
+
+    // First, handle boundary collisions (out of bounds)
+    if (shouldTransferX && !isWithinBounds(targetX, y)) {
+        // Horizontal boundary collision
         cell.v.x = -cell.v.x * ELASTICITY_FACTOR;
         cell.com.x =
             (targetX < 0) ? -Cell::COM_DEFLECTION_THRESHOLD : Cell::COM_DEFLECTION_THRESHOLD;
         LOG_DEBUG("  X boundary reflection: COM.x=" << cell.com.x << ", v.x=" << cell.v.x);
     }
 
-    if (shouldTransferY && !isWithinBounds(0, targetY)) {
+    if (shouldTransferY && !isWithinBounds(x, targetY)) {
+        // Vertical boundary collision
         cell.v.y = -cell.v.y * ELASTICITY_FACTOR;
         cell.com.y =
             (targetY < 0) ? -Cell::COM_DEFLECTION_THRESHOLD : Cell::COM_DEFLECTION_THRESHOLD;
         LOG_DEBUG("  Y boundary reflection: COM.y=" << cell.com.y << ", v.y=" << cell.v.y);
     }
+
+    // Handle in-bounds collisions (blocked by other cells)
+    bool hitHorizontalObstacle = false;
+    bool hitVerticalObstacle = false;
+
+    if (shouldTransferX && isWithinBounds(targetX, y)) {
+        double targetFullness = at(targetX, y).percentFull();
+        if (targetFullness >= 0.95) { // Nearly full cell blocks transfer
+            hitHorizontalObstacle = true;
+            cell.v.x = -cell.v.x * ELASTICITY_FACTOR;
+            cell.com.x =
+                (cell.com.x > 0) ? Cell::COM_DEFLECTION_THRESHOLD : -Cell::COM_DEFLECTION_THRESHOLD;
+            LOG_DEBUG(
+                "  X collision with full cell (" << targetX << "," << y
+                                                 << "): fullness=" << targetFullness);
+        }
+        else if (targetFullness > 0.7) {
+            // Partial blockage - reduce momentum without full reflection
+            double blockageFactor = (targetFullness - 0.7) / 0.25; // 0.0 to 1.0
+            cell.v.x *= (1.0 - blockageFactor * 0.5);              // Reduce by up to 50%
+            cell.com.x *= (1.0 - blockageFactor * 0.3);            // Reduce COM deflection
+            LOG_DEBUG(
+                "  X partial blockage: factor=" << blockageFactor << ", new v.x=" << cell.v.x);
+        }
+    }
+
+    if (shouldTransferY && isWithinBounds(x, targetY)) {
+        double targetFullness = at(x, targetY).percentFull();
+        if (targetFullness >= 0.95) { // Nearly full cell blocks transfer
+            hitVerticalObstacle = true;
+            cell.v.y = -cell.v.y * ELASTICITY_FACTOR;
+            cell.com.y =
+                (cell.com.y > 0) ? Cell::COM_DEFLECTION_THRESHOLD : -Cell::COM_DEFLECTION_THRESHOLD;
+            LOG_DEBUG(
+                "  Y collision with full cell (" << x << "," << targetY
+                                                 << "): fullness=" << targetFullness);
+        }
+        else if (targetFullness > 0.7) {
+            // Partial blockage - reduce momentum without full reflection
+            double blockageFactor = (targetFullness - 0.7) / 0.25; // 0.0 to 1.0
+            cell.v.y *= (1.0 - blockageFactor * 0.5);              // Reduce by up to 50%
+            cell.com.y *= (1.0 - blockageFactor * 0.3);            // Reduce COM deflection
+            LOG_DEBUG(
+                "  Y partial blockage: factor=" << blockageFactor << ", new v.y=" << cell.v.y);
+        }
+    }
+
+    // Handle diagonal collisions (corner case)
+    if (shouldTransferX && shouldTransferY && isWithinBounds(targetX, targetY)) {
+        double diagonalFullness = at(targetX, targetY).percentFull();
+        if (diagonalFullness >= 0.95) {
+            // Diagonal collision - reflect both components
+            if (!hitHorizontalObstacle) {
+                cell.v.x = -cell.v.x * ELASTICITY_FACTOR;
+                cell.com.x = (cell.com.x > 0) ? Cell::COM_DEFLECTION_THRESHOLD
+                                              : -Cell::COM_DEFLECTION_THRESHOLD;
+            }
+            if (!hitVerticalObstacle) {
+                cell.v.y = -cell.v.y * ELASTICITY_FACTOR;
+                cell.com.y = (cell.com.y > 0) ? Cell::COM_DEFLECTION_THRESHOLD
+                                              : -Cell::COM_DEFLECTION_THRESHOLD;
+            }
+            LOG_DEBUG("  Diagonal collision with full cell (" << targetX << "," << targetY << ")");
+        }
+    }
+
+    // Monte Carlo transfer failure - momentum bleeding to prevent buildup
+    // This handles the case where transfer was blocked not due to physics, but due to Monte Carlo
+    // selection
+    if (!hitHorizontalObstacle && !hitVerticalObstacle && (shouldTransferX || shouldTransferY)) {
+        // Apply gentle momentum damping to prevent infinite acceleration
+        const double MOMENTUM_BLEED_FACTOR = 0.02; // 2% velocity reduction per failed transfer
+
+        if (shouldTransferX && isWithinBounds(targetX, y) && at(targetX, y).percentFull() < 0.7) {
+            // Transfer could have succeeded but was blocked by Monte Carlo - apply momentum bleed
+            cell.v.x *= (1.0 - MOMENTUM_BLEED_FACTOR);
+            cell.com.x *= (1.0 - MOMENTUM_BLEED_FACTOR * 0.5);
+            LOG_DEBUG("  Monte Carlo X momentum bleed: new v.x=" << cell.v.x);
+        }
+
+        if (shouldTransferY && isWithinBounds(x, targetY) && at(x, targetY).percentFull() < 0.7) {
+            // Transfer could have succeeded but was blocked by Monte Carlo - apply momentum bleed
+            cell.v.y *= (1.0 - MOMENTUM_BLEED_FACTOR);
+            cell.com.y *= (1.0 - MOMENTUM_BLEED_FACTOR * 0.5);
+            LOG_DEBUG("  Monte Carlo Y momentum bleed: new v.y=" << cell.v.y);
+        }
+    }
+}
+
+void World::handleBoundaryReflection(
+    Cell& cell, int targetX, int targetY, bool shouldTransferX, bool shouldTransferY)
+{
+    // Legacy method - now handled by handleTransferFailure
+    // Kept for compatibility but functionality moved to handleTransferFailure
 }
 
 void World::checkExcessiveDeflectionReflection(Cell& cell)
@@ -718,9 +820,13 @@ void World::applyPressure(const double deltaTimeSeconds)
                                     }
                                 }
                                 else {
-                                    // Skip pressure application to overfull cells to prevent capacity violations
+                                    // Skip pressure application to overfull cells to prevent
+                                    // capacity violations
                                     if (at(nx, ny).percentFull() > 1.01) {
-                                        LOG_DEBUG("Skipping pressure application to overfull cell (" << nx << "," << ny << ") with " << at(nx, ny).percentFull() * 100 << "% capacity");
+                                        LOG_DEBUG(
+                                            "Skipping pressure application to overfull cell ("
+                                            << nx << "," << ny << ") with "
+                                            << at(nx, ny).percentFull() * 100 << "% capacity");
                                         continue; // Skip this neighbor
                                     }
                                 }
@@ -1201,11 +1307,15 @@ void World::applyMoves()
         ASSERT(std::isfinite(actualWater) && actualWater >= 0.0, "Actual water amount invalid");
 
         // Update source cell
-        LOG_DEBUG("Before source update: dirt=" << sourceCell.dirt << " water=" << sourceCell.water << " total=" << sourceCell.percentFull());
+        LOG_DEBUG(
+            "Before source update: dirt=" << sourceCell.dirt << " water=" << sourceCell.water
+                                          << " total=" << sourceCell.percentFull());
         LOG_DEBUG("Removing: actualDirt=" << actualDirt << " actualWater=" << actualWater);
         sourceCell.update(sourceCell.dirt - actualDirt, sourceCell.com, sourceCell.v);
         sourceCell.water -= actualWater;
-        LOG_DEBUG("After source update: dirt=" << sourceCell.dirt << " water=" << sourceCell.water << " total=" << sourceCell.percentFull());
+        LOG_DEBUG(
+            "After source update: dirt=" << sourceCell.dirt << " water=" << sourceCell.water
+                                         << " total=" << sourceCell.percentFull());
         sourceCell.validateState("source after update");
 
         // Update target cell
@@ -1223,7 +1333,9 @@ void World::applyMoves()
             targetCell.update(targetCell.dirt + actualDirt, expectedCom, sourceCell.v);
             // Safely add water with capacity checking
             targetCell.safeAddMaterial(targetCell.water, actualWater);
-            LOG_DEBUG("Target after update: dirt=" << targetCell.dirt << " water=" << targetCell.water << " total=" << targetCell.percentFull());
+            LOG_DEBUG(
+                "Target after update: dirt=" << targetCell.dirt << " water=" << targetCell.water
+                                             << " total=" << targetCell.percentFull());
         }
         else {
             // Weighted average of existing COM and the new COM based on mass.
@@ -1238,11 +1350,14 @@ void World::applyMoves()
                 "Weighted average calculation invalid");
             ASSERT(oldTargetMass + newMass > 0.0, "Total mass is zero during weighted average");
 
-            LOG_DEBUG("Target cell has mass, adding: dirt=" << actualDirt << " water=" << actualWater);
+            LOG_DEBUG(
+                "Target cell has mass, adding: dirt=" << actualDirt << " water=" << actualWater);
             targetCell.update(targetCell.dirt + actualDirt, newCom, targetCell.v);
             // Safely add water with capacity checking
             targetCell.safeAddMaterial(targetCell.water, actualWater);
-            LOG_DEBUG("Target after update: dirt=" << targetCell.dirt << " water=" << targetCell.water << " total=" << targetCell.percentFull());
+            LOG_DEBUG(
+                "Target after update: dirt=" << targetCell.dirt << " water=" << targetCell.water
+                                             << " total=" << targetCell.percentFull());
         }
 
         targetCell.validateState("target after update");

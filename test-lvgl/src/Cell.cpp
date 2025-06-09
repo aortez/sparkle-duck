@@ -6,8 +6,8 @@
 #include <cmath>
 #include <cstdio> // For snprintf
 #include <cstring>
-#include <string>
 #include <iostream>
+#include <string>
 
 #include "lvgl/lvgl.h"
 
@@ -110,10 +110,11 @@ void Cell::update(double newDirty, const Vector2d& newCom, const Vector2d& newV)
     if (currentTotal + newDirty > 1.10) {
         // Clamp the dirt to fit within capacity, but don't create dirt
         dirt = std::max(0.0, std::min(newDirty, 1.10 - currentTotal));
-    } else {
+    }
+    else {
         dirt = newDirty;
     }
-    
+
     com = newCom;
     v = newV;
     needsRedraw = true;
@@ -372,19 +373,17 @@ Vector2d Cell::getNormalizedDeflection() const
 double Cell::getEffectiveDensity() const
 {
     double totalMass = dirt + water + wood + leaf + metal;
-    
+
     // Return zero density for empty cells
     if (totalMass < World::MIN_DIRT_THRESHOLD) {
         return 0.0;
     }
-    
+
     // Calculate weighted average density based on material composition
-    double weightedDensity = (dirt * DIRT_DENSITY + 
-                             water * WATER_DENSITY + 
-                             wood * WOOD_DENSITY + 
-                             leaf * LEAF_DENSITY + 
-                             metal * METAL_DENSITY);
-    
+    double weightedDensity =
+        (dirt * DIRT_DENSITY + water * WATER_DENSITY + wood * WOOD_DENSITY + leaf * LEAF_DENSITY
+         + metal * METAL_DENSITY);
+
     return weightedDensity / totalMass;
 }
 
@@ -404,7 +403,7 @@ void Cell::validateState(const std::string& context) const
     ASSERT(dirt >= 0.0, ("Cell dirt is negative in " + context).c_str());
     ASSERT(water >= 0.0, ("Cell water is negative in " + context).c_str());
     ASSERT(
-        percentFull() <= 1.10,  // Increased tolerance while we tune the density mechanics
+        percentFull() <= 1.10, // Increased tolerance while we tune the density mechanics
         ("Cell overfull in " + context).c_str());
 }
 
@@ -480,39 +479,39 @@ Vector2d Cell::calculateBuoyancy(const Cell& cell, const Cell& neighbor, int dx,
     // Get effective densities of both cells
     double cellDensity = cell.getEffectiveDensity();
     double neighborDensity = neighbor.getEffectiveDensity();
-    
+
     // Skip if either cell is effectively empty
     if (cellDensity <= 0.0 || neighborDensity <= 0.0) {
         return Vector2d(0.0, 0.0);
     }
-    
+
     // Buoyancy only occurs when denser material is surrounded by less dense material
     // If this cell is not denser than the neighbor, no buoyancy force
     if (cellDensity <= neighborDensity) {
         return Vector2d(0.0, 0.0);
     }
-    
+
     // Calculate density difference - foundation of Archimedes' principle
     double densityDiff = cellDensity - neighborDensity;
-    
+
     // Buoyant force proportional to density difference and displaced volume
     // The cell.percentFull() represents the volume of material experiencing buoyancy
     double buoyantForce = BUOYANCY_STRENGTH * cell.percentFull() * densityDiff;
-    
+
     Vector2d buoyancyForce = Vector2d(0.0, 0.0);
-    
+
     // Apply upward buoyancy if neighbor is below (dy > 0)
     // This simulates denser material being pushed up by less dense material below
     if (dy > 0) {
         buoyancyForce.y = -buoyantForce; // Upward force (negative y)
     }
-    
+
     // Apply lateral buoyancy for horizontal displacement
     // Weaker effect for side-to-side movement, but still helps with separation
     if (dx != 0) {
         double lateralForce = buoyantForce * 0.3; // Reduced lateral effect
-        buoyancyForce.x = -dx * lateralForce; // Push away from denser neighbor
+        buoyancyForce.x = -dx * lateralForce;     // Push away from denser neighbor
     }
-    
+
     return buoyancyForce;
 }

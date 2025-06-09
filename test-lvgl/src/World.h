@@ -205,6 +205,14 @@ private:
         int targetY,
         const Vector2d& comOffset,
         double totalMass);
+    void handleTransferFailure(
+        Cell& cell,
+        uint32_t x,
+        uint32_t y,
+        int targetX,
+        int targetY,
+        bool shouldTransferX,
+        bool shouldTransferY);
     void handleBoundaryReflection(
         Cell& cell, int targetX, int targetY, bool shouldTransferX, bool shouldTransferY);
     void checkExcessiveDeflectionReflection(Cell& cell);
