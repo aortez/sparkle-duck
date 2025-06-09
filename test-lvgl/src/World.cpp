@@ -174,14 +174,8 @@ void World::processTransfers(double deltaTimeSeconds)
             }
             Cell& cell = at(x, y);
 
-            // Skip empty cells or cells with mass below threshold
-            // SPECIAL CASE: Don't remove water-only cells that are just below threshold
-            // This prevents water fragmentation from being immediately deleted
-            bool isWaterOnly = cell.water > 0.0 && cell.dirt < MIN_DIRT_THRESHOLD / 10.0;
-            if (cell.percentFull() < MIN_DIRT_THRESHOLD && !isWaterOnly) {
-                removedMass += cell.percentFull();
-                cell.update(0.0, Vector2d(0.0, 0.0), Vector2d(0.0, 0.0));
-                cell.water = 0.0;
+            // Skip truly empty cells only (removed aggressive mass removal)
+            if (cell.percentFull() <= 0.0) {
                 continue;
             }
 
@@ -397,8 +391,8 @@ bool World::attemptTransfer(
         std::max(0.0, availableSpace - 0.01); // Leave 1% safety margin
     const double moveAmount = std::min(totalMass, safeAvailableSpace * TRANSFER_FACTOR);
 
-    // Don't transfer if move amount is negligible
-    if (moveAmount < MIN_DIRT_THRESHOLD) {
+    // Don't transfer if move amount is zero
+    if (moveAmount <= 0.0) {
         return false;
     }
 
@@ -1209,8 +1203,8 @@ void World::applyMoves()
         Cell& sourceCell = at(move.fromX, move.fromY);
         Cell& targetCell = at(move.toX, move.toY);
 
-        // Skip moves from empty cells (can happen if multiple moves were queued from same cell)
-        if (sourceCell.percentFull() < MIN_DIRT_THRESHOLD) {
+        // Skip moves from truly empty cells only
+        if (sourceCell.percentFull() <= 0.0) {
             LOG_DEBUG(
                 "Skipping move from empty cell at (" << move.fromX << "," << move.fromY << ")");
             continue;
@@ -1331,8 +1325,13 @@ void World::applyMoves()
             // First mass in cell, use the expected COM and transfer velocity
             LOG_DEBUG("Target cell empty, adding: dirt=" << actualDirt << " water=" << actualWater);
             targetCell.update(targetCell.dirt + actualDirt, expectedCom, sourceCell.v);
-            // Safely add water with capacity checking
-            targetCell.safeAddMaterial(targetCell.water, actualWater);
+            // Safely add water with capacity checking - return excess to source
+            double actualWaterAdded = targetCell.safeAddMaterial(targetCell.water, actualWater);
+            double excessWater = actualWater - actualWaterAdded;
+            if (excessWater > 0.0) {
+                sourceCell.water += excessWater; // Return excess to source
+                LOG_DEBUG("Returned excess water to source: " << excessWater);
+            }
             LOG_DEBUG(
                 "Target after update: dirt=" << targetCell.dirt << " water=" << targetCell.water
                                              << " total=" << targetCell.percentFull());
@@ -1353,8 +1352,13 @@ void World::applyMoves()
             LOG_DEBUG(
                 "Target cell has mass, adding: dirt=" << actualDirt << " water=" << actualWater);
             targetCell.update(targetCell.dirt + actualDirt, newCom, targetCell.v);
-            // Safely add water with capacity checking
-            targetCell.safeAddMaterial(targetCell.water, actualWater);
+            // Safely add water with capacity checking - return excess to source
+            double actualWaterAdded = targetCell.safeAddMaterial(targetCell.water, actualWater);
+            double excessWater = actualWater - actualWaterAdded;
+            if (excessWater > 0.0) {
+                sourceCell.water += excessWater; // Return excess to source
+                LOG_DEBUG("Returned excess water to source: " << excessWater);
+            }
             LOG_DEBUG(
                 "Target after update: dirt=" << targetCell.dirt << " water=" << targetCell.water
                                              << " total=" << targetCell.percentFull());

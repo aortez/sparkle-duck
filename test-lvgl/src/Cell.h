@@ -85,13 +85,15 @@ public:
     }
 
     // Method to safely add material while respecting capacity
-    void safeAddMaterial(double& material, double amount, double maxCapacity = 1.10)
+    // Returns the actual amount added (may be less than requested)
+    double safeAddMaterial(double& material, double amount, double maxCapacity = 1.10)
     {
         // Calculate current total WITHOUT the material we're about to modify
         double currentTotal = percentFull() - material;
         double availableSpace = maxCapacity - currentTotal;
         double actualAmount = std::min(amount, std::max(0.0, availableSpace));
         material += actualAmount;
+        return actualAmount;
     }
 
     // Get normalized COM deflection in range [-1, 1]
