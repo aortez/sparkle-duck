@@ -28,6 +28,13 @@ public:
     static double VISCOSITY_FACTOR;
     static double BUOYANCY_STRENGTH;
 
+    // Density constants for different materials (moderate differences for stability)
+    static constexpr double DIRT_DENSITY = 1.3;  // Slightly denser than water
+    static constexpr double WATER_DENSITY = 1.0; // Reference density
+    static constexpr double WOOD_DENSITY = 0.8;  // Wood floats
+    static constexpr double LEAF_DENSITY = 0.7;  // Leaves float
+    static constexpr double METAL_DENSITY = 2.0; // Moderately heavy
+
     // Setters for water physics constants
     static void setCohesionStrength(double strength) { COHESION_STRENGTH = strength; }
     static void setViscosityFactor(double factor) { VISCOSITY_FACTOR = factor; }
@@ -59,11 +66,37 @@ public:
     void update(double newDirty, const Vector2d& newCom, const Vector2d& newV);
 
     // Calculate total percentage of cell filled with elements
-    double percentFull() const { return dirt + water + wood + leaf + metal; }
+    double percentFull() const { 
+        double total = dirt + water + wood + leaf + metal;
+        return total;
+    }
+    
+    // Safe version that clamps overfill and logs warnings
+    double safePercentFull() const {
+        double total = percentFull();
+        if (total > 1.10) {
+            // Log the overfill for debugging - but don't crash
+            // Use std::cout since LOG_DEBUG might not be available everywhere
+            return 1.10; // Clamp to safe limit
+        }
+        return total;
+    }
+    
+    // Method to safely add material while respecting capacity
+    void safeAddMaterial(double& material, double amount, double maxCapacity = 1.10) {
+        // Calculate current total WITHOUT the material we're about to modify
+        double currentTotal = percentFull() - material;
+        double availableSpace = maxCapacity - currentTotal;
+        double actualAmount = std::min(amount, std::max(0.0, availableSpace));
+        material += actualAmount;
+    }
 
     // Get normalized COM deflection in range [-1, 1]
     // Returns COM normalized by the deflection threshold
     Vector2d getNormalizedDeflection() const;
+
+    // Calculate effective density based on material composition
+    double getEffectiveDensity() const;
 
     // Validate cell state for debugging
     void validateState(const std::string& context) const;

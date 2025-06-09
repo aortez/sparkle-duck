@@ -137,6 +137,7 @@ add_executable(sparkle-duck-tests
     src/tests/WaterPressure180_test.cpp
     src/tests/PressureSystemVisual_test.cpp
     src/tests/PressureSystem_test.cpp
+    src/tests/DensityMechanics_test.cpp
     src/tests/TestUI.cpp
     src/tests/visual_test_runner.cpp
     src/Vector2d.cpp
