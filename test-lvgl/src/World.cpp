@@ -175,7 +175,10 @@ void World::processTransfers(double deltaTimeSeconds)
             Cell& cell = at(x, y);
 
             // Skip empty cells or cells with mass below threshold
-            if (cell.percentFull() < MIN_DIRT_THRESHOLD) {
+            // SPECIAL CASE: Don't remove water-only cells that are just below threshold
+            // This prevents water fragmentation from being immediately deleted
+            bool isWaterOnly = cell.water > 0.0 && cell.dirt < MIN_DIRT_THRESHOLD / 10.0;
+            if (cell.percentFull() < MIN_DIRT_THRESHOLD && !isWaterOnly) {
                 removedMass += cell.percentFull();
                 cell.update(0.0, Vector2d(0.0, 0.0), Vector2d(0.0, 0.0));
                 cell.water = 0.0;
@@ -185,7 +188,14 @@ void World::processTransfers(double deltaTimeSeconds)
             applyPhysicsToCell(cell, x, y, deltaTimeSeconds);
 
             // Calculate predicted COM position after this timestep
-            const Vector2d predictedCom = cell.com + cell.v * deltaTimeSeconds;
+            Vector2d predictedCom = cell.com + cell.v * deltaTimeSeconds;
+
+            // CRITICAL: Bound the predicted COM to prevent unbounded growth
+            // COM should stay within reasonable limits even with high velocities
+            const double MAX_COM_BOUND =
+                2.0; // Allow some overshoot beyond threshold for proper transfer detection
+            predictedCom.x = std::max(-MAX_COM_BOUND, std::min(MAX_COM_BOUND, predictedCom.x));
+            predictedCom.y = std::max(-MAX_COM_BOUND, std::min(MAX_COM_BOUND, predictedCom.y));
 
             // Check for transfers based on COM deflection
             bool shouldTransferX, shouldTransferY;
@@ -195,7 +205,9 @@ void World::processTransfers(double deltaTimeSeconds)
                 cell, shouldTransferX, shouldTransferY, targetX, targetY, comOffset, x, y);
 
             bool transferOccurred = false;
-            if (shouldTransferX || shouldTransferY) {
+            bool attemptedTransfer = shouldTransferX || shouldTransferY;
+
+            if (attemptedTransfer) {
                 const double totalMass = cell.dirt + cell.water;
                 bool isTargetInBounds = isWithinBounds(targetX, targetY);
 
@@ -223,15 +235,43 @@ void World::processTransfers(double deltaTimeSeconds)
                     }
                 }
 
-                // If no transfer happened at all, it must be a boundary collision
+                // If a transfer was attempted but failed, it's a collision.
                 if (!transferOccurred) {
+                    // Handle out-of-bounds collision
                     handleBoundaryReflection(
                         cell, targetX, targetY, shouldTransferX, shouldTransferY);
+
+                    // Handle in-bounds collision with a full cell by reflecting
+                    if (shouldTransferX && shouldTransferY && isWithinBounds(targetX, targetY)
+                        && at(targetX, targetY).percentFull() >= 1.0) {
+                        // Diagonal collision with full cell
+                        cell.v.x = -cell.v.x * ELASTICITY_FACTOR;
+                        cell.v.y = -cell.v.y * ELASTICITY_FACTOR;
+                        cell.com.x = (cell.com.x > 0) ? Cell::COM_DEFLECTION_THRESHOLD
+                                                      : -Cell::COM_DEFLECTION_THRESHOLD;
+                        cell.com.y = (cell.com.y > 0) ? Cell::COM_DEFLECTION_THRESHOLD
+                                                      : -Cell::COM_DEFLECTION_THRESHOLD;
+                    }
+                    else {
+                        // Cardinal direction collisions
+                        if (shouldTransferX && isWithinBounds(targetX, y)
+                            && at(targetX, y).percentFull() >= 1.0) {
+                            cell.v.x = -cell.v.x * ELASTICITY_FACTOR;
+                            cell.com.x = (cell.com.x > 0) ? Cell::COM_DEFLECTION_THRESHOLD
+                                                          : -Cell::COM_DEFLECTION_THRESHOLD;
+                        }
+                        if (shouldTransferY && isWithinBounds(x, targetY)
+                            && at(x, targetY).percentFull() >= 1.0) {
+                            cell.v.y = -cell.v.y * ELASTICITY_FACTOR;
+                            cell.com.y = (cell.com.y > 0) ? Cell::COM_DEFLECTION_THRESHOLD
+                                                          : -Cell::COM_DEFLECTION_THRESHOLD;
+                        }
+                    }
                 }
             }
 
-            // If no transfer occurred, update COM internally
-            if (!transferOccurred) {
+            // If no transfer was attempted, update COM internally
+            if (!attemptedTransfer) {
                 cell.update(cell.dirt, predictedCom, cell.v);
                 checkExcessiveDeflectionReflection(cell);
             }
@@ -491,13 +531,6 @@ void World::applyPressure(const double deltaTimeSeconds)
             // Skip empty cells or cells with negligible pressure
             if (cell.percentFull() < MIN_DIRT_THRESHOLD) continue;
 
-            // Debug: Log pressure values for non-empty cells
-            if (cell.pressure.mag() > 0.001) {
-                LOG_DEBUG(
-                    "Cell (" << x << "," << y
-                             << ") has pressure magnitude: " << cell.pressure.mag());
-            }
-
             if (cell.pressure.mag() < 0.001) continue;
 
             // Calculate pressure thresholds based on material type
@@ -505,49 +538,29 @@ void World::applyPressure(const double deltaTimeSeconds)
             double maxPressureForFullProb;
             if (cell.water > cell.dirt) {
                 // Water flows easily - very low threshold
-                pressureThreshold = waterPressureThreshold; // Configurable water pressure threshold
-                maxPressureForFullProb = pressureThreshold * 10.0; // 100% at 10x threshold
+                pressureThreshold = waterPressureThreshold;
+                maxPressureForFullProb = pressureThreshold * 10.0;
             }
             else {
-                // Dirt is more solid - higher threshold but still reachable
-                pressureThreshold = 0.005; // Lowered threshold for better dirt flow (was 0.01)
-                maxPressureForFullProb = pressureThreshold * 20.0; // 100% at 20x threshold
+                // Dirt is more solid
+                pressureThreshold = 0.005;
+                maxPressureForFullProb = pressureThreshold * 20.0;
             }
 
             double pressureMagnitude = cell.pressure.mag();
-
-            LOG_DEBUG(
-                "Cell (" << x << "," << y << ") pressure=" << pressureMagnitude
-                         << " threshold=" << pressureThreshold);
-
-            // Assert that pressure magnitude is a valid number
             ASSERT(std::isfinite(pressureMagnitude), "Pressure magnitude is NaN or infinite");
 
-            // Skip if below threshold
             if (pressureMagnitude < pressureThreshold) continue;
 
-            // TEMPORARILY DISABLE PROBABILISTIC APPLICATION FOR DEBUGGING
-            // Calculate probability of pressure application
-            // 0% at threshold, 100% at maxPressureForFullProb
             double excessPressure = pressureMagnitude - pressureThreshold;
             double maxExcess = maxPressureForFullProb - pressureThreshold;
             double probability = std::min(1.0, excessPressure / maxExcess);
 
-            LOG_DEBUG("Cell (" << x << "," << y << ") probability=" << probability);
-
-            // ALWAYS APPLY FOR DEBUGGING - COMMENT OUT THE PROBABILISTIC CHECK
             if (dist(rng) > probability) continue;
 
-            // Calculate desired pressure direction
             Vector2d desiredDirection = cell.pressure.normalize();
             double pressureForce = pressureMagnitude * pressureScale;
 
-            LOG_DEBUG(
-                "Cell (" << x << "," << y << ") desiredDirection=(" << desiredDirection.x << ","
-                         << desiredDirection.y << ")");
-
-            // First, try to apply pressure in the desired direction
-            // Calculate which neighbor cell the pressure is pointing toward
             int targetDx = 0, targetDy = 0;
             if (desiredDirection.x > 0.5)
                 targetDx = 1;
@@ -561,306 +574,168 @@ void World::applyPressure(const double deltaTimeSeconds)
             int targetX = static_cast<int>(x) + targetDx;
             int targetY = static_cast<int>(y) + targetDy;
 
-            LOG_DEBUG(
-                "Cell (" << x << "," << y << ") targetCell=(" << targetX << "," << targetY << ")");
-
-            // Check if the desired direction has available space
             bool canApplyDirectly = false;
             if (isWithinBounds(targetX, targetY)) {
-                Cell& targetCell = at(targetX, targetY);
-                LOG_DEBUG(
-                    "Cell (" << x << "," << y
-                             << ") targetCell percentFull=" << targetCell.percentFull());
-                if (targetCell.percentFull() < 0.95) { // Leave some margin for "available space"
+                if (at(targetX, targetY).percentFull() < 0.95) {
                     canApplyDirectly = true;
                 }
             }
             else {
-                LOG_DEBUG(
-                    "Cell (" << x << "," << y
-                             << ") targetCell out of bounds - applying pressure against boundary");
-                // Out of bounds means pressure against boundary - still apply force
-                canApplyDirectly = true;
+                canApplyDirectly = true; // Pressure against boundary
             }
 
             Vector2d appliedDirection;
             double forceMultiplier = 1.0;
-
-            // Check if this is a water cell
+            bool fragmented = false;
             bool isWaterCell = (cell.water > cell.dirt);
 
             if (canApplyDirectly) {
-                // Apply pressure directly in desired direction
                 appliedDirection = desiredDirection;
-                LOG_DEBUG("Cell (" << x << "," << y << ") applying directly in desired direction");
             }
             else {
-                LOG_DEBUG("Cell (" << x << "," << y << ") searching for alternative neighbor");
-
+                bool foundOpenNeighbor = false;
                 if (isWaterCell) {
-                    // WATER-SPECIFIC LOGIC: 180-degree arc in gravity direction
-                    Vector2d gravityDirection = Vector2d(0.0, 1.0); // Downward gravity
+                    // WATER-SPECIFIC LOGIC
+                    Vector2d gravityDirection(0.0, 1.0);
                     Vector2d currentVelocity = cell.v.normalize();
-
-                    // Find the best available direction within the 180-degree downward arc
-                    double bestScore = -2.0; // Start with worst possible score
-                    bool foundOpenNeighbor = false;
+                    double bestScore = -2.0;
 
                     for (int dy = -1; dy <= 1; dy++) {
                         for (int dx = -1; dx <= 1; dx++) {
                             if (dx == 0 && dy == 0) continue;
-
                             int nx = static_cast<int>(x) + dx;
                             int ny = static_cast<int>(y) + dy;
 
                             if (isWithinBounds(nx, ny)) {
                                 Cell& neighbor = at(nx, ny);
-                                if (neighbor.percentFull() < 0.95) { // Has available space
+                                if (neighbor.percentFull() < 0.95) {
                                     Vector2d neighborDirection = Vector2d(dx, dy).normalize();
-
-                                    // Check if direction is within 180-degree downward arc
-                                    double gravityDot = neighborDirection.dot(gravityDirection);
-                                    if (gravityDot >= -0.1) { // Allow slight upward (within ~96
-                                                              // degrees from down)
-
-                                        // Score based on multiple factors:
-                                        // 1. Alignment with current velocity (if velocity exists)
-                                        // 2. Alignment with pressure direction
-                                        // 3. Preference for downward movement (gravity)
-                                        double velocityScore = 0.0;
-                                        if (cell.v.mag() > 0.1) {
-                                            velocityScore =
-                                                neighborDirection.dot(currentVelocity) * 0.4;
-                                        }
-
+                                    if (neighborDirection.dot(gravityDirection) >= -0.1) {
+                                        double velocityScore = (cell.v.mag() > 0.1)
+                                            ? neighborDirection.dot(currentVelocity) * 0.4
+                                            : 0.0;
                                         double pressureScore =
                                             neighborDirection.dot(desiredDirection) * 0.3;
-                                        double gravityScore = gravityDot * 0.3;
-
+                                        double gravityScore =
+                                            neighborDirection.dot(gravityDirection) * 0.3;
                                         double totalScore =
                                             velocityScore + pressureScore + gravityScore;
 
-                                        LOG_DEBUG(
-                                            "  Water neighbor ("
-                                            << nx << "," << ny << ") direction=("
-                                            << neighborDirection.x << "," << neighborDirection.y
-                                            << ") totalScore=" << totalScore << " (vel="
-                                            << velocityScore << " press=" << pressureScore
-                                            << " grav=" << gravityScore << ")");
-
                                         if (totalScore > bestScore
-                                            || totalScore == bestScore
-                                                && dist(rng) > 0.5) { // 50% chance
+                                            || (totalScore == bestScore && dist(rng) > 0.5)) {
                                             bestScore = totalScore;
                                             appliedDirection = neighborDirection;
                                             foundOpenNeighbor = true;
-                                            LOG_DEBUG(
-                                                "  New best water neighbor: ("
-                                                << nx << "," << ny << ") score=" << totalScore);
                                         }
                                     }
                                 }
                                 else {
-                                    LOG_DEBUG(
-                                        "  Water neighbor (" << nx << "," << ny << ") is full ("
-                                                             << neighbor.percentFull() << ")");
+                                    ASSERT(
+                                        neighbor.percentFull() <= 1.01,
+                                        "Neighbor cell is overfull before pressure application.");
                                 }
-                            }
-                            else {
-                                LOG_DEBUG(
-                                    "  Water neighbor (" << nx << "," << ny << ") out of bounds");
                             }
                         }
                     }
+                    if (!foundOpenNeighbor) continue;
 
-                    if (!foundOpenNeighbor) {
-                        LOG_DEBUG(
-                            "Cell (" << x << "," << y
-                                     << ") no suitable water neighbors found in 180-degree arc");
-                        continue;
-                    }
-
-                    // For water, use full force regardless of deflection angle
                     forceMultiplier = 1.0;
-
-                    // Check for water fragmentation on significant deflection
                     double deflectionAngle = std::acos(
                         std::max(-1.0, std::min(1.0, desiredDirection.dot(appliedDirection))));
-                    const double FRAGMENTATION_THRESHOLD = M_PI / 4.0; // 45 degrees
+                    const double FRAGMENTATION_THRESHOLD = M_PI / 4.0;
 
                     if (deflectionAngle > FRAGMENTATION_THRESHOLD && cell.water > 0.1) {
-                        // Calculate sideways velocity magnitude (perpendicular to gravity)
-                        Vector2d gravityDirection = Vector2d(0.0, 1.0);
                         Vector2d sidewaysVelocity =
                             cell.v - gravityDirection * cell.v.dot(gravityDirection);
                         double sidewaysSpeed = sidewaysVelocity.mag();
-
-                        // Fragment amount inversely proportional to sideways speed
-                        // Fast sideways motion = little fragmentation (0.0-0.1)
-                        // Slow sideways motion = more fragmentation (0.1-0.4)
-                        const double MAX_FRAGMENTATION = 0.4;
-                        const double MIN_FRAGMENTATION = 0.0;
-                        const double SPEED_THRESHOLD =
-                            4.0; // Speed above which fragmentation is minimized
-
+                        const double MAX_FRAGMENTATION = 0.4, MIN_FRAGMENTATION = 0.0,
+                                     SPEED_THRESHOLD = 4.0;
                         double speedFactor = std::min(1.0, sidewaysSpeed / SPEED_THRESHOLD);
                         double fragmentationRatio = MAX_FRAGMENTATION * (1.0 - speedFactor)
                             + MIN_FRAGMENTATION * speedFactor;
 
-                        // Calculate the target cell for immediate water transfer
-                        int fragmentTargetDx = 0, fragmentTargetDy = 0;
-                        if (appliedDirection.x > 0.5)
-                            fragmentTargetDx = 1;
-                        else if (appliedDirection.x < -0.5)
-                            fragmentTargetDx = -1;
-                        if (appliedDirection.y > 0.5)
-                            fragmentTargetDy = 1;
-                        else if (appliedDirection.y < -0.5)
-                            fragmentTargetDy = -1;
+                        int fragTargetX = static_cast<int>(x)
+                            + (appliedDirection.x > 0.5 ? 1 : (appliedDirection.x < -0.5 ? -1 : 0));
+                        int fragTargetY = static_cast<int>(y)
+                            + (appliedDirection.y > 0.5 ? 1 : (appliedDirection.y < -0.5 ? -1 : 0));
 
-                        int fragmentTargetX = static_cast<int>(x) + fragmentTargetDx;
-                        int fragmentTargetY = static_cast<int>(y) + fragmentTargetDy;
-
-                        // Attempt immediate water fragmentation transfer
-                        if (isWithinBounds(fragmentTargetX, fragmentTargetY)) {
-                            Cell& targetCell = at(fragmentTargetX, fragmentTargetY);
-                            if (targetCell.percentFull() < 0.95) { // Has space
-                                double fragmentAmount = cell.water * fragmentationRatio;
+                        if (isWithinBounds(fragTargetX, fragTargetY)) {
+                            Cell& targetCell = at(fragTargetX, fragTargetY);
+                            if (targetCell.percentFull() < 0.95) {
                                 double availableSpace = 1.0 - targetCell.percentFull();
-                                fragmentAmount = std::min(fragmentAmount, availableSpace);
+                                double fragmentAmount =
+                                    std::min(cell.water * fragmentationRatio, availableSpace);
 
-                                if (fragmentAmount > 0.01) { // Only fragment if significant amount
-                                    // Transfer water fragment immediately
-                                    cell.water -= fragmentAmount;
-                                    targetCell.water += fragmentAmount;
-
-                                    // Set COM for fragmented water based on deflection direction
-                                    Vector2d fragmentCom =
-                                        appliedDirection * 0.3; // Slight deflection toward target
-
-                                    // Update target cell's properties
-                                    if (targetCell.percentFull() > 0.01) {
-                                        // Weighted average COM
-                                        double oldMass = targetCell.percentFull();
-                                        Vector2d newCom =
-                                            (targetCell.com * (oldMass - fragmentAmount)
-                                             + fragmentCom * fragmentAmount)
-                                            / oldMass;
-                                        targetCell.update(targetCell.dirt, newCom, targetCell.v);
-                                    }
-                                    else {
-                                        // First mass in cell
-                                        targetCell.update(
-                                            targetCell.dirt, fragmentCom, Vector2d(0.0, 0.0));
-                                    }
-
-                                    LOG_DEBUG(
-                                        "Water fragmentation: Cell ("
-                                        << x << "," << y
-                                        << ") deflection=" << (deflectionAngle * 180.0 / M_PI)
-                                        << "° " << "sidewaysSpeed=" << sidewaysSpeed << " "
-                                        << "fragmentRatio=" << fragmentationRatio << " "
-                                        << "fragmentAmount=" << fragmentAmount << " "
-                                        << "to target (" << fragmentTargetX << ","
-                                        << fragmentTargetY << ")");
+                                // IMPORTANT: Only fragment if the result pieces will be above
+                                // threshold This prevents creating tiny water pieces that get
+                                // removed later
+                                if (fragmentAmount > MIN_DIRT_THRESHOLD * 2.0) {
+                                    moves.push_back({ .fromX = x,
+                                                      .fromY = y,
+                                                      .toX = (uint32_t)fragTargetX,
+                                                      .toY = (uint32_t)fragTargetY,
+                                                      .dirtAmount = 0.0,
+                                                      .waterAmount = fragmentAmount,
+                                                      .comOffset = appliedDirection * 0.3 });
+                                    // CRITICAL FIX: Don't decrement water here! Let applyMoves()
+                                    // handle it properly This was causing mass loss because moves
+                                    // were processed with already-decremented source cells
+                                    // cell.water -= fragmentAmount;  // REMOVED
+                                    fragmented = true;
                                 }
                             }
                         }
                     }
-
-                    LOG_DEBUG(
-                        "Cell (" << x << "," << y << ") water bestScore=" << bestScore
-                                 << " forceMultiplier=" << forceMultiplier);
                 }
                 else {
-                    // DIRT LOGIC: Original 90-degree deflection logic
-                    double bestAngle = M_PI; // Start with worst possible angle (180°)
-                    bool foundOpenNeighbor = false;
-                    const double MAX_DEFLECTION_ANGLE = M_PI / 2.0; // 90 degrees max deflection
+                    // DIRT LOGIC
+                    double bestAngle = M_PI;
+                    const double MAX_DEFLECTION_ANGLE = M_PI / 2.0;
 
                     for (int dy = -1; dy <= 1; dy++) {
                         for (int dx = -1; dx <= 1; dx++) {
                             if (dx == 0 && dy == 0) continue;
-
                             int nx = static_cast<int>(x) + dx;
                             int ny = static_cast<int>(y) + dy;
 
                             if (isWithinBounds(nx, ny)) {
-                                Cell& neighbor = at(nx, ny);
-                                if (neighbor.percentFull() < 0.95) { // Has available space
-                                    // Calculate direction to this neighbor
+                                if (at(nx, ny).percentFull() < 0.95) {
                                     Vector2d neighborDirection = Vector2d(dx, dy).normalize();
-
-                                    // Calculate angle between desired direction and neighbor
-                                    // direction
-                                    double dotProduct = desiredDirection.dot(neighborDirection);
-                                    double angle =
-                                        std::acos(std::max(-1.0, std::min(1.0, dotProduct)));
-
-                                    LOG_DEBUG(
-                                        "  Dirt neighbor ("
-                                        << nx << "," << ny << ") direction=(" << neighborDirection.x
-                                        << "," << neighborDirection.y << ") angle=" << angle);
-
-                                    // Only consider neighbors within reasonable deflection angle
+                                    double angle = std::acos(std::max(
+                                        -1.0,
+                                        std::min(1.0, desiredDirection.dot(neighborDirection))));
                                     if (angle <= MAX_DEFLECTION_ANGLE && angle < bestAngle) {
                                         bestAngle = angle;
                                         appliedDirection = neighborDirection;
                                         foundOpenNeighbor = true;
-                                        LOG_DEBUG(
-                                            "  New best dirt neighbor: (" << nx << "," << ny
-                                                                          << ") angle=" << angle);
                                     }
                                 }
                                 else {
-                                    LOG_DEBUG(
-                                        "  Dirt neighbor (" << nx << "," << ny << ") is full ("
-                                                            << neighbor.percentFull() << ")");
+                                    ASSERT(
+                                        at(nx, ny).percentFull() <= 1.01,
+                                        "Neighbor cell is overfull before pressure application.");
                                 }
-                            }
-                            else {
-                                LOG_DEBUG(
-                                    "  Dirt neighbor (" << nx << "," << ny << ") out of bounds");
                             }
                         }
                     }
-
-                    if (!foundOpenNeighbor) {
-                        // No open neighbors within reasonable angle, can't apply pressure
-                        LOG_DEBUG(
-                            "Cell (" << x << "," << y
-                                     << ") no suitable dirt neighbors found within "
-                                     << (MAX_DEFLECTION_ANGLE * 180.0 / M_PI) << " degrees");
-                        continue;
-                    }
-
-                    // Scale force by cosine of deflection angle
-                    forceMultiplier = std::cos(bestAngle);
-                    // Ensure we don't apply negative force (angles > 90°)
-                    forceMultiplier = std::abs(forceMultiplier);
-                    LOG_DEBUG(
-                        "Cell (" << x << "," << y << ") dirt bestAngle=" << bestAngle
-                                 << " forceMultiplier=" << forceMultiplier);
+                    if (!foundOpenNeighbor) continue;
+                    forceMultiplier = std::abs(std::cos(bestAngle));
                 }
             }
 
-            // Apply the pressure force as acceleration
-            // Scale by the probability to make higher pressure more effective
-            double effectiveForce = pressureForce * forceMultiplier * 20; // Reduced for debugging
-            Vector2d pressureAcceleration = appliedDirection * effectiveForce;
+            if (!fragmented) {
+                // Use much gentler pressure forces to prevent aggressive water movement
+                double forceScale = isWaterCell ? 5.0 : 20.0; // Water moves more gently
+                double effectiveForce = pressureForce * forceMultiplier * forceScale;
+                Vector2d pressureAcceleration = appliedDirection * effectiveForce;
+                cell.v += pressureAcceleration;
+                pressureApplications++;
 
-            LOG_DEBUG(
-                "APPLYING PRESSURE at (" << x << "," << y << ") force=" << effectiveForce
-                                         << " direction=(" << appliedDirection.x << ","
-                                         << appliedDirection.y << ")");
-
-            cell.v += pressureAcceleration;
-            pressureApplications++;
-
-            // Apply velocity limiting to prevent excessive velocities
-            const double MAX_PRESSURE_VELOCITY = 8.0;
-            if (cell.v.mag() > MAX_PRESSURE_VELOCITY) {
-                cell.v = cell.v.normalize() * MAX_PRESSURE_VELOCITY;
+                // Also use lower velocity caps for water to prevent wild movement
+                const double MAX_PRESSURE_VELOCITY = isWaterCell ? 4.0 : 8.0;
+                if (cell.v.mag() > MAX_PRESSURE_VELOCITY) {
+                    cell.v = cell.v.normalize() * MAX_PRESSURE_VELOCITY;
+                }
             }
         }
     }
@@ -1226,21 +1101,22 @@ void World::applyMoves()
             continue;
         }
 
-        LOG_DEBUG(
-            "Transfer: from=(" << move.fromX << "," << move.fromY << ") to=(" << move.toX << ","
-                               << move.toY << ") source_v=(" << sourceCell.v.x << ","
-                               << sourceCell.v.y << ") target_v=(" << targetCell.v.x << ","
-                               << targetCell.v.y << ")");
+        const double originalSourceMass = sourceCell.percentFull();
 
         // Calculate maximum possible transfer while respecting capacity
         const double availableSpace = 1.0 - targetCell.percentFull();
         const double totalMass = move.dirtAmount + move.waterAmount;
         const double moveAmount = std::min({
             totalMass,
-            sourceCell.percentFull(), // Can't move more than we have. TODO: should take into
-                                      // account water vs dirt
-            availableSpace            // Can't exceed target capacity.
+            originalSourceMass, // Can't move more than we have.
+            availableSpace      // Can't exceed target capacity.
         });
+
+        LOG_DEBUG(
+            "Transfer: from=(" << move.fromX << "," << move.fromY << ") to=(" << move.toX << ","
+                               << move.toY << ") source_v=(" << sourceCell.v.x << ","
+                               << sourceCell.v.y << ") target_v=(" << targetCell.v.x << ","
+                               << targetCell.v.y << ")");
 
         // Validate cell states before transfer
         sourceCell.validateState("source before transfer");
@@ -1283,11 +1159,13 @@ void World::applyMoves()
         // --- END ELASTIC COLLISION RESPONSE ---
 
         // Calculate the fraction being moved.
-        const double moveFraction = moveAmount / sourceCell.percentFull();
+        const double moveFraction = originalSourceMass > 0 ? moveAmount / originalSourceMass : 0.0;
 
         // Calculate actual amounts to move based on proportions
-        const double dirtProportion = sourceCell.dirt / sourceCell.percentFull();
-        const double waterProportion = sourceCell.water / sourceCell.percentFull();
+        const double dirtProportion =
+            originalSourceMass > 0 ? sourceCell.dirt / originalSourceMass : 0.0;
+        const double waterProportion =
+            originalSourceMass > 0 ? sourceCell.water / originalSourceMass : 0.0;
 
         // Assert that proportions are valid
         ASSERT(std::isfinite(dirtProportion), "Dirt proportion is NaN or infinite");
@@ -1305,8 +1183,8 @@ void World::applyMoves()
         const double waterMoveAmount =
             moveAmount * waterProportion; // Water not affected by fragmentation
 
-        const double actualDirt = dirtMoveAmount;
-        const double actualWater = waterMoveAmount;
+        const double actualDirt = std::min(dirtMoveAmount, sourceCell.dirt);
+        const double actualWater = std::min(waterMoveAmount, sourceCell.water);
 
         // Assert that actual transfer amounts are valid
         ASSERT(std::isfinite(actualDirt) && actualDirt >= 0.0, "Actual dirt amount invalid");
@@ -1350,22 +1228,35 @@ void World::applyMoves()
 
         targetCell.validateState("target after update");
 
+        // If the target cell is overfull, log it. This is the root cause.
+        if (targetCell.percentFull() > 1.01) {
+            LOG_DEBUG("&&& OVERFULL CELL DETECTED &&&");
+            LOG_DEBUG(
+                "  - Cell (" << move.toX << "," << move.toY << ") is now "
+                             << targetCell.percentFull() * 100 << "% full.");
+            LOG_DEBUG("  - Added dirt: " << actualDirt << " water: " << actualWater);
+            LOG_DEBUG("  - It was " << oldTargetMass * 100 << "% full before.");
+            LOG_DEBUG("  - Transferred from (" << move.fromX << "," << move.fromY << ")");
+        }
+
         // Update source cell's COM and velocity if any mass remains.
         if (sourceCell.percentFull() > 0.0) {
             // Preserve velocity if no collision occurred
             Vector2d newV = sourceCell.v;
             // Scale COM based on remaining mass
             const double remainingMass = sourceCell.dirt + sourceCell.water;
-            const double moveFraction =
-                (actualDirt + actualWater) / (sourceCell.dirt + sourceCell.water);
-            Vector2d newCom = sourceCell.com * (1.0 - moveFraction);
+            const double movedMassFraction =
+                originalSourceMass > 0 ? (actualDirt + actualWater) / originalSourceMass : 0.0;
+            Vector2d newCom = sourceCell.com * (1.0 - movedMassFraction);
 
             // Assert source cell remaining calculations are valid
             ASSERT(
-                std::isfinite(remainingMass) && std::isfinite(moveFraction)
+                std::isfinite(remainingMass) && std::isfinite(movedMassFraction)
                     && std::isfinite(newCom.x) && std::isfinite(newCom.y),
                 "Source remaining calculations invalid");
-            ASSERT(moveFraction >= 0.0 && moveFraction <= 1.0, "Move fraction out of range [0,1]");
+            ASSERT(
+                movedMassFraction >= 0.0 && movedMassFraction <= 1.001,
+                "Move fraction out of range [0,1]"); // Allow for float error
 
             sourceCell.update(sourceCell.dirt, newCom, newV);
         }

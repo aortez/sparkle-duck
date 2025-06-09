@@ -242,6 +242,116 @@ TEST_F(WorldVisualTest, BoundaryReflectionBehavior) {
     world->setElasticityFactor(0.8);
 }
 
+TEST_F(WorldVisualTest, PhysicsIssueReproduction) {
+    // Create the 4x4 scenario from the physics issue reproduction test
+    width = 4;
+    height = 4;
+    createTestWorld();
+    
+    std::cout << "=== Physics Issue Reproduction Test (Visual) ===" << std::endl;
+    std::cout << "Creating 4x4 world with water on right half and one dirt piece on bottom left" << std::endl;
+    
+    // Fill entire right half (columns 2,3) with water
+    for (uint32_t y = 0; y < 4; y++) {
+        for (uint32_t x = 2; x < 4; x++) {
+            world->at(x, y).water = 1.0;
+            world->at(x, y).dirt = 0.0;
+            world->at(x, y).com = Vector2d(0.0, 0.0);
+            world->at(x, y).v = Vector2d(0.0, 0.0);
+        }
+    }
+    
+    // Put one piece of dirt at (1,3) - bottom left next to the water
+    world->at(1, 3).dirt = 1.0;
+    world->at(1, 3).water = 0.0; 
+    world->at(1, 3).com = Vector2d(0.0, 0.0);
+    world->at(1, 3).v = Vector2d(0.0, 0.0);
+    
+    std::cout << "Initial world state:" << std::endl;
+    std::cout << ". . W W " << std::endl;
+    std::cout << ". . W W " << std::endl;
+    std::cout << ". . W W " << std::endl;
+    std::cout << ". D W W " << std::endl;
+    std::cout << std::endl;
+    
+    double initialMass = world->getTotalMass();
+    std::cout << "Initial total mass: " << initialMass << std::endl;
+    
+    // Show initial setup
+    runSimulation(world.get(), 60, "Initial 4x4 setup - water right, dirt bottom left");
+    
+    double maxDeflectionMag = 0.0;
+    int maxDeflectionStep = 0;
+    
+    // Run for many timesteps to test physics stability
+    for (int step = 0; step < 1000; step++) {
+        world->advanceTime(0.016); // 16ms per frame
+        
+        // Check for overfull cells
+        for (uint32_t y = 0; y < 4; y++) {
+            for (uint32_t x = 0; x < 4; x++) {
+                double fullness = world->at(x, y).percentFull();
+                EXPECT_LE(fullness, 1.01) << "Cell (" << x << "," << y << ") is overfull at step " << step;
+            }
+        }
+        
+        // Track maximum deflection magnitude
+        for (uint32_t y = 0; y < 4; y++) {
+            for (uint32_t x = 0; x < 4; x++) {
+                if (world->at(x, y).percentFull() > 0.01) {
+                    Vector2d deflection = world->at(x, y).getNormalizedDeflection();
+                    double mag = deflection.mag();
+                    if (mag > maxDeflectionMag) {
+                        maxDeflectionMag = mag;
+                        maxDeflectionStep = step;
+                    }
+                }
+            }
+        }
+        
+        // Update progress periodically during visual mode
+        if (visual_mode_ && step % 100 == 0) {
+            runSimulation(world.get(), 10, "Progress: step " + std::to_string(step));
+        }
+    }
+    
+    // Show final result
+    runSimulation(world.get(), 60, "Final state after 1000 steps");
+    
+    double finalMass = world->getTotalMass();
+    std::cout << "Final total mass: " << finalMass << std::endl;
+    std::cout << "Mass change: " << (finalMass - initialMass) << std::endl;
+    std::cout << "Maximum deflection magnitude: " << maxDeflectionMag 
+              << " (occurred at step " << maxDeflectionStep << ")" << std::endl;
+    
+    // Print final world state
+    std::cout << "Final world state:" << std::endl;
+    for (uint32_t y = 0; y < 4; y++) {
+        for (uint32_t x = 0; x < 4; x++) {
+            const auto& cell = world->at(x, y);
+            if (cell.dirt > 0.5) {
+                std::cout << "D ";
+            } else if (cell.water > 0.5) {
+                std::cout << "W ";
+            } else if (cell.percentFull() > 0.1) {
+                std::cout << "M "; // Mixed
+            } else {
+                std::cout << ". ";
+            }
+        }
+        std::cout << std::endl;
+    }
+    std::cout << std::endl;
+    
+    // Verify physics stability
+    EXPECT_LE(maxDeflectionMag, 2.0) << "Deflection magnitudes should stay within reasonable bounds";
+    EXPECT_NEAR(finalMass, initialMass, 1.0) << "Mass should be approximately conserved";
+    
+    std::cout << "✓ No overfull cells detected" << std::endl;
+    std::cout << "✓ Deflection magnitudes stayed within reasonable bounds" << std::endl;
+    std::cout << "=== Test Complete ===" << std::endl;
+}
+
 TEST(DefaultWorldSetupVTable, Instantiate) {
     DefaultWorldSetup setup;
 } 
