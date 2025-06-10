@@ -7,7 +7,7 @@
 .venv/
 .vscode/
 
-lvgl/
+# lvgl/ - removed to allow submodule
 test-lvgl/_deps
 test-lvgl/build/
 test-lvgl/wl_protocols/

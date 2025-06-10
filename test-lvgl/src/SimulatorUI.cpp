@@ -124,7 +124,7 @@ void SimulatorUI::createControlButtons()
     lv_obj_align(pressure_dropdown, LV_ALIGN_TOP_RIGHT, -10, 210);
     lv_dropdown_set_options(
         pressure_dropdown, "Original (COM)\nTop-Down Hydrostatic\nIterative Settling");
-    lv_dropdown_set_selected(pressure_dropdown, 0, LV_ANIM_OFF); // Default to Original
+    lv_dropdown_set_selected(pressure_dropdown, 0); // Default to Original
     lv_obj_add_event_cb(
         pressure_dropdown,
         pressureSystemDropdownEventCb,
