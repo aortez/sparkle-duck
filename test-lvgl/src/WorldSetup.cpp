@@ -2,21 +2,19 @@
 #include "Cell.h"
 #include "Vector2d.h"
 #include "World.h"
+#include "spdlog/spdlog.h"
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <iostream>
 #include <random>
 
-// Debug logging specifically for particle events.
-#ifdef LOG_PARTICLES
-#define LOG_PARTICLES(x) std::cout << "[Particles] " << x << std::endl
-#else
-#define LOG_PARTICLES(x) ((void)0)
-#endif
-
 void WorldSetup::fillLowerRightQuadrant(World& world)
 {
+    spdlog::info(
+        "Filling lower right quadrant with dirt ({}x{} cells)",
+        world.getWidth() / 2,
+        world.getHeight() / 2);
     for (uint32_t y = world.getHeight() / 2; y < world.getHeight(); ++y) {
         for (uint32_t x = world.getWidth() / 2; x < world.getWidth(); ++x) {
             world.at(x, y).update(1.0, Vector2d(0.0, 0.0), Vector2d(0.0, 0.0));
@@ -27,6 +25,7 @@ void WorldSetup::fillLowerRightQuadrant(World& world)
 
 void WorldSetup::makeWalls(World& world)
 {
+    spdlog::info("Creating world walls ({}x{} boundary)", world.getWidth(), world.getHeight());
     // Top and bottom walls
     for (uint32_t x = 0; x < world.getWidth(); x++) {
         // world.at(x, 0).update(1.0, Vector2d(0.0, 0.0), Vector2d(0.0, 0.0));
@@ -45,6 +44,8 @@ void WorldSetup::makeWalls(World& world)
 
 void WorldSetup::fillWithDirt(World& world)
 {
+    spdlog::info(
+        "Filling entire world with dirt ({}x{} cells)", world.getWidth(), world.getHeight());
     for (uint32_t y = 0; y < world.getHeight(); y++) {
         for (uint32_t x = 0; x < world.getWidth(); x++) {
             world.at(x, y).update(0.5, Vector2d(0.0, 0.0), Vector2d(1, 0.0));
@@ -75,9 +76,12 @@ void DefaultWorldSetup::addParticles(World& world, uint32_t timestep, double del
 
     const double simTime = lastSimTime + deltaTimeSeconds;
 
-    LOG_PARTICLES(
-        "Timestep " << timestep << ": simTime=" << simTime << ", lastSimTime=" << lastSimTime
-                    << ", deltaTime=" << deltaTimeSeconds);
+    spdlog::debug(
+        "DefaultWorldSetup timestep {}: simTime={:.3f}, lastSimTime={:.3f}, deltaTime={:.3f}",
+        timestep,
+        simTime,
+        lastSimTime,
+        deltaTimeSeconds);
 
     // Constants for sweep behavior
     const double SWEEP_PERIOD = 2.0; // Time for one complete sweep (left to right and back)
@@ -119,14 +123,13 @@ void DefaultWorldSetup::addParticles(World& world, uint32_t timestep, double del
         // Emit particle at current sweep position
         Cell& cell = world.at(xPos, 1); // 1 to be just below the top wall
         cell.update(dirtAmount, Vector2d(0.0, 0.0), Vector2d(0.0, 0.0));
-        LOG_PARTICLES(
-            "Sweep emitter at x=" << xPos << " with dirt=" << dirtAmount << " (beat " << currentBeat
-                                  << ")");
+        spdlog::debug(
+            "Sweep emitter at x={} with dirt={:.2f} (beat {})", xPos, dirtAmount, currentBeat);
     }
 
     // Drop a dirt from the top
     if (!eventState.topDropDone && simTime >= eventState.nextTopDrop) {
-        LOG_PARTICLES("Adding top drop at time " << simTime);
+        spdlog::info("Adding top drop at time {:.3f}s", simTime);
         uint32_t centerX = world.getWidth() / 2;
         Cell& cell = world.at(centerX, 1); // 1 to be just below the top wall.
         cell.update(1.0, Vector2d(0.0, 0.0), Vector2d(0.0, 0.0));
@@ -135,7 +138,7 @@ void DefaultWorldSetup::addParticles(World& world, uint32_t timestep, double del
 
     // Initial throw from left center
     if (!eventState.initialThrowDone && simTime >= eventState.nextInitialThrow) {
-        LOG_PARTICLES("Adding initial throw at time " << simTime);
+        spdlog::info("Adding initial throw at time {:.3f}s", simTime);
         uint32_t centerY = world.getHeight() / 2;
         Cell& cell = world.at(2, centerY); // Against the left wall.
         cell.update(1.0, Vector2d(0.0, 0.0), Vector2d(5, -5));
@@ -145,7 +148,7 @@ void DefaultWorldSetup::addParticles(World& world, uint32_t timestep, double del
     // Recurring throws every ~0.83 seconds
     const double period = 0.83;
     if (simTime >= eventState.nextPeriodicThrow) {
-        LOG_PARTICLES("Adding periodic throw at time " << simTime);
+        spdlog::debug("Adding periodic throw at time {:.3f}s", simTime);
         uint32_t centerY = world.getHeight() / 2;
         Cell& cell = world.at(2, centerY); // Against the left wall.
         cell.update(1.0, Vector2d(0.0, 0.0), Vector2d(10, -10));
@@ -155,7 +158,7 @@ void DefaultWorldSetup::addParticles(World& world, uint32_t timestep, double del
 
     // Recurring throws from right side every ~0.83 seconds
     if (simTime >= eventState.nextRightThrow) {
-        LOG_PARTICLES("Adding right periodic throw at time " << simTime);
+        spdlog::debug("Adding right periodic throw at time {:.3f}s", simTime);
         uint32_t centerY = world.getHeight() / 2 - 2;
         Cell& cell = world.at(world.getWidth() - 3, centerY); // Against the right wall.
         cell.update(1.0, Vector2d(0.0, 0.0), Vector2d(-10, -10));
@@ -197,9 +200,12 @@ void ConfigurableWorldSetup::addParticles(World& world, uint32_t timestep, doubl
 
     const double simTime = lastSimTime + deltaTimeSeconds;
 
-    LOG_PARTICLES(
-        "Timestep " << timestep << ": simTime=" << simTime << ", lastSimTime=" << lastSimTime
-                    << ", deltaTime=" << deltaTimeSeconds);
+    spdlog::debug(
+        "ConfigurableWorldSetup timestep {}: simTime={:.3f}, lastSimTime={:.3f}, deltaTime={:.3f}",
+        timestep,
+        simTime,
+        lastSimTime,
+        deltaTimeSeconds);
 
     // Constants for sweep behavior
     const double SWEEP_PERIOD = 2.0; // Time for one complete sweep (left to right and back)
@@ -241,14 +247,13 @@ void ConfigurableWorldSetup::addParticles(World& world, uint32_t timestep, doubl
         // Emit particle at current sweep position
         Cell& cell = world.at(xPos, 1); // 1 to be just below the top wall
         cell.update(dirtAmount, Vector2d(0.0, 0.0), Vector2d(0.0, 0.0));
-        LOG_PARTICLES(
-            "Sweep emitter at x=" << xPos << " with dirt=" << dirtAmount << " (beat " << currentBeat
-                                  << ")");
+        spdlog::debug(
+            "Sweep emitter at x={} with dirt={:.2f} (beat {})", xPos, dirtAmount, currentBeat);
     }
 
     // Drop a dirt from the top (if enabled)
     if (topDropEnabled && !eventState.topDropDone && simTime >= eventState.nextTopDrop) {
-        LOG_PARTICLES("Adding top drop at time " << simTime);
+        spdlog::info("Adding top drop at time {:.3f}s", simTime);
         uint32_t centerX = world.getWidth() / 2;
         Cell& cell = world.at(centerX, 1); // 1 to be just below the top wall.
         cell.update(1.0, Vector2d(0.0, 0.0), Vector2d(0.0, 0.0));
@@ -258,7 +263,7 @@ void ConfigurableWorldSetup::addParticles(World& world, uint32_t timestep, doubl
     // Initial throw from left center (if enabled)
     if (leftThrowEnabled && !eventState.initialThrowDone
         && simTime >= eventState.nextInitialThrow) {
-        LOG_PARTICLES("Adding initial throw at time " << simTime);
+        spdlog::info("Adding initial throw at time {:.3f}s", simTime);
         uint32_t centerY = world.getHeight() / 2;
         Cell& cell = world.at(2, centerY); // Against the left wall.
         cell.update(1.0, Vector2d(0.0, 0.0), Vector2d(5, -5));
@@ -268,7 +273,7 @@ void ConfigurableWorldSetup::addParticles(World& world, uint32_t timestep, doubl
     // Recurring throws every ~0.83 seconds (if left throw enabled)
     const double period = 0.83;
     if (leftThrowEnabled && simTime >= eventState.nextPeriodicThrow) {
-        LOG_PARTICLES("Adding periodic throw at time " << simTime);
+        spdlog::debug("Adding periodic throw at time {:.3f}s", simTime);
         uint32_t centerY = world.getHeight() / 2;
         Cell& cell = world.at(2, centerY); // Against the left wall.
         cell.update(1.0, Vector2d(0.0, 0.0), Vector2d(10, -10));
@@ -278,7 +283,7 @@ void ConfigurableWorldSetup::addParticles(World& world, uint32_t timestep, doubl
 
     // Recurring throws from right side every ~0.83 seconds (if right throw enabled)
     if (rightThrowEnabled && simTime >= eventState.nextRightThrow) {
-        LOG_PARTICLES("Adding right periodic throw at time " << simTime);
+        spdlog::debug("Adding right periodic throw at time {:.3f}s", simTime);
         uint32_t centerY = world.getHeight() / 2 - 2;
         Cell& cell = world.at(world.getWidth() - 3, centerY); // Against the right wall.
         cell.update(1.0, Vector2d(0.0, 0.0), Vector2d(-10, -10));
@@ -288,7 +293,7 @@ void ConfigurableWorldSetup::addParticles(World& world, uint32_t timestep, doubl
 
     // Rain drops at variable rate (if rain rate > 0)
     if (rainRate > 0.0 && simTime >= eventState.nextRainDrop) {
-        LOG_PARTICLES("Adding rain drop at time " << simTime << " (rate: " << rainRate << "/s)");
+        spdlog::debug("Adding rain drop at time {:.3f}s (rate: {:.1f}/s)", simTime, rainRate);
 
         // Use normal distribution for horizontal position
         static std::random_device rd;

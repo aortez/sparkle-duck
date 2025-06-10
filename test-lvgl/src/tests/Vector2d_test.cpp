@@ -1,6 +1,7 @@
 #include "../Vector2d.h"
 #include <gtest/gtest.h>
 #include <cmath>
+#include <spdlog/spdlog.h>
 
 // Helper function to compare doubles with epsilon.
 bool almostEqual(double a, double b, double epsilon = 1e-6) {
@@ -13,6 +14,7 @@ bool almostEqual(const Vector2d& a, const Vector2d& b, double epsilon = 1e-6) {
 }
 
 TEST(Vector2dTest, Constructors) {
+    spdlog::info("Starting Vector2dTest::Constructors test");
     // Default constructor.
     Vector2d v1;
     EXPECT_TRUE(almostEqual(v1.x, 0.0));
@@ -25,6 +27,7 @@ TEST(Vector2dTest, Constructors) {
 }
 
 TEST(Vector2dTest, Operators) {
+    spdlog::info("Starting Vector2dTest::Operators test");
     Vector2d v1(1.0, 2.0);
     Vector2d v2(3.0, 4.0);
 
@@ -66,6 +69,7 @@ TEST(Vector2dTest, Operators) {
 }
 
 TEST(Vector2dTest, VectorOperations) {
+    spdlog::info("Starting Vector2dTest::VectorOperations test");
     Vector2d v1(3.0, 4.0);
     Vector2d v2(1.0, 2.0);
 
@@ -94,6 +98,7 @@ TEST(Vector2dTest, VectorOperations) {
 }
 
 TEST(Vector2dTest, EdgeCases) {
+    spdlog::info("Starting Vector2dTest::EdgeCases test");
     Vector2d v(1.0, 2.0);
 
     // Division by zero.

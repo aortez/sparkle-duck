@@ -3,31 +3,17 @@
 #include "SimulatorUI.h"
 #include "Timers.h"
 #include "WorldSetup.h"
-#include <cassert>
-#include <cmath>
-
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
-#endif
+#include "spdlog/spdlog.h"
 
 #include <algorithm>
+#include <cassert>
+#include <cmath>
 #include <iostream>
 #include <random>
 #include <stdexcept>
 
-#define LOG_DEBUG
-#ifdef LOG_DEBUG
-#define LOG_DEBUG(x) std::cout << x << std::endl
-#else
-#define LOG_DEBUG(x) ((void)0)
-#endif
-
-// Debug logging specifically for particle events
-#define LOG_PARTICLES
-#ifdef LOG_PARTICLES
-#define LOG_PARTICLES(x) std::cout << "[Particles] " << x << std::endl
-#else
-#define LOG_PARTICLES(x) ((void)0)
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
 #endif
 
 // Define ASSERT macro if not already defined
@@ -56,6 +42,8 @@ double World::DIRT_FRAGMENTATION_FACTOR = 0.0; // Default dirt fragmentation fac
 World::World(uint32_t width, uint32_t height, lv_obj_t* draw_area)
     : width(width), height(height), cells(width * height), draw_area(draw_area)
 {
+    spdlog::info("Creating World: {}x{} grid ({} total cells)", width, height, cells.size());
+
     // Initialize timers
     timers.startTimer("total_simulation");
 
@@ -65,6 +53,8 @@ World::World(uint32_t width, uint32_t height, lv_obj_t* draw_area)
 
 World::~World()
 {
+    spdlog::info("Destroying World: {}x{} grid", width, height);
+
     // Stop the total simulation timer and dump stats
     timers.stopTimer("total_simulation");
     timers.dumpTimerStats();
@@ -73,6 +63,9 @@ World::~World()
 void World::advanceTime(const double deltaTimeSeconds)
 {
     timers.startTimer("advance_time");
+
+    spdlog::trace(
+        "advanceTime: deltaTime={:.4f}s, simulationTime={:.3f}s", deltaTimeSeconds, simulationTime);
 
     // Update simulation time
     simulationTime += deltaTimeSeconds;
@@ -103,6 +96,12 @@ void World::advanceTime(const double deltaTimeSeconds)
     processDragEnd();
 
     // Use the selected pressure system
+    spdlog::trace(
+        "Running pressure system: {}",
+        (pressureSystem == PressureSystem::TopDown)                 ? "TopDown"
+            : (pressureSystem == PressureSystem::IterativeSettling) ? "IterativeSettling"
+                                                                    : "Original");
+
     switch (pressureSystem) {
         case PressureSystem::TopDown:
             updateAllPressuresTopDown(deltaTimeSeconds);
@@ -151,11 +150,15 @@ void World::processDragEnd()
             Cell& cell = at(pendingDragEnd.cellX, pendingDragEnd.cellY);
             cell.update(pendingDragEnd.dirt, pendingDragEnd.com, pendingDragEnd.velocity);
 
-            LOG_DEBUG(
-                "Processed drag end at (" << pendingDragEnd.cellX << "," << pendingDragEnd.cellY
-                                          << ") with velocity (" << cell.v.x << "," << cell.v.y
-                                          << ") and COM (" << cell.com.x << "," << cell.com.y
-                                          << ")");
+            spdlog::info(
+                "Processed drag end at ({},{}) with velocity ({:.2f},{:.2f}) and COM "
+                "({:.2f},{:.2f})",
+                pendingDragEnd.cellX,
+                pendingDragEnd.cellY,
+                cell.v.x,
+                cell.v.y,
+                cell.com.x,
+                cell.com.y);
         }
         pendingDragEnd.hasPendingEnd = false;
         timers.stopTimer("process_drag_end");
@@ -164,6 +167,8 @@ void World::processDragEnd()
 
 void World::processTransfers(double deltaTimeSeconds)
 {
+    spdlog::trace("processTransfers: processing {}x{} cells", width, height);
+
     // Collect potential moves
     for (uint32_t y = 0; y < height; y++) {
         for (uint32_t x = 0; x < width; x++) {
@@ -273,9 +278,14 @@ void World::applyPhysicsToCell(Cell& cell, uint32_t x, uint32_t y, double deltaT
 {
     // Debug: Log initial state
     if (cell.v.x != 0.0 || cell.v.y != 0.0) {
-        LOG_DEBUG(
-            "Cell (" << x << "," << y << ") initial state: v=(" << cell.v.x << "," << cell.v.y
-                     << "), com=(" << cell.com.x << "," << cell.com.y << ")");
+        spdlog::trace(
+            "Cell ({},{}) initial state: v=({},{}), com=({},{})",
+            x,
+            y,
+            cell.v.x,
+            cell.v.y,
+            cell.com.x,
+            cell.com.y);
     }
 
     // Apply gravity
@@ -342,13 +352,13 @@ void World::calculateTransferDirection(
         shouldTransferX = true;
         targetX = x + 1;
         comOffset.x = clampCOMToDeadZone(calculateNaturalCOM(Vector2d(cell.com.x, 0.0), 1, 0)).x;
-        LOG_DEBUG("  Transfer right: com.x=" << cell.com.x << ", target_com.x=" << comOffset.x);
+        spdlog::trace("  Transfer right: com.x={}, target_com.x={}", cell.com.x, comOffset.x);
     }
     else if (cell.com.x < -Cell::COM_DEFLECTION_THRESHOLD) {
         shouldTransferX = true;
         targetX = x - 1;
         comOffset.x = clampCOMToDeadZone(calculateNaturalCOM(Vector2d(cell.com.x, 0.0), -1, 0)).x;
-        LOG_DEBUG("  Transfer left: com.x=" << cell.com.x << ", target_com.x=" << comOffset.x);
+        spdlog::trace("  Transfer left: com.x={}, target_com.x={}", cell.com.x, comOffset.x);
     }
 
     // Check vertical transfer based on COM deflection
@@ -356,13 +366,13 @@ void World::calculateTransferDirection(
         shouldTransferY = true;
         targetY = y + 1;
         comOffset.y = clampCOMToDeadZone(calculateNaturalCOM(Vector2d(0.0, cell.com.y), 0, 1)).y;
-        LOG_DEBUG("  Transfer down: com.y=" << cell.com.y << ", target_com.y=" << comOffset.y);
+        spdlog::trace("  Transfer down: com.y={}, target_com.y={}", cell.com.y, comOffset.y);
     }
     else if (cell.com.y < -Cell::COM_DEFLECTION_THRESHOLD) {
         shouldTransferY = true;
         targetY = y - 1;
         comOffset.y = clampCOMToDeadZone(calculateNaturalCOM(Vector2d(0.0, cell.com.y), 0, -1)).y;
-        LOG_DEBUG("  Transfer up: com.y=" << cell.com.y << ", target_com.y=" << comOffset.y);
+        spdlog::trace("  Transfer up: com.y={}, target_com.y={}", cell.com.y, comOffset.y);
     }
 }
 
@@ -381,7 +391,7 @@ bool World::attemptTransfer(
 
     Cell& targetCell = at(targetX, targetY);
     if (targetCell.percentFull() >= 1.0) {
-        LOG_DEBUG("  Transfer blocked by full cell at (" << targetX << "," << targetY << ")");
+        spdlog::trace("  Transfer blocked by full cell at ({},{})", targetX, targetY);
         return false;
     }
 
@@ -409,9 +419,14 @@ bool World::attemptTransfer(
                               .waterAmount = waterAmount,
                               .comOffset = comOffset });
 
-    LOG_DEBUG(
-        "  Queued move: from=(" << x << "," << y << ") to=(" << targetX << "," << targetY
-                                << "), dirt=" << dirtAmount << ", water=" << waterAmount);
+    spdlog::trace(
+        "  Queued move: from=({},{}) to=({},{}), dirt={}, water={}",
+        x,
+        y,
+        targetX,
+        targetY,
+        dirtAmount,
+        waterAmount);
     return true;
 }
 
@@ -432,7 +447,7 @@ void World::handleTransferFailure(
         cell.v.x = -cell.v.x * ELASTICITY_FACTOR;
         cell.com.x =
             (targetX < 0) ? -Cell::COM_DEFLECTION_THRESHOLD : Cell::COM_DEFLECTION_THRESHOLD;
-        LOG_DEBUG("  X boundary reflection: COM.x=" << cell.com.x << ", v.x=" << cell.v.x);
+        spdlog::trace("  X boundary reflection: COM.x={}, v.x={}", cell.com.x, cell.v.x);
     }
 
     if (shouldTransferY && !isWithinBounds(x, targetY)) {
@@ -440,7 +455,7 @@ void World::handleTransferFailure(
         cell.v.y = -cell.v.y * ELASTICITY_FACTOR;
         cell.com.y =
             (targetY < 0) ? -Cell::COM_DEFLECTION_THRESHOLD : Cell::COM_DEFLECTION_THRESHOLD;
-        LOG_DEBUG("  Y boundary reflection: COM.y=" << cell.com.y << ", v.y=" << cell.v.y);
+        spdlog::trace("  Y boundary reflection: COM.y={}, v.y={}", cell.com.y, cell.v.y);
     }
 
     // Handle in-bounds collisions (blocked by other cells)
@@ -454,17 +469,15 @@ void World::handleTransferFailure(
             cell.v.x = -cell.v.x * ELASTICITY_FACTOR;
             cell.com.x =
                 (cell.com.x > 0) ? Cell::COM_DEFLECTION_THRESHOLD : -Cell::COM_DEFLECTION_THRESHOLD;
-            LOG_DEBUG(
-                "  X collision with full cell (" << targetX << "," << y
-                                                 << "): fullness=" << targetFullness);
+            spdlog::trace(
+                "  X collision with full cell ({},{}): fullness={}", targetX, y, targetFullness);
         }
         else if (targetFullness > 0.7) {
             // Partial blockage - reduce momentum without full reflection
             double blockageFactor = (targetFullness - 0.7) / 0.25; // 0.0 to 1.0
             cell.v.x *= (1.0 - blockageFactor * 0.5);              // Reduce by up to 50%
             cell.com.x *= (1.0 - blockageFactor * 0.3);            // Reduce COM deflection
-            LOG_DEBUG(
-                "  X partial blockage: factor=" << blockageFactor << ", new v.x=" << cell.v.x);
+            spdlog::trace("  X partial blockage: factor={}, new v.x={}", blockageFactor, cell.v.x);
         }
     }
 
@@ -475,17 +488,15 @@ void World::handleTransferFailure(
             cell.v.y = -cell.v.y * ELASTICITY_FACTOR;
             cell.com.y =
                 (cell.com.y > 0) ? Cell::COM_DEFLECTION_THRESHOLD : -Cell::COM_DEFLECTION_THRESHOLD;
-            LOG_DEBUG(
-                "  Y collision with full cell (" << x << "," << targetY
-                                                 << "): fullness=" << targetFullness);
+            spdlog::trace(
+                "  Y collision with full cell ({},{}): fullness={}", x, targetY, targetFullness);
         }
         else if (targetFullness > 0.7) {
             // Partial blockage - reduce momentum without full reflection
             double blockageFactor = (targetFullness - 0.7) / 0.25; // 0.0 to 1.0
             cell.v.y *= (1.0 - blockageFactor * 0.5);              // Reduce by up to 50%
             cell.com.y *= (1.0 - blockageFactor * 0.3);            // Reduce COM deflection
-            LOG_DEBUG(
-                "  Y partial blockage: factor=" << blockageFactor << ", new v.y=" << cell.v.y);
+            spdlog::trace("  Y partial blockage: factor={}, new v.y={}", blockageFactor, cell.v.y);
         }
     }
 
@@ -504,7 +515,7 @@ void World::handleTransferFailure(
                 cell.com.y = (cell.com.y > 0) ? Cell::COM_DEFLECTION_THRESHOLD
                                               : -Cell::COM_DEFLECTION_THRESHOLD;
             }
-            LOG_DEBUG("  Diagonal collision with full cell (" << targetX << "," << targetY << ")");
+            spdlog::trace("  Diagonal collision with full cell ({},{})", targetX, targetY);
         }
     }
 
@@ -519,14 +530,14 @@ void World::handleTransferFailure(
             // Transfer could have succeeded but was blocked by Monte Carlo - apply momentum bleed
             cell.v.x *= (1.0 - MOMENTUM_BLEED_FACTOR);
             cell.com.x *= (1.0 - MOMENTUM_BLEED_FACTOR * 0.5);
-            LOG_DEBUG("  Monte Carlo X momentum bleed: new v.x=" << cell.v.x);
+            spdlog::trace("  Monte Carlo X momentum bleed: new v.x={}", cell.v.x);
         }
 
         if (shouldTransferY && isWithinBounds(x, targetY) && at(x, targetY).percentFull() < 0.7) {
             // Transfer could have succeeded but was blocked by Monte Carlo - apply momentum bleed
             cell.v.y *= (1.0 - MOMENTUM_BLEED_FACTOR);
             cell.com.y *= (1.0 - MOMENTUM_BLEED_FACTOR * 0.5);
-            LOG_DEBUG("  Monte Carlo Y momentum bleed: new v.y=" << cell.v.y);
+            spdlog::trace("  Monte Carlo Y momentum bleed: new v.y={}", cell.v.y);
         }
     }
 }
@@ -546,14 +557,14 @@ void World::checkExcessiveDeflectionReflection(Cell& cell)
         cell.v.x = -cell.v.x * ELASTICITY_FACTOR;
         cell.com.x = (normalizedDeflection.x > 0) ? Cell::COM_DEFLECTION_THRESHOLD
                                                   : -Cell::COM_DEFLECTION_THRESHOLD;
-        LOG_DEBUG("  Horizontal reflection: COM.x=" << cell.com.x << ", v.x=" << cell.v.x);
+        spdlog::trace("  Horizontal reflection: COM.x={}, v.x={}", cell.com.x, cell.v.x);
     }
 
     if (std::abs(normalizedDeflection.y) > REFLECTION_THRESHOLD) {
         cell.v.y = -cell.v.y * ELASTICITY_FACTOR;
         cell.com.y = (normalizedDeflection.y > 0) ? Cell::COM_DEFLECTION_THRESHOLD
                                                   : -Cell::COM_DEFLECTION_THRESHOLD;
-        LOG_DEBUG("  Vertical reflection: COM.y=" << cell.com.y << ", v.y=" << cell.v.y);
+        spdlog::trace("  Vertical reflection: COM.y={}, v.y={}", cell.com.y, cell.v.y);
     }
 }
 
@@ -817,10 +828,12 @@ void World::applyPressure(const double deltaTimeSeconds)
                                     // Skip pressure application to overfull cells to prevent
                                     // capacity violations
                                     if (at(nx, ny).percentFull() > 1.01) {
-                                        LOG_DEBUG(
-                                            "Skipping pressure application to overfull cell ("
-                                            << nx << "," << ny << ") with "
-                                            << at(nx, ny).percentFull() * 100 << "% capacity");
+                                        spdlog::trace(
+                                            "Skipping pressure application to overfull cell "
+                                            "({},{}) with {}% capacity",
+                                            nx,
+                                            ny,
+                                            at(nx, ny).percentFull() * 100);
                                         continue; // Skip this neighbor
                                     }
                                 }
@@ -850,7 +863,7 @@ void World::applyPressure(const double deltaTimeSeconds)
     }
 
     if (pressureApplications > 0) {
-        LOG_DEBUG("Applied pressure to " << pressureApplications << " cells this frame");
+        spdlog::trace("Applied pressure to {} cells this frame", pressureApplications);
     }
 }
 
@@ -863,7 +876,7 @@ void World::updateAllPressures(double deltaTimeSeconds)
         }
     }
 
-    LOG_DEBUG("=== PRESSURE GENERATION PHASE ===");
+    spdlog::trace("=== PRESSURE GENERATION PHASE ===");
     int pressuresGenerated = 0;
 
     // Then calculate pressures that cells exert on their neighbor.
@@ -877,9 +890,13 @@ void World::updateAllPressures(double deltaTimeSeconds)
             Vector2d normalizedDeflection = cell.getNormalizedDeflection();
 
             if (normalizedDeflection.mag() > 0.01) {
-                LOG_DEBUG(
-                    "Cell (" << x << "," << y << ") deflection=(" << normalizedDeflection.x << ","
-                             << normalizedDeflection.y << ") mag=" << normalizedDeflection.mag());
+                spdlog::trace(
+                    "Cell ({},{}) deflection=({},{}) mag={}",
+                    x,
+                    y,
+                    normalizedDeflection.x,
+                    normalizedDeflection.y,
+                    normalizedDeflection.mag());
             }
 
             // Right neighbor
@@ -888,9 +905,8 @@ void World::updateAllPressures(double deltaTimeSeconds)
                     Cell& neighbor = at(x + 1, y);
                     double pressureAdded = normalizedDeflection.x * mass * deltaTimeSeconds;
                     neighbor.pressure.x += pressureAdded;
-                    LOG_DEBUG(
-                        "Adding pressure " << pressureAdded << " to right neighbor (" << (x + 1)
-                                           << "," << y << ")");
+                    spdlog::trace(
+                        "Adding pressure {} to right neighbor ({},{})", pressureAdded, (x + 1), y);
                     pressuresGenerated++;
                 }
             }
@@ -900,9 +916,8 @@ void World::updateAllPressures(double deltaTimeSeconds)
                     Cell& neighbor = at(x - 1, y);
                     double pressureAdded = -normalizedDeflection.x * mass * deltaTimeSeconds;
                     neighbor.pressure.x += pressureAdded;
-                    LOG_DEBUG(
-                        "Adding pressure " << pressureAdded << " to left neighbor (" << (x - 1)
-                                           << "," << y << ")");
+                    spdlog::trace(
+                        "Adding pressure {} to left neighbor ({},{})", pressureAdded, (x - 1), y);
                     pressuresGenerated++;
                 }
             }
@@ -912,9 +927,8 @@ void World::updateAllPressures(double deltaTimeSeconds)
                     Cell& neighbor = at(x, y + 1);
                     double pressureAdded = normalizedDeflection.y * mass * deltaTimeSeconds;
                     neighbor.pressure.y += pressureAdded;
-                    LOG_DEBUG(
-                        "Adding pressure " << pressureAdded << " to down neighbor (" << x << ","
-                                           << (y + 1) << ")");
+                    spdlog::trace(
+                        "Adding pressure {} to down neighbor ({},{})", pressureAdded, x, (y + 1));
                     pressuresGenerated++;
                 }
             }
@@ -924,16 +938,15 @@ void World::updateAllPressures(double deltaTimeSeconds)
                     Cell& neighbor = at(x, y - 1);
                     double pressureAdded = -normalizedDeflection.y * mass * deltaTimeSeconds;
                     neighbor.pressure.y += pressureAdded;
-                    LOG_DEBUG(
-                        "Adding pressure " << pressureAdded << " to up neighbor (" << x << ","
-                                           << (y - 1) << ")");
+                    spdlog::trace(
+                        "Adding pressure {} to up neighbor ({},{})", pressureAdded, x, (y - 1));
                     pressuresGenerated++;
                 }
             }
         }
     }
 
-    LOG_DEBUG("Generated " << pressuresGenerated << " pressure contributions this frame");
+    spdlog::trace("Generated {} pressure contributions this frame", pressuresGenerated);
 
     // TEMPORARILY DISABLE PRESSURE DIFFUSION FOR DEBUGGING
     // The diffusion is averaging pressure values and preventing threshold-based application
@@ -975,7 +988,7 @@ void World::updateAllPressuresTopDown(double deltaTimeSeconds)
         }
     }
 
-    LOG_DEBUG("=== TOP-DOWN PRESSURE GENERATION ===");
+    spdlog::trace("=== TOP-DOWN PRESSURE GENERATION ===");
 
     // Process each column from top to bottom
     for (uint32_t x = 0; x < width; ++x) {
@@ -1015,10 +1028,13 @@ void World::updateAllPressuresTopDown(double deltaTimeSeconds)
             // Apply accumulated lateral pressure
             cell.pressure.x += lateralPressure.x * deltaTimeSeconds * 0.05;
 
-            LOG_DEBUG(
-                "Cell (" << x << "," << y << ") accumulated_mass=" << accumulatedMass
-                         << " hydrostatic_pressure=" << hydrostaticPressure
-                         << " lateral_pressure=" << lateralPressure.x);
+            spdlog::trace(
+                "Cell ({},{}) accumulated_mass={} hydrostatic_pressure={} lateral_pressure={}",
+                x,
+                y,
+                accumulatedMass,
+                hydrostaticPressure,
+                lateralPressure.x);
         }
     }
 
@@ -1064,14 +1080,14 @@ void World::updateAllPressuresIterativeSettling(double deltaTimeSeconds)
         }
     }
 
-    LOG_DEBUG("=== ITERATIVE SETTLING PRESSURE GENERATION ===");
+    spdlog::trace("=== ITERATIVE SETTLING PRESSURE GENERATION ===");
 
     // Multiple settling passes - each pass allows material to settle under pressure
     const int numSettlingPasses = 3;
     const double passTimeStep = deltaTimeSeconds / numSettlingPasses;
 
     for (int pass = 0; pass < numSettlingPasses; ++pass) {
-        LOG_DEBUG("Settling pass " << (pass + 1) << "/" << numSettlingPasses);
+        spdlog::trace("Settling pass {}/{}", (pass + 1), numSettlingPasses);
 
         // For each pass, work from top to bottom
         for (uint32_t y = 0; y < height; ++y) {
@@ -1123,11 +1139,16 @@ void World::updateAllPressuresIterativeSettling(double deltaTimeSeconds)
                 cell.pressure.x += deflection.x * cell.percentFull() * passTimeStep * 0.02;
                 cell.pressure.y += deflection.y * cell.percentFull() * passTimeStep * 0.02;
 
-                LOG_DEBUG(
-                    "Pass " << pass << " Cell (" << x << "," << y
-                            << ") pressure_from_above=" << pressureFromAbove
-                            << " settling_pressure=" << settlingPressure << " final_pressure=("
-                            << cell.pressure.x << "," << cell.pressure.y << ")");
+                spdlog::trace(
+                    "Pass {} Cell ({},{}) pressure_from_above={} settling_pressure={} "
+                    "final_pressure=({},{})",
+                    pass,
+                    x,
+                    y,
+                    pressureFromAbove,
+                    settlingPressure,
+                    cell.pressure.x,
+                    cell.pressure.y);
             }
         }
 
@@ -1167,9 +1188,12 @@ void World::updateAllPressuresIterativeSettling(double deltaTimeSeconds)
 Cell& World::at(uint32_t x, uint32_t y)
 {
     if (x >= width || y >= height) {
-        LOG_DEBUG(
-            "World::at: Attempted to access coordinates ("
-            << x << "," << y << ") but world size is " << width << "x" << height);
+        spdlog::trace(
+            "World::at: Attempted to access coordinates ({},{}) but world size is {}x{}",
+            x,
+            y,
+            width,
+            height);
         throw std::out_of_range("World::at: Coordinates out of range");
     }
     return cells[coordToIndex(x, y)];
@@ -1178,9 +1202,12 @@ Cell& World::at(uint32_t x, uint32_t y)
 const Cell& World::at(uint32_t x, uint32_t y) const
 {
     if (x >= width || y >= height) {
-        LOG_DEBUG(
-            "World::at: Attempted to access coordinates ("
-            << x << "," << y << ") but world size is " << width << "x" << height);
+        spdlog::trace(
+            "World::at: Attempted to access coordinates ({},{}) but world size is {}x{}",
+            x,
+            y,
+            width,
+            height);
         throw std::out_of_range("World::at: Coordinates out of range");
     }
     return cells[coordToIndex(x, y)];
@@ -1205,8 +1232,7 @@ void World::applyMoves()
 
         // Skip moves from truly empty cells only
         if (sourceCell.percentFull() <= 0.0) {
-            LOG_DEBUG(
-                "Skipping move from empty cell at (" << move.fromX << "," << move.fromY << ")");
+            spdlog::trace("Skipping move from empty cell at ({},{})", move.fromX, move.fromY);
             continue;
         }
 
@@ -1222,11 +1248,16 @@ void World::applyMoves()
             safeAvailableSpace  // Can't exceed target capacity with safety margin.
         });
 
-        LOG_DEBUG(
-            "Transfer: from=(" << move.fromX << "," << move.fromY << ") to=(" << move.toX << ","
-                               << move.toY << ") source_v=(" << sourceCell.v.x << ","
-                               << sourceCell.v.y << ") target_v=(" << targetCell.v.x << ","
-                               << targetCell.v.y << ")");
+        spdlog::trace(
+            "Transfer: from=({},{}) to=({},{}) source_v=({},{}) target_v=({},{})",
+            move.fromX,
+            move.fromY,
+            move.toX,
+            move.toY,
+            sourceCell.v.x,
+            sourceCell.v.y,
+            targetCell.v.x,
+            targetCell.v.y);
 
         // Validate cell states before transfer
         sourceCell.validateState("source before transfer");
@@ -1301,15 +1332,19 @@ void World::applyMoves()
         ASSERT(std::isfinite(actualWater) && actualWater >= 0.0, "Actual water amount invalid");
 
         // Update source cell
-        LOG_DEBUG(
-            "Before source update: dirt=" << sourceCell.dirt << " water=" << sourceCell.water
-                                          << " total=" << sourceCell.percentFull());
-        LOG_DEBUG("Removing: actualDirt=" << actualDirt << " actualWater=" << actualWater);
+        spdlog::trace(
+            "Before source update: dirt={} water={} total={}",
+            sourceCell.dirt,
+            sourceCell.water,
+            sourceCell.percentFull());
+        spdlog::trace("Removing: actualDirt={} actualWater={}", actualDirt, actualWater);
         sourceCell.update(sourceCell.dirt - actualDirt, sourceCell.com, sourceCell.v);
         sourceCell.water -= actualWater;
-        LOG_DEBUG(
-            "After source update: dirt=" << sourceCell.dirt << " water=" << sourceCell.water
-                                         << " total=" << sourceCell.percentFull());
+        spdlog::trace(
+            "After source update: dirt={} water={} total={}",
+            sourceCell.dirt,
+            sourceCell.water,
+            sourceCell.percentFull());
         sourceCell.validateState("source after update");
 
         // Update target cell
@@ -1323,18 +1358,20 @@ void World::applyMoves()
         // Update target cell's COM using weighted average
         if (oldTargetMass == 0.0) {
             // First mass in cell, use the expected COM and transfer velocity
-            LOG_DEBUG("Target cell empty, adding: dirt=" << actualDirt << " water=" << actualWater);
+            spdlog::trace("Target cell empty, adding: dirt={} water={}", actualDirt, actualWater);
             targetCell.update(targetCell.dirt + actualDirt, expectedCom, sourceCell.v);
             // Safely add water with capacity checking - return excess to source
             double actualWaterAdded = targetCell.safeAddMaterial(targetCell.water, actualWater);
             double excessWater = actualWater - actualWaterAdded;
             if (excessWater > 0.0) {
                 sourceCell.water += excessWater; // Return excess to source
-                LOG_DEBUG("Returned excess water to source: " << excessWater);
+                spdlog::trace("Returned excess water to source: {}", excessWater);
             }
-            LOG_DEBUG(
-                "Target after update: dirt=" << targetCell.dirt << " water=" << targetCell.water
-                                             << " total=" << targetCell.percentFull());
+            spdlog::trace(
+                "Target after update: dirt={} water={} total={}",
+                targetCell.dirt,
+                targetCell.water,
+                targetCell.percentFull());
         }
         else {
             // Weighted average of existing COM and the new COM based on mass.
@@ -1349,32 +1386,36 @@ void World::applyMoves()
                 "Weighted average calculation invalid");
             ASSERT(oldTargetMass + newMass > 0.0, "Total mass is zero during weighted average");
 
-            LOG_DEBUG(
-                "Target cell has mass, adding: dirt=" << actualDirt << " water=" << actualWater);
+            spdlog::trace(
+                "Target cell has mass, adding: dirt={} water={}", actualDirt, actualWater);
             targetCell.update(targetCell.dirt + actualDirt, newCom, targetCell.v);
             // Safely add water with capacity checking - return excess to source
             double actualWaterAdded = targetCell.safeAddMaterial(targetCell.water, actualWater);
             double excessWater = actualWater - actualWaterAdded;
             if (excessWater > 0.0) {
                 sourceCell.water += excessWater; // Return excess to source
-                LOG_DEBUG("Returned excess water to source: " << excessWater);
+                spdlog::trace("Returned excess water to source: {}", excessWater);
             }
-            LOG_DEBUG(
-                "Target after update: dirt=" << targetCell.dirt << " water=" << targetCell.water
-                                             << " total=" << targetCell.percentFull());
+            spdlog::trace(
+                "Target after update: dirt={} water={} total={}",
+                targetCell.dirt,
+                targetCell.water,
+                targetCell.percentFull());
         }
 
         targetCell.validateState("target after update");
 
         // If the target cell is overfull, log it. This is the root cause.
         if (targetCell.percentFull() > 1.01) {
-            LOG_DEBUG("&&& OVERFULL CELL DETECTED &&&");
-            LOG_DEBUG(
-                "  - Cell (" << move.toX << "," << move.toY << ") is now "
-                             << targetCell.percentFull() * 100 << "% full.");
-            LOG_DEBUG("  - Added dirt: " << actualDirt << " water: " << actualWater);
-            LOG_DEBUG("  - It was " << oldTargetMass * 100 << "% full before.");
-            LOG_DEBUG("  - Transferred from (" << move.fromX << "," << move.fromY << ")");
+            spdlog::trace("&&& OVERFULL CELL DETECTED &&&");
+            spdlog::trace(
+                "  - Cell ({},{}) is now {}% full.",
+                move.toX,
+                move.toY,
+                targetCell.percentFull() * 100);
+            spdlog::trace("  - Added dirt: {} water: {}", actualDirt, actualWater);
+            spdlog::trace("  - It was {}% full before.", oldTargetMass * 100);
+            spdlog::trace("  - Transferred from ({},{})", move.fromX, move.fromY);
         }
 
         // Update source cell's COM and velocity if any mass remains.
@@ -1408,10 +1449,12 @@ void World::applyMoves()
         targetCell.validateState("target final");
 
         // Debug: Log final state
-        LOG_DEBUG(
-            "After transfer: source_v=(" << sourceCell.v.x << "," << sourceCell.v.y
-                                         << ") target_v=(" << targetCell.v.x << ","
-                                         << targetCell.v.y << ")");
+        spdlog::trace(
+            "After transfer: source_v=({},{}) target_v=({},{})",
+            sourceCell.v.x,
+            sourceCell.v.y,
+            targetCell.v.x,
+            targetCell.v.y);
     }
 
     moves.clear();
@@ -1520,6 +1563,8 @@ void World::restoreLastDragCell()
 
 void World::startDragging(int pixelX, int pixelY)
 {
+    spdlog::info("Starting drag at pixel ({},{})", pixelX, pixelY);
+
     // Mark user input for time reversal
     markUserInput();
 
@@ -1608,17 +1653,24 @@ void World::updateDrag(int pixelX, int pixelY)
         }
 
         // Debug: Print current drag state
-        LOG_DEBUG(
-            "Drag Update - Cell: ("
-            << cellX << "," << cellY << ") COM: (" << draggedCom.x << "," << draggedCom.y
-            << ") Recent positions: " << recentPositions.size() << " Current velocity: ("
-            << draggedVelocity.x << "," << draggedVelocity.y << ")");
+        spdlog::debug(
+            "Drag Update - Cell: ({},{}) COM: ({:.2f},{:.2f}) Recent positions: {} Current "
+            "velocity: ({:.2f},{:.2f})",
+            cellX,
+            cellY,
+            draggedCom.x,
+            draggedCom.y,
+            recentPositions.size(),
+            draggedVelocity.x,
+            draggedVelocity.y);
     }
 }
 
 void World::endDragging(int pixelX, int pixelY)
 {
     if (!isDragging) return;
+
+    spdlog::info("Ending drag at pixel ({},{})", pixelX, pixelY);
 
     // Mark user input for time reversal
     markUserInput();
@@ -1627,19 +1679,19 @@ void World::endDragging(int pixelX, int pixelY)
     pixelToCell(pixelX, pixelY, cellX, cellY);
 
     // Debug: Print recent positions before calculating velocity
-    LOG_DEBUG("Release Debug:");
-    LOG_DEBUG("Recent positions: ");
+    spdlog::trace("Release Debug:");
+    spdlog::trace("Recent positions: ");
     for (const auto& pos : recentPositions) {
-        LOG_DEBUG("(" << pos.first << "," << pos.second << ") ");
+        spdlog::trace("({},{}) ", pos.first, pos.second);
     }
-    LOG_DEBUG("");
+    spdlog::trace("");
 
     // Calculate final COM based on cursor position within cell
     double subCellX = (pixelX % Cell::WIDTH) / static_cast<double>(Cell::WIDTH);
     double subCellY = (pixelY % Cell::HEIGHT) / static_cast<double>(Cell::HEIGHT);
     // Map from [0,1] to [-1,1]
     draggedCom = Vector2d(subCellX * 2.0 - 1.0, subCellY * 2.0 - 1.0);
-    LOG_DEBUG("Final COM before placement: (" << draggedCom.x << "," << draggedCom.y << ")");
+    spdlog::trace("Final COM before placement: ({},{})", draggedCom.x, draggedCom.y);
 
     // Restore the last cell before finalizing
     restoreLastDragCell();
@@ -1655,19 +1707,18 @@ void World::endDragging(int pixelX, int pixelY)
                 double dy = recentPositions[i].second - recentPositions[i - 1].second;
                 avgDx += dx;
                 avgDy += dy;
-                LOG_DEBUG("Step " << i << " delta: (" << dx << "," << dy << ")");
+                spdlog::trace("Step {} delta: ({},{})", i, dx, dy);
             }
             avgDx /= (recentPositions.size() - 1);
             avgDy /= (recentPositions.size() - 1);
             // Scale by cell size and a factor for better feel
             draggedVelocity = Vector2d(avgDx * Cell::WIDTH * 2.0, avgDy * Cell::HEIGHT * 2.0);
 
-            LOG_DEBUG(
-                "Final velocity before placement: (" << draggedVelocity.x << ","
-                                                     << draggedVelocity.y << ")");
+            spdlog::trace(
+                "Final velocity before placement: ({},{})", draggedVelocity.x, draggedVelocity.y);
         }
         else {
-            LOG_DEBUG("Not enough positions for velocity calculation");
+            spdlog::trace("Not enough positions for velocity calculation");
         }
 
         // Queue up the drag end state for processing in advanceTime
@@ -1678,10 +1729,14 @@ void World::endDragging(int pixelX, int pixelY)
         pendingDragEnd.velocity = draggedVelocity;
         pendingDragEnd.com = draggedCom;
 
-        LOG_DEBUG(
-            "Queued drag end at (" << cellX << "," << cellY << ") with velocity ("
-                                   << draggedVelocity.x << "," << draggedVelocity.y << ") and COM ("
-                                   << draggedCom.x << "," << draggedCom.y << ")");
+        spdlog::trace(
+            "Queued drag end at ({},{}) with velocity ({},{}) and COM ({},{})",
+            cellX,
+            cellY,
+            draggedVelocity.x,
+            draggedVelocity.y,
+            draggedCom.x,
+            draggedCom.y);
     }
 
     // Reset drag state
@@ -1747,8 +1802,17 @@ void World::resizeGrid(uint32_t newWidth, uint32_t newHeight, bool clearHistoryF
 {
     // Don't resize if dimensions haven't changed
     if (newWidth == width && newHeight == height) {
+        spdlog::debug("Resize requested but dimensions unchanged: {}x{}", width, height);
         return;
     }
+
+    spdlog::info(
+        "Resizing World grid: {}x{} -> {}x{} (clearHistory={})",
+        width,
+        height,
+        newWidth,
+        newHeight,
+        clearHistoryFlag);
 
     // Clear time reversal history only if requested (e.g., for structural changes vs cell size
     // changes)
@@ -1852,9 +1916,8 @@ void World::saveWorldState()
         stateHistory.erase(stateHistory.begin());
     }
 
-    LOG_DEBUG(
-        "Saved world state at time " << simulationTime
-                                     << "s. History size: " << stateHistory.size());
+    spdlog::trace(
+        "Saved world state at time {}s. History size: {}", simulationTime, stateHistory.size());
 }
 
 void World::goBackward()
@@ -1894,10 +1957,11 @@ void World::goBackward()
     const WorldState& state = stateHistory[currentHistoryIndex];
     restoreWorldState(state);
 
-    LOG_DEBUG(
-        "Restored world state from history index: " << currentHistoryIndex
-                                                    << " (timestep: " << timestep
-                                                    << ", time: " << simulationTime << "s)");
+    spdlog::trace(
+        "Restored world state from history index: {} (timestep: {}, time: {}s)",
+        currentHistoryIndex,
+        timestep,
+        simulationTime);
 }
 
 void World::goForward()
@@ -1914,7 +1978,7 @@ void World::goForward()
         if (hasStoredCurrentState) {
             restoreWorldState(currentLiveState);
             hasStoredCurrentState = false; // Clear the stored state
-            LOG_DEBUG("Restored captured current live state");
+            spdlog::trace("Restored captured current live state");
         }
         return;
     }
@@ -1923,29 +1987,35 @@ void World::goForward()
     const WorldState& state = stateHistory[currentHistoryIndex];
     restoreWorldState(state);
 
-    LOG_DEBUG(
-        "Restored world state from history index: " << currentHistoryIndex
-                                                    << " (timestep: " << timestep
-                                                    << ", time: " << simulationTime << "s)");
+    spdlog::trace(
+        "Restored world state from history index: {} (timestep: {}, time: {}s)",
+        currentHistoryIndex,
+        timestep,
+        simulationTime);
 }
 
 void World::restoreWorldState(const WorldState& state)
 {
     // Restore cell size first (affects grid calculations)
     if (Cell::WIDTH != state.cellWidth || Cell::HEIGHT != state.cellHeight) {
-        LOG_DEBUG(
-            "Cell size changed from " << Cell::WIDTH << "x" << Cell::HEIGHT << " to "
-                                      << state.cellWidth << "x" << state.cellHeight
-                                      << " during restore");
+        spdlog::trace(
+            "Cell size changed from {}x{} to {}x{} during restore",
+            Cell::WIDTH,
+            Cell::HEIGHT,
+            state.cellWidth,
+            state.cellHeight);
     }
     Cell::WIDTH = state.cellWidth;
     Cell::HEIGHT = state.cellHeight;
 
     // Check if grid size has changed
     if (state.width != width || state.height != height) {
-        LOG_DEBUG(
-            "Grid size changed from " << width << "x" << height << " to " << state.width << "x"
-                                      << state.height << " during restore");
+        spdlog::trace(
+            "Grid size changed from {}x{} to {}x{} during restore",
+            width,
+            height,
+            state.width,
+            state.height);
 
         // Resize the grid to match the stored state
         cells.clear();

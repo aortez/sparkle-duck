@@ -2,6 +2,7 @@
 #include "../World.h"
 #include "../Cell.h"
 #include <cstdio>
+#include <spdlog/spdlog.h>
 
 class PressureSystemVisualTest : public VisualTestBase {
 protected:
@@ -32,6 +33,7 @@ protected:
 };
 
 TEST_F(PressureSystemVisualTest, PressureSystemSwitching) {
+    spdlog::info("Starting PressureSystemVisualTest::PressureSystemSwitching test");
     std::cout << "\n=== PRESSURE SYSTEM SWITCHING TEST ===" << std::endl;
     
     // Test that all three pressure systems work
@@ -87,6 +89,7 @@ TEST_F(PressureSystemVisualTest, PressureSystemSwitching) {
 }
 
 TEST_F(PressureSystemVisualTest, PressureSystemComparison) {
+    spdlog::info("Starting PressureSystemVisualTest::PressureSystemComparison test");
     std::cout << "\n=== PRESSURE SYSTEM COMPARISON TEST ===" << std::endl;
     
     // Run same scenario with each pressure system and compare results
@@ -180,6 +183,7 @@ TEST_F(PressureSystemVisualTest, PressureSystemComparison) {
 
 // Test specifically for pressure system API functionality
 TEST_F(PressureSystemVisualTest, PressureSystemAPI) {
+    spdlog::info("Starting PressureSystemVisualTest::PressureSystemAPI test");
     std::cout << "\n=== PRESSURE SYSTEM API TEST ===" << std::endl;
     
     // Test that we can switch pressure systems programmatically
@@ -213,6 +217,7 @@ TEST_F(PressureSystemVisualTest, PressureSystemAPI) {
 
 // Test top-down pressure accumulation specifically
 TEST_F(PressureSystemVisualTest, TopDownPressureAccumulation) {
+    spdlog::info("Starting PressureSystemVisualTest::TopDownPressureAccumulation test");
     std::cout << "\n=== TOP-DOWN PRESSURE ACCUMULATION TEST ===" << std::endl;
     
     // Create a vertical column of material to test pressure accumulation

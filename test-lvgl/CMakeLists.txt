@@ -99,6 +99,8 @@ set(LV_LINUX_INC src/lib)
 
 add_subdirectory(./lvgl ${CMAKE_BINARY_DIR}/lvgl)
 target_include_directories(lvgl PUBLIC ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/src/lib ${PKG_CONFIG_INC})
+
+add_subdirectory(./spdlog ${CMAKE_BINARY_DIR}/spdlog)
 add_library(lvgl_linux STATIC ${LV_LINUX_SRC} ${LV_LINUX_BACKEND_SRC})
 target_include_directories(lvgl_linux PRIVATE ${LV_LINUX_INC} ${PROJECT_SOURCE_DIR})
 
@@ -112,9 +114,8 @@ add_executable(sparkle-duck
     src/SimulatorUI.cpp
     ${LV_LINUX_SRC} 
     ${LV_LINUX_BACKEND_SRC})
-target_link_libraries(sparkle-duck lvgl_linux lvgl lvgl::examples lvgl::demos lvgl::thorvg m pthread ${PKG_CONFIG_LIB} ${EXTRA_SDL_LDFLAGS})
+target_link_libraries(sparkle-duck lvgl_linux lvgl lvgl::examples lvgl::demos lvgl::thorvg spdlog::spdlog m pthread ${PKG_CONFIG_LIB} ${SDL2_LIBRARIES} ${SDL2_IMAGE_LIBRARIES})
 target_include_directories(sparkle-duck PRIVATE ${SDL2_INCLUDE_DIRS} ${SDL2_IMAGE_INCLUDE_DIRS})
-target_link_libraries(sparkle-duck lvgl_linux lvgl lvgl::examples lvgl::demos lvgl::thorvg m pthread ${PKG_CONFIG_LIB} ${SDL2_LIBRARIES} ${SDL2_IMAGE_LIBRARIES})
 
 # Install the lvgl_linux library and its headers
 install(DIRECTORY src/lib/
@@ -140,6 +141,9 @@ add_executable(sparkle-duck-tests
     src/tests/DensityMechanics_test.cpp
     src/tests/TestUI.cpp
     src/tests/visual_test_runner.cpp
+    tests/ResultTest.cpp
+    test/TimersTest.cpp
+    simple_reset_test.cpp
     src/Vector2d.cpp
     src/World.cpp
     src/Cell.cpp
@@ -156,6 +160,7 @@ target_link_libraries(sparkle-duck-tests
     lvgl_linux
     lvgl
     lvgl::thorvg
+    spdlog::spdlog
     m
     pthread
     ${PKG_CONFIG_LIB}

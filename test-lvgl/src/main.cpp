@@ -5,14 +5,21 @@
 #include "src/lib/simulator_settings.h"
 #include "src/lib/simulator_util.h"
 
+#include <chrono>
 #include <cstdio>
 #include <cstdlib>
+#include <iostream>
 #include <math.h>
+#include <memory>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <vector>
 
 #include "lvgl/lvgl.h"
+#include "spdlog/sinks/rotating_file_sink.h"
+#include "spdlog/sinks/stdout_color_sinks.h"
+#include "spdlog/spdlog.h"
 
 /* Internal functions */
 static void configure_simulator(int argc, char** argv);
@@ -133,6 +140,34 @@ static void configure_simulator(int argc, char** argv)
  */
 int main(int argc, char** argv)
 {
+    // Set up file and console logging
+    try {
+        // Create console sink with colors
+        auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
+        console_sink->set_level(spdlog::level::info); // Only INFO and above to console
+
+        // Create rotating file sink (10MB files, max 3 files)
+        auto file_sink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(
+            "sparkle-duck.log", 1024 * 1024 * 10, 3);
+        file_sink->set_level(spdlog::level::trace); // Everything to file
+
+        // Create logger with both sinks
+        std::vector<spdlog::sink_ptr> sinks{ console_sink, file_sink };
+        auto logger = std::make_shared<spdlog::logger>("sparkle-duck", sinks.begin(), sinks.end());
+
+        // Set as default logger
+        spdlog::set_default_logger(logger);
+        spdlog::set_level(spdlog::level::debug);
+        spdlog::flush_every(std::chrono::seconds(1)); // Flush every second
+    }
+    catch (const spdlog::spdlog_ex& ex) {
+        std::cout << "Log initialization failed: " << ex.what() << std::endl;
+        return 1;
+    }
+
+    spdlog::info("🦆 Sparkle Duck Dirt Simulator starting up! 🦆");
+    spdlog::debug("Logging configured: console (INFO+) and file sparkle-duck.log (TRACE+)");
+
     configure_simulator(argc, argv);
 
     /* Initialize LVGL. */

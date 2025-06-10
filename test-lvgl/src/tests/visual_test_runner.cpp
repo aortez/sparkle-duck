@@ -85,10 +85,18 @@ void VisualTestCoordinator::postTaskSync(std::function<void()> task) {
 void VisualTestCoordinator::eventLoopFunction() {
     std::vector<std::function<void()>> local_task_queue;
     while (!should_stop_loop_.load()) {
+        // Process LVGL timer handler first
+        if (visual_mode_enabled_) {
+            lv_wayland_timer_handler();
+        }
+
+        // Then process our tasks when LVGL is not rendering
         {
             std::unique_lock<std::mutex> lock(task_queue_mutex_);
-            task_queue_cv_.wait(lock, [this] { return !task_queue_.empty() || should_stop_loop_.load(); });
-            local_task_queue = std::move(task_queue_);
+            if (task_queue_cv_.wait_for(lock, std::chrono::milliseconds(1), 
+                                       [this] { return !task_queue_.empty() || should_stop_loop_.load(); })) {
+                local_task_queue = std::move(task_queue_);
+            }
         }
 
         for (const auto& task : local_task_queue) {
@@ -96,11 +104,7 @@ void VisualTestCoordinator::eventLoopFunction() {
         }
         local_task_queue.clear();
 
-        if (visual_mode_enabled_) {
-            lv_wayland_timer_handler();
-        }
-
-        usleep(5000); // 5ms sleep to prevent busy-waiting
+        usleep(3000); // 3ms sleep to prevent busy-waiting
     }
     std::cout << "Event loop thread exiting\n";
 }
@@ -179,18 +183,32 @@ void VisualTestBase::runSimulation(World* world, int steps, const std::string& d
         std::cout << "  Running visual simulation: " << description << " (" << steps << " steps)\n";
         auto& coordinator = VisualTestCoordinator::getInstance();
         double deltaTime = 0.016;
+        
+        // Limit visual updates to reasonable framerate (every 3 physics steps = ~20 FPS)
+        const int visual_update_interval = 3;
+        
         for (int i = 0; i < steps; ++i) {
             world->advanceTime(deltaTime);
-            coordinator.postTaskSync([&] {
-                world->draw();
-                // To keep the UI responsive, label updates could be async,
-                // but for simplicity and perfect sync we do it here.
-                std::string status = current_test_name_ + " - " + description +
-                                     " [" + std::to_string(i + 1) + "/" + std::to_string(steps) + "]";
-                if(ui_) ui_->updateTestLabel(status);
-            });
-             std::this_thread::sleep_for(std::chrono::milliseconds(5));
+            
+            // Only update visuals every few steps to reduce LVGL load
+            if (i % visual_update_interval == 0 || i == steps - 1) {
+                coordinator.postTask([world, this, description, i, steps] {
+                    world->draw();
+                    // Update label with current progress
+                    std::string status = current_test_name_ + " - " + description +
+                                         " [" + std::to_string(i + 1) + "/" + std::to_string(steps) + "]";
+                    if(ui_) ui_->updateTestLabel(status);
+                });
+                
+                // Give LVGL time to process the drawing
+                std::this_thread::sleep_for(std::chrono::milliseconds(15));
+            }
         }
+        
+        // Add a final sync to ensure all drawing is complete before test ends
+        coordinator.postTaskSync([world] {
+            world->draw();
+        });
     } else {
         double deltaTime = 0.016;
         for (int i = 0; i < steps; ++i) {

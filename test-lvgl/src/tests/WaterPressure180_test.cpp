@@ -8,6 +8,7 @@
 #include <iostream>
 #include <chrono>
 #include <thread>
+#include <spdlog/spdlog.h>
 
 class WaterPressure180Test : public ::testing::Test {
 protected:
@@ -99,6 +100,7 @@ protected:
 };
 
 TEST_F(WaterPressure180Test, WaterPressureDeflectionBasic) {
+    spdlog::info("Starting WaterPressure180Test::WaterPressureDeflectionBasic test");
     updateStatus("Setting up basic water pressure test");
     
     // Create a scenario where water has pressure but direct path is blocked
@@ -205,6 +207,7 @@ TEST_F(WaterPressure180Test, WaterPressureDeflectionBasic) {
 }
 
 TEST_F(WaterPressure180Test, WaterPressureVsDirectionPreference) {
+    spdlog::info("Starting WaterPressure180Test::WaterPressureVsDirectionPreference test");
     updateStatus("Testing water pressure vs velocity direction preference");
     
     // Create a scenario where water has both pressure and velocity
@@ -310,6 +313,7 @@ TEST_F(WaterPressure180Test, WaterPressureVsDirectionPreference) {
 }
 
 TEST_F(WaterPressure180Test, WaterPressureArcLimits) {
+    spdlog::info("Starting WaterPressure180Test::WaterPressureArcLimits test");
     updateStatus("Testing 180-degree arc limits");
     
     // Test that water truly respects the 180-degree downward arc

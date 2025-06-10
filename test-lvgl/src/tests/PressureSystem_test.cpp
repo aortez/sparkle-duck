@@ -2,6 +2,7 @@
 #include "../World.h"
 #include "../Cell.h"
 #include "../Vector2d.h"
+#include <spdlog/spdlog.h>
 
 #include <iostream>
 
@@ -51,6 +52,7 @@ protected:
 };
 
 TEST_F(PressureSystemTest, PressureSystemSwitching) {
+    spdlog::info("Starting PressureSystemTest::PressureSystemSwitching test");
     std::cout << "\n=== PRESSURE SYSTEM SWITCHING TEST ===" << std::endl;
     
     // Test that all three pressure systems work
@@ -103,6 +105,7 @@ TEST_F(PressureSystemTest, PressureSystemSwitching) {
 }
 
 TEST_F(PressureSystemTest, PressureSystemComparison) {
+    spdlog::info("Starting PressureSystemTest::PressureSystemComparison test");
     std::cout << "\n=== PRESSURE SYSTEM COMPARISON TEST ===" << std::endl;
     
     struct PressureResult {
@@ -188,6 +191,7 @@ TEST_F(PressureSystemTest, PressureSystemComparison) {
 }
 
 TEST_F(PressureSystemTest, PressureSystemAPI) {
+    spdlog::info("Starting PressureSystemTest::PressureSystemAPI test");
     std::cout << "\n=== PRESSURE SYSTEM API TEST ===" << std::endl;
     
     // Test that we can switch pressure systems programmatically
@@ -217,6 +221,7 @@ TEST_F(PressureSystemTest, PressureSystemAPI) {
 }
 
 TEST_F(PressureSystemTest, TopDownPressureAccumulation) {
+    spdlog::info("Starting PressureSystemTest::TopDownPressureAccumulation test");
     std::cout << "\n=== TOP-DOWN PRESSURE ACCUMULATION TEST ===" << std::endl;
     
     // Create a vertical column of material to test pressure accumulation

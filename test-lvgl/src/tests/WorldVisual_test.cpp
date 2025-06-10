@@ -1,6 +1,7 @@
 #include "visual_test_runner.h"
 #include "../World.h"
 #include "../WorldSetup.h"
+#include <spdlog/spdlog.h>
 
 class WorldVisualTest : public VisualTestBase {
 protected:
@@ -38,10 +39,12 @@ protected:
 };
 
 TEST_F(WorldVisualTest, EmptyWorldAdvance) {
+    spdlog::info("Starting WorldVisualTest::EmptyWorldAdvance test");
     world->advanceTime(0.016);
 }
 
 TEST_F(WorldVisualTest, DirtTransferVerticalWithMomentum) {
+    spdlog::info("Starting WorldVisualTest::DirtTransferVerticalWithMomentum test");
     // Fill the top cell with dirt and give it some velocity.
     world->at(0, 0).dirt = 1.0;
     world->at(0, 0).com = Vector2d(0.0, 0.0);  // COM starts in center.
@@ -86,6 +89,7 @@ TEST_F(WorldVisualTest, DirtTransferVerticalWithMomentum) {
 }
 
 TEST_F(WorldVisualTest, DirtTransferHorizontalWithMomentum) {
+    spdlog::info("Starting WorldVisualTest::DirtTransferHorizontalWithMomentum test");
     // Create a 2x1 world (horizontal)
     width = 2;
     height = 1;
@@ -141,6 +145,7 @@ TEST_F(WorldVisualTest, DirtTransferHorizontalWithMomentum) {
 }
 
 TEST_F(WorldVisualTest, GravityFreeDiagonalMovement) {
+    spdlog::info("Starting WorldVisualTest::GravityFreeDiagonalMovement test");
     // Create a 2x2 world
     width = 2;
     height = 2;
@@ -172,6 +177,7 @@ TEST_F(WorldVisualTest, GravityFreeDiagonalMovement) {
 }
 
 TEST_F(WorldVisualTest, BoundaryReflectionBehavior) {
+    spdlog::info("Starting WorldVisualTest::BoundaryReflectionBehavior test");
     // Create a 3x3 world
     width = 3;
     height = 3;
@@ -243,6 +249,7 @@ TEST_F(WorldVisualTest, BoundaryReflectionBehavior) {
 }
 
 TEST_F(WorldVisualTest, PhysicsIssueReproduction) {
+    spdlog::info("Starting WorldVisualTest::PhysicsIssueReproduction test");
     // Create the 4x4 scenario from the physics issue reproduction test
     width = 4;
     height = 4;
@@ -353,5 +360,6 @@ TEST_F(WorldVisualTest, PhysicsIssueReproduction) {
 }
 
 TEST(DefaultWorldSetupVTable, Instantiate) {
+    spdlog::info("Starting DefaultWorldSetupVTable::Instantiate test");
     DefaultWorldSetup setup;
 } 

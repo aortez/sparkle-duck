@@ -1,5 +1,7 @@
 #include <iostream>
 #include <cassert>
+#include <spdlog/spdlog.h>
+#include <gtest/gtest.h>
 
 // Mock the necessary components for testing
 struct Vector2d {
@@ -22,7 +24,8 @@ public:
 };
 
 // Test the core logic without LVGL dependencies
-int main() {
+TEST(SimpleResetTest, ResetButtonCoreLogic) {
+    spdlog::info("Starting SimpleResetTest::ResetButtonCoreLogic test");
     std::cout << "Testing Reset Button Core Logic..." << std::endl;
     
     // Simulate the time reversal state variables
@@ -119,5 +122,6 @@ int main() {
     std::cout << "2. Setting hasStoredCurrentState = false (clear stored state)" << std::endl;
     std::cout << "3. Then performing the normal reset operations" << std::endl;
     
-    return 0;
+    // All assertions passed if we got here
+    SUCCEED();
 } 

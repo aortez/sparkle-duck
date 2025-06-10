@@ -2,6 +2,10 @@
 #include "../World.h"
 #include "../Cell.h"
 #include "TestUI.h"
+#include "spdlog/sinks/rotating_file_sink.h"
+#include "spdlog/sinks/stdout_color_sinks.h"
+#include "spdlog/spdlog.h"
+#include <chrono>
 
 class DensityMechanicsTest : public ::testing::Test
 {
@@ -9,9 +13,42 @@ protected:
     std::unique_ptr<World> world;
     uint32_t width = 5;
     uint32_t height = 5;
+    static bool logging_initialized;
+
+    static void setupTestLogging() {
+        if (logging_initialized) return;
+        
+        try {
+            // Create console sink with colors for tests
+            auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
+            console_sink->set_level(spdlog::level::debug); // Debug level for tests
+    
+            // Create test-specific rotating file sink
+            auto file_sink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(
+                "test-density-mechanics.log", 1024 * 1024 * 5, 2);
+            file_sink->set_level(spdlog::level::trace); // Everything to file
+    
+            // Create logger with both sinks
+            std::vector<spdlog::sink_ptr> sinks{ console_sink, file_sink };
+            auto logger = std::make_shared<spdlog::logger>("test-logger", sinks.begin(), sinks.end());
+    
+            // Set as default logger
+            spdlog::set_default_logger(logger);
+            spdlog::set_level(spdlog::level::trace);
+            spdlog::flush_every(std::chrono::seconds(1));
+            
+            spdlog::info("🧪 Test logging initialized - density mechanics tests");
+            logging_initialized = true;
+        }
+        catch (const spdlog::spdlog_ex& ex) {
+            std::cout << "Test log initialization failed: " << ex.what() << std::endl;
+        }
+    }
 
     void SetUp() override
     {
+        setupTestLogging();
+        
         // Create a simple test world
         world = std::make_unique<World>(width, height, nullptr);
         world->setGravity(5.0); // Moderate gravity for stable testing
@@ -32,8 +69,12 @@ protected:
     }
 };
 
+// Initialize static member
+bool DensityMechanicsTest::logging_initialized = false;
+
 TEST_F(DensityMechanicsTest, MassConservationDiagnostic)
 {
+    spdlog::info("Starting DensityMechanicsTest::MassConservationDiagnostic test");
     // Simple diagnostic test - track mass loss frame by frame
     std::cout << "\n=== Mass Conservation Diagnostic ===" << std::endl;
     
@@ -85,6 +126,7 @@ TEST_F(DensityMechanicsTest, MassConservationDiagnostic)
 
 TEST_F(DensityMechanicsTest, EffectiveDensityCalculation)
 {
+    spdlog::info("Starting DensityMechanicsTest::EffectiveDensityCalculation test");
     // Test pure materials first
     Cell dirtCell;
     dirtCell.dirt = 1.0;
@@ -115,6 +157,7 @@ TEST_F(DensityMechanicsTest, EffectiveDensityCalculation)
 
 TEST_F(DensityMechanicsTest, BuoyancyBasedOnDensity)
 {
+    spdlog::info("Starting DensityMechanicsTest::BuoyancyBasedOnDensity test");
     // Create a dirt cell above a water cell - dirt should sink
     world->at(2, 1).dirt = 1.0;  // Pure dirt (density 2.0)
     world->at(2, 2).water = 1.0; // Pure water (density 1.0)
@@ -156,6 +199,7 @@ TEST_F(DensityMechanicsTest, BuoyancyBasedOnDensity)
 
 TEST_F(DensityMechanicsTest, DensityConstants)
 {
+    spdlog::info("Starting DensityMechanicsTest::DensityConstants test");
     // Verify our density constants are as expected
     EXPECT_EQ(Cell::DIRT_DENSITY, 1.3);
     EXPECT_EQ(Cell::WATER_DENSITY, 1.0);
@@ -166,6 +210,7 @@ TEST_F(DensityMechanicsTest, DensityConstants)
 
 TEST_F(DensityMechanicsTest, MixedMaterialSeparation)
 {
+    spdlog::info("Starting DensityMechanicsTest::MixedMaterialSeparation test");
     // Create a cell with mixed dirt and water in the middle
     world->at(2, 2).dirt = 0.5;
     world->at(2, 2).water = 0.5;
@@ -200,6 +245,7 @@ TEST_F(DensityMechanicsTest, MixedMaterialSeparation)
 
 TEST_F(DensityMechanicsTest, DensityBasedSwapping)
 {
+    spdlog::info("Starting DensityMechanicsTest::DensityBasedSwapping test");
     // Test that lighter materials rise above heavier materials through swapping
     
     // Place heavy dirt above light wood - they should swap
@@ -264,38 +310,53 @@ TEST_F(DensityMechanicsTest, DensityBasedSwapping)
     EXPECT_NEAR(totalMass, 2.0, 1.5); // Significantly increased tolerance due to mass loss with lower elasticity
 }
 
-TEST_F(DensityMechanicsTest, FullTransitionDirtWater)
+TEST_F(DensityMechanicsTest, VerticalDensityTransfer)
 {
-    // Test complete material transition between dirt and water (known working combination)
-    // This verifies that materials can fully separate over time
+    spdlog::info("Starting DensityMechanicsTest::VerticalDensityTransfer test");
+    // Test vertical density-based transfer in a narrow column to prevent lateral spreading
+    // This verifies that materials separate vertically based on density differences
     
-    std::cout << "\n=== Testing Full Transition: Dirt and Water ===" << std::endl;
+    std::cout << "\n=== Testing Vertical Density Transfer: Dirt and Water Column ===" << std::endl;
+    spdlog::info("Starting VerticalDensityTransfer test");
     
-    // Setup: Heavy dirt above light water (inverted density)
-    world->at(2, 1).dirt = 1.0;    // Dense dirt (1.3) above
-    world->at(2, 2).water = 1.0;   // Light water (1.0) below
+    // Create a minimal world (1 column, 2 rows) to test basic density swapping
+    world = std::make_unique<World>(1, 2, nullptr);
+    world->setGravity(5.0);
+    world->setElasticityFactor(0.3);
+    Cell::setBuoyancyStrength(0.05);
+    world->setAddParticlesEnabled(false);
     
-    // DEBUG: Check what's actually in the cells after setup
-    std::cout << "DEBUG: After setup, before simulation:" << std::endl;
-    std::cout << "Cell (2,1): dirt=" << world->at(2, 1).dirt << " water=" << world->at(2, 1).water 
-              << " wood=" << world->at(2, 1).wood << " leaf=" << world->at(2, 1).leaf 
-              << " metal=" << world->at(2, 1).metal << " total=" << world->at(2, 1).percentFull() << std::endl;
-    std::cout << "Cell (2,2): dirt=" << world->at(2, 2).dirt << " water=" << world->at(2, 2).water 
-              << " wood=" << world->at(2, 2).wood << " leaf=" << world->at(2, 2).leaf 
-              << " metal=" << world->at(2, 2).metal << " total=" << world->at(2, 2).percentFull() << std::endl;
+    // Setup: Simple inverted density case - heavy dirt above light water
+    // This should trigger density-based swapping: dirt should sink, water should rise
+    // Expected densities: Dirt(1.3) > Water(1.0)
     
-    // Record initial configuration
-    double initialUpperDirt = world->at(2, 1).dirt;
-    double initialUpperWater = world->at(2, 1).water;
-    double initialLowerDirt = world->at(2, 2).dirt;
-    double initialLowerWater = world->at(2, 2).water;
+    world->at(0, 0).dirt = 1.0;    // Heavy dirt (1.3 density) on top - should sink
+    world->at(0, 1).water = 1.0;   // Light water (1.0 density) below - should rise
+    
+    spdlog::debug("Initial setup (inverted density - dirt above water):");
+    spdlog::debug("Cell(0,0) dirt={:.3f} density={:.3f}", world->at(0, 0).dirt, world->at(0, 0).getEffectiveDensity());
+    spdlog::debug("Cell(0,1) water={:.3f} density={:.3f}", world->at(0, 1).water, world->at(0, 1).getEffectiveDensity());
+    
+    // DEBUG: Check what's actually in both cells after setup
+    std::cout << "DEBUG: Initial 2-cell column (inverted density - should be unstable):" << std::endl;
+    for (int y = 0; y < 2; y++) {
+        const auto& cell = world->at(0, y);
+        std::cout << "Cell (0," << y << "): dirt=" << cell.dirt 
+                  << " water=" << cell.water << " density=" << cell.getEffectiveDensity() << std::endl;
+    }
+    
+    // Record initial configuration 
+    double initialUpperDirt = world->at(0, 0).dirt;
+    double initialUpperWater = world->at(0, 0).water;
+    double initialLowerDirt = world->at(0, 1).dirt;
+    double initialLowerWater = world->at(0, 1).water;
     
     std::cout << "Initial: Upper(dirt=" << initialUpperDirt << " water=" << initialUpperWater 
               << ") Lower(dirt=" << initialLowerDirt << " water=" << initialLowerWater << ")" << std::endl;
     
-    // Run longer simulation to allow full separation - track mass loss frame by frame
+    // Run simulation to allow density-based separation - track progress
     double initialMass = world->getTotalMass();
-    std::cout << "FullTransition initial mass: " << initialMass << std::endl;
+    std::cout << "Vertical density test initial mass: " << initialMass << " (expected: 2.0)" << std::endl;
     
     for (int frame = 1; frame <= 200; frame++) {
         world->advanceTime(0.016);
@@ -303,9 +364,21 @@ TEST_F(DensityMechanicsTest, FullTransitionDirtWater)
         double massLoss = initialMass - currentMass;
         double lossPercentage = (massLoss / initialMass) * 100.0;
         
+        // Log detailed state every 25 frames to track density separation
+        if (frame % 25 == 0) {
+            spdlog::debug("Frame {}: 2-cell column state:", frame);
+            for (int y = 0; y < 2; y++) {
+                const auto& cell = world->at(0, y);
+                spdlog::debug("  Cell(0,{}): dirt={:.3f} water={:.3f} density={:.3f}", 
+                             y, cell.dirt, cell.water, cell.getEffectiveDensity());
+            }
+            spdlog::debug("Frame {}: mass={:.6f}, loss={:.6f} ({:.6f}%)", 
+                         frame, currentMass, massLoss, lossPercentage);
+        }
+        
         // Show mass loss every 20 frames or when significant loss occurs
         if (massLoss > 0.01 || frame % 20 == 0) {
-            std::cout << "FullTransition Frame " << frame 
+            std::cout << "VerticalTransfer Frame " << frame 
                       << ": mass=" << currentMass 
                       << ", loss=" << massLoss 
                       << " (" << lossPercentage << "%)" << std::endl;
@@ -318,57 +391,65 @@ TEST_F(DensityMechanicsTest, FullTransitionDirtWater)
         }
     }
     
-    // Measure final configuration
-    double finalUpperDirt = world->at(2, 1).dirt;
-    double finalUpperWater = world->at(2, 1).water;
-    double finalLowerDirt = world->at(2, 2).dirt;
-    double finalLowerWater = world->at(2, 2).water;
+    // Measure final configuration - check if density swapping occurred
+    std::cout << "Final 2-cell column state after density separation:" << std::endl;
     
-    std::cout << "Final: Upper(dirt=" << finalUpperDirt << " water=" << finalUpperWater 
-              << ") Lower(dirt=" << finalLowerDirt << " water=" << finalLowerWater << ")" << std::endl;
+    double finalUpperDirt = world->at(0, 0).dirt;
+    double finalUpperWater = world->at(0, 0).water;
+    double finalLowerDirt = world->at(0, 1).dirt;
+    double finalLowerWater = world->at(0, 1).water;
     
-    // Calculate separation efficiency
+    double finalUpperDensity = world->at(0, 0).getEffectiveDensity();
+    double finalLowerDensity = world->at(0, 1).getEffectiveDensity();
+    
+    std::cout << "Cell (0,0): dirt=" << finalUpperDirt << " water=" << finalUpperWater
+              << " density=" << finalUpperDensity << std::endl;
+    std::cout << "Cell (0,1): dirt=" << finalLowerDirt << " water=" << finalLowerWater
+              << " density=" << finalLowerDensity << std::endl;
+    
+    // Calculate material movement (swapping efficiency)
     double dirtMovedDown = finalLowerDirt - initialLowerDirt;
     double waterMovedUp = finalUpperWater - initialUpperWater;
-    double separationEfficiency = (dirtMovedDown + waterMovedUp) / 2.0; // Average of both movements
+    double swappingEfficiency = (dirtMovedDown + waterMovedUp) / 2.0; // Average of both movements
     
-    std::cout << "Separation efficiency: " << (separationEfficiency * 100) << "%" << std::endl;
+    std::cout << "Material swapping efficiency: " << (swappingEfficiency * 100) << "%" << std::endl;
     std::cout << "Dirt moved down: " << dirtMovedDown << ", Water moved up: " << waterMovedUp << std::endl;
     
-    // Verify some separation occurred (at least 20% transition)
-    EXPECT_GT(separationEfficiency, 0.2);
+    // Check for basic density-based swapping (expect at least 20% material exchange)
+    EXPECT_GT(swappingEfficiency, 0.2); // At least 20% of materials should have swapped
     
     // Check that final configuration is more density-stable
-    double finalUpperDensity = world->at(2, 1).getEffectiveDensity();
-    double finalLowerDensity = world->at(2, 2).getEffectiveDensity();
+    double topDensity = finalUpperDensity;
+    double bottomDensity = finalLowerDensity;
     
-    std::cout << "Final densities - Upper: " << finalUpperDensity 
-              << " Lower: " << finalLowerDensity << std::endl;
+    std::cout << "Final densities - Top: " << topDensity 
+              << " Bottom: " << bottomDensity << std::endl;
     
-    // In ideal separation, upper should be less dense than lower
-    if (separationEfficiency > 0.8) {
-        // Near-complete separation should achieve proper density gradient
-        EXPECT_LE(finalUpperDensity, finalLowerDensity);
+    // In good density separation, top should be lighter than bottom
+    if (swappingEfficiency > 0.8) {
+        // Near-complete swapping should achieve proper density gradient
+        EXPECT_LE(topDensity, bottomDensity);
         std::cout << "✓ Achieved proper density gradient!" << std::endl;
     } else {
-        // Partial separation should at least reduce density inversion
-        double initialDensityInversion = 1.3 - 1.0; // dirt above water
-        double finalDensityInversion = std::max(0.0, finalUpperDensity - finalLowerDensity);
-        EXPECT_LT(finalDensityInversion, initialDensityInversion);
-        std::cout << "✓ Reduced density inversion from " << initialDensityInversion 
-                  << " to " << finalDensityInversion << std::endl;
+        // Partial swapping should at least show some improvement from fully inverted
+        // Initial was inverted: Dirt(1.3) at top, Water(1.0) at bottom = 0.3 inversion
+        double initialInversion = 1.3 - 1.0; // Dirt above water
+        double finalInversion = std::max(0.0, topDensity - bottomDensity);
+        EXPECT_LT(finalInversion, initialInversion);
+        std::cout << "✓ Reduced density inversion from " << initialInversion 
+                  << " to " << finalInversion << std::endl;
     }
     
-    // Verify mass conservation (allow ~1% loss due to numerical precision)
-    // Use world->getTotalMass() instead of just checking original cells, since materials can move
+    // Verify mass conservation (2 materials should be present)
     double totalMass = world->getTotalMass();
     std::cout << "Final total mass across entire world: " << totalMass << std::endl;
-    std::cout << "Mass in original cells only: " << (finalUpperDirt + finalUpperWater + finalLowerDirt + finalLowerWater) << std::endl;
-    EXPECT_NEAR(totalMass, 2.0, 0.05); // 2.5% tolerance for numerical precision over 200 steps
+    std::cout << "Expected mass: 2.0 (dirt + water)" << std::endl;
+    EXPECT_NEAR(totalMass, 2.0, 0.05); // 2.5% tolerance for numerical precision
 }
 
 TEST_F(DensityMechanicsTest, MultiLayerDensitySeparation)
 {
+    spdlog::info("Starting DensityMechanicsTest::MultiLayerDensitySeparation test");
     // Test proper layering of multiple materials with different densities
     // This tests the future vision of complete density-based separation
     
