@@ -71,7 +71,10 @@ static void print_usage(void)
     fprintf(stdout, "-W window_width set window width (default: 1200)\n");
     fprintf(stdout, "-H window_height set window height (default: 1200)\n");
     fprintf(stdout, "-s max_steps set maximum number of simulation steps (0 = unlimited)\n");
-    fprintf(stdout, "\nDefault window size (1200x1200) provides a square window with comfortable space for the UI.\n");
+    fprintf(
+        stdout,
+        "\nDefault window size (1200x1200) provides a square window with comfortable space for the "
+        "UI.\n");
 }
 
 /**

@@ -194,7 +194,15 @@ void World::processTransfers(double deltaTimeSeconds)
             Vector2d comOffset;
             if (worldRules_) {
                 worldRules_->calculateTransferDirection(
-                    cell, shouldTransferX, shouldTransferY, targetX, targetY, comOffset, x, y, *this);
+                    cell,
+                    shouldTransferX,
+                    shouldTransferY,
+                    targetX,
+                    targetY,
+                    comOffset,
+                    x,
+                    y,
+                    *this);
             }
 
             bool transferOccurred = false;
