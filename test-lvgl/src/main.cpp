@@ -63,11 +63,15 @@ static void print_usage(void)
 {
     fprintf(
         stdout,
-        "\nlvglsim [-V] [-B] [-b backend_name] [-W window_width] [-H "
+        "\nsparkle-duck [-V] [-B] [-b backend_name] [-W window_width] [-H "
         "window_height] [-s max_steps]\n\n");
     fprintf(stdout, "-V print LVGL version\n");
     fprintf(stdout, "-B list supported backends\n");
+    fprintf(stdout, "-b backend_name select display backend (wayland, x11, fbdev)\n");
+    fprintf(stdout, "-W window_width set window width (default: 1200)\n");
+    fprintf(stdout, "-H window_height set window height (default: 1200)\n");
     fprintf(stdout, "-s max_steps set maximum number of simulation steps (0 = unlimited)\n");
+    fprintf(stdout, "\nDefault window size (1200x1200) provides a square window with comfortable space for the UI.\n");
 }
 
 /**
@@ -84,9 +88,11 @@ static void configure_simulator(int argc, char** argv)
     selected_backend = nullptr;
     driver_backends_register();
 
-    /* Default values */
-    settings.window_width = atoi(getenv("LV_SIM_WINDOW_WIDTH") ?: "800");
-    settings.window_height = atoi(getenv("LV_SIM_WINDOW_HEIGHT") ?: "480");
+    /* Default values - sized to fit UI content properly
+     * UI Layout: 850px draw area + 200px controls + padding
+     * 1200x1200 provides a square window with extra space for comfortable viewing */
+    settings.window_width = atoi(getenv("LV_SIM_WINDOW_WIDTH") ?: "1200");
+    settings.window_height = atoi(getenv("LV_SIM_WINDOW_HEIGHT") ?: "1200");
     settings.max_steps = 0; // Default to unlimited steps
 
     /* Parse the command-line options. */

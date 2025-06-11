@@ -109,6 +109,7 @@ add_executable(sparkle-duck
     src/Cell.cpp
     src/Vector2d.cpp
     src/World.cpp 
+    src/WorldRules.cpp
     src/Timers.cpp
     src/WorldSetup.cpp
     src/SimulatorUI.cpp
@@ -146,6 +147,7 @@ add_executable(sparkle-duck-tests
     simple_reset_test.cpp
     src/Vector2d.cpp
     src/World.cpp
+    src/WorldRules.cpp
     src/Cell.cpp
     src/Timers.cpp
     src/WorldSetup.cpp

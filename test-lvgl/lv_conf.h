@@ -1161,7 +1161,7 @@
 #endif
 
 /** Use X11 to open window on Linux desktop and handle mouse and keyboard */
-#define LV_USE_X11              0
+#define LV_USE_X11              1
 #if LV_USE_X11
     #define LV_X11_DIRECT_EXIT         1  /**< Exit application when all X11 windows have been closed */
     #define LV_X11_DOUBLE_BUFFER       1  /**< Use double buffers for rendering */

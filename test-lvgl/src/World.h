@@ -21,6 +21,7 @@
 
 // Forward declarations
 class SimulatorUI;
+class WorldRules;
 
 struct DirtMove {
     uint32_t fromX;
@@ -63,6 +64,10 @@ public:
     // UI management
     void setUI(std::unique_ptr<SimulatorUI> ui);
     SimulatorUI* getUI() const { return ui_.get(); }
+
+    // Physics rules management
+    void setWorldRules(std::unique_ptr<WorldRules> rules);
+    WorldRules* getWorldRules() const { return worldRules_.get(); }
 
     // Get the total mass of dirt in the world.
     double getTotalMass() const;
@@ -292,6 +297,9 @@ private:
 
     // UI interface
     std::unique_ptr<SimulatorUI> ui_;
+
+    // Physics rules interface
+    std::unique_ptr<WorldRules> worldRules_;
 
     std::vector<DirtMove> moves;
 

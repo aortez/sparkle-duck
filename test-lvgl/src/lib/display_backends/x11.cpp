@@ -50,7 +50,7 @@ static void run_loop_x11(World& world);
 /**********************
  *  STATIC VARIABLES
  **********************/
-static char* backend_name = "X11";
+static const char* backend_name = "X11";
 
 /**********************
  *      MACROS
@@ -69,7 +69,7 @@ static char* backend_name = "X11";
 int backend_init_x11(backend_t* backend)
 {
     LV_ASSERT_NULL(backend);
-    backend->handle->display = malloc(sizeof(display_backend_t));
+    backend->handle->display = static_cast<display_backend_t*>(malloc(sizeof(display_backend_t)));
     LV_ASSERT_NULL(backend->handle->display);
 
     backend->name = backend_name;
@@ -94,7 +94,7 @@ static lv_display_t* init_x11(void)
     lv_display_t* disp;
     LV_IMG_DECLARE(mouse_cursor_icon);
 
-    disp = lv_x11_window_create("Dirt Sim", settings.window_height, settings.window_width);
+    disp = lv_x11_window_create("Dirt Sim", settings.window_width, settings.window_height);
 
     disp = lv_display_get_default();
 

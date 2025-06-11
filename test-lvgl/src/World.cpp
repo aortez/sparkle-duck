@@ -2,6 +2,7 @@
 #include "Cell.h"
 #include "SimulatorUI.h"
 #include "Timers.h"
+#include "WorldRules.h"
 #include "WorldSetup.h"
 #include "spdlog/spdlog.h"
 
@@ -49,6 +50,9 @@ World::World(uint32_t width, uint32_t height, lv_obj_t* draw_area)
 
     // Create configurable world setup
     worldSetup = std::make_unique<ConfigurableWorldSetup>();
+
+    // Initialize default physics rules
+    worldRules_ = createWorldRules("RulesA");
 }
 
 World::~World()
@@ -95,27 +99,12 @@ void World::advanceTime(const double deltaTimeSeconds)
 
     processDragEnd();
 
-    // Use the selected pressure system
-    spdlog::trace(
-        "Running pressure system: {}",
-        (pressureSystem == PressureSystem::TopDown)                 ? "TopDown"
-            : (pressureSystem == PressureSystem::IterativeSettling) ? "IterativeSettling"
-                                                                    : "Original");
-
-    switch (pressureSystem) {
-        case PressureSystem::TopDown:
-            updateAllPressuresTopDown(deltaTimeSeconds);
-            break;
-        case PressureSystem::IterativeSettling:
-            updateAllPressuresIterativeSettling(deltaTimeSeconds);
-            break;
-        case PressureSystem::Original:
-        default:
-            updateAllPressures(deltaTimeSeconds);
-            break;
+    // Use the physics rules to update pressures and apply forces
+    if (worldRules_) {
+        spdlog::trace("Running physics rules: {}", worldRules_->getName());
+        worldRules_->updatePressures(*this, deltaTimeSeconds);
+        worldRules_->applyPressureForces(*this, deltaTimeSeconds);
     }
-
-    applyPressure(deltaTimeSeconds);
 
     processTransfers(deltaTimeSeconds);
 
@@ -184,7 +173,10 @@ void World::processTransfers(double deltaTimeSeconds)
                 continue;
             }
 
-            applyPhysicsToCell(cell, x, y, deltaTimeSeconds);
+            // Apply physics using the current rules
+            if (worldRules_) {
+                worldRules_->applyPhysics(cell, x, y, deltaTimeSeconds, *this);
+            }
 
             // Calculate predicted COM position after this timestep
             Vector2d predictedCom = cell.com + cell.v * deltaTimeSeconds;
@@ -200,8 +192,10 @@ void World::processTransfers(double deltaTimeSeconds)
             bool shouldTransferX, shouldTransferY;
             int targetX, targetY;
             Vector2d comOffset;
-            calculateTransferDirection(
-                cell, shouldTransferX, shouldTransferY, targetX, targetY, comOffset, x, y);
+            if (worldRules_) {
+                worldRules_->calculateTransferDirection(
+                    cell, shouldTransferX, shouldTransferY, targetX, targetY, comOffset, x, y, *this);
+            }
 
             bool transferOccurred = false;
             bool attemptedTransfer = shouldTransferX || shouldTransferY;
@@ -259,9 +253,9 @@ void World::processTransfers(double deltaTimeSeconds)
                 }
 
                 // If a transfer was attempted but failed, handle the collision/blockage
-                if (!transferOccurred) {
-                    handleTransferFailure(
-                        cell, x, y, targetX, targetY, shouldTransferX, shouldTransferY);
+                if (!transferOccurred && worldRules_) {
+                    worldRules_->handleCollision(
+                        cell, x, y, targetX, targetY, shouldTransferX, shouldTransferY, *this);
                 }
             }
 
@@ -628,6 +622,12 @@ double World::getTotalMass() const
 void World::setUI(std::unique_ptr<SimulatorUI> ui)
 {
     ui_ = std::move(ui);
+}
+
+void World::setWorldRules(std::unique_ptr<WorldRules> rules)
+{
+    worldRules_ = std::move(rules);
+    spdlog::info("World physics rules changed to: {}", worldRules_->getName());
 }
 
 void World::applyPressure(const double deltaTimeSeconds)
