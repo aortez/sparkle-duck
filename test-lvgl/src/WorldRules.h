@@ -192,6 +192,7 @@ private:
     static constexpr double CURSOR_FORCE_RADIUS = 5.0;
 };
 
+
 /**
  * Factory function to create different rule sets
  */

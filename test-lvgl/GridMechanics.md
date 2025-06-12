@@ -4,7 +4,7 @@ The World is composed of a grid of square cells.
 
 Each cell is from [0,1] full.
 
-It is filled with matter, one of the following types:
+It is filled with matter, of one of the following types:
 dirt, water, wood, sand, metal, air, leaf, and wall.
 
 The boundries of the world are composed of wall blocks.  

@@ -1,6 +1,7 @@
 #include "SimulatorUI.h"
 #include "Cell.h"
 #include "World.h"
+#include "WorldRules.h"
 #include "lvgl/lvgl.h"
 #include "lvgl/src/others/snapshot/lv_snapshot.h"
 
@@ -132,6 +133,15 @@ void SimulatorUI::createControlButtons()
     lv_label_set_text(gravity_label, "Gravity: On");
     lv_obj_center(gravity_label);
     lv_obj_add_event_cb(gravity_btn, gravityBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
+
+    // Create world rules switch button
+    lv_obj_t* world_rules_btn = lv_btn_create(screen_);
+    lv_obj_set_size(world_rules_btn, CONTROL_WIDTH, 50);
+    lv_obj_align(world_rules_btn, LV_ALIGN_TOP_RIGHT, -10, 190);
+    lv_obj_t* world_rules_label = lv_label_create(world_rules_btn);
+    lv_label_set_text(world_rules_label, "Rules: World Rules B");
+    lv_obj_center(world_rules_label);
+    lv_obj_add_event_cb(world_rules_btn, worldRulesBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
 
     // Create left throw toggle button
     lv_obj_t* left_throw_btn = lv_btn_create(screen_);
@@ -544,6 +554,32 @@ void SimulatorUI::gravityBtnEventCb(lv_event_t* e)
             const lv_obj_t* btn = static_cast<const lv_obj_t*>(lv_event_get_target(e));
             lv_obj_t* label = lv_obj_get_child(btn, 0);
             lv_label_set_text(label, gravity_enabled ? "Gravity: On" : "Gravity: Off");
+        }
+    }
+}
+
+void SimulatorUI::worldRulesBtnEventCb(lv_event_t* e)
+{
+    if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
+        CallbackData* data = static_cast<CallbackData*>(lv_event_get_user_data(e));
+        if (data && data->world) {
+            // Toggle between RulesA and World Rules B
+            static bool using_rules_a = false;  // Start with RulesB as default
+            using_rules_a = !using_rules_a;
+            
+            // Switch world rules
+            if (using_rules_a) {
+                auto rules = createWorldRules("RulesA");
+                data->world->setWorldRules(std::move(rules));
+            } else {
+                auto rules = createWorldRules("World Rules B");
+                data->world->setWorldRules(std::move(rules));
+            }
+            
+            // Update button label
+            const lv_obj_t* btn = static_cast<const lv_obj_t*>(lv_event_get_target(e));
+            lv_obj_t* label = lv_obj_get_child(btn, 0);
+            lv_label_set_text(label, using_rules_a ? "Rules: RulesA" : "Rules: World Rules B");
         }
     }
 }

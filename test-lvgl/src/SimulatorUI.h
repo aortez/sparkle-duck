@@ -93,6 +93,9 @@ private:
     static void backwardBtnEventCb(lv_event_t* e);
     static void forwardBtnEventCb(lv_event_t* e);
     static void timeReversalToggleBtnEventCb(lv_event_t* e);
+    
+    // World Rules control button
+    static void worldRulesBtnEventCb(lv_event_t* e);
 
     // Helper to create callback data
     CallbackData* createCallbackData(lv_obj_t* label = nullptr);

@@ -107,9 +107,14 @@ target_include_directories(lvgl_linux PRIVATE ${LV_LINUX_INC} ${PROJECT_SOURCE_D
 add_executable(sparkle-duck 
     src/main.cpp 
     src/Cell.cpp
+    src/CellB.cpp
     src/Vector2d.cpp
     src/World.cpp 
+    src/WorldB.cpp
     src/WorldRules.cpp
+    src/WorldRulesB.cpp
+    src/WorldRulesBInterface.cpp
+    src/RulesBNew.cpp
     src/Timers.cpp
     src/WorldSetup.cpp
     src/SimulatorUI.cpp
@@ -136,6 +141,7 @@ add_custom_target (run COMMAND ${EXECUTABLE_OUTPUT_PATH}/sparkle-duck DEPENDS sp
 add_executable(sparkle-duck-tests
     src/tests/Vector2d_test.cpp
     src/tests/WorldVisual_test.cpp
+    src/tests/WorldBVisual_test.cpp
     src/tests/WaterPressure180_test.cpp
     src/tests/PressureSystemVisual_test.cpp
     src/tests/PressureSystem_test.cpp
@@ -147,8 +153,13 @@ add_executable(sparkle-duck-tests
     simple_reset_test.cpp
     src/Vector2d.cpp
     src/World.cpp
+    src/WorldB.cpp
     src/WorldRules.cpp
+    src/WorldRulesB.cpp
+    src/WorldRulesBInterface.cpp
+    src/RulesBNew.cpp
     src/Cell.cpp
+    src/CellB.cpp
     src/Timers.cpp
     src/WorldSetup.cpp
     src/SimulatorUI.cpp

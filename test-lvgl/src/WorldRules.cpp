@@ -1,4 +1,5 @@
 #include "WorldRules.h"
+#include "WorldRulesB.h"
 #include "World.h"
 #include "spdlog/spdlog.h"
 
@@ -525,11 +526,15 @@ void RulesA::handleCollision(
     }
 }
 
+
 // Factory function
 std::unique_ptr<WorldRules> createWorldRules(const std::string& rulesType)
 {
     if (rulesType == "RulesA") {
         return std::make_unique<RulesA>();
+    }
+    else if (rulesType == "RulesB" || rulesType == "World Rules B") {
+        return std::make_unique<RulesB>();
     }
 
     // Default to RulesA

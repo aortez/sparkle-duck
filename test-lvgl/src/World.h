@@ -36,6 +36,7 @@ struct DirtMove {
 class World {
     friend class WorldRules;
     friend class RulesA;
+    friend class RulesB;
 public:
     World(uint32_t width, uint32_t height, lv_obj_t* draw_area);
     ~World();

@@ -174,7 +174,7 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    spdlog::info("🦆 Sparkle Duck Dirt Simulator starting up! 🦆");
+    spdlog::info("✨🦆 Sparkle Duck Dirt Simulator starting up! 🦆✨");
     spdlog::debug("Logging configured: console (INFO+) and file sparkle-duck.log (TRACE+)");
 
     configure_simulator(argc, argv);
