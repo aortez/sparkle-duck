@@ -24,7 +24,7 @@ protected:
         Cell::setViscosityFactor(0.1);
         
         // Disable fragmentation for cleaner testing
-        World::DIRT_FRAGMENTATION_FACTOR = 0.0;
+        // World::DIRT_FRAGMENTATION_FACTOR = 0.0; // Moved to WorldRules
         
         // Try to initialize UI - will be null if not available
         initializeUI();
@@ -88,7 +88,7 @@ protected:
 
     void TearDown() override {
         // Restore default values
-        World::DIRT_FRAGMENTATION_FACTOR = 0.1;
+        // World::DIRT_FRAGMENTATION_FACTOR = 0.1; // Moved to WorldRules
         world.reset();
         ui.reset();
     }

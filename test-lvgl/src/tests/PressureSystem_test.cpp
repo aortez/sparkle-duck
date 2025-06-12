@@ -51,6 +51,7 @@ protected:
     std::unique_ptr<World> world;
 };
 
+/* Temporarily disabled - pressure system switching removed
 TEST_F(PressureSystemTest, PressureSystemSwitching) {
     spdlog::info("Starting PressureSystemTest::PressureSystemSwitching test");
     std::cout << "\n=== PRESSURE SYSTEM SWITCHING TEST ===" << std::endl;
@@ -103,7 +104,9 @@ TEST_F(PressureSystemTest, PressureSystemSwitching) {
     
     std::cout << "\n=== Test completed successfully ===" << std::endl;
 }
+*/
 
+/* Temporarily disabled - pressure system switching removed
 TEST_F(PressureSystemTest, PressureSystemComparison) {
     spdlog::info("Starting PressureSystemTest::PressureSystemComparison test");
     std::cout << "\n=== PRESSURE SYSTEM COMPARISON TEST ===" << std::endl;
@@ -189,7 +192,9 @@ TEST_F(PressureSystemTest, PressureSystemComparison) {
     
     std::cout << "\n=== Comparison completed ===" << std::endl;
 }
+*/
 
+/* Temporarily disabled - pressure system switching removed
 TEST_F(PressureSystemTest, PressureSystemAPI) {
     spdlog::info("Starting PressureSystemTest::PressureSystemAPI test");
     std::cout << "\n=== PRESSURE SYSTEM API TEST ===" << std::endl;
@@ -266,3 +271,4 @@ TEST_F(PressureSystemTest, TopDownPressureAccumulation) {
     
     std::cout << "=== Top-down test completed ===\n" << std::endl;
 } 
+*/

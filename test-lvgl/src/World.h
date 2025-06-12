@@ -34,6 +34,8 @@ struct DirtMove {
 };
 
 class World {
+    friend class WorldRules;
+    friend class RulesA;
 public:
     World(uint32_t width, uint32_t height, lv_obj_t* draw_area);
     ~World();
@@ -112,17 +114,17 @@ public:
 
     void restoreLastDragCell();
 
-    void setGravity(double g) { gravity = g; }
+    void setGravity(double g);
 
     // Set the elasticity factor for reflections
-    void setElasticityFactor(double e) { ELASTICITY_FACTOR = e; }
+    void setElasticityFactor(double e);
 
     // Set the pressure scale factor
-    void setPressureScale(double scale) { pressureScale = scale; }
+    void setPressureScale(double scale);
 
     // Water physics configuration
-    void setWaterPressureThreshold(double threshold) { waterPressureThreshold = threshold; }
-    double getWaterPressureThreshold() const { return waterPressureThreshold; }
+    void setWaterPressureThreshold(double threshold);
+    double getWaterPressureThreshold() const;
 
     // Resize the world grid based on new cell size
     void resizeGrid(uint32_t newWidth, uint32_t newHeight, bool clearHistory = true);
@@ -144,31 +146,11 @@ public:
         1.2;                                       // Trigger reflection at 1.2x normal threshold
     static constexpr double TRANSFER_FACTOR = 1.0; // Always transfer 100% of available space
 
-    // Controls how much dirt is left behind during transfers.
-    static double DIRT_FRAGMENTATION_FACTOR;
 
-    void setDirtFragmentationFactor(double factor) { DIRT_FRAGMENTATION_FACTOR = factor; }
+    void setDirtFragmentationFactor(double factor);
 
-    void applyPressure(const double timestep);
 
-    // Update pressure for all cells based on COM deflection into neighbors
-    void updateAllPressures(double timestep);
-
-    // Alternative top-down pressure system with hydrostatic accumulation
-    void updateAllPressuresTopDown(double timestep);
-
-    // Iterative settling pressure system with multiple passes
-    void updateAllPressuresIterativeSettling(double timestep);
-
-    // Pressure system selection
-    enum class PressureSystem {
-        Original,         // COM deflection based pressure
-        TopDown,          // Hydrostatic accumulation top-down
-        IterativeSettling // Multiple settling passes
-    };
-
-    void setPressureSystem(PressureSystem system) { pressureSystem = system; }
-    PressureSystem getPressureSystem() const { return pressureSystem; }
+    // Pressure system configuration is now handled through WorldRules
 
     // Set the world setup strategy
     void setWorldSetup(std::unique_ptr<WorldSetup> setup) { worldSetup = std::move(setup); }
@@ -200,7 +182,6 @@ private:
     // Physics simulation methods (broken down from advanceTime)
     void processParticleAddition(double deltaTimeSeconds);
     void processDragEnd();
-    void applyPhysicsToCell(Cell& cell, uint32_t x, uint32_t y, double deltaTimeSeconds);
     void processTransfers(double deltaTimeSeconds);
     bool attemptTransfer(
         Cell& cell,
@@ -222,19 +203,7 @@ private:
         Cell& cell, int targetX, int targetY, bool shouldTransferX, bool shouldTransferY);
     void checkExcessiveDeflectionReflection(Cell& cell);
 
-    // Transfer calculation helpers
-    void calculateTransferDirection(
-        const Cell& cell,
-        bool& shouldTransferX,
-        bool& shouldTransferY,
-        int& targetX,
-        int& targetY,
-        Vector2d& comOffset,
-        uint32_t x,
-        uint32_t y);
-    bool isWithinBounds(int x, int y) const;
-    Vector2d calculateNaturalCOM(const Vector2d& sourceCOM, int deltaX, int deltaY);
-    Vector2d clampCOMToDeadZone(const Vector2d& naturalCOM);
+    // Transfer calculation helpers - delegated to WorldRules
 
     lv_obj_t* draw_area;
     uint32_t width;
@@ -243,12 +212,6 @@ private:
 
     uint32_t timestep = 0;
 
-    // Pressure scale factor (default 1.0)
-    double pressureScale = 1.0;
-
-    // Water physics configuration
-    double waterPressureThreshold = 0.0004; // Default threshold for water pressure application
-                                            // (further lowered for easier flow)
 
     // Cursor force state
     bool cursorForceEnabled = true;
@@ -257,7 +220,6 @@ private:
     int cursorForceY = 0;
     static constexpr double CURSOR_FORCE_STRENGTH = 10.0; // Adjust this to control force magnitude
     static constexpr double CURSOR_FORCE_RADIUS = 5.0; // Number of cells affected by cursor force
-    static double ELASTICITY_FACTOR; // Energy preserved in reflections (0.0 to 1.0)
 
     // Track mass that has been removed due to being below the threshold.
     double removedMass = 0.0;
@@ -265,8 +227,6 @@ private:
     // Control whether addParticles should be called during advanceTime
     bool addParticlesEnabled = true;
 
-    // Gravity (default 9.81, can be set for tests)
-    double gravity = 9.81;
 
     // Drag state
     bool isDragging = false;
@@ -346,6 +306,4 @@ private:
     // Helper method to restore state with potential grid size changes
     void restoreWorldState(const WorldState& state);
 
-    // Pressure system selection
-    PressureSystem pressureSystem = PressureSystem::Original;
 };

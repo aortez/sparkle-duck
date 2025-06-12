@@ -69,7 +69,6 @@ private:
     static void cellSizeSliderEventCb(lv_event_t* e);
     static void resetBtnEventCb(lv_event_t* e);
     static void debugBtnEventCb(lv_event_t* e);
-    static void pressureSystemDropdownEventCb(lv_event_t* e);
     static void forceBtnEventCb(lv_event_t* e);
     static void gravityBtnEventCb(lv_event_t* e);
     static void elasticitySliderEventCb(lv_event_t* e);

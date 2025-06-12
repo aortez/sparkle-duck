@@ -38,6 +38,27 @@ public:
         uint32_t x,
         uint32_t y,
         const World& world) const = 0;
+    virtual bool attemptTransfer(
+        Cell& cell,
+        uint32_t x,
+        uint32_t y,
+        int targetX,
+        int targetY,
+        const Vector2d& comOffset,
+        double totalMass,
+        World& world) = 0;
+    virtual void handleTransferFailure(
+        Cell& cell,
+        uint32_t x,
+        uint32_t y,
+        int targetX,
+        int targetY,
+        bool shouldTransferX,
+        bool shouldTransferY,
+        World& world) = 0;
+    virtual void handleBoundaryReflection(
+        Cell& cell, int targetX, int targetY, bool shouldTransferX, bool shouldTransferY, World& world) = 0;
+    virtual void checkExcessiveDeflectionReflection(Cell& cell, World& world) = 0;
     virtual void handleCollision(
         Cell& cell,
         uint32_t x,
@@ -66,11 +87,12 @@ public:
     virtual void setWaterPressureThreshold(double threshold) = 0;
     virtual void setDirtFragmentationFactor(double factor) = 0;
 
-protected:
     // Helper methods available to all rules implementations
     static bool isWithinBounds(int x, int y, const World& world);
     static Vector2d calculateNaturalCOM(const Vector2d& sourceCOM, int deltaX, int deltaY);
     static Vector2d clampCOMToDeadZone(const Vector2d& naturalCOM);
+
+protected:
 };
 
 /**
@@ -100,6 +122,27 @@ public:
         uint32_t x,
         uint32_t y,
         const World& world) const override;
+    bool attemptTransfer(
+        Cell& cell,
+        uint32_t x,
+        uint32_t y,
+        int targetX,
+        int targetY,
+        const Vector2d& comOffset,
+        double totalMass,
+        World& world) override;
+    void handleTransferFailure(
+        Cell& cell,
+        uint32_t x,
+        uint32_t y,
+        int targetX,
+        int targetY,
+        bool shouldTransferX,
+        bool shouldTransferY,
+        World& world) override;
+    void handleBoundaryReflection(
+        Cell& cell, int targetX, int targetY, bool shouldTransferX, bool shouldTransferY, World& world) override;
+    void checkExcessiveDeflectionReflection(Cell& cell, World& world) override;
     void handleCollision(
         Cell& cell,
         uint32_t x,
@@ -134,15 +177,6 @@ public:
     }
     void setDirtFragmentationFactor(double factor) override { dirtFragmentationFactor_ = factor; }
 
-    // Pressure system selection
-    enum class PressureSystem {
-        Original,         // COM deflection based pressure
-        TopDown,          // Hydrostatic accumulation top-down
-        IterativeSettling // Multiple settling passes
-    };
-
-    void setPressureSystem(PressureSystem system) { pressureSystem_ = system; }
-    PressureSystem getPressureSystem() const { return pressureSystem_; }
 
 private:
     // Physics constants
@@ -152,13 +186,6 @@ private:
     double waterPressureThreshold_ = 0.0004;
     double dirtFragmentationFactor_ = 0.0;
 
-    // Pressure system selection
-    PressureSystem pressureSystem_ = PressureSystem::Original;
-
-    // Specific pressure system implementations
-    void updatePressuresOriginal(World& world, double deltaTimeSeconds);
-    void updatePressuresTopDown(World& world, double deltaTimeSeconds);
-    void updatePressuresIterativeSettling(World& world, double deltaTimeSeconds);
 
     // Cursor force state (could be moved to World if shared across rules)
     static constexpr double CURSOR_FORCE_STRENGTH = 10.0;

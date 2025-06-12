@@ -107,22 +107,6 @@ void RulesA::applyPhysics(
 
 void RulesA::updatePressures(World& world, double deltaTimeSeconds)
 {
-    switch (pressureSystem_) {
-        case PressureSystem::TopDown:
-            updatePressuresTopDown(world, deltaTimeSeconds);
-            break;
-        case PressureSystem::IterativeSettling:
-            updatePressuresIterativeSettling(world, deltaTimeSeconds);
-            break;
-        case PressureSystem::Original:
-        default:
-            updatePressuresOriginal(world, deltaTimeSeconds);
-            break;
-    }
-}
-
-void RulesA::updatePressuresOriginal(World& world, double deltaTimeSeconds)
-{
     // First clear all pressures.
     for (uint32_t y = 0; y < world.getHeight(); ++y) {
         for (uint32_t x = 0; x < world.getWidth(); ++x) {
@@ -203,207 +187,6 @@ void RulesA::updatePressuresOriginal(World& world, double deltaTimeSeconds)
     spdlog::trace("Generated {} pressure contributions this frame", pressuresGenerated);
 }
 
-void RulesA::updatePressuresTopDown(World& world, double deltaTimeSeconds)
-{
-    // Clear all pressures first
-    for (uint32_t y = 0; y < world.getHeight(); ++y) {
-        for (uint32_t x = 0; x < world.getWidth(); ++x) {
-            world.at(x, y).pressure = Vector2d(0.0, 0.0);
-        }
-    }
-
-    spdlog::trace("=== TOP-DOWN PRESSURE GENERATION ===");
-
-    // Process each column from top to bottom
-    for (uint32_t x = 0; x < world.getWidth(); ++x) {
-        double accumulatedMass = 0.0;
-
-        for (uint32_t y = 0; y < world.getHeight(); ++y) {
-            Cell& cell = world.at(x, y);
-
-            // Add this cell's mass to the accumulated total
-            if (cell.percentFull() >= World::MIN_DIRT_THRESHOLD) {
-                accumulatedMass += cell.percentFull();
-            }
-
-            // Calculate hydrostatic pressure from accumulated mass above
-            double hydrostaticPressure = accumulatedMass * gravity_ * deltaTimeSeconds * 0.1;
-
-            // Apply base hydrostatic pressure downward
-            cell.pressure.y += hydrostaticPressure;
-
-            // Add lateral pressure based on COM deflection of all cells above
-            Vector2d lateralPressure(0.0, 0.0);
-
-            // Look at cells above to determine lateral pressure direction
-            for (uint32_t checkY = 0; checkY <= y; ++checkY) {
-                const Cell& upperCell = world.at(x, checkY);
-                if (upperCell.percentFull() >= World::MIN_DIRT_THRESHOLD) {
-                    Vector2d deflection = upperCell.getNormalizedDeflection();
-                    // Scale lateral pressure by distance (closer cells have more influence)
-                    double distanceScale = 1.0 / (1.0 + (y - checkY) * 0.5);
-                    lateralPressure.x += deflection.x * upperCell.percentFull() * distanceScale;
-                }
-            }
-
-            // Apply accumulated lateral pressure
-            cell.pressure.x += lateralPressure.x * deltaTimeSeconds * 0.05;
-
-            spdlog::trace(
-                "Cell ({},{}) accumulated_mass={} hydrostatic_pressure={} lateral_pressure={}",
-                x,
-                y,
-                accumulatedMass,
-                hydrostaticPressure,
-                lateralPressure.x);
-        }
-    }
-
-    // Add horizontal pressure propagation
-    for (uint32_t y = 0; y < world.getHeight(); ++y) {
-        for (uint32_t x = 0; x < world.getWidth(); ++x) {
-            const Cell& cell = world.at(x, y);
-            if (cell.percentFull() < World::MIN_DIRT_THRESHOLD) continue;
-
-            // Look at neighboring columns to determine pressure differences
-            double leftPressure = (x > 0) ? world.at(x - 1, y).pressure.y : 0.0;
-            double rightPressure = (x + 1 < world.getWidth()) ? world.at(x + 1, y).pressure.y : 0.0;
-            double currentPressure = cell.pressure.y;
-
-            // Calculate pressure gradients
-            double leftGradient = currentPressure - leftPressure;
-            double rightGradient = currentPressure - rightPressure;
-
-            // Apply horizontal pressure based on gradients
-            if (leftGradient > 0.001) {
-                if (x > 0) {
-                    world.at(x - 1, y).pressure.x += leftGradient * 0.1;
-                }
-            }
-            if (rightGradient > 0.001) {
-                if (x + 1 < world.getWidth()) {
-                    world.at(x + 1, y).pressure.x += rightGradient * 0.1;
-                }
-            }
-        }
-    }
-}
-
-void RulesA::updatePressuresIterativeSettling(World& world, double deltaTimeSeconds)
-{
-    // Clear all pressures first
-    for (uint32_t y = 0; y < world.getHeight(); ++y) {
-        for (uint32_t x = 0; x < world.getWidth(); ++x) {
-            world.at(x, y).pressure = Vector2d(0.0, 0.0);
-        }
-    }
-
-    spdlog::trace("=== ITERATIVE SETTLING PRESSURE GENERATION ===");
-
-    // Multiple settling passes - each pass allows material to settle under pressure
-    const int numSettlingPasses = 3;
-    const double passTimeStep = deltaTimeSeconds / numSettlingPasses;
-
-    for (int pass = 0; pass < numSettlingPasses; ++pass) {
-        spdlog::trace("Settling pass {}/{}", (pass + 1), numSettlingPasses);
-
-        // For each pass, work from top to bottom
-        for (uint32_t y = 0; y < world.getHeight(); ++y) {
-            for (uint32_t x = 0; x < world.getWidth(); ++x) {
-                Cell& cell = world.at(x, y);
-                if (cell.percentFull() < World::MIN_DIRT_THRESHOLD) continue;
-
-                // Calculate pressure from mass above (looking at previous pass results)
-                double pressureFromAbove = 0.0;
-                for (uint32_t checkY = 0; checkY < y; ++checkY) {
-                    const Cell& upperCell = world.at(x, checkY);
-                    if (upperCell.percentFull() >= World::MIN_DIRT_THRESHOLD) {
-                        // Distance decay factor - closer cells contribute more pressure
-                        double distanceFactor = 1.0 / (1.0 + (y - checkY) * 0.3);
-                        pressureFromAbove += upperCell.percentFull() * gravity_ * distanceFactor;
-                    }
-                }
-
-                // Apply settling pressure (increases with each pass)
-                double settlingPressure = pressureFromAbove * passTimeStep * (pass + 1) * 0.02;
-                cell.pressure.y += settlingPressure;
-
-                // Add lateral pressure redistribution based on pressure differences
-                Vector2d lateralPressure(0.0, 0.0);
-
-                // Check neighboring columns for pressure differences
-                if (x > 0) {
-                    const Cell& leftCell = world.at(x - 1, y);
-                    double pressureDiff = cell.pressure.y - leftCell.pressure.y;
-                    if (pressureDiff > 0.001) {
-                        lateralPressure.x -= pressureDiff * 0.1; // Pressure flows left
-                        world.at(x - 1, y).pressure.x += pressureDiff * 0.1;
-                    }
-                }
-
-                if (x + 1 < world.getWidth()) {
-                    const Cell& rightCell = world.at(x + 1, y);
-                    double pressureDiff = cell.pressure.y - rightCell.pressure.y;
-                    if (pressureDiff > 0.001) {
-                        lateralPressure.x += pressureDiff * 0.1; // Pressure flows right
-                        world.at(x + 1, y).pressure.x += pressureDiff * 0.1;
-                    }
-                }
-
-                cell.pressure.x += lateralPressure.x;
-
-                // Add COM deflection influence (but scaled down since hydrostatic is primary)
-                Vector2d deflection = cell.getNormalizedDeflection();
-                cell.pressure.x += deflection.x * cell.percentFull() * passTimeStep * 0.02;
-                cell.pressure.y += deflection.y * cell.percentFull() * passTimeStep * 0.02;
-
-                spdlog::trace(
-                    "Pass {} Cell ({},{}) pressure_from_above={} settling_pressure={} "
-                    "final_pressure=({},{})",
-                    pass,
-                    x,
-                    y,
-                    pressureFromAbove,
-                    settlingPressure,
-                    cell.pressure.x,
-                    cell.pressure.y);
-            }
-        }
-
-        // Smooth pressure between passes to prevent oscillations
-        if (pass < numSettlingPasses - 1) {
-            std::vector<Vector2d> smoothedPressure(world.getWidth() * world.getHeight());
-            for (uint32_t y = 0; y < world.getHeight(); ++y) {
-                for (uint32_t x = 0; x < world.getWidth(); ++x) {
-                    Vector2d sum = world.at(x, y).pressure;
-                    int count = 1;
-
-                    // Average with neighbors for smoothing
-                    for (int dy = -1; dy <= 1; ++dy) {
-                        for (int dx = -1; dx <= 1; ++dx) {
-                            if (dx == 0 && dy == 0) continue;
-                            int nx = x + dx, ny = y + dy;
-                            if (nx >= 0 && nx < (int)world.getWidth() && ny >= 0
-                                && ny < (int)world.getHeight()) {
-                                sum +=
-                                    world.at(nx, ny).pressure * 0.3; // Reduced weight for neighbors
-                                count++;
-                            }
-                        }
-                    }
-                    smoothedPressure[y * world.getWidth() + x] = sum / count;
-                }
-            }
-
-            // Apply smoothed pressure back to cells
-            for (uint32_t y = 0; y < world.getHeight(); ++y) {
-                for (uint32_t x = 0; x < world.getWidth(); ++x) {
-                    world.at(x, y).pressure = smoothedPressure[y * world.getWidth() + x];
-                }
-            }
-        }
-    }
-}
 
 void RulesA::applyPressureForces(World& world, double deltaTimeSeconds)
 {
@@ -504,6 +287,190 @@ void RulesA::calculateTransferDirection(
         targetY = y - 1;
         comOffset.y = clampCOMToDeadZone(calculateNaturalCOM(Vector2d(0.0, cell.com.y), 0, -1)).y;
         spdlog::trace("  Transfer up: com.y={}, target_com.y={}", cell.com.y, comOffset.y);
+    }
+}
+
+bool RulesA::attemptTransfer(
+    Cell& cell,
+    uint32_t x,
+    uint32_t y,
+    int targetX,
+    int targetY,
+    const Vector2d& comOffset,
+    double totalMass,
+    World& world)
+{
+    if (!isWithinBounds(targetX, targetY, world)) {
+        return false;
+    }
+
+    Cell& targetCell = world.at(targetX, targetY);
+    if (targetCell.percentFull() >= 1.0) {
+        spdlog::trace("  Transfer blocked by full cell at ({},{})", targetX, targetY);
+        return false;
+    }
+
+    // Calculate transfer amounts
+    const double availableSpace = 1.0 - targetCell.percentFull();
+    const double safeAvailableSpace =
+        std::max(0.0, availableSpace - 0.01); // Leave 1% safety margin
+    const double moveAmount = std::min(totalMass, safeAvailableSpace * World::TRANSFER_FACTOR);
+
+    // Don't transfer if move amount is zero
+    if (moveAmount <= 0.0) {
+        return false;
+    }
+
+    const double dirtProportion = cell.dirt / totalMass;
+    const double waterProportion = cell.water / totalMass;
+    const double dirtAmount = moveAmount * dirtProportion;
+    const double waterAmount = moveAmount * waterProportion;
+
+    world.moves.push_back(DirtMove{ .fromX = x,
+                              .fromY = y,
+                              .toX = static_cast<uint32_t>(targetX),
+                              .toY = static_cast<uint32_t>(targetY),
+                              .dirtAmount = dirtAmount,
+                              .waterAmount = waterAmount,
+                              .comOffset = comOffset });
+
+    spdlog::trace(
+        "  Queued move: from=({},{}) to=({},{}), dirt={}, water={}",
+        x,
+        y,
+        targetX,
+        targetY,
+        dirtAmount,
+        waterAmount);
+    return true;
+}
+
+void RulesA::handleTransferFailure(
+    Cell& cell,
+    uint32_t x,
+    uint32_t y,
+    int targetX,
+    int targetY,
+    bool shouldTransferX,
+    bool shouldTransferY,
+    World& world)
+{
+    // Comprehensive transfer failure handling that conserves momentum
+
+    // First, handle boundary collisions (out of bounds)
+    if (shouldTransferX && !isWithinBounds(targetX, y, world)) {
+        // Horizontal boundary collision
+        cell.v.x = -cell.v.x * elasticityFactor_;
+        cell.com.x =
+            (targetX < 0) ? -Cell::COM_DEFLECTION_THRESHOLD : Cell::COM_DEFLECTION_THRESHOLD;
+        spdlog::trace("  X boundary reflection: COM.x={}, v.x={}", cell.com.x, cell.v.x);
+    }
+
+    if (shouldTransferY && !isWithinBounds(x, targetY, world)) {
+        // Vertical boundary collision
+        cell.v.y = -cell.v.y * elasticityFactor_;
+        cell.com.y =
+            (targetY < 0) ? -Cell::COM_DEFLECTION_THRESHOLD : Cell::COM_DEFLECTION_THRESHOLD;
+        spdlog::trace("  Y boundary reflection: COM.y={}, v.y={}", cell.com.y, cell.v.y);
+    }
+
+    // Handle in-bounds collisions (blocked by other cells)
+    bool hitHorizontalObstacle = false;
+    bool hitVerticalObstacle = false;
+
+    if (shouldTransferX && isWithinBounds(targetX, y, world)) {
+        double targetFullness = world.at(targetX, y).percentFull();
+        if (targetFullness >= 0.95) { // Nearly full cell blocks transfer
+            hitHorizontalObstacle = true;
+            cell.v.x = -cell.v.x * elasticityFactor_;
+            cell.com.x =
+                (cell.com.x > 0) ? Cell::COM_DEFLECTION_THRESHOLD : -Cell::COM_DEFLECTION_THRESHOLD;
+            spdlog::trace(
+                "  X collision with full cell ({},{}): fullness={}", targetX, y, targetFullness);
+        }
+        else if (targetFullness > 0.7) {
+            // Partial blockage - reduce momentum without full reflection
+            double blockageFactor = (targetFullness - 0.7) / 0.25; // 0.0 to 1.0
+            cell.v.x *= (1.0 - blockageFactor * 0.5);              // Reduce by up to 50%
+            spdlog::trace(
+                "  X partial blockage at ({},{}): fullness={}, v.x reduced to {}",
+                targetX,
+                y,
+                targetFullness,
+                cell.v.x);
+        }
+    }
+
+    if (shouldTransferY && isWithinBounds(x, targetY, world)) {
+        double targetFullness = world.at(x, targetY).percentFull();
+        if (targetFullness >= 0.95) {
+            hitVerticalObstacle = true;
+            cell.v.y = -cell.v.y * elasticityFactor_;
+            cell.com.y =
+                (cell.com.y > 0) ? Cell::COM_DEFLECTION_THRESHOLD : -Cell::COM_DEFLECTION_THRESHOLD;
+            spdlog::trace(
+                "  Y collision with full cell ({},{}): fullness={}", x, targetY, targetFullness);
+        }
+        else if (targetFullness > 0.7) {
+            // Partial blockage - reduce momentum without full reflection
+            double blockageFactor = (targetFullness - 0.7) / 0.25; // 0.0 to 1.0
+            cell.v.y *= (1.0 - blockageFactor * 0.5);              // Reduce by up to 50%
+            spdlog::trace(
+                "  Y partial blockage at ({},{}): fullness={}, v.y reduced to {}",
+                x,
+                targetY,
+                targetFullness,
+                cell.v.y);
+        }
+    }
+
+    // Monte Carlo transfer failure - momentum bleeding to prevent buildup
+    // This handles the case where transfer was blocked not due to physics, but due to Monte Carlo
+    // selection
+    if (!hitHorizontalObstacle && !hitVerticalObstacle && (shouldTransferX || shouldTransferY)) {
+        // Apply gentle momentum damping to prevent infinite acceleration
+        const double MOMENTUM_BLEED_FACTOR = 0.02; // 2% velocity reduction per failed transfer
+
+        if (shouldTransferX && isWithinBounds(targetX, y, world) && world.at(targetX, y).percentFull() < 0.7) {
+            // Transfer could have succeeded but was blocked by Monte Carlo - apply momentum bleed
+            cell.v.x *= (1.0 - MOMENTUM_BLEED_FACTOR);
+            cell.com.x *= (1.0 - MOMENTUM_BLEED_FACTOR * 0.5);
+            spdlog::trace("  Monte Carlo X momentum bleed: new v.x={}", cell.v.x);
+        }
+
+        if (shouldTransferY && isWithinBounds(x, targetY, world) && world.at(x, targetY).percentFull() < 0.7) {
+            // Transfer could have succeeded but was blocked by Monte Carlo - apply momentum bleed
+            cell.v.y *= (1.0 - MOMENTUM_BLEED_FACTOR);
+            cell.com.y *= (1.0 - MOMENTUM_BLEED_FACTOR * 0.5);
+            spdlog::trace("  Monte Carlo Y momentum bleed: new v.y={}", cell.v.y);
+        }
+    }
+}
+
+void RulesA::handleBoundaryReflection(
+    Cell& cell, int targetX, int targetY, bool shouldTransferX, bool shouldTransferY, World& world)
+{
+    // Legacy method - now handled by handleTransferFailure
+    // Kept for compatibility but functionality moved to handleTransferFailure
+    handleTransferFailure(cell, 0, 0, targetX, targetY, shouldTransferX, shouldTransferY, world);
+}
+
+void RulesA::checkExcessiveDeflectionReflection(Cell& cell, World& world)
+{
+    Vector2d normalizedDeflection = cell.getNormalizedDeflection();
+
+    if (std::abs(normalizedDeflection.x) > World::REFLECTION_THRESHOLD) {
+        cell.v.x = -cell.v.x * elasticityFactor_;
+        cell.com.x = (normalizedDeflection.x > 0) ? Cell::COM_DEFLECTION_THRESHOLD
+                                                  : -Cell::COM_DEFLECTION_THRESHOLD;
+        spdlog::trace("  Horizontal reflection: COM.x={}, v.x={}", cell.com.x, cell.v.x);
+    }
+
+    if (std::abs(normalizedDeflection.y) > World::REFLECTION_THRESHOLD) {
+        cell.v.y = -cell.v.y * elasticityFactor_;
+        cell.com.y = (normalizedDeflection.y > 0) ? Cell::COM_DEFLECTION_THRESHOLD
+                                                  : -Cell::COM_DEFLECTION_THRESHOLD;
+        spdlog::trace("  Vertical reflection: COM.y={}, v.y={}", cell.com.y, cell.v.y);
     }
 }
 

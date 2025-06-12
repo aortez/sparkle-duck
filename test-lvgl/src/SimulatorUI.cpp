@@ -114,22 +114,6 @@ void SimulatorUI::createControlButtons()
     lv_obj_center(debug_label);
     lv_obj_add_event_cb(debug_btn, debugBtnEventCb, LV_EVENT_CLICKED, nullptr);
 
-    // Create pressure system dropdown
-    lv_obj_t* pressure_label = lv_label_create(screen_);
-    lv_label_set_text(pressure_label, "Pressure System:");
-    lv_obj_align(pressure_label, LV_ALIGN_TOP_RIGHT, -10, 190);
-
-    lv_obj_t* pressure_dropdown = lv_dropdown_create(screen_);
-    lv_obj_set_size(pressure_dropdown, CONTROL_WIDTH, 40);
-    lv_obj_align(pressure_dropdown, LV_ALIGN_TOP_RIGHT, -10, 210);
-    lv_dropdown_set_options(
-        pressure_dropdown, "Original (COM)\nTop-Down Hydrostatic\nIterative Settling");
-    lv_dropdown_set_selected(pressure_dropdown, 0); // Default to Original
-    lv_obj_add_event_cb(
-        pressure_dropdown,
-        pressureSystemDropdownEventCb,
-        LV_EVENT_VALUE_CHANGED,
-        createCallbackData());
 
     // Create cursor force toggle button
     lv_obj_t* force_btn = lv_btn_create(screen_);
@@ -532,42 +516,6 @@ void SimulatorUI::debugBtnEventCb(lv_event_t* e)
     }
 }
 
-void SimulatorUI::pressureSystemDropdownEventCb(lv_event_t* e)
-{
-    if (lv_event_get_code(e) == LV_EVENT_VALUE_CHANGED) {
-        CallbackData* data = static_cast<CallbackData*>(lv_event_get_user_data(e));
-        if (data && data->world) {
-            lv_obj_t* dropdown = static_cast<lv_obj_t*>(lv_event_get_target(e));
-            uint16_t selected = lv_dropdown_get_selected(dropdown);
-
-            // Map dropdown selection to PressureSystem enum
-            World::PressureSystem system;
-            switch (selected) {
-                case 0:
-                    system = World::PressureSystem::Original;
-                    break;
-                case 1:
-                    system = World::PressureSystem::TopDown;
-                    break;
-                case 2:
-                    system = World::PressureSystem::IterativeSettling;
-                    break;
-                default:
-                    system = World::PressureSystem::Original;
-                    break;
-            }
-
-            // Update the world's pressure system
-            data->world->setPressureSystem(system);
-
-            // Optional: Print confirmation to console
-            const char* system_names[] = { "Original (COM)",
-                                           "Top-Down Hydrostatic",
-                                           "Iterative Settling" };
-            printf("Pressure system switched to: %s\n", system_names[selected]);
-        }
-    }
-}
 
 void SimulatorUI::forceBtnEventCb(lv_event_t* e)
 {

@@ -36,30 +36,17 @@ TEST_F(PressureSystemVisualTest, PressureSystemSwitching) {
     spdlog::info("Starting PressureSystemVisualTest::PressureSystemSwitching test");
     std::cout << "\n=== PRESSURE SYSTEM SWITCHING TEST ===" << std::endl;
     
-    // Test that all three pressure systems work
-    std::vector<World::PressureSystem> systems = {
-        World::PressureSystem::Original,
-        World::PressureSystem::TopDown,
-        World::PressureSystem::IterativeSettling
-    };
-    
-    std::vector<std::string> system_names = {
-        "Original (COM)",
-        "Top-Down Hydrostatic", 
-        "Iterative Settling"
-    };
-    
-    for (size_t i = 0; i < systems.size(); ++i) {
-        std::cout << "\nTesting pressure system: " << system_names[i] << std::endl;
+    // Test the single remaining pressure system (Original COM)
+    std::cout << "\nTesting pressure system: Original (COM)" << std::endl;
         
         // Set the pressure system
-        world->setPressureSystem(systems[i]);
+        // world->setPressureSystem(systems[i]); // Pressure system switching removed
         
         // Verify it was set correctly
-        EXPECT_EQ(world->getPressureSystem(), systems[i]);
+        // EXPECT_EQ(world->getPressureSystem(), systems[i]); // Pressure system switching removed
         
         // Run the visual simulation to show this pressure system in action
-        runSimulation(world.get(), 30, system_names[i]);
+        runSimulation(world.get(), 30, "Original (COM)");
         
         // Run a few more simulation steps for testing after display
         for (int step = 0; step < 5; ++step) {
@@ -83,11 +70,11 @@ TEST_F(PressureSystemVisualTest, PressureSystemSwitching) {
         } else {
             std::cout << "  ! No pressure generated (may be normal for this configuration)" << std::endl;
         }
-    }
     
     std::cout << "\n=== Test completed successfully ===" << std::endl;
 }
 
+/* Temporarily disabled - pressure system switching removed
 TEST_F(PressureSystemVisualTest, PressureSystemComparison) {
     spdlog::info("Starting PressureSystemVisualTest::PressureSystemComparison test");
     std::cout << "\n=== PRESSURE SYSTEM COMPARISON TEST ===" << std::endl;
@@ -116,7 +103,7 @@ TEST_F(PressureSystemVisualTest, PressureSystemComparison) {
             }
         }
         
-        world->setPressureSystem(system);
+        // world->setPressureSystem(system); // Pressure system switching removed
         
         // Show this system running visually
         std::string system_name;
@@ -180,8 +167,10 @@ TEST_F(PressureSystemVisualTest, PressureSystemComparison) {
     
     std::cout << "\n=== Comparison completed ===" << std::endl;
 }
+*/
 
 // Test specifically for pressure system API functionality
+/* Temporarily disabled - pressure system switching removed
 TEST_F(PressureSystemVisualTest, PressureSystemAPI) {
     spdlog::info("Starting PressureSystemVisualTest::PressureSystemAPI test");
     std::cout << "\n=== PRESSURE SYSTEM API TEST ===" << std::endl;
@@ -190,23 +179,23 @@ TEST_F(PressureSystemVisualTest, PressureSystemAPI) {
     // (this simulates what the dropdown callback does)
     
     // Start with Original system
-    world->setPressureSystem(World::PressureSystem::Original);
-    EXPECT_EQ(world->getPressureSystem(), World::PressureSystem::Original);
+    // world->setPressureSystem(World::PressureSystem::Original); // Pressure system switching removed
+    // EXPECT_EQ(world->getPressureSystem(), World::PressureSystem::Original); // Pressure system switching removed
     std::cout << "✓ Original system set successfully" << std::endl;
     
     // Switch to TopDown
-    world->setPressureSystem(World::PressureSystem::TopDown);
-    EXPECT_EQ(world->getPressureSystem(), World::PressureSystem::TopDown);
+    // world->setPressureSystem(World::PressureSystem::TopDown); // Pressure system switching removed
+    // EXPECT_EQ(world->getPressureSystem(), World::PressureSystem::TopDown); // Pressure system switching removed
     std::cout << "✓ TopDown system set successfully" << std::endl;
     
     // Switch to IterativeSettling
-    world->setPressureSystem(World::PressureSystem::IterativeSettling);
-    EXPECT_EQ(world->getPressureSystem(), World::PressureSystem::IterativeSettling);
+    // world->setPressureSystem(World::PressureSystem::IterativeSettling); // Pressure system switching removed
+    // EXPECT_EQ(world->getPressureSystem(), World::PressureSystem::IterativeSettling); // Pressure system switching removed
     std::cout << "✓ IterativeSettling system set successfully" << std::endl;
     
     // Switch back to Original
-    world->setPressureSystem(World::PressureSystem::Original);
-    EXPECT_EQ(world->getPressureSystem(), World::PressureSystem::Original);
+    // world->setPressureSystem(World::PressureSystem::Original); // Pressure system switching removed
+    // EXPECT_EQ(world->getPressureSystem(), World::PressureSystem::Original); // Pressure system switching removed
     std::cout << "✓ Switched back to Original system successfully" << std::endl;
     
     // Show the final API test running
@@ -229,7 +218,7 @@ TEST_F(PressureSystemVisualTest, TopDownPressureAccumulation) {
     }
     
     // Use top-down pressure system
-    world->setPressureSystem(World::PressureSystem::TopDown);
+    // world->setPressureSystem(World::PressureSystem::TopDown); // Pressure system switching removed
     
     // Show the top-down pressure system in action
     runSimulation(world.get(), 30, "Top-Down Pressure Column");
@@ -270,4 +259,5 @@ TEST_F(PressureSystemVisualTest, TopDownPressureAccumulation) {
     }
     
     std::cout << "=== Top-down test completed ===\n" << std::endl;
-} 
+}
+*/ 

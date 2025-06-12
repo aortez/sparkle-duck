@@ -14,7 +14,7 @@ protected:
         createTestWorld();
         
         // Disable fragmentation for all tests
-        World::DIRT_FRAGMENTATION_FACTOR = 0.0;
+        // World::DIRT_FRAGMENTATION_FACTOR = 0.0; // Moved to WorldRules
     }
     
     void createTestWorld() {
@@ -23,13 +23,17 @@ protected:
     }
 
     void TearDown() override {
+        // Restore default elasticity before resetting world
+        if (world) {
+            world->setElasticityFactor(0.8);
+        }
+        
         world.reset();
         
         // Restore default fragmentation factor
-        World::DIRT_FRAGMENTATION_FACTOR = 0.1;
+        // World::DIRT_FRAGMENTATION_FACTOR = 0.1; // Moved to WorldRules
         
         VisualTestBase::TearDown();
-        world->setElasticityFactor(0.8); // Restore default elasticity
     }
     
     // Test data members
