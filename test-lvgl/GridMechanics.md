@@ -13,8 +13,10 @@ The matter in each cell moves according to 2D kinematics.
 
 Velocity is limited to max of 0.9 cell per time step. This is to prevent skipping cells. On each timestemp, if V > 0.5, it is slowed down by %10. This is to spread out the velocity reduction.
 
-It is modeled by a single particle within each cell.
+The matter is modeled by a single particle within each cell.
 This is the cell's COM, or Center of Mass. The COM ranges from [-1, 1] in x and y.
+
+The COM moves according to it's velocity.
 
 When the particle crosses from inside a cell boundry to another cell, the matter will either transfer into the target cell, or it will reflect off of the shared boundary, or some of both. Matter is conserved during transfers. transfer_amount = min(source_amount, target_capacity)
 
