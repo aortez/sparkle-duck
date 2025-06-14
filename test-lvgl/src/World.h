@@ -21,7 +21,6 @@
 
 // Forward declarations
 class SimulatorUI;
-class WorldRules;
 
 struct DirtMove {
     uint32_t fromX;
@@ -38,11 +37,11 @@ public:
     World(uint32_t width, uint32_t height, lv_obj_t* draw_area);
     ~World();
 
-    // World is not copyable due to unique_ptr members
+    // World is not copyable due to unique_ptr members.
     World(const World&) = delete;
     World& operator=(const World&) = delete;
 
-    // Default move constructor and move assignment operator
+    // Default move constructor and move assignment operator.
     World(World&&) = default;
     World& operator=(World&&) = default;
 
@@ -65,9 +64,6 @@ public:
     void setUI(std::unique_ptr<SimulatorUI> ui);
     SimulatorUI* getUI() const { return ui_.get(); }
 
-    // Physics rules management
-    void setWorldRules(std::unique_ptr<WorldRules> rules);
-    WorldRules* getWorldRules() const { return worldRules_.get(); }
 
     // Get the total mass of dirt in the world.
     double getTotalMass() const;
@@ -135,8 +131,8 @@ public:
     // Dump timer statistics
     void dumpTimerStats() const { timers.dumpTimerStats(); }
 
-    // Minimum amount of dirt before it's considered "empty" and removed.
-    static constexpr double MIN_DIRT_THRESHOLD = 0.01;
+    // Minimum amount of matter that we should bother processing.
+    static constexpr double MIN_MATTER_THRESHOLD = 0.001;
 
     // Physics constants
     static constexpr double COM_CELL_WIDTH = 2.0; // COM coordinate system width per cell
@@ -298,8 +294,6 @@ private:
     // UI interface
     std::unique_ptr<SimulatorUI> ui_;
 
-    // Physics rules interface
-    std::unique_ptr<WorldRules> worldRules_;
 
     std::vector<DirtMove> moves;
 

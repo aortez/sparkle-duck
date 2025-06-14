@@ -375,7 +375,7 @@ double Cell::getEffectiveDensity() const
     double totalMass = dirt + water + wood + leaf + metal;
 
     // Return zero density for empty cells
-    if (totalMass < World::MIN_DIRT_THRESHOLD) {
+    if (totalMass < World::MIN_MATTER_THRESHOLD) {
         return 0.0;
     }
 
@@ -415,7 +415,7 @@ Vector2d Cell::calculateWaterCohesion(
     uint32_t cellY) const
 {
     // Only apply cohesion between water cells
-    if (cell.water < World::MIN_DIRT_THRESHOLD || neighbor.water < World::MIN_DIRT_THRESHOLD) {
+    if (cell.water < World::MIN_MATTER_THRESHOLD || neighbor.water < World::MIN_MATTER_THRESHOLD) {
         return Vector2d(0.0, 0.0);
     }
 
@@ -462,7 +462,7 @@ Vector2d Cell::calculateWaterCohesion(
 
 void Cell::applyViscosity(const Cell& neighbor)
 {
-    if (water < World::MIN_DIRT_THRESHOLD || neighbor.water < World::MIN_DIRT_THRESHOLD) {
+    if (water < World::MIN_MATTER_THRESHOLD || neighbor.water < World::MIN_MATTER_THRESHOLD) {
         return;
     }
 
