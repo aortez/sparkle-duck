@@ -1,6 +1,6 @@
 #include "SimulatorUI.h"
 #include "Cell.h"
-#include "World.h"
+#include "WorldInterface.h"
 #include "lvgl/lvgl.h"
 #include "lvgl/src/others/snapshot/lv_snapshot.h"
 
@@ -33,7 +33,7 @@ SimulatorUI::SimulatorUI(lv_obj_t* screen)
       is_paused_(false)
 {}
 
-void SimulatorUI::setWorld(World* world)
+void SimulatorUI::setWorld(WorldInterface* world)
 {
     world_ = world;
     // Update all existing callback data
@@ -455,7 +455,7 @@ void SimulatorUI::drawAreaEventCb(lv_event_t* e)
     lv_event_code_t code = lv_event_get_code(e);
     CallbackData* data = static_cast<CallbackData*>(lv_event_get_user_data(e));
     if (!data || !data->world) return;
-    World* world_ptr = data->world;
+    WorldInterface* world_ptr = data->world;
 
     lv_point_t point;
     lv_indev_get_point(lv_indev_get_act(), &point);
@@ -541,19 +541,19 @@ void SimulatorUI::pressureSystemDropdownEventCb(lv_event_t* e)
             uint16_t selected = lv_dropdown_get_selected(dropdown);
 
             // Map dropdown selection to PressureSystem enum
-            World::PressureSystem system;
+            WorldInterface::PressureSystem system;
             switch (selected) {
                 case 0:
-                    system = World::PressureSystem::Original;
+                    system = WorldInterface::PressureSystem::Original;
                     break;
                 case 1:
-                    system = World::PressureSystem::TopDown;
+                    system = WorldInterface::PressureSystem::TopDown;
                     break;
                 case 2:
-                    system = World::PressureSystem::IterativeSettling;
+                    system = WorldInterface::PressureSystem::IterativeSettling;
                     break;
                 default:
-                    system = World::PressureSystem::Original;
+                    system = WorldInterface::PressureSystem::Original;
                     break;
             }
 

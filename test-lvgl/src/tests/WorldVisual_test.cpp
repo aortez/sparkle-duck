@@ -23,13 +23,17 @@ protected:
     }
 
     void TearDown() override {
+        // Restore default elasticity before destroying world
+        if (world) {
+            world->setElasticityFactor(0.8);
+        }
+        
         world.reset();
         
         // Restore default fragmentation factor
         World::DIRT_FRAGMENTATION_FACTOR = 0.1;
         
         VisualTestBase::TearDown();
-        world->setElasticityFactor(0.8); // Restore default elasticity
     }
     
     // Test data members

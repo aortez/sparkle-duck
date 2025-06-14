@@ -5,14 +5,14 @@
 #include <vector>
 
 // Forward declarations
-class World;
+class WorldInterface;
 
 class SimulatorUI {
 public:
     // Callback struct to pass both UI and World pointers
     struct CallbackData {
         SimulatorUI* ui;
-        World* world;
+        WorldInterface* world;
         lv_obj_t* associated_label; // For sliders that need to update labels
     };
 
@@ -20,8 +20,8 @@ public:
     ~SimulatorUI();
 
     // Set the world after UI creation
-    void setWorld(World* world);
-    World* getWorld() const { return world_; }
+    void setWorld(WorldInterface* world);
+    WorldInterface* getWorld() const { return world_; }
 
     // UI update methods
     void updateMassLabel(double totalMass);
@@ -37,7 +37,7 @@ public:
     static void takeExitScreenshot();
 
 private:
-    World* world_;
+    WorldInterface* world_;
     lv_obj_t* screen_;
     lv_obj_t* draw_area_;
     lv_obj_t* mass_label_;

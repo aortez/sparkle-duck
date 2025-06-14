@@ -61,7 +61,7 @@ World::~World()
     timers.dumpTimerStats();
 }
 
-void World::advanceTime(const double deltaTimeSeconds)
+void World::advanceTime(double deltaTimeSeconds)
 {
     timers.startTimer("advance_time");
 
