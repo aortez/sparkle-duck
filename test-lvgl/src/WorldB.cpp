@@ -37,6 +37,14 @@ WorldB::WorldB(uint32_t width, uint32_t height, lv_obj_t* draw_area)
       drag_start_y_(-1),
       dragged_material_(MaterialType::AIR),
       dragged_amount_(0.0),
+      last_drag_cell_x_(-1),
+      last_drag_cell_y_(-1),
+      has_floating_particle_(false),
+      floating_particle_(MaterialType::AIR, 0.0),
+      floating_particle_pixel_x_(0.0),
+      floating_particle_pixel_y_(0.0),
+      dragged_velocity_(0.0, 0.0),
+      dragged_com_(0.0, 0.0),
       selected_material_(MaterialType::DIRT)
 {
     spdlog::info("Creating WorldB: {}x{} grid with pure-material physics", width_, height_);
@@ -119,6 +127,18 @@ void WorldB::draw()
         for (uint32_t x = 0; x < width_; x++) {
             at(x, y).draw(draw_area_, x, y);
         }
+    }
+    
+    // Draw floating particle if dragging
+    if (has_floating_particle_ && last_drag_cell_x_ >= 0 && last_drag_cell_y_ >= 0 && 
+        isValidCell(last_drag_cell_x_, last_drag_cell_y_)) {
+        // Render floating particle at current drag position
+        // This particle can potentially collide with other objects in the world
+        floating_particle_.draw(draw_area_, last_drag_cell_x_, last_drag_cell_y_);
+        spdlog::trace("Drew floating particle {} at cell ({},{}) pixel pos ({:.1f},{:.1f})", 
+                      getMaterialName(floating_particle_.getMaterialType()),
+                      last_drag_cell_x_, last_drag_cell_y_,
+                      floating_particle_pixel_x_, floating_particle_pixel_y_);
     }
     
     timers_.stopTimer("draw");
@@ -235,18 +255,82 @@ void WorldB::startDragging(int pixelX, int pixelY)
         dragged_material_ = cell.getMaterialType();
         dragged_amount_ = cell.getFillRatio();
         
+        // Initialize drag position tracking
+        last_drag_cell_x_ = -1;
+        last_drag_cell_y_ = -1;
+        
+        // Initialize velocity tracking
+        recent_positions_.clear();
+        recent_positions_.push_back({pixelX, pixelY});
+        dragged_velocity_ = Vector2d(0.0, 0.0);
+        
+        // Calculate sub-cell COM position
+        double subCellX = (pixelX % Cell::WIDTH) / static_cast<double>(Cell::WIDTH);
+        double subCellY = (pixelY % Cell::HEIGHT) / static_cast<double>(Cell::HEIGHT);
+        dragged_com_ = Vector2d(subCellX * 2.0 - 1.0, subCellY * 2.0 - 1.0);
+        
+        // Create floating particle for drag interaction
+        has_floating_particle_ = true;
+        floating_particle_.setMaterialType(dragged_material_);
+        floating_particle_.setFillRatio(dragged_amount_);
+        floating_particle_.setCOM(dragged_com_);
+        floating_particle_.setVelocity(dragged_velocity_);
+        floating_particle_pixel_x_ = static_cast<double>(pixelX);
+        floating_particle_pixel_y_ = static_cast<double>(pixelY);
+        
         // Remove material from source cell
         cell.clear();
+        cell.markDirty();
         
-        spdlog::debug("Started dragging {} from cell ({},{})", 
-                      getMaterialName(dragged_material_), cellX, cellY);
+        spdlog::debug("Started dragging {} from cell ({},{}) with COM ({:.2f},{:.2f})", 
+                      getMaterialName(dragged_material_), cellX, cellY, 
+                      dragged_com_.x, dragged_com_.y);
     }
 }
 
 void WorldB::updateDrag(int pixelX, int pixelY)
 {
-    // For now, just track position - no continuous preview
-    spdlog::trace("Drag update to pixel ({},{})", pixelX, pixelY);
+    if (!is_dragging_) {
+        return;
+    }
+    
+    // Add position to recent history for velocity tracking
+    recent_positions_.push_back({pixelX, pixelY});
+    if (recent_positions_.size() > 5) {
+        recent_positions_.erase(recent_positions_.begin());
+    }
+    
+    // Update COM based on sub-cell position
+    double subCellX = (pixelX % Cell::WIDTH) / static_cast<double>(Cell::WIDTH);
+    double subCellY = (pixelY % Cell::HEIGHT) / static_cast<double>(Cell::HEIGHT);
+    dragged_com_ = Vector2d(subCellX * 2.0 - 1.0, subCellY * 2.0 - 1.0);
+    
+    // Update floating particle position and physics properties
+    pixelToCell(pixelX, pixelY, last_drag_cell_x_, last_drag_cell_y_);
+    floating_particle_pixel_x_ = static_cast<double>(pixelX);
+    floating_particle_pixel_y_ = static_cast<double>(pixelY);
+    
+    // Update floating particle properties for collision detection
+    if (has_floating_particle_) {
+        floating_particle_.setCOM(dragged_com_);
+        
+        // Calculate current velocity for collision physics
+        if (recent_positions_.size() >= 2) {
+            const auto& prev = recent_positions_[recent_positions_.size() - 2];
+            double dx = static_cast<double>(pixelX - prev.first) / Cell::WIDTH;
+            double dy = static_cast<double>(pixelY - prev.second) / Cell::HEIGHT;
+            floating_particle_.setVelocity(Vector2d(dx, dy));
+            
+            // Check for collisions with the target cell
+            if (checkFloatingParticleCollision(last_drag_cell_x_, last_drag_cell_y_)) {
+                handleFloatingParticleCollision(last_drag_cell_x_, last_drag_cell_y_);
+            }
+        }
+    }
+    
+    spdlog::trace("Drag tracking: position ({},{}) -> cell ({},{}) with COM ({:.2f},{:.2f})", 
+                  pixelX, pixelY, last_drag_cell_x_, last_drag_cell_y_,
+                  dragged_com_.x, dragged_com_.y);
 }
 
 void WorldB::endDragging(int pixelX, int pixelY)
@@ -255,14 +339,80 @@ void WorldB::endDragging(int pixelX, int pixelY)
         return;
     }
     
+    // Calculate velocity from recent positions for "toss" behavior
+    dragged_velocity_ = Vector2d(0.0, 0.0);
+    if (recent_positions_.size() >= 2) {
+        const auto& first = recent_positions_[0];
+        const auto& last = recent_positions_.back();
+        
+        double dx = static_cast<double>(last.first - first.first);
+        double dy = static_cast<double>(last.second - first.second);
+        
+        // Scale velocity based on Cell dimensions (similar to WorldA)
+        dragged_velocity_ = Vector2d(dx / (Cell::WIDTH * 2.0), dy / (Cell::HEIGHT * 2.0));
+        
+        spdlog::debug("Calculated drag velocity: ({:.2f}, {:.2f}) from {} positions",
+                      dragged_velocity_.x, dragged_velocity_.y, recent_positions_.size());
+    }
+    
+    // No cell restoration needed since preview doesn't modify cells
+    
     int cellX, cellY;
     pixelToCell(pixelX, pixelY, cellX, cellY);
     
     if (isValidCell(cellX, cellY)) {
-        addMaterialAtCell(cellX, cellY, dragged_material_, dragged_amount_);
-        spdlog::debug("Ended drag: placed {} at cell ({},{})", 
-                      getMaterialName(dragged_material_), cellX, cellY);
+        // Place the material with calculated velocity and COM
+        CellB& targetCell = at(cellX, cellY);
+        targetCell.setMaterialType(dragged_material_);
+        targetCell.setFillRatio(dragged_amount_);
+        targetCell.setCOM(dragged_com_);
+        targetCell.setVelocity(dragged_velocity_);
+        targetCell.markDirty();
+        
+        spdlog::debug("Ended drag: placed {} at cell ({},{}) with velocity ({:.2f},{:.2f})", 
+                      getMaterialName(dragged_material_), cellX, cellY,
+                      dragged_velocity_.x, dragged_velocity_.y);
     }
+    
+    // Clear floating particle
+    has_floating_particle_ = false;
+    floating_particle_.clear();
+    floating_particle_pixel_x_ = 0.0;
+    floating_particle_pixel_y_ = 0.0;
+    
+    // Reset all drag state
+    is_dragging_ = false;
+    drag_start_x_ = -1;
+    drag_start_y_ = -1;
+    dragged_material_ = MaterialType::AIR;
+    dragged_amount_ = 0.0;
+    last_drag_cell_x_ = -1;
+    last_drag_cell_y_ = -1;
+    recent_positions_.clear();
+    dragged_velocity_ = Vector2d(0.0, 0.0);
+    dragged_com_ = Vector2d(0.0, 0.0);
+}
+
+void WorldB::restoreLastDragCell()
+{
+    if (!is_dragging_) {
+        return;
+    }
+    
+    // Restore material to the original drag start location
+    if (isValidCell(drag_start_x_, drag_start_y_)) {
+        CellB& originCell = at(drag_start_x_, drag_start_y_);
+        originCell.setMaterialType(dragged_material_);
+        originCell.setFillRatio(dragged_amount_);
+        originCell.markDirty();
+        spdlog::debug("Restored dragged material to origin ({},{})", drag_start_x_, drag_start_y_);
+    }
+    
+    // Clear floating particle
+    has_floating_particle_ = false;
+    floating_particle_.clear();
+    floating_particle_pixel_x_ = 0.0;
+    floating_particle_pixel_y_ = 0.0;
     
     // Reset drag state
     is_dragging_ = false;
@@ -270,14 +420,11 @@ void WorldB::endDragging(int pixelX, int pixelY)
     drag_start_y_ = -1;
     dragged_material_ = MaterialType::AIR;
     dragged_amount_ = 0.0;
-}
-
-void WorldB::restoreLastDragCell()
-{
-    if (is_dragging_ && isValidCell(drag_start_x_, drag_start_y_)) {
-        addMaterialAtCell(drag_start_x_, drag_start_y_, dragged_material_, dragged_amount_);
-        spdlog::debug("Restored dragged material to origin ({},{})", drag_start_x_, drag_start_y_);
-    }
+    last_drag_cell_x_ = -1;
+    last_drag_cell_y_ = -1;
+    recent_positions_.clear();
+    dragged_velocity_ = Vector2d(0.0, 0.0);
+    dragged_com_ = Vector2d(0.0, 0.0);
 }
 
 // =================================================================
@@ -449,12 +596,12 @@ void WorldB::updateTransfers(double deltaTime)
     pending_moves_.clear();
     
     // Queue material moves based on COM positions and velocities
-    queueMaterialMoves();
+    queueMaterialMoves(deltaTime);
     
     timers_.stopTimer("update_transfers");
 }
 
-void WorldB::queueMaterialMoves()
+void WorldB::queueMaterialMoves(double deltaTime)
 {
     for (uint32_t y = 0; y < height_; ++y) {
         for (uint32_t x = 0; x < width_; ++x) {
@@ -464,8 +611,8 @@ void WorldB::queueMaterialMoves()
                 continue;
             }
             
-            // Update COM based on velocity
-            Vector2d newCOM = cell.getCOM() + cell.getVelocity();
+            // Update COM based on velocity (with proper deltaTime integration)
+            Vector2d newCOM = cell.getCOM() + cell.getVelocity() * deltaTime;
             cell.setCOM(newCOM);
             
             // Check if material should transfer to neighboring cell
@@ -578,6 +725,77 @@ void WorldB::setupBoundaryWalls()
     }
     
     spdlog::info("Boundary walls setup complete");
+}
+
+// =================================================================
+// FLOATING PARTICLE COLLISION DETECTION
+// =================================================================
+
+bool WorldB::checkFloatingParticleCollision(int cellX, int cellY)
+{
+    if (!has_floating_particle_ || !isValidCell(cellX, cellY)) {
+        return false;
+    }
+    
+    const CellB& targetCell = at(cellX, cellY);
+    
+    // Check if there's material to collide with
+    if (!targetCell.isEmpty()) {
+        // Get material properties for collision behavior
+        const MaterialProperties& floatingProps = getMaterialProperties(floating_particle_.getMaterialType());
+        const MaterialProperties& targetProps = getMaterialProperties(targetCell.getMaterialType());
+        
+        // For now, simple collision detection - can be enhanced later
+        // Heavy materials (like METAL) can push through lighter materials
+        // Solid materials (like WALL) stop everything
+        if (targetCell.getMaterialType() == MaterialType::WALL) {
+            return true; // Wall stops everything
+        }
+        
+        // Check density-based collision
+        if (floatingProps.density <= targetProps.density) {
+            return true; // Can't push through denser material
+        }
+    }
+    
+    return false;
+}
+
+void WorldB::handleFloatingParticleCollision(int cellX, int cellY)
+{
+    if (!has_floating_particle_ || !isValidCell(cellX, cellY)) {
+        return;
+    }
+    
+    CellB& targetCell = at(cellX, cellY);
+    Vector2d particleVelocity = floating_particle_.getVelocity();
+    
+    spdlog::info("Floating particle {} collided with {} at cell ({},{}) with velocity ({:.2f},{:.2f})", 
+                 getMaterialName(floating_particle_.getMaterialType()),
+                 getMaterialName(targetCell.getMaterialType()),
+                 cellX, cellY, particleVelocity.x, particleVelocity.y);
+    
+    // TODO: Implement collision response based on material properties
+    // - Elastic collisions for METAL vs METAL
+    // - Splash effects for WATER collisions
+    // - Fragmentation for brittle materials
+    // - Momentum transfer based on mass ratios
+    
+    // For now, simple momentum transfer
+    Vector2d currentVelocity = targetCell.getVelocity();
+    double floatingMass = floating_particle_.getMass();
+    double targetMass = targetCell.getMass();
+    
+    if (targetMass > MIN_MATTER_THRESHOLD) {
+        // Inelastic collision with momentum conservation
+        Vector2d combinedMomentum = particleVelocity * floatingMass + currentVelocity * targetMass;
+        Vector2d newVelocity = combinedMomentum / (floatingMass + targetMass);
+        targetCell.setVelocity(newVelocity);
+        targetCell.markDirty();
+        
+        spdlog::debug("Applied collision momentum: new velocity ({:.2f},{:.2f})", 
+                      newVelocity.x, newVelocity.y);
+    }
 }
 
 // =================================================================

@@ -218,8 +218,12 @@ private:
         Vector2d momentum;
     };
     
-    void queueMaterialMoves();
+    void queueMaterialMoves(double deltaTime);
     void processMaterialMoves();
+    
+    // Floating particle collision detection
+    bool checkFloatingParticleCollision(int cellX, int cellY);
+    void handleFloatingParticleCollision(int cellX, int cellY);
     
     // Pressure calculation (simplified hydrostatic)
     void calculateHydrostaticPressure();
@@ -271,12 +275,27 @@ private:
     int cursor_force_x_;
     int cursor_force_y_;
     
-    // Drag state (simplified)
+    // Drag state (enhanced with visual feedback)
     bool is_dragging_;
     int drag_start_x_;
     int drag_start_y_;
     MaterialType dragged_material_;
     double dragged_amount_;
+    
+    // Current drag position tracking
+    int last_drag_cell_x_;
+    int last_drag_cell_y_;
+    
+    // Floating particle for drag interaction (can collide with world)
+    bool has_floating_particle_;
+    CellB floating_particle_;
+    double floating_particle_pixel_x_;
+    double floating_particle_pixel_y_;
+    
+    // Velocity tracking for "toss" behavior
+    std::vector<std::pair<int, int>> recent_positions_;
+    Vector2d dragged_velocity_;
+    Vector2d dragged_com_;
     
     // Material selection state (for UI coordination)
     MaterialType selected_material_;

@@ -148,7 +148,7 @@ void SimulatorUI::createMaterialPicker()
     // Create material picker label
     lv_obj_t* material_label = lv_label_create(screen_);
     lv_label_set_text(material_label, "Materials:");
-    lv_obj_align(material_label, LV_ALIGN_TOP_LEFT, WORLD_TYPE_COLUMN_X, 140);  // 10px below world type buttons
+    lv_obj_align(material_label, LV_ALIGN_TOP_LEFT, WORLD_TYPE_COLUMN_X, 140);  // Below world type buttons
     
     // Create material picker container
     lv_obj_t* picker_container = lv_obj_create(screen_);
@@ -563,6 +563,7 @@ void SimulatorUI::drawAreaEventCb(lv_event_t* e)
     point.y -= area.y1;
 
     if (code == LV_EVENT_PRESSED) {
+        // Smart interaction: add material to empty cells, drag existing material
         MaterialType selectedMaterial = world_ptr->getSelectedMaterial();
         spdlog::info("Mouse pressed at ({},{}) - adding {} material and startDragging", 
                      point.x, point.y, getMaterialName(selectedMaterial));
@@ -1101,6 +1102,7 @@ void SimulatorUI::forwardBtnEventCb(lv_event_t* e)
         }
     }
 }
+
 
 void SimulatorUI::worldTypeButtonMatrixEventCb(lv_event_t* e)
 {

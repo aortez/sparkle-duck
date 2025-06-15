@@ -73,8 +73,30 @@ SPARKLE_DUCK_VISUAL_TESTS=1 ./run_tests.sh
 
 ### UI Framework
 - **SimulatorUI**: LVGL-based interface with real-time physics controls
-- **Interactive Elements**: Mouse/touch interaction, drag-and-drop particles
+- **Interactive Elements**: Smart cell grabber with intelligent material interaction
 - **Visual Controls**: Live sliders for gravity, elasticity, pressure parameters
+
+### Smart Cell Grabber
+The intelligent interaction system provides seamless material manipulation:
+
+**Features**:
+- **Smart Interaction**: Automatically detects user intent based on cell content
+- **Material Addition**: Click empty cells to add selected material type
+- **Material Dragging**: Click occupied cells to grab and drag existing material
+- **Floating Particle Preview**: Real-time visual feedback with particle following cursor
+- **Physics-Based Tossing**: Drag velocity translates to material momentum on release
+- **Collision Foundation**: Infrastructure for particle-world collision interactions
+
+**Material Selection**:
+- **8-Material Grid**: Choose from DIRT, WATER, WOOD, SAND, METAL, LEAF, WALL, AIR
+- **Visual Material Picker**: 4×2 grid layout with color-coded material buttons
+- **Cross-World Support**: Material selection works with both WorldA and WorldB
+
+**User Experience**:
+- **No Mode Switching**: System intelligently handles both add and grab operations
+- **Sub-Cell Precision**: Accurate center-of-mass calculation from cursor position
+- **Velocity Tracking**: Recent position history enables realistic physics momentum
+- **Visual Feedback**: Floating particles show exactly what's being manipulated
 
 ### Physics Features
 
@@ -174,27 +196,63 @@ Can be found here:
 ✅ **Runtime World Switching** - Live WorldA ↔ WorldB transitions with UI switch control
 ✅ **Material Density Conversion** - Fixed visual consistency during world switching
 ✅ **Crash Dump Feature** - Completed feature for capturing system state during unexpected termination
+✅ **Material Picker UI** - Complete 4×2 grid for selecting from all 8 material types
+✅ **Smart Cell Grabber** - Intelligent interaction system: adds material to empty cells, drags existing material
+✅ **Floating Particle System** - Real-time drag preview with collision detection foundation
 
 **Current Priority (Phase 1):**
 🔄 **Complete Material Rendering** - Visual implementation for all 8 material types (DIRT, WATER, WOOD, SAND, METAL, LEAF, WALL, AIR)
-⚙️ **Material Picker UI** - Allow users to select and place any material type (IN DEVELOPMENT - seems complete)
-🔄 **Cell Grabber Tool** - Interactive cell manipulation and movement system
 
 **Next Phases:**
-- **Phase 2**: More physics features for WorldB.
-- **Phase 3**: Add Tree organism to simulation.
-- **Phase 4**: Simulation scenarios, analysis tools, performance optimization.
+- **Phase 2**: Enhanced collision effects for "wreaking havoc" with floating particles
+  - Elastic collisions for METAL vs METAL
+  - Splash effects for WATER collisions  
+  - Fragmentation for brittle materials
+  - Momentum transfer based on mass ratios
+- **Phase 3**: Complete material rendering for all 8 material types
+- **Phase 4**: Add Tree organism to simulation
+- **Phase 5**: Simulation scenarios, analysis tools, performance optimization
 
 **Reference**: See `design_docs/WorldB-Development-Plan.md` for complete roadmap
 
 ### Architecture Status
 - **WorldA (RulesA)**: Mixed dirt/water materials, complex physics, time reversal ✅  
-- **WorldB (RulesB)**: Pure materials (8 types), simplified physics, enhanced rendering 🔄
+- **WorldB (RulesB)**: Pure materials (8 types), smart grabber, collision foundation ✅
 - **SimulationManager**: Handles world switching and ownership ✅
 - **WorldInterface**: Unified API for both physics systems ✅
+- **Smart Cell Grabber**: Intelligent material interaction with floating particle system ✅
+
+## Key Implementation Details
+
+### Smart Cell Grabber Architecture
+The cell grabber system in WorldB uses a sophisticated floating particle approach:
+
+**Core Components**:
+- **Floating Particle**: `has_floating_particle_` + `floating_particle_` for visual preview
+- **Position Tracking**: Precise pixel-level positioning with sub-cell COM calculation
+- **Velocity System**: Recent position history for realistic physics momentum transfer
+- **Collision Detection**: `checkFloatingParticleCollision()` and `handleFloatingParticleCollision()`
+
+**Intelligent Interaction Logic**:
+```cpp
+// Smart behavior in startDragging():
+// - Empty cells: addMaterialAtPixel() adds selected material, then drag starts
+// - Occupied cells: drag starts immediately with existing material
+// - No mode switching needed - context determines behavior
+```
+
+**Physics Integration**:
+- **Sub-cell precision**: COM calculated from exact cursor position within cell
+- **Momentum conservation**: Drag velocity transferred to material on release
+- **Collision foundation**: Density-based collision detection ready for enhancement
+- **Material properties**: Each material type has specific collision behavior
+
+**Future Collision Expansion Points**:
+- `handleFloatingParticleCollision()` has TODO sections for elastic collisions, splash effects, fragmentation
+- Collision system designed for material-specific behaviors (METAL bouncing, WATER splashing)
+- Ready for "wreaking havoc" scenarios with high-velocity particle interactions
 
 ## Misc TODO
-🔄 - Update UI so user can select which type of material to add to the world. (Phase 1)
 [ ] - Add an exit hook that shows a full dump of the world state after an ASSERT.
 [ ] - some way to talk to the application while it runs... a DBus API, a socket API, what are the other options? This would be useful!
 [ ] - run a clean build and fix all warnings, then make all warnings into errors. Please.

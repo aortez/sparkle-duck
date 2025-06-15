@@ -20,6 +20,8 @@ The COM moves according to it's velocity.
 
 When the particle crosses from inside a cell boundry to another cell, the matter will either transfer into the target cell, or it will reflect off of the shared boundary, or some of both. Matter is conserved during transfers. transfer_amount = min(source_amount, target_capacity)
 
+The boundary is at [-0.99,0.99].
+
 Reflections are handled as elastic collisions, taking into account the properties of each material.
 
 When matter is transferred to the target cell, the matter is added and its momentum is also added. new_COM = (m1COM1 + m2COM2) / (m1 + m2) The velocity of transferred matter should also be preserved.

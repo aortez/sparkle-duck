@@ -175,3 +175,97 @@ TEST_F(WorldBVisualTest, ResetFunctionality) {
     
     spdlog::info("Mass before reset: {}, after reset: {}", massBeforeReset, massAfterReset);
 }
+
+TEST_F(WorldBVisualTest, VelocityBehaviorTimestepCorrectness) {
+    spdlog::info("Starting WorldBVisualTest::VelocityBehaviorTimestepCorrectness test");
+    
+    // Override to create a 1x4 world for this test
+    width = 4;
+    height = 1;
+    createTestWorldB();
+    
+    // Turn off gravity for pure velocity testing
+    world->setGravity(0.0);
+    
+    // Clear the world first (reset() may have added default materials)
+    for (uint32_t y = 0; y < height; y++) {
+        for (uint32_t x = 0; x < width; x++) {
+            CellB& cell = world->at(x, y);
+            cell.clear();
+        }
+    }
+    
+    // Add dirt particle at leftmost cell (0,0) with rightward velocity
+    world->addMaterialAtCell(0, 0, MaterialType::DIRT);
+    
+    // Get initial cell and set a known velocity
+    CellB& startCell = world->at(0, 0);
+    ASSERT_FALSE(startCell.isEmpty()) << "Start cell should have dirt material";
+    
+    // Set a controlled velocity: 1.0 cells per second rightward
+    const double velocityX = 1.0;  // cells/second
+    const double velocityY = 0.0;  // no vertical movement
+    startCell.setVelocity(Vector2d(velocityX, velocityY));
+    
+    spdlog::info("Initial setup: dirt at (0,0) with velocity ({}, {})", velocityX, velocityY);
+    
+    // Calculate expected travel time and steps
+    const double distance = 3.0;  // cells to travel (from x=0 to x=3)
+    const double expectedTimeSeconds = distance / velocityX;  // should be 3.0 seconds
+    const double deltaTime = 0.016;  // 60 FPS timestep
+    const int expectedSteps = static_cast<int>(expectedTimeSeconds / deltaTime);
+    
+    spdlog::info("Expected: {} seconds, {} steps to travel {} cells", 
+                 expectedTimeSeconds, expectedSteps, distance);
+    
+    // Test deltaTime fix by checking time to reach first boundary  
+    // With corrected transfer logic (transfers at COM=±1.0), particle needs to travel
+    // 2.0 COM units (from 0 to 1.0) at velocity 1.0, so ~2 seconds (125 steps)
+    const double expectedTimeToFirstBoundary = 2.0;  // seconds  
+    const int expectedStepsToFirstBoundary = static_cast<int>(expectedTimeToFirstBoundary / deltaTime);
+    
+    int stepsToFirstTransfer = 0;
+    bool reachedFirstBoundary = false;
+    
+    // Track particle until it leaves cell (0,0)
+    for (stepsToFirstTransfer = 0; stepsToFirstTransfer < expectedStepsToFirstBoundary * 2; ++stepsToFirstTransfer) {
+        world->advanceTime(deltaTime);
+        
+        // Check if particle has moved to cell (1,0)
+        CellB& firstCell = world->at(0, 0);
+        CellB& secondCell = world->at(1, 0);
+        
+        if (firstCell.isEmpty() || !secondCell.isEmpty()) {
+            reachedFirstBoundary = true;
+            spdlog::info("Particle reached first boundary after {} steps", stepsToFirstTransfer + 1);
+            break;
+        }
+        
+        // Log progress every 20 steps
+        if ((stepsToFirstTransfer + 1) % 20 == 0) {
+            Vector2d com = firstCell.getCOM();
+            Vector2d velocity = firstCell.getVelocity();
+            spdlog::info("Step {}: COM=({:.3f},{:.3f}), velocity=({:.3f},{:.3f})",
+                         stepsToFirstTransfer + 1, com.x, com.y, velocity.x, velocity.y);
+        }
+    }
+    
+    ASSERT_TRUE(reachedFirstBoundary) << "Particle should have crossed first boundary within " 
+                                      << expectedStepsToFirstBoundary * 2 << " steps";
+    
+    // Verify deltaTime integration and correct transfer threshold (1.0)
+    const double tolerance = 0.20;  // 20% tolerance for first boundary crossing
+    const int stepTolerance = static_cast<int>(expectedStepsToFirstBoundary * tolerance);
+    
+    spdlog::info("DeltaTime integration and transfer threshold test results:");
+    spdlog::info("  Expected steps to reach COM=1.0: {} ± {} (20% tolerance)", 
+                 expectedStepsToFirstBoundary, stepTolerance);
+    spdlog::info("  Actual steps to first transfer: {}", stepsToFirstTransfer + 1);
+    spdlog::info("  Difference: {} steps", abs((stepsToFirstTransfer + 1) - expectedStepsToFirstBoundary));
+    
+    // This test verifies both deltaTime integration and correct transfer threshold
+    // The particle should take ~2 seconds to reach COM=1.0 and trigger transfer
+    EXPECT_NEAR(stepsToFirstTransfer + 1, expectedStepsToFirstBoundary, stepTolerance) 
+        << "Particle should reach transfer boundary (COM=1.0) in approximately correct time. "
+        << "This verifies both deltaTime integration and transfer threshold correctness.";
+}

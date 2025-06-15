@@ -119,11 +119,7 @@ public:
     void updateGrabPosition(int pixelX, int pixelY);
     void endGrabbing(int pixelX, int pixelY);
     void cancelGrabbing();
-    
-    // Advanced grabbing modes
-    void setGrabMode(GrabMode mode); // SINGLE_CELL, AREA_SELECT, MATERIAL_TYPE
-    void setGrabRadius(int radius);
-    
+       
 private:
     struct GrabbedCell {
         MaterialType material;
@@ -132,26 +128,15 @@ private:
         Vector2d com;
     };
     
-    std::vector<GrabbedCell> grabbed_cells_;
-    GrabMode current_mode_;
-    int grab_radius_;
+    GrabbedCell grabbed_cell_;
 };
 ```
 
 **Grabber Features**:
-- **Single Cell Grab**: Pick up individual cells
-- **Area Selection**: Grab rectangular regions
-- **Material-Specific Grab**: Only grab specific material types
-- **Grab Visualization**: Show grabbed area with overlay
-- **Momentum Preservation**: Maintain velocity when moving cells
-
-### 2.3 Advanced Interaction Modes
-
-**Interaction Tools**:
-- **Material Converter**: Convert one material type to another
-- **Density Adjuster**: Increase/decrease fill ratios
-- **Velocity Injector**: Add velocity to cells for dynamic effects
-- **Temperature Tool**: Future thermal simulation integration
+- **Single Cell Grab**: Grab and manipulate one cell at a time
+- **Grab Visualization**: Show grabbed cell with overlay
+- **Affect on Particle**: Moves the particle by applying a force to it, increasing relative to its offset from the cursor.
+- **Ability to "toss the particle", having it track the recent cursor movement's.
 
 ## Phase 3: Enhanced Physics and Material Interactions
 

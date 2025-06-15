@@ -101,6 +101,7 @@ void CellB::setCOM(const Vector2d& com)
         std::clamp(com.x, COM_MIN, COM_MAX),
         std::clamp(com.y, COM_MIN, COM_MAX)
     );
+    markDirty(); // Ensure visual updates when COM changes
 }
 
 double CellB::getMass() const
@@ -236,25 +237,25 @@ bool CellB::shouldTransfer() const
         return false;
     }
     
-    // Transfer if COM is outside the center region
-    return std::abs(com_.x) > 0.5 || std::abs(com_.y) > 0.5;
+    // Transfer only when COM reaches cell boundaries (±1.0) per GridMechanics.md
+    return std::abs(com_.x) >= 1.0 || std::abs(com_.y) >= 1.0;
 }
 
 Vector2d CellB::getTransferDirection() const
 {
-    // Determine primary transfer direction based on COM position
+    // Determine primary transfer direction based on COM position at boundaries
     Vector2d direction(0.0, 0.0);
     
-    if (com_.x > 0.5) {
-        direction.x = 1.0;  // Transfer right
-    } else if (com_.x < -0.5) {
-        direction.x = -1.0; // Transfer left
+    if (com_.x >= 1.0) {
+        direction.x = 1.0;  // Transfer right when COM reaches right boundary
+    } else if (com_.x <= -1.0) {
+        direction.x = -1.0; // Transfer left when COM reaches left boundary
     }
     
-    if (com_.y > 0.5) {
-        direction.y = 1.0;  // Transfer down
-    } else if (com_.y < -0.5) {
-        direction.y = -1.0; // Transfer up
+    if (com_.y >= 1.0) {
+        direction.y = 1.0;  // Transfer down when COM reaches bottom boundary
+    } else if (com_.y <= -1.0) {
+        direction.y = -1.0; // Transfer up when COM reaches top boundary
     }
     
     return direction;
@@ -454,6 +455,31 @@ void CellB::drawNormal(lv_obj_t* parent, uint32_t x, uint32_t y)
         // Calculate opacity based on fill ratio
         lv_opa_t opacity = static_cast<lv_opa_t>(fill_ratio_ * LV_OPA_COVER);
         
+        // Apply COM offset to material positioning for smooth physics visualization
+        // COM range is [-1, 1], convert to pixel offset within cell bounds
+        const double offset_factor = 0.3; // Scale factor for COM offset (30% of cell size max)
+        int com_offset_x = static_cast<int>(com_.x * Cell::WIDTH * offset_factor);
+        int com_offset_y = static_cast<int>(com_.y * Cell::HEIGHT * offset_factor);
+        
+        // Calculate material rendering area with COM offset
+        // Start with full cell size, then apply COM offset for positioning
+        int material_left = 0 + com_offset_x;
+        int material_top = 0 + com_offset_y;
+        int material_right = material_left + Cell::WIDTH;
+        int material_bottom = material_top + Cell::HEIGHT;
+        
+        // Clamp to cell boundaries to prevent overflow
+        material_left = std::max(0, std::min(material_left, static_cast<int>(Cell::WIDTH - 1)));
+        material_top = std::max(0, std::min(material_top, static_cast<int>(Cell::HEIGHT - 1)));
+        material_right = std::max(material_left + 1, std::min(material_right, static_cast<int>(Cell::WIDTH)));
+        material_bottom = std::max(material_top + 1, std::min(material_bottom, static_cast<int>(Cell::HEIGHT)));
+        
+        // Create material rendering coordinates with COM offset
+        lv_area_t material_coords = { 
+            material_left, material_top, 
+            material_right - 1, material_bottom - 1 
+        };
+        
         // Draw material-specific visual effects
         lv_draw_rect_dsc_t rect_dsc;
         lv_draw_rect_dsc_init(&rect_dsc);
@@ -527,7 +553,7 @@ void CellB::drawNormal(lv_obj_t* parent, uint32_t x, uint32_t y)
                 break;
         }
         
-        lv_draw_rect(&layer, &rect_dsc, &coords);
+        lv_draw_rect(&layer, &rect_dsc, &material_coords);
         
         // Add material-specific texture effects for enhanced visual distinction
         switch (material_type_) {
@@ -542,8 +568,8 @@ void CellB::drawNormal(lv_obj_t* parent, uint32_t x, uint32_t y)
                     shine_dsc.radius = 2;
                     
                     lv_area_t shine_coords = { 
-                        coords.x1 + 2, coords.y1 + 2, 
-                        coords.x1 + Cell::WIDTH/3, coords.y1 + Cell::HEIGHT/3 
+                        material_coords.x1 + 2, material_coords.y1 + 2, 
+                        material_coords.x1 + Cell::WIDTH/3, material_coords.y1 + Cell::HEIGHT/3 
                     };
                     lv_draw_rect(&layer, &shine_dsc, &shine_coords);
                 }
@@ -560,8 +586,8 @@ void CellB::drawNormal(lv_obj_t* parent, uint32_t x, uint32_t y)
                     water_overlay_dsc.radius = 3;
                     
                     lv_area_t overlay_coords = { 
-                        coords.x1 + 1, coords.y1 + 1, 
-                        coords.x2 - 1, coords.y2 - 1 
+                        material_coords.x1 + 1, material_coords.y1 + 1, 
+                        material_coords.x2 - 1, material_coords.y2 - 1 
                     };
                     lv_draw_rect(&layer, &water_overlay_dsc, &overlay_coords);
                 }
@@ -581,8 +607,8 @@ void CellB::drawNormal(lv_obj_t* parent, uint32_t x, uint32_t y)
                     for (int i = 2; i < Cell::WIDTH - 2; i += 4) {
                         for (int j = 2; j < Cell::HEIGHT - 2; j += 4) {
                             lv_area_t grain_coords = { 
-                                coords.x1 + i, coords.y1 + j, 
-                                coords.x1 + i + 1, coords.y1 + j + 1 
+                                material_coords.x1 + i, material_coords.y1 + j, 
+                                material_coords.x1 + i + 1, material_coords.y1 + j + 1 
                             };
                             lv_draw_rect(&layer, &grain_dsc, &grain_coords);
                         }

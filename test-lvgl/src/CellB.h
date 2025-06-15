@@ -69,8 +69,8 @@ public:
     
     // Velocity vector
     const Vector2d& getVelocity() const { return velocity_; }
-    void setVelocity(const Vector2d& velocity) { velocity_ = velocity; }
-    void setVelocity(double x, double y) { velocity_ = Vector2d(x, y); }
+    void setVelocity(const Vector2d& velocity) { velocity_ = velocity; markDirty(); }
+    void setVelocity(double x, double y) { velocity_ = Vector2d(x, y); markDirty(); }
     
     // Pressure (hydrostatic)
     double getPressure() const { return pressure_; }
