@@ -1,6 +1,8 @@
 #pragma once
 
+#include "CellInterface.h"
 #include "Vector2d.h"
+#include "Vector2i.h"
 
 #include <array>
 #include <cstdint>
@@ -14,7 +16,7 @@ typedef struct _lv_obj_t lv_obj_t;
 class World;
 
 // A cell in grid-based simulation.
-class Cell {
+class Cell : public CellInterface {
 public:
     static bool debugDraw;
     static uint32_t WIDTH;
@@ -60,7 +62,7 @@ public:
     void drawDebug(lv_obj_t* parent, uint32_t x, uint32_t y);
 
     // Mark the cell as needing to be redrawn
-    void markDirty();
+    void markDirty() override;
 
     // Update cell properties and mark dirty
     void update(double newDirty, const Vector2d& newCom, const Vector2d& newV);
@@ -140,7 +142,27 @@ public:
 
     void applyViscosity(const Cell& neighbor);
 
-    Vector2d calculateBuoyancy(const Cell& cell, const Cell& neighbor, int dx, int dy) const;
+    Vector2d calculateBuoyancy(const Cell& cell, const Cell& neighbor, const Vector2i& offset) const;
+
+    // =================================================================
+    // CELLINTERFACE IMPLEMENTATION
+    // =================================================================
+    
+    // Basic material addition
+    void addDirt(double amount) override;
+    void addWater(double amount) override;
+    
+    // Advanced material addition with physics
+    void addDirtWithVelocity(double amount, const Vector2d& velocity) override;
+    void addWaterWithVelocity(double amount, const Vector2d& velocity) override;
+    void addDirtWithCOM(double amount, const Vector2d& com, const Vector2d& velocity) override;
+    
+    // Cell state management (markDirty already declared above with override)
+    void clear() override;
+    
+    // Material properties
+    double getTotalMaterial() const override;
+    bool isEmpty() const override;
 
 private:
     std::vector<uint8_t> buffer; // Use vector instead of array for dynamic sizing

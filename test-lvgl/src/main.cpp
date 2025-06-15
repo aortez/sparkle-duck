@@ -1,5 +1,7 @@
+#include "SimulationManager.h"
 #include "SimulatorUI.h"
 #include "World.h"
+#include "WorldFactory.h"
 #include "src/lib/driver_backends.h"
 #include "src/lib/simulator_loop.h"
 #include "src/lib/simulator_settings.h"
@@ -17,7 +19,7 @@
 #include <vector>
 
 #include "lvgl/lvgl.h"
-#include "spdlog/sinks/rotating_file_sink.h"
+#include "spdlog/sinks/basic_file_sink.h"
 #include "spdlog/sinks/stdout_color_sinks.h"
 #include "spdlog/spdlog.h"
 
@@ -30,12 +32,14 @@ static void print_usage();
  * has specified one on the command line */
 static const char* selected_backend;
 
+/* contains the selected world type */
+static WorldType selected_world_type = WorldType::RulesB; // Default to RulesB per CLAUDE.md
+
 /* Global simulator settings, defined in lv_linux_backend.c */
 extern simulator_settings_t settings;
 
 // Global references for the loop
-static World* world_ptr = nullptr;
-static SimulatorUI* ui_ptr = nullptr;
+static SimulationManager* manager_ptr = nullptr;
 
 // FPS tracking variables
 uint32_t frame_count = 0;     // Define frame counter
@@ -64,13 +68,14 @@ static void print_usage(void)
     fprintf(
         stdout,
         "\nsparkle-duck [-V] [-B] [-b backend_name] [-W window_width] [-H "
-        "window_height] [-s max_steps]\n\n");
+        "window_height] [-s max_steps] [-w world_type]\n\n");
     fprintf(stdout, "-V print LVGL version\n");
     fprintf(stdout, "-B list supported backends\n");
     fprintf(stdout, "-b backend_name select display backend (wayland, x11, fbdev)\n");
     fprintf(stdout, "-W window_width set window width (default: 1200)\n");
     fprintf(stdout, "-H window_height set window height (default: 1200)\n");
     fprintf(stdout, "-s max_steps set maximum number of simulation steps (0 = unlimited)\n");
+    fprintf(stdout, "-w world_type select physics system: rulesA (mixed materials) or rulesB (pure materials, default)\n");
     fprintf(
         stdout,
         "\nDefault window size (1200x1200) provides a square window with comfortable space for the "
@@ -99,7 +104,7 @@ static void configure_simulator(int argc, char** argv)
     settings.max_steps = 0; // Default to unlimited steps
 
     /* Parse the command-line options. */
-    while ((opt = getopt(argc, argv, "b:fmW:H:s:BVh")) != -1) {
+    while ((opt = getopt(argc, argv, "b:fmW:H:s:w:BVh")) != -1) {
         switch (opt) {
             case 'h':
                 print_usage();
@@ -128,6 +133,13 @@ static void configure_simulator(int argc, char** argv)
             case 's':
                 settings.max_steps = atoi(optarg);
                 break;
+            case 'w':
+                try {
+                    selected_world_type = parseWorldType(optarg);
+                } catch (const std::runtime_error& e) {
+                    die("error: %s\n", e.what());
+                }
+                break;
             case ':':
                 print_usage();
                 die("Option -%c requires an argument.\n", optopt);
@@ -155,9 +167,9 @@ int main(int argc, char** argv)
         auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
         console_sink->set_level(spdlog::level::info); // Only INFO and above to console
 
-        // Create rotating file sink (10MB files, max 3 files)
-        auto file_sink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(
-            "sparkle-duck.log", 1024 * 1024 * 10, 3);
+        // Create basic file sink (overwrites each run)
+        auto file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(
+            "sparkle-duck.log", true); // true = truncate (overwrite)
         file_sink->set_level(spdlog::level::trace); // Everything to file
 
         // Create logger with both sinks
@@ -187,33 +199,23 @@ int main(int argc, char** argv)
         die("Failed to initialize display backend");
     }
 
-    // Create UI first without a world.
-    auto ui = std::make_unique<SimulatorUI>(lv_scr_act());
-    ui_ptr = ui.get();
-    ui->initialize();
-
     // Calculate grid size based on cell size and drawing area.
     // (One fewer than would fit perfectly).
     const int grid_width = (850 / Cell::WIDTH) - 1;
     const int grid_height = (850 / Cell::HEIGHT) - 1;
 
-    // Create the world.
-    auto world = std::make_unique<World>(grid_width, grid_height, ui->getDrawArea());
+    // Create the simulation manager (which creates both UI and world)
+    auto manager = std::make_unique<SimulationManager>(selected_world_type, grid_width, grid_height, lv_scr_act());
+    manager_ptr = manager.get();
+    
+    spdlog::info("Created {} physics system ({}x{} grid)", 
+                 getWorldTypeName(selected_world_type), grid_width, grid_height);
 
-    // Connect the UI to the world.
-    ui->setWorld(world.get());
-
-    // Give the world ownership of the UI.
-    world->setUI(std::move(ui));
-
-    // Create simulation loop state and event context.
-    static SimulatorLoop::LoopState sim_state;
-
-    // Initialize the world.
-    world->reset();
+    // Initialize the simulation
+    manager->initialize();
 
     // Enter the run loop, using the selected backend.
-    driver_backends_run_loop(*world);
+    driver_backends_run_loop(*manager);
 
     return 0;
 }

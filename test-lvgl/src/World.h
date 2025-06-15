@@ -12,7 +12,11 @@
 
 #include "Cell.h"
 #include "Timers.h"
+#include "Vector2i.h"
+#include "WorldInterface.h"
 #include "WorldSetup.h"
+#include "WorldState.h"
+#include "WorldFactory.h"
 
 #include <cstdint>
 #include <memory>
@@ -21,7 +25,6 @@
 
 // Forward declarations
 class SimulatorUI;
-class WorldRules;
 
 struct DirtMove {
     uint32_t fromX;
@@ -33,110 +36,117 @@ struct DirtMove {
     Vector2d comOffset;
 };
 
-class World {
+class World : public WorldInterface {
 public:
     World(uint32_t width, uint32_t height, lv_obj_t* draw_area);
     ~World();
 
-    // World is not copyable due to unique_ptr members
+    // World is not copyable due to unique_ptr members.
     World(const World&) = delete;
     World& operator=(const World&) = delete;
 
-    // Default move constructor and move assignment operator
+    // Default move constructor and move assignment operator.
     World(World&&) = default;
     World& operator=(World&&) = default;
 
-    void advanceTime(const double deltaTimeSeconds);
+    void advanceTime(double deltaTimeSeconds) override;
 
-    void draw();
+    uint32_t getTimestep() const override { return timestep; }
 
-    void reset();
+    void draw() override;
+
+    void reset() override;
 
     Cell& at(uint32_t x, uint32_t y);
     const Cell& at(uint32_t x, uint32_t y) const;
+    Cell& at(const Vector2i& pos);
+    const Cell& at(const Vector2i& pos) const;
+    
+    // WorldInterface cell access through CellInterface
+    CellInterface& getCellInterface(uint32_t x, uint32_t y) override;
+    const CellInterface& getCellInterface(uint32_t x, uint32_t y) const override;
 
-    uint32_t getWidth() const;
-    uint32_t getHeight() const;
-    lv_obj_t* getDrawArea() const { return draw_area; }
+    uint32_t getWidth() const override;
+    uint32_t getHeight() const override;
+    lv_obj_t* getDrawArea() const override { return draw_area; }
 
-    void setTimescale(double scale) { timescale = scale; }
+    void setTimescale(double scale) override { timescale = scale; }
+    double getTimescale() const override { return timescale; }
 
     // UI management
-    void setUI(std::unique_ptr<SimulatorUI> ui);
-    SimulatorUI* getUI() const { return ui_.get(); }
+    void setUI(std::unique_ptr<SimulatorUI> ui) override;
+    void setUIReference(SimulatorUI* ui) override;
+    SimulatorUI* getUI() const override { return ui_ref_ ? ui_ref_ : ui_.get(); }
 
-    // Physics rules management
-    void setWorldRules(std::unique_ptr<WorldRules> rules);
-    WorldRules* getWorldRules() const { return worldRules_.get(); }
 
     // Get the total mass of dirt in the world.
-    double getTotalMass() const;
+    double getTotalMass() const override;
 
     // Get the amount of dirt that has been removed due to being below the threshold.
-    double getRemovedMass() const { return removedMass; }
+    double getRemovedMass() const override { return removedMass; }
 
     // Control whether addParticles should be called during advanceTime
-    void setAddParticlesEnabled(bool enabled) { addParticlesEnabled = enabled; }
+    void setAddParticlesEnabled(bool enabled) override { addParticlesEnabled = enabled; }
 
     // Add dirt at a specific pixel coordinate
-    void addDirtAtPixel(int pixelX, int pixelY);
-    void addWaterAtPixel(int pixelX, int pixelY);
+    void addDirtAtPixel(int pixelX, int pixelY) override;
+    void addWaterAtPixel(int pixelX, int pixelY) override;
 
     // Time reversal functionality
-    void enableTimeReversal(bool enabled) { timeReversalEnabled = enabled; }
-    bool isTimeReversalEnabled() const { return timeReversalEnabled; }
-    void saveWorldState();
-    bool canGoBackward() const { return !stateHistory.empty(); }
-    bool canGoForward() const
+    void enableTimeReversal(bool enabled) override { timeReversalEnabled = enabled; }
+    bool isTimeReversalEnabled() const override { return timeReversalEnabled; }
+    void saveWorldState() override;
+    bool canGoBackward() const override { return !stateHistory.empty(); }
+    bool canGoForward() const override
     {
         return currentHistoryIndex < static_cast<int>(stateHistory.size()) - 1;
     }
-    void goBackward();
-    void goForward();
-    void clearHistory()
+    void goBackward() override;
+    void goForward() override;
+    void clearHistory() override
     {
         stateHistory.clear();
         currentHistoryIndex = -1;
         hasStoredCurrentState = false; // Also clear stored current state
     }
-    size_t getHistorySize() const { return stateHistory.size(); }
+    size_t getHistorySize() const override { return stateHistory.size(); }
 
     // Start dragging dirt from a cell
-    void startDragging(int pixelX, int pixelY);
+    void startDragging(int pixelX, int pixelY) override;
 
     // Update drag position
-    void updateDrag(int pixelX, int pixelY);
+    void updateDrag(int pixelX, int pixelY) override;
 
     // End dragging and place dirt
-    void endDragging(int pixelX, int pixelY);
+    void endDragging(int pixelX, int pixelY) override;
 
-    void restoreLastDragCell();
+    void restoreLastDragCell() override;
 
-    void setGravity(double g) { gravity = g; }
+    void setGravity(double g) override { gravity = g; }
 
     // Set the elasticity factor for reflections
-    void setElasticityFactor(double e) { ELASTICITY_FACTOR = e; }
+    void setElasticityFactor(double e) override { ELASTICITY_FACTOR = e; }
 
     // Set the pressure scale factor
-    void setPressureScale(double scale) { pressureScale = scale; }
+    void setPressureScale(double scale) override { pressureScale = scale; }
 
     // Water physics configuration
-    void setWaterPressureThreshold(double threshold) { waterPressureThreshold = threshold; }
-    double getWaterPressureThreshold() const { return waterPressureThreshold; }
+    void setWaterPressureThreshold(double threshold) override { waterPressureThreshold = threshold; }
+    double getWaterPressureThreshold() const override { return waterPressureThreshold; }
 
     // Resize the world grid based on new cell size
-    void resizeGrid(uint32_t newWidth, uint32_t newHeight, bool clearHistory = true);
+    void resizeGrid(uint32_t newWidth, uint32_t newHeight, bool clearHistory = true) override;
 
     // Cursor force interaction
-    void setCursorForceEnabled(bool enabled) { cursorForceEnabled = enabled; }
-    void updateCursorForce(int pixelX, int pixelY, bool isActive);
-    void clearCursorForce() { cursorForceActive = false; }
+    void setCursorForceEnabled(bool enabled) override { cursorForceEnabled = enabled; }
+    void updateCursorForce(int pixelX, int pixelY, bool isActive) override;
+    void clearCursorForce() override { cursorForceActive = false; }
 
     // Dump timer statistics
-    void dumpTimerStats() const { timers.dumpTimerStats(); }
+    void dumpTimerStats() const override { timers.dumpTimerStats(); }
 
-    // Minimum amount of dirt before it's considered "empty" and removed.
-    static constexpr double MIN_DIRT_THRESHOLD = 0.01;
+    // Minimum amount of matter that we should bother processing.
+    static constexpr double MIN_MATTER_THRESHOLD = 0.001;
 
     // Physics constants
     static constexpr double COM_CELL_WIDTH = 2.0; // COM coordinate system width per cell
@@ -147,7 +157,7 @@ public:
     // Controls how much dirt is left behind during transfers.
     static double DIRT_FRAGMENTATION_FACTOR;
 
-    void setDirtFragmentationFactor(double factor) { DIRT_FRAGMENTATION_FACTOR = factor; }
+    void setDirtFragmentationFactor(double factor) override { DIRT_FRAGMENTATION_FACTOR = factor; }
 
     void applyPressure(const double timestep);
 
@@ -160,15 +170,11 @@ public:
     // Iterative settling pressure system with multiple passes
     void updateAllPressuresIterativeSettling(double timestep);
 
-    // Pressure system selection
-    enum class PressureSystem {
-        Original,         // COM deflection based pressure
-        TopDown,          // Hydrostatic accumulation top-down
-        IterativeSettling // Multiple settling passes
-    };
+    // Pressure system selection (use WorldInterface enum)
+    using PressureSystem = WorldInterface::PressureSystem;
 
-    void setPressureSystem(PressureSystem system) { pressureSystem = system; }
-    PressureSystem getPressureSystem() const { return pressureSystem; }
+    void setPressureSystem(PressureSystem system) override { pressureSystem = system; }
+    PressureSystem getPressureSystem() const override { return pressureSystem; }
 
     // Set the world setup strategy
     void setWorldSetup(std::unique_ptr<WorldSetup> setup) { worldSetup = std::move(setup); }
@@ -177,21 +183,26 @@ public:
     std::unique_ptr<WorldSetup> getWorldSetup() { return std::move(worldSetup); }
 
     // ConfigurableWorldSetup control methods
-    void setLeftThrowEnabled(bool enabled);
-    void setRightThrowEnabled(bool enabled);
-    void setLowerRightQuadrantEnabled(bool enabled);
-    void setWallsEnabled(bool enabled);
-    void setRainRate(double rate);
-    bool isLeftThrowEnabled() const;
-    bool isRightThrowEnabled() const;
-    bool isLowerRightQuadrantEnabled() const;
-    bool areWallsEnabled() const;
-    double getRainRate() const;
+    void setLeftThrowEnabled(bool enabled) override;
+    void setRightThrowEnabled(bool enabled) override;
+    void setLowerRightQuadrantEnabled(bool enabled) override;
+    void setWallsEnabled(bool enabled) override;
+    void setRainRate(double rate) override;
+    bool isLeftThrowEnabled() const override;
+    bool isRightThrowEnabled() const override;
+    bool isLowerRightQuadrantEnabled() const override;
+    bool areWallsEnabled() const override;
+    double getRainRate() const override;
 
     double timescale = 1.0;
 
     // Mark that user input has occurred (for triggering saves)
-    void markUserInput() { hasUserInputSinceLastSave = true; }
+    void markUserInput() override { hasUserInputSinceLastSave = true; }
+    
+    // World type management
+    WorldType getWorldType() const override;
+    void preserveState(::WorldState& state) const override;
+    void restoreState(const ::WorldState& state) override;
 
 protected:
     Timers timers;
@@ -233,6 +244,7 @@ private:
         uint32_t x,
         uint32_t y);
     bool isWithinBounds(int x, int y) const;
+    bool isWithinBounds(const Vector2i& pos) const;
     Vector2d calculateNaturalCOM(const Vector2d& sourceCOM, int deltaX, int deltaY);
     Vector2d clampCOMToDeadZone(const Vector2d& naturalCOM);
 
@@ -296,10 +308,9 @@ private:
     std::unique_ptr<WorldSetup> worldSetup;
 
     // UI interface
-    std::unique_ptr<SimulatorUI> ui_;
+    std::unique_ptr<SimulatorUI> ui_;                    // Owned UI (legacy architecture)
+    SimulatorUI* ui_ref_;                                // Non-owning reference (SimulationManager architecture)
 
-    // Physics rules interface
-    std::unique_ptr<WorldRules> worldRules_;
 
     std::vector<DirtMove> moves;
 
@@ -339,6 +350,7 @@ private:
 
     // Helper to convert pixel coordinates to cell coordinates
     void pixelToCell(int pixelX, int pixelY, int& cellX, int& cellY) const;
+    Vector2i pixelToCell(int pixelX, int pixelY) const;
 
     // Helper to get world setup for resize operations
     const WorldSetup* getWorldSetup() const { return worldSetup.get(); }

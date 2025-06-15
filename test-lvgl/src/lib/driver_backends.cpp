@@ -22,7 +22,8 @@
 
 #include "lvgl/lvgl.h"
 
-#include "../World.h"
+#include "../WorldInterface.h"
+#include "../SimulationManager.h"
 #include "driver_backends.h"
 #include "simulator_settings.h"
 #include "simulator_util.h"
@@ -269,14 +270,14 @@ int driver_backends_is_supported(const char* backend_name)
     return 0;
 }
 
-void driver_backends_run_loop(World& world)
+void driver_backends_run_loop(SimulationManager& manager)
 {
     display_backend_t* dispb;
 
     if (sel_display_backend != NULL && sel_display_backend->handle->display != NULL) {
 
         dispb = sel_display_backend->handle->display;
-        dispb->run_loop(world);
+        dispb->run_loop(manager);
     }
     else {
         LV_LOG_ERROR("No backend has been selected - initialize the backend first");

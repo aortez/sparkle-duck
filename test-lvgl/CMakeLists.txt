@@ -108,11 +108,16 @@ add_executable(sparkle-duck
     src/main.cpp 
     src/Cell.cpp
     src/Vector2d.cpp
+    src/Vector2i.cpp
     src/World.cpp 
-    src/WorldRules.cpp
     src/Timers.cpp
     src/WorldSetup.cpp
     src/SimulatorUI.cpp
+    src/SimulationManager.cpp
+    src/MaterialType.cpp
+    src/CellB.cpp
+    src/WorldB.cpp
+    src/WorldFactory.cpp
     ${LV_LINUX_SRC} 
     ${LV_LINUX_BACKEND_SRC})
 target_link_libraries(sparkle-duck lvgl_linux lvgl lvgl::examples lvgl::demos lvgl::thorvg spdlog::spdlog m pthread ${PKG_CONFIG_LIB} ${SDL2_LIBRARIES} ${SDL2_IMAGE_LIBRARIES})
@@ -135,7 +140,10 @@ add_custom_target (run COMMAND ${EXECUTABLE_OUTPUT_PATH}/sparkle-duck DEPENDS sp
 # Add test executable
 add_executable(sparkle-duck-tests
     src/tests/Vector2d_test.cpp
+    src/tests/Vector2i_test.cpp
     src/tests/WorldVisual_test.cpp
+    src/tests/WorldBVisual_test.cpp
+    src/tests/InterfaceCompatibility_test.cpp
     src/tests/WaterPressure180_test.cpp
     src/tests/PressureSystemVisual_test.cpp
     src/tests/PressureSystem_test.cpp
@@ -146,12 +154,17 @@ add_executable(sparkle-duck-tests
     test/TimersTest.cpp
     simple_reset_test.cpp
     src/Vector2d.cpp
+    src/Vector2i.cpp
     src/World.cpp
-    src/WorldRules.cpp
     src/Cell.cpp
     src/Timers.cpp
     src/WorldSetup.cpp
     src/SimulatorUI.cpp
+    src/SimulationManager.cpp
+    src/MaterialType.cpp
+    src/CellB.cpp
+    src/WorldB.cpp
+    src/WorldFactory.cpp
     ${LV_LINUX_SRC} 
     ${LV_LINUX_BACKEND_SRC}
 )

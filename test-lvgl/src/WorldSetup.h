@@ -5,7 +5,7 @@
 #include <vector>
 
 // Forward declarations
-class World;
+class WorldInterface;
 
 /**
  * Interface for World setup strategies.
@@ -24,22 +24,22 @@ public:
     virtual ~WorldSetup() = default;
 
     // Setup the world's initial state.
-    virtual void setup(World& world) = 0;
+    virtual void setup(WorldInterface& world) = 0;
 
     // Add particles to the world during simulation.
-    virtual void addParticles(World& world, uint32_t timestep, double deltaTimeSeconds) = 0;
+    virtual void addParticles(WorldInterface& world, uint32_t timestep, double deltaTimeSeconds) = 0;
 
     // Resize functionality - can be overridden by different strategies
-    virtual std::vector<ResizeData> captureWorldState(const World& world) const;
+    virtual std::vector<ResizeData> captureWorldState(const WorldInterface& world) const;
     virtual void applyWorldState(
-        World& world,
+        WorldInterface& world,
         const std::vector<ResizeData>& oldState,
         uint32_t oldWidth,
         uint32_t oldHeight) const;
 
-    virtual void fillLowerRightQuadrant(World& world);
-    virtual void makeWalls(World& world);
-    virtual void fillWithDirt(World& world);
+    virtual void fillLowerRightQuadrant(WorldInterface& world);
+    virtual void makeWalls(WorldInterface& world);
+    virtual void fillWithDirt(WorldInterface& world);
 
 protected:
     // Helper functions for feature-preserving resize
@@ -77,9 +77,9 @@ class DefaultWorldSetup : public WorldSetup {
 public:
     ~DefaultWorldSetup() override;
 
-    void setup(World& world) override;
+    void setup(WorldInterface& world) override;
 
-    void addParticles(World& world, uint32_t timestep, double deltaTimeSeconds) override;
+    void addParticles(WorldInterface& world, uint32_t timestep, double deltaTimeSeconds) override;
 };
 
 /**
@@ -89,8 +89,8 @@ class ConfigurableWorldSetup : public WorldSetup {
 public:
     ~ConfigurableWorldSetup() override = default;
 
-    void setup(World& world) override;
-    void addParticles(World& world, uint32_t timestep, double deltaTimeSeconds) override;
+    void setup(WorldInterface& world) override;
+    void addParticles(WorldInterface& world, uint32_t timestep, double deltaTimeSeconds) override;
 
     // Control flags for setup features
     void setLowerRightQuadrantEnabled(bool enabled) { lowerRightQuadrantEnabled = enabled; }

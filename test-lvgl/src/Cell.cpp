@@ -375,7 +375,7 @@ double Cell::getEffectiveDensity() const
     double totalMass = dirt + water + wood + leaf + metal;
 
     // Return zero density for empty cells
-    if (totalMass < World::MIN_DIRT_THRESHOLD) {
+    if (totalMass < World::MIN_MATTER_THRESHOLD) {
         return 0.0;
     }
 
@@ -415,7 +415,7 @@ Vector2d Cell::calculateWaterCohesion(
     uint32_t cellY) const
 {
     // Only apply cohesion between water cells
-    if (cell.water < World::MIN_DIRT_THRESHOLD || neighbor.water < World::MIN_DIRT_THRESHOLD) {
+    if (cell.water < World::MIN_MATTER_THRESHOLD || neighbor.water < World::MIN_MATTER_THRESHOLD) {
         return Vector2d(0.0, 0.0);
     }
 
@@ -462,7 +462,7 @@ Vector2d Cell::calculateWaterCohesion(
 
 void Cell::applyViscosity(const Cell& neighbor)
 {
-    if (water < World::MIN_DIRT_THRESHOLD || neighbor.water < World::MIN_DIRT_THRESHOLD) {
+    if (water < World::MIN_MATTER_THRESHOLD || neighbor.water < World::MIN_MATTER_THRESHOLD) {
         return;
     }
 
@@ -474,7 +474,7 @@ void Cell::applyViscosity(const Cell& neighbor)
     }
 }
 
-Vector2d Cell::calculateBuoyancy(const Cell& cell, const Cell& neighbor, int dx, int dy) const
+Vector2d Cell::calculateBuoyancy(const Cell& cell, const Cell& neighbor, const Vector2i& offset) const
 {
     // Get effective densities of both cells
     double cellDensity = cell.getEffectiveDensity();
@@ -500,18 +500,117 @@ Vector2d Cell::calculateBuoyancy(const Cell& cell, const Cell& neighbor, int dx,
 
     Vector2d buoyancyForce = Vector2d(0.0, 0.0);
 
-    // Apply upward buoyancy if neighbor is below (dy > 0)
+    // Apply upward buoyancy if neighbor is below (offset.y > 0)
     // This simulates denser material being pushed up by less dense material below
-    if (dy > 0) {
+    if (offset.y > 0) {
         buoyancyForce.y = -buoyantForce; // Upward force (negative y)
     }
 
     // Apply lateral buoyancy for horizontal displacement
     // Weaker effect for side-to-side movement, but still helps with separation
-    if (dx != 0) {
+    if (offset.x != 0) {
         double lateralForce = buoyantForce * 0.3; // Reduced lateral effect
-        buoyancyForce.x = -dx * lateralForce;     // Push away from denser neighbor
+        buoyancyForce.x = -offset.x * lateralForce;     // Push away from denser neighbor
     }
 
     return buoyancyForce;
+}
+
+// =================================================================
+// CELLINTERFACE IMPLEMENTATION
+// =================================================================
+
+void Cell::addDirt(double amount)
+{
+    if (amount <= 0.0) return;
+    safeAddMaterial(dirt, amount);
+    markDirty();
+}
+
+void Cell::addWater(double amount)
+{
+    if (amount <= 0.0) return;
+    safeAddMaterial(water, amount);
+    markDirty();
+}
+
+void Cell::addDirtWithVelocity(double amount, const Vector2d& velocity)
+{
+    if (amount <= 0.0) return;
+    safeAddMaterial(dirt, amount);
+    
+    // Update velocity based on momentum conservation
+    double totalMaterial = getTotalMaterial();
+    if (totalMaterial > 0.0) {
+        // Weighted average of existing velocity and new velocity
+        v = (v * (totalMaterial - amount) + velocity * amount) / totalMaterial;
+    } else {
+        v = velocity;
+    }
+    markDirty();
+}
+
+void Cell::addWaterWithVelocity(double amount, const Vector2d& velocity)
+{
+    if (amount <= 0.0) return;
+    safeAddMaterial(water, amount);
+    
+    // Update velocity based on momentum conservation
+    double totalMaterial = getTotalMaterial();
+    if (totalMaterial > 0.0) {
+        // Weighted average of existing velocity and new velocity
+        v = (v * (totalMaterial - amount) + velocity * amount) / totalMaterial;
+    } else {
+        v = velocity;
+    }
+    markDirty();
+}
+
+void Cell::addDirtWithCOM(double amount, const Vector2d& comOffset, const Vector2d& velocity)
+{
+    if (amount <= 0.0) return;
+    safeAddMaterial(dirt, amount);
+    
+    // Update center of mass based on weighted average
+    double totalMaterial = getTotalMaterial();
+    if (totalMaterial > 0.0) {
+        // Weighted average of existing COM and new COM offset
+        com = (com * (totalMaterial - amount) + comOffset * amount) / totalMaterial;
+        // Clamp COM to valid bounds [-1, 1]
+        com.x = std::max(-1.0, std::min(1.0, com.x));
+        com.y = std::max(-1.0, std::min(1.0, com.y));
+    } else {
+        com = comOffset;
+    }
+    
+    // Update velocity as well
+    if (totalMaterial > 0.0) {
+        v = (v * (totalMaterial - amount) + velocity * amount) / totalMaterial;
+    } else {
+        v = velocity;
+    }
+    markDirty();
+}
+
+void Cell::clear()
+{
+    dirt = 0.0;
+    water = 0.0;
+    wood = 0.0;
+    leaf = 0.0;
+    metal = 0.0;
+    com = Vector2d(0.0, 0.0);
+    v = Vector2d(0.0, 0.0);
+    pressure = Vector2d(0.0, 0.0);
+    markDirty();
+}
+
+double Cell::getTotalMaterial() const
+{
+    return percentFull();
+}
+
+bool Cell::isEmpty() const
+{
+    return getTotalMaterial() < 0.001; // Use small threshold for "empty"
 }

@@ -1,7 +1,7 @@
 #include "WorldSetup.h"
 #include "Cell.h"
 #include "Vector2d.h"
-#include "World.h"
+#include "WorldInterface.h"
 #include "spdlog/spdlog.h"
 #include <algorithm>
 #include <cmath>
@@ -9,59 +9,121 @@
 #include <iostream>
 #include <random>
 
-void WorldSetup::fillLowerRightQuadrant(World& world)
+void WorldSetup::fillLowerRightQuadrant(WorldInterface& world)
 {
+    uint32_t startX = world.getWidth() / 2;
+    uint32_t startY = world.getHeight() / 2;
+    uint32_t sizeX = world.getWidth() - startX;
+    uint32_t sizeY = world.getHeight() - startY;
+    
     spdlog::info(
         "Filling lower right quadrant with dirt ({}x{} cells)",
-        world.getWidth() / 2,
-        world.getHeight() / 2);
-    for (uint32_t y = world.getHeight() / 2; y < world.getHeight(); ++y) {
-        for (uint32_t x = world.getWidth() / 2; x < world.getWidth(); ++x) {
-            world.at(x, y).update(1.0, Vector2d(0.0, 0.0), Vector2d(0.0, 0.0));
-            world.at(x, y).markDirty();
+        sizeX, sizeY);
+        
+    for (uint32_t y = startY; y < world.getHeight(); ++y) {
+        for (uint32_t x = startX; x < world.getWidth(); ++x) {
+            // Convert cell coordinates to pixel coordinates for material addition
+            int pixelX = x * Cell::WIDTH + Cell::WIDTH / 2;
+            int pixelY = y * Cell::HEIGHT + Cell::HEIGHT / 2;
+            world.addDirtAtPixel(pixelX, pixelY);
         }
     }
 }
 
-void WorldSetup::makeWalls(World& world)
+void WorldSetup::makeWalls(WorldInterface& world)
 {
-    spdlog::info("Creating world walls ({}x{} boundary)", world.getWidth(), world.getHeight());
-    // Top and bottom walls
-    for (uint32_t x = 0; x < world.getWidth(); x++) {
-        // world.at(x, 0).update(1.0, Vector2d(0.0, 0.0), Vector2d(0.0, 0.0));
-        // world.at(x, 0).markDirty();
-        world.at(x, world.getHeight() - 1).update(1.0, Vector2d(0.0, 0.0), Vector2d(0.0, 0.0));
-        world.at(x, world.getHeight() - 1).markDirty();
-    }
-    // Left and right walls
-    for (uint32_t y = 1; y < world.getHeight() - 1; y++) {
-        world.at(0, y).update(1.0, Vector2d(0.0, 0.0), Vector2d(0.0, 0.0));
-        world.at(0, y).markDirty();
-        world.at(world.getWidth() - 1, y).update(1.0, Vector2d(0.0, 0.0), Vector2d(0.0, 0.0));
-        world.at(world.getWidth() - 1, y).markDirty();
-    }
+    // Wall creation is now handled by each world implementation internally
+    // World and WorldB have their own wall systems (different material types)
+    // This method is kept for interface compatibility but delegates to world implementation
+    spdlog::info("World walls handled by implementation ({}x{} boundary)", world.getWidth(), world.getHeight());
+    
+    // Note: Walls are controlled via setWallsEnabled() and handled in each world's reset/setup
 }
 
-void WorldSetup::fillWithDirt(World& world)
+void WorldSetup::fillWithDirt(WorldInterface& world)
 {
     spdlog::info(
         "Filling entire world with dirt ({}x{} cells)", world.getWidth(), world.getHeight());
     for (uint32_t y = 0; y < world.getHeight(); y++) {
         for (uint32_t x = 0; x < world.getWidth(); x++) {
-            world.at(x, y).update(0.5, Vector2d(0.0, 0.0), Vector2d(1, 0.0));
-            world.at(x, y).markDirty();
+            // Convert cell coordinates to pixel coordinates for material addition
+            int pixelX = x * Cell::WIDTH + Cell::WIDTH / 2;
+            int pixelY = y * Cell::HEIGHT + Cell::HEIGHT / 2;
+            world.addDirtAtPixel(pixelX, pixelY);
         }
     }
 }
 
-void DefaultWorldSetup::setup(World& world)
+void DefaultWorldSetup::setup(WorldInterface& world)
 {
     fillLowerRightQuadrant(world);
     makeWalls(world);
 }
 
-void DefaultWorldSetup::addParticles(World& world, uint32_t timestep, double deltaTimeSeconds)
+void DefaultWorldSetup::addParticles(WorldInterface& world, uint32_t timestep, double deltaTimeSeconds)
 {
+    // Now using CellInterface for direct cell access
+    static double lastSimTime = 0.0;
+    static struct EventState {
+        double nextTopDrop = 0.33;       // First top drop at 0.33s
+        double nextInitialThrow = 0.17;  // First throw at 0.17s
+        double nextPeriodicThrow = 0.83; // First periodic throw at 0.83s
+        double nextRightThrow = 1.0;     // First right throw at 1.0s
+        bool initialThrowDone = false;   // Track if initial throw has happened
+        bool topDropDone = false;        // Track if top drop has happened
+    } eventState;
+
+    const double simTime = lastSimTime + deltaTimeSeconds;
+
+    spdlog::debug(
+        "DefaultWorldSetup timestep {}: simTime={:.3f}, lastSimTime={:.3f}, deltaTime={:.3f}",
+        timestep,
+        simTime,
+        lastSimTime,
+        deltaTimeSeconds);
+
+    // Drop a dirt from the top
+    if (!eventState.topDropDone && simTime >= eventState.nextTopDrop) {
+        spdlog::info("Adding top drop at time {:.3f}s", simTime);
+        uint32_t centerX = world.getWidth() / 2;
+        CellInterface& cell = world.getCellInterface(centerX, 1); // 1 to be just below the top wall
+        cell.addDirt(1.0);
+        eventState.topDropDone = true;
+    }
+
+    // Initial throw from left center
+    if (!eventState.initialThrowDone && simTime >= eventState.nextInitialThrow) {
+        spdlog::info("Adding initial throw at time {:.3f}s", simTime);
+        uint32_t centerY = world.getHeight() / 2;
+        CellInterface& cell = world.getCellInterface(2, centerY); // Against the left wall
+        cell.addDirtWithVelocity(1.0, Vector2d(5, -5));
+        eventState.initialThrowDone = true;
+    }
+
+    // Recurring throws every ~0.83 seconds
+    const double period = 0.83;
+    if (simTime >= eventState.nextPeriodicThrow) {
+        spdlog::debug("Adding periodic throw at time {:.3f}s", simTime);
+        uint32_t centerY = world.getHeight() / 2;
+        CellInterface& cell = world.getCellInterface(2, centerY); // Against the left wall
+        cell.addDirtWithVelocity(1.0, Vector2d(10, -10));
+        // Schedule next throw
+        eventState.nextPeriodicThrow += period;
+    }
+
+    // Recurring throws from right side every ~0.83 seconds
+    if (simTime >= eventState.nextRightThrow) {
+        spdlog::debug("Adding right periodic throw at time {:.3f}s", simTime);
+        uint32_t centerY = world.getHeight() / 2 - 2;
+        CellInterface& cell = world.getCellInterface(world.getWidth() - 3, centerY); // Against the right wall
+        cell.addDirtWithVelocity(1.0, Vector2d(-10, -10));
+        // Schedule next throw
+        eventState.nextRightThrow += period;
+    }
+
+    lastSimTime = simTime;
+    
+    /* TEMPORARILY DISABLED - Complex particle logic with cell access
     static double lastSimTime = 0.0;
     static struct EventState {
         double nextTopDrop = 0.33;       // First top drop at 0.33s
@@ -167,13 +229,14 @@ void DefaultWorldSetup::addParticles(World& world, uint32_t timestep, double del
     }
 
     lastSimTime = simTime;
+    */ // END DISABLED COMPLEX PARTICLE LOGIC
 }
 
 DefaultWorldSetup::~DefaultWorldSetup()
 {}
 
 // ConfigurableWorldSetup implementation
-void ConfigurableWorldSetup::setup(World& world)
+void ConfigurableWorldSetup::setup(WorldInterface& world)
 {
     if (lowerRightQuadrantEnabled) {
         fillLowerRightQuadrant(world);
@@ -183,8 +246,95 @@ void ConfigurableWorldSetup::setup(World& world)
     }
 }
 
-void ConfigurableWorldSetup::addParticles(World& world, uint32_t timestep, double deltaTimeSeconds)
+void ConfigurableWorldSetup::addParticles(WorldInterface& world, uint32_t timestep, double deltaTimeSeconds)
 {
+    // Now using CellInterface for direct cell access
+    static double lastSimTime = 0.0;
+    static struct EventState {
+        double nextTopDrop = 0.33;       // First top drop at 0.33s
+        double nextInitialThrow = 0.17;  // First throw at 0.17s
+        double nextPeriodicThrow = 0.83; // First periodic throw at 0.83s
+        double nextRightThrow = 1.0;     // First right throw at 1.0s
+        bool initialThrowDone = false;   // Track if initial throw has happened
+        bool topDropDone = false;        // Track if top drop has happened
+        double nextRainDrop = 0.0;       // Time for next rain drop
+    } eventState;
+
+    const double simTime = lastSimTime + deltaTimeSeconds;
+
+    spdlog::debug(
+        "ConfigurableWorldSetup timestep {}: simTime={:.3f}, lastSimTime={:.3f}, deltaTime={:.3f}",
+        timestep,
+        simTime,
+        lastSimTime,
+        deltaTimeSeconds);
+
+    // Drop a dirt from the top (if enabled)
+    if (topDropEnabled && !eventState.topDropDone && simTime >= eventState.nextTopDrop) {
+        spdlog::info("Adding top drop at time {:.3f}s", simTime);
+        uint32_t centerX = world.getWidth() / 2;
+        CellInterface& cell = world.getCellInterface(centerX, 1); // 1 to be just below the top wall
+        cell.addDirt(1.0);
+        eventState.topDropDone = true;
+    }
+
+    // Initial throw from left center (if enabled)
+    if (leftThrowEnabled && !eventState.initialThrowDone
+        && simTime >= eventState.nextInitialThrow) {
+        spdlog::info("Adding initial throw at time {:.3f}s", simTime);
+        uint32_t centerY = world.getHeight() / 2;
+        CellInterface& cell = world.getCellInterface(2, centerY); // Against the left wall
+        cell.addDirtWithVelocity(1.0, Vector2d(5, -5));
+        eventState.initialThrowDone = true;
+    }
+
+    // Recurring throws every ~0.83 seconds (if left throw enabled)
+    const double period = 0.83;
+    if (leftThrowEnabled && simTime >= eventState.nextPeriodicThrow) {
+        spdlog::debug("Adding periodic throw at time {:.3f}s", simTime);
+        uint32_t centerY = world.getHeight() / 2;
+        CellInterface& cell = world.getCellInterface(2, centerY); // Against the left wall
+        cell.addDirtWithVelocity(1.0, Vector2d(10, -10));
+        // Schedule next throw
+        eventState.nextPeriodicThrow += period;
+    }
+
+    // Recurring throws from right side every ~0.83 seconds (if right throw enabled)
+    if (rightThrowEnabled && simTime >= eventState.nextRightThrow) {
+        spdlog::debug("Adding right periodic throw at time {:.3f}s", simTime);
+        uint32_t centerY = world.getHeight() / 2 - 2;
+        CellInterface& cell = world.getCellInterface(world.getWidth() - 3, centerY); // Against the right wall
+        cell.addDirtWithVelocity(1.0, Vector2d(-10, -10));
+        // Schedule next throw
+        eventState.nextRightThrow += period;
+    }
+
+    // Rain drops at variable rate (if rain rate > 0)
+    if (rainRate > 0.0 && simTime >= eventState.nextRainDrop) {
+        spdlog::debug("Adding rain drop at time {:.3f}s (rate: {:.1f}/s)", simTime, rainRate);
+
+        // Use normal distribution for horizontal position
+        static std::random_device rd;
+        static std::mt19937 gen(rd());
+        static std::normal_distribution<double> normalDist(0.5, 0.15); // mean=0.5, stddev=0.15
+
+        // Generate random position across the top, clamped to world bounds
+        double randomPos = std::max(0.0, std::min(1.0, normalDist(gen)));
+        uint32_t xPos =
+            static_cast<uint32_t>(randomPos * (world.getWidth() - 2)) + 1; // [1, width-2]
+
+        CellInterface& cell = world.getCellInterface(xPos, 1); // Just below the top wall
+        // Add water instead of dirt for rain
+        cell.addWater(0.8);
+
+        // Schedule next rain drop based on current rate
+        double intervalSeconds = 1.0 / rainRate;
+        eventState.nextRainDrop = simTime + intervalSeconds;
+    }
+
+    lastSimTime = simTime;
+    
+    /* TEMPORARILY DISABLED - Complex particle logic with cell access
     static double lastSimTime = 0.0;
     static struct EventState {
         double nextTopDrop = 0.33;       // First top drop at 0.33s
@@ -316,26 +466,20 @@ void ConfigurableWorldSetup::addParticles(World& world, uint32_t timestep, doubl
     }
 
     lastSimTime = simTime;
+    */ // END DISABLED COMPLEX PARTICLE LOGIC
 }
 
 // Feature-preserving resize implementation
-std::vector<WorldSetup::ResizeData> WorldSetup::captureWorldState(const World& world) const
+std::vector<WorldSetup::ResizeData> WorldSetup::captureWorldState(const WorldInterface& world) const
 {
-    std::vector<ResizeData> state;
-    state.reserve(world.getWidth() * world.getHeight());
-
-    for (uint32_t y = 0; y < world.getHeight(); y++) {
-        for (uint32_t x = 0; x < world.getWidth(); x++) {
-            const Cell& cell = world.at(x, y);
-            state.push_back({ cell.dirt, cell.water, cell.com, cell.v });
-        }
-    }
-
-    return state;
+    // Resize functionality not available for WorldInterface - requires direct cell access
+    // Return empty state for now - TODO: implement resize support if needed
+    spdlog::warn("captureWorldState not implemented for WorldInterface - resize not supported");
+    return {};
 }
 
 void WorldSetup::applyWorldState(
-    World& world,
+    WorldInterface& world,
     const std::vector<ResizeData>& oldState,
     uint32_t oldWidth,
     uint32_t oldHeight) const
@@ -366,10 +510,8 @@ void WorldSetup::applyWorldState(
                 interpolateCell(oldState, oldWidth, oldHeight, oldX, oldY, edgeStrength);
 
             // Apply the interpolated data to the new cell
-            Cell& cell = world.at(x, y);
-            cell.update(newData.dirt, newData.com, newData.velocity);
-            cell.water = newData.water;
-            cell.markDirty();
+            // TODO: WorldInterface doesn't support direct cell access - resize not supported
+            spdlog::warn("Resize not supported for WorldInterface");
         }
     }
 }
