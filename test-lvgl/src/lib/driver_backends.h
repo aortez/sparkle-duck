@@ -17,7 +17,8 @@
  */
 #pragma once
 
-class World;
+class WorldInterface;
+class SimulationManager;
 
 /*
  * Register all available backends
@@ -56,5 +57,5 @@ int driver_backends_print_supported(void);
  * @brief Enter the run loop
  * @description enter the run loop of the selected backend
  */
-void driver_backends_run_loop(World& world);
+void driver_backends_run_loop(SimulationManager& manager);
 

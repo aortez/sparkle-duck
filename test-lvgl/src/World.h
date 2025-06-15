@@ -12,8 +12,11 @@
 
 #include "Cell.h"
 #include "Timers.h"
+#include "Vector2i.h"
 #include "WorldInterface.h"
 #include "WorldSetup.h"
+#include "WorldState.h"
+#include "WorldFactory.h"
 
 #include <cstdint>
 #include <memory>
@@ -56,16 +59,24 @@ public:
 
     Cell& at(uint32_t x, uint32_t y);
     const Cell& at(uint32_t x, uint32_t y) const;
+    Cell& at(const Vector2i& pos);
+    const Cell& at(const Vector2i& pos) const;
+    
+    // WorldInterface cell access through CellInterface
+    CellInterface& getCellInterface(uint32_t x, uint32_t y) override;
+    const CellInterface& getCellInterface(uint32_t x, uint32_t y) const override;
 
     uint32_t getWidth() const override;
     uint32_t getHeight() const override;
     lv_obj_t* getDrawArea() const override { return draw_area; }
 
     void setTimescale(double scale) override { timescale = scale; }
+    double getTimescale() const override { return timescale; }
 
     // UI management
     void setUI(std::unique_ptr<SimulatorUI> ui) override;
-    SimulatorUI* getUI() const override { return ui_.get(); }
+    void setUIReference(SimulatorUI* ui) override;
+    SimulatorUI* getUI() const override { return ui_ref_ ? ui_ref_ : ui_.get(); }
 
 
     // Get the total mass of dirt in the world.
@@ -187,6 +198,11 @@ public:
 
     // Mark that user input has occurred (for triggering saves)
     void markUserInput() override { hasUserInputSinceLastSave = true; }
+    
+    // World type management
+    WorldType getWorldType() const override;
+    void preserveState(::WorldState& state) const override;
+    void restoreState(const ::WorldState& state) override;
 
 protected:
     Timers timers;
@@ -228,6 +244,7 @@ private:
         uint32_t x,
         uint32_t y);
     bool isWithinBounds(int x, int y) const;
+    bool isWithinBounds(const Vector2i& pos) const;
     Vector2d calculateNaturalCOM(const Vector2d& sourceCOM, int deltaX, int deltaY);
     Vector2d clampCOMToDeadZone(const Vector2d& naturalCOM);
 
@@ -291,7 +308,8 @@ private:
     std::unique_ptr<WorldSetup> worldSetup;
 
     // UI interface
-    std::unique_ptr<SimulatorUI> ui_;
+    std::unique_ptr<SimulatorUI> ui_;                    // Owned UI (legacy architecture)
+    SimulatorUI* ui_ref_;                                // Non-owning reference (SimulationManager architecture)
 
 
     std::vector<DirtMove> moves;
@@ -332,6 +350,7 @@ private:
 
     // Helper to convert pixel coordinates to cell coordinates
     void pixelToCell(int pixelX, int pixelY, int& cellX, int& cellY) const;
+    Vector2i pixelToCell(int pixelX, int pixelY) const;
 
     // Helper to get world setup for resize operations
     const WorldSetup* getWorldSetup() const { return worldSetup.get(); }

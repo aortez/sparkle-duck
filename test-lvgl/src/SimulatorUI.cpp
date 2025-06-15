@@ -1,8 +1,12 @@
 #include "SimulatorUI.h"
+#include "SimulationManager.h"
 #include "Cell.h"
 #include "WorldInterface.h"
+#include "WorldFactory.h"
+#include "WorldState.h"
 #include "lvgl/lvgl.h"
 #include "lvgl/src/others/snapshot/lv_snapshot.h"
+#include "spdlog/spdlog.h"
 
 #include <algorithm>
 #include <cmath>
@@ -24,11 +28,13 @@ const char* lodepng_error_text(unsigned error);
 
 SimulatorUI::SimulatorUI(lv_obj_t* screen)
     : world_(nullptr),
+      manager_(nullptr),
       screen_(screen),
       draw_area_(nullptr),
       mass_label_(nullptr),
       fps_label_(nullptr),
       pause_label_(nullptr),
+      world_type_btnm_(nullptr),
       timescale_(1.0),
       is_paused_(false)
 {}
@@ -42,11 +48,21 @@ void SimulatorUI::setWorld(WorldInterface* world)
     }
 }
 
+void SimulatorUI::setSimulationManager(SimulationManager* manager)
+{
+    manager_ = manager;
+    // Update all existing callback data
+    for (auto& data : callback_data_storage_) {
+        data->manager = manager_;
+    }
+}
+
 SimulatorUI::CallbackData* SimulatorUI::createCallbackData(lv_obj_t* label)
 {
     auto data = std::make_unique<CallbackData>();
     data->ui = this;
     data->world = world_;
+    data->manager = manager_;
     data->associated_label = label;
     CallbackData* ptr = data.get();
     callback_data_storage_.push_back(std::move(data));
@@ -59,9 +75,15 @@ void SimulatorUI::initialize()
 {
     createDrawArea();
     createLabels();
+    createWorldTypeColumn();
     createControlButtons();
     createSliders();
     setupDrawAreaEvents();
+    
+    // Set initial button matrix state based on current world type
+    if (world_) {
+        updateWorldTypeButtonMatrix(world_->getWorldType());
+    }
 }
 
 void SimulatorUI::createDrawArea()
@@ -77,12 +99,46 @@ void SimulatorUI::createLabels()
     // Create mass label
     mass_label_ = lv_label_create(screen_);
     lv_label_set_text(mass_label_, "Total Mass: 0.00");
-    lv_obj_align(mass_label_, LV_ALIGN_TOP_LEFT, 820, 10);
+    lv_obj_align(mass_label_, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 10);
 
     // Create FPS label
     fps_label_ = lv_label_create(screen_);
     lv_label_set_text(fps_label_, "FPS: 0");
-    lv_obj_align(fps_label_, LV_ALIGN_TOP_LEFT, 820, 40);
+    lv_obj_align(fps_label_, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 40);
+}
+
+void SimulatorUI::createWorldTypeColumn()
+{
+    // Create world type label
+    lv_obj_t* world_type_label = lv_label_create(screen_);
+    lv_label_set_text(world_type_label, "World Type:");
+    lv_obj_align(world_type_label, LV_ALIGN_TOP_LEFT, WORLD_TYPE_COLUMN_X, 10);
+
+    // Create world type button matrix with vertical stack
+    static const char* world_btnm_map[] = {"WorldA", "\n", "WorldB", ""};
+    world_type_btnm_ = lv_buttonmatrix_create(screen_);
+    lv_obj_set_size(world_type_btnm_, WORLD_TYPE_COLUMN_WIDTH, 100); // 100px height for vertical stack
+    lv_obj_align(world_type_btnm_, LV_ALIGN_TOP_LEFT, WORLD_TYPE_COLUMN_X, 30);
+    lv_buttonmatrix_set_map(world_type_btnm_, world_btnm_map);
+    lv_buttonmatrix_set_one_checked(world_type_btnm_, true);
+    
+    // Make buttons checkable
+    lv_buttonmatrix_set_button_ctrl(world_type_btnm_, 0, LV_BUTTONMATRIX_CTRL_CHECKABLE);
+    lv_buttonmatrix_set_button_ctrl(world_type_btnm_, 1, LV_BUTTONMATRIX_CTRL_CHECKABLE);
+    
+    // Set initial selection to WorldB (default per CLAUDE.md)
+    lv_buttonmatrix_set_selected_button(world_type_btnm_, 1);
+    
+    // Style the button matrix
+    lv_obj_set_style_bg_color(world_type_btnm_, lv_color_hex(0x404040), LV_PART_ITEMS);
+    lv_obj_set_style_bg_color(world_type_btnm_, lv_color_hex(0x0080FF), LV_PART_ITEMS | LV_STATE_CHECKED);
+    lv_obj_set_style_text_color(world_type_btnm_, lv_color_white(), LV_PART_ITEMS);
+    
+    lv_obj_add_event_cb(
+        world_type_btnm_,
+        worldTypeButtonMatrixEventCb,
+        LV_EVENT_VALUE_CHANGED,
+        createCallbackData());
 }
 
 void SimulatorUI::createControlButtons()
@@ -90,7 +146,7 @@ void SimulatorUI::createControlButtons()
     // Create reset button
     lv_obj_t* reset_btn = lv_btn_create(screen_);
     lv_obj_set_size(reset_btn, CONTROL_WIDTH, 50);
-    lv_obj_align(reset_btn, LV_ALIGN_TOP_RIGHT, -10, 10);
+    lv_obj_align(reset_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 10);
     lv_obj_t* reset_label = lv_label_create(reset_btn);
     lv_label_set_text(reset_label, "Reset");
     lv_obj_center(reset_label);
@@ -99,7 +155,7 @@ void SimulatorUI::createControlButtons()
     // Create pause button
     lv_obj_t* pause_btn = lv_btn_create(screen_);
     lv_obj_set_size(pause_btn, CONTROL_WIDTH, 50);
-    lv_obj_align(pause_btn, LV_ALIGN_TOP_RIGHT, -10, 70);
+    lv_obj_align(pause_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 70);
     pause_label_ = lv_label_create(pause_btn);
     lv_label_set_text(pause_label_, "Pause");
     lv_obj_center(pause_label_);
@@ -108,7 +164,7 @@ void SimulatorUI::createControlButtons()
     // Create debug toggle button
     lv_obj_t* debug_btn = lv_btn_create(screen_);
     lv_obj_set_size(debug_btn, CONTROL_WIDTH, 50);
-    lv_obj_align(debug_btn, LV_ALIGN_TOP_RIGHT, -10, 130);
+    lv_obj_align(debug_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 130);
     lv_obj_t* debug_label = lv_label_create(debug_btn);
     lv_label_set_text(debug_label, "Debug: Off");
     lv_obj_center(debug_label);
@@ -117,11 +173,11 @@ void SimulatorUI::createControlButtons()
     // Create pressure system dropdown
     lv_obj_t* pressure_label = lv_label_create(screen_);
     lv_label_set_text(pressure_label, "Pressure System:");
-    lv_obj_align(pressure_label, LV_ALIGN_TOP_RIGHT, -10, 190);
+    lv_obj_align(pressure_label, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 190);
 
     lv_obj_t* pressure_dropdown = lv_dropdown_create(screen_);
     lv_obj_set_size(pressure_dropdown, CONTROL_WIDTH, 40);
-    lv_obj_align(pressure_dropdown, LV_ALIGN_TOP_RIGHT, -10, 210);
+    lv_obj_align(pressure_dropdown, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 210);
     lv_dropdown_set_options(
         pressure_dropdown, "Original (COM)\nTop-Down Hydrostatic\nIterative Settling");
     lv_dropdown_set_selected(pressure_dropdown, 0); // Default to Original
@@ -134,7 +190,7 @@ void SimulatorUI::createControlButtons()
     // Create cursor force toggle button
     lv_obj_t* force_btn = lv_btn_create(screen_);
     lv_obj_set_size(force_btn, CONTROL_WIDTH, 50);
-    lv_obj_align(force_btn, LV_ALIGN_TOP_RIGHT, -10, 260);
+    lv_obj_align(force_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 260);
     lv_obj_t* force_label = lv_label_create(force_btn);
     lv_label_set_text(force_label, "Force: Off");
     lv_obj_center(force_label);
@@ -143,7 +199,7 @@ void SimulatorUI::createControlButtons()
     // Create gravity toggle button
     lv_obj_t* gravity_btn = lv_btn_create(screen_);
     lv_obj_set_size(gravity_btn, CONTROL_WIDTH, 50);
-    lv_obj_align(gravity_btn, LV_ALIGN_TOP_RIGHT, -10, 310);
+    lv_obj_align(gravity_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 310);
     lv_obj_t* gravity_label = lv_label_create(gravity_btn);
     lv_label_set_text(gravity_label, "Gravity: On");
     lv_obj_center(gravity_label);
@@ -152,7 +208,7 @@ void SimulatorUI::createControlButtons()
     // Create left throw toggle button
     lv_obj_t* left_throw_btn = lv_btn_create(screen_);
     lv_obj_set_size(left_throw_btn, CONTROL_WIDTH, 50);
-    lv_obj_align(left_throw_btn, LV_ALIGN_TOP_RIGHT, -10, 370);
+    lv_obj_align(left_throw_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 370);
     lv_obj_t* left_throw_label = lv_label_create(left_throw_btn);
     lv_label_set_text(left_throw_label, "Left Throw: On");
     lv_obj_center(left_throw_label);
@@ -162,7 +218,7 @@ void SimulatorUI::createControlButtons()
     // Create right throw toggle button
     lv_obj_t* right_throw_btn = lv_btn_create(screen_);
     lv_obj_set_size(right_throw_btn, CONTROL_WIDTH, 50);
-    lv_obj_align(right_throw_btn, LV_ALIGN_TOP_RIGHT, -10, 430);
+    lv_obj_align(right_throw_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 430);
     lv_obj_t* right_throw_label = lv_label_create(right_throw_btn);
     lv_label_set_text(right_throw_label, "Right Throw: On");
     lv_obj_center(right_throw_label);
@@ -172,7 +228,7 @@ void SimulatorUI::createControlButtons()
     // Create quadrant toggle button
     lv_obj_t* quadrant_btn = lv_btn_create(screen_);
     lv_obj_set_size(quadrant_btn, CONTROL_WIDTH, 50);
-    lv_obj_align(quadrant_btn, LV_ALIGN_TOP_RIGHT, -10, 490);
+    lv_obj_align(quadrant_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 490);
     lv_obj_t* quadrant_label = lv_label_create(quadrant_btn);
     lv_label_set_text(quadrant_label, "Quadrant: On");
     lv_obj_center(quadrant_label);
@@ -181,7 +237,7 @@ void SimulatorUI::createControlButtons()
     // Create screenshot button
     lv_obj_t* screenshot_btn = lv_btn_create(screen_);
     lv_obj_set_size(screenshot_btn, CONTROL_WIDTH, 50);
-    lv_obj_align(screenshot_btn, LV_ALIGN_TOP_RIGHT, -10, 550);
+    lv_obj_align(screenshot_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 550);
     lv_obj_t* screenshot_label = lv_label_create(screenshot_btn);
     lv_label_set_text(screenshot_label, "Screenshot");
     lv_obj_center(screenshot_label);
@@ -191,7 +247,7 @@ void SimulatorUI::createControlButtons()
     // Create time reversal toggle button
     lv_obj_t* time_reversal_btn = lv_btn_create(screen_);
     lv_obj_set_size(time_reversal_btn, CONTROL_WIDTH, 30);
-    lv_obj_align(time_reversal_btn, LV_ALIGN_TOP_RIGHT, -10, 600);
+    lv_obj_align(time_reversal_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 600);
     lv_obj_t* time_reversal_label = lv_label_create(time_reversal_btn);
     lv_label_set_text(time_reversal_label, "Time History: On");
     lv_obj_center(time_reversal_label);
@@ -201,7 +257,7 @@ void SimulatorUI::createControlButtons()
     // Create backward button (left half) - moved up to avoid overlap
     lv_obj_t* backward_btn = lv_btn_create(screen_);
     lv_obj_set_size(backward_btn, CONTROL_WIDTH / 2 - 5, 30);
-    lv_obj_align(backward_btn, LV_ALIGN_TOP_RIGHT, -10 - CONTROL_WIDTH / 2 - 5, 635);
+    lv_obj_align(backward_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X + CONTROL_WIDTH / 2 + 5, 635);
     lv_obj_t* backward_label = lv_label_create(backward_btn);
     lv_label_set_text(backward_label, "<<");
     lv_obj_center(backward_label);
@@ -210,7 +266,7 @@ void SimulatorUI::createControlButtons()
     // Create forward button (right half) - moved up to avoid overlap
     lv_obj_t* forward_btn = lv_btn_create(screen_);
     lv_obj_set_size(forward_btn, CONTROL_WIDTH / 2 - 5, 30);
-    lv_obj_align(forward_btn, LV_ALIGN_TOP_RIGHT, -10, 635);
+    lv_obj_align(forward_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 635);
     lv_obj_t* forward_label = lv_label_create(forward_btn);
     lv_label_set_text(forward_label, ">>");
     lv_obj_center(forward_label);
@@ -454,7 +510,12 @@ void SimulatorUI::drawAreaEventCb(lv_event_t* e)
 {
     lv_event_code_t code = lv_event_get_code(e);
     CallbackData* data = static_cast<CallbackData*>(lv_event_get_user_data(e));
-    if (!data || !data->world) return;
+    spdlog::info("Draw area event: code={}, data={}, world={}", (int)code, (void*)data, data ? (void*)data->world : nullptr);
+    
+    if (!data || !data->world) {
+        spdlog::error("Draw area event but data or world is null!");
+        return;
+    }
     WorldInterface* world_ptr = data->world;
 
     lv_point_t point;
@@ -467,15 +528,18 @@ void SimulatorUI::drawAreaEventCb(lv_event_t* e)
     point.y -= area.y1;
 
     if (code == LV_EVENT_PRESSED) {
+        spdlog::info("Mouse pressed at ({},{}) - calling addWaterAtPixel and startDragging", point.x, point.y);
         world_ptr->addWaterAtPixel(point.x, point.y);
         world_ptr->startDragging(point.x, point.y);
         world_ptr->updateCursorForce(point.x, point.y, true);
     }
     else if (code == LV_EVENT_PRESSING) {
+        spdlog::info("Mouse pressing at ({},{}) - calling updateDrag", point.x, point.y);
         world_ptr->updateDrag(point.x, point.y);
         world_ptr->updateCursorForce(point.x, point.y, true);
     }
     else if (code == LV_EVENT_RELEASED) {
+        spdlog::info("Mouse released at ({},{}) - calling endDragging", point.x, point.y);
         world_ptr->endDragging(point.x, point.y);
         world_ptr->clearCursorForce();
     }
@@ -516,8 +580,13 @@ void SimulatorUI::resetBtnEventCb(lv_event_t* e)
 {
     if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
         CallbackData* data = static_cast<CallbackData*>(lv_event_get_user_data(e));
-        if (data && data->world) {
-            data->world->reset();
+        spdlog::info("Reset button clicked: data={}, manager={}", (void*)data, data ? (void*)data->manager : nullptr);
+        if (data && data->manager) {
+            spdlog::info("Calling reset on simulation manager {}", (void*)data->manager);
+            data->manager->reset();
+            spdlog::info("Reset completed");
+        } else {
+            spdlog::error("Reset button clicked but data or manager is null!");
         }
     }
 }
@@ -995,3 +1064,50 @@ void SimulatorUI::forwardBtnEventCb(lv_event_t* e)
         }
     }
 }
+
+void SimulatorUI::worldTypeButtonMatrixEventCb(lv_event_t* e)
+{
+    if (lv_event_get_code(e) == LV_EVENT_VALUE_CHANGED) {
+        CallbackData* data = static_cast<CallbackData*>(lv_event_get_user_data(e));
+        if (data && data->ui) {
+            lv_obj_t* btnm = static_cast<lv_obj_t*>(lv_event_get_target(e));
+            uint32_t selected = lv_buttonmatrix_get_selected_button(btnm);
+            
+            // Convert button selection to WorldType
+            WorldType newType = (selected == 0) ? WorldType::RulesA : WorldType::RulesB;
+            
+            printf("World type switch requested: %s\n", 
+                   newType == WorldType::RulesA ? "WorldA (RulesA)" : "WorldB (RulesB)");
+            
+            // Request the world switch from the simulation manager
+            data->ui->requestWorldTypeSwitch(newType);
+        }
+    }
+}
+
+void SimulatorUI::requestWorldTypeSwitch(WorldType newType)
+{
+    if (!manager_) {
+        spdlog::error("Cannot switch world type - no simulation manager set");
+        return;
+    }
+    
+    spdlog::info("Requesting world type switch to {}", getWorldTypeName(newType));
+    
+    if (manager_->switchWorldType(newType)) {
+        // Update UI to reflect the switch
+        updateWorldTypeButtonMatrix(newType);
+        spdlog::info("World type switch request completed successfully");
+    } else {
+        spdlog::error("World type switch request failed");
+    }
+}
+
+void SimulatorUI::updateWorldTypeButtonMatrix(WorldType currentType)
+{
+    if (world_type_btnm_) {
+        uint32_t buttonIndex = (currentType == WorldType::RulesA) ? 0 : 1;
+        lv_buttonmatrix_set_selected_button(world_type_btnm_, buttonIndex);
+    }
+}
+

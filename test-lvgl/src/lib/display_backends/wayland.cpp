@@ -21,7 +21,8 @@
 #include <unistd.h>
 #include <iostream>
 
-#include "../World.h"
+#include "../WorldInterface.h"
+#include "../../SimulationManager.h"
 #include "lvgl/lvgl.h"
 #include "simulator_loop.h"
 
@@ -44,7 +45,7 @@
  *  STATIC PROTOTYPES
  **********************/
 static lv_display_t* init_wayland(void);
-static void run_loop_wayland(World& world);
+static void run_loop_wayland(SimulationManager& manager);
 
 /**********************
  *  STATIC VARIABLES
@@ -121,9 +122,9 @@ static lv_display_t* init_wayland(void)
 }
 
 /**
- * The run loop of the DRM driver.
+ * The run loop of the Wayland driver.
  */
-static void run_loop_wayland(World& world)
+static void run_loop_wayland(SimulationManager& manager)
 {
     SimulatorLoop::LoopState state;
     SimulatorLoop::initState(state);
@@ -136,7 +137,7 @@ static void run_loop_wayland(World& world)
     /* Handle LVGL tasks */
     while (state.is_running) {
         // Process one frame of simulation.
-        SimulatorLoop::processFrame(world, state, 8);
+        SimulatorLoop::processFrame(manager, state, 8);
 
         // Exit immediately if step limit reached - don't wait for more events
         if (!state.is_running) {

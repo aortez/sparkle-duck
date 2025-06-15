@@ -1,5 +1,7 @@
 #include "WorldB.h"
+#include "Cell.h"
 #include "SimulatorUI.h"
+#include "Vector2i.h"
 #include "spdlog/spdlog.h"
 
 #include <algorithm>
@@ -11,6 +13,7 @@ WorldB::WorldB(uint32_t width, uint32_t height, lv_obj_t* draw_area)
     : width_(width),
       height_(height),
       draw_area_(draw_area),
+      ui_ref_(nullptr),
       timestep_(0),
       timescale_(1.0),
       removed_mass_(0.0),
@@ -51,6 +54,10 @@ WorldB::WorldB(uint32_t width, uint32_t height, lv_obj_t* draw_area)
     }
     
     timers_.startTimer("total_simulation");
+    
+    // Create configurable world setup
+    world_setup_ = std::make_unique<ConfigurableWorldSetup>();
+    
     spdlog::info("WorldB initialization complete");
 }
 
@@ -72,6 +79,13 @@ void WorldB::advanceTime(double deltaTimeSeconds)
     spdlog::trace("WorldB::advanceTime: deltaTime={:.4f}s, timestep={}", 
                   deltaTimeSeconds, timestep_);
     
+    // Add particles if enabled
+    if (add_particles_enabled_ && world_setup_) {
+        timers_.startTimer("add_particles");
+        world_setup_->addParticles(*this, timestep_, deltaTimeSeconds);
+        timers_.stopTimer("add_particles");
+    }
+    
     const double scaledDeltaTime = deltaTimeSeconds * timescale_;
     
     if (scaledDeltaTime > 0.0) {
@@ -92,11 +106,19 @@ void WorldB::advanceTime(double deltaTimeSeconds)
 
 void WorldB::draw()
 {
+    if (draw_area_ == nullptr) {
+        return;
+    }
+    
     timers_.startTimer("draw");
     
-    // Simple debug rendering for now
-    // TODO: Implement proper LVGL-based rendering
     spdlog::trace("WorldB::draw() - rendering {} cells", cells_.size());
+    
+    for (uint32_t y = 0; y < height_; y++) {
+        for (uint32_t x = 0; x < width_; x++) {
+            at(x, y).draw(draw_area_, x, y);
+        }
+    }
     
     timers_.stopTimer("draw");
 }
@@ -118,8 +140,19 @@ void WorldB::reset()
     if (walls_enabled_) {
         setupBoundaryWalls();
     }
+    spdlog::info("After wall setup, about to do WorldSetup");
+    
+    // Use the world setup strategy to initialize the world
+    spdlog::info("About to check world_setup_ pointer...");
+    if (world_setup_) {
+        spdlog::info("Calling WorldSetup::setup for WorldB");
+        world_setup_->setup(*this);
+    } else {
+        spdlog::error("WorldSetup is null in WorldB::reset()!");
+    }
     
     spdlog::info("WorldB reset complete");
+    spdlog::info("DEBUGGING: Total mass after reset = {:.3f}", getTotalMass());
 }
 
 // =================================================================
@@ -131,10 +164,12 @@ void WorldB::addDirtAtPixel(int pixelX, int pixelY)
     int cellX, cellY;
     pixelToCell(pixelX, pixelY, cellX, cellY);
     
+    spdlog::info("DEBUGGING: WorldB::addDirtAtPixel pixel ({},{}) -> cell ({},{}) valid={}", 
+                 pixelX, pixelY, cellX, cellY, isValidCell(cellX, cellY));
+    
     if (isValidCell(cellX, cellY)) {
-        addMaterialAtCell(cellX, cellY, MaterialType::DIRT, 1.0);
-        spdlog::debug("Added DIRT at pixel ({},{}) -> cell ({},{})", 
-                      pixelX, pixelY, cellX, cellY);
+        addMaterialAtCell(static_cast<uint32_t>(cellX), static_cast<uint32_t>(cellY), MaterialType::DIRT, 1.0);
+        CellB& cell = at(static_cast<uint32_t>(cellX), static_cast<uint32_t>(cellY));
     }
 }
 
@@ -296,6 +331,12 @@ void WorldB::setUI(std::unique_ptr<SimulatorUI> ui)
     spdlog::debug("UI set for WorldB");
 }
 
+void WorldB::setUIReference(SimulatorUI* ui)
+{
+    ui_ref_ = ui;
+    spdlog::debug("UI reference set for WorldB");
+}
+
 // =================================================================
 // WORLDB-SPECIFIC METHODS
 // =================================================================
@@ -312,14 +353,47 @@ const CellB& WorldB::at(uint32_t x, uint32_t y) const
     return cells_[coordToIndex(x, y)];
 }
 
+CellB& WorldB::at(const Vector2i& pos)
+{
+    return at(static_cast<uint32_t>(pos.x), static_cast<uint32_t>(pos.y));
+}
+
+const CellB& WorldB::at(const Vector2i& pos) const
+{
+    return at(static_cast<uint32_t>(pos.x), static_cast<uint32_t>(pos.y));
+}
+
+CellInterface& WorldB::getCellInterface(uint32_t x, uint32_t y)
+{
+    return at(x, y); // Call the existing at() method
+}
+
+const CellInterface& WorldB::getCellInterface(uint32_t x, uint32_t y) const
+{
+    return at(x, y); // Call the existing at() method
+}
+
 double WorldB::getTotalMass() const
 {
     double totalMass = 0.0;
+    int cellCount = 0;
+    int nonEmptyCells = 0;
     
     for (const auto& cell : cells_) {
-        totalMass += cell.getMass();
+        double cellMass = cell.getMass();
+        totalMass += cellMass;
+        cellCount++;
+        if (cellMass > 0.0) {
+            nonEmptyCells++;
+            if (nonEmptyCells <= 5) { // Log first 5 non-empty cells
+                spdlog::info("DEBUGGING: Cell {} has mass={:.3f} material={} fill_ratio={:.3f}", 
+                             cellCount-1, cellMass, static_cast<int>(cell.getMaterialType()), cell.getFillRatio());
+            }
+        }
     }
     
+    spdlog::info("DEBUGGING: WorldB total mass={:.3f} from {} cells ({} non-empty)", 
+                 totalMass, cellCount, nonEmptyCells);
     return totalMass;
 }
 
@@ -383,17 +457,17 @@ void WorldB::queueMaterialMoves()
             // Check if material should transfer to neighboring cell
             if (cell.shouldTransfer()) {
                 Vector2d transferDir = cell.getTransferDirection();
+                Vector2i transferOffset(static_cast<int>(transferDir.x), static_cast<int>(transferDir.y));
+                Vector2i currentPos(x, y);
+                Vector2i targetPos = currentPos + transferOffset;
                 
-                const int targetX = static_cast<int>(x) + static_cast<int>(transferDir.x);
-                const int targetY = static_cast<int>(y) + static_cast<int>(transferDir.y);
-                
-                if (isValidCell(targetX, targetY)) {
+                if (isValidCell(targetPos.x, targetPos.y)) {
                     // Queue a material move
                     MaterialMove move;
                     move.fromX = x;
                     move.fromY = y;
-                    move.toX = targetX;
-                    move.toY = targetY;
+                    move.toX = targetPos.x;
+                    move.toY = targetPos.y;
                     move.amount = cell.getFillRatio() * 0.5; // Transfer half the material
                     move.material = cell.getMaterialType();
                     move.momentum = cell.getVelocity() * cell.getMass();
@@ -498,10 +572,10 @@ void WorldB::setupBoundaryWalls()
 
 void WorldB::pixelToCell(int pixelX, int pixelY, int& cellX, int& cellY) const
 {
-    // Simple mapping - assuming 1:1 pixel to cell ratio for now
-    // TODO: Implement proper pixel-to-cell conversion based on Cell::WIDTH/HEIGHT
-    cellX = pixelX;
-    cellY = pixelY;
+    // Convert pixel coordinates to cell coordinates
+    // Each cell is Cell::WIDTH x Cell::HEIGHT pixels
+    cellX = pixelX / Cell::WIDTH;
+    cellY = pixelY / Cell::HEIGHT;
 }
 
 bool WorldB::isValidCell(int x, int y) const
@@ -514,4 +588,240 @@ bool WorldB::isValidCell(int x, int y) const
 size_t WorldB::coordToIndex(uint32_t x, uint32_t y) const
 {
     return y * width_ + x;
+}
+
+Vector2i WorldB::pixelToCell(int pixelX, int pixelY) const
+{
+    return Vector2i(pixelX / Cell::WIDTH, pixelY / Cell::HEIGHT);
+}
+
+bool WorldB::isValidCell(const Vector2i& pos) const
+{
+    return isValidCell(pos.x, pos.y);
+}
+
+size_t WorldB::coordToIndex(const Vector2i& pos) const
+{
+    return coordToIndex(static_cast<uint32_t>(pos.x), static_cast<uint32_t>(pos.y));
+}
+
+// =================================================================
+// WORLD SETUP CONTROL METHODS
+// =================================================================
+
+void WorldB::setLeftThrowEnabled(bool enabled)
+{
+    ConfigurableWorldSetup* configSetup = dynamic_cast<ConfigurableWorldSetup*>(world_setup_.get());
+    if (configSetup) {
+        configSetup->setLeftThrowEnabled(enabled);
+    }
+    left_throw_enabled_ = enabled; // Keep member variable in sync
+}
+
+void WorldB::setRightThrowEnabled(bool enabled)
+{
+    ConfigurableWorldSetup* configSetup = dynamic_cast<ConfigurableWorldSetup*>(world_setup_.get());
+    if (configSetup) {
+        configSetup->setRightThrowEnabled(enabled);
+    }
+    right_throw_enabled_ = enabled; // Keep member variable in sync
+}
+
+void WorldB::setLowerRightQuadrantEnabled(bool enabled)
+{
+    ConfigurableWorldSetup* configSetup = dynamic_cast<ConfigurableWorldSetup*>(world_setup_.get());
+    if (configSetup) {
+        configSetup->setLowerRightQuadrantEnabled(enabled);
+    }
+    quadrant_enabled_ = enabled; // Keep member variable in sync
+}
+
+void WorldB::setWallsEnabled(bool enabled)
+{
+    ConfigurableWorldSetup* configSetup = dynamic_cast<ConfigurableWorldSetup*>(world_setup_.get());
+    if (configSetup) {
+        configSetup->setWallsEnabled(enabled);
+    }
+    walls_enabled_ = enabled; // Keep member variable in sync
+    
+    // Rebuild walls if needed
+    if (enabled) {
+        setupBoundaryWalls();
+    } else {
+        // Clear existing walls by resetting boundary cells to air
+        for (uint32_t x = 0; x < width_; ++x) {
+            at(x, 0).clear(); // Top wall
+            at(x, height_ - 1).clear(); // Bottom wall
+        }
+        for (uint32_t y = 0; y < height_; ++y) {
+            at(0, y).clear(); // Left wall
+            at(width_ - 1, y).clear(); // Right wall
+        }
+    }
+}
+
+void WorldB::setRainRate(double rate)
+{
+    ConfigurableWorldSetup* configSetup = dynamic_cast<ConfigurableWorldSetup*>(world_setup_.get());
+    if (configSetup) {
+        configSetup->setRainRate(rate);
+    }
+    rain_rate_ = rate; // Keep member variable in sync
+}
+
+bool WorldB::isLeftThrowEnabled() const
+{
+    const ConfigurableWorldSetup* configSetup = dynamic_cast<const ConfigurableWorldSetup*>(world_setup_.get());
+    return configSetup ? configSetup->isLeftThrowEnabled() : left_throw_enabled_;
+}
+
+bool WorldB::isRightThrowEnabled() const
+{
+    const ConfigurableWorldSetup* configSetup = dynamic_cast<const ConfigurableWorldSetup*>(world_setup_.get());
+    return configSetup ? configSetup->isRightThrowEnabled() : right_throw_enabled_;
+}
+
+bool WorldB::isLowerRightQuadrantEnabled() const
+{
+    const ConfigurableWorldSetup* configSetup = dynamic_cast<const ConfigurableWorldSetup*>(world_setup_.get());
+    return configSetup ? configSetup->isLowerRightQuadrantEnabled() : quadrant_enabled_;
+}
+
+bool WorldB::areWallsEnabled() const
+{
+    const ConfigurableWorldSetup* configSetup = dynamic_cast<const ConfigurableWorldSetup*>(world_setup_.get());
+    return configSetup ? configSetup->areWallsEnabled() : walls_enabled_;
+}
+
+double WorldB::getRainRate() const
+{
+    const ConfigurableWorldSetup* configSetup = dynamic_cast<const ConfigurableWorldSetup*>(world_setup_.get());
+    return configSetup ? configSetup->getRainRate() : rain_rate_;
+}
+
+// World type management implementation
+WorldType WorldB::getWorldType() const
+{
+    return WorldType::RulesB;
+}
+
+void WorldB::preserveState(::WorldState& state) const
+{
+    // Initialize state with current world properties
+    state.initializeGrid(width_, height_);
+    state.timescale = timescale_;
+    state.timestep = timestep_;
+    
+    // Copy physics parameters
+    state.gravity = gravity_;
+    state.elasticity_factor = elasticity_factor_;
+    state.pressure_scale = pressure_scale_;
+    state.dirt_fragmentation_factor = 1.0; // WorldB doesn't use fragmentation
+    state.water_pressure_threshold = 0.0; // WorldB uses simplified pressure
+    
+    // Copy world setup flags
+    state.left_throw_enabled = left_throw_enabled_;
+    state.right_throw_enabled = right_throw_enabled_;
+    state.lower_right_quadrant_enabled = quadrant_enabled_;
+    state.walls_enabled = walls_enabled_;
+    state.rain_rate = rain_rate_;
+    
+    // Copy time reversal state (WorldB doesn't support time reversal)
+    state.time_reversal_enabled = false;
+    
+    // Copy control flags
+    state.add_particles_enabled = add_particles_enabled_;
+    state.cursor_force_enabled = cursor_force_enabled_;
+    
+    // Convert CellB data to WorldState::CellData
+    for (uint32_t y = 0; y < height_; ++y) {
+        for (uint32_t x = 0; x < width_; ++x) {
+            const CellB& cell = at(x, y);
+            
+            // Calculate total mass based on fill ratio and material density
+            double totalMass = 0.0;
+            MaterialType cellMaterial = cell.getMaterialType();
+            
+            if (cellMaterial != MaterialType::AIR && cell.getFillRatio() > MIN_MATTER_THRESHOLD) {
+                const MaterialProperties& props = getMaterialProperties(cellMaterial);
+                totalMass = cell.getFillRatio() * props.density;
+            }
+            
+            // Create CellData with CellB information
+            ::WorldState::CellData cellData(
+                totalMass,
+                cellMaterial,
+                cell.getVelocity(),
+                cell.getCOM(),
+                cell.getPressure()
+            );
+            
+            state.setCellData(x, y, cellData);
+        }
+    }
+    
+    spdlog::info("WorldB state preserved: {}x{} grid with {} total mass", 
+                width_, height_, getTotalMass());
+}
+
+void WorldB::restoreState(const ::WorldState& state)
+{
+    spdlog::info("Restoring WorldB state from {}x{} grid", state.width, state.height);
+    
+    // Resize grid if necessary
+    if (state.width != width_ || state.height != height_) {
+        resizeGrid(state.width, state.height, false);
+    }
+    
+    // Restore physics parameters
+    timescale_ = state.timescale;
+    timestep_ = state.timestep;
+    gravity_ = state.gravity;
+    elasticity_factor_ = state.elasticity_factor;
+    pressure_scale_ = state.pressure_scale;
+    // Note: WorldB doesn't use dirt_fragmentation_factor or water_pressure_threshold
+    
+    // Restore world setup flags
+    left_throw_enabled_ = state.left_throw_enabled;
+    right_throw_enabled_ = state.right_throw_enabled;
+    quadrant_enabled_ = state.lower_right_quadrant_enabled;
+    walls_enabled_ = state.walls_enabled;
+    rain_rate_ = state.rain_rate;
+    
+    // Restore control flags
+    add_particles_enabled_ = state.add_particles_enabled;
+    cursor_force_enabled_ = state.cursor_force_enabled;
+    
+    // Convert WorldState::CellData back to CellB data
+    for (uint32_t y = 0; y < height_; ++y) {
+        for (uint32_t x = 0; x < width_; ++x) {
+            const ::WorldState::CellData& cellData = state.getCellData(x, y);
+            CellB& cell = at(x, y);
+            
+            // Convert from mixed material data to pure CellB format
+            if (cellData.material_mass > MIN_MATTER_THRESHOLD && 
+                cellData.dominant_material != MaterialType::AIR) {
+                
+                // Calculate fill ratio from mass and material density
+                const MaterialProperties& props = getMaterialProperties(cellData.dominant_material);
+                double fillRatio = props.density > 0.0 ? 
+                                  std::min(1.0, cellData.material_mass / props.density) : 
+                                  cellData.material_mass;
+                
+                // Update cell with pure material
+                cell.setMaterialType(cellData.dominant_material);
+                cell.setFillRatio(fillRatio);
+                cell.setVelocity(cellData.velocity);
+                cell.setCOM(cellData.com);
+                cell.setPressure(cellData.pressure);
+            } else {
+                // Empty cell
+                cell.clear();
+            }
+            
+            cell.markDirty();
+        }
+    }
+    
+    spdlog::info("WorldB state restored: {} total mass", getTotalMass());
 }

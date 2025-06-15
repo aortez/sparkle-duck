@@ -20,7 +20,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#include "../World.h"
+#include "../WorldInterface.h"
+#include "../../SimulationManager.h"
 #include "../SimulatorUI.h"
 #include "lvgl/lvgl.h"
 #include "simulator_loop.h"
@@ -46,7 +47,7 @@ extern simulator_settings_t settings;
  *  STATIC PROTOTYPES
  **********************/
 static lv_display_t* init_x11(void);
-static void run_loop_x11(World& world);
+static void run_loop_x11(SimulationManager& manager);
 
 /**********************
  *  STATIC VARIABLES
@@ -111,7 +112,7 @@ static lv_display_t* init_x11(void)
 /**
  * The run loop of the X11 driver
  */
-void run_loop_x11(World& world)
+void run_loop_x11(SimulationManager& manager)
 {
     // Initialize simulation loop state for step counting
     SimulatorLoop::LoopState state;
@@ -125,7 +126,7 @@ void run_loop_x11(World& world)
     /* Handle LVGL tasks */
     while (state.is_running) {
         // Process one frame of simulation.
-        SimulatorLoop::processFrame(world, state, 8);
+        SimulatorLoop::processFrame(manager, state, 8);
 
         // Exit immediately if step limit reached - don't wait for more events
         if (!state.is_running) {

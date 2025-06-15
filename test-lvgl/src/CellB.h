@@ -1,10 +1,14 @@
 #pragma once
 
+#include "CellInterface.h"
 #include "MaterialType.h"
 #include "Vector2d.h"
 
 #include <cstdint>
 #include <string>
+#include <vector>
+
+#include "lvgl/lvgl.h"
 
 /**
  * \file
@@ -13,7 +17,7 @@
  * a fill ratio [0,1] indicating how much of the cell is occupied.
  */
 
-class CellB {
+class CellB : public CellInterface {
 public:
     // Material fill threshold constants
     static constexpr double MIN_FILL_THRESHOLD = 0.001;  // Minimum matter to consider
@@ -29,9 +33,12 @@ public:
     // Constructor with material type and fill ratio
     CellB(MaterialType type, double fill = 1.0);
     
-    // Copy constructor and assignment
-    CellB(const CellB& other) = default;
-    CellB& operator=(const CellB& other) = default;
+    // Destructor - cleanup LVGL canvas
+    ~CellB();
+    
+    // Copy constructor and assignment - handle LVGL canvas properly
+    CellB(const CellB& other);
+    CellB& operator=(const CellB& other);
     
     // =================================================================
     // MATERIAL PROPERTIES
@@ -46,7 +53,7 @@ public:
     void setFillRatio(double ratio);
     
     // Material state queries
-    bool isEmpty() const { return fill_ratio_ < MIN_FILL_THRESHOLD; }
+    bool isEmpty() const override { return fill_ratio_ < MIN_FILL_THRESHOLD; }
     bool isFull() const { return fill_ratio_ > MAX_FILL_THRESHOLD; }
     bool isAir() const { return material_type_ == MaterialType::AIR; }
     bool isWall() const { return material_type_ == MaterialType::WALL; }
@@ -102,7 +109,7 @@ public:
     void replaceMaterial(MaterialType type, double fill_ratio = 1.0);
     
     // Clear cell (set to empty air)
-    void clear();
+    void clear() override;
     
     // =================================================================
     // PHYSICS UTILITIES
@@ -121,11 +128,43 @@ public:
     Vector2d getTransferDirection() const;
     
     // =================================================================
+    // RENDERING
+    // =================================================================
+    
+    // Main drawing method (called by WorldB::draw)
+    void draw(lv_obj_t* parent, uint32_t x, uint32_t y);
+    
+    // Separate drawing methods for different modes
+    void drawNormal(lv_obj_t* parent, uint32_t x, uint32_t y);
+    void drawDebug(lv_obj_t* parent, uint32_t x, uint32_t y);
+    
+    // Mark the cell as needing to be redrawn
+    void markDirty() override;
+    
+    // =================================================================
     // DEBUGGING
     // =================================================================
     
     // Debug string representation
     std::string toString() const;
+
+    // =================================================================
+    // CELLINTERFACE IMPLEMENTATION
+    // =================================================================
+    
+    // Basic material addition
+    void addDirt(double amount) override;
+    void addWater(double amount) override;
+    
+    // Advanced material addition with physics
+    void addDirtWithVelocity(double amount, const Vector2d& velocity) override;
+    void addWaterWithVelocity(double amount, const Vector2d& velocity) override;
+    void addDirtWithCOM(double amount, const Vector2d& com, const Vector2d& velocity) override;
+    
+    // Cell state management (markDirty declared above in rendering section)
+    
+    // Material properties
+    double getTotalMaterial() const override;
 
 private:
     MaterialType material_type_;  // Type of material in this cell
@@ -133,4 +172,9 @@ private:
     Vector2d com_;               // Center of mass position [-1,1]
     Vector2d velocity_;          // 2D velocity vector
     double pressure_;            // Hydrostatic pressure
+    
+    // Rendering state
+    std::vector<uint8_t> buffer_; // Buffer for LVGL canvas pixel data
+    lv_obj_t* canvas_;           // LVGL canvas object
+    bool needs_redraw_;          // Flag to track if cell needs redrawing
 };

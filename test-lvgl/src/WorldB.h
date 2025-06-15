@@ -3,7 +3,11 @@
 #include "CellB.h"
 #include "MaterialType.h"
 #include "Timers.h"
+#include "Vector2i.h"
 #include "WorldInterface.h"
+#include "WorldSetup.h"
+#include "WorldState.h"
+#include "WorldFactory.h"
 
 #include <cstdint>
 #include <memory>
@@ -49,11 +53,16 @@ public:
     uint32_t getHeight() const override { return height_; }
     lv_obj_t* getDrawArea() const override { return draw_area_; }
     
+    // WorldInterface cell access through CellInterface
+    CellInterface& getCellInterface(uint32_t x, uint32_t y) override;
+    const CellInterface& getCellInterface(uint32_t x, uint32_t y) const override;
+    
     // =================================================================
     // WORLDINTERFACE IMPLEMENTATION - SIMULATION CONTROL
     // =================================================================
     
     void setTimescale(double scale) override { timescale_ = scale; }
+    double getTimescale() const override { return timescale_; }
     double getTotalMass() const override;
     double getRemovedMass() const override { return removed_mass_; }
     void setAddParticlesEnabled(bool enabled) override { add_particles_enabled_ = enabled; }
@@ -115,16 +124,16 @@ public:
     // WORLDINTERFACE IMPLEMENTATION - WORLD SETUP (SIMPLIFIED)
     // =================================================================
     
-    void setLeftThrowEnabled(bool enabled) override { left_throw_enabled_ = enabled; }
-    void setRightThrowEnabled(bool enabled) override { right_throw_enabled_ = enabled; }
-    void setLowerRightQuadrantEnabled(bool enabled) override { quadrant_enabled_ = enabled; }
-    void setWallsEnabled(bool enabled) override { walls_enabled_ = enabled; }
-    void setRainRate(double rate) override { rain_rate_ = rate; }
-    bool isLeftThrowEnabled() const override { return left_throw_enabled_; }
-    bool isRightThrowEnabled() const override { return right_throw_enabled_; }
-    bool isLowerRightQuadrantEnabled() const override { return quadrant_enabled_; }
-    bool areWallsEnabled() const override { return walls_enabled_; }
-    double getRainRate() const override { return rain_rate_; }
+    void setLeftThrowEnabled(bool enabled) override;
+    void setRightThrowEnabled(bool enabled) override;
+    void setLowerRightQuadrantEnabled(bool enabled) override;
+    void setWallsEnabled(bool enabled) override;
+    void setRainRate(double rate) override;
+    bool isLeftThrowEnabled() const override;
+    bool isRightThrowEnabled() const override;
+    bool isLowerRightQuadrantEnabled() const override;
+    bool areWallsEnabled() const override;
+    double getRainRate() const override;
     
     // =================================================================
     // WORLDINTERFACE IMPLEMENTATION - CURSOR FORCE
@@ -148,11 +157,20 @@ public:
     void markUserInput() override { /* no-op for now */ }
     
     // =================================================================
+    // WORLDINTERFACE IMPLEMENTATION - WORLD TYPE MANAGEMENT
+    // =================================================================
+    
+    WorldType getWorldType() const override;
+    void preserveState(::WorldState& state) const override;
+    void restoreState(const ::WorldState& state) override;
+    
+    // =================================================================
     // WORLDINTERFACE IMPLEMENTATION - UI INTEGRATION
     // =================================================================
     
     void setUI(std::unique_ptr<SimulatorUI> ui) override;
-    SimulatorUI* getUI() const override { return ui_.get(); }
+    void setUIReference(SimulatorUI* ui) override;
+    SimulatorUI* getUI() const override { return ui_ref_ ? ui_ref_ : ui_.get(); }
     
     // =================================================================
     // WORLDB-SPECIFIC METHODS
@@ -161,6 +179,8 @@ public:
     // Direct cell access
     CellB& at(uint32_t x, uint32_t y);
     const CellB& at(uint32_t x, uint32_t y) const;
+    CellB& at(const Vector2i& pos);
+    const CellB& at(const Vector2i& pos) const;
     
     // Add material at specific cell coordinates
     void addMaterialAtCell(uint32_t x, uint32_t y, MaterialType type, double amount = 1.0);
@@ -202,8 +222,11 @@ private:
     
     // Coordinate conversion helpers
     void pixelToCell(int pixelX, int pixelY, int& cellX, int& cellY) const;
+    Vector2i pixelToCell(int pixelX, int pixelY) const;
     bool isValidCell(int x, int y) const;
+    bool isValidCell(const Vector2i& pos) const;
     size_t coordToIndex(uint32_t x, uint32_t y) const;
+    size_t coordToIndex(const Vector2i& pos) const;
     
     // =================================================================
     // MEMBER VARIABLES
@@ -254,6 +277,10 @@ private:
     // Performance timing
     mutable Timers timers_;
     
+    // World setup strategy
+    std::unique_ptr<WorldSetup> world_setup_;
+    
     // UI interface
-    std::unique_ptr<SimulatorUI> ui_;
+    std::unique_ptr<SimulatorUI> ui_;                    // Owned UI (legacy architecture)
+    SimulatorUI* ui_ref_;                                // Non-owning reference (SimulationManager architecture)
 };

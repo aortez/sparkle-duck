@@ -1,7 +1,8 @@
 #pragma once
 
-#include "../World.h"
+#include "../WorldInterface.h"
 #include "../SimulatorUI.h"
+#include "../SimulationManager.h"
 #include "lvgl/lvgl.h"
 #include "lvgl/src/misc/lv_timer.h"
 #include <chrono>
@@ -24,15 +25,15 @@ struct LoopState {
 };
 
 struct TimerUserData {
-    World* world;
+    SimulationManager* manager;
     LoopState* state;
     uint32_t period;
-    TimerUserData(World* w, LoopState* s, uint32_t p) : world(w), state(s), period(p) {}
+    TimerUserData(SimulationManager* m, LoopState* s, uint32_t p) : manager(m), state(s), period(p) {}
 };
 
 struct EventContext {
     LoopState* state;
-    World* world;
+    SimulationManager* manager;
     lv_obj_t* pause_button;
     lv_obj_t* reset_button;
     lv_obj_t* pause_label;
@@ -52,7 +53,7 @@ inline void initState(LoopState& state) {
 }
 
 // Process one frame of simulation
-inline void processFrame(World& world, LoopState& state, uint32_t delta_time_ms = 16) {
+inline void processFrame(SimulationManager& manager, LoopState& state, uint32_t delta_time_ms = 16) {
     // Check if we've reached the step limit
     if (state.max_steps > 0 && state.step_count >= state.max_steps) {
         printf("Simulation completed after %u steps\n", state.step_count);
@@ -63,11 +64,19 @@ inline void processFrame(World& world, LoopState& state, uint32_t delta_time_ms 
     // Increment step counter
     state.step_count++;
 
+    // Get current world from manager (this ensures we always have the current world)
+    WorldInterface* world = manager.getWorld();
+    if (!world) {
+        printf("Error: No world available from SimulationManager\n");
+        state.is_running = false;
+        return;
+    }
+
     // Advance simulation
-    world.advanceTime(delta_time_ms * world.timescale * 0.001);
+    world->advanceTime(delta_time_ms * world->getTimescale() * 0.001);
     
     // Always draw every frame to avoid flicker
-    world.draw();
+    world->draw();
 
     // Mass label is now updated automatically by the World through its UI
 
@@ -80,25 +89,25 @@ inline void processFrame(World& world, LoopState& state, uint32_t delta_time_ms 
         state.last_fps_update = current_time;
         
         // Update FPS through the UI system
-        if (world.getUI()) {
-            world.getUI()->updateFPSLabel(state.fps);
+        if (world->getUI()) {
+            world->getUI()->updateFPSLabel(state.fps);
         }
     }
 
     // Periodically dump timer stats every 10 seconds
     auto now = LoopState::clock::now();
     if (std::chrono::duration_cast<std::chrono::seconds>(now - state.last_dump).count() >= 10) {
-        world.dumpTimerStats();
+        world->dumpTimerStats();
         state.last_dump = now;
     }
 }
 
 // Create an event-driven simulation timer
-inline lv_timer_t* createSimulationTimer(World& world, LoopState& state, uint32_t period_ms = 16) {
-    TimerUserData* user_data = new TimerUserData(&world, &state, period_ms);
+inline lv_timer_t* createSimulationTimer(SimulationManager& manager, LoopState& state, uint32_t period_ms = 16) {
+    TimerUserData* user_data = new TimerUserData(&manager, &state, period_ms);
     return lv_timer_create([](lv_timer_t* timer) {
         TimerUserData* user_data = static_cast<TimerUserData*>(lv_timer_get_user_data(timer));
-        processFrame(*user_data->world, *user_data->state, user_data->period);
+        processFrame(*user_data->manager, *user_data->state, user_data->period);
     }, period_ms, user_data);
 }
 
@@ -110,7 +119,7 @@ inline void requestRedraw(LoopState& state) {
 static void event_handler(lv_event_t * e) {
     auto* ctx = static_cast<EventContext*>(lv_event_get_user_data(e));
     auto* state = ctx ? ctx->state : nullptr;
-    auto* world = ctx ? ctx->world : nullptr;
+    auto* manager = ctx ? ctx->manager : nullptr;
     lv_obj_t* pause_button = ctx ? ctx->pause_button : nullptr;
     lv_obj_t* reset_button = ctx ? ctx->reset_button : nullptr;
     lv_obj_t* pause_label = ctx ? ctx->pause_label : nullptr;
@@ -149,7 +158,7 @@ static void event_handler(lv_event_t * e) {
     }
 
     // Handle simulation control events
-    if(code == LV_EVENT_CLICKED && state && world) {
+    if(code == LV_EVENT_CLICKED && state && manager) {
         if(obj == pause_button) {
             LV_LOG_USER("Pause button clicked");
             state->paused = !state->paused;
@@ -157,7 +166,10 @@ static void event_handler(lv_event_t * e) {
         }
         else if(obj == reset_button) {
             LV_LOG_USER("Reset button clicked");
-            world->reset();
+            WorldInterface* world = manager->getWorld();
+            if (world) {
+                world->reset();
+            }
             state->paused = true;
             lv_label_set_text(pause_label, "Resume");
         }

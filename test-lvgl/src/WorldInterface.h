@@ -6,6 +6,9 @@
 
 // Forward declarations
 class SimulatorUI;
+class CellInterface;
+struct WorldState;
+enum class WorldType;
 
 /**
  * \file
@@ -46,12 +49,19 @@ public:
     // Get the LVGL drawing area object
     virtual lv_obj_t* getDrawArea() const = 0;
     
+    // Access cells through CellInterface for material operations
+    virtual CellInterface& getCellInterface(uint32_t x, uint32_t y) = 0;
+    virtual const CellInterface& getCellInterface(uint32_t x, uint32_t y) const = 0;
+    
     // =================================================================
     // SIMULATION CONTROL
     // =================================================================
     
     // Set the simulation time scaling factor
     virtual void setTimescale(double scale) = 0;
+    
+    // Get the current simulation time scaling factor
+    virtual double getTimescale() const = 0;
     
     // Get total mass of materials in the world
     virtual double getTotalMass() const = 0;
@@ -233,6 +243,22 @@ public:
     // Set the UI component (for bidirectional communication)
     virtual void setUI(std::unique_ptr<SimulatorUI> ui) = 0;
     
+    // Set UI reference without taking ownership (for SimulationManager architecture)
+    virtual void setUIReference(SimulatorUI* ui) = 0;
+    
     // Get the UI component
     virtual SimulatorUI* getUI() const = 0;
+    
+    // =================================================================
+    // WORLD TYPE MANAGEMENT
+    // =================================================================
+    
+    // Get the type of this world implementation
+    virtual WorldType getWorldType() const = 0;
+    
+    // Preserve current world state for cross-world switching
+    virtual void preserveState(WorldState& state) const = 0;
+    
+    // Restore world state from cross-world switching
+    virtual void restoreState(const WorldState& state) = 0;
 };

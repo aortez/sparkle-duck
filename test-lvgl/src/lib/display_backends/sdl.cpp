@@ -19,7 +19,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#include "../World.h"
+#include "../WorldInterface.h"
+#include "../../SimulationManager.h"
 #include "lvgl/lvgl.h"
 #include "simulator_loop.h"
 #if LV_USE_SDL
@@ -43,7 +44,7 @@ extern simulator_settings_t settings;
 /**********************
  *  STATIC PROTOTYPES
  **********************/
-static void run_loop_sdl(World& world);
+static void run_loop_sdl(SimulationManager& manager);
 static lv_display_t* init_sdl(void);
 
 /**********************
@@ -105,7 +106,7 @@ static lv_display_t* init_sdl(void)
 /**
  * The run loop of the SDL driver
  */
-static void run_loop_sdl(World& world)
+static void run_loop_sdl(SimulationManager& manager)
 {
     // Initialize simulation loop state for step counting
     SimulatorLoop::LoopState state;
@@ -118,18 +119,26 @@ static void run_loop_sdl(World& world)
 
     /* Handle LVGL tasks */
     while (state.is_running) {
-        // Check if we've reached the step limit
-        if (state.max_steps > 0 && state.step_count >= state.max_steps) {
+        // Process one frame of simulation.
+        SimulatorLoop::processFrame(manager, state, 8);
+
+        // Exit immediately if step limit reached - don't wait for more events
+        if (!state.is_running) {
             printf("Simulation completed after %u steps\n", state.step_count);
             break;
         }
-
-        // Increment step counter
-        state.step_count++;
 
         /* Returns the time to the next timer execution */
         idle_time = lv_timer_handler();
         usleep(idle_time * 1000);
     }
+    
+    // Process any final UI updates before taking screenshot
+    for (int i = 0; i < 3; ++i) {
+        lv_timer_handler();
+        usleep(10000); // 10ms
+    }
+    
+    SimulatorUI::takeExitScreenshot();
 }
 #endif /*#if LV_USE_SDL*/

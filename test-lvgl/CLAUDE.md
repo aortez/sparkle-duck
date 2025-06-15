@@ -67,7 +67,8 @@ SPARKLE_DUCK_VISUAL_TESTS=1 ./run_tests.sh
 - **WorldRules**: Complex physics with pressure systems and material mixing
 
 ### Shared Components
-- **Vector2d**: 2D mathematics for physics calculations
+- **Vector2d**: 2D floating point mathematics for physics calculations
+- **Vector2i**: 2D integer mathematics for physics calculations
 - **SimulatorUI**: LVGL-based interface supporting both physics systems
 
 ### UI Framework
@@ -142,26 +143,66 @@ The application uses spdlog for structured logging with dual output:
 - **TRACE**: High-frequency per-frame events (pressure systems, physics details)
 
 ### Log Files
-- **File**: `sparkle-duck.log` (rotating, 10MB max, 3 files)
+- **File**: `sparkle-duck.log` (overwrites on each run)
 - **Location**: Same directory as executable
-- **Rotation**: Automatic when files exceed 10MB
+- **Behavior**: File is truncated at startup for fresh logs each session
 
 You can troubleshoot behavior by examining the TRACE logs.
 
+## References
+### Lvgl reference:
+If you need to, read the docs here:
+https://docs.lvgl.io/master/details/widgets/index.html
+
+### Design docs
+
+Can be found here:
+- design_docs/GridMechanics.md  #<-- For the WorldB system.
+- design_docs/ui_overview.md  #<-- UI architecture and widget layout
+- design_docs/WebRTC-test-driver.md
+- design_docs/*.md
+
 ## Development Status
 
-### Current State (WorldB Implementation)
-[ ] - Adding an interface to World, so that World can eventually be renamed MixedWorld.
-[ ] - Update log file to overwrite at startup.  Update CLAUDE.md to reflect this change.
-[ ] - Updating the UI to have a way to switch between world types. Maybe create a WorldTypeConverter utility?
-[ ] - Add a new WorldB type, with a minimal implementation of the GridMechanics.md design document.
+### Current State: WorldInterface Implementation Complete ✅
+**All 7 phases of world-interface-plan.md are complete:**
 
-### Switching Between Systems
-- **WorldA**: mixed materials, full physics
-- **WorldB**: pure materials, simplified physics
-- **Testing**: Both systems have parallel test suites for validation
-- UI control to switch between.
-- Might need a Cell Interface also.
+1. ✅ **WorldInterface Foundation** - Abstract interface with 57 methods for dual physics systems
+2. ✅ **SimulatorUI Migration** - UI uses WorldInterface polymorphically for both world types  
+3. ✅ **Cell Type Strategy** - Separate Cell/CellB implementations without forced interface
+4. ✅ **Testing Strategy** - 36 tests passing across both World (RulesA) and WorldB (RulesB) systems
+5. ✅ **Integration & Factory** - Command-line world selection: `./sparkle-duck -w rulesA/rulesB`
+6. ✅ **WorldB Rendering** - Complete pure-material rendering with MaterialType system
+7. ✅ **World State Management** - Cross-world state preservation and conversion infrastructure
 
-TODO
-[ ] - Add a Vector2i class, this may improve some of the integer-based logic.
+### Recently Completed Critical Fixes:
+✅ **World Switching Crash Fix** - Fixed stale world reference causing segmentation faults
+✅ **Material Density Conversion** - Fixed visual transparency issues during WorldA/B state conversion
+✅ **Runtime UI Switching** - Implemented world type switch control in SimulatorUI for live RulesA ↔ RulesB switching
+
+### Phase 7.2 Complete: Runtime UI Switching ✅
+**All world switching functionality implemented:**
+✅ World type switch control in SimulatorUI control panel
+✅ Smooth runtime switching between RulesA ↔ RulesB without restart
+✅ Visual feedback and error handling for world transitions  
+✅ State preservation during runtime world type changes
+
+### Other Completed Tasks:
+[x] - Adding an interface to World ✅ (WorldInterface implemented)
+[x] - Update log file to overwrite at startup ✅ 
+[x] - Add a new WorldB type ✅ (Complete pure-material physics system)
+
+### Switching Between Systems ✅ FULLY IMPLEMENTED
+- **WorldA (RulesA)**: mixed dirt/water materials, complex physics, time reversal
+- **WorldB (RulesB)**: pure materials (8 types), simplified physics, efficient rendering
+- **Testing**: Both systems have parallel test suites with 36 tests passing
+- **Command Selection**: `./sparkle-duck -w rulesA` or `./sparkle-duck -w rulesB`
+- **Runtime UI Switching**: World type switch control for live switching during simulation
+- **State Conversion**: Cross-world material conversion with density compensation
+- **CellInterface**: Implemented for cross-compatibility between Cell/CellB systems
+
+## Misc TODO
+[x] - Make a UI design document.
+[ ] - Update UI so user can select which type of material to add to the world.
+[ ] - some way to talk to the application while it runs... a DBus API, a socket API, what are the other options?
+[ ] - run a clean build and fix all warnings, then make all warnings into errors.
