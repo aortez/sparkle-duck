@@ -157,52 +157,41 @@ https://docs.lvgl.io/master/details/widgets/index.html
 ### Design docs
 
 Can be found here:
-- design_docs/GridMechanics.md  #<-- For the WorldB system.
-- design_docs/ui_overview.md  #<-- UI architecture and widget layout
-- design_docs/WebRTC-test-driver.md
+- design_docs/GridMechanics.md          #<-- For the WorldB system foundations.
+- design_docs/WorldB-Development-Plan.md #<-- Complete WorldB development roadmap.
+- design_docs/ui_overview.md            #<-- UI architecture and widget layout
+- design_docs/WebRTC-test-driver.md     #<-- P2P API for test framework purposes.
 - design_docs/*.md
 
 ## Development Status
 
-### Current State: WorldInterface Implementation Complete ✅
-**All 7 phases of world-interface-plan.md are complete:**
+### Current Focus: WorldB Advanced Development ✅
+**Foundation Complete** - Now enhancing WorldB as a full-featured pure-material physics system:
 
-1. ✅ **WorldInterface Foundation** - Abstract interface with 57 methods for dual physics systems
-2. ✅ **SimulatorUI Migration** - UI uses WorldInterface polymorphically for both world types  
-3. ✅ **Cell Type Strategy** - Separate Cell/CellB implementations without forced interface
-4. ✅ **Testing Strategy** - 36 tests passing across both World (RulesA) and WorldB (RulesB) systems
-5. ✅ **Integration & Factory** - Command-line world selection: `./sparkle-duck -w rulesA/rulesB`
-6. ✅ **WorldB Rendering** - Complete pure-material rendering with MaterialType system
-7. ✅ **World State Management** - Cross-world state preservation and conversion infrastructure
+**Recently Completed:**
+✅ **WorldInterface Implementation** - Complete dual physics system architecture  
+✅ **Runtime World Switching** - Live WorldA ↔ WorldB transitions with UI switch control
+✅ **Material Density Conversion** - Fixed visual consistency during world switching
 
-### Recently Completed Critical Fixes:
-✅ **World Switching Crash Fix** - Fixed stale world reference causing segmentation faults
-✅ **Material Density Conversion** - Fixed visual transparency issues during WorldA/B state conversion
-✅ **Runtime UI Switching** - Implemented world type switch control in SimulatorUI for live RulesA ↔ RulesB switching
+**Current Priority (Phase 1):**
+🔄 **Complete Material Rendering** - Visual implementation for all 8 material types (DIRT, WATER, WOOD, SAND, METAL, LEAF, WALL, AIR)
+🔄 **Material Picker UI** - Allow users to select and place any material type
+🔄 **Cell Grabber Tool** - Interactive cell manipulation and movement system
 
-### Phase 7.2 Complete: Runtime UI Switching ✅
-**All world switching functionality implemented:**
-✅ World type switch control in SimulatorUI control panel
-✅ Smooth runtime switching between RulesA ↔ RulesB without restart
-✅ Visual feedback and error handling for world transitions  
-✅ State preservation during runtime world type changes
+**Next Phases:**
+- **Phase 2**: Advanced placement tools (brush, fill, shapes) + material-specific physics  
+- **Phase 3**: Simulation scenarios, analysis tools, performance optimization
+- **Phase 4**: Thermal/electrical simulation, custom materials, plugin architecture
 
-### Other Completed Tasks:
-[x] - Adding an interface to World ✅ (WorldInterface implemented)
-[x] - Update log file to overwrite at startup ✅ 
-[x] - Add a new WorldB type ✅ (Complete pure-material physics system)
+**Reference**: See `design_docs/WorldB-Development-Plan.md` for complete roadmap
 
-### Switching Between Systems ✅ FULLY IMPLEMENTED
-- **WorldA (RulesA)**: mixed dirt/water materials, complex physics, time reversal
-- **WorldB (RulesB)**: pure materials (8 types), simplified physics, efficient rendering
-- **Testing**: Both systems have parallel test suites with 36 tests passing
-- **Command Selection**: `./sparkle-duck -w rulesA` or `./sparkle-duck -w rulesB`
-- **Runtime UI Switching**: World type switch control for live switching during simulation
-- **State Conversion**: Cross-world material conversion with density compensation
-- **CellInterface**: Implemented for cross-compatibility between Cell/CellB systems
+### Architecture Status
+- **WorldA (RulesA)**: Mixed dirt/water materials, complex physics, time reversal ✅  
+- **WorldB (RulesB)**: Pure materials (8 types), simplified physics, enhanced rendering 🔄
+- **SimulationManager**: Handles world switching and ownership ✅
+- **WorldInterface**: Unified API for both physics systems ✅
 
 ## Misc TODO
-[x] - Make a UI design document.
-[ ] - Update UI so user can select which type of material to add to the world.
-[ ] - some way to talk to the application while it runs... a DBus API, a socket API, what are the other options?
-[ ] - run a clean build and fix all warnings, then make all warnings into errors.
+🔄 - Update UI so user can select which type of material to add to the world. (Phase 1)
+[ ] - some way to talk to the application while it runs... a DBus API, a socket API, what are the other options? This would be useful!
+[ ] - run a clean build and fix all warnings, then make all warnings into errors. Please.
