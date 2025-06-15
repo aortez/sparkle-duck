@@ -288,18 +288,25 @@ void CellB::clear()
     markDirty();
 }
 
-void CellB::limitVelocity(double max_velocity, double damping_threshold, double damping_factor)
+void CellB::limitVelocity(double max_velocity_per_timestep, double damping_threshold_per_timestep, double damping_factor_per_timestep, double deltaTime)
 {
     const double speed = velocity_.mag();
     
+    // Convert per-timestep values to current frame values
+    // Since velocity is in cells/second, we scale the per-timestep limits appropriately
+    const double max_velocity_per_second = max_velocity_per_timestep / deltaTime;
+    const double damping_threshold_per_second = damping_threshold_per_timestep / deltaTime;
+    
     // Apply maximum velocity limit
-    if (speed > max_velocity) {
-        velocity_ = velocity_ * (max_velocity / speed);
+    if (speed > max_velocity_per_second) {
+        velocity_ = velocity_ * (max_velocity_per_second / speed);
     }
     
-    // Apply damping when above threshold
-    if (speed > damping_threshold) {
-        velocity_ = velocity_ * (1.0 - damping_factor);
+    // Apply damping when above threshold (scale damping factor by deltaTime)
+    if (speed > damping_threshold_per_second) {
+        // Convert per-timestep damping to per-frame damping
+        const double frame_damping_factor = 1.0 - std::pow(1.0 - damping_factor_per_timestep, deltaTime);
+        velocity_ = velocity_ * (1.0 - frame_damping_factor);
     }
 }
 
@@ -831,44 +838,55 @@ void CellB::drawDebug(lv_obj_t* parent, uint32_t x, uint32_t y)
             lv_draw_rect(&layer, &rect_dsc, &coords);
         }
     
-        // Draw Center of Mass as yellow circle
+        // Draw Center of Mass as yellow square
         if (com_.x != 0.0 || com_.y != 0.0) {
             // Calculate center of mass pixel position
             int pixel_x = static_cast<int>((com_.x + 1.0) * (Cell::WIDTH - 1) / 2.0);
             int pixel_y = static_cast<int>((com_.y + 1.0) * (Cell::HEIGHT - 1) / 2.0);
             
-            lv_draw_arc_dsc_t arc_dsc;
-            lv_draw_arc_dsc_init(&arc_dsc);
-            arc_dsc.color = lv_color_hex(0xFFFF00); // Bright yellow
-            arc_dsc.center.x = pixel_x;
-            arc_dsc.center.y = pixel_y;
-            arc_dsc.width = 3;
-            arc_dsc.start_angle = 0;
-            arc_dsc.end_angle = 360;
-            arc_dsc.radius = 8;
-            lv_draw_arc(&layer, &arc_dsc);
+            // Draw small square centered at COM position
+            const int square_size = 6; // Size of the COM indicator square
+            const int half_size = square_size / 2;
+            
+            lv_draw_rect_dsc_t com_rect_dsc;
+            lv_draw_rect_dsc_init(&com_rect_dsc);
+            com_rect_dsc.bg_color = lv_color_hex(0xFFFF00); // Bright yellow
+            com_rect_dsc.bg_opa = LV_OPA_COVER;
+            com_rect_dsc.border_color = lv_color_hex(0xCC9900); // Darker yellow border
+            com_rect_dsc.border_opa = LV_OPA_COVER;
+            com_rect_dsc.border_width = 1;
+            com_rect_dsc.radius = 0; // Sharp corners for square
+            
+            lv_area_t com_coords = {
+                pixel_x - half_size,
+                pixel_y - half_size,
+                pixel_x + half_size - 1,
+                pixel_y + half_size - 1
+            };
+            
+            lv_draw_rect(&layer, &com_rect_dsc, &com_coords);
         }
         
-        // Draw velocity vector as green line
+        // Draw velocity vector as green line starting from COM position
         if (velocity_.mag() > 0.01) {
-            int center_x = Cell::WIDTH / 2;
-            int center_y = Cell::HEIGHT / 2;
+            // Calculate COM pixel position (same as COM indicator calculation)
+            int com_pixel_x = static_cast<int>((com_.x + 1.0) * (Cell::WIDTH - 1) / 2.0);
+            int com_pixel_y = static_cast<int>((com_.y + 1.0) * (Cell::HEIGHT - 1) / 2.0);
             
             // Scale velocity for visualization
             double scale = 20.0;
-            int end_x = center_x + static_cast<int>(velocity_.x * scale);
-            int end_y = center_y + static_cast<int>(velocity_.y * scale);
+            int end_x = com_pixel_x + static_cast<int>(velocity_.x * scale);
+            int end_y = com_pixel_y + static_cast<int>(velocity_.y * scale);
             
-            // Clamp to canvas bounds
-            end_x = std::clamp(end_x, 5, static_cast<int>(Cell::WIDTH - 5));
-            end_y = std::clamp(end_y, 5, static_cast<int>(Cell::HEIGHT - 5));
+            // NO clamping - allow velocity vector to extend beyond cell bounds
+            // This shows the true trajectory and projected target location
             
             lv_draw_line_dsc_t line_dsc;
             lv_draw_line_dsc_init(&line_dsc);
             line_dsc.color = lv_color_hex(0x00FF00); // Bright green
             line_dsc.width = 2;
-            line_dsc.p1.x = center_x;
-            line_dsc.p1.y = center_y;
+            line_dsc.p1.x = com_pixel_x;
+            line_dsc.p1.y = com_pixel_y;
             line_dsc.p2.x = end_x;
             line_dsc.p2.y = end_y;
             lv_draw_line(&layer, &line_dsc);

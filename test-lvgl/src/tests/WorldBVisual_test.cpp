@@ -269,3 +269,113 @@ TEST_F(WorldBVisualTest, VelocityBehaviorTimestepCorrectness) {
         << "Particle should reach transfer boundary (COM=1.0) in approximately correct time. "
         << "This verifies both deltaTime integration and transfer threshold correctness.";
 }
+
+TEST_F(WorldBVisualTest, DirtMetalCollisionReflection) {
+    spdlog::info("Starting WorldBVisualTest::DirtMetalCollisionReflection test");
+    
+    // Create 3x1 world: Dirt - Empty - Metal
+    width = 3;
+    height = 1;
+    createTestWorldB();
+    
+    // Turn off gravity to focus on collision physics
+    world->setGravity(0.0);
+    
+    // Clear the world first
+    for (uint32_t x = 0; x < width; x++) {
+        world->at(x, 0).clear();
+    }
+    
+    // Setup: Dirt on left (0,0), Empty in middle (1,0), Metal on right (2,0)
+    world->addMaterialAtCell(0, 0, MaterialType::DIRT);
+    world->addMaterialAtCell(2, 0, MaterialType::METAL);
+    
+    // Give dirt particle rightward velocity toward metal
+    CellB& dirtCell = world->at(0, 0);
+    const double initialVelocity = 2.0; // cells/second rightward
+    dirtCell.setVelocity(Vector2d(initialVelocity, 0.0));
+    
+    spdlog::info("Initial setup: Dirt at (0,0) with velocity {}, Metal at (2,0)", initialVelocity);
+    
+    // Track particle movement and look for collision/reflection
+    bool collisionDetected = false;
+    bool reflectionDetected = false;
+    Vector2d dirtVelocityBeforeCollision(0, 0);
+    Vector2d dirtVelocityAfterCollision(0, 0);
+    
+    const double deltaTime = 0.016;
+    const int maxSteps = 500; // Generous limit
+    
+    for (int step = 0; step < maxSteps; step++) {
+        // Record state before timestep
+        CellB& cell0 = world->at(0, 0);
+        CellB& cell1 = world->at(1, 0);
+        CellB& cell2 = world->at(2, 0);
+        
+        // Check if dirt has moved to middle cell (collision imminent)
+        if (!cell1.isEmpty() && cell1.getMaterialType() == MaterialType::DIRT && !collisionDetected) {
+            dirtVelocityBeforeCollision = cell1.getVelocity();
+            collisionDetected = true;
+            spdlog::info("Step {}: Dirt moved to middle cell (1,0), velocity before collision: ({:.3f},{:.3f})", 
+                         step, dirtVelocityBeforeCollision.x, dirtVelocityBeforeCollision.y);
+        }
+        
+        world->advanceTime(deltaTime);
+        
+        // Check for reflection: dirt should bounce back with negative velocity
+        if (collisionDetected && !reflectionDetected) {
+            if (!cell0.isEmpty() && cell0.getMaterialType() == MaterialType::DIRT) {
+                Vector2d currentVelocity = cell0.getVelocity();
+                if (currentVelocity.x < 0.0) { // Reflected (negative x velocity)
+                    dirtVelocityAfterCollision = currentVelocity;
+                    reflectionDetected = true;
+                    spdlog::info("Step {}: Reflection detected! Dirt back at (0,0) with velocity ({:.3f},{:.3f})", 
+                                 step, currentVelocity.x, currentVelocity.y);
+                    break;
+                }
+            }
+        }
+        
+        // Log progress every 25 steps
+        if (step % 25 == 0) {
+            spdlog::info("Step {}: Cell (0,0): {} | Cell (1,0): {} | Cell (2,0): {}", 
+                         step,
+                         cell0.isEmpty() ? "Empty" : getMaterialName(cell0.getMaterialType()),
+                         cell1.isEmpty() ? "Empty" : getMaterialName(cell1.getMaterialType()),
+                         cell2.isEmpty() ? "Empty" : getMaterialName(cell2.getMaterialType()));
+        }
+    }
+    
+    spdlog::info("Collision test results:");
+    spdlog::info("  Collision detected: {}", collisionDetected ? "YES" : "NO");
+    spdlog::info("  Reflection detected: {}", reflectionDetected ? "YES" : "NO");
+    
+    if (collisionDetected) {
+        spdlog::info("  Velocity before collision: ({:.3f},{:.3f})", 
+                     dirtVelocityBeforeCollision.x, dirtVelocityBeforeCollision.y);
+    }
+    if (reflectionDetected) {
+        spdlog::info("  Velocity after reflection: ({:.3f},{:.3f})", 
+                     dirtVelocityAfterCollision.x, dirtVelocityAfterCollision.y);
+        spdlog::info("  Velocity change: {:.3f} -> {:.3f} (ratio: {:.3f})", 
+                     dirtVelocityBeforeCollision.x, dirtVelocityAfterCollision.x,
+                     dirtVelocityAfterCollision.x / dirtVelocityBeforeCollision.x);
+    }
+    
+    // Verify collision behavior
+    EXPECT_TRUE(collisionDetected) << "Dirt should move and reach the middle cell before collision";
+    EXPECT_TRUE(reflectionDetected) << "Dirt should reflect off metal wall with negative velocity";
+    
+    if (reflectionDetected) {
+        // Check that reflection has proper physics:
+        // 1. Velocity should be reversed (negative)
+        EXPECT_LT(dirtVelocityAfterCollision.x, 0.0) << "Reflected velocity should be negative (leftward)";
+        
+        // 2. Energy should be partially conserved (elastic reflection with some loss)
+        double energyRatio = std::abs(dirtVelocityAfterCollision.x / dirtVelocityBeforeCollision.x);
+        EXPECT_GT(energyRatio, 0.1) << "Reflection should preserve significant energy (> 10%)";
+        EXPECT_LT(energyRatio, 1.0) << "Reflection should lose some energy (< 100%)";
+        
+        spdlog::info("Energy conservation ratio: {:.3f} (should be between 0.1 and 1.0)", energyRatio);
+    }
+}

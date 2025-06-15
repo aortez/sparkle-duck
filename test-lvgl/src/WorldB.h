@@ -25,6 +25,31 @@ class SimulatorUI;
 
 class WorldB : public WorldInterface {
 public:
+    // Enhanced material transfer system with collision physics
+    enum class CollisionType {
+        TRANSFER_ONLY,      // Material moves between cells (current behavior)
+        ELASTIC_REFLECTION, // Bouncing with energy conservation
+        INELASTIC_COLLISION,// Bouncing with energy loss
+        FRAGMENTATION,      // Break apart into smaller pieces
+        ABSORPTION          // One material absorbs the other
+    };
+    
+    struct MaterialMove {
+        uint32_t fromX, fromY;
+        uint32_t toX, toY;
+        double amount;
+        MaterialType material;
+        Vector2d momentum;
+        Vector2d boundary_normal;  // Direction of boundary crossing for physics
+        
+        // NEW: Collision-specific data
+        CollisionType collision_type = CollisionType::TRANSFER_ONLY;
+        double collision_energy = 0.0;        // Calculated impact energy
+        double restitution_coefficient = 0.0; // Material-specific bounce factor
+        double material_mass = 0.0;           // Mass of moving material
+        double target_mass = 0.0;             // Mass of target material (if any)
+    };
+
     WorldB(uint32_t width, uint32_t height, lv_obj_t* draw_area);
     ~WorldB();
 
@@ -192,11 +217,27 @@ public:
     // Add material at specific cell coordinates
     void addMaterialAtCell(uint32_t x, uint32_t y, MaterialType type, double amount = 1.0);
     
-    // Physics constants from GridMechanics.md
-    static constexpr double MAX_VELOCITY = 0.9;           // cells/timestep
-    static constexpr double VELOCITY_DAMPING_THRESHOLD = 0.5;  // velocity threshold for damping
-    static constexpr double VELOCITY_DAMPING_FACTOR = 0.10;    // 10% slowdown
+    // Physics constants from GridMechanics.md (all per-timestep values)
+    static constexpr double MAX_VELOCITY_PER_TIMESTEP = 20.0;           // cells/timestep
+    static constexpr double VELOCITY_DAMPING_THRESHOLD_PER_TIMESTEP = 10.0;  // velocity threshold for damping (cells/timestep)
+    static constexpr double VELOCITY_DAMPING_FACTOR_PER_TIMESTEP = 0.10;    // 10% slowdown per timestep
     static constexpr double MIN_MATTER_THRESHOLD = 0.001;      // minimum matter to process
+    
+    // =================================================================
+    // TESTING METHODS
+    // =================================================================
+    
+    // Expose collision detection for testing
+    std::vector<Vector2i> getAllBoundaryCrossings(const Vector2d& newCOM);
+    MaterialMove createCollisionAwareMove(const CellB& fromCell, const CellB& toCell, 
+                                          const Vector2i& fromPos, const Vector2i& toPos,
+                                          const Vector2i& direction, double deltaTime = 0.0);
+    
+    // Get pending moves for testing (call queueMaterialMoves first)
+    const std::vector<MaterialMove>& getPendingMoves() const { return pending_moves_; }
+    
+    // Clear pending moves for testing
+    void clearPendingMoves() { pending_moves_.clear(); }
 
 private:
     // =================================================================
@@ -207,20 +248,25 @@ private:
     void applyGravity(double deltaTime);
     void updateTransfers(double deltaTime);
     void applyPressure(double deltaTime);
-    void processVelocityLimiting();
+    void processVelocityLimiting(double deltaTime);
     
     // Material transfer system
-    struct MaterialMove {
-        uint32_t fromX, fromY;
-        uint32_t toX, toY;
-        double amount;
-        MaterialType material;
-        Vector2d momentum;
-        Vector2d boundary_normal;  // Direction of boundary crossing for physics
-    };
-    
     void queueMaterialMoves(double deltaTime);
     void processMaterialMoves();
+    
+    // Enhanced collision detection and move creation
+    CollisionType determineCollisionType(MaterialType from, MaterialType to, double collision_energy);
+    
+    // Collision physics calculations
+    double calculateMaterialMass(const CellB& cell);
+    double calculateCollisionEnergy(const MaterialMove& move, const CellB& fromCell, const CellB& toCell);
+    
+    // Collision handlers
+    void handleTransferMove(CellB& fromCell, CellB& toCell, const MaterialMove& move);
+    void handleElasticCollision(CellB& fromCell, CellB& toCell, const MaterialMove& move);
+    void handleInelasticCollision(CellB& fromCell, CellB& toCell, const MaterialMove& move);
+    void handleFragmentation(CellB& fromCell, CellB& toCell, const MaterialMove& move);
+    void handleAbsorption(CellB& fromCell, CellB& toCell, const MaterialMove& move);
     
     // Floating particle collision detection
     bool checkFloatingParticleCollision(int cellX, int cellY);
@@ -231,6 +277,10 @@ private:
     
     // Boundary wall management
     void setupBoundaryWalls();
+    
+    // Elastic boundary reflection system
+    void applyBoundaryReflection(CellB& cell, const Vector2i& direction);
+    void applyCellBoundaryReflection(CellB& cell, const Vector2i& direction, MaterialType material);
     
     // Coordinate conversion helpers
     void pixelToCell(int pixelX, int pixelY, int& cellX, int& cellY) const;

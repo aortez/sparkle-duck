@@ -58,11 +58,10 @@ SPARKLE_DUCK_VISUAL_TESTS=1 ./run_tests.sh
 #### RulesB (Default) - Pure Material System
 - **WorldB**: Grid-based physics simulation using CellB
 - **CellB**: Fill ratio [0,1] with pure materials (AIR, DIRT, WATER, WOOD, SAND, METAL, LEAF, WALL)  
-- **RulesBNew**: Simplified physics rules with gravity, velocity limits, and COM physics
 - **MaterialType**: Enum-based material system with material-specific properties
 
 #### RulesA (Legacy) - Mixed Material System  
-- **World**: Original grid-based simulation using Cell
+- **World**: Original grid-based simulation using Cell (should be renamed WorldA)
 - **Cell**: Individual simulation units with mixed dirt/water amounts
 - **WorldRules**: Complex physics with pressure systems and material mixing
 
@@ -201,17 +200,23 @@ Can be found here:
 ✅ **Smart Cell Grabber** - Intelligent interaction system: adds material to empty cells, drags existing material
 ✅ **Floating Particle System** - Real-time drag preview with collision detection foundation
 
+**Recently Completed:**
+✅ **Enhanced Collision System** - Material-specific collision behaviors implemented:
+  - **Elastic Collisions**: METAL vs METAL, METAL vs WALL, WOOD vs rigid materials
+  - **Inelastic Collisions**: Energy loss with partial material transfer
+  - **Fragmentation**: High-energy impacts on brittle materials
+  - **Absorption**: WATER+DIRT material mixing behaviors
+  - **Restitution Coefficients**: Material-specific bounce factors
+  - **Two-Body Physics**: Proper momentum and energy conservation
+✅ **Velocity Vector Fix** - Arrows now start from COM position instead of cell center
+
 **Current Priority (Phase 1):**
-🔄 **Complete Material Rendering** - Visual implementation for all 8 material types (DIRT, WATER, WOOD, SAND, METAL, LEAF, WALL, AIR)
+🔄 **Universal Floating Particle System** - Convert WorldB to full floating particle physics where all cells become interactive particles
 
 **Next Phases:**
-- **Phase 2**: Enhanced collision effects for "wreaking havoc" with floating particles
-  - Elastic collisions for METAL vs METAL
-  - Splash effects for WATER collisions  
-  - Fragmentation for brittle materials
-  - Momentum transfer based on mass ratios
+- **Phase 2**: Chain reaction mechanics through neighbor networks
 - **Phase 3**: Complete material rendering for all 8 material types
-- **Phase 4**: Add Tree organism to simulation
+- **Phase 4**: Add Tree organism to simulation  
 - **Phase 5**: Simulation scenarios, analysis tools, performance optimization
 
 **Reference**: See `design_docs/WorldB-Development-Plan.md` for complete roadmap
@@ -253,9 +258,55 @@ The cell grabber system in WorldB uses a sophisticated floating particle approac
 - Collision system designed for material-specific behaviors (METAL bouncing, WATER splashing)
 - Ready for "wreaking havoc" scenarios with high-velocity particle interactions
 
+## Universal Floating Particle System - Implementation Plan
+
+### Design Reconciliation with GridMechanics.md
+
+The current GridMechanics.md design already describes a **particle-within-cell** system that aligns well with universal floating particles:
+
+✅ **Already Compatible:**
+- Each cell contains a particle with COM [-1,1] and velocity
+- 2D kinematics with realistic boundary crossing physics
+- Momentum conservation during transfers
+- Material properties (elasticity, cohesion, adhesion, density)
+- Neighbor-based interaction system
+
+🔄 **Enhancement Needed:**
+- Extend collision detection from transfer-only to full collision physics
+- Add material-specific collision behaviors for all neighbor interactions
+- Implement chain reaction mechanics through particle networks
+- Enable "wreaking havoc" scenarios with high-energy collisions
+
+### Implementation Todos
+
+#### Phase 1: Universal Collision Detection
+- [x] Convert `queueMaterialMoves()` to include collision detection for all 8 neighbors
+- [x] Implement `detectParticleCollisions()` method for comprehensive neighbor analysis (via `createCollisionAwareMove()`)
+- [x] Add collision event system for material-specific responses
+- [x] Extend `MaterialMove` struct to include collision physics data
+
+#### Phase 2: Material-Specific Collision Behaviors  
+- [x] Implement elastic collision handler for METAL-METAL interactions
+- [ ] Add splash effect system for WATER collisions
+- [ ] Create fragmentation mechanics for brittle materials (framework implemented)
+- [x] Design absorption/penetration behaviors (WATER+DIRT, etc.)
+
+#### Phase 3: Chain Reaction Mechanics
+- [ ] Implement collision energy propagation through neighbor networks
+- [ ] Add collision effect pooling and management system
+- [ ] Create visual effect framework for particle collisions
+- [ ] Integrate with Enhanced Collision Effects design doc
+
+#### Phase 4: Performance and Polish
+- [ ] Profile universal collision system performance
+- [ ] Optimize collision detection with spatial coherence
+- [ ] Add configuration system for collision parameters
+- [ ] Create collision behavior testing framework
+
 ## Misc TODO
 [ ] - Add an exit hook that shows a full dump of the world state after an ASSERT.
 [ ] - some way to talk to the application while it runs... a DBus API, a socket API, what are the other options? This would be useful!
 [ ] - run a clean build and fix all warnings, then make all warnings into errors. Please.
 [ ] - Consider design of Air/Nothing materials and examine currently implementation.
 [ ] - Add a Makefile to capture some common targets ('clean', 'debug', 'release', 'test-all'... anything else?); update CLAUDE.md with instructions.
+[ ] - In WorldB, Update left click, so if it is on a currently on a filled cell that is not the selected type, or is not full, fill it with the selected type.

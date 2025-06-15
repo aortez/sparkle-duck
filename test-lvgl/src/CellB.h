@@ -124,8 +124,8 @@ public:
     // PHYSICS UTILITIES
     // =================================================================
     
-    // Apply velocity limiting per GridMechanics.md
-    void limitVelocity(double max_velocity, double damping_threshold, double damping_factor);
+    // Apply velocity limiting per GridMechanics.md (per-timestep values)
+    void limitVelocity(double max_velocity_per_timestep, double damping_threshold_per_timestep, double damping_factor_per_timestep, double deltaTime);
     
     // Clamp COM to valid bounds
     void clampCOM();

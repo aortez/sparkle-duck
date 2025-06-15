@@ -21,6 +21,13 @@ public:
     Vector2d normalize() const;
     std::string toString() const;
     
+    // Collision physics operations
+    Vector2d reflect(const Vector2d& normal) const;
+    double angle() const;
+    double angleTo(const Vector2d& other) const;
+    Vector2d rotateBy(double radians) const;
+    Vector2d perpendicular() const;
+    
     // JSON serialization support
     rapidjson::Value toJson(rapidjson::Document::AllocatorType& allocator) const;
     static Vector2d fromJson(const rapidjson::Value& json);
