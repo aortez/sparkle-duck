@@ -421,28 +421,28 @@ void CellB::drawNormal(lv_obj_t* parent, uint32_t x, uint32_t y)
     if (!isEmpty()) {
         lv_color_t material_color;
         
-        // Map material types to colors
+        // Enhanced material color mapping with better visual distinction
         switch (material_type_) {
             case MaterialType::DIRT:
-                material_color = lv_color_hex(0x8B4513); // Saddle brown
+                material_color = lv_color_hex(0x8B4513); // Rich saddle brown
                 break;
             case MaterialType::WATER:
-                material_color = lv_color_hex(0x0000FF); // Blue
+                material_color = lv_color_hex(0x1E90FF); // Dodger blue (more vibrant)
                 break;
             case MaterialType::WOOD:
-                material_color = lv_color_hex(0x8B7355); // Dark khaki
+                material_color = lv_color_hex(0xD2691E); // Chocolate brown (warmer wood tone)
                 break;
             case MaterialType::SAND:
                 material_color = lv_color_hex(0xF4A460); // Sandy brown
                 break;
             case MaterialType::METAL:
-                material_color = lv_color_hex(0xC0C0C0); // Silver
+                material_color = lv_color_hex(0xB0C4DE); // Light steel blue (more metallic)
                 break;
             case MaterialType::LEAF:
-                material_color = lv_color_hex(0x228B22); // Forest green
+                material_color = lv_color_hex(0x32CD32); // Lime green (brighter, more vibrant)
                 break;
             case MaterialType::WALL:
-                material_color = lv_color_hex(0x808080); // Gray
+                material_color = lv_color_hex(0x696969); // Dim gray (darker, more solid)
                 break;
             case MaterialType::AIR:
             default:
@@ -454,16 +454,146 @@ void CellB::drawNormal(lv_obj_t* parent, uint32_t x, uint32_t y)
         // Calculate opacity based on fill ratio
         lv_opa_t opacity = static_cast<lv_opa_t>(fill_ratio_ * LV_OPA_COVER);
         
-        // Draw material layer
+        // Draw material-specific visual effects
         lv_draw_rect_dsc_t rect_dsc;
         lv_draw_rect_dsc_init(&rect_dsc);
         rect_dsc.bg_color = material_color;
         rect_dsc.bg_opa = opacity;
-        rect_dsc.border_color = material_color; // Same color as background
-        rect_dsc.border_opa = static_cast<lv_opa_t>(opacity * 0.3); // 30% of opacity for softer look
-        rect_dsc.border_width = 1;
-        rect_dsc.radius = 1;
+        
+        // Material-specific border and corner effects
+        switch (material_type_) {
+            case MaterialType::DIRT:
+                // Rough, earthy appearance
+                rect_dsc.border_color = lv_color_hex(0x654321); // Darker brown border
+                rect_dsc.border_opa = static_cast<lv_opa_t>(opacity * 0.6);
+                rect_dsc.border_width = 1;
+                rect_dsc.radius = 0; // Sharp corners for granular look
+                break;
+                
+            case MaterialType::WATER:
+                // Smooth, flowing appearance  
+                rect_dsc.border_color = lv_color_hex(0x0066CC); // Darker blue border
+                rect_dsc.border_opa = static_cast<lv_opa_t>(opacity * 0.4);
+                rect_dsc.border_width = 1;
+                rect_dsc.radius = 3; // Rounded for fluid look
+                break;
+                
+            case MaterialType::WOOD:
+                // Organic, fibrous appearance
+                rect_dsc.border_color = lv_color_hex(0x8B4513); // Wood grain color
+                rect_dsc.border_opa = static_cast<lv_opa_t>(opacity * 0.7);
+                rect_dsc.border_width = 2;
+                rect_dsc.radius = 1; // Slight rounding
+                break;
+                
+            case MaterialType::SAND:
+                // Granular, loose appearance
+                rect_dsc.border_color = lv_color_hex(0xCD853F); // Peru color border
+                rect_dsc.border_opa = static_cast<lv_opa_t>(opacity * 0.5);
+                rect_dsc.border_width = 1;
+                rect_dsc.radius = 0; // Sharp for granular effect
+                break;
+                
+            case MaterialType::METAL:
+                // Solid, reflective appearance
+                rect_dsc.border_color = lv_color_hex(0x708090); // Slate gray border
+                rect_dsc.border_opa = opacity; // Full opacity for metallic edge
+                rect_dsc.border_width = 2;
+                rect_dsc.radius = 0; // Sharp, industrial look
+                break;
+                
+            case MaterialType::LEAF:
+                // Organic, natural appearance
+                rect_dsc.border_color = lv_color_hex(0x228B22); // Forest green border
+                rect_dsc.border_opa = static_cast<lv_opa_t>(opacity * 0.6);
+                rect_dsc.border_width = 1;
+                rect_dsc.radius = 2; // Rounded for organic feel
+                break;
+                
+            case MaterialType::WALL:
+                // Solid, structural appearance
+                rect_dsc.border_color = lv_color_hex(0x2F2F2F); // Very dark gray border
+                rect_dsc.border_opa = opacity;
+                rect_dsc.border_width = 3; // Thick border for solid appearance
+                rect_dsc.radius = 0; // Sharp, architectural look
+                break;
+                
+            default:
+                // Default styling
+                rect_dsc.border_color = material_color;
+                rect_dsc.border_opa = static_cast<lv_opa_t>(opacity * 0.3);
+                rect_dsc.border_width = 1;
+                rect_dsc.radius = 1;
+                break;
+        }
+        
         lv_draw_rect(&layer, &rect_dsc, &coords);
+        
+        // Add material-specific texture effects for enhanced visual distinction
+        switch (material_type_) {
+            case MaterialType::METAL:
+                // Add metallic shine effect - small bright spot
+                if (fill_ratio_ > 0.5) {
+                    lv_draw_rect_dsc_t shine_dsc;
+                    lv_draw_rect_dsc_init(&shine_dsc);
+                    shine_dsc.bg_color = lv_color_hex(0xFFFFFF); // White shine
+                    shine_dsc.bg_opa = static_cast<lv_opa_t>(opacity * 0.3);
+                    shine_dsc.border_width = 0;
+                    shine_dsc.radius = 2;
+                    
+                    lv_area_t shine_coords = { 
+                        coords.x1 + 2, coords.y1 + 2, 
+                        coords.x1 + Cell::WIDTH/3, coords.y1 + Cell::HEIGHT/3 
+                    };
+                    lv_draw_rect(&layer, &shine_dsc, &shine_coords);
+                }
+                break;
+                
+            case MaterialType::WATER:
+                // Add subtle transparency gradient for water fluidity
+                if (fill_ratio_ > 0.3) {
+                    lv_draw_rect_dsc_t water_overlay_dsc;
+                    lv_draw_rect_dsc_init(&water_overlay_dsc);
+                    water_overlay_dsc.bg_color = lv_color_hex(0x87CEEB); // Sky blue overlay
+                    water_overlay_dsc.bg_opa = static_cast<lv_opa_t>(opacity * 0.2);
+                    water_overlay_dsc.border_width = 0;
+                    water_overlay_dsc.radius = 3;
+                    
+                    lv_area_t overlay_coords = { 
+                        coords.x1 + 1, coords.y1 + 1, 
+                        coords.x2 - 1, coords.y2 - 1 
+                    };
+                    lv_draw_rect(&layer, &water_overlay_dsc, &overlay_coords);
+                }
+                break;
+                
+            case MaterialType::SAND:
+                // Add granular texture dots for sand
+                if (fill_ratio_ > 0.4) {
+                    lv_draw_rect_dsc_t grain_dsc;
+                    lv_draw_rect_dsc_init(&grain_dsc);
+                    grain_dsc.bg_color = lv_color_hex(0xDEB887); // Burlywood dots
+                    grain_dsc.bg_opa = static_cast<lv_opa_t>(opacity * 0.4);
+                    grain_dsc.border_width = 0;
+                    grain_dsc.radius = 0;
+                    
+                    // Add small rectangular "grains"
+                    for (int i = 2; i < Cell::WIDTH - 2; i += 4) {
+                        for (int j = 2; j < Cell::HEIGHT - 2; j += 4) {
+                            lv_area_t grain_coords = { 
+                                coords.x1 + i, coords.y1 + j, 
+                                coords.x1 + i + 1, coords.y1 + j + 1 
+                            };
+                            lv_draw_rect(&layer, &grain_dsc, &grain_coords);
+                        }
+                    }
+                }
+                break;
+                
+            default:
+                // No additional texture for other materials
+                break;
+        }
     }
     
     lv_canvas_finish_layer(canvas_, &layer);
@@ -506,28 +636,28 @@ void CellB::drawDebug(lv_obj_t* parent, uint32_t x, uint32_t y)
     if (!isEmpty()) {
         lv_color_t material_color;
         
-        // Map material types to colors (enhanced for debug)
+        // Enhanced material color mapping (debug mode with brighter variants)
         switch (material_type_) {
             case MaterialType::DIRT:
-                material_color = lv_color_hex(0x8B4513); // Saddle brown
+                material_color = lv_color_hex(0xA0522D); // Brighter sienna brown for debug
                 break;
             case MaterialType::WATER:
-                material_color = lv_color_hex(0x0066FF); // Brighter blue for debug
+                material_color = lv_color_hex(0x00BFFF); // Deep sky blue for debug
                 break;
             case MaterialType::WOOD:
-                material_color = lv_color_hex(0x8B7355); // Dark khaki
+                material_color = lv_color_hex(0xDEB887); // Burlywood (lighter for debug visibility)
                 break;
             case MaterialType::SAND:
-                material_color = lv_color_hex(0xF4A460); // Sandy brown
+                material_color = lv_color_hex(0xFFB347); // Brighter sandy orange
                 break;
             case MaterialType::METAL:
-                material_color = lv_color_hex(0xC0C0C0); // Silver
+                material_color = lv_color_hex(0xC0C0C0); // Silver (unchanged - already visible)
                 break;
             case MaterialType::LEAF:
-                material_color = lv_color_hex(0x228B22); // Forest green
+                material_color = lv_color_hex(0x00FF32); // Bright lime green for debug
                 break;
             case MaterialType::WALL:
-                material_color = lv_color_hex(0x808080); // Gray
+                material_color = lv_color_hex(0x808080); // Gray (unchanged for solid appearance)
                 break;
             case MaterialType::AIR:
             default:

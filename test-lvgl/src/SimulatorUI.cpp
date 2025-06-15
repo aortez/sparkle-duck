@@ -4,6 +4,7 @@
 #include "WorldInterface.h"
 #include "WorldFactory.h"
 #include "WorldState.h"
+#include "MaterialType.h"
 #include "lvgl/lvgl.h"
 #include "lvgl/src/others/snapshot/lv_snapshot.h"
 #include "spdlog/spdlog.h"
@@ -76,6 +77,7 @@ void SimulatorUI::initialize()
     createDrawArea();
     createLabels();
     createWorldTypeColumn();
+    createMaterialPicker();
     createControlButtons();
     createSliders();
     setupDrawAreaEvents();
@@ -139,6 +141,39 @@ void SimulatorUI::createWorldTypeColumn()
         worldTypeButtonMatrixEventCb,
         LV_EVENT_VALUE_CHANGED,
         createCallbackData());
+}
+
+void SimulatorUI::createMaterialPicker()
+{
+    // Create material picker label
+    lv_obj_t* material_label = lv_label_create(screen_);
+    lv_label_set_text(material_label, "Materials:");
+    lv_obj_align(material_label, LV_ALIGN_TOP_LEFT, WORLD_TYPE_COLUMN_X, 140);  // 10px below world type buttons
+    
+    // Create material picker container
+    lv_obj_t* picker_container = lv_obj_create(screen_);
+    lv_obj_set_size(picker_container, WORLD_TYPE_COLUMN_WIDTH, 320); // Give enough space for 4x2 grid
+    lv_obj_align(picker_container, LV_ALIGN_TOP_LEFT, WORLD_TYPE_COLUMN_X, 160); // Below label
+    lv_obj_set_style_pad_all(picker_container, 5, 0);
+    lv_obj_set_style_border_width(picker_container, 1, 0);
+    lv_obj_set_style_border_color(picker_container, lv_color_hex(0x606060), 0);
+    
+    // Create MaterialPicker instance
+    material_picker_ = std::make_unique<MaterialPicker>(picker_container);
+    material_picker_->setParentUI(this);  // Set up parent UI reference for notifications
+    material_picker_->createMaterialSelector();
+    
+    spdlog::info("Material picker created in SimulatorUI");
+}
+
+void SimulatorUI::onMaterialSelectionChanged(MaterialType newMaterial)
+{
+    spdlog::info("Material selection changed to: {}", getMaterialName(newMaterial));
+    
+    // Update the world's selected material
+    if (world_) {
+        world_->setSelectedMaterial(newMaterial);
+    }
 }
 
 void SimulatorUI::createControlButtons()
@@ -528,8 +563,10 @@ void SimulatorUI::drawAreaEventCb(lv_event_t* e)
     point.y -= area.y1;
 
     if (code == LV_EVENT_PRESSED) {
-        spdlog::info("Mouse pressed at ({},{}) - calling addWaterAtPixel and startDragging", point.x, point.y);
-        world_ptr->addWaterAtPixel(point.x, point.y);
+        MaterialType selectedMaterial = world_ptr->getSelectedMaterial();
+        spdlog::info("Mouse pressed at ({},{}) - adding {} material and startDragging", 
+                     point.x, point.y, getMaterialName(selectedMaterial));
+        world_ptr->addMaterialAtPixel(point.x, point.y, selectedMaterial);
         world_ptr->startDragging(point.x, point.y);
         world_ptr->updateCursorForce(point.x, point.y, true);
     }

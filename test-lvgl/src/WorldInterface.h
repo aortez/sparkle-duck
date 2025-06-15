@@ -1,5 +1,6 @@
 #pragma once
 
+#include "MaterialType.h"
 #include "lvgl/lvgl.h"
 #include <cstdint>
 #include <memory>
@@ -81,6 +82,14 @@ public:
     
     // Add water material at pixel coordinates  
     virtual void addWaterAtPixel(int pixelX, int pixelY) = 0;
+    
+    // Universal material addition for any material type
+    // Works with both WorldA (mapped to dirt/water) and WorldB (direct support)
+    virtual void addMaterialAtPixel(int pixelX, int pixelY, MaterialType type, double amount = 1.0) = 0;
+    
+    // Material selection state management (for UI coordination)
+    virtual void setSelectedMaterial(MaterialType type) = 0;
+    virtual MaterialType getSelectedMaterial() const = 0;
     
     // =================================================================
     // DRAG INTERACTION

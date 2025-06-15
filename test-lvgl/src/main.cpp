@@ -2,6 +2,7 @@
 #include "SimulatorUI.h"
 #include "World.h"
 #include "WorldFactory.h"
+#include "CrashDumpHandler.h"
 #include "src/lib/driver_backends.h"
 #include "src/lib/simulator_loop.h"
 #include "src/lib/simulator_settings.h"
@@ -211,11 +212,19 @@ int main(int argc, char** argv)
     spdlog::info("Created {} physics system ({}x{} grid)", 
                  getWorldTypeName(selected_world_type), grid_width, grid_height);
 
+    // Install crash dump handler
+    CrashDumpHandler::install(manager_ptr);
+    spdlog::info("Crash dump handler installed - assertions will generate JSON dumps");
+
     // Initialize the simulation
     manager->initialize();
 
     // Enter the run loop, using the selected backend.
     driver_backends_run_loop(*manager);
+
+    // Cleanup crash dump handler
+    CrashDumpHandler::uninstall();
+    spdlog::info("Application shutting down cleanly");
 
     return 0;
 }

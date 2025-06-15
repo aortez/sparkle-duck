@@ -3,6 +3,8 @@
 #include <array>
 #include <cassert>
 #include <cstddef>
+#include <stdexcept>
+#include <string>
 
 // Material property database
 // Format: {density, elasticity, cohesion, adhesion, is_fluid, is_rigid}
@@ -71,4 +73,29 @@ const char* getMaterialName(MaterialType type)
     const auto index = static_cast<size_t>(type);
     assert(index < MATERIAL_NAMES.size());
     return MATERIAL_NAMES[index];
+}
+
+rapidjson::Value materialTypeToJson(MaterialType type, rapidjson::Document::AllocatorType& allocator)
+{
+    const char* name = getMaterialName(type);
+    rapidjson::Value json(name, allocator);
+    return json;
+}
+
+MaterialType materialTypeFromJson(const rapidjson::Value& json)
+{
+    if (!json.IsString()) {
+        throw std::runtime_error("MaterialType::fromJson: JSON value must be a string");
+    }
+    
+    std::string name = json.GetString();
+    
+    // Linear search through material names
+    for (size_t i = 0; i < MATERIAL_NAMES.size(); ++i) {
+        if (name == MATERIAL_NAMES[i]) {
+            return static_cast<MaterialType>(i);
+        }
+    }
+    
+    throw std::runtime_error("MaterialType::fromJson: Unknown material type '" + name + "'");
 }

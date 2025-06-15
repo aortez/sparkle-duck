@@ -108,3 +108,28 @@ Vector2d& Vector2d::operator/=(double scalar)
     y /= scalar;
     return *this;
 }
+
+rapidjson::Value Vector2d::toJson(rapidjson::Document::AllocatorType& allocator) const
+{
+    rapidjson::Value json(rapidjson::kObjectType);
+    json.AddMember("x", x, allocator);
+    json.AddMember("y", y, allocator);
+    return json;
+}
+
+Vector2d Vector2d::fromJson(const rapidjson::Value& json)
+{
+    if (!json.IsObject()) {
+        throw std::runtime_error("Vector2d::fromJson: JSON value must be an object");
+    }
+    
+    if (!json.HasMember("x") || !json.HasMember("y")) {
+        throw std::runtime_error("Vector2d::fromJson: JSON object must have 'x' and 'y' members");
+    }
+    
+    if (!json["x"].IsNumber() || !json["y"].IsNumber()) {
+        throw std::runtime_error("Vector2d::fromJson: 'x' and 'y' members must be numbers");
+    }
+    
+    return Vector2d(json["x"].GetDouble(), json["y"].GetDouble());
+}

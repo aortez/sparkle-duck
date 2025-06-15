@@ -1,5 +1,6 @@
 #include "MaterialPicker.h"
 #include "CellB.h"
+#include "SimulatorUI.h"
 #include "spdlog/spdlog.h"
 
 #include <algorithm>
@@ -8,7 +9,8 @@
 MaterialPicker::MaterialPicker(lv_obj_t* parent)
     : parent_(parent),
       material_grid_(nullptr),
-      selected_material_(MaterialType::DIRT)  // Default to DIRT as specified
+      selected_material_(MaterialType::DIRT),  // Default to DIRT as specified
+      parent_ui_(nullptr)
 {
     spdlog::debug("Creating MaterialPicker with default selection: DIRT");
     
@@ -135,7 +137,10 @@ void MaterialPicker::onMaterialButtonClicked(lv_event_t* e)
     // Update selection
     picker->setSelectedMaterial(clickedMaterial);
     
-    // TODO: Notify SimulationManager of material selection change
+    // Notify parent UI about material selection change
+    if (picker->parent_ui_) {
+        picker->parent_ui_->onMaterialSelectionChanged(clickedMaterial);
+    }
     // This will be implemented when we integrate with SimulatorUI
 }
 
@@ -257,14 +262,15 @@ int MaterialPicker::calculatePickerHeight() const
  */
 lv_color_t MaterialPicker::getMaterialDisplayColor(MaterialType type)
 {
+    // Use the same enhanced colors as CellB for consistency
     switch (type) {
-        case MaterialType::DIRT:  return lv_color_hex(0x8B4513);  // Saddle brown
-        case MaterialType::WATER: return lv_color_hex(0x0000FF);  // Blue
-        case MaterialType::WOOD:  return lv_color_hex(0x8B7355);  // Dark khaki
+        case MaterialType::DIRT:  return lv_color_hex(0x8B4513);  // Rich saddle brown
+        case MaterialType::WATER: return lv_color_hex(0x1E90FF);  // Dodger blue (more vibrant)
+        case MaterialType::WOOD:  return lv_color_hex(0xD2691E);  // Chocolate brown (warmer wood tone)
         case MaterialType::SAND:  return lv_color_hex(0xF4A460);  // Sandy brown
-        case MaterialType::METAL: return lv_color_hex(0xC0C0C0);  // Silver
-        case MaterialType::LEAF:  return lv_color_hex(0x228B22);  // Forest green
-        case MaterialType::WALL:  return lv_color_hex(0x808080);  // Gray
+        case MaterialType::METAL: return lv_color_hex(0xB0C4DE);  // Light steel blue (more metallic)
+        case MaterialType::LEAF:  return lv_color_hex(0x32CD32);  // Lime green (brighter, more vibrant)
+        case MaterialType::WALL:  return lv_color_hex(0x696969);  // Dim gray (darker, more solid)
         case MaterialType::AIR:   return lv_color_hex(0x000000);  // Black
         default:                  return lv_color_hex(0xFF00FF);  // Magenta for unknown
     }

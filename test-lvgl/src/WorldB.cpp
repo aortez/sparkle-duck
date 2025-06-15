@@ -36,7 +36,8 @@ WorldB::WorldB(uint32_t width, uint32_t height, lv_obj_t* draw_area)
       drag_start_x_(-1),
       drag_start_y_(-1),
       dragged_material_(MaterialType::AIR),
-      dragged_amount_(0.0)
+      dragged_amount_(0.0),
+      selected_material_(MaterialType::DIRT)
 {
     spdlog::info("Creating WorldB: {}x{} grid with pure-material physics", width_, height_);
     
@@ -196,6 +197,19 @@ void WorldB::addMaterialAtCell(uint32_t x, uint32_t y, MaterialType type, double
     
     if (added > 0.0) {
         spdlog::trace("Added {:.3f} {} at cell ({},{})", added, getMaterialName(type), x, y);
+    }
+}
+
+void WorldB::addMaterialAtPixel(int pixelX, int pixelY, MaterialType type, double amount)
+{
+    int cellX, cellY;
+    pixelToCell(pixelX, pixelY, cellX, cellY);
+    
+    spdlog::debug("WorldB::addMaterialAtPixel({}) at pixel ({},{}) -> cell ({},{})", 
+                  getMaterialName(type), pixelX, pixelY, cellX, cellY);
+    
+    if (isValidCell(cellX, cellY)) {
+        addMaterialAtCell(static_cast<uint32_t>(cellX), static_cast<uint32_t>(cellY), type, amount);
     }
 }
 

@@ -91,6 +91,13 @@ public:
     // Add dirt at a specific pixel coordinate
     void addDirtAtPixel(int pixelX, int pixelY) override;
     void addWaterAtPixel(int pixelX, int pixelY) override;
+    
+    // Universal material addition (mapped to dirt/water for WorldA compatibility)
+    void addMaterialAtPixel(int pixelX, int pixelY, MaterialType type, double amount = 1.0) override;
+    
+    // Material selection state management
+    void setSelectedMaterial(MaterialType type) override { selected_material_ = type; }
+    MaterialType getSelectedMaterial() const override { return selected_material_; }
 
     // Time reversal functionality
     void enableTimeReversal(bool enabled) override { timeReversalEnabled = enabled; }
@@ -303,6 +310,9 @@ private:
         Vector2d com;
     };
     PendingDragEnd pendingDragEnd;
+    
+    // Material selection state (for UI coordination)
+    MaterialType selected_material_;
 
     // World setup strategy
     std::unique_ptr<WorldSetup> worldSetup;

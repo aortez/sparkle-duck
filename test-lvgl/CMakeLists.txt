@@ -118,6 +118,9 @@ add_executable(sparkle-duck
     src/CellB.cpp
     src/WorldB.cpp
     src/WorldFactory.cpp
+    src/MaterialPicker.cpp
+    src/WorldState.cpp
+    src/CrashDumpHandler.cpp
     ${LV_LINUX_SRC} 
     ${LV_LINUX_BACKEND_SRC})
 target_link_libraries(sparkle-duck lvgl_linux lvgl lvgl::examples lvgl::demos lvgl::thorvg spdlog::spdlog m pthread ${PKG_CONFIG_LIB} ${SDL2_LIBRARIES} ${SDL2_IMAGE_LIBRARIES})
@@ -140,6 +143,10 @@ add_custom_target (run COMMAND ${EXECUTABLE_OUTPUT_PATH}/sparkle-duck DEPENDS sp
 # Add test executable
 add_executable(sparkle-duck-tests
     src/tests/Vector2d_test.cpp
+    tests/Vector2dJSON_test.cpp
+    tests/MaterialTypeJSON_test.cpp
+    tests/WorldStateJSON_test.cpp
+    tests/CrashDumpHandler_test.cpp
     src/tests/Vector2i_test.cpp
     src/tests/WorldVisual_test.cpp
     src/tests/WorldBVisual_test.cpp
@@ -165,6 +172,9 @@ add_executable(sparkle-duck-tests
     src/CellB.cpp
     src/WorldB.cpp
     src/WorldFactory.cpp
+    src/MaterialPicker.cpp
+    src/WorldState.cpp
+    src/CrashDumpHandler.cpp
     ${LV_LINUX_SRC} 
     ${LV_LINUX_BACKEND_SRC}
 )

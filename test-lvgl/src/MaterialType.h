@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include "lvgl/src/libs/thorvg/rapidjson/document.h"
 
 /**
  * \file
@@ -58,3 +59,9 @@ bool isMaterialRigid(MaterialType type);
  * Get a human-readable name for a material type.
  */
 const char* getMaterialName(MaterialType type);
+
+/**
+ * JSON serialization support for MaterialType.
+ */
+rapidjson::Value materialTypeToJson(MaterialType type, rapidjson::Document::AllocatorType& allocator);
+MaterialType materialTypeFromJson(const rapidjson::Value& json);

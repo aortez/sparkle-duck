@@ -1,5 +1,6 @@
 #pragma once
 
+#include "MaterialPicker.h"
 #include "lvgl/lvgl.h"
 #include <memory>
 #include <vector>
@@ -38,6 +39,9 @@ public:
     // Initialize the UI after world is fully constructed
     void initialize();
 
+    // Material selection handling
+    void onMaterialSelectionChanged(MaterialType newMaterial);
+
     // Static function to take exit screenshot
     static void takeExitScreenshot();
 
@@ -50,6 +54,9 @@ private:
     lv_obj_t* fps_label_;
     lv_obj_t* pause_label_;
     lv_obj_t* world_type_btnm_;
+    
+    // Material picker UI
+    std::unique_ptr<MaterialPicker> material_picker_;
 
     // UI state
     double timescale_;
@@ -69,6 +76,7 @@ private:
     void createDrawArea();
     void createLabels();
     void createWorldTypeColumn();
+    void createMaterialPicker();
     void createControlButtons();
     void createSliders();
     void setupDrawAreaEvents();

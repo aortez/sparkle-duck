@@ -159,6 +159,7 @@ https://docs.lvgl.io/master/details/widgets/index.html
 Can be found here:
 - design_docs/GridMechanics.md          #<-- For the WorldB system foundations.
 - design_docs/WorldB-Development-Plan.md #<-- Complete WorldB development roadmap.
+- design_docs/MaterialPicker-UI-Design.md #<-- Material picker UI design (IN DEVELOPMENT)
 - design_docs/ui_overview.md            #<-- UI architecture and widget layout
 - design_docs/WebRTC-test-driver.md     #<-- P2P API for test framework purposes.
 - design_docs/*.md
@@ -172,16 +173,17 @@ Can be found here:
 ✅ **WorldInterface Implementation** - Complete dual physics system architecture  
 ✅ **Runtime World Switching** - Live WorldA ↔ WorldB transitions with UI switch control
 ✅ **Material Density Conversion** - Fixed visual consistency during world switching
+✅ **Crash Dump Feature** - Completed feature for capturing system state during unexpected termination
 
 **Current Priority (Phase 1):**
 🔄 **Complete Material Rendering** - Visual implementation for all 8 material types (DIRT, WATER, WOOD, SAND, METAL, LEAF, WALL, AIR)
-🔄 **Material Picker UI** - Allow users to select and place any material type
+⚙️ **Material Picker UI** - Allow users to select and place any material type (IN DEVELOPMENT - seems complete)
 🔄 **Cell Grabber Tool** - Interactive cell manipulation and movement system
 
 **Next Phases:**
-- **Phase 2**: Advanced placement tools (brush, fill, shapes) + material-specific physics  
-- **Phase 3**: Simulation scenarios, analysis tools, performance optimization
-- **Phase 4**: Thermal/electrical simulation, custom materials, plugin architecture
+- **Phase 2**: More physics features for WorldB.
+- **Phase 3**: Add Tree organism to simulation.
+- **Phase 4**: Simulation scenarios, analysis tools, performance optimization.
 
 **Reference**: See `design_docs/WorldB-Development-Plan.md` for complete roadmap
 
@@ -193,5 +195,6 @@ Can be found here:
 
 ## Misc TODO
 🔄 - Update UI so user can select which type of material to add to the world. (Phase 1)
+[ ] - Add an exit hook that shows a full dump of the world state after an ASSERT.
 [ ] - some way to talk to the application while it runs... a DBus API, a socket API, what are the other options? This would be useful!
 [ ] - run a clean build and fix all warnings, then make all warnings into errors. Please.

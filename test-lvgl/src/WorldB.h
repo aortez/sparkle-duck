@@ -74,6 +74,13 @@ public:
     void addDirtAtPixel(int pixelX, int pixelY) override;
     void addWaterAtPixel(int pixelX, int pixelY) override;
     
+    // Universal material addition (direct support for all 8 material types)
+    void addMaterialAtPixel(int pixelX, int pixelY, MaterialType type, double amount = 1.0) override;
+    
+    // Material selection state management
+    void setSelectedMaterial(MaterialType type) override { selected_material_ = type; }
+    MaterialType getSelectedMaterial() const override { return selected_material_; }
+    
     // =================================================================
     // WORLDINTERFACE IMPLEMENTATION - DRAG INTERACTION
     // =================================================================
@@ -270,6 +277,9 @@ private:
     int drag_start_y_;
     MaterialType dragged_material_;
     double dragged_amount_;
+    
+    // Material selection state (for UI coordination)
+    MaterialType selected_material_;
     
     // Material transfer queue
     std::vector<MaterialMove> pending_moves_;

@@ -1,6 +1,8 @@
 #pragma once
 
 #include <string>
+#include "lvgl/src/libs/thorvg/rapidjson/document.h"
+#include "lvgl/src/libs/thorvg/rapidjson/writer.h"
 
 class Vector2d {
 public:
@@ -18,6 +20,10 @@ public:
     double dot(const Vector2d& other) const;
     Vector2d normalize() const;
     std::string toString() const;
+    
+    // JSON serialization support
+    rapidjson::Value toJson(rapidjson::Document::AllocatorType& allocator) const;
+    static Vector2d fromJson(const rapidjson::Value& json);
 
     // Operator overloads for more natural syntax.
     Vector2d operator+(const Vector2d& other) const;

@@ -4,6 +4,7 @@
 #include <vector>
 #include "Vector2d.h"
 #include "MaterialType.h"
+#include "lvgl/src/libs/thorvg/rapidjson/document.h"
 
 /**
  * WorldState - State transfer structure for cross-world compatibility
@@ -66,6 +67,10 @@ struct WorldState {
                 const Vector2d& center_of_mass = Vector2d(0.0, 0.0), double press = 0.0)
             : material_mass(mass), dominant_material(material), velocity(vel), 
               com(center_of_mass), pressure(press) {}
+              
+        // JSON serialization support
+        rapidjson::Value toJson(rapidjson::Document::AllocatorType& allocator) const;
+        static CellData fromJson(const rapidjson::Value& json);
     };
     
     // Grid data (row-major order: grid_data[y][x])
@@ -117,6 +122,10 @@ struct WorldState {
     bool isValidCoordinate(uint32_t x, uint32_t y) const {
         return x < width && y < height;
     }
+    
+    // JSON serialization support
+    rapidjson::Value toJson(rapidjson::Document::AllocatorType& allocator) const;
+    static WorldState fromJson(const rapidjson::Value& json);
 };
 
 #endif // WORLDSTATE_H

@@ -41,7 +41,7 @@ double World::ELASTICITY_FACTOR = 0.8;         // Energy preserved in reflection
 double World::DIRT_FRAGMENTATION_FACTOR = 0.0; // Default dirt fragmentation factor
 
 World::World(uint32_t width, uint32_t height, lv_obj_t* draw_area)
-    : width(width), height(height), cells(width * height), draw_area(draw_area), ui_ref_(nullptr)
+    : width(width), height(height), cells(width * height), draw_area(draw_area), ui_ref_(nullptr), selected_material_(MaterialType::DIRT)
 {
     spdlog::info("Creating World: {}x{} grid ({} total cells)", width, height, cells.size());
 
@@ -1400,13 +1400,24 @@ void World::applyMoves()
         if (oldTargetMass == 0.0) {
             // First mass in cell, use the expected COM and transfer velocity
             spdlog::trace("Target cell empty, adding: dirt={} water={}", actualDirt, actualWater);
-            targetCell.update(targetCell.dirt + actualDirt, expectedCom, sourceCell.v);
+            // Safely add dirt with capacity checking - return excess to source
+            double actualDirtAdded = targetCell.safeAddMaterial(targetCell.dirt, actualDirt);
+            double excessDirt = actualDirt - actualDirtAdded;
+            if (excessDirt > 0.0) {
+                sourceCell.dirt += excessDirt; // Return excess to source
+                spdlog::trace("Returned excess dirt to source: {}", excessDirt);
+            }
             // Safely add water with capacity checking - return excess to source
             double actualWaterAdded = targetCell.safeAddMaterial(targetCell.water, actualWater);
             double excessWater = actualWater - actualWaterAdded;
             if (excessWater > 0.0) {
                 sourceCell.water += excessWater; // Return excess to source
                 spdlog::trace("Returned excess water to source: {}", excessWater);
+            }
+            // Update COM and velocity after material additions
+            if (targetCell.percentFull() > 0.0) {
+                targetCell.com = expectedCom;
+                targetCell.v = sourceCell.v;
             }
             spdlog::trace(
                 "Target after update: dirt={} water={} total={}",
@@ -1429,13 +1440,24 @@ void World::applyMoves()
 
             spdlog::trace(
                 "Target cell has mass, adding: dirt={} water={}", actualDirt, actualWater);
-            targetCell.update(targetCell.dirt + actualDirt, newCom, targetCell.v);
+            // Safely add dirt with capacity checking - return excess to source
+            double actualDirtAdded = targetCell.safeAddMaterial(targetCell.dirt, actualDirt);
+            double excessDirt = actualDirt - actualDirtAdded;
+            if (excessDirt > 0.0) {
+                sourceCell.dirt += excessDirt; // Return excess to source
+                spdlog::trace("Returned excess dirt to source: {}", excessDirt);
+            }
             // Safely add water with capacity checking - return excess to source
             double actualWaterAdded = targetCell.safeAddMaterial(targetCell.water, actualWater);
             double excessWater = actualWater - actualWaterAdded;
             if (excessWater > 0.0) {
                 sourceCell.water += excessWater; // Return excess to source
                 spdlog::trace("Returned excess water to source: {}", excessWater);
+            }
+            // Update COM and velocity after material additions
+            if (targetCell.percentFull() > 0.0) {
+                targetCell.com = newCom;
+                // Keep existing velocity for cells with mass
             }
             spdlog::trace(
                 "Target after update: dirt={} water={} total={}",
@@ -1610,14 +1632,46 @@ void World::addWaterAtPixel(int pixelX, int pixelY)
         Cell& cell = at(cellX, cellY);
         spdlog::info("WorldA: Adding water to cell ({},{}) - before: dirt={:.3f}, water={:.3f}", 
                      cellX, cellY, cell.dirt, cell.water);
-        // Keep existing dirt amount but add water
-        cell.water = 1.0;
+        // Use safeAddMaterial to respect capacity limits
+        double actualAdded = cell.safeAddMaterial(cell.water, 1.0);
         cell.markDirty();
-        spdlog::info("WorldA: After adding water - dirt={:.3f}, water={:.3f}", 
-                     cell.dirt, cell.water);
+        spdlog::info("WorldA: After adding water - dirt={:.3f}, water={:.3f}, actualAdded={:.3f}", 
+                     cell.dirt, cell.water, actualAdded);
     } else {
         spdlog::info("WorldA: Pixel ({},{}) -> cell ({},{}) is out of bounds (grid: {}x{})", 
                      pixelX, pixelY, cellX, cellY, width, height);
+    }
+}
+
+void World::addMaterialAtPixel(int pixelX, int pixelY, MaterialType type, double amount)
+{
+    spdlog::debug("WorldA::addMaterialAtPixel({}) at pixel ({},{}) with amount {:.3f}", 
+                  getMaterialName(type), pixelX, pixelY, amount);
+    
+    // WorldA mapping: Convert materials to dirt/water equivalents
+    switch (type) {
+        case MaterialType::DIRT:
+        case MaterialType::SAND:   // Sand -> dirt (granular material)
+        case MaterialType::WOOD:   // Wood -> dirt (solid material)
+        case MaterialType::METAL:  // Metal -> dirt (dense solid)
+        case MaterialType::WALL:   // Wall -> dirt (immovable -> dense dirt)
+            addDirtAtPixel(pixelX, pixelY);
+            break;
+            
+        case MaterialType::WATER:
+        case MaterialType::LEAF:   // Leaf -> water (light material)
+            addWaterAtPixel(pixelX, pixelY);
+            break;
+            
+        case MaterialType::AIR:
+            // AIR -> no operation (WorldA cannot remove materials easily)
+            spdlog::debug("WorldA: AIR material ignored (cannot remove materials)");
+            break;
+            
+        default:
+            spdlog::warn("WorldA: Unknown material type {}, defaulting to DIRT", static_cast<int>(type));
+            addDirtAtPixel(pixelX, pixelY);
+            break;
     }
 }
 

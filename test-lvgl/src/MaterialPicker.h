@@ -6,6 +6,9 @@
 #include <array>
 #include <memory>
 
+// Forward declarations
+class SimulatorUI;
+
 /**
  * \file
  * MaterialPicker provides a visual UI for selecting from all 8 material types.
@@ -78,6 +81,12 @@ public:
      */
     void setSelectedMaterial(MaterialType type);
     
+    /**
+     * Set parent UI for material selection notifications
+     * @param ui Pointer to parent SimulatorUI
+     */
+    void setParentUI(SimulatorUI* ui) { parent_ui_ = ui; }
+    
     // =================================================================
     // EVENT HANDLING
     // =================================================================
@@ -114,6 +123,7 @@ private:
     
     // State management
     MaterialType selected_material_;                             // Currently selected material
+    SimulatorUI* parent_ui_;                                     // Parent UI for notifications
     
     // =================================================================
     // HELPER METHODS
