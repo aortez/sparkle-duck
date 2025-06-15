@@ -13,7 +13,6 @@ WorldB::WorldB(uint32_t width, uint32_t height, lv_obj_t* draw_area)
     : width_(width),
       height_(height),
       draw_area_(draw_area),
-      ui_ref_(nullptr),
       timestep_(0),
       timescale_(1.0),
       removed_mass_(0.0),
@@ -45,7 +44,8 @@ WorldB::WorldB(uint32_t width, uint32_t height, lv_obj_t* draw_area)
       floating_particle_pixel_y_(0.0),
       dragged_velocity_(0.0, 0.0),
       dragged_com_(0.0, 0.0),
-      selected_material_(MaterialType::DIRT)
+      selected_material_(MaterialType::DIRT),
+      ui_ref_(nullptr)
 {
     spdlog::info("Creating WorldB: {}x{} grid with pure-material physics", width_, height_);
     
@@ -190,7 +190,7 @@ void WorldB::addDirtAtPixel(int pixelX, int pixelY)
     
     if (isValidCell(cellX, cellY)) {
         addMaterialAtCell(static_cast<uint32_t>(cellX), static_cast<uint32_t>(cellY), MaterialType::DIRT, 1.0);
-        CellB& cell = at(static_cast<uint32_t>(cellX), static_cast<uint32_t>(cellY));
+        CellB& cell __attribute__((unused)) = at(static_cast<uint32_t>(cellX), static_cast<uint32_t>(cellY));
     }
 }
 
@@ -445,7 +445,7 @@ void WorldB::updateCursorForce(int pixelX, int pixelY, bool isActive)
 // GRID MANAGEMENT
 // =================================================================
 
-void WorldB::resizeGrid(uint32_t newWidth, uint32_t newHeight, bool clearHistory)
+void WorldB::resizeGrid(uint32_t newWidth, uint32_t newHeight, bool /* clearHistory */)
 {
     if (newWidth == width_ && newHeight == height_) {
         return;
@@ -633,6 +633,9 @@ void WorldB::queueMaterialMoves(double deltaTime)
                     move.material = cell.getMaterialType();
                     move.momentum = cell.getVelocity() * cell.getMass();
                     
+                    // Calculate boundary normal for physics-based transfer
+                    move.boundary_normal = transferDir; // transferDir already contains the boundary normal
+                    
                     pending_moves_.push_back(move);
                 }
             }
@@ -653,24 +656,17 @@ void WorldB::processMaterialMoves()
         CellB& fromCell = at(move.fromX, move.fromY);
         CellB& toCell = at(move.toX, move.toY);
         
-        // Attempt the transfer
-        const double transferred = fromCell.transferTo(toCell, move.amount);
+        // Attempt the physics-aware transfer
+        const double transferred = fromCell.transferToWithPhysics(toCell, move.amount, move.boundary_normal);
         
         if (transferred > 0.0) {
-            // Apply momentum conservation: new_COM = (m1*COM1 + m2*COM2)/(m1+m2)
-            const double fromMass = fromCell.getMass();
-            const double toMass = toCell.getMass();
+            // Note: momentum conservation is now handled within addMaterialWithPhysics
+            // No need for additional momentum handling here
             
-            if (toMass > MIN_MATTER_THRESHOLD) {
-                const Vector2d combinedMomentum = 
-                    fromCell.getVelocity() * fromMass + move.momentum;
-                const Vector2d newVelocity = combinedMomentum / toMass;
-                toCell.setVelocity(newVelocity);
-            }
-            
-            spdlog::trace("Transferred {:.3f} {} from ({},{}) to ({},{})", 
+            spdlog::trace("Transferred {:.3f} {} from ({},{}) to ({},{}) with boundary normal ({:.2f},{:.2f})", 
                           transferred, getMaterialName(move.material),
-                          move.fromX, move.fromY, move.toX, move.toY);
+                          move.fromX, move.fromY, move.toX, move.toY,
+                          move.boundary_normal.x, move.boundary_normal.y);
         }
     }
     
@@ -678,7 +674,7 @@ void WorldB::processMaterialMoves()
     timers_.stopTimer("process_moves");
 }
 
-void WorldB::applyPressure(double deltaTime)
+void WorldB::applyPressure(double /* deltaTime */)
 {
     if (pressure_system_ == PressureSystem::Original) {
         calculateHydrostaticPressure();

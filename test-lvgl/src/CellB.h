@@ -99,11 +99,20 @@ public:
     // Add material to this cell (returns amount actually added)
     double addMaterial(MaterialType type, double amount);
     
+    // Add material with physics context for realistic COM placement
+    double addMaterialWithPhysics(MaterialType type, double amount, 
+                                 const Vector2d& source_com, 
+                                 const Vector2d& velocity,
+                                 const Vector2d& boundary_normal);
+    
     // Remove material from this cell (returns amount actually removed)
     double removeMaterial(double amount);
     
     // Transfer material to another cell (returns amount transferred)
     double transferTo(CellB& target, double amount);
+    
+    // Physics-aware transfer with boundary crossing information
+    double transferToWithPhysics(CellB& target, double amount, const Vector2d& boundary_normal);
     
     // Replace all material with new type and amount
     void replaceMaterial(MaterialType type, double fill_ratio = 1.0);
@@ -177,4 +186,13 @@ private:
     std::vector<uint8_t> buffer_; // Buffer for LVGL canvas pixel data
     lv_obj_t* canvas_;           // LVGL canvas object
     bool needs_redraw_;          // Flag to track if cell needs redrawing
+    
+    // =================================================================
+    // PHYSICS HELPERS
+    // =================================================================
+    
+    // Calculate realistic landing position for transferred material
+    Vector2d calculateTrajectoryLanding(const Vector2d& source_com, 
+                                       const Vector2d& velocity,
+                                       const Vector2d& boundary_normal) const;
 };

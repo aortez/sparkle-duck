@@ -126,6 +126,9 @@ add_executable(sparkle-duck
 target_link_libraries(sparkle-duck lvgl_linux lvgl lvgl::examples lvgl::demos lvgl::thorvg spdlog::spdlog m pthread ${PKG_CONFIG_LIB} ${SDL2_LIBRARIES} ${SDL2_IMAGE_LIBRARIES})
 target_include_directories(sparkle-duck PRIVATE ${SDL2_INCLUDE_DIRS} ${SDL2_IMAGE_INCLUDE_DIRS})
 
+# Enable warnings and treat them as errors for main executable
+target_compile_options(sparkle-duck PRIVATE -Wall -Wextra -Werror)
+
 # Install the lvgl_linux library and its headers
 install(DIRECTORY src/lib/
     DESTINATION include/lvgl
@@ -191,6 +194,9 @@ target_link_libraries(sparkle-duck-tests
     ${PKG_CONFIG_LIB}
 )
 target_include_directories(sparkle-duck-tests PRIVATE ${PKG_CONFIG_INC})
+
+# Enable warnings and treat them as errors for test executable
+target_compile_options(sparkle-duck-tests PRIVATE -Wall -Wextra -Werror)
 
 # Enable testing
 enable_testing()

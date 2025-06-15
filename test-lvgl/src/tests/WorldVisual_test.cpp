@@ -57,11 +57,11 @@ TEST_F(WorldVisualTest, DirtTransferVerticalWithMomentum) {
     // Store initial values for comparison.
     double initialDirt = world->at(0, 0).dirt;
     Vector2d initialCom = world->at(0, 0).com;
-    Vector2d initialVel = world->at(0, 0).v;
+    Vector2d initialVel __attribute__((unused)) = world->at(0, 0).v;
 
     // Track previous step's values.
-    double prevSourceDirt = initialDirt;
-    double prevTargetDirt = 0.0;
+    double prevSourceDirt __attribute__((unused)) = initialDirt;
+    double prevTargetDirt __attribute__((unused)) = 0.0;
     Vector2d prevSourceCom = initialCom;
 
     // Show initial setup if in visual mode
@@ -197,7 +197,7 @@ TEST_F(WorldVisualTest, BoundaryReflectionBehavior) {
     world->at(0, 2).v = Vector2d(3.0, -3.0);  // Moving up and right
       
     bool hitTopBoundary = false;
-    bool reachedBottomRight = false;
+    bool reachedBottomRight __attribute__((unused)) = false;
     bool foundPositiveYVelocity = false; // To verify bounce occurred
     
     // Show initial setup

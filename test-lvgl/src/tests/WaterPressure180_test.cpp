@@ -137,8 +137,8 @@ TEST_F(WaterPressure180Test, WaterPressureDeflectionBasic) {
     std::cout << "Expected: Water should find alternative path within 180° downward arc" << std::endl;
     
     // Store initial state
-    double initialWater = world->at(centerX, centerY).water;
-    Vector2d initialVelocity = world->at(centerX, centerY).v;
+    double initialWater __attribute__((unused)) = world->at(centerX, centerY).water;
+    Vector2d initialVelocity __attribute__((unused)) = world->at(centerX, centerY).v;
     
     // Run simulation with status updates
     bool waterMoved = false;

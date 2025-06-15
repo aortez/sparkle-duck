@@ -3,7 +3,7 @@
 #include "spdlog/spdlog.h"
 
 SimulationManager::SimulationManager(WorldType initialType, uint32_t width, uint32_t height, lv_obj_t* screen)
-    : width_(width), height_(height), initial_world_type_(initialType), draw_area_(nullptr), world_(nullptr), ui_(nullptr)
+    : world_(nullptr), ui_(nullptr), draw_area_(nullptr), width_(width), height_(height), initial_world_type_(initialType)
 {
     spdlog::info("Creating SimulationManager with {}x{} grid", width, height);
     

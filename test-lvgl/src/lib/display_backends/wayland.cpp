@@ -50,7 +50,7 @@ static void run_loop_wayland(SimulationManager& manager);
 /**********************
  *  STATIC VARIABLES
  **********************/
-static char* backend_name = "WAYLAND";
+static const char* backend_name = "WAYLAND";
 
 /**********************
  *  EXTERNAL VARIABLES
@@ -100,7 +100,7 @@ static lv_display_t* init_wayland(void)
     lv_group_t* g;
 
     disp =
-        lv_wayland_window_create(settings.window_width, settings.window_height, "Dirt Sim", NULL);
+        lv_wayland_window_create(settings.window_width, settings.window_height, const_cast<char*>("Dirt Sim"), NULL);
 
     if (disp == NULL) {
         die("Failed to initialize Wayland backend\n");

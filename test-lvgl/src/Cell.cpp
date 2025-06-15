@@ -44,11 +44,11 @@ Cell::Cell()
       wood(0.0),
       leaf(0.0),
       metal(0.0),
-      buffer(WIDTH * HEIGHT * 4),
-      canvas(nullptr),
       com(0.0, 0.0),
       v(0.0, 0.0),
       pressure(0.0, 0.0),
+      buffer(WIDTH * HEIGHT * 4),
+      canvas(nullptr),
       needsRedraw(true)
 {}
 
@@ -121,9 +121,9 @@ void Cell::update(double newDirty, const Vector2d& newCom, const Vector2d& newV)
 }
 
 // Helper function to safely set a pixel on the canvas.
-static void safe_set_pixel(lv_obj_t* canvas, int x, int y, lv_color_t color, lv_opa_t opa)
+__attribute__((unused)) static void safe_set_pixel(lv_obj_t* canvas, int x, int y, lv_color_t color, lv_opa_t opa)
 {
-    if (x >= 0 && x < Cell::WIDTH && y >= 0 && y < Cell::HEIGHT) {
+    if (x >= 0 && x < static_cast<int>(Cell::WIDTH) && y >= 0 && y < static_cast<int>(Cell::HEIGHT)) {
         lv_canvas_set_px(canvas, x, y, color, opa);
     }
 }
@@ -158,7 +158,7 @@ void Cell::draw(lv_obj_t* parent, uint32_t x, uint32_t y)
     needsRedraw = false;
 }
 
-void Cell::drawNormal(lv_obj_t* parent, uint32_t x, uint32_t y)
+void Cell::drawNormal(lv_obj_t* /* parent */, uint32_t /* x */, uint32_t /* y */)
 {
     lv_color_t brown = lv_color_hex(0x8B4513); // Saddle brown color
 
@@ -175,7 +175,7 @@ void Cell::drawNormal(lv_obj_t* parent, uint32_t x, uint32_t y)
     bg_rect_dsc.bg_color = lv_color_hex(0x000000); // Black background
     bg_rect_dsc.bg_opa = LV_OPA_COVER;
     bg_rect_dsc.border_width = 0;
-    lv_area_t coords = { 0, 0, WIDTH, HEIGHT };
+    lv_area_t coords = { 0, 0, static_cast<int32_t>(WIDTH), static_cast<int32_t>(HEIGHT) };
     lv_draw_rect(&layer, &bg_rect_dsc, &coords);
 
     // Draw dirt layer
@@ -205,7 +205,7 @@ void Cell::drawNormal(lv_obj_t* parent, uint32_t x, uint32_t y)
     lv_canvas_finish_layer(canvas, &layer);
 }
 
-void Cell::drawDebug(lv_obj_t* parent, uint32_t x, uint32_t y)
+void Cell::drawDebug(lv_obj_t* /* parent */, uint32_t /* x */, uint32_t /* y */)
 {
     lv_color_t brown = lv_color_hex(0x8B4513); // Saddle brown color
 
@@ -222,7 +222,7 @@ void Cell::drawDebug(lv_obj_t* parent, uint32_t x, uint32_t y)
     bg_rect_dsc.bg_color = lv_color_hex(0x000000); // Black background
     bg_rect_dsc.bg_opa = LV_OPA_COVER;
     bg_rect_dsc.border_width = 0;
-    lv_area_t bg_coords = { 0, 0, WIDTH, HEIGHT };
+    lv_area_t bg_coords = { 0, 0, static_cast<int32_t>(WIDTH), static_cast<int32_t>(HEIGHT) };
     lv_draw_rect(&layer, &bg_rect_dsc, &bg_coords);
 
     // // Draw density variation background using a gradient effect
@@ -261,7 +261,7 @@ void Cell::drawDebug(lv_obj_t* parent, uint32_t x, uint32_t y)
     rect_dsc.border_opa = opacity_dirt;
     rect_dsc.border_width = 2;
     rect_dsc.radius = 2;
-    lv_area_t coords = { 0, 0, WIDTH, HEIGHT };
+    lv_area_t coords = { 0, 0, static_cast<int32_t>(WIDTH), static_cast<int32_t>(HEIGHT) };
     lv_draw_rect(&layer, &rect_dsc, &coords);
 
     // Draw water layer with enhanced visualization
@@ -387,7 +387,7 @@ double Cell::getEffectiveDensity() const
     return weightedDensity / totalMass;
 }
 
-void Cell::validateState(const std::string& context) const
+void Cell::validateState(const std::string& /* context */) const
 {
     ASSERT(std::isfinite(dirt), ("Cell dirt is NaN or infinite in " + context).c_str());
     ASSERT(std::isfinite(water), ("Cell water is NaN or infinite in " + context).c_str());

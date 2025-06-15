@@ -41,7 +41,7 @@ double World::ELASTICITY_FACTOR = 0.8;         // Energy preserved in reflection
 double World::DIRT_FRAGMENTATION_FACTOR = 0.0; // Default dirt fragmentation factor
 
 World::World(uint32_t width, uint32_t height, lv_obj_t* draw_area)
-    : width(width), height(height), cells(width * height), draw_area(draw_area), ui_ref_(nullptr), selected_material_(MaterialType::DIRT)
+    : draw_area(draw_area), width(width), height(height), cells(width * height), selected_material_(MaterialType::DIRT), ui_ref_(nullptr)
 {
     spdlog::info("Creating World: {}x{} grid ({} total cells)", width, height, cells.size());
 
@@ -538,7 +538,7 @@ void World::handleTransferFailure(
 }
 
 void World::handleBoundaryReflection(
-    Cell& cell, int targetX, int targetY, bool shouldTransferX, bool shouldTransferY)
+    Cell& /* cell */, int /* targetX */, int /* targetY */, bool /* shouldTransferX */, bool /* shouldTransferY */)
 {
     // Legacy method - now handled by handleTransferFailure
     // Kept for compatibility but functionality moved to handleTransferFailure
@@ -637,7 +637,7 @@ void World::setUIReference(SimulatorUI* ui)
 }
 
 
-void World::applyPressure(const double deltaTimeSeconds)
+void World::applyPressure(const double /* deltaTimeSeconds */)
 {
     // Random number generator for probabilistic pressure application
     static std::mt19937 rng(std::random_device{}());
@@ -1341,7 +1341,7 @@ void World::applyMoves()
         // --- END ELASTIC COLLISION RESPONSE ---
 
         // Calculate the fraction being moved.
-        const double moveFraction = originalSourceMass > 0 ? moveAmount / originalSourceMass : 0.0;
+        const double moveFraction __attribute__((unused)) = originalSourceMass > 0 ? moveAmount / originalSourceMass : 0.0;
 
         // Calculate actual amounts to move based on proportions
         const double dirtProportion =
@@ -1486,7 +1486,7 @@ void World::applyMoves()
             // Preserve velocity if no collision occurred
             Vector2d newV = sourceCell.v;
             // Scale COM based on remaining mass
-            const double remainingMass = sourceCell.dirt + sourceCell.water;
+            const double remainingMass __attribute__((unused)) = sourceCell.dirt + sourceCell.water;
             const double movedMassFraction =
                 originalSourceMass > 0 ? (actualDirt + actualWater) / originalSourceMass : 0.0;
             Vector2d newCom = sourceCell.com * (1.0 - movedMassFraction);

@@ -470,7 +470,7 @@ void ConfigurableWorldSetup::addParticles(WorldInterface& world, uint32_t timest
 }
 
 // Feature-preserving resize implementation
-std::vector<WorldSetup::ResizeData> WorldSetup::captureWorldState(const WorldInterface& world) const
+std::vector<WorldSetup::ResizeData> WorldSetup::captureWorldState(const WorldInterface& /* world */) const
 {
     // Resize functionality not available for WorldInterface - requires direct cell access
     // Return empty state for now - TODO: implement resize support if needed
@@ -506,7 +506,7 @@ void WorldSetup::applyWorldState(
                 static_cast<uint32_t>(std::round(oldY)));
 
             // Interpolate the cell data
-            ResizeData newData =
+            ResizeData newData __attribute__((unused)) =
                 interpolateCell(oldState, oldWidth, oldHeight, oldX, oldY, edgeStrength);
 
             // Apply the interpolated data to the new cell

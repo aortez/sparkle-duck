@@ -97,7 +97,7 @@ public:
     void setGravity(double g) override { gravity_ = g; }
     void setElasticityFactor(double e) override { elasticity_factor_ = e; }
     void setPressureScale(double scale) override { pressure_scale_ = scale; }
-    void setDirtFragmentationFactor(double factor) override { /* no-op for WorldB */ }
+    void setDirtFragmentationFactor(double /* factor */) override { /* no-op for WorldB */ }
     
     // =================================================================
     // WORLDINTERFACE IMPLEMENTATION - WATER PHYSICS (SIMPLIFIED)
@@ -117,7 +117,7 @@ public:
     // WORLDINTERFACE IMPLEMENTATION - TIME REVERSAL (NO-OP)
     // =================================================================
     
-    void enableTimeReversal(bool enabled) override { /* no-op */ }
+    void enableTimeReversal(bool /* enabled */) override { /* no-op */ }
     bool isTimeReversalEnabled() const override { return false; }
     void saveWorldState() override { /* no-op */ }
     bool canGoBackward() const override { return false; }
@@ -216,6 +216,7 @@ private:
         double amount;
         MaterialType material;
         Vector2d momentum;
+        Vector2d boundary_normal;  // Direction of boundary crossing for physics
     };
     
     void queueMaterialMoves(double deltaTime);

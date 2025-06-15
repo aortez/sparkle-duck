@@ -47,7 +47,7 @@ static void run_loop_fbdev(SimulationManager& manager);
  *  STATIC VARIABLES
  **********************/
 
-static char* backend_name = "FBDEV";
+static const char* backend_name = "FBDEV";
 
 /**********************
  *  EXTERNAL VARIABLES

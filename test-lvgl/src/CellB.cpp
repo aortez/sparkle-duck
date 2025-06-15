@@ -1,5 +1,6 @@
 #include "CellB.h"
 #include "Cell.h" // For WIDTH/HEIGHT constants
+#include "WorldB.h" // For MIN_MATTER_THRESHOLD constant
 
 #include <algorithm>
 #include <cmath>
@@ -154,6 +155,62 @@ double CellB::addMaterial(MaterialType type, double amount)
     return added;
 }
 
+double CellB::addMaterialWithPhysics(MaterialType type, double amount, 
+                                    const Vector2d& source_com, 
+                                    const Vector2d& velocity,
+                                    const Vector2d& boundary_normal)
+{
+    if (amount <= 0.0) {
+        return 0.0;
+    }
+    
+    // If we're empty, accept any material type with trajectory-based COM
+    if (isEmpty()) {
+        material_type_ = type;
+        const double added = std::min(amount, 1.0);
+        fill_ratio_ = added;
+        
+        // Calculate realistic landing position based on boundary crossing
+        com_ = calculateTrajectoryLanding(source_com, velocity, boundary_normal);
+        velocity_ = velocity; // Preserve velocity through transfer
+        
+        markDirty();
+        return added;
+    }
+    
+    // If different material type, no mixing allowed
+    if (material_type_ != type) {
+        return 0.0;
+    }
+    
+    // Add to existing material with momentum conservation
+    const double capacity = getCapacity();
+    const double added = std::min(amount, capacity);
+    
+    if (added > 0.0) {
+        // Enhanced momentum conservation: new_COM = (m1*COM1 + m2*COM2)/(m1+m2)
+        const double existing_mass = getMass();
+        const double added_mass = added * getMaterialProperties().density;
+        const double total_mass = existing_mass + added_mass;
+        
+        // Calculate incoming material's COM in target cell space
+        Vector2d incoming_com = calculateTrajectoryLanding(source_com, velocity, boundary_normal);
+        
+        if (total_mass > WorldB::MIN_MATTER_THRESHOLD) {
+            // Weighted average of COM positions
+            com_ = (com_ * existing_mass + incoming_com * added_mass) / total_mass;
+            
+            // Momentum conservation for velocity
+            velocity_ = (velocity_ * existing_mass + velocity * added_mass) / total_mass;
+        }
+        
+        fill_ratio_ += added;
+        markDirty();
+    }
+    
+    return added;
+}
+
 double CellB::removeMaterial(double amount)
 {
     if (isEmpty() || amount <= 0.0) {
@@ -180,6 +237,27 @@ double CellB::transferTo(CellB& target, double amount)
     // Calculate how much we can actually transfer
     const double available = std::min(amount, fill_ratio_);
     const double accepted = target.addMaterial(material_type_, available);
+    
+    // Remove the accepted amount from this cell
+    if (accepted > 0.0) {
+        removeMaterial(accepted);
+    }
+    
+    return accepted;
+}
+
+double CellB::transferToWithPhysics(CellB& target, double amount, const Vector2d& boundary_normal)
+{
+    if (isEmpty() || amount <= 0.0) {
+        return 0.0;
+    }
+    
+    // Calculate how much we can actually transfer
+    const double available = std::min(amount, fill_ratio_);
+    
+    // Use physics-aware method with current COM and velocity
+    const double accepted = target.addMaterialWithPhysics(material_type_, available, 
+                                                         com_, velocity_, boundary_normal);
     
     // Remove the accepted amount from this cell
     if (accepted > 0.0) {
@@ -259,6 +337,52 @@ Vector2d CellB::getTransferDirection() const
     }
     
     return direction;
+}
+
+Vector2d CellB::calculateTrajectoryLanding(const Vector2d& source_com, 
+                                          const Vector2d& velocity,
+                                          const Vector2d& boundary_normal) const
+{
+    // Calculate where material actually crosses the boundary
+    Vector2d boundary_crossing_point = source_com;
+    
+    // Determine which boundary was crossed and calculate intersection
+    if (std::abs(boundary_normal.x) > 0.5) {
+        // Crossing left/right boundary
+        double boundary_x = (boundary_normal.x > 0) ? 1.0 : -1.0;
+        double crossing_ratio = (boundary_x - source_com.x) / velocity.x;
+        if (std::abs(velocity.x) > 1e-6) {
+            boundary_crossing_point.x = boundary_x;
+            boundary_crossing_point.y = source_com.y + velocity.y * crossing_ratio;
+        }
+    } else if (std::abs(boundary_normal.y) > 0.5) {
+        // Crossing top/bottom boundary  
+        double boundary_y = (boundary_normal.y > 0) ? 1.0 : -1.0;
+        double crossing_ratio = (boundary_y - source_com.y) / velocity.y;
+        if (std::abs(velocity.y) > 1e-6) {
+            boundary_crossing_point.y = boundary_y;
+            boundary_crossing_point.x = source_com.x + velocity.x * crossing_ratio;
+        }
+    }
+    
+    // Transform crossing point to target cell coordinate space
+    Vector2d target_com = boundary_crossing_point;
+    
+    // Wrap coordinates across boundary
+    if (std::abs(boundary_normal.x) > 0.5) {
+        // Material crossed left/right - wrap X coordinate
+        target_com.x = (boundary_normal.x > 0) ? -1.0 : 1.0;
+    }
+    if (std::abs(boundary_normal.y) > 0.5) {
+        // Material crossed top/bottom - wrap Y coordinate  
+        target_com.y = (boundary_normal.y > 0) ? -1.0 : 1.0;
+    }
+    
+    // Clamp to valid COM bounds
+    target_com.x = std::clamp(target_com.x, COM_MIN, COM_MAX);
+    target_com.y = std::clamp(target_com.y, COM_MIN, COM_MAX);
+    
+    return target_com;
 }
 
 std::string CellB::toString() const
@@ -415,7 +539,7 @@ void CellB::drawNormal(lv_obj_t* parent, uint32_t x, uint32_t y)
     bg_rect_dsc.bg_color = lv_color_hex(0x000000); // Black background
     bg_rect_dsc.bg_opa = LV_OPA_COVER;
     bg_rect_dsc.border_width = 0;
-    lv_area_t coords = { 0, 0, Cell::WIDTH, Cell::HEIGHT };
+    lv_area_t coords = { 0, 0, static_cast<int32_t>(Cell::WIDTH), static_cast<int32_t>(Cell::HEIGHT) };
     lv_draw_rect(&layer, &bg_rect_dsc, &coords);
     
     // Render material if not empty
@@ -569,7 +693,7 @@ void CellB::drawNormal(lv_obj_t* parent, uint32_t x, uint32_t y)
                     
                     lv_area_t shine_coords = { 
                         material_coords.x1 + 2, material_coords.y1 + 2, 
-                        material_coords.x1 + Cell::WIDTH/3, material_coords.y1 + Cell::HEIGHT/3 
+                        material_coords.x1 + static_cast<int32_t>(Cell::WIDTH/3), material_coords.y1 + static_cast<int32_t>(Cell::HEIGHT/3) 
                     };
                     lv_draw_rect(&layer, &shine_dsc, &shine_coords);
                 }
@@ -604,8 +728,8 @@ void CellB::drawNormal(lv_obj_t* parent, uint32_t x, uint32_t y)
                     grain_dsc.radius = 0;
                     
                     // Add small rectangular "grains"
-                    for (int i = 2; i < Cell::WIDTH - 2; i += 4) {
-                        for (int j = 2; j < Cell::HEIGHT - 2; j += 4) {
+                    for (int i = 2; i < static_cast<int>(Cell::WIDTH) - 2; i += 4) {
+                        for (int j = 2; j < static_cast<int>(Cell::HEIGHT) - 2; j += 4) {
                             lv_area_t grain_coords = { 
                                 material_coords.x1 + i, material_coords.y1 + j, 
                                 material_coords.x1 + i + 1, material_coords.y1 + j + 1 
@@ -655,7 +779,7 @@ void CellB::drawDebug(lv_obj_t* parent, uint32_t x, uint32_t y)
     bg_rect_dsc.bg_color = lv_color_hex(0x000000); // Black background
     bg_rect_dsc.bg_opa = LV_OPA_COVER;
     bg_rect_dsc.border_width = 0;
-    lv_area_t coords = { 0, 0, Cell::WIDTH, Cell::HEIGHT };
+    lv_area_t coords = { 0, 0, static_cast<int32_t>(Cell::WIDTH), static_cast<int32_t>(Cell::HEIGHT) };
     lv_draw_rect(&layer, &bg_rect_dsc, &coords);
     
     // Render material if not empty

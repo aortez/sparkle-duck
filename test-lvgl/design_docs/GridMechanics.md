@@ -4,7 +4,7 @@ WorldB is composed of a grid of square cells.
 
 Each cell is from [0,1] full.
 
-It is filled with matter, of one of the following types: dirt, water, wood, sand, metal, air, leaf, and wall.
+It is filled with matter, of one of the following types: dirt, water, wood, sand, metal, air, leaf, wall, and nothing.
 
 The boundries of the world are composed of wall blocks.
 Wall blocks are a special, immobile kind of block that other blocks reflect off of.
@@ -24,7 +24,22 @@ The boundary is at [-0.99,0.99].
 
 Reflections are handled as elastic collisions, taking into account the properties of each material.
 
-When matter is transferred to the target cell, the matter is added and its momentum is also added. new_COM = (m1COM1 + m2COM2) / (m1 + m2) The velocity of transferred matter should also be preserved.
+When matter is transferred to the target cell, the matter is added with realistic physics:
+
+**For empty target cells:**
+- COM is calculated based on trajectory crossing the boundary, not reset to (0,0)
+- Boundary crossing calculation:
+  - Find intersection point of velocity vector with cell boundary
+  - Transform crossing point to target cell coordinate space (-1 to +1)
+  - Wrap coordinates across boundary (e.g., right boundary +1.0 becomes left side -1.0)
+- Velocity is preserved through the transfer
+
+**For non-empty target cells:**
+- Enhanced momentum conservation: `new_COM = (m1*COM1 + m2*COM2) / (m1 + m2)`
+- Incoming material COM calculated from boundary crossing trajectory (same as empty cell logic)
+- Velocity momentum conservation: `new_velocity = (m1*v1 + m2*v2) / (m1 + m2)`
+
+This creates realistic physics continuity across cell boundaries instead of the previous "quantum tunneling" effect where material would magically appear at cell center.
 
 The world has gravity. It comes from an imaginary point source that can be inside or outside the world. Gravity is a force applied to each Cell's COM.
 

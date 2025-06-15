@@ -51,7 +51,6 @@
  **********************/
 
 /* Internal functions */
-static void register_backends(void);
 
 /**********************
  *  STATIC VARIABLES
@@ -116,7 +115,7 @@ simulator_settings_t settings;
 void driver_backends_register(void)
 {
     int i;
-    int cnt;
+    int cnt __attribute__((unused));
     backend_init_t init_backend;
     backend_t* b;
 

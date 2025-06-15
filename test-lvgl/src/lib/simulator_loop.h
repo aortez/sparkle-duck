@@ -116,7 +116,7 @@ inline void requestRedraw(LoopState& state) {
     state.needs_redraw = true;
 }
 
-static void event_handler(lv_event_t * e) {
+__attribute__((unused)) static void event_handler(lv_event_t * e) {
     auto* ctx = static_cast<EventContext*>(lv_event_get_user_data(e));
     auto* state = ctx ? ctx->state : nullptr;
     auto* manager = ctx ? ctx->manager : nullptr;
