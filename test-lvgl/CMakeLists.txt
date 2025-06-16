@@ -159,6 +159,7 @@ add_executable(sparkle-duck-tests
     src/tests/PressureSystem_test.cpp
     src/tests/DensityMechanics_test.cpp
     src/tests/CollisionSystem_test.cpp
+    src/tests/ForceCalculation_test.cpp
     src/tests/TestUI.cpp
     src/tests/visual_test_runner.cpp
     tests/ResultTest.cpp

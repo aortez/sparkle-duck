@@ -25,6 +25,19 @@ class SimulatorUI;
 
 class WorldB : public WorldInterface {
 public:
+    // Force calculation structures for cohesion/adhesion physics
+    struct CohesionForce {
+        double resistance_magnitude;  // Strength of cohesive resistance
+        uint32_t connected_neighbors; // Number of same-material neighbors
+    };
+    
+    struct AdhesionForce {
+        Vector2d force_direction;     // Direction of adhesive pull/resistance
+        double force_magnitude;       // Strength of adhesive force
+        MaterialType target_material; // Strongest interacting material
+        uint32_t contact_points;      // Number of contact interfaces
+    };
+    
     // Enhanced material transfer system with collision physics
     enum class CollisionType {
         TRANSFER_ONLY,      // Material moves between cells (current behavior)
@@ -239,6 +252,16 @@ public:
     
     // Clear pending moves for testing
     void clearPendingMoves() { pending_moves_.clear(); }
+    
+    // =================================================================
+    // FORCE CALCULATION METHODS
+    // =================================================================
+    
+    // Calculate cohesion resistance force from same-material neighbors
+    CohesionForce calculateCohesionForce(uint32_t x, uint32_t y);
+    
+    // Calculate adhesion force from different-material neighbors
+    AdhesionForce calculateAdhesionForce(uint32_t x, uint32_t y);
 
 private:
     // =================================================================

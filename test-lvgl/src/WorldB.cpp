@@ -1447,3 +1447,98 @@ void WorldB::handleAbsorption(CellB& fromCell, CellB& toCell, const MaterialMove
         handleTransferMove(fromCell, toCell, move);
     }
 }
+
+// =================================================================
+// FORCE CALCULATION METHODS
+// =================================================================
+
+WorldB::CohesionForce WorldB::calculateCohesionForce(uint32_t x, uint32_t y)
+{
+    const CellB& cell = at(x, y);
+    if (cell.isEmpty()) {
+        return {0.0, 0};
+    }
+    
+    const MaterialProperties& props = getMaterialProperties(cell.getMaterialType());
+    double material_cohesion = props.cohesion;
+    uint32_t connected_neighbors = 0;
+    
+    // Check all 8 neighbors (including diagonals)
+    for (int dx = -1; dx <= 1; dx++) {
+        for (int dy = -1; dy <= 1; dy++) {
+            if (dx == 0 && dy == 0) continue; // Skip self
+            
+            int nx = static_cast<int>(x) + dx;
+            int ny = static_cast<int>(y) + dy;
+            
+            if (isValidCell(nx, ny)) {
+                const CellB& neighbor = at(nx, ny);
+                if (neighbor.getMaterialType() == cell.getMaterialType() && 
+                    neighbor.getFillRatio() > MIN_MATTER_THRESHOLD) {
+                    
+                    // Weight by neighbor's fill ratio for partial cells
+                    connected_neighbors += 1; // Count as 1 neighbor (fix: was casting double to uint32_t)
+                }
+            }
+        }
+    }
+    
+    // Resistance magnitude = cohesion × connection strength × own fill ratio
+    double resistance = material_cohesion * connected_neighbors * cell.getFillRatio();
+    return {resistance, connected_neighbors};
+}
+
+WorldB::AdhesionForce WorldB::calculateAdhesionForce(uint32_t x, uint32_t y)
+{
+    const CellB& cell = at(x, y);
+    if (cell.isEmpty()) {
+        return {{0.0, 0.0}, 0.0, MaterialType::AIR, 0};
+    }
+    
+    const MaterialProperties& props = getMaterialProperties(cell.getMaterialType());
+    Vector2d total_force(0.0, 0.0);
+    uint32_t contact_count = 0;
+    MaterialType strongest_attractor = MaterialType::AIR;
+    double max_adhesion = 0.0;
+    
+    // Check all 8 neighbors for different materials
+    for (int dx = -1; dx <= 1; dx++) {
+        for (int dy = -1; dy <= 1; dy++) {
+            if (dx == 0 && dy == 0) continue;
+            
+            int nx = static_cast<int>(x) + dx;
+            int ny = static_cast<int>(y) + dy;
+            
+            if (isValidCell(nx, ny)) {
+                const CellB& neighbor = at(nx, ny);
+                
+                if (neighbor.getMaterialType() != cell.getMaterialType() && 
+                    neighbor.getFillRatio() > MIN_MATTER_THRESHOLD) {
+                    
+                    // Calculate mutual adhesion (geometric mean)
+                    const MaterialProperties& neighbor_props = getMaterialProperties(neighbor.getMaterialType());
+                    double mutual_adhesion = std::sqrt(props.adhesion * neighbor_props.adhesion);
+                    
+                    // Direction vector toward neighbor (normalized)
+                    Vector2d direction(static_cast<double>(dx), static_cast<double>(dy));
+                    direction.normalize();
+                    
+                    // Force strength weighted by fill ratios and distance
+                    double distance_weight = (std::abs(dx) + std::abs(dy) == 1) ? 1.0 : 0.707; // Adjacent vs diagonal
+                    double force_strength = mutual_adhesion * neighbor.getFillRatio() * 
+                                          cell.getFillRatio() * distance_weight;
+                    
+                    total_force += direction * force_strength;
+                    contact_count++;
+                    
+                    if (mutual_adhesion > max_adhesion) {
+                        max_adhesion = mutual_adhesion;
+                        strongest_attractor = neighbor.getMaterialType();
+                    }
+                }
+            }
+        }
+    }
+    
+    return {total_force, total_force.mag(), strongest_attractor, contact_count};
+}

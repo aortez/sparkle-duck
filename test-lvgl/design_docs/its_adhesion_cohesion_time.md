@@ -20,7 +20,7 @@ Add realistic cohesion and adhesion forces to WorldB that differentiate material
 
 ## Implementation Phases
 
-### Phase 1: Core Force Calculation System ⏰ **2-3 hours**
+### Phase 1: Core Force Calculation System
 
 #### 1.1 Add Force Calculation Methods to WorldB
 ```cpp
@@ -46,7 +46,7 @@ AdhesionForce calculateAdhesionForce(uint32_t x, uint32_t y);
 - **Integration**: Add force calculations before movement decisions
 - **Threshold Logic**: Movement only when driving force > resistance
 
-### Phase 2: Movement Logic Integration ⏰ **1-2 hours**
+### Phase 2: Movement Logic Integration 
 
 #### 2.1 Enhanced Movement Decision System
 ```cpp
@@ -79,7 +79,7 @@ void WorldB::queueMaterialMoves(double deltaTime) {
 - **METAL (cohesion=0.9, adhesion=0.4)**: Strong resistance to separation
 - **WOOD (cohesion=0.7, adhesion=0.3)**: Interlocking behavior
 
-### Phase 3: Material-Specific Interactions ⏰ **2-3 hours**
+### Phase 3: Material-Specific Interactions 
 
 #### 3.1 Adhesion Interaction Matrix
 ```cpp
@@ -99,7 +99,7 @@ double calculateMutualAdhesion(MaterialType mat1, MaterialType mat2) {
 - **METAL + WOOD**: Medium adhesion → friction resistance
 - **LEAF + AIR**: Very low adhesion → easily moves
 
-### Phase 4: Testing & Validation ⏰ **1-2 hours**
+### Phase 4: Testing & Validation 
 
 #### 4.1 Unit Tests
 ```cpp
@@ -115,7 +115,7 @@ double calculateMutualAdhesion(MaterialType mat1, MaterialType mat2) {
 - **Metal Clumping**: High cohesion keeps touching metal together
 - **Wood Structures**: High cohesion maintains beam integrity
 
-### Phase 5: Performance & Polish ⏰ **1 hour**
+### Phase 5: Performance & Polish 
 
 #### 5.1 Performance Optimization
 - **Neighbor Caching**: Cache neighbor lookups for force calculations
