@@ -240,6 +240,11 @@ public:
     static constexpr double VELOCITY_DAMPING_FACTOR_PER_TIMESTEP = 0.10;    // 10% slowdown per timestep
     static constexpr double MIN_MATTER_THRESHOLD = 0.001;      // minimum matter to process
     
+    // Distance-based cohesion decay constants
+    static constexpr double SUPPORT_DECAY_RATE = 0.3;         // Decay rate per distance unit
+    static constexpr double MIN_SUPPORT_FACTOR = 0.1;         // Minimum cohesion factor (never goes to zero)
+    static constexpr double MAX_SUPPORT_DISTANCE = 10;        // Maximum search distance for support
+    
     // =================================================================
     // TESTING METHODS
     // =================================================================
@@ -256,6 +261,9 @@ public:
     // Clear pending moves for testing
     void clearPendingMoves() { pending_moves_.clear(); }
     
+    // Expose force-influenced move queuing for testing
+    void queueMaterialMovesForTesting(double deltaTime) { queueMaterialMoves(deltaTime); }
+    
     // =================================================================
     // FORCE CALCULATION METHODS
     // =================================================================
@@ -265,6 +273,12 @@ public:
     
     // Calculate adhesion force from different-material neighbors
     AdhesionForce calculateAdhesionForce(uint32_t x, uint32_t y);
+    
+    // Calculate distance to structural support for cohesion decay
+    double calculateDistanceToSupport(uint32_t x, uint32_t y);
+    
+    // Check if a position has structural support (ground, walls, stationary material)
+    bool hasStructuralSupport(uint32_t x, uint32_t y);
 
 private:
     // =================================================================

@@ -8,6 +8,8 @@
 #include <cassert>
 #include <cmath>
 #include <random>
+#include <queue>
+#include <array>
 
 WorldB::WorldB(uint32_t width, uint32_t height, lv_obj_t* draw_area)
     : width_(width),
@@ -635,13 +637,37 @@ void WorldB::queueMaterialMoves(double deltaTime)
                 continue;
             }
             
+            // PHASE 2: Force-Based Movement Threshold
+            // Calculate cohesion and adhesion forces before movement decisions
+            CohesionForce cohesion = calculateCohesionForce(x, y);
+            AdhesionForce adhesion = calculateAdhesionForce(x, y);
+            
+            // Calculate net driving force (gravity + adhesion, no deltaTime scaling for adhesion)
+            Vector2d gravity_force(0.0, gravity_ * deltaTime * getMaterialDensity(cell.getMaterialType()));
+            Vector2d net_driving_force = gravity_force + adhesion.force_direction * adhesion.force_magnitude;
+            
+            // Movement threshold from cohesion resistance (absolute threshold)
+            double movement_threshold = cohesion.resistance_magnitude;
+            double driving_magnitude = net_driving_force.mag();
+            
+            // Force-based movement decision: only move if driving force > resistance
+            if (driving_magnitude <= movement_threshold) {
+                // Material is "stuck" due to cohesion - zero velocity and skip movement
+                cell.setVelocity(Vector2d(0.0, 0.0));
+                spdlog::trace("Movement blocked: {} at ({},{}) - driving={:.3f} <= resistance={:.3f}",
+                             getMaterialName(cell.getMaterialType()), x, y, 
+                             driving_magnitude, movement_threshold);
+                continue; // Skip boundary crossing logic entirely
+            }
+            
             // Debug: Check if cell has any velocity or interesting COM
             Vector2d velocity = cell.getVelocity();
             Vector2d oldCOM = cell.getCOM();
             if (velocity.length() > 0.01 || std::abs(oldCOM.x) > 0.5 || std::abs(oldCOM.y) > 0.5) {
-                spdlog::debug("Cell ({},{}) {} - Velocity: ({:.3f},{:.3f}), COM: ({:.3f},{:.3f})", 
+                spdlog::debug("Cell ({},{}) {} - Velocity: ({:.3f},{:.3f}), COM: ({:.3f},{:.3f}), Forces: driving={:.3f} > resistance={:.3f}", 
                               x, y, getMaterialName(cell.getMaterialType()),
-                              velocity.x, velocity.y, oldCOM.x, oldCOM.y);
+                              velocity.x, velocity.y, oldCOM.x, oldCOM.y,
+                              driving_magnitude, movement_threshold);
             }
             
             // Update COM based on velocity (with proper deltaTime integration)
@@ -1496,8 +1522,52 @@ WorldB::CohesionForce WorldB::calculateCohesionForce(uint32_t x, uint32_t y)
         }
     }
     
-    // Resistance magnitude = cohesion × connection strength × own fill ratio
-    double resistance = material_cohesion * connected_neighbors * cell.getFillRatio();
+    // Calculate support factor based on immediate neighbor support characteristics
+    uint32_t support_neighbors = 0;
+    
+    // Check all 8 neighbors for support characteristics
+    for (int dx = -1; dx <= 1; dx++) {
+        for (int dy = -1; dy <= 1; dy++) {
+            if (dx == 0 && dy == 0) continue; // Skip self
+            
+            int nx = static_cast<int>(x) + dx;
+            int ny = static_cast<int>(y) + dy;
+            
+            if (isValidCell(nx, ny)) {
+                const CellB& neighbor = at(nx, ny);
+                if (!neighbor.isEmpty()) {
+                    // Check if neighbor provides structural support
+                    // Only count TRUE structural support (walls, ground, high-density materials)
+                    // Do NOT count other dirt/similar materials as providing support
+                    if (hasStructuralSupport(nx, ny) ||                    // Walls, ground, high-density materials
+                        ny == static_cast<int>(height_) - 1) {             // Ground level
+                        support_neighbors++;
+                    }
+                }
+            }
+        }
+    }
+    
+    // Support factor: more unsupported neighbors = less cohesion
+    // If all neighbors are unsupported floating materials, cohesion drops significantly
+    double unsupported_ratio = static_cast<double>(connected_neighbors - support_neighbors) / std::max(1u, connected_neighbors);
+    
+    // Make cohesion decay more aggressive for cantilever/floating scenarios
+    // If there are no support neighbors at all, cohesion should be minimal
+    double support_factor;
+    if (support_neighbors == 0 && connected_neighbors > 0) {
+        // No structural support detected - minimal cohesion
+        support_factor = MIN_SUPPORT_FACTOR;
+    } else {
+        support_factor = std::max(MIN_SUPPORT_FACTOR, 1.0 - unsupported_ratio * SUPPORT_DECAY_RATE);
+    }
+    
+    // Resistance magnitude = cohesion × connection strength × own fill ratio × support factor
+    double resistance = material_cohesion * connected_neighbors * cell.getFillRatio() * support_factor;
+    
+    spdlog::info("Cohesion calculation for {} at ({},{}): neighbors={}, support_neighbors={}, unsupported_ratio={:.2f}, support_factor={:.2f}, resistance={:.3f}",
+                  getMaterialName(cell.getMaterialType()), x, y, connected_neighbors, support_neighbors, unsupported_ratio, support_factor, resistance);
+    
     return {resistance, connected_neighbors};
 }
 
@@ -1554,4 +1624,125 @@ WorldB::AdhesionForce WorldB::calculateAdhesionForce(uint32_t x, uint32_t y)
     }
     
     return {total_force, total_force.mag(), strongest_attractor, contact_count};
+}
+
+// =================================================================
+// DISTANCE-BASED COHESION SUPPORT CALCULATION
+// =================================================================
+
+double WorldB::calculateDistanceToSupport(uint32_t x, uint32_t y) {
+    spdlog::info("calculateDistanceToSupport({},{}) called", x, y);
+    const CellB& cell = at(x, y);
+    if (cell.isEmpty()) {
+        spdlog::info("calculateDistanceToSupport({},{}) = {} (empty cell)", x, y, MAX_SUPPORT_DISTANCE);
+        return MAX_SUPPORT_DISTANCE; // No material = no support needed
+    }
+    
+    MaterialType material = cell.getMaterialType();
+    
+    // Use simpler 2D array for distance tracking (avoid Vector2i comparisons)
+    std::vector<std::vector<int>> distances(width_, std::vector<int>(height_, -1));
+    std::queue<std::pair<uint32_t, uint32_t>> queue;
+    
+    queue.push({x, y});
+    distances[x][y] = 0;
+    
+    // 8-directional neighbor offsets (including diagonals)
+    static const std::array<std::pair<int, int>, 8> directions = {{
+        {-1, -1}, {-1, 0}, {-1, 1},
+        { 0, -1},          { 0, 1},
+        { 1, -1}, { 1, 0}, { 1, 1}
+    }};
+    
+    while (!queue.empty()) {
+        auto current = queue.front();
+        queue.pop();
+        
+        uint32_t cx = current.first;
+        uint32_t cy = current.second;
+        
+        // Check if current position has structural support
+        if (hasStructuralSupport(cx, cy)) {
+            int distance = distances[cx][cy];
+            spdlog::trace("Support found for material at ({},{}) - distance: {}", x, y, distance);
+            return static_cast<double>(distance);
+        }
+        
+        // Limit search depth to prevent infinite loops and improve performance
+        if (distances[cx][cy] >= static_cast<int>(MAX_SUPPORT_DISTANCE)) {
+            continue;
+        }
+        
+        // Explore all 8 neighbors
+        for (const auto& dir : directions) {
+            int nx = static_cast<int>(cx) + dir.first;
+            int ny = static_cast<int>(cy) + dir.second;
+            
+            if (nx >= 0 && ny >= 0 && 
+                nx < static_cast<int>(width_) && ny < static_cast<int>(height_) &&
+                distances[nx][ny] == -1) { // Not visited
+                
+                const CellB& nextCell = at(nx, ny);
+                
+                // Follow paths through connected material
+                // Either same material, or structural support material (metal, walls)
+                bool canConnect = false;
+                if (nextCell.getMaterialType() == material && 
+                    nextCell.getFillRatio() > MIN_MATTER_THRESHOLD) {
+                    canConnect = true; // Same material connection
+                } else if (!nextCell.isEmpty() && hasStructuralSupport(nx, ny)) {
+                    canConnect = true; // Structural support connection (metal, walls, etc.)
+                }
+                
+                if (canConnect) {
+                    distances[nx][ny] = distances[cx][cy] + 1;
+                    queue.push({static_cast<uint32_t>(nx), static_cast<uint32_t>(ny)});
+                }
+            }
+        }
+    }
+    
+    // No support found within search radius
+    spdlog::trace("No support found for material at ({},{}) within distance {}", x, y, MAX_SUPPORT_DISTANCE);
+    return MAX_SUPPORT_DISTANCE;
+}
+
+bool WorldB::hasStructuralSupport(uint32_t x, uint32_t y) {
+    if (!isValidCell(x, y)) {
+        spdlog::info("hasStructuralSupport({},{}) = false (invalid cell)", x, y);
+        return false;
+    }
+    
+    const CellB& cell = at(x, y);
+    
+    // Empty cells provide no support
+    if (cell.isEmpty()) {
+        spdlog::info("hasStructuralSupport({},{}) = false (empty cell)", x, y);
+        return false;
+    }
+    
+    // Support conditions (in order of priority):
+    
+    // 1. WALL material is always considered structural support
+    if (cell.getMaterialType() == MaterialType::WALL) {
+        spdlog::info("hasStructuralSupport({},{}) = true (WALL material)", x, y);
+        return true;
+    }
+    
+    // 2. Bottom edge of world (ground) provides support
+    if (y == height_ - 1) {
+        spdlog::info("hasStructuralSupport({},{}) = true (ground level, y={}, height={})", x, y, y, height_);
+        return true;
+    }
+    
+    // 3. High-density materials provide structural support
+    // METAL has density 7.8, so it acts as structural anchor
+    const MaterialProperties& props = getMaterialProperties(cell.getMaterialType());
+    if (props.density > 5.0) {
+        spdlog::info("hasStructuralSupport({},{}) = true (high density {:.1f})", x, y, props.density);
+        return true;
+    }
+    
+    spdlog::info("hasStructuralSupport({},{}) = false (no support conditions met, density={:.1f})", x, y, props.density);
+    return false;
 }

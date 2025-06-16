@@ -48,26 +48,47 @@ AdhesionForce calculateAdhesionForce(uint32_t x, uint32_t y);
 
 ### Phase 2: Movement Logic Integration 
 
-#### 2.1 Enhanced Movement Decision System
+#### 2.1 Implementation Approach: Force-Based Movement Threshold (Option A)
+
+**Primary Approach**: Add force calculations before boundary crossing detection in `queueMaterialMoves()` around line 651. Materials either move normally or are completely immobilized by cohesion resistance.
+
+**Alternative Approach**: Option B (Velocity Modification) could be explored later - this would integrate forces into `applyGravity()` to gradually affect velocity rather than using binary movement thresholds.
+
+#### 2.1.1 Implementation Decisions
+
+**Force Scaling**: Adhesion forces do NOT scale with deltaTime (unlike gravity) since they represent instantaneous binding strength based on contact, not time-dependent acceleration.
+
+**Movement Threshold**: Use absolute thresholds rather than relative ones - cohesion acts like static friction with fixed breakaway points, allowing precise material property tuning.
+
+**Velocity Handling**: When movement is blocked by cohesion, zero the velocity immediately - consistent with Option A's binary threshold approach rather than gradual damping.
+
+**Multi-Direction Forces**: Use vector addition for multiple adhesion neighbors - forces naturally cancel when equal, creating realistic "tug-of-war" scenarios where balanced forces keep materials stationary.
+
+#### 2.2 Enhanced Movement Decision System
 ```cpp
 void WorldB::queueMaterialMoves(double deltaTime) {
     for (each cell) {
         // Current forces
         Vector2d gravity_force = calculateGravityForce(cell);
         
-        // NEW: Add cohesion/adhesion
+        // NEW: Add cohesion/adhesion force calculations
         CohesionForce cohesion = calculateCohesionForce(x, y);
         AdhesionForce adhesion = calculateAdhesionForce(x, y);
         
         // Net driving force
         Vector2d driving_force = gravity_force + adhesion.force_direction;
         
-        // Movement threshold from cohesion
+        // Movement threshold from cohesion resistance
         double movement_threshold = cohesion.resistance_magnitude;
         
-        // Move only if force overcomes resistance
+        // Option A: Binary threshold decision
         if (driving_force.magnitude() > movement_threshold) {
-            queueMaterialMove(x, y, driving_force.normalized(), deltaTime);
+            // Proceed with normal boundary crossing logic
+            Vector2d newCOM = cell.getCOM() + cell.getVelocity() * deltaTime;
+            // ... existing boundary crossing detection continues unchanged
+        } else {
+            // Material is "stuck" - skip this cell entirely
+            continue;
         }
     }
 }
