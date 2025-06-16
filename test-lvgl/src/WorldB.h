@@ -69,6 +69,7 @@ public:
     uint32_t getTimestep() const override { return timestep_; }
     void draw() override;
     void reset() override;
+    void setup() override;
     
     // =================================================================
     // WORLDINTERFACE IMPLEMENTATION - GRID ACCESS

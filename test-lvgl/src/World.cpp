@@ -1550,7 +1550,7 @@ uint32_t World::getHeight() const
 
 void World::reset()
 {
-    spdlog::info("Resetting World (RulesA) to initial state");
+    spdlog::info("Resetting World (RulesA) to empty state");
     
     // Exit time reversal navigation mode to ensure we're working with current state
     currentHistoryIndex = -1;
@@ -1577,17 +1577,27 @@ void World::reset()
         cell.markDirty();
     }
     
+    spdlog::info("World (RulesA) reset complete - world is now empty");
+}
+
+void World::setup()
+{
+    spdlog::info("Setting up World (RulesA) with initial materials");
+    
+    // First reset to empty state
+    reset();
+    
     spdlog::info("About to check worldSetup pointer...");
     // Use the world setup strategy to initialize the world
     if (worldSetup) {
         spdlog::info("Calling WorldSetup::setup for World (RulesA)");
         worldSetup->setup(*this);
     } else {
-        spdlog::error("WorldSetup is null in World::reset()!");
+        spdlog::error("WorldSetup is null in World::setup()!");
     }
     
-    spdlog::info("World (RulesA) reset complete");
-    spdlog::info("DEBUGGING: Total mass after reset = {:.3f}", getTotalMass());
+    spdlog::info("World (RulesA) setup complete");
+    spdlog::info("DEBUGGING: Total mass after setup = {:.3f}", getTotalMass());
 }
 
 void World::addDirtAtPixel(int pixelX, int pixelY)

@@ -41,8 +41,8 @@ void SimulationManager::initialize()
         connectUIAndWorld();
     }
     
-    // Reset world to initial state
-    world_->reset();
+    // Setup world with initial materials
+    world_->setup();
     
     spdlog::info("SimulationManager initialization complete");
 }
@@ -105,7 +105,7 @@ void SimulationManager::reset()
 {
     if (world_) {
         spdlog::info("SimulationManager resetting world");
-        world_->reset();
+        world_->setup();
     }
 }
 

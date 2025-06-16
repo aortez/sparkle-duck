@@ -56,6 +56,8 @@ public:
     void draw() override;
 
     void reset() override;
+    
+    void setup() override;
 
     Cell& at(uint32_t x, uint32_t y);
     const Cell& at(uint32_t x, uint32_t y) const;

@@ -16,7 +16,7 @@ std::unique_ptr<WorldInterface> createWorld(
         case WorldType::RulesA: {
             // Create original World (mixed materials)
             auto world = std::make_unique<World>(width, height, draw_area);
-            world->reset();  // Ensure clean initial state with proper setup
+            world->setup();  // Ensure clean initial state with proper setup
             return world;
         }
         
@@ -26,7 +26,7 @@ std::unique_ptr<WorldInterface> createWorld(
             
             // Apply default WorldB configuration  
             worldB->setWallsEnabled(false);  // Default to walls disabled to match World behavior
-            worldB->reset();  // Ensure clean initial state
+            worldB->setup();  // Ensure clean initial state
             
             return worldB;
         }

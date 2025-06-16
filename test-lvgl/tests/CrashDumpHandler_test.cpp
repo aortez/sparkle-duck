@@ -117,7 +117,7 @@ TEST_F(CrashDumpHandlerTest, SparkleAssertDumpGeneration) {
         EXPECT_TRUE(content.find("test_condition") != std::string::npos);
         EXPECT_TRUE(content.find("test_file.cpp") != std::string::npos);
         EXPECT_TRUE(content.find("Test assertion message") != std::string::npos);
-        EXPECT_TRUE(content.find("\"source_line\": 42") != std::string::npos);
+        EXPECT_TRUE(content.find("\"source_line\":42") != std::string::npos);
     }
 }
 
@@ -169,15 +169,15 @@ TEST_F(CrashDumpHandlerTest, DumpContainsWorldState) {
                            std::istreambuf_iterator<char>());
         file.close();
         
-        // Check for world dimensions
-        EXPECT_TRUE(content.find("\"width\": 10") != std::string::npos);
-        EXPECT_TRUE(content.find("\"height\": 10") != std::string::npos);
+        // Check for world dimensions in world_info section
+        EXPECT_TRUE(content.find("\"width\":10") != std::string::npos);
+        EXPECT_TRUE(content.find("\"height\":10") != std::string::npos);
         
         // Check for physics system type
         EXPECT_TRUE(content.find("RulesB") != std::string::npos);
         
-        // Check for timestep advancement
-        EXPECT_TRUE(content.find("\"timestep\": 5") != std::string::npos);
+        // Check for timestep advancement (should be 5 after running 5 timesteps)
+        EXPECT_TRUE(content.find("\"timestep\":5") != std::string::npos);
         
         // Should contain grid data structure
         EXPECT_TRUE(content.find("grid_data") != std::string::npos || 

@@ -39,6 +39,7 @@ public:
 
     virtual void fillLowerRightQuadrant(WorldInterface& world);
     virtual void makeWalls(WorldInterface& world);
+    virtual void makeMiddleMetalWall(WorldInterface& world);
     virtual void fillWithDirt(WorldInterface& world);
 
 protected:
@@ -95,6 +96,7 @@ public:
     // Control flags for setup features
     void setLowerRightQuadrantEnabled(bool enabled) { lowerRightQuadrantEnabled = enabled; }
     void setWallsEnabled(bool enabled) { wallsEnabled = enabled; }
+    void setMiddleMetalWallEnabled(bool enabled) { middleMetalWallEnabled = enabled; }
 
     // Control flags for particle generation features
     void setLeftThrowEnabled(bool enabled) { leftThrowEnabled = enabled; }
@@ -106,6 +108,7 @@ public:
     // Getters for current state
     bool isLowerRightQuadrantEnabled() const { return lowerRightQuadrantEnabled; }
     bool areWallsEnabled() const { return wallsEnabled; }
+    bool isMiddleMetalWallEnabled() const { return middleMetalWallEnabled; }
     bool isLeftThrowEnabled() const { return leftThrowEnabled; }
     bool isRightThrowEnabled() const { return rightThrowEnabled; }
     bool isTopDropEnabled() const { return topDropEnabled; }
@@ -116,6 +119,7 @@ private:
     // Setup control flags
     bool lowerRightQuadrantEnabled = true;
     bool wallsEnabled = true;
+    bool middleMetalWallEnabled = true;
 
     // Particle generation control flags
     bool leftThrowEnabled = true;

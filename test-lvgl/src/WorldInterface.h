@@ -36,8 +36,11 @@ public:
     // Draw the world to the screen
     virtual void draw() = 0;
     
-    // Reset the world to initial state
+    // Reset the world to empty state (clear all cells, reset timestep, etc.)
     virtual void reset() = 0;
+    
+    // Setup the world with initial materials (calls reset() first)
+    virtual void setup() = 0;
     
     // =================================================================
     // GRID ACCESS AND PROPERTIES

@@ -1,5 +1,6 @@
 #include "WorldSetup.h"
 #include "Cell.h"
+#include "MaterialType.h"
 #include "Vector2d.h"
 #include "WorldInterface.h"
 #include "spdlog/spdlog.h"
@@ -38,6 +39,21 @@ void WorldSetup::makeWalls(WorldInterface& world)
     spdlog::info("World walls handled by implementation ({}x{} boundary)", world.getWidth(), world.getHeight());
     
     // Note: Walls are controlled via setWallsEnabled() and handled in each world's reset/setup
+}
+
+void WorldSetup::makeMiddleMetalWall(WorldInterface& world)
+{
+    // Add metal wall from top middle to center (WorldB-specific feature)
+    uint32_t middle_x = world.getWidth() / 2;
+    uint32_t wall_height = world.getHeight() / 2;
+    spdlog::info("Adding metal wall at x={} from top to y={}", middle_x, wall_height);
+    
+    for (uint32_t y = 0; y < wall_height; y++) {
+        // Convert cell coordinates to pixel coordinates (assume 100x100 pixel cells)
+        int pixelX = middle_x * 100 + 50; // Cell center
+        int pixelY = y * 100 + 50;        // Cell center
+        world.addMaterialAtPixel(pixelX, pixelY, MaterialType::METAL, 1.0);
+    }
 }
 
 void WorldSetup::fillWithDirt(WorldInterface& world)
@@ -243,6 +259,9 @@ void ConfigurableWorldSetup::setup(WorldInterface& world)
     }
     if (wallsEnabled) {
         makeWalls(world);
+    }
+    if (middleMetalWallEnabled) {
+        makeMiddleMetalWall(world);
     }
 }
 

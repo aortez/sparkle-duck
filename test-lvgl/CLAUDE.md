@@ -188,36 +188,17 @@ Can be found here:
 
 ## Development Status
 
-### Current Focus: WorldB Advanced Development ✅
-**Foundation Complete** - Now enhancing WorldB as a full-featured pure-material physics system:
+### Current Focus: WorldB Physics Development ✅
+**Foundation Complete** - Now enhancing WorldB to be a full-featured pure-material physics system:
 
 **Recently Completed:**
-✅ **WorldInterface Implementation** - Complete dual physics system architecture  
-✅ **Runtime World Switching** - Live WorldA ↔ WorldB transitions with UI switch control
-✅ **Material Density Conversion** - Fixed visual consistency during world switching
-✅ **Crash Dump Feature** - Completed feature for capturing system state during unexpected termination
-✅ **Material Picker UI** - Complete 4×2 grid for selecting from all 8 material types
-✅ **Smart Cell Grabber** - Intelligent interaction system: adds material to empty cells, drags existing material
-✅ **Floating Particle System** - Real-time drag preview with collision detection foundation
+- 
 
-**Recently Completed:**
-✅ **Enhanced Collision System** - Material-specific collision behaviors implemented:
-  - **Elastic Collisions**: METAL vs METAL, METAL vs WALL, WOOD vs rigid materials
-  - **Inelastic Collisions**: Energy loss with partial material transfer
-  - **Fragmentation**: High-energy impacts on brittle materials
-  - **Absorption**: WATER+DIRT material mixing behaviors
-  - **Restitution Coefficients**: Material-specific bounce factors
-  - **Two-Body Physics**: Proper momentum and energy conservation
-✅ **Velocity Vector Fix** - Arrows now start from COM position instead of cell center
-
-**Current Priority (Phase 1):**
-🔄 **Universal Floating Particle System** - Convert WorldB to full floating particle physics where all cells become interactive particles
-
-**Next Phases:**
-- **Phase 2**: Chain reaction mechanics through neighbor networks
-- **Phase 3**: Complete material rendering for all 8 material types
-- **Phase 4**: Add Tree organism to simulation  
-- **Phase 5**: Simulation scenarios, analysis tools, performance optimization
+** Up Next:
+- **1**: Add Cohesion and adhesion.
+- **2**: Add Pressure.
+- **3**: Add Tree organism to simulation  
+- **4**: Simulation scenarios, analysis tools, performance optimization
 
 **Reference**: See `design_docs/WorldB-Development-Plan.md` for complete roadmap
 
@@ -277,31 +258,12 @@ The current GridMechanics.md design already describes a **particle-within-cell**
 - Implement chain reaction mechanics through particle networks
 - Enable "wreaking havoc" scenarios with high-energy collisions
 
-### Implementation Todos
-
-#### Phase 1: Universal Collision Detection
-- [x] Convert `queueMaterialMoves()` to include collision detection for all 8 neighbors
-- [x] Implement `detectParticleCollisions()` method for comprehensive neighbor analysis (via `createCollisionAwareMove()`)
-- [x] Add collision event system for material-specific responses
-- [x] Extend `MaterialMove` struct to include collision physics data
-
-#### Phase 2: Material-Specific Collision Behaviors  
+### Collision Implementation Todos
 - [x] Implement elastic collision handler for METAL-METAL interactions
 - [ ] Add splash effect system for WATER collisions
-- [ ] Create fragmentation mechanics for brittle materials (framework implemented)
+- [ ] Create fragmentation mechanics for brittle materials
 - [x] Design absorption/penetration behaviors (WATER+DIRT, etc.)
-
-#### Phase 3: Chain Reaction Mechanics
-- [ ] Implement collision energy propagation through neighbor networks
-- [ ] Add collision effect pooling and management system
-- [ ] Create visual effect framework for particle collisions
-- [ ] Integrate with Enhanced Collision Effects design doc
-
-#### Phase 4: Performance and Polish
-- [ ] Profile universal collision system performance
-- [ ] Optimize collision detection with spatial coherence
-- [ ] Add configuration system for collision parameters
-- [ ] Create collision behavior testing framework
+- [ ] Implement absorption/penetration behaviors (WATER+DIRT, etc.)
 
 ## Misc TODO
 [ ] - Add an exit hook that shows a full dump of the world state after an ASSERT.
@@ -310,3 +272,4 @@ The current GridMechanics.md design already describes a **particle-within-cell**
 [ ] - Consider design of Air/Nothing materials and examine currently implementation.
 [ ] - Add a Makefile to capture some common targets ('clean', 'debug', 'release', 'test-all'... anything else?); update CLAUDE.md with instructions.
 [ ] - In WorldB, Update left click, so if it is on a currently on a filled cell that is not the selected type, or is not full, fill it with the selected type.
+[ ] - How can we make denser materials sink below less dense ones?

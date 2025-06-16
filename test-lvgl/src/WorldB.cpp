@@ -146,7 +146,7 @@ void WorldB::draw()
 
 void WorldB::reset()
 {
-    spdlog::info("Resetting WorldB to initial state");
+    spdlog::info("Resetting WorldB to empty state");
     
     timestep_ = 0;
     removed_mass_ = 0.0;
@@ -157,11 +157,17 @@ void WorldB::reset()
         cell.clear();
     }
     
-    // Rebuild boundary walls
-    if (walls_enabled_) {
-        setupBoundaryWalls();
-    }
-    spdlog::info("After wall setup, about to do WorldSetup");
+    spdlog::info("WorldB reset complete - world is now empty");
+}
+
+void WorldB::setup()
+{
+    spdlog::info("Setting up WorldB with initial materials");
+    
+    // First reset to empty state
+    reset();
+    
+    spdlog::info("After reset, about to do WorldSetup");
     
     // Use the world setup strategy to initialize the world
     spdlog::info("About to check world_setup_ pointer...");
@@ -169,19 +175,16 @@ void WorldB::reset()
         spdlog::info("Calling WorldSetup::setup for WorldB");
         world_setup_->setup(*this);
     } else {
-        spdlog::error("WorldSetup is null in WorldB::reset()!");
+        spdlog::error("WorldSetup is null in WorldB::setup()!");
     }
     
-    // Add metal wall from top middle to center
-    uint32_t middle_x = width_ / 2;
-    uint32_t wall_height = height_ / 2;
-    spdlog::info("Adding metal wall at x={} from top to y={}", middle_x, wall_height);
-    for (uint32_t y = 0; y < wall_height; y++) {
-        addMaterialAtCell(middle_x, y, MaterialType::METAL, 1.0);
+    // Rebuild boundary walls if enabled
+    if (walls_enabled_) {
+        setupBoundaryWalls();
     }
     
-    spdlog::info("WorldB reset complete");
-    spdlog::info("DEBUGGING: Total mass after reset = {:.3f}", getTotalMass());
+    spdlog::info("WorldB setup complete");
+    spdlog::info("DEBUGGING: Total mass after setup = {:.3f}", getTotalMass());
 }
 
 // =================================================================
