@@ -61,6 +61,15 @@ private:
     // UI state
     double timescale_;
     bool is_paused_;
+    
+    // Mouse interaction mode tracking
+    enum class InteractionMode {
+        NONE,        // No active interaction
+        GRAB_MODE,   // Dragging existing material (current behavior)
+        PAINT_MODE   // Painting new material along path
+    };
+    InteractionMode interaction_mode_;
+    MaterialType paint_material_;  // Material type for paint mode
 
     // Layout dimensions
     static constexpr int CONTROL_WIDTH = 200;

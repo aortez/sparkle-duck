@@ -244,6 +244,19 @@ void WorldB::addMaterialAtPixel(int pixelX, int pixelY, MaterialType type, doubl
     }
 }
 
+bool WorldB::hasMaterialAtPixel(int pixelX, int pixelY) const
+{
+    int cellX, cellY;
+    pixelToCell(pixelX, pixelY, cellX, cellY);
+    
+    if (isValidCell(cellX, cellY)) {
+        const CellB& cell = at(cellX, cellY);
+        return !cell.isEmpty();
+    }
+    
+    return false;
+}
+
 // =================================================================
 // DRAG INTERACTION (SIMPLIFIED)
 // =================================================================

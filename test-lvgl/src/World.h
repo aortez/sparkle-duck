@@ -100,6 +100,9 @@ public:
     // Material selection state management
     void setSelectedMaterial(MaterialType type) override { selected_material_ = type; }
     MaterialType getSelectedMaterial() const override { return selected_material_; }
+    
+    // Check if cell at pixel coordinates has material
+    bool hasMaterialAtPixel(int pixelX, int pixelY) const override;
 
     // Time reversal functionality
     void enableTimeReversal(bool enabled) override { timeReversalEnabled = enabled; }

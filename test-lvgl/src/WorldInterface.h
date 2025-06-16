@@ -94,6 +94,9 @@ public:
     virtual void setSelectedMaterial(MaterialType type) = 0;
     virtual MaterialType getSelectedMaterial() const = 0;
     
+    // Check if cell at pixel coordinates has material
+    virtual bool hasMaterialAtPixel(int pixelX, int pixelY) const = 0;
+    
     // =================================================================
     // DRAG INTERACTION
     // =================================================================

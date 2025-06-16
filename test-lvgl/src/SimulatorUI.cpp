@@ -37,7 +37,9 @@ SimulatorUI::SimulatorUI(lv_obj_t* screen)
       pause_label_(nullptr),
       world_type_btnm_(nullptr),
       timescale_(1.0),
-      is_paused_(false)
+      is_paused_(false),
+      interaction_mode_(InteractionMode::NONE),
+      paint_material_(MaterialType::DIRT)
 {}
 
 void SimulatorUI::setWorld(WorldInterface* world)
@@ -174,6 +176,9 @@ void SimulatorUI::onMaterialSelectionChanged(MaterialType newMaterial)
     if (world_) {
         world_->setSelectedMaterial(newMaterial);
     }
+    
+    // Update paint material for paint mode
+    paint_material_ = newMaterial;
 }
 
 void SimulatorUI::createControlButtons()
@@ -563,22 +568,50 @@ void SimulatorUI::drawAreaEventCb(lv_event_t* e)
     point.y -= area.y1;
 
     if (code == LV_EVENT_PRESSED) {
-        // Smart interaction: add material to empty cells, drag existing material
+        // Mode-based interaction: grab existing material or start painting
+        bool hasMaterial = world_ptr->hasMaterialAtPixel(point.x, point.y);
         MaterialType selectedMaterial = world_ptr->getSelectedMaterial();
-        spdlog::info("Mouse pressed at ({},{}) - adding {} material and startDragging", 
-                     point.x, point.y, getMaterialName(selectedMaterial));
-        world_ptr->addMaterialAtPixel(point.x, point.y, selectedMaterial);
-        world_ptr->startDragging(point.x, point.y);
+        
+        if (hasMaterial) {
+            // Cell has material - enter GRAB_MODE
+            data->ui->interaction_mode_ = data->ui->InteractionMode::GRAB_MODE;
+            spdlog::info("Mouse pressed at ({},{}) - GRAB_MODE: starting drag of existing material", 
+                         point.x, point.y);
+            world_ptr->startDragging(point.x, point.y);
+        } else {
+            // Cell is empty - enter PAINT_MODE
+            data->ui->interaction_mode_ = data->ui->InteractionMode::PAINT_MODE;
+            data->ui->paint_material_ = selectedMaterial;
+            spdlog::info("Mouse pressed at ({},{}) - PAINT_MODE: painting {} material", 
+                         point.x, point.y, getMaterialName(selectedMaterial));
+            world_ptr->addMaterialAtPixel(point.x, point.y, selectedMaterial);
+        }
         world_ptr->updateCursorForce(point.x, point.y, true);
     }
     else if (code == LV_EVENT_PRESSING) {
-        spdlog::info("Mouse pressing at ({},{}) - calling updateDrag", point.x, point.y);
-        world_ptr->updateDrag(point.x, point.y);
+        // Handle both grab and paint modes during drag
+        if (data->ui->interaction_mode_ == data->ui->InteractionMode::GRAB_MODE) {
+            spdlog::info("Mouse pressing at ({},{}) - GRAB_MODE: updating drag", point.x, point.y);
+            world_ptr->updateDrag(point.x, point.y);
+        } else if (data->ui->interaction_mode_ == data->ui->InteractionMode::PAINT_MODE) {
+            spdlog::info("Mouse pressing at ({},{}) - PAINT_MODE: painting {} material", 
+                         point.x, point.y, getMaterialName(data->ui->paint_material_));
+            world_ptr->addMaterialAtPixel(point.x, point.y, data->ui->paint_material_);
+        }
         world_ptr->updateCursorForce(point.x, point.y, true);
     }
     else if (code == LV_EVENT_RELEASED) {
-        spdlog::info("Mouse released at ({},{}) - calling endDragging", point.x, point.y);
-        world_ptr->endDragging(point.x, point.y);
+        // Handle both grab and paint modes on release
+        if (data->ui->interaction_mode_ == data->ui->InteractionMode::GRAB_MODE) {
+            spdlog::info("Mouse released at ({},{}) - GRAB_MODE: ending drag", point.x, point.y);
+            world_ptr->endDragging(point.x, point.y);
+        } else if (data->ui->interaction_mode_ == data->ui->InteractionMode::PAINT_MODE) {
+            spdlog::info("Mouse released at ({},{}) - PAINT_MODE: finished painting", point.x, point.y);
+            // No special action needed for paint mode - just stop painting
+        }
+        
+        // Reset interaction mode and clear cursor force
+        data->ui->interaction_mode_ = data->ui->InteractionMode::NONE;
         world_ptr->clearCursorForce();
     }
 }

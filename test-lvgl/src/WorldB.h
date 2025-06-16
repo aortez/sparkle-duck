@@ -120,6 +120,9 @@ public:
     void setSelectedMaterial(MaterialType type) override { selected_material_ = type; }
     MaterialType getSelectedMaterial() const override { return selected_material_; }
     
+    // Check if cell at pixel coordinates has material
+    bool hasMaterialAtPixel(int pixelX, int pixelY) const override;
+    
     // =================================================================
     // WORLDINTERFACE IMPLEMENTATION - DRAG INTERACTION
     // =================================================================

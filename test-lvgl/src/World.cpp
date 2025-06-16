@@ -1685,6 +1685,20 @@ void World::addMaterialAtPixel(int pixelX, int pixelY, MaterialType type, double
     }
 }
 
+bool World::hasMaterialAtPixel(int pixelX, int pixelY) const
+{
+    int cellX, cellY;
+    pixelToCell(pixelX, pixelY, cellX, cellY);
+    
+    if (cellX >= 0 && cellX < static_cast<int>(width) && 
+        cellY >= 0 && cellY < static_cast<int>(height)) {
+        const CellInterface& cell = getCellInterface(cellX, cellY);
+        return !cell.isEmpty();
+    }
+    
+    return false;
+}
+
 void World::pixelToCell(int pixelX, int pixelY, int& cellX, int& cellY) const
 {
     cellX = pixelX / Cell::WIDTH;
