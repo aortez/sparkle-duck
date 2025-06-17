@@ -183,28 +183,10 @@ void SimulatorUI::onMaterialSelectionChanged(MaterialType newMaterial)
 
 void SimulatorUI::createControlButtons()
 {
-    // Create reset button
-    lv_obj_t* reset_btn = lv_btn_create(screen_);
-    lv_obj_set_size(reset_btn, CONTROL_WIDTH, 50);
-    lv_obj_align(reset_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 10);
-    lv_obj_t* reset_label = lv_label_create(reset_btn);
-    lv_label_set_text(reset_label, "Reset");
-    lv_obj_center(reset_label);
-    lv_obj_add_event_cb(reset_btn, resetBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
-
-    // Create pause button
-    lv_obj_t* pause_btn = lv_btn_create(screen_);
-    lv_obj_set_size(pause_btn, CONTROL_WIDTH, 50);
-    lv_obj_align(pause_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 70);
-    pause_label_ = lv_label_create(pause_btn);
-    lv_label_set_text(pause_label_, "Pause");
-    lv_obj_center(pause_label_);
-    lv_obj_add_event_cb(pause_btn, pauseBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
-
     // Create debug toggle button
     lv_obj_t* debug_btn = lv_btn_create(screen_);
     lv_obj_set_size(debug_btn, CONTROL_WIDTH, 50);
-    lv_obj_align(debug_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 130);
+    lv_obj_align(debug_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 10);
     lv_obj_t* debug_label = lv_label_create(debug_btn);
     lv_label_set_text(debug_label, "Debug: Off");
     lv_obj_center(debug_label);
@@ -213,11 +195,11 @@ void SimulatorUI::createControlButtons()
     // Create pressure system dropdown
     lv_obj_t* pressure_label = lv_label_create(screen_);
     lv_label_set_text(pressure_label, "Pressure System:");
-    lv_obj_align(pressure_label, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 190);
+    lv_obj_align(pressure_label, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 70);
 
     lv_obj_t* pressure_dropdown = lv_dropdown_create(screen_);
     lv_obj_set_size(pressure_dropdown, CONTROL_WIDTH, 40);
-    lv_obj_align(pressure_dropdown, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 210);
+    lv_obj_align(pressure_dropdown, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 90);
     lv_dropdown_set_options(
         pressure_dropdown, "Original (COM)\nTop-Down Hydrostatic\nIterative Settling");
     lv_dropdown_set_selected(pressure_dropdown, 0); // Default to Original
@@ -230,7 +212,7 @@ void SimulatorUI::createControlButtons()
     // Create cursor force toggle button
     lv_obj_t* force_btn = lv_btn_create(screen_);
     lv_obj_set_size(force_btn, CONTROL_WIDTH, 50);
-    lv_obj_align(force_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 260);
+    lv_obj_align(force_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 140);
     lv_obj_t* force_label = lv_label_create(force_btn);
     lv_label_set_text(force_label, "Force: Off");
     lv_obj_center(force_label);
@@ -239,16 +221,25 @@ void SimulatorUI::createControlButtons()
     // Create gravity toggle button
     lv_obj_t* gravity_btn = lv_btn_create(screen_);
     lv_obj_set_size(gravity_btn, CONTROL_WIDTH, 50);
-    lv_obj_align(gravity_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 310);
+    lv_obj_align(gravity_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 200);
     lv_obj_t* gravity_label = lv_label_create(gravity_btn);
     lv_label_set_text(gravity_label, "Gravity: On");
     lv_obj_center(gravity_label);
     lv_obj_add_event_cb(gravity_btn, gravityBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
 
+    // Create cohesion toggle button
+    lv_obj_t* cohesion_btn = lv_btn_create(screen_);
+    lv_obj_set_size(cohesion_btn, CONTROL_WIDTH, 50);
+    lv_obj_align(cohesion_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 260);
+    lv_obj_t* cohesion_label = lv_label_create(cohesion_btn);
+    lv_label_set_text(cohesion_label, "Cohesion: On");
+    lv_obj_center(cohesion_label);
+    lv_obj_add_event_cb(cohesion_btn, cohesionBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
+
     // Create left throw toggle button
     lv_obj_t* left_throw_btn = lv_btn_create(screen_);
     lv_obj_set_size(left_throw_btn, CONTROL_WIDTH, 50);
-    lv_obj_align(left_throw_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 370);
+    lv_obj_align(left_throw_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 320);
     lv_obj_t* left_throw_label = lv_label_create(left_throw_btn);
     lv_label_set_text(left_throw_label, "Left Throw: On");
     lv_obj_center(left_throw_label);
@@ -258,7 +249,7 @@ void SimulatorUI::createControlButtons()
     // Create right throw toggle button
     lv_obj_t* right_throw_btn = lv_btn_create(screen_);
     lv_obj_set_size(right_throw_btn, CONTROL_WIDTH, 50);
-    lv_obj_align(right_throw_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 430);
+    lv_obj_align(right_throw_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 380);
     lv_obj_t* right_throw_label = lv_label_create(right_throw_btn);
     lv_label_set_text(right_throw_label, "Right Throw: On");
     lv_obj_center(right_throw_label);
@@ -268,7 +259,7 @@ void SimulatorUI::createControlButtons()
     // Create quadrant toggle button
     lv_obj_t* quadrant_btn = lv_btn_create(screen_);
     lv_obj_set_size(quadrant_btn, CONTROL_WIDTH, 50);
-    lv_obj_align(quadrant_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 490);
+    lv_obj_align(quadrant_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 440);
     lv_obj_t* quadrant_label = lv_label_create(quadrant_btn);
     lv_label_set_text(quadrant_label, "Quadrant: On");
     lv_obj_center(quadrant_label);
@@ -277,40 +268,24 @@ void SimulatorUI::createControlButtons()
     // Create screenshot button
     lv_obj_t* screenshot_btn = lv_btn_create(screen_);
     lv_obj_set_size(screenshot_btn, CONTROL_WIDTH, 50);
-    lv_obj_align(screenshot_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 550);
+    lv_obj_align(screenshot_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 500);
     lv_obj_t* screenshot_label = lv_label_create(screenshot_btn);
     lv_label_set_text(screenshot_label, "Screenshot");
     lv_obj_center(screenshot_label);
     lv_obj_add_event_cb(
         screenshot_btn, screenshotBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
 
-    // Create time reversal toggle button
-    lv_obj_t* time_reversal_btn = lv_btn_create(screen_);
-    lv_obj_set_size(time_reversal_btn, CONTROL_WIDTH, 30);
-    lv_obj_align(time_reversal_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 600);
-    lv_obj_t* time_reversal_label = lv_label_create(time_reversal_btn);
-    lv_label_set_text(time_reversal_label, "Time History: On");
-    lv_obj_center(time_reversal_label);
+    // Create print ASCII button
+    lv_obj_t* print_ascii_btn = lv_btn_create(screen_);
+    lv_obj_set_size(print_ascii_btn, CONTROL_WIDTH, 50);
+    lv_obj_align(print_ascii_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 560);
+    lv_obj_t* print_ascii_label = lv_label_create(print_ascii_btn);
+    lv_label_set_text(print_ascii_label, "Print ASCII");
+    lv_obj_center(print_ascii_label);
     lv_obj_add_event_cb(
-        time_reversal_btn, timeReversalToggleBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
+        print_ascii_btn, printAsciiBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
 
-    // Create backward button (left half) - moved up to avoid overlap
-    lv_obj_t* backward_btn = lv_btn_create(screen_);
-    lv_obj_set_size(backward_btn, CONTROL_WIDTH / 2 - 5, 30);
-    lv_obj_align(backward_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X + CONTROL_WIDTH / 2 + 5, 635);
-    lv_obj_t* backward_label = lv_label_create(backward_btn);
-    lv_label_set_text(backward_label, "<<");
-    lv_obj_center(backward_label);
-    lv_obj_add_event_cb(backward_btn, backwardBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
-
-    // Create forward button (right half) - moved up to avoid overlap
-    lv_obj_t* forward_btn = lv_btn_create(screen_);
-    lv_obj_set_size(forward_btn, CONTROL_WIDTH / 2 - 5, 30);
-    lv_obj_align(forward_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 635);
-    lv_obj_t* forward_label = lv_label_create(forward_btn);
-    lv_label_set_text(forward_label, ">>");
-    lv_obj_center(forward_label);
-    lv_obj_add_event_cb(forward_btn, forwardBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
+    // Time reversal controls have been moved to slider column
 
     // Create quit button
     lv_obj_t* quit_btn = lv_btn_create(screen_);
@@ -325,18 +300,67 @@ void SimulatorUI::createControlButtons()
 
 void SimulatorUI::createSliders()
 {
-    // Timescale slider - moved down to avoid overlap with time reversal buttons
+    // Position sliders to the right of the main control buttons
+    const int SLIDER_COLUMN_X = MAIN_CONTROLS_X + CONTROL_WIDTH + 10;
+    
+    // Move Pause/Resume button to top of slider column
+    lv_obj_t* pause_btn = lv_btn_create(screen_);
+    lv_obj_set_size(pause_btn, CONTROL_WIDTH, 50);
+    lv_obj_align(pause_btn, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 10);
+    pause_label_ = lv_label_create(pause_btn);
+    lv_label_set_text(pause_label_, "Pause");
+    lv_obj_center(pause_label_);
+    lv_obj_add_event_cb(pause_btn, pauseBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
+
+    // Move Reset button below Pause
+    lv_obj_t* reset_btn = lv_btn_create(screen_);
+    lv_obj_set_size(reset_btn, CONTROL_WIDTH, 50);
+    lv_obj_align(reset_btn, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 70);
+    lv_obj_t* reset_label = lv_label_create(reset_btn);
+    lv_label_set_text(reset_label, "Reset");
+    lv_obj_center(reset_label);
+    lv_obj_add_event_cb(reset_btn, resetBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
+
+    // Move Time History controls below Reset
+    lv_obj_t* time_reversal_btn = lv_btn_create(screen_);
+    lv_obj_set_size(time_reversal_btn, CONTROL_WIDTH, 30);
+    lv_obj_align(time_reversal_btn, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 130);
+    lv_obj_t* time_reversal_label = lv_label_create(time_reversal_btn);
+    lv_label_set_text(time_reversal_label, "Time History: On");
+    lv_obj_center(time_reversal_label);
+    lv_obj_add_event_cb(
+        time_reversal_btn, timeReversalToggleBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
+
+    // Backward and Forward buttons below Time History
+    lv_obj_t* backward_btn = lv_btn_create(screen_);
+    lv_obj_set_size(backward_btn, CONTROL_WIDTH / 2 - 5, 30);
+    lv_obj_align(backward_btn, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 165);
+    lv_obj_t* backward_label = lv_label_create(backward_btn);
+    lv_label_set_text(backward_label, "<<");
+    lv_obj_center(backward_label);
+    lv_obj_add_event_cb(backward_btn, backwardBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
+
+    lv_obj_t* forward_btn = lv_btn_create(screen_);
+    lv_obj_set_size(forward_btn, CONTROL_WIDTH / 2 - 5, 30);
+    lv_obj_align(forward_btn, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X + CONTROL_WIDTH / 2 + 5, 165);
+    lv_obj_t* forward_label = lv_label_create(forward_btn);
+    lv_label_set_text(forward_label, ">>");
+    lv_obj_center(forward_label);
+    lv_obj_add_event_cb(forward_btn, forwardBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
+
+    // Start sliders below the moved buttons
+    // Timescale slider
     lv_obj_t* slider_label = lv_label_create(screen_);
     lv_label_set_text(slider_label, "Timescale");
-    lv_obj_align(slider_label, LV_ALIGN_TOP_RIGHT, -10, 670);
+    lv_obj_align(slider_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 210);
 
     lv_obj_t* timescale_value_label = lv_label_create(screen_);
     lv_label_set_text(timescale_value_label, "1.0x");
-    lv_obj_align(timescale_value_label, LV_ALIGN_TOP_RIGHT, -120, 670);
+    lv_obj_align(timescale_value_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X + 110, 210);
 
     lv_obj_t* slider = lv_slider_create(screen_);
     lv_obj_set_size(slider, CONTROL_WIDTH, 10);
-    lv_obj_align(slider, LV_ALIGN_TOP_RIGHT, -10, 690);
+    lv_obj_align(slider, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 230);
     lv_slider_set_range(slider, 0, 100);
     lv_slider_set_value(slider, 50, LV_ANIM_OFF);
     lv_obj_add_event_cb(
@@ -345,15 +369,15 @@ void SimulatorUI::createSliders()
     // Elasticity slider
     lv_obj_t* elasticity_label = lv_label_create(screen_);
     lv_label_set_text(elasticity_label, "Elasticity");
-    lv_obj_align(elasticity_label, LV_ALIGN_TOP_RIGHT, -10, 710);
+    lv_obj_align(elasticity_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 250);
 
     lv_obj_t* elasticity_value_label = lv_label_create(screen_);
     lv_label_set_text(elasticity_value_label, "0.8");
-    lv_obj_align(elasticity_value_label, LV_ALIGN_TOP_RIGHT, -120, 710);
+    lv_obj_align(elasticity_value_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X + 110, 250);
 
     lv_obj_t* elasticity_slider = lv_slider_create(screen_);
     lv_obj_set_size(elasticity_slider, CONTROL_WIDTH, 10);
-    lv_obj_align(elasticity_slider, LV_ALIGN_TOP_RIGHT, -10, 730);
+    lv_obj_align(elasticity_slider, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 270);
     lv_slider_set_range(elasticity_slider, 0, 200);
     lv_slider_set_value(elasticity_slider, 80, LV_ANIM_OFF);
     lv_obj_add_event_cb(
@@ -365,15 +389,15 @@ void SimulatorUI::createSliders()
     // Dirt fragmentation slider
     lv_obj_t* fragmentation_label = lv_label_create(screen_);
     lv_label_set_text(fragmentation_label, "Dirt Fragmentation");
-    lv_obj_align(fragmentation_label, LV_ALIGN_TOP_RIGHT, -10, 750);
+    lv_obj_align(fragmentation_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 290);
 
     lv_obj_t* fragmentation_value_label = lv_label_create(screen_);
     lv_label_set_text(fragmentation_value_label, "0.00");
-    lv_obj_align(fragmentation_value_label, LV_ALIGN_TOP_RIGHT, -165, 750);
+    lv_obj_align(fragmentation_value_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X + 155, 290);
 
     lv_obj_t* fragmentation_slider = lv_slider_create(screen_);
     lv_obj_set_size(fragmentation_slider, CONTROL_WIDTH, 10);
-    lv_obj_align(fragmentation_slider, LV_ALIGN_TOP_RIGHT, -10, 770);
+    lv_obj_align(fragmentation_slider, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 310);
     lv_slider_set_range(fragmentation_slider, 0, 100);
     lv_slider_set_value(fragmentation_slider, 0, LV_ANIM_OFF);
     lv_obj_add_event_cb(
@@ -385,15 +409,15 @@ void SimulatorUI::createSliders()
     // Cell size slider
     lv_obj_t* cell_size_label = lv_label_create(screen_);
     lv_label_set_text(cell_size_label, "Cell Size");
-    lv_obj_align(cell_size_label, LV_ALIGN_TOP_RIGHT, -10, 790);
+    lv_obj_align(cell_size_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 330);
 
     lv_obj_t* cell_size_value_label = lv_label_create(screen_);
-    lv_label_set_text(cell_size_value_label, "100");
-    lv_obj_align(cell_size_value_label, LV_ALIGN_TOP_RIGHT, -120, 790);
+    lv_label_set_text(cell_size_value_label, "50");
+    lv_obj_align(cell_size_value_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X + 110, 330);
 
     lv_obj_t* cell_size_slider = lv_slider_create(screen_);
     lv_obj_set_size(cell_size_slider, CONTROL_WIDTH, 10);
-    lv_obj_align(cell_size_slider, LV_ALIGN_TOP_RIGHT, -10, 810);
+    lv_obj_align(cell_size_slider, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 350);
     lv_slider_set_range(cell_size_slider, 10, 100);
     lv_slider_set_value(cell_size_slider, 100, LV_ANIM_OFF);
     lv_obj_add_event_cb(
@@ -405,15 +429,15 @@ void SimulatorUI::createSliders()
     // Pressure scale slider
     lv_obj_t* pressure_scale_label = lv_label_create(screen_);
     lv_label_set_text(pressure_scale_label, "Pressure Scale");
-    lv_obj_align(pressure_scale_label, LV_ALIGN_TOP_RIGHT, -10, 830);
+    lv_obj_align(pressure_scale_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 370);
 
     lv_obj_t* pressure_scale_value_label = lv_label_create(screen_);
-    lv_label_set_text(pressure_scale_value_label, "1.0");
-    lv_obj_align(pressure_scale_value_label, LV_ALIGN_TOP_RIGHT, -120, 830);
+    lv_label_set_text(pressure_scale_value_label, "10");
+    lv_obj_align(pressure_scale_value_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X + 135, 370);
 
     lv_obj_t* pressure_scale_slider = lv_slider_create(screen_);
     lv_obj_set_size(pressure_scale_slider, CONTROL_WIDTH, 10);
-    lv_obj_align(pressure_scale_slider, LV_ALIGN_TOP_RIGHT, -10, 850);
+    lv_obj_align(pressure_scale_slider, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 390);
     lv_slider_set_range(pressure_scale_slider, 0, 200);
     lv_slider_set_value(pressure_scale_slider, 100, LV_ANIM_OFF);
     lv_obj_add_event_cb(
@@ -425,15 +449,15 @@ void SimulatorUI::createSliders()
     // Rain rate slider
     lv_obj_t* rain_label = lv_label_create(screen_);
     lv_label_set_text(rain_label, "Rain Rate");
-    lv_obj_align(rain_label, LV_ALIGN_TOP_RIGHT, -10, 870);
+    lv_obj_align(rain_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 410);
 
     lv_obj_t* rain_value_label = lv_label_create(screen_);
     lv_label_set_text(rain_value_label, "0/s");
-    lv_obj_align(rain_value_label, LV_ALIGN_TOP_RIGHT, -120, 870);
+    lv_obj_align(rain_value_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X + 110, 410);
 
     lv_obj_t* rain_slider = lv_slider_create(screen_);
     lv_obj_set_size(rain_slider, CONTROL_WIDTH, 10);
-    lv_obj_align(rain_slider, LV_ALIGN_TOP_RIGHT, -10, 890);
+    lv_obj_align(rain_slider, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 430);
     lv_slider_set_range(rain_slider, 0, 100);
     lv_slider_set_value(rain_slider, 0, LV_ANIM_OFF);
     lv_obj_add_event_cb(
@@ -442,15 +466,15 @@ void SimulatorUI::createSliders()
     // Water cohesion slider
     lv_obj_t* cohesion_label = lv_label_create(screen_);
     lv_label_set_text(cohesion_label, "Water Cohesion");
-    lv_obj_align(cohesion_label, LV_ALIGN_TOP_RIGHT, -10, 910);
+    lv_obj_align(cohesion_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 450);
 
     lv_obj_t* cohesion_value_label = lv_label_create(screen_);
     lv_label_set_text(cohesion_value_label, "0.500");
-    lv_obj_align(cohesion_value_label, LV_ALIGN_TOP_RIGHT, -160, 910);
+    lv_obj_align(cohesion_value_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X + 150, 450);
 
     lv_obj_t* cohesion_slider = lv_slider_create(screen_);
     lv_obj_set_size(cohesion_slider, CONTROL_WIDTH, 10);
-    lv_obj_align(cohesion_slider, LV_ALIGN_TOP_RIGHT, -10, 930);
+    lv_obj_align(cohesion_slider, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 470);
     lv_slider_set_range(cohesion_slider, 0, 1000);          // 0.0 to 1.0 range
     lv_slider_set_value(cohesion_slider, 500, LV_ANIM_OFF); // Default 0.5 -> 500
     lv_obj_add_event_cb(
@@ -462,15 +486,15 @@ void SimulatorUI::createSliders()
     // Water viscosity slider
     lv_obj_t* viscosity_label = lv_label_create(screen_);
     lv_label_set_text(viscosity_label, "Water Viscosity");
-    lv_obj_align(viscosity_label, LV_ALIGN_TOP_RIGHT, -10, 950);
+    lv_obj_align(viscosity_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 490);
 
     lv_obj_t* viscosity_value_label = lv_label_create(screen_);
     lv_label_set_text(viscosity_value_label, "0.100");
-    lv_obj_align(viscosity_value_label, LV_ALIGN_TOP_RIGHT, -160, 950);
+    lv_obj_align(viscosity_value_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X + 150, 490);
 
     lv_obj_t* viscosity_slider = lv_slider_create(screen_);
     lv_obj_set_size(viscosity_slider, CONTROL_WIDTH, 10);
-    lv_obj_align(viscosity_slider, LV_ALIGN_TOP_RIGHT, -10, 970);
+    lv_obj_align(viscosity_slider, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 510);
     lv_slider_set_range(viscosity_slider, 0, 1000);          // 0.0 to 1.0 range
     lv_slider_set_value(viscosity_slider, 100, LV_ANIM_OFF); // Default 0.1 -> 100
     lv_obj_add_event_cb(
@@ -482,15 +506,15 @@ void SimulatorUI::createSliders()
     // Water pressure threshold slider
     lv_obj_t* water_pressure_label = lv_label_create(screen_);
     lv_label_set_text(water_pressure_label, "Water Pressure Threshold");
-    lv_obj_align(water_pressure_label, LV_ALIGN_TOP_RIGHT, -10, 990);
+    lv_obj_align(water_pressure_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 530);
 
     lv_obj_t* water_pressure_value_label = lv_label_create(screen_);
     lv_label_set_text(water_pressure_value_label, "0.0004");
-    lv_obj_align(water_pressure_value_label, LV_ALIGN_TOP_RIGHT, -200, 990);
+    lv_obj_align(water_pressure_value_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X + 190, 530);
 
     lv_obj_t* water_pressure_slider = lv_slider_create(screen_);
     lv_obj_set_size(water_pressure_slider, CONTROL_WIDTH, 10);
-    lv_obj_align(water_pressure_slider, LV_ALIGN_TOP_RIGHT, -10, 1010);
+    lv_obj_align(water_pressure_slider, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 550);
     lv_slider_set_range(water_pressure_slider, 0, 1000);         // 0.0 to 0.01
     lv_slider_set_value(water_pressure_slider, 40, LV_ANIM_OFF); // Default 0.0004 -> 40
     lv_obj_add_event_cb(
@@ -501,16 +525,16 @@ void SimulatorUI::createSliders()
 
     // Water buoyancy slider
     lv_obj_t* buoyancy_label = lv_label_create(screen_);
-    lv_label_set_text(buoyancy_label, "Water Buoyancy:");
-    lv_obj_align(buoyancy_label, LV_ALIGN_TOP_RIGHT, -10, 1030);
+    lv_label_set_text(buoyancy_label, "Water Buoyancy");
+    lv_obj_align(buoyancy_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 570);
 
     lv_obj_t* buoyancy_value_label = lv_label_create(screen_);
     lv_label_set_text(buoyancy_value_label, "0.100");
-    lv_obj_align(buoyancy_value_label, LV_ALIGN_TOP_RIGHT, -160, 1030);
+    lv_obj_align(buoyancy_value_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X + 150, 570);
 
     lv_obj_t* buoyancy_slider = lv_slider_create(screen_);
     lv_obj_set_size(buoyancy_slider, CONTROL_WIDTH, 10);
-    lv_obj_align(buoyancy_slider, LV_ALIGN_TOP_RIGHT, -10, 1050);
+    lv_obj_align(buoyancy_slider, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 590);
     lv_slider_set_range(buoyancy_slider, 0, 1000);          // 0.0 to 1.0 range
     lv_slider_set_value(buoyancy_slider, 100, LV_ANIM_OFF); // Default 0.1 -> 100
     lv_obj_add_event_cb(
@@ -736,6 +760,21 @@ void SimulatorUI::gravityBtnEventCb(lv_event_t* e)
             const lv_obj_t* btn = static_cast<const lv_obj_t*>(lv_event_get_target(e));
             lv_obj_t* label = lv_obj_get_child(btn, 0);
             lv_label_set_text(label, gravity_enabled ? "Gravity: On" : "Gravity: Off");
+        }
+    }
+}
+
+void SimulatorUI::cohesionBtnEventCb(lv_event_t* e)
+{
+    if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
+        CallbackData* data = static_cast<CallbackData*>(lv_event_get_user_data(e));
+        if (data && data->world) {
+            bool current_state = data->world->isCohesionEnabled();
+            bool new_state = !current_state;
+            data->world->setCohesionEnabled(new_state);
+            const lv_obj_t* btn = static_cast<const lv_obj_t*>(lv_event_get_target(e));
+            lv_obj_t* label = lv_obj_get_child(btn, 0);
+            lv_label_set_text(label, new_state ? "Cohesion: On" : "Cohesion: Off");
         }
     }
 }
@@ -1045,6 +1084,19 @@ void SimulatorUI::screenshotBtnEventCb(lv_event_t* e)
             screen_area.y2,
             lv_area_get_width(&screen_area),
             lv_area_get_height(&screen_area));
+    }
+}
+
+void SimulatorUI::printAsciiBtnEventCb(lv_event_t* e)
+{
+    if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
+        CallbackData* data = static_cast<CallbackData*>(lv_event_get_user_data(e));
+        if (data && data->world) {
+            std::string ascii_diagram = data->world->toAsciiDiagram();
+            spdlog::info("Current world state (ASCII diagram):\n{}", ascii_diagram);
+        } else {
+            spdlog::warn("Print ASCII button clicked but no world available");
+        }
     }
 }
 

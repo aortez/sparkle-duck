@@ -25,7 +25,7 @@ static const std::array<MaterialProperties, 8> MATERIAL_PROPERTIES = {{
     {1.8, 0.2, 0.2, 0.1, false, false},
     
     // METAL: Very dense rigid material with high elasticity
-    {7.8, 0.8, 0.9, 0.4, false, true},
+    {7.8, 0.8, 0.9, 1.8, false, true},
     
     // LEAF: Very light organic matter
     {0.3, 0.4, 0.3, 0.2, false, false},

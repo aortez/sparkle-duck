@@ -153,9 +153,16 @@ public:
     void setCursorForceEnabled(bool enabled) override { cursorForceEnabled = enabled; }
     void updateCursorForce(int pixelX, int pixelY, bool isActive) override;
     void clearCursorForce() override { cursorForceActive = false; }
+    
+    // Cohesion physics control (no-op for WorldA)
+    void setCohesionEnabled([[maybe_unused]] bool enabled) override { /* no-op for WorldA */ }
+    bool isCohesionEnabled() const override { return false; }
 
     // Dump timer statistics
     void dumpTimerStats() const override { timers.dumpTimerStats(); }
+    
+    // ASCII visualization
+    std::string toAsciiDiagram() const override;
 
     // Minimum amount of matter that we should bother processing.
     static constexpr double MIN_MATTER_THRESHOLD = 0.001;

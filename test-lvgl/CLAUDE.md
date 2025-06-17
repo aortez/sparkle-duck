@@ -274,3 +274,5 @@ The current GridMechanics.md design already describes a **particle-within-cell**
 [ ] - In WorldB, Update left click, so if it is on a currently on a filled cell that is not the selected type, or is not full, fill it with the selected type.
 [ ] - How can we make denser materials sink below less dense ones?
 [ ] - Physics systems should be toggleable.
+[ ] - Complete VisualTest system's UI controls for starting tests and switching tests.  We started this on HorizontalLineStabilityTest.
+[ ] - Centralize test setup >setAddParticlesEnabled(false); 

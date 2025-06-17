@@ -101,6 +101,7 @@ private:
     static void worldTypeButtonMatrixEventCb(lv_event_t* e);
     static void forceBtnEventCb(lv_event_t* e);
     static void gravityBtnEventCb(lv_event_t* e);
+    static void cohesionBtnEventCb(lv_event_t* e);
     static void elasticitySliderEventCb(lv_event_t* e);
     static void fragmentationSliderEventCb(lv_event_t* e);
     static void pressureScaleSliderEventCb(lv_event_t* e);
@@ -118,6 +119,7 @@ private:
     static void quadrantBtnEventCb(lv_event_t* e);
     static void rainSliderEventCb(lv_event_t* e);
     static void screenshotBtnEventCb(lv_event_t* e);
+    static void printAsciiBtnEventCb(lv_event_t* e);
 
     // Time reversal control buttons
     static void backwardBtnEventCb(lv_event_t* e);

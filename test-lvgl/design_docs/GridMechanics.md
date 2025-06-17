@@ -83,3 +83,35 @@ The system handles the problem of multiple moves targetting the same cell via a 
     Compute the possible moves and queue them up.
     Attempt to apply the moves. We'll do this in random order. If there is space to move some of the matter, move it, otherwise treat it as a reflection, affecting the COM of both cell's accordingly.
 
+## Cohesion and Structural Support
+
+Cohesion provides resistance to material separation, but should not prevent realistic gravitational behavior. The current implementation calculates cohesion resistance based on connected neighbors and structural support:
+
+**Current Issues:**
+- Floating groups of connected materials (e.g., 2x2 dirt blocks) experience cohesion resistance that slows their fall
+- This creates unrealistic "floating raft" behavior where disconnected structures resist gravity
+
+**Planned Improvement: Limited Structural Support Detection**
+To fix floating block behavior while preserving realistic cohesion:
+
+1. **Limited Depth BFS**: Check for structural support within 3-5 cells rather than full group traversal
+   - Efficient: O(N²) search area instead of O(group_size)
+   - Realistic: Most structures need nearby support
+   - Fast: Fixed small search regardless of group size
+
+2. **Time-Based Cohesion Decay**: Floating materials gradually lose cohesion over time
+   - Simple: No complex connectivity analysis required
+   - Realistic: Unsupported structures gradually lose integrity
+   - Tunable: Decay rate adjustable per material type
+
+3. **Combined Approach**: Use limited BFS for immediate detection + time decay for edge cases
+   - Fast detection for common scenarios (small floating chunks)
+   - Gradual decay for complex structures
+   - Low computational cost (9-25 cells checked per cell)
+
+**Expected Behavior After Fix:**
+- Ground-connected materials: Full cohesion resistance (realistic structural behavior)
+- Floating rafts: Reduced/zero cohesion resistance (fall under gravity as expected)
+- Cantilevers: Limited cohesion based on distance to support
+- Bridges: Maintain cohesion if endpoints are supported
+

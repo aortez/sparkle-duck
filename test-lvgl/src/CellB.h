@@ -174,6 +174,9 @@ public:
     
     // Material properties
     double getTotalMaterial() const override;
+    
+    // ASCII visualization
+    std::string toAsciiCharacter() const override;
 
 private:
     MaterialType material_type_;  // Type of material in this cell

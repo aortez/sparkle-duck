@@ -84,10 +84,53 @@ protected:
     // Helper method to run visual simulation if enabled, otherwise just advance time
     void runSimulation(World* world, int steps = 60, const std::string& description = "");
     
+    // Manual test progression methods for visual mode
+    void waitForStart();          // Block until Start button is pressed (visual mode only)
+    void waitForNext();           // Block until Next button is pressed (visual mode only)
+    void pauseIfVisual(int milliseconds = 500); // Pause in visual mode, no-op otherwise
+    
+    // Step-by-step simulation control for manual testing
+    void stepSimulation(World* world, int steps = 1);  // Advance N simulation steps
+    void waitForStep();           // Block until Step button is pressed (visual mode only)
+    
+    // Test restart functionality
+    void enableTestRestart() { restart_enabled_ = true; }
+    void disableTestRestart() { restart_enabled_ = false; }
+    bool isRestartEnabled() const { return restart_enabled_; }
+    bool shouldRestartTest() const { return restart_requested_; }
+    void clearRestartRequest() { restart_requested_ = false; }
+    
+    // Helper method for restartable test loops
+    template<typename TestLogic>
+    void runRestartableTest(TestLogic test_logic) {
+        enableTestRestart();
+        do {
+            clearRestartRequest();
+            waitForStart();
+            // Always run the test logic when Start is pressed
+            test_logic();
+        } while (shouldRestartTest() && visual_mode_);
+        disableTestRestart();
+    }
+    
+    // Auto-scaling methods for visual tests
+    void setAutoScaling(bool enabled) { auto_scaling_enabled_ = enabled; }
+    bool isAutoScalingEnabled() const { return auto_scaling_enabled_; }
+    void scaleDrawingAreaForWorld(uint32_t world_width, uint32_t world_height);
+    void restoreOriginalCellSize();
+    
     // Test state
     bool visual_mode_ = false;
     std::unique_ptr<TestUI> ui_;
     std::string current_test_name_;
+    
+    // Auto-scaling state
+    bool auto_scaling_enabled_ = true;  // Enable by default
+    int original_cell_size_ = -1;       // Store original size for restoration
+    
+    // Test restart state
+    bool restart_enabled_ = false;      // Enable restart functionality
+    bool restart_requested_ = false;    // Set when user requests restart
 };
 
 // Utility functions for tests

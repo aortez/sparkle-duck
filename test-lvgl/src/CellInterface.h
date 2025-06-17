@@ -55,4 +55,11 @@ public:
     
     // Check if cell is effectively empty
     virtual bool isEmpty() const = 0;
+    
+    // =================================================================
+    // ASCII VISUALIZATION
+    // =================================================================
+    
+    // Generate ASCII character representation of cell contents
+    virtual std::string toAsciiCharacter() const = 0;
 };

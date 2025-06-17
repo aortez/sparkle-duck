@@ -193,6 +193,13 @@ public:
     void clearCursorForce() override { cursor_force_active_ = false; }
     
     // =================================================================
+    // WORLDINTERFACE IMPLEMENTATION - COHESION PHYSICS CONTROL
+    // =================================================================
+    
+    void setCohesionEnabled(bool enabled) override { cohesion_enabled_ = enabled; }
+    bool isCohesionEnabled() const override { return cohesion_enabled_; }
+    
+    // =================================================================
     // WORLDINTERFACE IMPLEMENTATION - GRID MANAGEMENT
     // =================================================================
     
@@ -204,6 +211,9 @@ public:
     
     void dumpTimerStats() const override { timers_.dumpTimerStats(); }
     void markUserInput() override { /* no-op for now */ }
+    
+    // ASCII visualization
+    std::string toAsciiDiagram() const override;
     
     // =================================================================
     // WORLDINTERFACE IMPLEMENTATION - WORLD TYPE MANAGEMENT
@@ -243,7 +253,12 @@ public:
     // Distance-based cohesion decay constants
     static constexpr double SUPPORT_DECAY_RATE = 0.3;         // Decay rate per distance unit
     static constexpr double MIN_SUPPORT_FACTOR = 0.1;         // Minimum cohesion factor (never goes to zero)
-    static constexpr double MAX_SUPPORT_DISTANCE = 10;        // Maximum search distance for support
+    static constexpr double MAX_SUPPORT_DISTANCE = 10;        // Maximum search distance for support (legacy)
+    
+    // Directional support constants for realistic physics
+    static constexpr double MAX_VERTICAL_SUPPORT_DISTANCE = 5;    // Check 5 cells down for vertical support
+    static constexpr double RIGID_DENSITY_THRESHOLD = 5.0;       // Materials above this density provide rigid support
+    static constexpr double STRONG_ADHESION_THRESHOLD = 0.5;     // Minimum adhesion needed for horizontal support
     
     // =================================================================
     // TESTING METHODS
@@ -279,6 +294,10 @@ public:
     
     // Check if a position has structural support (ground, walls, stationary material)
     bool hasStructuralSupport(uint32_t x, uint32_t y);
+    
+    // Directional support functions for realistic physics
+    bool hasVerticalSupport(uint32_t x, uint32_t y);    // Check for support below (load-bearing)
+    bool hasHorizontalSupport(uint32_t x, uint32_t y);  // Check for rigid lateral connections
 
 private:
     // =================================================================
@@ -366,6 +385,9 @@ private:
     bool cursor_force_active_;
     int cursor_force_x_;
     int cursor_force_y_;
+    
+    // Cohesion physics control
+    bool cohesion_enabled_;
     
     // Drag state (enhanced with visual feedback)
     bool is_dragging_;

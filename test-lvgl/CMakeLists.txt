@@ -165,6 +165,7 @@ add_executable(sparkle-duck-tests
     src/tests/ForcePhysicsIntegration_test.cpp
     src/tests/HorizontalLineStability_test.cpp
     src/tests/DistanceToSupport_test.cpp
+    src/tests/AsciiDiagram_test.cpp
     src/tests/TestUI.cpp
     src/tests/visual_test_runner.cpp
     tests/ResultTest.cpp

@@ -2,7 +2,9 @@
 
 #include "World.h"
 
+#include <algorithm>
 #include <cassert>
+#include <cctype>
 #include <cmath>
 #include <cstdio> // For snprintf
 #include <cstring>
@@ -613,4 +615,44 @@ double Cell::getTotalMaterial() const
 bool Cell::isEmpty() const
 {
     return getTotalMaterial() < 0.001; // Use small threshold for "empty"
+}
+
+std::string Cell::toAsciiCharacter() const
+{
+    if (isEmpty()) {
+        return "  ";  // Two spaces for empty cells (2x1 format)
+    }
+    
+    // Find the dominant material in this cell
+    double max_amount = 0.0;
+    char material_char = ' ';
+    
+    if (dirt > max_amount) {
+        max_amount = dirt;
+        material_char = '#';  // Dirt
+    }
+    if (water > max_amount) {
+        max_amount = water;
+        material_char = '~';  // Water
+    }
+    if (wood > max_amount) {
+        max_amount = wood;
+        material_char = 'W';  // Wood
+    }
+    if (leaf > max_amount) {
+        max_amount = leaf;
+        material_char = 'L';  // Leaf
+    }
+    if (metal > max_amount) {
+        max_amount = metal;
+        material_char = 'M';  // Metal
+    }
+    
+    // Convert total material to 0-9 scale
+    double total_material = getTotalMaterial();
+    int fill_level = static_cast<int>(std::round(total_material * 9.0));
+    fill_level = std::clamp(fill_level, 0, 9);
+    
+    // Return 2-character representation: material + fill level
+    return std::string(1, material_char) + std::to_string(fill_level);
 }

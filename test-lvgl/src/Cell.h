@@ -163,6 +163,9 @@ public:
     // Material properties
     double getTotalMaterial() const override;
     bool isEmpty() const override;
+    
+    // ASCII visualization
+    std::string toAsciiCharacter() const override;
 
 private:
     std::vector<uint8_t> buffer; // Use vector instead of array for dynamic sizing

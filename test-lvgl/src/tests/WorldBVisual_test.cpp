@@ -1,37 +1,9 @@
-#include "visual_test_runner.h"
-#include "../WorldB.h"
-#include "../MaterialType.h"
+#include "WorldBVisualTestBase.h"
 #include <spdlog/spdlog.h>
 
-class WorldBVisualTest : public VisualTestBase {
-protected:
-    void SetUp() override {
-        VisualTestBase::SetUp();
-        
-        // Default to 3x3 world, but tests can override these
-        width = 3;
-        height = 3;
-        createTestWorldB();
-    }
-    
-    void createTestWorldB() {
-        // Create small world for testing with no draw area (tests don't need UI)
-        world = std::make_unique<WorldB>(width, height, nullptr);
-        world->setAddParticlesEnabled(false);
-        // Disable walls for testing to get clean mass calculations
-        world->setWallsEnabled(false);
-        world->setup(); // Setup with initial materials (most tests want this)
-    }
-
-    void TearDown() override {
-        world.reset();
-        VisualTestBase::TearDown();
-    }
-    
-    // Test data members
-    std::unique_ptr<WorldB> world;
-    uint32_t width;
-    uint32_t height;
+class WorldBVisualTest : public WorldBVisualTestBase {
+    // Individual test classes can inherit from WorldBVisualTestBase 
+    // and automatically get setAddParticlesEnabled(false) behavior
 };
 
 TEST_F(WorldBVisualTest, EmptyWorldAdvance) {
@@ -290,7 +262,7 @@ struct CollisionTestCase {
     std::string description;
 };
 
-class CollisionBehaviorTest : public WorldBVisualTest, 
+class CollisionBehaviorTest : public WorldBVisualTestBase, 
                              public ::testing::WithParamInterface<CollisionTestCase> {};
 
 TEST_P(CollisionBehaviorTest, MaterialCollisionBehavior) {

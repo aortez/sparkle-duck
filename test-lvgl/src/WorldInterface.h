@@ -235,6 +235,16 @@ public:
     virtual void clearCursorForce() = 0;
     
     // =================================================================
+    // COHESION PHYSICS CONTROL
+    // =================================================================
+    
+    // Enable/disable cohesion physics calculations
+    virtual void setCohesionEnabled(bool enabled) = 0;
+    
+    // Check if cohesion physics is enabled
+    virtual bool isCohesionEnabled() const = 0;
+    
+    // =================================================================
     // GRID MANAGEMENT
     // =================================================================
     
@@ -250,6 +260,13 @@ public:
     
     // Mark that user input has occurred (for state saving triggers)
     virtual void markUserInput() = 0;
+    
+    // =================================================================
+    // ASCII VISUALIZATION
+    // =================================================================
+    
+    // Generate ASCII diagram of the entire world state
+    virtual std::string toAsciiDiagram() const = 0;
     
     // =================================================================
     // UI INTEGRATION

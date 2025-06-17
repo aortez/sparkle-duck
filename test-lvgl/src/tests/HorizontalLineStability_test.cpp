@@ -1,13 +1,24 @@
-#include <gtest/gtest.h>
+#include "visual_test_runner.h"
 #include "../WorldB.h"
 #include "../MaterialType.h"
 #include "spdlog/spdlog.h"
+#include <thread>
+#include <chrono>
 
-class HorizontalLineStabilityTest : public ::testing::Test {
+class HorizontalLineStabilityTest : public VisualTestBase {
 protected:
     void SetUp() override {
+        VisualTestBase::SetUp();
+        
+        // Apply auto-scaling for 4x2 world before creation
+        if (visual_mode_ && auto_scaling_enabled_) {
+            scaleDrawingAreaForWorld(4, 2);
+        }
+        
         // Create a small 4x2 world for testing horizontal line stability
-        world = std::make_unique<WorldB>(4, 2, nullptr);
+        // Pass the UI draw area if in visual mode, otherwise nullptr
+        lv_obj_t* draw_area = (visual_mode_ && ui_) ? ui_->getDrawArea() : nullptr;
+        world = std::make_unique<WorldB>(4, 2, draw_area);
         
         // Disable walls to prevent boundary interference with our test setup
         world->setWallsEnabled(false);
@@ -29,6 +40,11 @@ protected:
         logCellDetails(0, 0, "METAL anchor");
         logCellDetails(1, 0, "DIRT connected");
         logCellDetails(2, 0, "DIRT cantilever (should fall)");
+    }
+    
+    void TearDown() override {
+        world.reset();
+        VisualTestBase::TearDown();
     }
     
     void logCellDetails(uint32_t x, uint32_t y, const std::string& description) {
@@ -77,6 +93,15 @@ protected:
         return cell.getMaterialType() == MaterialType::DIRT && cell.getFillRatio() > 0.1;
     }
     
+    void updateVisualDisplay() {
+        if (visual_mode_ && world) {
+            auto& coordinator = VisualTestCoordinator::getInstance();
+            coordinator.postTaskSync([this] {
+                world->draw();
+            });
+        }
+    }
+    
     std::unique_ptr<WorldB> world;
 };
 
@@ -88,6 +113,16 @@ TEST_F(HorizontalLineStabilityTest, CantileverDirtShouldFall) {
     spdlog::info("=== Initial Force Analysis ===");
     logForceAnalysis(2, 0);  // Cantilever dirt
     logForceAnalysis(1, 0);  // Connected dirt
+    
+    // Show initial state in visual mode and wait for user to start
+    updateVisualDisplay();
+    waitForStart(); // Wait for user to press Start button
+    
+    // Pause for 1 second after showing the first frame
+    if (visual_mode_) {
+        spdlog::info("Pausing for 1 second to observe initial state...");
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+    }
     
     // Run simulation for several timesteps to see if cantilever dirt falls
     const double deltaTime = 0.016;  // ~60fps
@@ -127,11 +162,20 @@ TEST_F(HorizontalLineStabilityTest, CantileverDirtShouldFall) {
         // Advance the world one timestep
         world->advanceTime(deltaTime);
         
+        // Update visual display every step.
+		updateVisualDisplay();
+        
         // Check if cantilever dirt has fallen
         if (!isDirtAtPosition(2, 0)) {
             cantileverFell = true;
             stepWhenFell = step + 1;
             spdlog::info("Cantilever dirt fell at step {}!", stepWhenFell);
+            
+            // Pause for 1 second before the final frame to observe the fall
+            if (visual_mode_) {
+                spdlog::info("Pausing for 1 second to observe final state...");
+                std::this_thread::sleep_for(std::chrono::seconds(1));
+            }
             break;
         }
         
@@ -140,6 +184,12 @@ TEST_F(HorizontalLineStabilityTest, CantileverDirtShouldFall) {
             cantileverFell = true;
             stepWhenFell = step + 1;
             spdlog::info("Cantilever dirt moved to (2,1) at step {}!", stepWhenFell);
+            
+            // Pause for 1 second before the final frame to observe the fall
+            if (visual_mode_) {
+                spdlog::info("Pausing for 1 second to observe final state...");
+                std::this_thread::sleep_for(std::chrono::seconds(1));
+            }
             break;
         }
     }
@@ -157,6 +207,9 @@ TEST_F(HorizontalLineStabilityTest, CantileverDirtShouldFall) {
             }
         }
     }
+    
+    // Wait for user to observe final state in visual mode
+    waitForNext();
     
     // The test expectation: cantilever dirt should fall
     // This will currently FAIL, demonstrating the horizontal line stability problem
@@ -179,11 +232,15 @@ TEST_F(HorizontalLineStabilityTest, ConnectedDirtShouldStayStable) {
     spdlog::info("=== Testing Connected Dirt Stability ===");
     logForceAnalysis(1, 0);  // Connected dirt
     
+    // Wait for user to start this test phase
+    waitForStart();
+    
     const double deltaTime = 0.016;
     const int testSteps = 50;
     
     for (int step = 0; step < testSteps; step++) {
         world->advanceTime(deltaTime);
+        updateVisualDisplay(); // Show progress during simulation
         
         // Connected dirt should remain stable
         EXPECT_TRUE(isDirtAtPosition(1, 0)) 
@@ -191,6 +248,9 @@ TEST_F(HorizontalLineStabilityTest, ConnectedDirtShouldStayStable) {
     }
     
     spdlog::info("Connected dirt remained stable as expected (good structural support)");
+    
+    // Wait for user to observe the stable result
+    waitForNext();
 }
 
 TEST_F(HorizontalLineStabilityTest, FloatingLShapeShouldCollapse) {

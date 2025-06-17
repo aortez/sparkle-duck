@@ -3,6 +3,7 @@
 #include "WorldB.h" // For MIN_MATTER_THRESHOLD constant
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <sstream>
 #include <string>
@@ -894,4 +895,49 @@ void CellB::drawDebug(lv_obj_t* parent, uint32_t x, uint32_t y)
     }
     
     lv_canvas_finish_layer(canvas_, &layer);
+}
+
+std::string CellB::toAsciiCharacter() const
+{
+    if (isEmpty()) {
+        return "  ";  // Two spaces for empty cells (2x1 format)
+    }
+    
+    // Choose character based on material type
+    char material_char;
+    switch (material_type_) {
+        case MaterialType::AIR:
+            return "  ";  // Two spaces for air
+        case MaterialType::DIRT:
+            material_char = '#';
+            break;
+        case MaterialType::WATER:
+            material_char = '~';
+            break;
+        case MaterialType::WOOD:
+            material_char = 'W';
+            break;
+        case MaterialType::SAND:
+            material_char = '.';
+            break;
+        case MaterialType::METAL:
+            material_char = 'M';
+            break;
+        case MaterialType::LEAF:
+            material_char = 'L';
+            break;
+        case MaterialType::WALL:
+            material_char = '|';
+            break;
+        default:
+            material_char = '?';
+            break;
+    }
+    
+    // Convert fill ratio to 0-9 scale
+    int fill_level = static_cast<int>(std::round(fill_ratio_ * 9.0));
+    fill_level = std::clamp(fill_level, 0, 9);
+    
+    // Return 2-character representation: material + fill level
+    return std::string(1, material_char) + std::to_string(fill_level);
 }
