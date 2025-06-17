@@ -176,7 +176,7 @@ bool WorldInterpolationTool::resizeWorldB(WorldInterface& world, uint32_t newWid
     }
     
     // Resize the grid using standard method (this creates new empty cells)
-    world.resizeGrid(newWidth, newHeight, false);
+    world.resizeGrid(newWidth, newHeight);
     
     // Now populate the new grid with bilinear interpolated values
     for (uint32_t newY = 0; newY < newHeight; ++newY) {
@@ -277,7 +277,7 @@ bool WorldInterpolationTool::resizeWorldA(WorldInterface& world, uint32_t newWid
     }
     
     // Resize the grid using standard method
-    world.resizeGrid(newWidth, newHeight, false);
+    world.resizeGrid(newWidth, newHeight);
     
     // Populate new grid with bilinear interpolated values
     for (uint32_t newY = 0; newY < newHeight; ++newY) {

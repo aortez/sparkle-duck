@@ -85,14 +85,11 @@ The system handles the problem of multiple moves targetting the same cell via a 
 
 ## Cohesion and Structural Support
 
-Cohesion provides resistance to material separation, but should not prevent realistic gravitational behavior. The current implementation calculates cohesion resistance based on connected neighbors and structural support:
+Cohesion provides resistance to material separation, but should not prevent realistic gravitational behavior. 
 
-**Current Issues:**
-- Floating groups of connected materials (e.g., 2x2 dirt blocks) experience cohesion resistance that slows their fall
-- This creates unrealistic "floating raft" behavior where disconnected structures resist gravity
+The current implementation calculates cohesion resistance based on connected neighbors and structural support.
 
-**Planned Improvement: Limited Structural Support Detection**
-To fix floating block behavior while preserving realistic cohesion:
+Steps:
 
 1. **Limited Depth BFS**: Check for structural support within 3-5 cells rather than full group traversal
    - Efficient: O(N²) search area instead of O(group_size)
@@ -108,10 +105,4 @@ To fix floating block behavior while preserving realistic cohesion:
    - Fast detection for common scenarios (small floating chunks)
    - Gradual decay for complex structures
    - Low computational cost (9-25 cells checked per cell)
-
-**Expected Behavior After Fix:**
-- Ground-connected materials: Full cohesion resistance (realistic structural behavior)
-- Floating rafts: Reduced/zero cohesion resistance (fall under gravity as expected)
-- Cantilevers: Limited cohesion based on distance to support
-- Bridges: Maintain cohesion if endpoints are supported
 

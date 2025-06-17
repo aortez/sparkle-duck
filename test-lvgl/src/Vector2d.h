@@ -16,7 +16,8 @@ public:
     Vector2d subtract(const Vector2d& other) const;
     Vector2d times(double scalar) const;
     double mag() const;
-    double length() const { return mag(); } // Alias for mag()
+    double magnitude() const {return mag(); }
+    double length() const { return mag(); }
     double dot(const Vector2d& other) const;
     Vector2d normalize() const;
     std::string toString() const;

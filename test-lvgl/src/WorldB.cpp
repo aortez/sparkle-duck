@@ -37,6 +37,12 @@ WorldB::WorldB(uint32_t width, uint32_t height, lv_obj_t* draw_area)
       cursor_force_x_(0),
       cursor_force_y_(0),
       cohesion_enabled_(true),
+      cohesion_force_enabled_(true),
+      adhesion_enabled_(true),
+      cohesion_force_strength_(150.0),
+      adhesion_strength_(5.0),
+      cohesion_bind_strength_(1.0),
+      com_cohesion_range_(2),
       is_dragging_(false),
       drag_start_x_(-1),
       drag_start_y_(-1),
@@ -106,6 +112,7 @@ void WorldB::advanceTime(double deltaTimeSeconds)
     if (scaledDeltaTime > 0.0) {
         // Main physics steps
         applyGravity(scaledDeltaTime);
+        applyCohesionForces(scaledDeltaTime);
         processVelocityLimiting(scaledDeltaTime);
         updateTransfers(scaledDeltaTime);
         applyPressure(scaledDeltaTime);
@@ -475,52 +482,41 @@ void WorldB::updateCursorForce(int pixelX, int pixelY, bool isActive)
 // GRID MANAGEMENT
 // =================================================================
 
-void WorldB::resizeGrid(uint32_t newWidth, uint32_t newHeight, bool /* clearHistory */)
+void WorldB::resizeGrid(uint32_t newWidth, uint32_t newHeight)
 {
     if (newWidth == width_ && newHeight == height_) {
         return;
     }
     
-    // Use bilinear interpolation for smooth rescaling
-    if (!WorldInterpolationTool::resizeWorldWithBilinearFiltering(*this, newWidth, newHeight)) {
-        spdlog::error("Bilinear resize failed, falling back to simple copy method");
-        
-        // Fallback to original simple copy method
-        spdlog::info("Resizing WorldB grid from {}x{} to {}x{} (fallback)", 
-                     width_, height_, newWidth, newHeight);
-        
-        // Create new cell grid
-        std::vector<CellB> newCells(newWidth * newHeight);
-        
-        // Copy existing cells (if they fit in new dimensions)
-        const uint32_t copyWidth = std::min(width_, newWidth);
-        const uint32_t copyHeight = std::min(height_, newHeight);
-        
-        for (uint32_t y = 0; y < copyHeight; ++y) {
-            for (uint32_t x = 0; x < copyWidth; ++x) {
-                const size_t oldIndex = y * width_ + x;
-                const size_t newIndex = y * newWidth + x;
-                newCells[newIndex] = cells_[oldIndex];
-            }
-        }
-        
-        // Update dimensions and swap cell storage
-        width_ = newWidth;
-        height_ = newHeight;
-        cells_ = std::move(newCells);
-        
-        // Rebuild boundary walls if enabled
-        if (walls_enabled_) {
-            setupBoundaryWalls();
-        }
-        
-        spdlog::info("Grid resize complete (fallback)");
-    } else {
-        // Rebuild boundary walls if enabled (bilinear resize handles the rest)
-        if (walls_enabled_) {
-            setupBoundaryWalls();
+    spdlog::info("Resizing WorldB grid from {}x{} to {}x{}", 
+                 width_, height_, newWidth, newHeight);
+    
+    // Create new cell grid
+    std::vector<CellB> newCells(newWidth * newHeight);
+    
+    // Copy existing cells (if they fit in new dimensions)
+    const uint32_t copyWidth = std::min(width_, newWidth);
+    const uint32_t copyHeight = std::min(height_, newHeight);
+    
+    for (uint32_t y = 0; y < copyHeight; ++y) {
+        for (uint32_t x = 0; x < copyWidth; ++x) {
+            const size_t oldIndex = y * width_ + x;
+            const size_t newIndex = y * newWidth + x;
+            newCells[newIndex] = cells_[oldIndex];
         }
     }
+    
+    // Update dimensions and swap cell storage
+    width_ = newWidth;
+    height_ = newHeight;
+    cells_ = std::move(newCells);
+    
+    // Rebuild boundary walls if enabled
+    if (walls_enabled_) {
+        setupBoundaryWalls();
+    }
+    
+    spdlog::info("Grid resize complete");
 }
 
 // =================================================================
@@ -620,6 +616,50 @@ void WorldB::applyGravity(double deltaTime)
     timers_.stopTimer("apply_gravity");
 }
 
+void WorldB::applyCohesionForces(double deltaTime)
+{
+    if (!cohesion_force_enabled_) {
+        return;
+    }
+    
+    timers_.startTimer("apply_cohesion_forces");
+    
+    for (uint32_t y = 0; y < height_; ++y) {
+        for (uint32_t x = 0; x < width_; ++x) {
+            if (!isValidCell(x, y)) {
+                continue;
+            }
+            
+            CellB& cell = at(x, y);
+            
+            if (cell.isEmpty() || cell.isWall()) {
+                continue;
+            }
+            
+            // Calculate COM cohesion force
+            COMCohesionForce com_cohesion = calculateCOMCohesionForce(x, y);
+            
+            // Apply forces to velocity
+            Vector2d velocity = cell.getVelocity();
+            
+            // COM cohesion force integration
+            Vector2d com_cohesion_force = com_cohesion.force_direction * com_cohesion.force_magnitude * deltaTime * cohesion_force_strength_;
+            velocity = velocity + com_cohesion_force;
+            
+            // Adhesion force integration (only if enabled)
+            if (adhesion_enabled_) {
+                AdhesionForce adhesion = calculateAdhesionForce(x, y);
+                Vector2d adhesion_force = adhesion.force_direction * adhesion.force_magnitude * deltaTime * adhesion_strength_;
+                velocity = velocity + adhesion_force;
+            }
+            
+            cell.setVelocity(velocity);
+        }
+    }
+    
+    timers_.stopTimer("apply_cohesion_forces");
+}
+
 void WorldB::processVelocityLimiting(double deltaTime)
 {
     for (auto& cell : cells_) {
@@ -662,12 +702,31 @@ void WorldB::queueMaterialMoves(double deltaTime)
             }
             AdhesionForce adhesion = calculateAdhesionForce(x, y);
             
-            // Calculate net driving force (gravity + adhesion, no deltaTime scaling for adhesion)
-            Vector2d gravity_force(0.0, gravity_ * deltaTime * getMaterialDensity(cell.getMaterialType()));
-            Vector2d net_driving_force = gravity_force + adhesion.force_direction * adhesion.force_magnitude;
+            // NEW: Calculate COM-based cohesion force
+            COMCohesionForce com_cohesion;
+            if (cohesion_force_enabled_) {
+                com_cohesion = calculateCOMCohesionForce(x, y);
+            } else {
+                com_cohesion = {{0.0, 0.0}, 0.0, {0.0, 0.0}, 0}; // No COM cohesion when disabled
+            }
             
-            // Movement threshold from cohesion resistance (absolute threshold)
-            double movement_threshold = cohesion.resistance_magnitude;
+            // Apply strength multipliers to forces (now with separate adhesion and COM cohesion controls)
+            double effective_resistance = cohesion.resistance_magnitude * cohesion_bind_strength_;
+            double effective_adhesion_magnitude = adhesion.force_magnitude * adhesion_strength_;
+            double effective_com_cohesion_magnitude = com_cohesion.force_magnitude * cohesion_force_strength_;
+            
+            // Store forces in cell for visualization (using effective values)
+            cell.setAccumulatedCohesionForce(Vector2d(0, -effective_resistance)); // Resistance shown as upward force
+            cell.setAccumulatedAdhesionForce(adhesion.force_direction * effective_adhesion_magnitude);
+            cell.setAccumulatedCOMCohesionForce(com_cohesion.force_direction * effective_com_cohesion_magnitude);
+            
+            // Calculate net driving force (gravity + adhesion + COM cohesion, with deltaTime scaling for COM cohesion)
+            Vector2d gravity_force(0.0, gravity_ * deltaTime * getMaterialDensity(cell.getMaterialType()));
+            Vector2d com_cohesion_force = com_cohesion.force_direction * com_cohesion.force_magnitude * deltaTime * cohesion_force_strength_; // COM cohesion scales with magnitude, deltaTime and strength
+            Vector2d net_driving_force = gravity_force + adhesion.force_direction * effective_adhesion_magnitude + com_cohesion_force;
+            
+            // Movement threshold from cohesion resistance (absolute threshold, with strength multiplier)
+            double movement_threshold = effective_resistance;
             double driving_magnitude = net_driving_force.mag();
             
             // Force-based movement decision: only move if driving force > resistance
@@ -707,9 +766,9 @@ void WorldB::queueMaterialMoves(double deltaTime)
                 Vector2i targetPos = Vector2i(x, y) + direction;
                 
                 if (isValidCell(targetPos)) {
-                    // Create enhanced MaterialMove with collision physics
+                    // Create enhanced MaterialMove with collision physics and COM cohesion data
                     MaterialMove move = createCollisionAwareMove(
-                        cell, at(targetPos), Vector2i(x, y), targetPos, direction, deltaTime
+                        cell, at(targetPos), Vector2i(x, y), targetPos, direction, deltaTime, com_cohesion
                     );
                     
                     // Debug logging for collision detection
@@ -1006,6 +1065,12 @@ size_t WorldB::coordToIndex(const Vector2i& pos) const
     return coordToIndex(static_cast<uint32_t>(pos.x), static_cast<uint32_t>(pos.y));
 }
 
+Vector2d WorldB::getCellWorldPosition(uint32_t x, uint32_t y, const Vector2d& com_offset) const
+{
+    return Vector2d(static_cast<double>(x) + com_offset.x, 
+                   static_cast<double>(y) + com_offset.y);
+}
+
 // =================================================================
 // WORLD SETUP CONTROL METHODS
 // =================================================================
@@ -1171,7 +1236,7 @@ void WorldB::restoreState(const ::WorldState& state)
     
     // Resize grid if necessary
     if (state.width != width_ || state.height != height_) {
-        resizeGrid(state.width, state.height, false);
+        resizeGrid(state.width, state.height);
     }
     
     // Restore physics parameters
@@ -1246,7 +1311,8 @@ std::vector<Vector2i> WorldB::getAllBoundaryCrossings(const Vector2d& newCOM)
 
 WorldB::MaterialMove WorldB::createCollisionAwareMove(const CellB& fromCell, const CellB& toCell, 
                                                       const Vector2i& fromPos, const Vector2i& toPos,
-                                                      const Vector2i& direction, double /* deltaTime */)
+                                                      const Vector2i& direction, double /* deltaTime */,
+                                                      const COMCohesionForce& com_cohesion)
 {
     MaterialMove move;
     
@@ -1264,6 +1330,10 @@ WorldB::MaterialMove WorldB::createCollisionAwareMove(const CellB& fromCell, con
     move.material_mass = calculateMaterialMass(fromCell);
     move.target_mass = calculateMaterialMass(toCell);
     move.collision_energy = calculateCollisionEnergy(move, fromCell, toCell);
+    
+    // NEW: Add COM cohesion force data
+    move.com_cohesion_magnitude = com_cohesion.force_magnitude;
+    move.com_cohesion_direction = com_cohesion.force_direction;
     
     // Determine collision type based on materials and energy
     move.collision_type = determineCollisionType(fromCell.getMaterialType(), 
@@ -1424,6 +1494,8 @@ void WorldB::handleElasticCollision(CellB& fromCell, CellB& toCell, const Materi
     Vector2d incident_velocity = move.momentum;
     Vector2d surface_normal = move.boundary_normal.normalize();
     
+//    assert(move.target_mass > 0.0 && !toCell.isEmpty());
+
     if (move.target_mass > 0.0 && !toCell.isEmpty()) {
         // Proper elastic collision formula for two-body collision
         Vector2d target_velocity = toCell.getVelocity();
@@ -1448,10 +1520,10 @@ void WorldB::handleElasticCollision(CellB& fromCell, CellB& toCell, const Materi
         // Empty target or zero mass - just reflect off surface
         Vector2d reflected_velocity = incident_velocity.reflect(surface_normal) * move.restitution_coefficient;
         fromCell.setVelocity(reflected_velocity);
-        
-        spdlog::trace("Elastic reflection: {} bounced off surface at ({},{}) with restitution {:.2f}", 
+
+        spdlog::warn("Elastic reflection: {} bounced off surface at ({},{}) with restitution {:.2f}",
                       getMaterialName(move.material), move.fromX, move.fromY, move.restitution_coefficient);
-    }
+   }
     
     // Minimal or no material transfer for elastic collisions
     // Material stays in original cell with new velocity
@@ -1569,6 +1641,83 @@ WorldB::CohesionForce WorldB::calculateCohesionForce(uint32_t x, uint32_t y)
                   getMaterialName(cell.getMaterialType()), x, y, connected_neighbors, has_vertical, has_horizontal, support_factor, resistance);
     
     return {resistance, connected_neighbors};
+}
+
+WorldB::COMCohesionForce WorldB::calculateCOMCohesionForce(uint32_t x, uint32_t y)
+{
+    const CellB& cell = at(x, y);
+    if (cell.isEmpty()) {
+        return {{0.0, 0.0}, 0.0, {0.0, 0.0}, 0};
+    }
+    
+    Vector2d cell_world_pos = getCellWorldPosition(x, y, cell.getCOM());
+    Vector2d neighbor_center_sum(0.0, 0.0);
+    double total_weight = 0.0;
+    uint32_t connection_count = 0;
+    
+    // Check all neighbors within COM cohesion range for same-material connections
+    int range = static_cast<int>(com_cohesion_range_);
+    for (int dx = -range; dx <= range; dx++) {
+        for (int dy = -range; dy <= range; dy++) {
+            if (dx == 0 && dy == 0) continue;
+            
+            int nx = static_cast<int>(x) + dx;
+            int ny = static_cast<int>(y) + dy;
+            
+            if (isValidCell(nx, ny)) {
+                const CellB& neighbor = at(nx, ny);
+                if (neighbor.getMaterialType() == cell.getMaterialType() && 
+                    neighbor.getFillRatio() > MIN_MATTER_THRESHOLD) {
+                    
+                    // Get neighbor's world position including its COM offset
+                    Vector2d neighbor_world_pos = getCellWorldPosition(nx, ny, neighbor.getCOM());
+                    double weight = neighbor.getFillRatio();
+                    
+                    neighbor_center_sum += neighbor_world_pos * weight;
+                    total_weight += weight;
+                    connection_count++;
+                }
+            }
+        }
+    }
+    
+    if (connection_count == 0 || total_weight < MIN_MATTER_THRESHOLD) {
+        return {{0.0, 0.0}, 0.0, {0.0, 0.0}, 0};
+    }
+    
+    // Calculate weighted center of connected neighbors
+    Vector2d neighbor_center = neighbor_center_sum / total_weight;
+    
+    // Force direction: toward the center of neighbors
+    Vector2d force_direction = neighbor_center - cell_world_pos;
+    double distance = force_direction.magnitude();
+    
+    if (distance < 0.001) { // Avoid division by zero
+        return {{0.0, 0.0}, 0.0, neighbor_center, connection_count};
+    }
+    
+    force_direction.normalize();
+    
+    // Force magnitude: cohesion strength × connection count × distance factor × fill ratio
+    const MaterialProperties& props = getMaterialProperties(cell.getMaterialType());
+    double base_cohesion = props.cohesion;
+    double distance_factor = std::min(distance, 2.0); // Cap at 2 cell distances
+    // Calculate max possible connections for this range: (2*range+1)² - 1 (excluding center)
+    double max_connections = static_cast<double>((2 * range + 1) * (2 * range + 1) - 1);
+    double connection_factor = static_cast<double>(connection_count) / max_connections; // Normalize to [0,1]
+    double force_magnitude = base_cohesion * connection_factor * distance_factor * cell.getFillRatio();
+    
+    // Prevent excessive COM forces
+    double max_com_force = base_cohesion * 2.0; // Cap at 2x base cohesion
+    force_magnitude = std::min(force_magnitude, max_com_force);
+    
+    Vector2d final_force = force_direction * force_magnitude;
+    
+    spdlog::trace("COM cohesion for {} at ({},{}): connections={}, distance={:.3f}, force_mag={:.3f}, direction=({:.3f},{:.3f})",
+                  getMaterialName(cell.getMaterialType()), x, y, connection_count, distance, force_magnitude, 
+                  final_force.x, final_force.y);
+    
+    return {final_force, force_magnitude, neighbor_center, connection_count};
 }
 
 WorldB::AdhesionForce WorldB::calculateAdhesionForce(uint32_t x, uint32_t y)

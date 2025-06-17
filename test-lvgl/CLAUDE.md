@@ -269,7 +269,6 @@ The current GridMechanics.md design already describes a **particle-within-cell**
 [x] - Add an exit hook that shows a full dump of the world state after an ASSERT.
 [ ] - some way to talk to the application while it runs... a DBus API, a socket API, what are the other options? This would be useful!
 [x] - run a clean build and fix all warnings, then make all warnings into errors. Please.
-[ ] - Consider design of Air/Nothing materials and examine currently implementation.
 [ ] - Add a Makefile to capture some common targets ('clean', 'debug', 'release', 'test-all'... anything else?); update CLAUDE.md with instructions.
 [ ] - In WorldB, Update left click, so if it is on a currently on a filled cell that is not the selected type, or is not full, fill it with the selected type.
 [ ] - How can we make denser materials sink below less dense ones?

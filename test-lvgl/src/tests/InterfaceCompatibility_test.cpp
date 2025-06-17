@@ -329,17 +329,17 @@ TEST_P(InterfaceCompatibilityTest, GridResizing) {
     double massBeforeResize = world->getTotalMass();
     
     // Test resize to larger grid
-    world->resizeGrid(7, 7, false);  // Don't clear history
+    world->resizeGrid(7, 7);
     EXPECT_EQ(world->getWidth(), 7);
     EXPECT_EQ(world->getHeight(), 7);
     
     // Test resize to smaller grid
-    world->resizeGrid(3, 3, true);   // Clear history
+    world->resizeGrid(3, 3);
     EXPECT_EQ(world->getWidth(), 3);
     EXPECT_EQ(world->getHeight(), 3);
     
     // Resize back to original
-    world->resizeGrid(5, 5, false);
+    world->resizeGrid(5, 5);
     EXPECT_EQ(world->getWidth(), 5);
     EXPECT_EQ(world->getHeight(), 5);
     

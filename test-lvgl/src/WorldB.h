@@ -38,6 +38,13 @@ public:
         uint32_t contact_points;      // Number of contact interfaces
     };
     
+    struct COMCohesionForce {
+        Vector2d force_direction;     // Net force direction toward neighbors
+        double force_magnitude;       // Strength of cohesive pull
+        Vector2d center_of_neighbors; // Average position of connected neighbors
+        uint32_t active_connections;  // Number of neighbors contributing
+    };
+    
     // Enhanced material transfer system with collision physics
     enum class CollisionType {
         TRANSFER_ONLY,      // Material moves between cells (current behavior)
@@ -61,6 +68,10 @@ public:
         double restitution_coefficient = 0.0; // Material-specific bounce factor
         double material_mass = 0.0;           // Mass of moving material
         double target_mass = 0.0;             // Mass of target material (if any)
+        
+        // NEW: COM cohesion force data
+        double com_cohesion_magnitude = 0.0;  // Strength of COM cohesion force
+        Vector2d com_cohesion_direction{0.0, 0.0}; // Direction of COM cohesion force
     };
 
     WorldB(uint32_t width, uint32_t height, lv_obj_t* draw_area);
@@ -199,11 +210,31 @@ public:
     void setCohesionEnabled(bool enabled) override { cohesion_enabled_ = enabled; }
     bool isCohesionEnabled() const override { return cohesion_enabled_; }
     
+    void setCohesionForceEnabled(bool enabled) override { cohesion_force_enabled_ = enabled; }
+    bool isCohesionForceEnabled() const override { return cohesion_force_enabled_; }
+    
+    // Cohesion strength parameters
+    void setCohesionForceStrength(double strength) override { cohesion_force_strength_ = strength; }
+    double getCohesionForceStrength() const override { return cohesion_force_strength_; }
+    
+    void setAdhesionStrength(double strength) override { adhesion_strength_ = strength; }
+    double getAdhesionStrength() const override { return adhesion_strength_; }
+    
+    void setAdhesionEnabled(bool enabled) override { adhesion_enabled_ = enabled; }
+    bool isAdhesionEnabled() const override { return adhesion_enabled_; }
+    
+    void setCohesionBindStrength(double strength) override { cohesion_bind_strength_ = strength; }
+    double getCohesionBindStrength() const override { return cohesion_bind_strength_; }
+    
+    // COM cohesion range control
+    void setCOMCohesionRange(uint32_t range) override { com_cohesion_range_ = range; }
+    uint32_t getCOMCohesionRange() const override { return com_cohesion_range_; }
+    
     // =================================================================
     // WORLDINTERFACE IMPLEMENTATION - GRID MANAGEMENT
     // =================================================================
     
-    void resizeGrid(uint32_t newWidth, uint32_t newHeight, bool clearHistory = true) override;
+    void resizeGrid(uint32_t newWidth, uint32_t newHeight) override;
     
     // =================================================================
     // WORLDINTERFACE IMPLEMENTATION - PERFORMANCE AND DEBUGGING
@@ -268,7 +299,8 @@ public:
     std::vector<Vector2i> getAllBoundaryCrossings(const Vector2d& newCOM);
     MaterialMove createCollisionAwareMove(const CellB& fromCell, const CellB& toCell, 
                                           const Vector2i& fromPos, const Vector2i& toPos,
-                                          const Vector2i& direction, double deltaTime = 0.0);
+                                          const Vector2i& direction, double deltaTime = 0.0,
+                                          const COMCohesionForce& com_cohesion = {{0.0, 0.0}, 0.0, {0.0, 0.0}, 0});
     
     // Get pending moves for testing (call queueMaterialMoves first)
     const std::vector<MaterialMove>& getPendingMoves() const { return pending_moves_; }
@@ -289,6 +321,9 @@ public:
     // Calculate adhesion force from different-material neighbors
     AdhesionForce calculateAdhesionForce(uint32_t x, uint32_t y);
     
+    // Calculate COM-based cohesion force toward connected neighbors
+    COMCohesionForce calculateCOMCohesionForce(uint32_t x, uint32_t y);
+    
     // Calculate distance to structural support for cohesion decay
     double calculateDistanceToSupport(uint32_t x, uint32_t y);
     
@@ -306,6 +341,7 @@ private:
     
     // Physics simulation steps
     void applyGravity(double deltaTime);
+    void applyCohesionForces(double deltaTime);
     void updateTransfers(double deltaTime);
     void applyPressure(double deltaTime);
     void processVelocityLimiting(double deltaTime);
@@ -350,6 +386,9 @@ private:
     size_t coordToIndex(uint32_t x, uint32_t y) const;
     size_t coordToIndex(const Vector2i& pos) const;
     
+    // World position calculation for COM cohesion forces
+    Vector2d getCellWorldPosition(uint32_t x, uint32_t y, const Vector2d& com_offset) const;
+    
     // =================================================================
     // MEMBER VARIABLES
     // =================================================================
@@ -388,6 +427,12 @@ private:
     
     // Cohesion physics control
     bool cohesion_enabled_;
+    bool cohesion_force_enabled_;
+    bool adhesion_enabled_;             // Enable/disable adhesion physics
+    double cohesion_force_strength_;    // Scaling factor for COM cohesion force magnitude
+    double adhesion_strength_;          // Scaling factor for adhesion force magnitude
+    double cohesion_bind_strength_;     // Scaling factor for cohesion resistance
+    uint32_t com_cohesion_range_;       // Range for COM cohesion neighbors (default 2)
     
     // Drag state (enhanced with visual feedback)
     bool is_dragging_;

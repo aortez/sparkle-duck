@@ -244,12 +244,36 @@ public:
     // Check if cohesion physics is enabled
     virtual bool isCohesionEnabled() const = 0;
     
+    // Enable/disable cohesion force physics calculations
+    virtual void setCohesionForceEnabled(bool enabled) = 0;
+    
+    // Check if cohesion force physics is enabled
+    virtual bool isCohesionForceEnabled() const = 0;
+    
+    // Cohesion strength parameters
+    virtual void setCohesionForceStrength(double strength) = 0;
+    virtual double getCohesionForceStrength() const = 0;
+    
+    virtual void setAdhesionStrength(double strength) = 0;
+    virtual double getAdhesionStrength() const = 0;
+    
+    // Adhesion enable/disable controls
+    virtual void setAdhesionEnabled(bool enabled) = 0;
+    virtual bool isAdhesionEnabled() const = 0;
+    
+    virtual void setCohesionBindStrength(double strength) = 0;
+    virtual double getCohesionBindStrength() const = 0;
+    
+    // COM cohesion range control
+    virtual void setCOMCohesionRange(uint32_t range) = 0;
+    virtual uint32_t getCOMCohesionRange() const = 0;
+    
     // =================================================================
     // GRID MANAGEMENT
     // =================================================================
     
     // Resize the simulation grid
-    virtual void resizeGrid(uint32_t newWidth, uint32_t newHeight, bool clearHistory = true) = 0;
+    virtual void resizeGrid(uint32_t newWidth, uint32_t newHeight) = 0;
     
     // =================================================================
     // PERFORMANCE AND DEBUGGING

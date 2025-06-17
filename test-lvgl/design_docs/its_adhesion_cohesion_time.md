@@ -459,8 +459,6 @@ void WorldB::queueMaterialMoves(double deltaTime) {
 4. **Testing & Validation** (Phase 4)
 5. **Performance & Polish** (Phase 5)
 
-**Total Estimated Time**: 7-11 hours of focused development
-
 ## Success Metrics
 
 - ✅ **Water pools naturally** instead of staying in isolated cells

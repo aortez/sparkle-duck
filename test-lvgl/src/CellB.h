@@ -52,6 +52,27 @@ public:
     double getFillRatio() const { return fill_ratio_; }
     void setFillRatio(double ratio);
     
+    // =================================================================
+    // FORCE ACCUMULATION (for visualization)
+    // =================================================================
+    
+    // Get accumulated forces from last physics calculation
+    const Vector2d& getAccumulatedCohesionForce() const { return accumulated_cohesion_force_; }
+    const Vector2d& getAccumulatedAdhesionForce() const { return accumulated_adhesion_force_; }
+    const Vector2d& getAccumulatedCOMCohesionForce() const { return accumulated_com_cohesion_force_; }
+    
+    // Set accumulated forces (called during physics calculation)
+    void setAccumulatedCohesionForce(const Vector2d& force) { accumulated_cohesion_force_ = force; }
+    void setAccumulatedAdhesionForce(const Vector2d& force) { accumulated_adhesion_force_ = force; }
+    void setAccumulatedCOMCohesionForce(const Vector2d& force) { accumulated_com_cohesion_force_ = force; }
+    
+    // Clear accumulated forces (for initialization)
+    void clearAccumulatedForces() { 
+        accumulated_cohesion_force_ = Vector2d(0, 0);
+        accumulated_adhesion_force_ = Vector2d(0, 0);
+        accumulated_com_cohesion_force_ = Vector2d(0, 0);
+    }
+    
     // Material state queries
     bool isEmpty() const override { return fill_ratio_ < MIN_FILL_THRESHOLD; }
     bool isFull() const { return fill_ratio_ > MAX_FILL_THRESHOLD; }
@@ -184,6 +205,11 @@ private:
     Vector2d com_;               // Center of mass position [-1,1]
     Vector2d velocity_;          // 2D velocity vector
     double pressure_;            // Hydrostatic pressure
+    
+    // Force accumulation for visualization
+    Vector2d accumulated_cohesion_force_;     // Last calculated cohesion force
+    Vector2d accumulated_adhesion_force_;     // Last calculated adhesion force
+    Vector2d accumulated_com_cohesion_force_; // Last calculated COM cohesion force
     
     // Rendering state
     std::vector<uint8_t> buffer_; // Buffer for LVGL canvas pixel data

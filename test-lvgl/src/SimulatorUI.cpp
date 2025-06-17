@@ -242,14 +242,112 @@ void SimulatorUI::createControlButtons()
     lv_obj_set_size(cohesion_btn, CONTROL_WIDTH, 50);
     lv_obj_align(cohesion_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 260);
     lv_obj_t* cohesion_label = lv_label_create(cohesion_btn);
-    lv_label_set_text(cohesion_label, "Cohesion: On");
+    lv_label_set_text(cohesion_label, "Cohesion Bind: On");
     lv_obj_center(cohesion_label);
     lv_obj_add_event_cb(cohesion_btn, cohesionBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
+
+    // Create cohesion bind strength slider below the bind button
+    lv_obj_t* bind_strength_label = lv_label_create(screen_);
+    lv_label_set_text(bind_strength_label, "Bind Strength");
+    lv_obj_align(bind_strength_label, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 315);
+
+    lv_obj_t* bind_strength_value_label = lv_label_create(screen_);
+    lv_label_set_text(bind_strength_value_label, "1.0");
+    lv_obj_align(bind_strength_value_label, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X + 120, 315);
+
+    lv_obj_t* bind_strength_slider = lv_slider_create(screen_);
+    lv_obj_set_size(bind_strength_slider, CONTROL_WIDTH, 10);
+    lv_obj_align(bind_strength_slider, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 335);
+    lv_slider_set_range(bind_strength_slider, 0, 200);      // 0.0 to 2.0 range
+    lv_slider_set_value(bind_strength_slider, 100, LV_ANIM_OFF); // Default 1.0 -> 100
+    lv_obj_add_event_cb(
+        bind_strength_slider,
+        cohesionBindStrengthSliderEventCb,
+        LV_EVENT_ALL,
+        createCallbackData(bind_strength_value_label));
+
+    // Create cohesion force toggle button
+    lv_obj_t* cohesion_force_btn = lv_btn_create(screen_);
+    lv_obj_set_size(cohesion_force_btn, CONTROL_WIDTH, 50);
+    lv_obj_align(cohesion_force_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 350);
+    lv_obj_t* cohesion_force_label = lv_label_create(cohesion_force_btn);
+    lv_label_set_text(cohesion_force_label, "Cohesion Force: On");
+    lv_obj_center(cohesion_force_label);
+    lv_obj_add_event_cb(cohesion_force_btn, cohesionForceBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
+
+    // Create COM cohesion strength slider below the force button
+    lv_obj_t* com_cohesion_strength_label = lv_label_create(screen_);
+    lv_label_set_text(com_cohesion_strength_label, "Cohesion Strength");
+    lv_obj_align(com_cohesion_strength_label, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 405);
+
+    lv_obj_t* com_cohesion_strength_value_label = lv_label_create(screen_);
+    lv_label_set_text(com_cohesion_strength_value_label, "150.0");
+    lv_obj_align(com_cohesion_strength_value_label, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X + 165, 405);
+
+    lv_obj_t* com_cohesion_strength_slider = lv_slider_create(screen_);
+    lv_obj_set_size(com_cohesion_strength_slider, CONTROL_WIDTH, 10);
+    lv_obj_align(com_cohesion_strength_slider, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 425);
+    lv_slider_set_range(com_cohesion_strength_slider, 0, 30000);    // 0.0 to 300.0 range
+    lv_slider_set_value(com_cohesion_strength_slider, 15000, LV_ANIM_OFF);  // Default 150.0 -> 15000
+    lv_obj_add_event_cb(
+        com_cohesion_strength_slider,
+        cohesionForceStrengthSliderEventCb,
+        LV_EVENT_ALL,
+        createCallbackData(com_cohesion_strength_value_label));
+
+    // Create COM cohesion range slider
+    lv_obj_t* com_range_label = lv_label_create(screen_);
+    lv_label_set_text(com_range_label, "COM Range");
+    lv_obj_align(com_range_label, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 435);
+
+    lv_obj_t* com_range_value_label = lv_label_create(screen_);
+    lv_label_set_text(com_range_value_label, "2");
+    lv_obj_align(com_range_value_label, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X + 120, 435);
+
+    lv_obj_t* com_range_slider = lv_slider_create(screen_);
+    lv_obj_set_size(com_range_slider, CONTROL_WIDTH, 10);
+    lv_obj_align(com_range_slider, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 455);
+    lv_slider_set_range(com_range_slider, 1, 5);      // 1 to 5 cells range
+    lv_slider_set_value(com_range_slider, 2, LV_ANIM_OFF); // Default 2
+    lv_obj_add_event_cb(
+        com_range_slider,
+        comCohesionRangeSliderEventCb,
+        LV_EVENT_ALL,
+        createCallbackData(com_range_value_label));
+
+    // Create adhesion toggle button
+    lv_obj_t* adhesion_btn = lv_btn_create(screen_);
+    lv_obj_set_size(adhesion_btn, CONTROL_WIDTH, 50);
+    lv_obj_align(adhesion_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 475);
+    lv_obj_t* adhesion_label = lv_label_create(adhesion_btn);
+    lv_label_set_text(adhesion_label, "Adhesion: On");
+    lv_obj_center(adhesion_label);
+    lv_obj_add_event_cb(adhesion_btn, adhesionBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
+
+    // Create adhesion strength slider
+    lv_obj_t* adhesion_strength_label = lv_label_create(screen_);
+    lv_label_set_text(adhesion_strength_label, "Adhesion Strength");
+    lv_obj_align(adhesion_strength_label, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 535);
+
+    lv_obj_t* adhesion_strength_value_label = lv_label_create(screen_);
+    lv_label_set_text(adhesion_strength_value_label, "5.0");
+    lv_obj_align(adhesion_strength_value_label, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X + 140, 535);
+
+    lv_obj_t* adhesion_strength_slider = lv_slider_create(screen_);
+    lv_obj_set_size(adhesion_strength_slider, CONTROL_WIDTH, 10);
+    lv_obj_align(adhesion_strength_slider, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 555);
+    lv_slider_set_range(adhesion_strength_slider, 0, 1000);     // 0.0 to 10.0 range
+    lv_slider_set_value(adhesion_strength_slider, 500, LV_ANIM_OFF); // Default 5.0 -> 500
+    lv_obj_add_event_cb(
+        adhesion_strength_slider,
+        adhesionStrengthSliderEventCb,
+        LV_EVENT_ALL,
+        createCallbackData(adhesion_strength_value_label));
 
     // Create left throw toggle button
     lv_obj_t* left_throw_btn = lv_btn_create(screen_);
     lv_obj_set_size(left_throw_btn, CONTROL_WIDTH, 50);
-    lv_obj_align(left_throw_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 320);
+    lv_obj_align(left_throw_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 575);
     lv_obj_t* left_throw_label = lv_label_create(left_throw_btn);
     lv_label_set_text(left_throw_label, "Left Throw: On");
     lv_obj_center(left_throw_label);
@@ -259,7 +357,7 @@ void SimulatorUI::createControlButtons()
     // Create right throw toggle button
     lv_obj_t* right_throw_btn = lv_btn_create(screen_);
     lv_obj_set_size(right_throw_btn, CONTROL_WIDTH, 50);
-    lv_obj_align(right_throw_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 380);
+    lv_obj_align(right_throw_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 635);
     lv_obj_t* right_throw_label = lv_label_create(right_throw_btn);
     lv_label_set_text(right_throw_label, "Right Throw: On");
     lv_obj_center(right_throw_label);
@@ -269,7 +367,7 @@ void SimulatorUI::createControlButtons()
     // Create quadrant toggle button
     lv_obj_t* quadrant_btn = lv_btn_create(screen_);
     lv_obj_set_size(quadrant_btn, CONTROL_WIDTH, 50);
-    lv_obj_align(quadrant_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 440);
+    lv_obj_align(quadrant_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 695);
     lv_obj_t* quadrant_label = lv_label_create(quadrant_btn);
     lv_label_set_text(quadrant_label, "Quadrant: On");
     lv_obj_center(quadrant_label);
@@ -278,7 +376,7 @@ void SimulatorUI::createControlButtons()
     // Create screenshot button
     lv_obj_t* screenshot_btn = lv_btn_create(screen_);
     lv_obj_set_size(screenshot_btn, CONTROL_WIDTH, 50);
-    lv_obj_align(screenshot_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 500);
+    lv_obj_align(screenshot_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 700);
     lv_obj_t* screenshot_label = lv_label_create(screenshot_btn);
     lv_label_set_text(screenshot_label, "Screenshot");
     lv_obj_center(screenshot_label);
@@ -288,7 +386,7 @@ void SimulatorUI::createControlButtons()
     // Create print ASCII button
     lv_obj_t* print_ascii_btn = lv_btn_create(screen_);
     lv_obj_set_size(print_ascii_btn, CONTROL_WIDTH, 50);
-    lv_obj_align(print_ascii_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 560);
+    lv_obj_align(print_ascii_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 760);
     lv_obj_t* print_ascii_label = lv_label_create(print_ascii_btn);
     lv_label_set_text(print_ascii_label, "Print ASCII");
     lv_obj_center(print_ascii_label);
@@ -784,7 +882,37 @@ void SimulatorUI::cohesionBtnEventCb(lv_event_t* e)
             data->world->setCohesionEnabled(new_state);
             const lv_obj_t* btn = static_cast<const lv_obj_t*>(lv_event_get_target(e));
             lv_obj_t* label = lv_obj_get_child(btn, 0);
-            lv_label_set_text(label, new_state ? "Cohesion: On" : "Cohesion: Off");
+            lv_label_set_text(label, new_state ? "Cohesion Bind: On" : "Cohesion Bind: Off");
+        }
+    }
+}
+
+void SimulatorUI::cohesionForceBtnEventCb(lv_event_t* e)
+{
+    if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
+        CallbackData* data = static_cast<CallbackData*>(lv_event_get_user_data(e));
+        if (data && data->world) {
+            bool current_state = data->world->isCohesionForceEnabled();
+            bool new_state = !current_state;
+            data->world->setCohesionForceEnabled(new_state);
+            const lv_obj_t* btn = static_cast<const lv_obj_t*>(lv_event_get_target(e));
+            lv_obj_t* label = lv_obj_get_child(btn, 0);
+            lv_label_set_text(label, new_state ? "Cohesion Force: On" : "Cohesion Force: Off");
+        }
+    }
+}
+
+void SimulatorUI::adhesionBtnEventCb(lv_event_t* e)
+{
+    if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
+        CallbackData* data = static_cast<CallbackData*>(lv_event_get_user_data(e));
+        if (data && data->world) {
+            bool current_state = data->world->isAdhesionEnabled();
+            bool new_state = !current_state;
+            data->world->setAdhesionEnabled(new_state);
+            const lv_obj_t* btn = static_cast<const lv_obj_t*>(lv_event_get_target(e));
+            lv_obj_t* label = lv_obj_get_child(btn, 0);
+            lv_label_set_text(label, new_state ? "Adhesion: On" : "Adhesion: Off");
         }
     }
 }
@@ -866,7 +994,7 @@ void SimulatorUI::cellSizeSliderEventCb(lv_event_t* e)
         // Resize the world grid if we have a valid world
         // For cell size changes, preserve time reversal history
         if (data->world) {
-            data->world->resizeGrid(new_grid_width, new_grid_height, false);
+            data->world->resizeGrid(new_grid_width, new_grid_height);
         }
 
         // Update the label
@@ -1255,6 +1383,70 @@ void SimulatorUI::updateWorldTypeButtonMatrix(WorldType currentType)
     if (world_type_btnm_) {
         uint32_t buttonIndex = (currentType == WorldType::RulesA) ? 0 : 1;
         lv_buttonmatrix_set_selected_button(world_type_btnm_, buttonIndex);
+    }
+}
+
+void SimulatorUI::cohesionForceStrengthSliderEventCb(lv_event_t* e)
+{
+    lv_obj_t* slider = static_cast<lv_obj_t*>(lv_event_get_target(e));
+    CallbackData* data = static_cast<CallbackData*>(lv_event_get_user_data(e));
+    if (lv_event_get_code(e) == LV_EVENT_VALUE_CHANGED && data) {
+        int32_t value = lv_slider_get_value(slider);
+        double strength = value / 100.0; // Range 0.0 to 20.0
+        if (data->world) {
+            data->world->setCohesionForceStrength(strength);
+        }
+        char buf[16];
+        snprintf(buf, sizeof(buf), "%.1f", strength);
+        lv_label_set_text(data->associated_label, buf);
+    }
+}
+
+void SimulatorUI::adhesionStrengthSliderEventCb(lv_event_t* e)
+{
+    lv_obj_t* slider = static_cast<lv_obj_t*>(lv_event_get_target(e));
+    CallbackData* data = static_cast<CallbackData*>(lv_event_get_user_data(e));
+    if (lv_event_get_code(e) == LV_EVENT_VALUE_CHANGED && data) {
+        int32_t value = lv_slider_get_value(slider);
+        double strength = value / 100.0; // Range 0.0 to 10.0
+        if (data->world) {
+            data->world->setAdhesionStrength(strength);
+        }
+        char buf[16];
+        snprintf(buf, sizeof(buf), "%.1f", strength);
+        lv_label_set_text(data->associated_label, buf);
+    }
+}
+
+void SimulatorUI::cohesionBindStrengthSliderEventCb(lv_event_t* e)
+{
+    lv_obj_t* slider = static_cast<lv_obj_t*>(lv_event_get_target(e));
+    CallbackData* data = static_cast<CallbackData*>(lv_event_get_user_data(e));
+    if (lv_event_get_code(e) == LV_EVENT_VALUE_CHANGED && data) {
+        int32_t value = lv_slider_get_value(slider);
+        double strength = value / 100.0; // Range 0.0 to 2.0
+        if (data->world) {
+            data->world->setCohesionBindStrength(strength);
+        }
+        char buf[16];
+        snprintf(buf, sizeof(buf), "%.1f", strength);
+        lv_label_set_text(data->associated_label, buf);
+    }
+}
+
+void SimulatorUI::comCohesionRangeSliderEventCb(lv_event_t* e)
+{
+    lv_obj_t* slider = static_cast<lv_obj_t*>(lv_event_get_target(e));
+    CallbackData* data = static_cast<CallbackData*>(lv_event_get_user_data(e));
+    if (lv_event_get_code(e) == LV_EVENT_VALUE_CHANGED && data) {
+        int32_t value = lv_slider_get_value(slider);
+        uint32_t range = static_cast<uint32_t>(value); // Range 1 to 5
+        if (data->world) {
+            data->world->setCOMCohesionRange(range);
+        }
+        char buf[16];
+        snprintf(buf, sizeof(buf), "%u", range);
+        lv_label_set_text(data->associated_label, buf);
     }
 }
 

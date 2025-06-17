@@ -86,72 +86,6 @@ public:
 - **LEAF**: Light, low density, high air resistance
 - **WALL**: Immobile, infinite resistance
 
-### 2.2 Material Interaction System
-
-**Goal**: Materials interact with each other realistically
-
-**Interactions**:
-- **Material Mixing**: Some materials can create composite behaviors
-- **Chemical Reactions**: Future expansion for material transformation
-- **Thermal Conduction**: Different materials conduct heat differently
-- **Electrical Conduction**: METAL conducts, others resist
-
-## Phase 3: Advanced Features and Tools
-
-### 3.1 World Generation Tools
-
-**Goal**: Create complex scenarios quickly
-
-**Tools**:
-- **Terrain Generator**: Create landscapes with different materials
-- **Structure Builder**: Pre-built structures (walls, containers, ramps)
-- **Material Layers**: Create stratified material compositions
-- **Random Fill**: Procedurally place materials with noise patterns
-
-### 3.2 Simulation Scenarios
-
-**Goal**: Pre-configured interesting physics demonstrations
-
-**Scenarios**:
-- **Hourglass**: SAND flowing through narrow openings
-- **Dam Break**: WATER pressure simulation
-- **Landslide**: DIRT/SAND slope stability
-- **Material Separation**: Density-based material sorting
-- **Collision Physics**: METAL ball interactions
-
-### 3.3 Analysis and Measurement Tools
-
-**Goal**: Quantitative analysis of simulation behavior
-
-**Tools**:
-- **Pressure Measurement**: Click to see pressure at any point
-- **Velocity Measurement**: Show velocity magnitude and direction
-- **Material Distribution**: Real-time histogram of material amounts
-- **Energy Conservation**: Track kinetic and potential energy
-- **Flow Rate Measurement**: Measure material transfer rates
-
-## Phase 4: Performance and Optimization
-
-### 4.1 Rendering Optimization
-
-**Goal**: Smooth performance with complex material interactions
-
-**Optimizations**:
-- **Dirty Region Tracking**: Only redraw changed areas
-- **Level of Detail**: Simplified rendering at low zoom levels
-- **Material Culling**: Skip invisible material calculations
-- **Batch Rendering**: Group similar materials for efficient drawing
-
-### 4.2 Physics Optimization
-
-**Goal**: Maintain real-time performance with large simulations
-
-**Optimizations**:
-- **Spatial Partitioning**: Optimize neighbor searches
-- **Sleeping Cells**: Skip calculations for stationary cells
-- **Adaptive Time Stepping**: Variable physics update rates
-- **Multi-threading**: Parallel processing for independent regions
-
 ## Implementation Priority
 
 ### **Phase 1**
@@ -160,18 +94,9 @@ public:
 
 ### **Phase 2**
 3. ⭐ Material-specific physics behaviors (cohesion, adhesion, transfer rates)
-4. Material interaction system (mixing, reactions)
-5. Advanced placement tools (brush, fill, shapes)
-
-### **Phase 3**  
-6. Simulation scenarios and world generation tools
-7. Analysis and measurement tools
-8. Performance optimization
-
-### **Phase 4**
-9. Advanced features (thermal, electrical simulation)
-10. Custom material definition system
-11. Plugin architecture for user extensions
+4. Design Pressure. 
+5. Implement Pressure.
+5. Material interaction system (mixing, reactions)
 
 ## Technical Architecture
 
@@ -180,8 +105,6 @@ public:
 - **MaterialPicker**: UI for material selection  
 - **CellGrabber**: Interactive cell manipulation
 - **MaterialPhysics**: Material-specific physics behaviors
-- **ScenarioManager**: Pre-built simulation setups
-- **AnalysisTools**: Measurement and analysis utilities
 
 ### **Integration Points**
 - **WorldInterface**: Extended with material-specific methods

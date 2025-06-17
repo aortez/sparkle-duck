@@ -147,7 +147,7 @@ public:
     double getWaterPressureThreshold() const override { return waterPressureThreshold; }
 
     // Resize the world grid based on new cell size
-    void resizeGrid(uint32_t newWidth, uint32_t newHeight, bool clearHistory = true) override;
+    void resizeGrid(uint32_t newWidth, uint32_t newHeight) override;
 
     // Cursor force interaction
     void setCursorForceEnabled(bool enabled) override { cursorForceEnabled = enabled; }
@@ -157,6 +157,27 @@ public:
     // Cohesion physics control (no-op for WorldA)
     void setCohesionEnabled([[maybe_unused]] bool enabled) override { /* no-op for WorldA */ }
     bool isCohesionEnabled() const override { return false; }
+    
+    // Cohesion force physics control (no-op for WorldA)
+    void setCohesionForceEnabled([[maybe_unused]] bool enabled) override { /* no-op for WorldA */ }
+    bool isCohesionForceEnabled() const override { return false; }
+    
+    // Cohesion strength parameters (no-op for WorldA)
+    void setCohesionForceStrength([[maybe_unused]] double strength) override { /* no-op for WorldA */ }
+    double getCohesionForceStrength() const override { return 1.0; }
+    
+    void setAdhesionStrength([[maybe_unused]] double strength) override { /* no-op for WorldA */ }
+    double getAdhesionStrength() const override { return 1.0; }
+    
+    void setAdhesionEnabled([[maybe_unused]] bool enabled) override { /* no-op for WorldA */ }
+    bool isAdhesionEnabled() const override { return false; }
+    
+    void setCohesionBindStrength([[maybe_unused]] double strength) override { /* no-op for WorldA */ }
+    double getCohesionBindStrength() const override { return 1.0; }
+    
+    // COM cohesion range control (no-op for WorldA)
+    void setCOMCohesionRange([[maybe_unused]] uint32_t range) override { /* no-op for WorldA */ }
+    uint32_t getCOMCohesionRange() const override { return 2; }
 
     // Dump timer statistics
     void dumpTimerStats() const override { timers.dumpTimerStats(); }

@@ -1963,7 +1963,7 @@ void World::setRainRate(double rate)
     }
 }
 
-void World::resizeGrid(uint32_t newWidth, uint32_t newHeight, bool clearHistoryFlag)
+void World::resizeGrid(uint32_t newWidth, uint32_t newHeight)
 {
     // Don't resize if dimensions haven't changed
     if (newWidth == width && newHeight == height) {
@@ -1972,22 +1972,14 @@ void World::resizeGrid(uint32_t newWidth, uint32_t newHeight, bool clearHistoryF
     }
 
     spdlog::info(
-        "Resizing World grid: {}x{} -> {}x{} (clearHistory={})",
+        "Resizing World grid: {}x{} -> {}x{}",
         width,
         height,
         newWidth,
-        newHeight,
-        clearHistoryFlag);
+        newHeight);
 
-    // Clear time reversal history only if requested (e.g., for structural changes vs cell size
-    // changes)
-    if (clearHistoryFlag) {
-        clearHistory();
-    }
-    else {
-        // Mark this as user input for time reversal when preserving history
-        markUserInput();
-    }
+    // Mark this as user input for time reversal (preserving history)
+    markUserInput();
 
     // Try bilinear interpolation first for smoother rescaling
     if (WorldInterpolationTool::resizeWorldWithBilinearFiltering(*this, newWidth, newHeight)) {
@@ -2290,7 +2282,7 @@ void World::restoreState(const ::WorldState& state)
     
     // Resize grid if necessary
     if (state.width != width || state.height != height) {
-        resizeGrid(state.width, state.height, false);
+        resizeGrid(state.width, state.height);
     }
     
     // Restore physics parameters

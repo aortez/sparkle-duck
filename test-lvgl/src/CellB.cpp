@@ -16,6 +16,9 @@ CellB::CellB()
       com_(0.0, 0.0),
       velocity_(0.0, 0.0),
       pressure_(0.0),
+      accumulated_cohesion_force_(0.0, 0.0),
+      accumulated_adhesion_force_(0.0, 0.0),
+      accumulated_com_cohesion_force_(0.0, 0.0),
       canvas_(nullptr),
       needs_redraw_(true)
 {
@@ -27,6 +30,9 @@ CellB::CellB(MaterialType type, double fill)
       com_(0.0, 0.0),
       velocity_(0.0, 0.0),
       pressure_(0.0),
+      accumulated_cohesion_force_(0.0, 0.0),
+      accumulated_adhesion_force_(0.0, 0.0),
+      accumulated_com_cohesion_force_(0.0, 0.0),
       canvas_(nullptr),
       needs_redraw_(true)
 {
@@ -48,6 +54,9 @@ CellB::CellB(const CellB& other)
       com_(other.com_),
       velocity_(other.velocity_),
       pressure_(other.pressure_),
+      accumulated_cohesion_force_(other.accumulated_cohesion_force_),
+      accumulated_adhesion_force_(other.accumulated_adhesion_force_),
+      accumulated_com_cohesion_force_(other.accumulated_com_cohesion_force_),
       buffer_(other.buffer_.size()), // Create new buffer with same size
       canvas_(nullptr),              // Don't copy LVGL object
       needs_redraw_(true)            // New copy needs redraw
@@ -891,6 +900,61 @@ void CellB::drawDebug(lv_obj_t* parent, uint32_t x, uint32_t y)
             line_dsc.p2.x = end_x;
             line_dsc.p2.y = end_y;
             lv_draw_line(&layer, &line_dsc);
+        }
+        
+        // Draw force vectors from COM position
+        int com_pixel_x = static_cast<int>((com_.x + 1.0) * (Cell::WIDTH - 1) / 2.0);
+        int com_pixel_y = static_cast<int>((com_.y + 1.0) * (Cell::HEIGHT - 1) / 2.0);
+        
+        // Draw cohesion force (resistance) as red upward line
+        if (accumulated_cohesion_force_.mag() > 0.01) {
+            double scale = 15.0;
+            int end_x = com_pixel_x + static_cast<int>(accumulated_cohesion_force_.x * scale);
+            int end_y = com_pixel_y + static_cast<int>(accumulated_cohesion_force_.y * scale);
+            
+            lv_draw_line_dsc_t cohesion_line_dsc;
+            lv_draw_line_dsc_init(&cohesion_line_dsc);
+            cohesion_line_dsc.color = lv_color_hex(0xFF0000); // Red for cohesion resistance
+            cohesion_line_dsc.width = 2;
+            cohesion_line_dsc.p1.x = com_pixel_x;
+            cohesion_line_dsc.p1.y = com_pixel_y;
+            cohesion_line_dsc.p2.x = end_x;
+            cohesion_line_dsc.p2.y = end_y;
+            lv_draw_line(&layer, &cohesion_line_dsc);
+        }
+        
+        // Draw adhesion force as orange line
+        if (accumulated_adhesion_force_.mag() > 0.01) {
+            double scale = 15.0;
+            int end_x = com_pixel_x + static_cast<int>(accumulated_adhesion_force_.x * scale);
+            int end_y = com_pixel_y + static_cast<int>(accumulated_adhesion_force_.y * scale);
+            
+            lv_draw_line_dsc_t adhesion_line_dsc;
+            lv_draw_line_dsc_init(&adhesion_line_dsc);
+            adhesion_line_dsc.color = lv_color_hex(0xFF8000); // Orange for adhesion
+            adhesion_line_dsc.width = 2;
+            adhesion_line_dsc.p1.x = com_pixel_x;
+            adhesion_line_dsc.p1.y = com_pixel_y;
+            adhesion_line_dsc.p2.x = end_x;
+            adhesion_line_dsc.p2.y = end_y;
+            lv_draw_line(&layer, &adhesion_line_dsc);
+        }
+        
+        // Draw COM cohesion force as cyan line
+        if (accumulated_com_cohesion_force_.mag() > 0.01) {
+            double scale = 15.0;
+            int end_x = com_pixel_x + static_cast<int>(accumulated_com_cohesion_force_.x * scale);
+            int end_y = com_pixel_y + static_cast<int>(accumulated_com_cohesion_force_.y * scale);
+            
+            lv_draw_line_dsc_t com_cohesion_line_dsc;
+            lv_draw_line_dsc_init(&com_cohesion_line_dsc);
+            com_cohesion_line_dsc.color = lv_color_hex(0x00FFFF); // Cyan for COM cohesion
+            com_cohesion_line_dsc.width = 2;
+            com_cohesion_line_dsc.p1.x = com_pixel_x;
+            com_cohesion_line_dsc.p1.y = com_pixel_y;
+            com_cohesion_line_dsc.p2.x = end_x;
+            com_cohesion_line_dsc.p2.y = end_y;
+            lv_draw_line(&layer, &com_cohesion_line_dsc);
         }
     }
     

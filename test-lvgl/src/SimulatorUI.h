@@ -106,6 +106,8 @@ private:
     static void forceBtnEventCb(lv_event_t* e);
     static void gravityBtnEventCb(lv_event_t* e);
     static void cohesionBtnEventCb(lv_event_t* e);
+    static void cohesionForceBtnEventCb(lv_event_t* e);
+    static void adhesionBtnEventCb(lv_event_t* e);
     static void elasticitySliderEventCb(lv_event_t* e);
     static void fragmentationSliderEventCb(lv_event_t* e);
     static void pressureScaleSliderEventCb(lv_event_t* e);
@@ -130,6 +132,12 @@ private:
     static void backwardBtnEventCb(lv_event_t* e);
     static void forwardBtnEventCb(lv_event_t* e);
     static void timeReversalToggleBtnEventCb(lv_event_t* e);
+
+    // Cohesion strength sliders
+    static void cohesionForceStrengthSliderEventCb(lv_event_t* e);
+    static void adhesionStrengthSliderEventCb(lv_event_t* e);
+    static void cohesionBindStrengthSliderEventCb(lv_event_t* e);
+    static void comCohesionRangeSliderEventCb(lv_event_t* e);
 
     // Helper to create callback data
     CallbackData* createCallbackData(lv_obj_t* label = nullptr);
