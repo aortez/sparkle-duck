@@ -121,6 +121,7 @@ add_executable(sparkle-duck
     src/MaterialPicker.cpp
     src/WorldState.cpp
     src/CrashDumpHandler.cpp
+    src/WorldInterpolationTool.cpp
     ${LV_LINUX_SRC} 
     ${LV_LINUX_BACKEND_SRC})
 target_link_libraries(sparkle-duck lvgl_linux lvgl lvgl::examples lvgl::demos lvgl::thorvg spdlog::spdlog m pthread ${PKG_CONFIG_LIB} ${SDL2_LIBRARIES} ${SDL2_IMAGE_LIBRARIES})
@@ -186,6 +187,7 @@ add_executable(sparkle-duck-tests
     src/MaterialPicker.cpp
     src/WorldState.cpp
     src/CrashDumpHandler.cpp
+    src/WorldInterpolationTool.cpp
     ${LV_LINUX_SRC} 
     ${LV_LINUX_BACKEND_SRC}
 )

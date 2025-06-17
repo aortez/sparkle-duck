@@ -2,6 +2,7 @@
 #include "Cell.h"
 #include "SimulatorUI.h"
 #include "Vector2i.h"
+#include "WorldInterpolationTool.h"
 #include "spdlog/spdlog.h"
 
 #include <algorithm>
@@ -480,35 +481,46 @@ void WorldB::resizeGrid(uint32_t newWidth, uint32_t newHeight, bool /* clearHist
         return;
     }
     
-    spdlog::info("Resizing WorldB grid from {}x{} to {}x{}", 
-                 width_, height_, newWidth, newHeight);
-    
-    // Create new cell grid
-    std::vector<CellB> newCells(newWidth * newHeight);
-    
-    // Copy existing cells (if they fit in new dimensions)
-    const uint32_t copyWidth = std::min(width_, newWidth);
-    const uint32_t copyHeight = std::min(height_, newHeight);
-    
-    for (uint32_t y = 0; y < copyHeight; ++y) {
-        for (uint32_t x = 0; x < copyWidth; ++x) {
-            const size_t oldIndex = y * width_ + x;
-            const size_t newIndex = y * newWidth + x;
-            newCells[newIndex] = cells_[oldIndex];
+    // Use bilinear interpolation for smooth rescaling
+    if (!WorldInterpolationTool::resizeWorldWithBilinearFiltering(*this, newWidth, newHeight)) {
+        spdlog::error("Bilinear resize failed, falling back to simple copy method");
+        
+        // Fallback to original simple copy method
+        spdlog::info("Resizing WorldB grid from {}x{} to {}x{} (fallback)", 
+                     width_, height_, newWidth, newHeight);
+        
+        // Create new cell grid
+        std::vector<CellB> newCells(newWidth * newHeight);
+        
+        // Copy existing cells (if they fit in new dimensions)
+        const uint32_t copyWidth = std::min(width_, newWidth);
+        const uint32_t copyHeight = std::min(height_, newHeight);
+        
+        for (uint32_t y = 0; y < copyHeight; ++y) {
+            for (uint32_t x = 0; x < copyWidth; ++x) {
+                const size_t oldIndex = y * width_ + x;
+                const size_t newIndex = y * newWidth + x;
+                newCells[newIndex] = cells_[oldIndex];
+            }
+        }
+        
+        // Update dimensions and swap cell storage
+        width_ = newWidth;
+        height_ = newHeight;
+        cells_ = std::move(newCells);
+        
+        // Rebuild boundary walls if enabled
+        if (walls_enabled_) {
+            setupBoundaryWalls();
+        }
+        
+        spdlog::info("Grid resize complete (fallback)");
+    } else {
+        // Rebuild boundary walls if enabled (bilinear resize handles the rest)
+        if (walls_enabled_) {
+            setupBoundaryWalls();
         }
     }
-    
-    // Update dimensions and swap cell storage
-    width_ = newWidth;
-    height_ = newHeight;
-    cells_ = std::move(newCells);
-    
-    // Rebuild boundary walls if enabled
-    if (walls_enabled_) {
-        setupBoundaryWalls();
-    }
-    
-    spdlog::info("Grid resize complete");
 }
 
 // =================================================================
@@ -1553,7 +1565,7 @@ WorldB::CohesionForce WorldB::calculateCohesionForce(uint32_t x, uint32_t y)
     // Resistance magnitude = cohesion × connection strength × own fill ratio × support factor
     double resistance = material_cohesion * connected_neighbors * cell.getFillRatio() * support_factor;
     
-    spdlog::info("Cohesion calculation for {} at ({},{}): neighbors={}, vertical_support={}, horizontal_support={}, support_factor={:.2f}, resistance={:.3f}",
+    spdlog::trace("Cohesion calculation for {} at ({},{}): neighbors={}, vertical_support={}, horizontal_support={}, support_factor={:.2f}, resistance={:.3f}",
                   getMaterialName(cell.getMaterialType()), x, y, connected_neighbors, has_vertical, has_horizontal, support_factor, resistance);
     
     return {resistance, connected_neighbors};
@@ -1817,7 +1829,7 @@ bool WorldB::hasVerticalSupport(uint32_t x, uint32_t y) {
         return true;
     }
     
-    // Check cells directly below within reasonable distance
+    // Check cells directly below for continuous material (no gaps allowed)
     for (uint32_t dy = 1; dy <= MAX_VERTICAL_SUPPORT_DISTANCE; dy++) {
         uint32_t support_y = y + dy;
         
@@ -1829,9 +1841,21 @@ bool WorldB::hasVerticalSupport(uint32_t x, uint32_t y) {
         
         const CellB& below = at(x, support_y);
         if (!below.isEmpty()) {
-            spdlog::trace("hasVerticalSupport({},{}) = true (material {} below at distance {})", 
-                         x, y, getMaterialName(below.getMaterialType()), dy);
-            return true;
+            // RECURSIVE SUPPORT CHECK: Supporting block must itself be supported
+            bool supporting_block_supported = hasVerticalSupport(x, support_y);
+            if (supporting_block_supported) {
+                spdlog::trace("hasVerticalSupport({},{}) = true (material {} below at distance {} is itself supported)", 
+                             x, y, getMaterialName(below.getMaterialType()), dy);
+                return true;
+            } else {
+                spdlog::trace("hasVerticalSupport({},{}) = false (material {} below at distance {} is unsupported)", 
+                             x, y, getMaterialName(below.getMaterialType()), dy);
+                return false;
+            }
+        } else {
+            // CRITICAL FIX: Stop at first empty cell - no support through gaps
+            spdlog::trace("hasVerticalSupport({},{}) = false (empty cell at distance {}, no continuous support)", x, y, dy);
+            return false;
         }
     }
     

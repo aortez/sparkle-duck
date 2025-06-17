@@ -150,8 +150,14 @@ static void run_loop_wayland(SimulationManager& manager)
         completed = lv_wayland_timer_handler();
 
         if (completed) {
-            /* wait only if the cycle was completed */
-            usleep(LV_DEF_REFR_PERIOD * 1000);
+            /* wait only if the cycle was completed and FPS limiting is enabled */
+            bool frame_limiting_enabled = true; // Default to enabled
+            if (manager.getUI()) {
+                frame_limiting_enabled = manager.getUI()->isFrameLimitingEnabled();
+            }
+            if (frame_limiting_enabled) {
+                usleep(LV_DEF_REFR_PERIOD * 1000);
+            }
         }
 
         /* Run until the last window closes */

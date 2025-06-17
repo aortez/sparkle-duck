@@ -11,6 +11,9 @@ protected:
     void SetUp() override {
         VisualTestBase::SetUp();
         
+        // Set up logging to see detailed debug output including trace level
+        spdlog::set_level(spdlog::level::trace);
+        
         // Apply auto-scaling for 5x5 world before creation
         if (visual_mode_ && auto_scaling_enabled_) {
             scaleDrawingAreaForWorld(5, 5);
@@ -453,7 +456,7 @@ TEST_F(ForceCalculationTest, FloatingBlocksFallToNextCellSameSpeed) {
     world->setWallsEnabled(false); // Disable walls for clean test
     world->setAddParticlesEnabled(false); // Disable automatic particle addition
     
-    // CRITICAL: Connect the UI to the world for button functionality
+    // Connect the UI to the world for button functionality.
     if (visual_mode_ && ui_) {
         auto& coordinator = VisualTestCoordinator::getInstance();
         coordinator.postTaskSync([this] {
@@ -500,7 +503,6 @@ TEST_F(ForceCalculationTest, FloatingBlocksFallToNextCellSameSpeed) {
     
     // Enable gravity and measure transfer timing
     world->setGravity(15.0);
-    spdlog::info("Gravity set to: 15.0");
     
     bool block_transferred = false;
     bool ref_transferred = false;
@@ -509,7 +511,7 @@ TEST_F(ForceCalculationTest, FloatingBlocksFallToNextCellSameSpeed) {
     int ref_transfer_step = -1;
     int upper_blocks_fall_step = -1;
     
-    for (int step = 0; step < 500; ++step) {
+    for (int step = 0; step < 300; ++step) {
         world->advanceTime(0.016);
         
         // Debug: Log state every 10 steps to see if anything is changing
@@ -522,6 +524,18 @@ TEST_F(ForceCalculationTest, FloatingBlocksFallToNextCellSameSpeed) {
                          step, world->at(3, 0).getFillRatio(), world->at(3, 1).getFillRatio());
             spdlog::info("Step {}: Target row 3 - (0,3):{:.3f}, (1,3):{:.3f}", 
                          step, world->at(0, 3).getFillRatio(), world->at(1, 3).getFillRatio());
+            
+            // Log COMs at DEBUG level
+            spdlog::debug("Step {}: COMs - (0,1):[{:.3f},{:.3f}], (1,1):[{:.3f},{:.3f}], (0,2):[{:.3f},{:.3f}], (1,2):[{:.3f},{:.3f}]",
+                         step,
+                         world->at(0, 1).getCOM().x, world->at(0, 1).getCOM().y,
+                         world->at(1, 1).getCOM().x, world->at(1, 1).getCOM().y,
+                         world->at(0, 2).getCOM().x, world->at(0, 2).getCOM().y,
+                         world->at(1, 2).getCOM().x, world->at(1, 2).getCOM().y);
+            spdlog::debug("Step {}: Reference COM - (3,0):[{:.3f},{:.3f}], target (3,1):[{:.3f},{:.3f}]",
+                         step,
+                         world->at(3, 0).getCOM().x, world->at(3, 0).getCOM().y,
+                         world->at(3, 1).getCOM().x, world->at(3, 1).getCOM().y);
         }
         
         // Update visual display.
@@ -573,6 +587,25 @@ TEST_F(ForceCalculationTest, FloatingBlocksFallToNextCellSameSpeed) {
         << "2x2 dirt block should transfer to cells below due to gravity";
     EXPECT_TRUE(ref_transferred) 
         << "Reference particle should transfer to cell below due to gravity";
+    
+    // Verify that source cells are now empty or nearly empty after transfer
+    spdlog::info("Final fill ratios in source cells:");
+    spdlog::info("  2x2 block sources - (0,1):{:.3f}, (1,1):{:.3f}, (0,2):{:.3f}, (1,2):{:.3f}", 
+                 world->at(0, 1).getFillRatio(), world->at(1, 1).getFillRatio(),
+                 world->at(0, 2).getFillRatio(), world->at(1, 2).getFillRatio());
+    spdlog::info("  Reference source - (3,0):{:.3f}", world->at(3, 0).getFillRatio());
+    
+    // Verify material conservation - source cells should be empty after transfer
+    EXPECT_LT(world->at(0, 1).getFillRatio(), 0.1) 
+        << "Source cell (0,1) should be mostly empty after material transfer";
+    EXPECT_LT(world->at(1, 1).getFillRatio(), 0.1) 
+        << "Source cell (1,1) should be mostly empty after material transfer";
+    EXPECT_LT(world->at(0, 2).getFillRatio(), 0.1) 
+        << "Source cell (0,2) should be mostly empty after material transfer";
+    EXPECT_LT(world->at(1, 2).getFillRatio(), 0.1) 
+        << "Source cell (1,2) should be mostly empty after material transfer";
+    EXPECT_LT(world->at(3, 0).getFillRatio(), 0.1) 
+        << "Reference source cell (3,0) should be mostly empty after material transfer";
     
     // Compare transfer timing - should be similar since both are floating
     if (block_transferred && ref_transferred) {

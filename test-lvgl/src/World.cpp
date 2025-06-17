@@ -4,6 +4,7 @@
 #include "Timers.h"
 #include "WorldSetup.h"
 #include "Vector2i.h"
+#include "WorldInterpolationTool.h"
 #include "spdlog/spdlog.h"
 
 #include <algorithm>
@@ -1988,6 +1989,15 @@ void World::resizeGrid(uint32_t newWidth, uint32_t newHeight, bool clearHistoryF
         markUserInput();
     }
 
+    // Try bilinear interpolation first for smoother rescaling
+    if (WorldInterpolationTool::resizeWorldWithBilinearFiltering(*this, newWidth, newHeight)) {
+        spdlog::info("WorldA bilinear resize completed successfully");
+        return;
+    }
+    
+    spdlog::warn("Bilinear resize failed for WorldA, falling back to WorldSetup method");
+
+    // Fallback to original WorldSetup-based interpolation
     // Capture current world state before resizing using WorldSetup
     uint32_t oldWidth = width;
     uint32_t oldHeight = height;

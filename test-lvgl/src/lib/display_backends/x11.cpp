@@ -136,7 +136,14 @@ void run_loop_x11(SimulationManager& manager)
 
         /* Returns the time to the next timer execution */
         idle_time = lv_timer_handler();
-        usleep(idle_time * 1000);
+        
+        bool frame_limiting_enabled = true; // Default to enabled
+        if (manager.getUI()) {
+            frame_limiting_enabled = manager.getUI()->isFrameLimitingEnabled();
+        }
+        if (frame_limiting_enabled) {
+            usleep(idle_time * 1000);
+        }
     }
     
     // Process any final UI updates before taking screenshot

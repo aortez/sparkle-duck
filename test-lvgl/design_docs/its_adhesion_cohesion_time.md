@@ -48,11 +48,17 @@ AdhesionForce calculateAdhesionForce(uint32_t x, uint32_t y);
 
 ### Phase 2: Movement Logic Integration 
 
-#### 2.1 Implementation Approach: Force-Based Movement Threshold (Option A)
+#### 2.1 Implementation Approaches
 
-**Primary Approach**: Add force calculations before boundary crossing detection in `queueMaterialMoves()` around line 651. Materials either move normally or are completely immobilized by cohesion resistance.
+**Option A - Force-Based Movement Threshold**: Add force calculations before boundary crossing detection in `queueMaterialMoves()` around line 651. Materials either move normally or are completely immobilized by cohesion resistance.
 
-**Alternative Approach**: Option B (Velocity Modification) could be explored later - this would integrate forces into `applyGravity()` to gradually affect velocity rather than using binary movement thresholds.
+**Option B - Velocity Modification**: Integrate forces into `applyGravity()` to gradually affect velocity rather than using binary movement thresholds. Materials always move but cohesion dampens velocity over time.
+
+**Option C - Hybrid Threshold + Damping (RECOMMENDED)**: Combine both approaches for maximum realism:
+- **Phase 1**: Force threshold check (Option A) - prevents movement below minimum breakaway force
+- **Phase 2**: Velocity damping (Option B) - once moving, cohesion gradually slows separation
+- **Result**: Materials require initial energy to start moving (realistic breakaway), then separate gradually with cohesive "stretching" effects rather than instant breakage
+- **Benefits**: Structural integrity + dynamic separation + realistic material failure modes
 
 #### 2.1.1 Implementation Decisions
 

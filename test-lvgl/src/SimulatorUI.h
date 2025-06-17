@@ -32,6 +32,9 @@ public:
     // UI update methods
     void updateMassLabel(double totalMass);
     void updateFPSLabel(uint32_t fps);
+    
+    // Frame limiting control
+    bool isFrameLimitingEnabled() const { return frame_limiting_enabled_; }
 
     // Getters for UI elements that main might need
     lv_obj_t* getDrawArea() const { return draw_area_; }
@@ -61,6 +64,7 @@ private:
     // UI state
     double timescale_;
     bool is_paused_;
+    bool frame_limiting_enabled_;  // Control frame rate limiting
     
     // Mouse interaction mode tracking
     enum class InteractionMode {
@@ -106,6 +110,7 @@ private:
     static void fragmentationSliderEventCb(lv_event_t* e);
     static void pressureScaleSliderEventCb(lv_event_t* e);
     static void quitBtnEventCb(lv_event_t* e);
+    static void frameLimitBtnEventCb(lv_event_t* e);
 
     // Water physics sliders
     static void waterCohesionSliderEventCb(lv_event_t* e);

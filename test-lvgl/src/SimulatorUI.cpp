@@ -38,6 +38,7 @@ SimulatorUI::SimulatorUI(lv_obj_t* screen)
       world_type_btnm_(nullptr),
       timescale_(1.0),
       is_paused_(false),
+      frame_limiting_enabled_(true),  // Default to frame limiting enabled
       interaction_mode_(InteractionMode::NONE),
       paint_material_(MaterialType::DIRT)
 {}
@@ -105,10 +106,19 @@ void SimulatorUI::createLabels()
     lv_label_set_text(mass_label_, "Total Mass: 0.00");
     lv_obj_align(mass_label_, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 10);
 
-    // Create FPS label
+    // Create FPS label - positioned over the world area
     fps_label_ = lv_label_create(screen_);
     lv_label_set_text(fps_label_, "FPS: 0");
-    lv_obj_align(fps_label_, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 40);
+    lv_obj_align(fps_label_, LV_ALIGN_TOP_LEFT, 10, 10); // Top-left corner of world area
+    
+    // Create frame limiting toggle button below FPS display
+    lv_obj_t* frame_limit_btn = lv_btn_create(screen_);
+    lv_obj_set_size(frame_limit_btn, 120, 30);
+    lv_obj_align(frame_limit_btn, LV_ALIGN_TOP_LEFT, 10, 40); // Below FPS label
+    lv_obj_t* frame_limit_label = lv_label_create(frame_limit_btn);
+    lv_label_set_text(frame_limit_label, "Limit: On");
+    lv_obj_center(frame_limit_label);
+    lv_obj_add_event_cb(frame_limit_btn, frameLimitBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
 }
 
 void SimulatorUI::createWorldTypeColumn()
@@ -775,6 +785,19 @@ void SimulatorUI::cohesionBtnEventCb(lv_event_t* e)
             const lv_obj_t* btn = static_cast<const lv_obj_t*>(lv_event_get_target(e));
             lv_obj_t* label = lv_obj_get_child(btn, 0);
             lv_label_set_text(label, new_state ? "Cohesion: On" : "Cohesion: Off");
+        }
+    }
+}
+
+void SimulatorUI::frameLimitBtnEventCb(lv_event_t* e)
+{
+    if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
+        CallbackData* data = static_cast<CallbackData*>(lv_event_get_user_data(e));
+        if (data && data->ui) {
+            data->ui->frame_limiting_enabled_ = !data->ui->frame_limiting_enabled_;
+            const lv_obj_t* btn = static_cast<const lv_obj_t*>(lv_event_get_target(e));
+            lv_obj_t* label = lv_obj_get_child(btn, 0);
+            lv_label_set_text(label, data->ui->frame_limiting_enabled_ ? "Limit: On" : "Limit: Off");
         }
     }
 }

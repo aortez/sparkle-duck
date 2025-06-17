@@ -49,9 +49,9 @@ void WorldSetup::makeMiddleMetalWall(WorldInterface& world)
     spdlog::info("Adding metal wall at x={} from top to y={}", middle_x, wall_height);
     
     for (uint32_t y = 0; y < wall_height; y++) {
-        // Convert cell coordinates to pixel coordinates (assume 100x100 pixel cells)
-        int pixelX = middle_x * 100 + 50; // Cell center
-        int pixelY = y * 100 + 50;        // Cell center
+        // Convert cell coordinates to pixel coordinates using actual cell dimensions
+        int pixelX = middle_x * Cell::WIDTH + Cell::WIDTH / 2; // Cell center
+        int pixelY = y * Cell::HEIGHT + Cell::HEIGHT / 2;      // Cell center
         world.addMaterialAtPixel(pixelX, pixelY, MaterialType::METAL, 1.0);
     }
 }
