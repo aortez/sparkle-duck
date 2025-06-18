@@ -216,6 +216,13 @@ public:
     void setPressureSystem(PressureSystem system) override { pressureSystem = system; }
     PressureSystem getPressureSystem() const override { return pressureSystem; }
 
+    // Dual pressure system controls (no-op for World - only WorldB supports these)
+    void setHydrostaticPressureEnabled(bool /* enabled */) override { /* no-op */ }
+    bool isHydrostaticPressureEnabled() const override { return false; }
+    
+    void setDynamicPressureEnabled(bool /* enabled */) override { /* no-op */ }
+    bool isDynamicPressureEnabled() const override { return false; }
+
     // Set the world setup strategy
     void setWorldSetup(std::unique_ptr<WorldSetup> setup) { worldSetup = std::move(setup); }
 

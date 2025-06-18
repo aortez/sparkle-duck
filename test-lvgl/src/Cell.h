@@ -19,6 +19,7 @@ class World;
 class Cell : public CellInterface {
 public:
     static bool debugDraw;
+    static bool adhesionDrawEnabled;
     static uint32_t WIDTH;
     static uint32_t HEIGHT;
 

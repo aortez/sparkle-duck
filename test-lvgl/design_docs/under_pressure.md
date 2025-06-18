@@ -22,33 +22,6 @@ This dual-source system provides both realistic gravitational pressure distribut
 
 ## Implementation Plan
 
-### Phase 0: Add preliminary UI controls to toggle Hydrostatic and Dynamic pressure systems. ✅ COMPLETED
-
-**UI Controls Added:**
-
-1. **Hydrostatic Pressure Toggle Switch**
-   - Label: "Hydrostatic Pressure"
-   - Position: Slider column at Y=610
-   - Default: Enabled (checked)
-   - Callback: `hydrostaticPressureToggleEventCb`
-
-2. **Dynamic Pressure Toggle Switch**
-   - Label: "Dynamic Pressure"
-   - Position: Slider column at Y=640
-   - Default: Enabled (checked)
-   - Callback: `dynamicPressureToggleEventCb`
-
-**Implementation Details:**
-- Both toggles use LVGL switch controls with `LV_EVENT_VALUE_CHANGED` events
-- Callbacks currently log toggle state changes to console (ready for Step 1 integration)
-- Positioned after existing water physics controls in consistent UI layout
-- Default enabled state matches the dual pressure system design intent
-- Build Status: ✅ Compiles successfully
-
-**Files Modified:**
-- `src/SimulatorUI.h`: Added callback declarations for pressure toggle events
-- `src/SimulatorUI.cpp`: Added UI controls creation and callback implementations
-
 ### Phase 1: Dual Pressure System Foundation
 
 **1.1 Add Dual Pressure State to CellB** ✅ COMPLETED

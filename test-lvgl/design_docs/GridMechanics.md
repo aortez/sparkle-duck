@@ -21,6 +21,14 @@ Every type of matter has the following properties:
     cohesion
     adhesion
     density
+    
+The simulation models:
+
+    2d kinematics
+    pressure
+    density
+    cohesion
+    adhesion
 
 ### Velocity
 The matter in each cell moves according to 2D kinematics.
@@ -51,37 +59,78 @@ When matter is transferred to the target cell, the matter is added with realisti
 - Incoming material COM calculated from boundary crossing trajectory (same as empty cell logic)
 - Velocity momentum conservation: `new_velocity = (m1*v1 + m2*v2) / (m1 + m2)`
 
-This creates realistic physics continuity across cell boundaries instead of the previous "quantum tunneling" effect where material would magically appear at cell center.
+The goal is for COM transfer to follow a trajectory smoothly, reflecting and reacting with other cells in a believable way.
+
+The system handles the problem of multiple moves targetting the same cell via a 2 step process:
+
+1. Compute the possible moves and queue them up.
+2. Attempt to apply the moves. Do this in random order. If there is space to move some of the matter, move it, otherwise treat the blocked matter it as an elastic collision, affecting the COM of both cell's accordingly.
 
 ## Gravity
 The world has gravity. It comes from an imaginary point source that can be inside or outside the world. Gravity is a force applied to each Cell's COM.
 
 ## Cohesion
 
-Cohesion provides resistance to material separation, but should not prevent realistic gravitational behavior. 
+Cohesion is a force that attracts/binds materials of the same type together (water is attracted to water).  It is different than Adhesion.
 
-The current implementation calculates cohesion resistance based on connected neighbors and structural support.
+### Binding
+This Cohesion provides resistance to Movement, if the resistance is enough, then the movement is prevented.
+- Purpose: Prevents material from moving away from connected neighbors
+- Method: Calculates resistance thresholds based on same-material neighbor count and structural support
+- Support Analysis:
+    - Vertical Support: Checks for continuous material below (up to 5 cells) with recursive validation
+    - Horizontal Support: Detects rigid high-density neighbors with strong mutual adhesion
+- Applied in: updateTransfers() - creates movement thresholds that particles must overcome
 
-Steps:
-
-1. **Limited Depth BFS**: Check for structural support within 3-5 cells rather than full group traversal
-   - Efficient: O(N²) search area instead of O(group_size)
-   - Realistic: Most structures need nearby support
-   - Fast: Fixed small search regardless of group size
-
-2. **Time-Based Cohesion Decay**: Floating materials gradually lose cohesion over time
-   - Simple: No complex connectivity analysis required
-   - Realistic: Unsupported structures gradually lose integrity
-   - Tunable: Decay rate adjustable per material type
-
-3. **Combined Approach**: Use limited BFS for immediate detection + time decay for edge cases
-   - Fast detection for common scenarios (small floating chunks)
-   - Gradual decay for complex structures
-   - Low computational cost (9-25 cells checked per cell)
-
-
+### COM Force
+COM (Center-of-Mass) Cohesion - Attractive Forces.
+- Purpose: Pulls particles toward the weighted center of connected neighbors.
+- Method: Applies attractive forces directly to particle velocities.
+- Range: Configurable neighbor detection range (typically 2 cells).
+- Applied in: applyCohesionForces() - modifies velocity vectors each timestep.
 
 ## Adhesion
+
+Adhesion: Attractive forces between different material types (unlike cohesion which works on same materials)
+Purpose: Simulates how different materials stick to each other (e.g., water adhering to dirt, materials sticking to walls)
+
+Each material has an adhesion value (0.0-1.0):
+AIR:   0.0  (no adhesion)
+DIRT:  0.2  (moderate adhesion)
+WATER: 0.5  (high adhesion - sticks to surfaces)
+WOOD:  0.3  (moderate adhesion)
+SAND:  0.1  (low adhesion - doesn't stick well)
+METAL: 0.1  (low adhesion)
+LEAF:  0.2  (moderate adhesion)
+WALL:  1.0  (maximum adhesion - everything sticks to walls)
+
+Force Calculation
+
+1. Neighbor Analysis: Checks all 8 adjacent cells for different materials
+2. Mutual Adhesion: Uses geometric mean sqrt(material1.adhesion × material2.adhesion)
+3. Distance Weighting: Adjacent neighbors (1.0) vs diagonal (0.707)
+4. Fill Ratio: Force scales with both cells' fill ratios
+5. Vector Accumulation: Sums all adhesive forces into net direction
+
+Physics Integration
+
+Applied in two phases:
+1. Velocity Integration: Directly adds adhesive forces to particle velocities each timestep
+2. Movement Decisions: Includes adhesion in net driving force calculations alongside gravity and cohesion
+
+Key Differences from Cohesion
+- Cohesion: Same-material clustering and resistance to separation
+- Adhesion: Different-material attraction and surface sticking
+- Cohesion: Calculated by WorldCohesionCalculator
+- Adhesion: Calculated by WorldB::calculateAdhesionForce()
+
+Behavioral Examples
+- WATER + DIRT: Water particles attracted toward dirt surfaces (realistic wetting)
+- Any Material + WALL: Strong attraction creates sticky boundary behavior
+- METAL + WATER: Moderate adhesion (weak + strong)
+- AIR interactions: No adhesive forces
+
+  The system enables realistic multi-material physics where particles can form mixed structures through adhesive bonds between different material types.
 
 ## Pressure
 Pressure is computed as a hydrostatic force.
@@ -104,15 +153,3 @@ For arbitrary gravity direction, slices are perpendicular to gravity vector.
 
 // Pseudo-code for solid pressure if (material == DIRT || material == SAND) { // Granular - acts somewhat fluid-like under high pressure apply_hydrostatic_pressure(); if (pressure > friction_threshold) { allow_flow(); } } else if (material == WOOD || material == METAL) { // Rigid - only compress, don't flow apply_compression_only(); }
 
-The simulation models:
-
-    2d kinematics
-    pressure
-    density
-    cohesion
-    adhesion
-
-The system handles the problem of multiple moves targetting the same cell via a 2 step process:
-
-    Compute the possible moves and queue them up.
-    Attempt to apply the moves. We'll do this in random order. If there is space to move some of the matter, move it, otherwise treat it as a reflection, affecting the COM of both cell's accordingly.

@@ -540,13 +540,13 @@ void SimulatorUI::createSliders()
     lv_obj_align(pressure_scale_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 370);
 
     lv_obj_t* pressure_scale_value_label = lv_label_create(screen_);
-    lv_label_set_text(pressure_scale_value_label, "10");
+    lv_label_set_text(pressure_scale_value_label, "1.0");
     lv_obj_align(pressure_scale_value_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X + 135, 370);
 
     lv_obj_t* pressure_scale_slider = lv_slider_create(screen_);
     lv_obj_set_size(pressure_scale_slider, CONTROL_WIDTH, 10);
     lv_obj_align(pressure_scale_slider, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 390);
-    lv_slider_set_range(pressure_scale_slider, 0, 200);
+    lv_slider_set_range(pressure_scale_slider, 0, 1000);
     lv_slider_set_value(pressure_scale_slider, 100, LV_ANIM_OFF);
     lv_obj_add_event_cb(
         pressure_scale_slider,
@@ -577,14 +577,14 @@ void SimulatorUI::createSliders()
     lv_obj_align(cohesion_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 450);
 
     lv_obj_t* cohesion_value_label = lv_label_create(screen_);
-    lv_label_set_text(cohesion_value_label, "0.500");
+    lv_label_set_text(cohesion_value_label, "0.600");
     lv_obj_align(cohesion_value_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X + 150, 450);
 
     lv_obj_t* cohesion_slider = lv_slider_create(screen_);
     lv_obj_set_size(cohesion_slider, CONTROL_WIDTH, 10);
     lv_obj_align(cohesion_slider, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 470);
     lv_slider_set_range(cohesion_slider, 0, 1000);          // 0.0 to 1.0 range
-    lv_slider_set_value(cohesion_slider, 500, LV_ANIM_OFF); // Default 0.5 -> 500
+    lv_slider_set_value(cohesion_slider, 600, LV_ANIM_OFF); // Default 0.6 -> 600
     lv_obj_add_event_cb(
         cohesion_slider,
         waterCohesionSliderEventCb,
@@ -650,6 +650,34 @@ void SimulatorUI::createSliders()
         waterBuoyancySliderEventCb,
         LV_EVENT_ALL,
         createCallbackData(buoyancy_value_label));
+
+    // Hydrostatic pressure toggle
+    lv_obj_t* hydrostatic_label = lv_label_create(screen_);
+    lv_label_set_text(hydrostatic_label, "Hydrostatic Pressure");
+    lv_obj_align(hydrostatic_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 610);
+
+    lv_obj_t* hydrostatic_switch = lv_switch_create(screen_);
+    lv_obj_align(hydrostatic_switch, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X + 180, 610);
+    lv_obj_add_state(hydrostatic_switch, LV_STATE_CHECKED); // Default enabled
+    lv_obj_add_event_cb(
+        hydrostatic_switch,
+        hydrostaticPressureToggleEventCb,
+        LV_EVENT_VALUE_CHANGED,
+        createCallbackData());
+
+    // Dynamic pressure toggle
+    lv_obj_t* dynamic_label = lv_label_create(screen_);
+    lv_label_set_text(dynamic_label, "Dynamic Pressure");
+    lv_obj_align(dynamic_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 640);
+
+    lv_obj_t* dynamic_switch = lv_switch_create(screen_);
+    lv_obj_align(dynamic_switch, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X + 180, 640);
+    lv_obj_add_state(dynamic_switch, LV_STATE_CHECKED); // Default enabled
+    lv_obj_add_event_cb(
+        dynamic_switch,
+        dynamicPressureToggleEventCb,
+        LV_EVENT_VALUE_CHANGED,
+        createCallbackData());
 }
 
 void SimulatorUI::setupDrawAreaEvents()
@@ -910,6 +938,7 @@ void SimulatorUI::adhesionBtnEventCb(lv_event_t* e)
             bool current_state = data->world->isAdhesionEnabled();
             bool new_state = !current_state;
             data->world->setAdhesionEnabled(new_state);
+            Cell::adhesionDrawEnabled = new_state; // Also control vector display
             const lv_obj_t* btn = static_cast<const lv_obj_t*>(lv_event_get_target(e));
             lv_obj_t* label = lv_obj_get_child(btn, 0);
             lv_label_set_text(label, new_state ? "Adhesion: On" : "Adhesion: Off");
@@ -973,7 +1002,7 @@ void SimulatorUI::pressureScaleSliderEventCb(lv_event_t* e)
             data->world->setPressureScale(pressure_scale);
         }
         char buf[16];
-        snprintf(buf, sizeof(buf), "%.2f", pressure_scale);
+        snprintf(buf, sizeof(buf), "%.1f", pressure_scale);
         lv_label_set_text(data->associated_label, buf);
     }
 }
@@ -1079,7 +1108,13 @@ void SimulatorUI::waterCohesionSliderEventCb(lv_event_t* e)
     if (lv_event_get_code(e) == LV_EVENT_VALUE_CHANGED && data) {
         int32_t value = lv_slider_get_value(slider);
         double cohesion = value / 1000.0; // Map 0-1000 to 0.0-1.0
+        
+        // Update WorldA cohesion (legacy system)
         Cell::setCohesionStrength(cohesion);
+        
+        // Update WorldB water cohesion (pure-material system)
+        setMaterialCohesion(MaterialType::WATER, cohesion);
+        
         char buf[16];
         snprintf(buf, sizeof(buf), "%.3f", cohesion);
         lv_label_set_text(data->associated_label, buf);
@@ -1127,6 +1162,32 @@ void SimulatorUI::waterBuoyancySliderEventCb(lv_event_t* e)
         char buf[16];
         snprintf(buf, sizeof(buf), "%.3f", buoyancy);
         lv_label_set_text(data->associated_label, buf);
+    }
+}
+
+void SimulatorUI::hydrostaticPressureToggleEventCb(lv_event_t* e)
+{
+    if (lv_event_get_code(e) == LV_EVENT_VALUE_CHANGED) {
+        CallbackData* data = static_cast<CallbackData*>(lv_event_get_user_data(e));
+        if (data && data->world) {
+            lv_obj_t* switch_obj = static_cast<lv_obj_t*>(lv_event_get_target(e));
+            bool enabled = lv_obj_has_state(switch_obj, LV_STATE_CHECKED);
+            data->world->setHydrostaticPressureEnabled(enabled);
+            spdlog::info("Hydrostatic pressure {}", enabled ? "enabled" : "disabled");
+        }
+    }
+}
+
+void SimulatorUI::dynamicPressureToggleEventCb(lv_event_t* e)
+{
+    if (lv_event_get_code(e) == LV_EVENT_VALUE_CHANGED) {
+        CallbackData* data = static_cast<CallbackData*>(lv_event_get_user_data(e));
+        if (data && data->world) {
+            lv_obj_t* switch_obj = static_cast<lv_obj_t*>(lv_event_get_target(e));
+            bool enabled = lv_obj_has_state(switch_obj, LV_STATE_CHECKED);
+            data->world->setDynamicPressureEnabled(enabled);
+            spdlog::info("Dynamic pressure {}", enabled ? "enabled" : "disabled");
+        }
     }
 }
 

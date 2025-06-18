@@ -1,6 +1,7 @@
 #include "WorldInterpolationTool.h"
 #include "WorldInterface.h"
 #include "WorldFactory.h"
+#include "World.h"
 #include "CellB.h" 
 #include "Cell.h"
 #include "MaterialType.h"
@@ -137,17 +138,10 @@ CellB WorldInterpolationTool::createInterpolatedCellB(const CellB& cell00, const
         cell01.getVelocity(), cell11.getVelocity(),
         fx, fy);
     
-    // Interpolate pressure
-    double pressure = bilinearInterpolateDouble(
-        cell00.getPressure(), cell10.getPressure(),
-        cell01.getPressure(), cell11.getPressure(),
-        fx, fy);
-    
     // Create the interpolated cell
     CellB result(materialType, std::max(0.0, std::min(1.0, fillRatio)));
     result.setCOM(com);
     result.setVelocity(velocity);
-    result.setPressure(pressure);
     
     return result;
 }
@@ -276,8 +270,14 @@ bool WorldInterpolationTool::resizeWorldA(WorldInterface& world, uint32_t newWid
         }
     }
     
-    // Resize the grid using standard method
-    world.resizeGrid(newWidth, newHeight);
+    // Resize the grid directly to avoid recursion with resizeGrid()
+    // We need to bypass the public resizeGrid() method that would call us again
+    // TODO: This is a temporary fix - the architecture should be refactored
+    //       to separate low-level grid resize from bilinear filtering
+    
+    // For now, return false to let World::resizeGrid() use the fallback method
+    spdlog::warn("Bilinear resize for WorldA disabled due to recursion issue - using fallback");
+    return false;
     
     // Populate new grid with bilinear interpolated values
     for (uint32_t newY = 0; newY < newHeight; ++newY) {

@@ -1,9 +1,17 @@
 #include "visual_test_runner.h"
 #include <future>
 #include <spdlog/spdlog.h>
+#include "../WorldB.h"
 
 // External global settings used by the backend system
 extern simulator_settings_t settings;
+
+// VisualTestEnvironment static member definitions
+bool VisualTestEnvironment::debug_logging_enabled_ = true;
+bool VisualTestEnvironment::adhesion_disabled_by_default_ = true;
+bool VisualTestEnvironment::cohesion_disabled_by_default_ = true;
+bool VisualTestEnvironment::pressure_disabled_by_default_ = true;
+bool VisualTestEnvironment::ascii_logging_enabled_ = true;
 
 // VisualTestCoordinator implementation
 VisualTestCoordinator& VisualTestCoordinator::getInstance() {
@@ -133,7 +141,31 @@ VisualTestCoordinator::~VisualTestCoordinator() {
 
 // VisualTestEnvironment implementation
 void VisualTestEnvironment::SetUp() {
+    // Initialize visual mode first
     VisualTestCoordinator::getInstance().initializeVisualMode();
+    
+    // Configure universal test settings
+    if (debug_logging_enabled_) {
+        spdlog::set_level(spdlog::level::debug);
+        std::cout << "=== Universal Test Configuration ===\n";
+        std::cout << "✓ Debug logging enabled\n";
+    }
+    
+    // Display universal physics defaults
+    std::cout << "✓ Default physics settings for ALL tests:\n";
+    if (adhesion_disabled_by_default_) {
+        std::cout << "  - Adhesion: DISABLED by default (tests must enable explicitly)\n";
+    }
+    if (cohesion_disabled_by_default_) {
+        std::cout << "  - Cohesion: DISABLED by default (tests must enable explicitly)\n";
+    }
+    if (pressure_disabled_by_default_) {
+        std::cout << "  - Pressure: DISABLED by default (tests must enable explicitly)\n";
+    }
+    if (ascii_logging_enabled_) {
+        std::cout << "  - ASCII logging: ENABLED for world state visualization\n";
+    }
+    std::cout << "=====================================\n";
 }
 
 void VisualTestEnvironment::TearDown() {
@@ -167,6 +199,16 @@ void VisualTestBase::SetUp() {
 
 void VisualTestBase::TearDown() {
     auto& coordinator = VisualTestCoordinator::getInstance();
+    
+    // Log final world state if ASCII logging enabled and we have a UI with a world
+    if (VisualTestEnvironment::isAsciiLoggingEnabled() && ui_ && ui_->getWorld()) {
+        if (ui_->getWorld()->getWorldType() == WorldType::RulesB) {
+            logWorldStateAscii(static_cast<const WorldB*>(ui_->getWorld()), "Final world state");
+        } else {
+            logWorldStateAscii(static_cast<const World*>(ui_->getWorld()), "Final world state");
+        }
+    }
+    
     if (visual_mode_ && ui_) {
         coordinator.postTaskSync([this] {
             ui_.reset();
@@ -199,6 +241,34 @@ std::unique_ptr<World> VisualTestBase::createWorld(uint32_t width, uint32_t heig
     } else {
         world = std::make_unique<World>(width, height, nullptr);
     }
+    return world;
+}
+
+std::unique_ptr<WorldB> VisualTestBase::createWorldB(uint32_t width, uint32_t height) {
+    // Apply auto-scaling before world creation
+    if (visual_mode_ && auto_scaling_enabled_) {
+        scaleDrawingAreaForWorld(width, height);
+    }
+    
+    std::unique_ptr<WorldB> world;
+    if (visual_mode_) {
+        auto& coordinator = VisualTestCoordinator::getInstance();
+        coordinator.postTaskSync([&] {
+            lv_obj_t* draw_area = ui_ ? ui_->getDrawArea() : nullptr;
+            world = std::make_unique<WorldB>(width, height, draw_area);
+            if (ui_) {
+                ui_->setWorld(world.get());
+            }
+        });
+    } else {
+        world = std::make_unique<WorldB>(width, height, nullptr);
+    }
+    
+    // Apply universal physics defaults
+    if (world) {
+        applyUniversalPhysicsDefaults(world.get());
+    }
+    
     return world;
 }
 
@@ -407,6 +477,66 @@ void VisualTestBase::restoreOriginalCellSize() {
             Cell::setSize(original_cell_size_);
         });
     }
+}
+
+void VisualTestBase::applyUniversalPhysicsDefaults(WorldB* world) {
+    if (!world) return;
+    
+    spdlog::debug("[TEST] Applying universal physics defaults to WorldB");
+    
+    // Apply adhesion defaults
+    if (VisualTestEnvironment::isAdhesionDisabledByDefault()) {
+        world->setAdhesionEnabled(false);
+        world->setAdhesionStrength(0.0);
+        spdlog::debug("[TEST] - Adhesion disabled by default");
+    }
+    
+    // Apply cohesion defaults
+    if (VisualTestEnvironment::isCohesionDisabledByDefault()) {
+        world->setCohesionEnabled(false);
+        world->setCohesionForceEnabled(false);
+        world->setCohesionForceStrength(0.0);
+        world->setCohesionBindStrength(0.0);
+        spdlog::debug("[TEST] - All cohesion systems disabled by default");
+    }
+    
+    // Apply pressure defaults
+    if (VisualTestEnvironment::isPressureDisabledByDefault()) {
+        world->setHydrostaticPressureEnabled(false);
+        world->setDynamicPressureEnabled(false);
+        world->setPressureScale(0.0);
+        spdlog::debug("[TEST] - All pressure systems disabled by default");
+    }
+}
+
+void VisualTestBase::logWorldStateAscii(const WorldB* world, const std::string& description) {
+    if (!world || !VisualTestEnvironment::isAsciiLoggingEnabled()) return;
+    
+    std::string ascii = world->toAsciiDiagram();
+    spdlog::debug("[TEST ASCII] {}\n{}", description, ascii);
+}
+
+void VisualTestBase::logWorldStateAscii(const World* world, const std::string& description) {
+    if (!world || !VisualTestEnvironment::isAsciiLoggingEnabled()) return;
+    
+    std::string ascii = world->toAsciiDiagram();
+    spdlog::debug("[TEST ASCII] {}\n{}", description, ascii);
+}
+
+void VisualTestBase::logInitialTestState(const WorldB* world, const std::string& test_description) {
+    if (!world || !VisualTestEnvironment::isAsciiLoggingEnabled()) return;
+    
+    std::string description = test_description.empty() ? "Initial test state" : test_description;
+    std::string ascii = world->toAsciiDiagram();
+    spdlog::info("[TEST SETUP] {}\n{}", description, ascii);
+}
+
+void VisualTestBase::logInitialTestState(const World* world, const std::string& test_description) {
+    if (!world || !VisualTestEnvironment::isAsciiLoggingEnabled()) return;
+    
+    std::string description = test_description.empty() ? "Initial test state" : test_description;
+    std::string ascii = world->toAsciiDiagram();
+    spdlog::info("[TEST SETUP] {}\n{}", description, ascii);
 }
 
 // Utility function for backward compatibility

@@ -157,6 +157,18 @@ public:
     virtual PressureSystem getPressureSystem() const = 0;
     
     // =================================================================
+    // DUAL PRESSURE SYSTEM CONTROLS
+    // =================================================================
+    
+    // Enable/disable hydrostatic pressure calculation
+    virtual void setHydrostaticPressureEnabled(bool enabled) = 0;
+    virtual bool isHydrostaticPressureEnabled() const = 0;
+    
+    // Enable/disable dynamic pressure accumulation
+    virtual void setDynamicPressureEnabled(bool enabled) = 0;
+    virtual bool isDynamicPressureEnabled() const = 0;
+    
+    // =================================================================
     // TIME REVERSAL FUNCTIONALITY
     // =================================================================
     

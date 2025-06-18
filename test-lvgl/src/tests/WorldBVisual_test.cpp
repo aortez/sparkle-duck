@@ -55,6 +55,9 @@ TEST_F(WorldBVisualTest, MaterialInitialization) {
                      getMaterialName(mat), x, y, getMaterialDensity(mat));
     }
     
+    // Log initial test state after materials are set up
+    logInitialTestState(world.get(), "Material initialization test - 6 different materials");
+    
     // Verify total mass matches expected
     double actualMass = world->getTotalMass();
     EXPECT_NEAR(actualMass, expectedMass, 0.1);

@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 #include <cmath>
 #include "../WorldB.h"
+#include "../WorldCohesionCalculator.h"
 #include "../MaterialType.h"
 
 class ForceDebugTest : public ::testing::Test {
@@ -23,7 +24,7 @@ TEST_F(ForceDebugTest, DebugWaterForces) {
     waterCell.setVelocity(Vector2d(0.0, 0.5));
     
     // Calculate forces directly
-    auto cohesion = world->calculateCohesionForce(2, 2);
+    auto cohesion = WorldCohesionCalculator(*world).calculateCohesionForce(2, 2);
     auto adhesion = world->calculateAdhesionForce(2, 2);
     
     std::cout << "=== WATER FORCE DEBUG ===" << std::endl;

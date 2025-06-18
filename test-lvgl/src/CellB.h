@@ -93,9 +93,19 @@ public:
     void setVelocity(const Vector2d& velocity) { velocity_ = velocity; markDirty(); }
     void setVelocity(double x, double y) { velocity_ = Vector2d(x, y); markDirty(); }
     
-    // Pressure (hydrostatic)
-    double getPressure() const { return pressure_; }
-    void setPressure(double pressure) { pressure_ = pressure; }
+    // Dual pressure system accessors
+    float getHydrostaticPressure() const { return hydrostatic_pressure_; }
+    void setHydrostaticPressure(float pressure) { hydrostatic_pressure_ = pressure; }
+    
+    float getDynamicPressure() const { return dynamic_pressure_; }
+    void setDynamicPressure(float pressure) { dynamic_pressure_ = pressure; }
+    
+    const Vector2d& getPressureGradient() const { return pressure_gradient_; }
+    void setPressureGradient(const Vector2d& gradient) { pressure_gradient_ = gradient; }
+    
+    // Legacy pressure interface (for compatibility)
+    double getPressure() const { return hydrostatic_pressure_ + dynamic_pressure_; }
+    void setPressure(double pressure) { hydrostatic_pressure_ = static_cast<float>(pressure); }
     
     // =================================================================
     // CALCULATED PROPERTIES
@@ -204,7 +214,11 @@ private:
     double fill_ratio_;          // How full the cell is [0,1]
     Vector2d com_;               // Center of mass position [-1,1]
     Vector2d velocity_;          // 2D velocity vector
-    double pressure_;            // Hydrostatic pressure
+    
+    // Dual pressure system (Phase 1)
+    float hydrostatic_pressure_; // From gravity/weight [0, max_hydrostatic]
+    float dynamic_pressure_;     // From blocked transfers [0, max_dynamic]
+    Vector2d pressure_gradient_; // Combined pressure direction
     
     // Force accumulation for visualization
     Vector2d accumulated_cohesion_force_;     // Last calculated cohesion force

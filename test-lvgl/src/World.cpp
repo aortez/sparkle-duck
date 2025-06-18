@@ -2264,8 +2264,7 @@ void World::preserveState(::WorldState& state) const
                 totalMass,
                 dominantMaterial,
                 cell.v,
-                cell.com,
-                cell.pressure.mag()  // Convert Vector2d pressure to scalar
+                cell.com
             );
             
             state.setCellData(x, y, cellData);
@@ -2353,7 +2352,7 @@ void World::restoreState(const ::WorldState& state)
             // Update cell with converted data
             cell.update(dirtAmount, cellData.com, cellData.velocity);
             cell.water = waterAmount;
-            cell.pressure = Vector2d(cellData.pressure, 0.0);  // Convert scalar pressure to Vector2d
+            cell.pressure = Vector2d(0.0, 0.0);  // Reset pressure since CellData no longer stores it
             cell.markDirty();
         }
     }

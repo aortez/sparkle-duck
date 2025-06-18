@@ -64,7 +64,6 @@ protected:
         EXPECT_DOUBLE_EQ(original.velocity.y, restored.velocity.y);
         EXPECT_DOUBLE_EQ(original.com.x, restored.com.x);
         EXPECT_DOUBLE_EQ(original.com.y, restored.com.y);
-        EXPECT_DOUBLE_EQ(original.pressure, restored.pressure);
     }
     
     // Helper to convert JSON value to string for debugging
@@ -82,11 +81,11 @@ TEST_F(WorldStateJSONTest, CellDataSerialization) {
     validateCellDataRoundTrip(empty);
     
     // Test cell with dirt
-    WorldState::CellData dirt(0.75, MaterialType::DIRT, Vector2d(0.1, -0.2), Vector2d(0.05, 0.03), 1.5);
+    WorldState::CellData dirt(0.75, MaterialType::DIRT, Vector2d(0.1, -0.2), Vector2d(0.05, 0.03));
     validateCellDataRoundTrip(dirt);
     
     // Test cell with water
-    WorldState::CellData water(0.9, MaterialType::WATER, Vector2d(-0.3, 0.4), Vector2d(-0.1, 0.1), 2.1);
+    WorldState::CellData water(0.9, MaterialType::WATER, Vector2d(-0.3, 0.4), Vector2d(-0.1, 0.1));
     validateCellDataRoundTrip(water);
     
     // Test cell with all material types
@@ -96,7 +95,7 @@ TEST_F(WorldStateJSONTest, CellDataSerialization) {
     };
     
     for (MaterialType type : types) {
-        WorldState::CellData cell(0.5, type, Vector2d(0.2, -0.1), Vector2d(0.0, 0.0), 0.8);
+        WorldState::CellData cell(0.5, type, Vector2d(0.2, -0.1), Vector2d(0.0, 0.0));
         validateCellDataRoundTrip(cell);
     }
 }
@@ -199,7 +198,7 @@ TEST_F(WorldStateJSONTest, JSONStructureValidation) {
 }
 
 TEST_F(WorldStateJSONTest, CellDataJSONStructure) {
-    WorldState::CellData cell(0.7, MaterialType::METAL, Vector2d(0.3, -0.4), Vector2d(0.1, 0.2), 1.8);
+    WorldState::CellData cell(0.7, MaterialType::METAL, Vector2d(0.3, -0.4), Vector2d(0.1, 0.2));
     
     rapidjson::Document doc;
     auto& allocator = doc.GetAllocator();
@@ -211,11 +210,10 @@ TEST_F(WorldStateJSONTest, CellDataJSONStructure) {
     EXPECT_TRUE(json.HasMember("dominant_material"));
     EXPECT_TRUE(json.HasMember("velocity"));
     EXPECT_TRUE(json.HasMember("com"));
-    EXPECT_TRUE(json.HasMember("pressure"));
+    EXPECT_FALSE(json.HasMember("pressure"));  // Should not have pressure field
     
     EXPECT_DOUBLE_EQ(json["material_mass"].GetDouble(), 0.7);
     EXPECT_STREQ(json["dominant_material"].GetString(), "METAL");
-    EXPECT_DOUBLE_EQ(json["pressure"].GetDouble(), 1.8);
     
     // Validate nested Vector2d objects
     const auto& velocity = json["velocity"];

@@ -117,6 +117,8 @@ add_executable(sparkle-duck
     src/MaterialType.cpp
     src/CellB.cpp
     src/WorldB.cpp
+    src/WorldCohesionCalculator.cpp
+    src/WorldDiagramGenerator.cpp
     src/WorldFactory.cpp
     src/MaterialPicker.cpp
     src/WorldState.cpp
@@ -167,6 +169,8 @@ add_executable(sparkle-duck-tests
     src/tests/HorizontalLineStability_test.cpp
     src/tests/DistanceToSupport_test.cpp
     src/tests/COMCohesionForce_test.cpp
+    src/tests/PressureDynamic_test.cpp
+    src/tests/PressureHydrostatic_test.cpp
     src/tests/AsciiDiagram_test.cpp
     src/tests/TestUI.cpp
     src/tests/visual_test_runner.cpp
@@ -184,6 +188,8 @@ add_executable(sparkle-duck-tests
     src/MaterialType.cpp
     src/CellB.cpp
     src/WorldB.cpp
+    src/WorldCohesionCalculator.cpp
+    src/WorldDiagramGenerator.cpp
     src/WorldFactory.cpp
     src/MaterialPicker.cpp
     src/WorldState.cpp

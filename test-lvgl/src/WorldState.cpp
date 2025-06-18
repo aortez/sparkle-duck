@@ -9,7 +9,6 @@ rapidjson::Value WorldState::CellData::toJson(rapidjson::Document::AllocatorType
     json.AddMember("dominant_material", materialTypeToJson(dominant_material, allocator), allocator);
     json.AddMember("velocity", velocity.toJson(allocator), allocator);
     json.AddMember("com", com.toJson(allocator), allocator);
-    json.AddMember("pressure", pressure, allocator);
     
     return json;
 }
@@ -22,12 +21,12 @@ WorldState::CellData WorldState::CellData::fromJson(const rapidjson::Value& json
     
     // Validate required fields
     if (!json.HasMember("material_mass") || !json.HasMember("dominant_material") ||
-        !json.HasMember("velocity") || !json.HasMember("com") || !json.HasMember("pressure")) {
+        !json.HasMember("velocity") || !json.HasMember("com")) {
         throw std::runtime_error("CellData::fromJson: Missing required fields");
     }
     
-    if (!json["material_mass"].IsNumber() || !json["pressure"].IsNumber()) {
-        throw std::runtime_error("CellData::fromJson: 'material_mass' and 'pressure' must be numbers");
+    if (!json["material_mass"].IsNumber()) {
+        throw std::runtime_error("CellData::fromJson: 'material_mass' must be a number");
     }
     
     CellData data;
@@ -35,7 +34,6 @@ WorldState::CellData WorldState::CellData::fromJson(const rapidjson::Value& json
     data.dominant_material = materialTypeFromJson(json["dominant_material"]);
     data.velocity = Vector2d::fromJson(json["velocity"]);
     data.com = Vector2d::fromJson(json["com"]);
-    data.pressure = json["pressure"].GetDouble();
     
     return data;
 }

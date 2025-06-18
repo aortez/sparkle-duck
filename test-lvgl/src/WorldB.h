@@ -4,6 +4,7 @@
 #include "MaterialType.h"
 #include "Timers.h"
 #include "Vector2i.h"
+#include "WorldCohesionCalculator.h"
 #include "WorldInterface.h"
 #include "WorldSetup.h"
 #include "WorldState.h"
@@ -25,24 +26,12 @@ class SimulatorUI;
 
 class WorldB : public WorldInterface {
 public:
-    // Force calculation structures for cohesion/adhesion physics
-    struct CohesionForce {
-        double resistance_magnitude;  // Strength of cohesive resistance
-        uint32_t connected_neighbors; // Number of same-material neighbors
-    };
-    
+    // Force calculation structures for adhesion physics (cohesion moved to WorldCohesionCalculator)
     struct AdhesionForce {
         Vector2d force_direction;     // Direction of adhesive pull/resistance
         double force_magnitude;       // Strength of adhesive force
         MaterialType target_material; // Strongest interacting material
         uint32_t contact_points;      // Number of contact interfaces
-    };
-    
-    struct COMCohesionForce {
-        Vector2d force_direction;     // Net force direction toward neighbors
-        double force_magnitude;       // Strength of cohesive pull
-        Vector2d center_of_neighbors; // Average position of connected neighbors
-        uint32_t active_connections;  // Number of neighbors contributing
     };
     
     // Enhanced material transfer system with collision physics
@@ -55,8 +44,8 @@ public:
     };
     
     struct MaterialMove {
-        uint32_t fromX, fromY;
-        uint32_t toX, toY;
+        int fromX, fromY;
+        int toX, toY;
         double amount;
         MaterialType material;
         Vector2d momentum;
@@ -72,6 +61,22 @@ public:
         // NEW: COM cohesion force data
         double com_cohesion_magnitude = 0.0;  // Strength of COM cohesion force
         Vector2d com_cohesion_direction{0.0, 0.0}; // Direction of COM cohesion force
+    };
+
+    // Blocked transfer data for dynamic pressure accumulation
+    struct BlockedTransfer {
+        int fromX, fromY;           // Source cell coordinates
+        double blocked_amount;           // Amount that failed to transfer
+        MaterialType material;           // Material type that was blocked
+        Vector2d blocked_velocity;       // Velocity vector of blocked material
+        Vector2d boundary_normal;        // Direction of attempted transfer
+        double blocked_energy;           // Kinetic energy that was blocked
+        
+        BlockedTransfer(int x, int y, double amount, MaterialType mat, 
+                       const Vector2d& velocity, const Vector2d& normal)
+            : fromX(x), fromY(y), blocked_amount(amount), material(mat), 
+              blocked_velocity(velocity), boundary_normal(normal),
+              blocked_energy(velocity.magnitude() * amount) {}
     };
 
     WorldB(uint32_t width, uint32_t height, lv_obj_t* draw_area);
@@ -148,6 +153,7 @@ public:
     // =================================================================
     
     void setGravity(double g) override { gravity_ = g; }
+    double getGravity() const { return gravity_; }
     void setElasticityFactor(double e) override { elasticity_factor_ = e; }
     void setPressureScale(double scale) override { pressure_scale_ = scale; }
     void setDirtFragmentationFactor(double /* factor */) override { /* no-op for WorldB */ }
@@ -165,6 +171,22 @@ public:
     
     void setPressureSystem(PressureSystem system) override { pressure_system_ = system; }
     PressureSystem getPressureSystem() const override { return pressure_system_; }
+    
+    // =================================================================
+    // WORLDINTERFACE IMPLEMENTATION - DUAL PRESSURE SYSTEM
+    // =================================================================
+    
+    void setHydrostaticPressureEnabled(bool enabled) override { hydrostatic_pressure_enabled_ = enabled; }
+    bool isHydrostaticPressureEnabled() const override { return hydrostatic_pressure_enabled_; }
+    
+    void setDynamicPressureEnabled(bool enabled) override { dynamic_pressure_enabled_ = enabled; }
+    bool isDynamicPressureEnabled() const override { return dynamic_pressure_enabled_; }
+    
+    // Pressure calculation methods (public for testing)
+    void calculateHydrostaticPressure();
+    Vector2d calculatePressureForce(const CellB& cell) const;
+    double getHydrostaticWeight(MaterialType material) const;
+    double getDynamicWeight(MaterialType material) const;
     
     // =================================================================
     // WORLDINTERFACE IMPLEMENTATION - TIME REVERSAL (NO-OP)
@@ -300,7 +322,7 @@ public:
     MaterialMove createCollisionAwareMove(const CellB& fromCell, const CellB& toCell, 
                                           const Vector2i& fromPos, const Vector2i& toPos,
                                           const Vector2i& direction, double deltaTime = 0.0,
-                                          const COMCohesionForce& com_cohesion = {{0.0, 0.0}, 0.0, {0.0, 0.0}, 0});
+                                          const WorldCohesionCalculator::COMCohesionForce& com_cohesion = {{0.0, 0.0}, 0.0, {0.0, 0.0}, 0});
     
     // Get pending moves for testing (call queueMaterialMoves first)
     const std::vector<MaterialMove>& getPendingMoves() const { return pending_moves_; }
@@ -311,28 +333,21 @@ public:
     // Expose force-influenced move queuing for testing
     void queueMaterialMovesForTesting(double deltaTime) { queueMaterialMoves(deltaTime); }
     
+    // Expose cells array for static method testing
+    const CellB* getCellsData() const { return cells_.data(); }
+    
     // =================================================================
     // FORCE CALCULATION METHODS
     // =================================================================
     
-    // Calculate cohesion resistance force from same-material neighbors
-    CohesionForce calculateCohesionForce(uint32_t x, uint32_t y);
-    
     // Calculate adhesion force from different-material neighbors
     AdhesionForce calculateAdhesionForce(uint32_t x, uint32_t y);
-    
-    // Calculate COM-based cohesion force toward connected neighbors
-    COMCohesionForce calculateCOMCohesionForce(uint32_t x, uint32_t y);
     
     // Calculate distance to structural support for cohesion decay
     double calculateDistanceToSupport(uint32_t x, uint32_t y);
     
     // Check if a position has structural support (ground, walls, stationary material)
     bool hasStructuralSupport(uint32_t x, uint32_t y);
-    
-    // Directional support functions for realistic physics
-    bool hasVerticalSupport(uint32_t x, uint32_t y);    // Check for support below (load-bearing)
-    bool hasHorizontalSupport(uint32_t x, uint32_t y);  // Check for rigid lateral connections
 
 private:
     // =================================================================
@@ -368,8 +383,14 @@ private:
     bool checkFloatingParticleCollision(int cellX, int cellY);
     void handleFloatingParticleCollision(int cellX, int cellY);
     
-    // Pressure calculation (simplified hydrostatic)
-    void calculateHydrostaticPressure();
+    // Dynamic pressure system
+    void queueBlockedTransfer(int fromX, int fromY, double blocked_amount,
+                             MaterialType material, const Vector2d& velocity, 
+                             const Vector2d& boundary_normal);
+    void processBlockedTransfers();
+    void applyDynamicPressureForces(double deltaTime);
+    
+    // Pressure calculation (simplified hydrostatic) - moved to public for testing
     
     // Boundary wall management
     void setupBoundaryWalls();
@@ -410,6 +431,10 @@ private:
     double pressure_scale_;
     double water_pressure_threshold_;
     PressureSystem pressure_system_;
+    
+    // Dual pressure system controls
+    bool hydrostatic_pressure_enabled_;
+    bool dynamic_pressure_enabled_;
     
     // World setup controls
     bool add_particles_enabled_;
@@ -461,6 +486,9 @@ private:
     
     // Material transfer queue
     std::vector<MaterialMove> pending_moves_;
+    
+    // Dynamic pressure system
+    std::vector<BlockedTransfer> blocked_transfers_;
     
     // Performance timing
     mutable Timers timers_;

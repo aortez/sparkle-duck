@@ -15,7 +15,9 @@ CellB::CellB()
       fill_ratio_(0.0),
       com_(0.0, 0.0),
       velocity_(0.0, 0.0),
-      pressure_(0.0),
+      hydrostatic_pressure_(0.0f),
+      dynamic_pressure_(0.0f),
+      pressure_gradient_(0.0, 0.0),
       accumulated_cohesion_force_(0.0, 0.0),
       accumulated_adhesion_force_(0.0, 0.0),
       accumulated_com_cohesion_force_(0.0, 0.0),
@@ -29,7 +31,9 @@ CellB::CellB(MaterialType type, double fill)
       fill_ratio_(std::clamp(fill, 0.0, 1.0)),
       com_(0.0, 0.0),
       velocity_(0.0, 0.0),
-      pressure_(0.0),
+      hydrostatic_pressure_(0.0f),
+      dynamic_pressure_(0.0f),
+      pressure_gradient_(0.0, 0.0),
       accumulated_cohesion_force_(0.0, 0.0),
       accumulated_adhesion_force_(0.0, 0.0),
       accumulated_com_cohesion_force_(0.0, 0.0),
@@ -53,7 +57,9 @@ CellB::CellB(const CellB& other)
       fill_ratio_(other.fill_ratio_),
       com_(other.com_),
       velocity_(other.velocity_),
-      pressure_(other.pressure_),
+      hydrostatic_pressure_(other.hydrostatic_pressure_),
+      dynamic_pressure_(other.dynamic_pressure_),
+      pressure_gradient_(other.pressure_gradient_),
       accumulated_cohesion_force_(other.accumulated_cohesion_force_),
       accumulated_adhesion_force_(other.accumulated_adhesion_force_),
       accumulated_com_cohesion_force_(other.accumulated_com_cohesion_force_),
@@ -79,7 +85,9 @@ CellB& CellB::operator=(const CellB& other)
         fill_ratio_ = other.fill_ratio_;
         com_ = other.com_;
         velocity_ = other.velocity_;
-        pressure_ = other.pressure_;
+        hydrostatic_pressure_ = other.hydrostatic_pressure_;
+        dynamic_pressure_ = other.dynamic_pressure_;
+        pressure_gradient_ = other.pressure_gradient_;
         
         // Resize buffer if needed but don't copy contents
         buffer_.resize(other.buffer_.size());
@@ -285,7 +293,6 @@ void CellB::replaceMaterial(MaterialType type, double fill_ratio)
     // Reset physics state when replacing material
     velocity_ = Vector2d(0.0, 0.0);
     com_ = Vector2d(0.0, 0.0);
-    pressure_ = 0.0;
 }
 
 void CellB::clear()
@@ -294,29 +301,25 @@ void CellB::clear()
     fill_ratio_ = 0.0;
     velocity_ = Vector2d(0.0, 0.0);
     com_ = Vector2d(0.0, 0.0);
-    pressure_ = 0.0;
     markDirty();
 }
 
-void CellB::limitVelocity(double max_velocity_per_timestep, double damping_threshold_per_timestep, double damping_factor_per_timestep, double deltaTime)
+void CellB::limitVelocity(double max_velocity_per_timestep, double damping_threshold_per_timestep, double damping_factor_per_timestep, double /* deltaTime */)
 {
     const double speed = velocity_.mag();
     
-    // Convert per-timestep values to current frame values
-    // Since velocity is in cells/second, we scale the per-timestep limits appropriately
-    const double max_velocity_per_second = max_velocity_per_timestep / deltaTime;
-    const double damping_threshold_per_second = damping_threshold_per_timestep / deltaTime;
+    // Apply velocity limits directly (parameters are already per-timestep)
+    // The parameters define absolute velocity limits per physics timestep
     
     // Apply maximum velocity limit
-    if (speed > max_velocity_per_second) {
-        velocity_ = velocity_ * (max_velocity_per_second / speed);
+    if (speed > max_velocity_per_timestep) {
+        velocity_ = velocity_ * (max_velocity_per_timestep / speed);
     }
     
-    // Apply damping when above threshold (scale damping factor by deltaTime)
-    if (speed > damping_threshold_per_second) {
-        // Convert per-timestep damping to per-frame damping
-        const double frame_damping_factor = 1.0 - std::pow(1.0 - damping_factor_per_timestep, deltaTime);
-        velocity_ = velocity_ * (1.0 - frame_damping_factor);
+    // Apply damping when above threshold
+    if (speed > damping_threshold_per_timestep) {
+        // Apply damping factor directly (parameters already account for timestep)
+        velocity_ = velocity_ * (1.0 - damping_factor_per_timestep);
     }
 }
 
@@ -409,7 +412,7 @@ std::string CellB::toString() const
         << "(fill=" << fill_ratio_
         << ", com=[" << com_.x << "," << com_.y << "]"
         << ", vel=[" << velocity_.x << "," << velocity_.y << "]"
-        << ", p=" << pressure_ << ")";
+        << ")";
     return oss.str();
 }
 
@@ -923,8 +926,8 @@ void CellB::drawDebug(lv_obj_t* parent, uint32_t x, uint32_t y)
             lv_draw_line(&layer, &cohesion_line_dsc);
         }
         
-        // Draw adhesion force as orange line
-        if (accumulated_adhesion_force_.mag() > 0.01) {
+        // Draw adhesion force as orange line (only if adhesion drawing is enabled)
+        if (Cell::adhesionDrawEnabled && accumulated_adhesion_force_.mag() > 0.01) {
             double scale = 15.0;
             int end_x = com_pixel_x + static_cast<int>(accumulated_adhesion_force_.x * scale);
             int end_y = com_pixel_y + static_cast<int>(accumulated_adhesion_force_.y * scale);
@@ -955,6 +958,25 @@ void CellB::drawDebug(lv_obj_t* parent, uint32_t x, uint32_t y)
             com_cohesion_line_dsc.p2.x = end_x;
             com_cohesion_line_dsc.p2.y = end_y;
             lv_draw_line(&layer, &com_cohesion_line_dsc);
+        }
+        
+        // Draw dynamic pressure visualization as magenta thick line from cell center
+        if (dynamic_pressure_ > 0.01f) {
+            double scale = 10.0; // Scale pressure to visible length
+            int cell_center_x = Cell::WIDTH / 2;
+            int cell_center_y = Cell::HEIGHT / 2;
+            int end_x = cell_center_x + static_cast<int>(pressure_gradient_.x * dynamic_pressure_ * scale);
+            int end_y = cell_center_y + static_cast<int>(pressure_gradient_.y * dynamic_pressure_ * scale);
+            
+            lv_draw_line_dsc_t pressure_line_dsc;
+            lv_draw_line_dsc_init(&pressure_line_dsc);
+            pressure_line_dsc.color = lv_color_hex(0xFF00FF); // Magenta for dynamic pressure
+            pressure_line_dsc.width = 3; // Thicker line for pressure visibility
+            pressure_line_dsc.p1.x = cell_center_x;
+            pressure_line_dsc.p1.y = cell_center_y;
+            pressure_line_dsc.p2.x = end_x;
+            pressure_line_dsc.p2.y = end_y;
+            lv_draw_line(&layer, &pressure_line_dsc);
         }
     }
     

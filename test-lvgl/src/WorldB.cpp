@@ -2,6 +2,8 @@
 #include "Cell.h"
 #include "SimulatorUI.h"
 #include "Vector2i.h"
+#include "WorldCohesionCalculator.h"
+#include "WorldDiagramGenerator.h"
 #include "WorldInterpolationTool.h"
 #include "spdlog/spdlog.h"
 
@@ -26,6 +28,8 @@ WorldB::WorldB(uint32_t width, uint32_t height, lv_obj_t* draw_area)
       pressure_scale_(1.0),
       water_pressure_threshold_(0.0004),
       pressure_system_(PressureSystem::Original),
+      hydrostatic_pressure_enabled_(true),
+      dynamic_pressure_enabled_(true),
       add_particles_enabled_(true),
       left_throw_enabled_(false),
       right_throw_enabled_(false),
@@ -63,7 +67,7 @@ WorldB::WorldB(uint32_t width, uint32_t height, lv_obj_t* draw_area)
     
     // Initialize cell grid
     cells_.resize(width_ * height_);
-    
+   
     // Initialize with air
     for (auto& cell : cells_) {
         cell = CellB(MaterialType::AIR, 0.0);
@@ -119,6 +123,10 @@ void WorldB::advanceTime(double deltaTimeSeconds)
         
         // Process queued material moves
         processMaterialMoves();
+        
+        // Process blocked transfers and apply dynamic pressure forces
+        processBlockedTransfers();
+        applyDynamicPressureForces(scaledDeltaTime);
         
         timestep_++;
     }
@@ -637,7 +645,7 @@ void WorldB::applyCohesionForces(double deltaTime)
             }
             
             // Calculate COM cohesion force
-            COMCohesionForce com_cohesion = calculateCOMCohesionForce(x, y);
+            WorldCohesionCalculator::COMCohesionForce com_cohesion = WorldCohesionCalculator(*this).calculateCOMCohesionForce(x, y, com_cohesion_range_);
             
             // Apply forces to velocity
             Vector2d velocity = cell.getVelocity();
@@ -694,24 +702,24 @@ void WorldB::queueMaterialMoves(double deltaTime)
             
             // PHASE 2: Force-Based Movement Threshold
             // Calculate cohesion and adhesion forces before movement decisions
-            CohesionForce cohesion;
+            WorldCohesionCalculator::CohesionForce cohesion;
             if (cohesion_enabled_) {
-                cohesion = calculateCohesionForce(x, y);
+                cohesion = WorldCohesionCalculator(*this).calculateCohesionForce(x, y);
             } else {
                 cohesion = {0.0, 0}; // No cohesion resistance when disabled
             }
             AdhesionForce adhesion = calculateAdhesionForce(x, y);
             
             // NEW: Calculate COM-based cohesion force
-            COMCohesionForce com_cohesion;
+            WorldCohesionCalculator::COMCohesionForce com_cohesion;
             if (cohesion_force_enabled_) {
-                com_cohesion = calculateCOMCohesionForce(x, y);
+                com_cohesion = WorldCohesionCalculator(*this).calculateCOMCohesionForce(x, y, com_cohesion_range_);
             } else {
                 com_cohesion = {{0.0, 0.0}, 0.0, {0.0, 0.0}, 0}; // No COM cohesion when disabled
             }
             
             // Apply strength multipliers to forces (now with separate adhesion and COM cohesion controls)
-            double effective_resistance = cohesion.resistance_magnitude * cohesion_bind_strength_;
+            double effective_resistance = cohesion.resistance_magnitude * cohesion_bind_strength_ * deltaTime * 50;
             double effective_adhesion_magnitude = adhesion.force_magnitude * adhesion_strength_;
             double effective_com_cohesion_magnitude = com_cohesion.force_magnitude * cohesion_force_strength_;
             
@@ -721,7 +729,7 @@ void WorldB::queueMaterialMoves(double deltaTime)
             cell.setAccumulatedCOMCohesionForce(com_cohesion.force_direction * effective_com_cohesion_magnitude);
             
             // Calculate net driving force (gravity + adhesion + COM cohesion, with deltaTime scaling for COM cohesion)
-            Vector2d gravity_force(0.0, gravity_ * deltaTime * getMaterialDensity(cell.getMaterialType()));
+            Vector2d gravity_force(0.0, gravity_ * deltaTime);
             Vector2d com_cohesion_force = com_cohesion.force_direction * com_cohesion.force_magnitude * deltaTime * cohesion_force_strength_; // COM cohesion scales with magnitude, deltaTime and strength
             Vector2d net_driving_force = gravity_force + adhesion.force_direction * effective_adhesion_magnitude + com_cohesion_force;
             
@@ -729,23 +737,50 @@ void WorldB::queueMaterialMoves(double deltaTime)
             double movement_threshold = effective_resistance;
             double driving_magnitude = net_driving_force.mag();
             
-            // Force-based movement decision: only move if driving force > resistance
-            if (driving_magnitude <= movement_threshold) {
-                // Material is "stuck" due to cohesion - zero velocity and skip movement
-                cell.setVelocity(Vector2d(0.0, 0.0));
-                spdlog::trace("Movement blocked: {} at ({},{}) - driving={:.3f} <= resistance={:.3f}",
-                             getMaterialName(cell.getMaterialType()), x, y, 
-                             driving_magnitude, movement_threshold);
-                continue; // Skip boundary crossing logic entirely
+            // Vector-based resistance: resist cohesion-opposing forces but preserve gravity
+            Vector2d velocity = cell.getVelocity();
+            if (movement_threshold > 0.001 && com_cohesion.force_direction.mag() > 0.001) {
+                // Normalize cohesion direction to get resistance direction
+                Vector2d cohesion_direction = com_cohesion.force_direction.normalize();
+                Vector2d gravity_direction(0.0, 1.0); // Downward
+                
+                // Calculate how much velocity opposes the cohesion force
+                double velocity_opposing_cohesion = velocity.dot(cohesion_direction);
+                
+                // Only apply resistance if velocity is opposing cohesion AND it's not gravity-aligned
+                if (velocity_opposing_cohesion < 0) {
+                    // Check if cohesion force opposes gravity (upward cohesion)
+                    double cohesion_gravity_alignment = cohesion_direction.dot(gravity_direction);
+                    
+                    // Don't resist gravity-driven motion: if cohesion points upward, don't resist downward velocity
+                    if (cohesion_gravity_alignment >= -0.1) { // Allow small tolerance
+                        double resistance_strength = movement_threshold / (driving_magnitude + 0.001); // Avoid division by zero
+                        resistance_strength = std::min(resistance_strength, 1.0); // Cap at 100% resistance
+                        
+                        // Remove the velocity component that opposes cohesion
+                        Vector2d resistance_component = cohesion_direction * velocity_opposing_cohesion * resistance_strength;
+                        velocity = velocity - resistance_component;
+                        
+                        cell.setVelocity(velocity);
+                        
+                        spdlog::trace("Directional resistance applied: {} at ({},{}) - removed velocity component {:.3f} opposing cohesion direction ({:.2f},{:.2f})",
+                                     getMaterialName(cell.getMaterialType()), x, y, 
+                                     velocity_opposing_cohesion * resistance_strength, cohesion_direction.x, cohesion_direction.y);
+                    } else {
+                        spdlog::trace("Gravity-preserving resistance: {} at ({},{}) - skipped resistance because cohesion opposes gravity (cohesion: {:.2f},{:.2f})",
+                                     getMaterialName(cell.getMaterialType()), x, y, 
+                                     cohesion_direction.x, cohesion_direction.y);
+                    }
+                }
             }
             
             // Debug: Check if cell has any velocity or interesting COM
-            Vector2d velocity = cell.getVelocity();
+            Vector2d current_velocity = cell.getVelocity();
             Vector2d oldCOM = cell.getCOM();
-            if (velocity.length() > 0.01 || std::abs(oldCOM.x) > 0.5 || std::abs(oldCOM.y) > 0.5) {
+            if (current_velocity.length() > 0.01 || std::abs(oldCOM.x) > 0.5 || std::abs(oldCOM.y) > 0.5) {
                 spdlog::debug("Cell ({},{}) {} - Velocity: ({:.3f},{:.3f}), COM: ({:.3f},{:.3f}), Forces: driving={:.3f} > resistance={:.3f}", 
                               x, y, getMaterialName(cell.getMaterialType()),
-                              velocity.x, velocity.y, oldCOM.x, oldCOM.y,
+                              current_velocity.x, current_velocity.y, oldCOM.x, oldCOM.y,
                               driving_magnitude, movement_threshold);
             }
             
@@ -856,22 +891,95 @@ void WorldB::calculateHydrostaticPressure()
 {
     timers_.startTimer("hydrostatic_pressure");
     
-    // Simple top-down hydrostatic pressure calculation
+    // Skip calculation if hydrostatic pressure is disabled
+    if (!hydrostatic_pressure_enabled_) {
+        timers_.stopTimer("hydrostatic_pressure");
+        return;
+    }
+    
+    // Slice-based hydrostatic pressure calculation, following under_pressure.md design.
+    // Process slices perpendicular to gravity direction.
+    // For simplicity, assume gravity points downward (positive Y direction).
+    Vector2d gravity_dir(0.0, 1.0);  // Normalized gravity direction (downward)
+    double gravity_magnitude = std::abs(gravity_);
+    double slice_thickness = 1.0;  // One cell thickness per slice
+    
+    // Process vertical columns (slices perpendicular to downward gravity).
     for (uint32_t x = 0; x < width_; ++x) {
-        double accumulatedPressure = 0.0;
+        double accumulated_pressure = 0.0;
         
+        // Process cells from top to bottom (following gravity direction).
         for (uint32_t y = 0; y < height_; ++y) {
             CellB& cell = at(x, y);
             
-            cell.setPressure(accumulatedPressure * pressure_scale_);
+            // Set current accumulated pressure on this cell.
+            cell.setHydrostaticPressure(accumulated_pressure);
             
+            // Add this cell's contribution to pressure for cells below.
             if (!cell.isEmpty()) {
-                accumulatedPressure += cell.getEffectiveDensity() * gravity_;
+                double effective_density = cell.getEffectiveDensity();
+                accumulated_pressure += effective_density * gravity_magnitude * slice_thickness;
             }
         }
     }
     
     timers_.stopTimer("hydrostatic_pressure");
+}
+
+Vector2d WorldB::calculatePressureForce(const CellB& cell) const
+{
+    // Combined pressure force calculation following design in under_pressure.md.
+    
+    // Hydrostatic component (gravity-aligned).
+    Vector2d gravity_direction(0.0, 1.0);  // Normalized gravity direction (downward)
+    double hydrostatic_multiplier = 0.1;  // Configurable strength multiplier
+    Vector2d hydrostatic_force = gravity_direction * cell.getHydrostaticPressure() * hydrostatic_multiplier;
+    
+    // Dynamic component (blocked-transfer direction).
+    double dynamic_multiplier = 1.0;  // Configurable strength multiplier
+    Vector2d dynamic_force = cell.getPressureGradient() * cell.getDynamicPressure() * dynamic_multiplier;
+    
+    // Material-specific weighting.
+    MaterialType material = cell.getMaterialType();
+    double hydrostatic_weight = getHydrostaticWeight(material);
+    double dynamic_weight = getDynamicWeight(material);
+    
+    // Combined force with material-specific weighting.
+    Vector2d total_force = hydrostatic_force * hydrostatic_weight + dynamic_force * dynamic_weight;
+    
+    return total_force;
+}
+
+double WorldB::getHydrostaticWeight(MaterialType material) const
+{
+    // Material-specific hydrostatic pressure sensitivity
+    switch (material) {
+        case MaterialType::WATER:  return 1.0;   // High hydrostatic sensitivity
+        case MaterialType::DIRT:   return 0.7;   // Moderate hydrostatic sensitivity
+        case MaterialType::SAND:   return 0.7;   // Moderate hydrostatic sensitivity  
+        case MaterialType::WOOD:   return 0.3;   // Low hydrostatic sensitivity (compression only)
+        case MaterialType::METAL:  return 0.1;   // Very low hydrostatic sensitivity (very rigid)
+        case MaterialType::LEAF:   return 0.8;   // High hydrostatic sensitivity (light material)
+        case MaterialType::WALL:   return 0.0;   // Immobile
+        case MaterialType::AIR:    return 0.0;   // No mass
+        default:                   return 0.5;   // Default moderate sensitivity
+    }
+}
+
+double WorldB::getDynamicWeight(MaterialType material) const
+{
+    // Material-specific dynamic pressure sensitivity
+    switch (material) {
+        case MaterialType::WATER:  return 0.8;   // Responds well to dynamic pressure
+        case MaterialType::DIRT:   return 1.0;   // High dynamic pressure response (granular)
+        case MaterialType::SAND:   return 1.0;   // High dynamic pressure response (granular)
+        case MaterialType::WOOD:   return 0.5;   // Moderate dynamic pressure response
+        case MaterialType::METAL:  return 0.3;   // Low dynamic pressure response (rigid)
+        case MaterialType::LEAF:   return 0.9;   // High dynamic pressure response (light)
+        case MaterialType::WALL:   return 0.0;   // Immobile
+        case MaterialType::AIR:    return 0.0;   // No mass
+        default:                   return 0.6;   // Default moderate response
+    }
 }
 
 void WorldB::setupBoundaryWalls()
@@ -1218,8 +1326,7 @@ void WorldB::preserveState(::WorldState& state) const
                 totalMass,
                 cellMaterial,
                 cell.getVelocity(),
-                cell.getCOM(),
-                cell.getPressure()
+                cell.getCOM()
             );
             
             state.setCellData(x, y, cellData);
@@ -1279,7 +1386,6 @@ void WorldB::restoreState(const ::WorldState& state)
                 cell.setFillRatio(fillRatio);
                 cell.setVelocity(cellData.velocity);
                 cell.setCOM(cellData.com);
-                cell.setPressure(cellData.pressure);
             } else {
                 // Empty cell
                 cell.clear();
@@ -1312,7 +1418,7 @@ std::vector<Vector2i> WorldB::getAllBoundaryCrossings(const Vector2d& newCOM)
 WorldB::MaterialMove WorldB::createCollisionAwareMove(const CellB& fromCell, const CellB& toCell, 
                                                       const Vector2i& fromPos, const Vector2i& toPos,
                                                       const Vector2i& direction, double /* deltaTime */,
-                                                      const COMCohesionForce& com_cohesion)
+                                                      const WorldCohesionCalculator::COMCohesionForce& com_cohesion)
 {
     MaterialMove move;
     
@@ -1466,8 +1572,18 @@ double WorldB::calculateCollisionEnergy(const MaterialMove& move, const CellB& f
 
 void WorldB::handleTransferMove(CellB& fromCell, CellB& toCell, const MaterialMove& move)
 {
+    // Log pre-transfer state
+    spdlog::debug("TRANSFER: Before - From({},{}) vel=({:.3f},{:.3f}) fill={:.3f}, To({},{}) vel=({:.3f},{:.3f}) fill={:.3f}",
+                  move.fromX, move.fromY, fromCell.getVelocity().x, fromCell.getVelocity().y, fromCell.getFillRatio(),
+                  move.toX, move.toY, toCell.getVelocity().x, toCell.getVelocity().y, toCell.getFillRatio());
+    
     // Attempt the transfer
     const double transferred = fromCell.transferToWithPhysics(toCell, move.amount, move.boundary_normal);
+    
+    // Log post-transfer state
+    spdlog::debug("TRANSFER: After  - From({},{}) vel=({:.3f},{:.3f}) fill={:.3f}, To({},{}) vel=({:.3f},{:.3f}) fill={:.3f}",
+                  move.fromX, move.fromY, fromCell.getVelocity().x, fromCell.getVelocity().y, fromCell.getFillRatio(),
+                  move.toX, move.toY, toCell.getVelocity().x, toCell.getVelocity().y, toCell.getFillRatio());
     
     if (transferred > 0.0) {
         spdlog::trace("Transferred {:.3f} {} from ({},{}) to ({},{}) with boundary normal ({:.2f},{:.2f})", 
@@ -1484,6 +1600,12 @@ void WorldB::handleTransferMove(CellB& fromCell, CellB& toCell, const MaterialMo
         
         spdlog::debug("Transfer incomplete: requested={:.3f}, transferred={:.3f}, deficit={:.3f} - applying reflection",
                       move.amount, transferred, transfer_deficit);
+        
+        // Queue blocked transfer for dynamic pressure accumulation
+        if (dynamic_pressure_enabled_) {
+            queueBlockedTransfer(move.fromX, move.fromY, transfer_deficit, 
+                               move.material, fromCell.getVelocity(), move.boundary_normal);
+        }
         
         applyCellBoundaryReflection(fromCell, direction, move.material);
     }
@@ -1531,25 +1653,60 @@ void WorldB::handleElasticCollision(CellB& fromCell, CellB& toCell, const Materi
 
 void WorldB::handleInelasticCollision(CellB& fromCell, CellB& toCell, const MaterialMove& move)
 {
-    // Similar to elastic but with energy loss and some material transfer
+    // Physics-correct component-based collision handling.
     Vector2d incident_velocity = move.momentum;
     Vector2d surface_normal = move.boundary_normal.normalize();
     
-    // Reduced restitution for inelastic collision
+    // Decompose velocity into normal and tangential components.
+    Vector2d v_normal = surface_normal * incident_velocity.dot(surface_normal);
+    Vector2d v_tangential = incident_velocity - v_normal;
+    
+    // Apply restitution only to normal component, preserve tangential.
     double inelastic_restitution = move.restitution_coefficient * 0.5;
-    Vector2d reflected_velocity = incident_velocity.reflect(surface_normal) * inelastic_restitution;
+    Vector2d v_normal_reflected = v_normal * (-inelastic_restitution);
+    Vector2d final_velocity = v_tangential + v_normal_reflected;
     
-    // Apply momentum conservation with energy loss
-    fromCell.setVelocity(reflected_velocity);
+    // Apply the corrected velocity to the incident particle.
+    fromCell.setVelocity(final_velocity);
     
-    // Allow some material transfer (reduced amount)
+    // Transfer momentum to target cell (Newton's 3rd law).
+    // Even if material transfer fails, momentum must be conserved.
+    if (move.target_mass > 0.0) {
+        Vector2d momentum_transferred = v_normal * (1.0 + inelastic_restitution) * move.material_mass;
+        Vector2d target_velocity_change = momentum_transferred / move.target_mass;
+        toCell.setVelocity(toCell.getVelocity() + target_velocity_change);
+        
+        spdlog::debug("Momentum transfer: normal=({:.3f},{:.3f}) momentum=({:.3f},{:.3f}) target_vel_change=({:.3f},{:.3f})",
+                      v_normal.x, v_normal.y, momentum_transferred.x, momentum_transferred.y,
+                      target_velocity_change.x, target_velocity_change.y);
+    }
+    
+    // Allow some material transfer (reduced amount) - this may fail if target is full.
     double reduced_amount = move.amount * 0.3; // Transfer 30% of material
-    MaterialMove transfer_move = move;
-    transfer_move.amount = reduced_amount;
-    handleTransferMove(fromCell, toCell, transfer_move);
     
-    spdlog::trace("Inelastic collision: {} at ({},{}) with partial transfer {:.3f}", 
-                  getMaterialName(move.material), move.fromX, move.fromY, reduced_amount);
+    // Attempt direct material transfer and measure actual amount transferred.
+    double actual_transfer = fromCell.transferToWithPhysics(toCell, reduced_amount, move.boundary_normal);
+    
+    // Check for blocked transfer and queue for dynamic pressure accumulation.
+    double transfer_deficit = reduced_amount - actual_transfer;
+    
+    // Debug logging to understand what's happening.
+    spdlog::debug("Inelastic collision transfer attempt: original_amount={:.6f}, reduced_amount={:.6f}, actual_transfer={:.6f}, deficit={:.6f}",
+                  move.amount, reduced_amount, actual_transfer, transfer_deficit);
+    spdlog::debug("Dynamic pressure enabled: {}, deficit > threshold: {} (threshold={:.6f})", 
+                  dynamic_pressure_enabled_, transfer_deficit > MIN_MATTER_THRESHOLD, MIN_MATTER_THRESHOLD);
+    
+    if (transfer_deficit > MIN_MATTER_THRESHOLD && dynamic_pressure_enabled_) {
+        spdlog::debug("🚫 Inelastic collision blocked transfer: requested={:.3f}, transferred={:.3f}, deficit={:.3f}",
+                      reduced_amount, actual_transfer, transfer_deficit);
+        
+        // Queue blocked transfer for dynamic pressure accumulation
+        queueBlockedTransfer(move.fromX, move.fromY, transfer_deficit, 
+                           move.material, fromCell.getVelocity(), move.boundary_normal);
+    }
+    
+    spdlog::trace("Inelastic collision: {} at ({},{}) with material transfer {:.3f}, momentum conserved", 
+                  getMaterialName(move.material), move.fromX, move.fromY, actual_transfer);
 }
 
 void WorldB::handleFragmentation(CellB& fromCell, CellB& toCell, const MaterialMove& move)
@@ -1583,142 +1740,7 @@ void WorldB::handleAbsorption(CellB& fromCell, CellB& toCell, const MaterialMove
 // FORCE CALCULATION METHODS
 // =================================================================
 
-WorldB::CohesionForce WorldB::calculateCohesionForce(uint32_t x, uint32_t y)
-{
-    const CellB& cell = at(x, y);
-    if (cell.isEmpty()) {
-        return {0.0, 0};
-    }
-    
-    const MaterialProperties& props = getMaterialProperties(cell.getMaterialType());
-    double material_cohesion = props.cohesion;
-    uint32_t connected_neighbors = 0;
-    
-    // Check all 8 neighbors (including diagonals)
-    for (int dx = -1; dx <= 1; dx++) {
-        for (int dy = -1; dy <= 1; dy++) {
-            if (dx == 0 && dy == 0) continue; // Skip self
-            
-            int nx = static_cast<int>(x) + dx;
-            int ny = static_cast<int>(y) + dy;
-            
-            if (isValidCell(nx, ny)) {
-                const CellB& neighbor = at(nx, ny);
-                if (neighbor.getMaterialType() == cell.getMaterialType() && 
-                    neighbor.getFillRatio() > MIN_MATTER_THRESHOLD) {
-                    
-                    // Weight by neighbor's fill ratio for partial cells
-                    connected_neighbors += 1; // Count as 1 neighbor (fix: was casting double to uint32_t)
-                }
-            }
-        }
-    }
-    
-    // NEW: Use directional support for realistic physics
-    bool has_vertical = hasVerticalSupport(x, y);
-    bool has_horizontal = hasHorizontalSupport(x, y);
-    
-    // Calculate support factor based on directional support
-    double support_factor;
-    if (has_vertical) {
-        // Full cohesion with vertical support (load-bearing from below)
-        support_factor = 1.0;
-        spdlog::trace("Full vertical support for {} at ({},{})", getMaterialName(cell.getMaterialType()), x, y);
-    } else if (has_horizontal) {
-        // Reduced cohesion with only horizontal support (rigid lateral connections)
-        support_factor = 0.5;
-        spdlog::trace("Horizontal support only for {} at ({},{})", getMaterialName(cell.getMaterialType()), x, y);
-    } else {
-        // Minimal cohesion without structural support
-        support_factor = MIN_SUPPORT_FACTOR; // 0.1
-        spdlog::trace("No structural support for {} at ({},{})", getMaterialName(cell.getMaterialType()), x, y);
-    }
-    
-    // Resistance magnitude = cohesion × connection strength × own fill ratio × support factor
-    double resistance = material_cohesion * connected_neighbors * cell.getFillRatio() * support_factor;
-    
-    spdlog::trace("Cohesion calculation for {} at ({},{}): neighbors={}, vertical_support={}, horizontal_support={}, support_factor={:.2f}, resistance={:.3f}",
-                  getMaterialName(cell.getMaterialType()), x, y, connected_neighbors, has_vertical, has_horizontal, support_factor, resistance);
-    
-    return {resistance, connected_neighbors};
-}
 
-WorldB::COMCohesionForce WorldB::calculateCOMCohesionForce(uint32_t x, uint32_t y)
-{
-    const CellB& cell = at(x, y);
-    if (cell.isEmpty()) {
-        return {{0.0, 0.0}, 0.0, {0.0, 0.0}, 0};
-    }
-    
-    Vector2d cell_world_pos = getCellWorldPosition(x, y, cell.getCOM());
-    Vector2d neighbor_center_sum(0.0, 0.0);
-    double total_weight = 0.0;
-    uint32_t connection_count = 0;
-    
-    // Check all neighbors within COM cohesion range for same-material connections
-    int range = static_cast<int>(com_cohesion_range_);
-    for (int dx = -range; dx <= range; dx++) {
-        for (int dy = -range; dy <= range; dy++) {
-            if (dx == 0 && dy == 0) continue;
-            
-            int nx = static_cast<int>(x) + dx;
-            int ny = static_cast<int>(y) + dy;
-            
-            if (isValidCell(nx, ny)) {
-                const CellB& neighbor = at(nx, ny);
-                if (neighbor.getMaterialType() == cell.getMaterialType() && 
-                    neighbor.getFillRatio() > MIN_MATTER_THRESHOLD) {
-                    
-                    // Get neighbor's world position including its COM offset
-                    Vector2d neighbor_world_pos = getCellWorldPosition(nx, ny, neighbor.getCOM());
-                    double weight = neighbor.getFillRatio();
-                    
-                    neighbor_center_sum += neighbor_world_pos * weight;
-                    total_weight += weight;
-                    connection_count++;
-                }
-            }
-        }
-    }
-    
-    if (connection_count == 0 || total_weight < MIN_MATTER_THRESHOLD) {
-        return {{0.0, 0.0}, 0.0, {0.0, 0.0}, 0};
-    }
-    
-    // Calculate weighted center of connected neighbors
-    Vector2d neighbor_center = neighbor_center_sum / total_weight;
-    
-    // Force direction: toward the center of neighbors
-    Vector2d force_direction = neighbor_center - cell_world_pos;
-    double distance = force_direction.magnitude();
-    
-    if (distance < 0.001) { // Avoid division by zero
-        return {{0.0, 0.0}, 0.0, neighbor_center, connection_count};
-    }
-    
-    force_direction.normalize();
-    
-    // Force magnitude: cohesion strength × connection count × distance factor × fill ratio
-    const MaterialProperties& props = getMaterialProperties(cell.getMaterialType());
-    double base_cohesion = props.cohesion;
-    double distance_factor = std::min(distance, 2.0); // Cap at 2 cell distances
-    // Calculate max possible connections for this range: (2*range+1)² - 1 (excluding center)
-    double max_connections = static_cast<double>((2 * range + 1) * (2 * range + 1) - 1);
-    double connection_factor = static_cast<double>(connection_count) / max_connections; // Normalize to [0,1]
-    double force_magnitude = base_cohesion * connection_factor * distance_factor * cell.getFillRatio();
-    
-    // Prevent excessive COM forces
-    double max_com_force = base_cohesion * 2.0; // Cap at 2x base cohesion
-    force_magnitude = std::min(force_magnitude, max_com_force);
-    
-    Vector2d final_force = force_direction * force_magnitude;
-    
-    spdlog::trace("COM cohesion for {} at ({},{}): connections={}, distance={:.3f}, force_mag={:.3f}, direction=({:.3f},{:.3f})",
-                  getMaterialName(cell.getMaterialType()), x, y, connection_count, distance, force_magnitude, 
-                  final_force.x, final_force.y);
-    
-    return {final_force, force_magnitude, neighbor_center, connection_count};
-}
 
 WorldB::AdhesionForce WorldB::calculateAdhesionForce(uint32_t x, uint32_t y)
 {
@@ -1960,144 +1982,118 @@ bool WorldB::hasStructuralSupport(uint32_t x, uint32_t y) {
     return false;
 }
 
-bool WorldB::hasVerticalSupport(uint32_t x, uint32_t y) {
-    if (!isValidCell(x, y)) {
-        spdlog::trace("hasVerticalSupport({},{}) = false (invalid cell)", x, y);
-        return false;
-    }
-    
-    const CellB& cell = at(x, y);
-    if (cell.isEmpty()) {
-        spdlog::trace("hasVerticalSupport({},{}) = false (empty cell)", x, y);
-        return false;
-    }
-    
-    // Check if already at ground level
-    if (y == height_ - 1) {
-        spdlog::trace("hasVerticalSupport({},{}) = true (at ground level)", x, y);
-        return true;
-    }
-    
-    // Check cells directly below for continuous material (no gaps allowed)
-    for (uint32_t dy = 1; dy <= MAX_VERTICAL_SUPPORT_DISTANCE; dy++) {
-        uint32_t support_y = y + dy;
-        
-        // If we reach beyond the world boundary, no material support available
-        if (support_y >= height_) {
-            spdlog::info("hasVerticalSupport({},{}) = false (reached world boundary at distance {}, no material below)", x, y, dy);
-            break;
-        }
-        
-        const CellB& below = at(x, support_y);
-        if (!below.isEmpty()) {
-            // RECURSIVE SUPPORT CHECK: Supporting block must itself be supported
-            bool supporting_block_supported = hasVerticalSupport(x, support_y);
-            if (supporting_block_supported) {
-                spdlog::trace("hasVerticalSupport({},{}) = true (material {} below at distance {} is itself supported)", 
-                             x, y, getMaterialName(below.getMaterialType()), dy);
-                return true;
-            } else {
-                spdlog::trace("hasVerticalSupport({},{}) = false (material {} below at distance {} is unsupported)", 
-                             x, y, getMaterialName(below.getMaterialType()), dy);
-                return false;
-            }
-        } else {
-            // CRITICAL FIX: Stop at first empty cell - no support through gaps
-            spdlog::trace("hasVerticalSupport({},{}) = false (empty cell at distance {}, no continuous support)", x, y, dy);
-            return false;
-        }
-    }
-    
-    spdlog::info("hasVerticalSupport({},{}) = false (no material below within {} cells)", 
-                 x, y, MAX_VERTICAL_SUPPORT_DISTANCE);
-    return false;
-}
-
-bool WorldB::hasHorizontalSupport(uint32_t x, uint32_t y) {
-    if (!isValidCell(x, y)) {
-        spdlog::trace("hasHorizontalSupport({},{}) = false (invalid cell)", x, y);
-        return false;
-    }
-    
-    const CellB& cell = at(x, y);
-    if (cell.isEmpty()) {
-        spdlog::trace("hasHorizontalSupport({},{}) = false (empty cell)", x, y);
-        return false;
-    }
-    
-    const MaterialProperties& cell_props = getMaterialProperties(cell.getMaterialType());
-    
-    // Check immediate neighbors only (no BFS for horizontal support)
-    for (int dx = -1; dx <= 1; dx++) {
-        for (int dy = -1; dy <= 1; dy++) {
-            if (dx == 0 && dy == 0) continue; // Skip self
-            
-            int nx = static_cast<int>(x) + dx;
-            int ny = static_cast<int>(y) + dy;
-            
-            if (!isValidCell(nx, ny)) continue;
-            
-            const CellB& neighbor = at(nx, ny);
-            if (neighbor.isEmpty()) continue;
-            
-            const MaterialProperties& neighbor_props = getMaterialProperties(neighbor.getMaterialType());
-            
-            // Check for rigid support: high-density neighbor with strong adhesion
-            if (neighbor_props.density > RIGID_DENSITY_THRESHOLD) {
-                // Calculate mutual adhesion between materials
-                double mutual_adhesion = std::sqrt(cell_props.adhesion * neighbor_props.adhesion);
-                
-                if (mutual_adhesion > STRONG_ADHESION_THRESHOLD) {
-                    spdlog::trace("hasHorizontalSupport({},{}) = true (rigid {} neighbor with adhesion {:.3f})", 
-                                 x, y, getMaterialName(neighbor.getMaterialType()), mutual_adhesion);
-                    return true;
-                }
-            }
-        }
-    }
-    
-    spdlog::trace("hasHorizontalSupport({},{}) = false (no rigid neighbors with strong adhesion)", x, y);
-    return false;
-}
 
 std::string WorldB::toAsciiDiagram() const
 {
-    std::ostringstream diagram;
-    
-    // Add top border (2 chars per cell + 1 space between each cell, except last)
-    diagram << "+";
-    for (uint32_t x = 0; x < width_; ++x) {
-        diagram << "--";
-        if (x < width_ - 1) {
-            diagram << "-";  // Space between cells
-        }
-    }
-    diagram << "+\n";
-    
-    // Iterate through each row from top to bottom
-    for (uint32_t y = 0; y < height_; ++y) {
-        diagram << "|";  // Left border
-        
-        // Add each cell's ASCII representation (2 characters each) with spaces between
-        for (uint32_t x = 0; x < width_; ++x) {
-            diagram << at(x, y).toAsciiCharacter();
-            if (x < width_ - 1) {
-                diagram << " ";  // Space between cells
-            }
-        }
-        
-        diagram << "|\n";  // Right border and newline
-    }
-    
-    // Add bottom border (2 chars per cell + 1 space between each cell, except last)
-    diagram << "+";
-    for (uint32_t x = 0; x < width_; ++x) {
-        diagram << "--";
-        if (x < width_ - 1) {
-            diagram << "-";  // Space between cells
-        }
-    }
-    diagram << "+\n";
-    
-    return diagram.str();
+    return WorldDiagramGenerator::generateAsciiDiagram(cells_.data(), width_, height_);
 }
+
+// =================================================================
+// DYNAMIC PRESSURE SYSTEM IMPLEMENTATION
+// =================================================================
+
+void WorldB::queueBlockedTransfer(int fromX, int fromY, double blocked_amount,
+                                 MaterialType material, const Vector2d& velocity, 
+                                 const Vector2d& boundary_normal)
+{
+    if (blocked_amount <= MIN_MATTER_THRESHOLD || !dynamic_pressure_enabled_) {
+        return;
+    }
+    
+    blocked_transfers_.emplace_back(fromX, fromY, blocked_amount, material, velocity, boundary_normal);
+    
+    spdlog::trace("Queued blocked transfer: pos=({},{}) amount={:.3f} material={} energy={:.3f}",
+                  fromX, fromY, blocked_amount, static_cast<int>(material), 
+                  velocity.magnitude() * blocked_amount);
+}
+
+void WorldB::processBlockedTransfers()
+{
+    if (!dynamic_pressure_enabled_ || blocked_transfers_.empty()) {
+        return;
+    }
+    
+    static constexpr double DYNAMIC_ACCUMULATION_RATE = 0.1;  // Rate of pressure buildup
+    
+    timers_.startTimer("dynamic_pressure_accumulation");
+    
+    for (const auto& blocked : blocked_transfers_) {
+        // Bounds check
+        if (blocked.fromX < 0 || blocked.fromY < 0 || 
+            blocked.fromX >= static_cast<int>(width_) || blocked.fromY >= static_cast<int>(height_)) {
+            continue;
+        }
+        
+        CellB& cell = at(static_cast<uint32_t>(blocked.fromX), static_cast<uint32_t>(blocked.fromY));
+        
+        // Convert blocked kinetic energy to dynamic pressure
+        double pressure_increase = blocked.blocked_energy * DYNAMIC_ACCUMULATION_RATE * 10;
+        cell.setDynamicPressure(cell.getDynamicPressure() + pressure_increase);
+        
+        // Update pressure gradient direction (weighted average)
+        Vector2d current_gradient = cell.getPressureGradient();
+        double current_pressure = cell.getDynamicPressure();
+        double new_weight = pressure_increase / current_pressure;
+        
+        Vector2d updated_gradient = current_gradient * (1.0 - new_weight) + 
+                                  blocked.boundary_normal * new_weight;
+        cell.setPressureGradient(updated_gradient.normalize());
+        
+        spdlog::trace("Applied dynamic pressure: pos=({},{}) increase={:.3f} total={:.3f}",
+                      blocked.fromX, blocked.fromY, pressure_increase, current_pressure);
+    }
+    
+    timers_.stopTimer("dynamic_pressure_accumulation");
+    
+    // Clear processed blocked transfers
+    blocked_transfers_.clear();
+}
+
+void WorldB::applyDynamicPressureForces(double deltaTime)
+{
+    // Updated to use combined pressure force calculation (see under_pressure.md)
+    if (!dynamic_pressure_enabled_ && !hydrostatic_pressure_enabled_) {
+        return;
+    }
+    
+    static constexpr double DYNAMIC_DECAY_RATE = 0.05;  // Rate of dynamic pressure dissipation
+    
+    timers_.startTimer("combined_pressure_forces");
+    
+    for (uint32_t y = 0; y < height_; ++y) {
+        for (uint32_t x = 0; x < width_; ++x) {
+            CellB& cell = at(x, y);
+            
+            // Skip empty cells
+            if (cell.isEmpty()) {
+                continue;
+            }
+            
+            // Calculate combined pressure force (hydrostatic + dynamic)
+            Vector2d total_pressure_force = calculatePressureForce(cell);
+            
+            // Skip negligible forces
+            if (total_pressure_force.magnitude() <= 0.001) {
+                continue;
+            }
+            
+            // Apply combined pressure force to velocity (Phase 2.2)
+            Vector2d new_velocity = cell.getVelocity() + total_pressure_force * deltaTime * pressure_scale_;
+            cell.setVelocity(new_velocity);
+            
+            // Apply pressure decay (dynamic only - hydrostatic is recalculated each frame)
+            double current_dynamic_pressure = cell.getDynamicPressure();
+            if (current_dynamic_pressure > 0.001) {
+                double decayed_pressure = current_dynamic_pressure * (1.0 - DYNAMIC_DECAY_RATE * deltaTime);
+                cell.setDynamicPressure(decayed_pressure);
+            }
+            
+            spdlog::trace("Applied combined pressure force: pos=({},{}) hydrostatic={:.3f} dynamic={:.3f} force=({:.3f},{:.3f})",
+                          x, y, cell.getHydrostaticPressure(), cell.getDynamicPressure(), 
+                          total_pressure_force.x, total_pressure_force.y);
+        }
+    }
+    
+    timers_.stopTimer("combined_pressure_forces");
+}
+

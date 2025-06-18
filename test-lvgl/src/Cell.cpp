@@ -31,6 +31,7 @@ constexpr int DENSITY_GRID_SIZE = 10;             // Grid for density visualizat
 } // namespace
 
 bool Cell::debugDraw = true;
+bool Cell::adhesionDrawEnabled = true;
 uint32_t Cell::WIDTH = 100;  // Increased size for better detail visibility
 uint32_t Cell::HEIGHT = 100; // Increased size for better detail visibility
 

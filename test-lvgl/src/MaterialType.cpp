@@ -8,15 +8,15 @@
 
 // Material property database
 // Format: {density, elasticity, cohesion, adhesion, is_fluid, is_rigid}
-static const std::array<MaterialProperties, 8> MATERIAL_PROPERTIES = {{
+static std::array<MaterialProperties, 8> MATERIAL_PROPERTIES = {{
     // AIR: Nearly massless, high elasticity, no cohesion/adhesion
     {0.001, 1.0, 0.0, 0.0, true, false},
     
     // DIRT: Medium density granular material
-    {1.5, 0.3, 0.4, 0.2, false, false},
+    {1.5, 0.3, 0.3, 0.2, false, false},
     
-    // WATER: Fluid with medium density, no elasticity when flowing
-    {1.0, 0.1, 0.1, 0.1, true, false},
+    // WATER: Fluid with medium density, strong cohesion for droplet formation
+    {1.0, 0.1, 0.6, 0.5, true, false},
     
     // WOOD: Light rigid material with moderate elasticity
     {0.8, 0.6, 0.7, 0.3, false, true},
@@ -25,7 +25,7 @@ static const std::array<MaterialProperties, 8> MATERIAL_PROPERTIES = {{
     {1.8, 0.2, 0.2, 0.1, false, false},
     
     // METAL: Very dense rigid material with high elasticity
-    {7.8, 0.8, 0.9, 1.8, false, true},
+    {7.8, 0.8, 0.9, 0.1, false, true},
     
     // LEAF: Very light organic matter
     {0.3, 0.4, 0.3, 0.2, false, false},
@@ -98,4 +98,11 @@ MaterialType materialTypeFromJson(const rapidjson::Value& json)
     }
     
     throw std::runtime_error("MaterialType::fromJson: Unknown material type '" + name + "'");
+}
+
+void setMaterialCohesion(MaterialType type, double cohesion)
+{
+    const auto index = static_cast<size_t>(type);
+    assert(index < MATERIAL_PROPERTIES.size());
+    MATERIAL_PROPERTIES[index].cohesion = cohesion;
 }

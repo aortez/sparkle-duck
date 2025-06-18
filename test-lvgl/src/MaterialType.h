@@ -61,6 +61,12 @@ bool isMaterialRigid(MaterialType type);
 const char* getMaterialName(MaterialType type);
 
 /**
+ * Set the cohesion value for a specific material type.
+ * This allows dynamic modification of material properties.
+ */
+void setMaterialCohesion(MaterialType type, double cohesion);
+
+/**
  * JSON serialization support for MaterialType.
  */
 rapidjson::Value materialTypeToJson(MaterialType type, rapidjson::Document::AllocatorType& allocator);

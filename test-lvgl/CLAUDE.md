@@ -265,3 +265,4 @@ Can be found here:
 [ ] - Collisons having effects, splash, fragmentation, etc.
 [ ] - Add material-specific collision behaviors?
 [ ] - chain reaction mechanics?
+[ ] - CellInterface?

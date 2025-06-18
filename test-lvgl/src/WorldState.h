@@ -56,17 +56,16 @@ struct WorldState {
         MaterialType dominant_material; // Primary material for conversion
         Vector2d velocity;              // Cell velocity
         Vector2d com;                   // Center of mass offset
-        double pressure;                // Pressure value
         
         // Default constructor
         CellData() : material_mass(0.0), dominant_material(MaterialType::AIR), 
-                    velocity(0.0, 0.0), com(0.0, 0.0), pressure(0.0) {}
+                    velocity(0.0, 0.0), com(0.0, 0.0) {}
         
         // Constructor with values
         CellData(double mass, MaterialType material, const Vector2d& vel = Vector2d(0.0, 0.0),
-                const Vector2d& center_of_mass = Vector2d(0.0, 0.0), double press = 0.0)
+                const Vector2d& center_of_mass = Vector2d(0.0, 0.0))
             : material_mass(mass), dominant_material(material), velocity(vel), 
-              com(center_of_mass), pressure(press) {}
+              com(center_of_mass) {}
               
         // JSON serialization support
         rapidjson::Value toJson(rapidjson::Document::AllocatorType& allocator) const;

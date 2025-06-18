@@ -16,6 +16,7 @@
 #include <future>
 
 #include "../World.h"
+#include "../WorldB.h"
 #include "../Cell.h"
 #include "TestUI.h"
 #include "lvgl/lvgl.h"
@@ -70,6 +71,21 @@ class VisualTestEnvironment : public ::testing::Environment {
 public:
     void SetUp() override;
     void TearDown() override;
+    
+    // Universal test configuration settings
+    static bool isDebugLoggingEnabled() { return debug_logging_enabled_; }
+    static bool isAdhesionDisabledByDefault() { return adhesion_disabled_by_default_; }
+    static bool isCohesionDisabledByDefault() { return cohesion_disabled_by_default_; }
+    static bool isPressureDisabledByDefault() { return pressure_disabled_by_default_; }
+    static bool isAsciiLoggingEnabled() { return ascii_logging_enabled_; }
+    
+private:
+    // Universal test configuration flags
+    static bool debug_logging_enabled_;
+    static bool adhesion_disabled_by_default_;
+    static bool cohesion_disabled_by_default_;
+    static bool pressure_disabled_by_default_;
+    static bool ascii_logging_enabled_;
 };
 
 // Base class for all visual tests
@@ -80,6 +96,9 @@ protected:
     
     // Helper to create a world with or without UI
     std::unique_ptr<World> createWorld(uint32_t width, uint32_t height);
+    
+    // Helper to create a WorldB with universal defaults applied
+    std::unique_ptr<WorldB> createWorldB(uint32_t width, uint32_t height);
     
     // Helper method to run visual simulation if enabled, otherwise just advance time
     void runSimulation(World* world, int steps = 60, const std::string& description = "");
@@ -118,6 +137,16 @@ protected:
     bool isAutoScalingEnabled() const { return auto_scaling_enabled_; }
     void scaleDrawingAreaForWorld(uint32_t world_width, uint32_t world_height);
     void restoreOriginalCellSize();
+    
+    // Universal test configuration helpers
+    void applyUniversalPhysicsDefaults(WorldB* world);
+    void logWorldStateAscii(const WorldB* world, const std::string& description = "");
+    void logWorldStateAscii(const World* world, const std::string& description = "");
+    
+    // Test setup completion - call this after setting up initial test conditions
+    // Usage pattern: 1) createWorldB(), 2) setup materials/conditions, 3) logInitialTestState()
+    void logInitialTestState(const WorldB* world, const std::string& test_description = "");
+    void logInitialTestState(const World* world, const std::string& test_description = "");
     
     // Test state
     bool visual_mode_ = false;
