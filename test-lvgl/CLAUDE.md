@@ -14,7 +14,7 @@ The project features **dual physics systems**:
 
 ### Building
 ```bash
-# Main build (recommended)
+# Main build
 ./run_build.sh
 
 # Debug/release variants
@@ -28,15 +28,14 @@ make -C build -j12
 
 ### Running
 ```bash
-# Run the simulation4
+# Run the simulation
 ./run_main.sh
 
-# Run with specific display backend (RECOMMENDED: always specify steps)
+# Run with specific display backend.
+# RECOMMENDED: always specify steps with -s option,
+# otherwise it will not automatically exit.
 ./build/bin/sparkle-duck -b wayland -s 100
 ./build/bin/sparkle-duck -b sdl -s 100
-
-# Preferred method: Use Wayland backend with step limit
-sparkle-duck -b wayland -s 100
 ```
 
 ### Testing
@@ -47,7 +46,7 @@ sparkle-duck -b wayland -s 100
 # Run visual tests (requires display)
 ./run_visual_tests.sh
 
-# Enable visual mode for tests
+# Enable visual mode for tests manually.
 SPARKLE_DUCK_VISUAL_TESTS=1 ./run_tests.sh
 ```
 
@@ -62,7 +61,7 @@ SPARKLE_DUCK_VISUAL_TESTS=1 ./run_tests.sh
 
 #### RulesA (Legacy) - Mixed Material System  
 - **World**: Original grid-based simulation using Cell (should be renamed WorldA)
-- **Cell**: Individual simulation units with mixed dirt/water amounts
+- **Cell**: Individual simulation units with mixed dirt/water amounts (should be renamed CellA)
 - **WorldRules**: Complex physics with pressure systems and material mixing
 
 ### Shared Components
@@ -178,13 +177,58 @@ https://docs.lvgl.io/master/details/widgets/index.html
 ### Design docs
 
 Can be found here:
-- design_docs/GridMechanics.md          #<-- For the WorldB system foundations.
-- design_docs/WorldB-Development-Plan.md #<-- Complete WorldB development roadmap.
+- design_docs/GridMechanics.md            #<-- For the WorldB system foundations.
+- design_docs/WorldB-Development-Plan.md  #<-- Complete WorldB development roadmap.
 - design_docs/MaterialPicker-UI-Design.md #<-- Material picker UI design (IN DEVELOPMENT)
-- design_docs/ui_overview.md            #<-- UI architecture and widget layout
-- design_docs/WebRTC-test-driver.md     #<-- P2P API for test framework purposes.
-- design_docs/Enhanced-Collision-Effects.md
+- design_docs/ui_overview.md              #<-- UI architecture and widget layout
+- design_docs/WebRTC-test-driver.md       #<-- P2P API for test framework purposes.
 - design_docs/*.md
+
+## Project Directory Structure
+
+  test-lvgl/
+  ├── src/                                    # Main source code
+  │   ├── main.cpp                           # Application entry point
+  │   ├── Cell.{cpp,h}                       # RulesA cell implementation
+  │   ├── CellB.{cpp,h}                      # RulesB cell implementation
+  │   ├── World.{cpp,h}                      # RulesA physics system
+  │   ├── WorldB.{cpp,h}                     # RulesB physics system
+  │   ├── SimulatorUI.{cpp,h}                # LVGL-based UI
+  │   ├── MaterialType.{cpp,h}               # Material system
+  │   ├── Vector2{d,i}.{cpp,h}               # 2D math utilities
+  │   ├── SimulationManager.{cpp,h}          # World switching logic
+  │   ├── WorldFactory.{cpp,h}               # World creation
+  │   ├── MaterialPicker.{cpp,h}             # Material selection UI
+  │   ├── CrashDumpHandler.{cpp,h}           # Debug crash dumps
+  │   ├── Timers.{cpp,h}                     # Performance timing
+  │   ├── WorldCohesionCalculator.{cpp,h}    # Cohesion physics
+  │   ├── WorldDiagramGenerator.{cpp,h}      # ASCII visualization
+  │   ├── lib/                               # LVGL backend support
+  │   │   ├── display_backends/              # SDL, Wayland, X11, FBDEV
+  │   │   └── driver_backends.{cpp,h}        # Backend management
+  │   └── tests/                             # Unit and visual tests
+  │       ├── WorldBVisual_test.cpp          # RulesB physics tests
+  │       ├── WorldVisual_test.cpp           # RulesA physics tests
+  │       ├── Vector2d_test.cpp              # Math tests
+  │       └── visual_test_runner.{cpp,h}     # Test framework
+  ├── design_docs/                           # Architecture documentation
+  │   ├── GridMechanics.md                   # RulesB physics design
+  │   ├── WorldB-Development-Plan.md         # Development roadmap
+  │   ├── ui_overview.md                     # UI architecture
+  │   └── under_pressure.md                  # Pressure system design
+  ├── lvgl/                                  # LVGL graphics library
+  ├── spdlog/                                # Logging library
+  ├── scripts/                               # Build and utility scripts
+  │   ├── run_build.sh                       # Main build script
+  │   ├── run_main.sh                        # Run simulation
+  │   ├── run_tests.sh                       # Unit tests
+  │   └── run_visual_tests.sh                # Visual tests
+  ├── build/                                 # Build artifacts
+  ├── bin/                                   # Compiled executables
+  ├── CMakeLists.txt                         # CMake configuration
+  ├── CLAUDE.md                              # AI assistant instructions
+  └── core/                                  # Shared utilities
+      └── Result.h                           # Error handling
 
 ## Development Status
 
@@ -192,15 +236,11 @@ Can be found here:
 **Foundation Complete** - Now enhancing WorldB to be a full-featured pure-material physics system:
 
 **Recently Completed:**
-- 
+- First pass at Cohesion and adhesion.
 
 ** Up Next:
-- **1**: Add Cohesion and adhesion.
-- **2**: Add Pressure.
-- **3**: Add Tree organism to simulation  
-- **4**: Simulation scenarios, analysis tools, performance optimization
-
-**Reference**: See `design_docs/WorldB-Development-Plan.md` for complete roadmap
+- **1**: Add Pressure - refer to under_pressure.md
+- **2**: Add Tree organism to simulation.
 
 ### Architecture Status
 - **WorldA (RulesA)**: Mixed dirt/water materials, complex physics, time reversal ✅  
@@ -208,55 +248,6 @@ Can be found here:
 - **SimulationManager**: Handles world switching and ownership ✅
 - **WorldInterface**: Unified API for both physics systems ✅
 - **Smart Cell Grabber**: Intelligent material interaction with floating particle system ✅
-
-## Key Implementation Details
-
-### Smart Cell Grabber Architecture
-The cell grabber system in WorldB uses a sophisticated floating particle approach:
-
-**Core Components**:
-- **Floating Particle**: `has_floating_particle_` + `floating_particle_` for visual preview
-- **Position Tracking**: Precise pixel-level positioning with sub-cell COM calculation
-- **Velocity System**: Recent position history for realistic physics momentum transfer
-- **Collision Detection**: `checkFloatingParticleCollision()` and `handleFloatingParticleCollision()`
-
-**Intelligent Interaction Logic**:
-```cpp
-// Smart behavior in startDragging():
-// - Empty cells: addMaterialAtPixel() adds selected material, then drag starts
-// - Occupied cells: drag starts immediately with existing material
-// - No mode switching needed - context determines behavior
-```
-
-**Physics Integration**:
-- **Sub-cell precision**: COM calculated from exact cursor position within cell
-- **Momentum conservation**: Drag velocity transferred to material on release
-- **Collision foundation**: Density-based collision detection ready for enhancement
-- **Material properties**: Each material type has specific collision behavior
-
-**Future Collision Expansion Points**:
-- `handleFloatingParticleCollision()` has TODO sections for elastic collisions, splash effects, fragmentation
-- Collision system designed for material-specific behaviors (METAL bouncing, WATER splashing)
-- Ready for "wreaking havoc" scenarios with high-velocity particle interactions
-
-## Universal Floating Particle System - Implementation Plan
-
-### Design Reconciliation with GridMechanics.md
-
-The current GridMechanics.md design already describes a **particle-within-cell** system that aligns well with universal floating particles:
-
-✅ **Already Compatible:**
-- Each cell contains a particle with COM [-1,1] and velocity
-- 2D kinematics with realistic boundary crossing physics
-- Momentum conservation during transfers
-- Material properties (elasticity, cohesion, adhesion, density)
-- Neighbor-based interaction system
-
-🔄 **Enhancement Needed:**
-- Extend collision detection from transfer-only to full collision physics
-- Add material-specific collision behaviors for all neighbor interactions
-- Implement chain reaction mechanics through particle networks
-- Enable "wreaking havoc" scenarios with high-energy collisions
 
 ### Collision Implementation Todos
 - [x] Implement elastic collision handler for METAL-METAL interactions
@@ -266,12 +257,11 @@ The current GridMechanics.md design already describes a **particle-within-cell**
 - [ ] Implement absorption/penetration behaviors (WATER+DIRT, etc.)
 
 ## Misc TODO
-[x] - Add an exit hook that shows a full dump of the world state after an ASSERT.
-[ ] - some way to talk to the application while it runs... a DBus API, a socket API, what are the other options? This would be useful!
-[x] - run a clean build and fix all warnings, then make all warnings into errors. Please.
 [ ] - Add a Makefile to capture some common targets ('clean', 'debug', 'release', 'test-all'... anything else?); update CLAUDE.md with instructions.
+[ ] - some way to talk to the application while it runs... a DBus API, a socket API, what are the other options? This would be useful!
 [ ] - In WorldB, Update left click, so if it is on a currently on a filled cell that is not the selected type, or is not full, fill it with the selected type.
 [ ] - How can we make denser materials sink below less dense ones?
-[ ] - Physics systems should be toggleable.
-[ ] - Complete VisualTest system's UI controls for starting tests and switching tests.  We started this on HorizontalLineStabilityTest.
-[ ] - Centralize test setup >setAddParticlesEnabled(false); 
+[ ] - Complete VisualTest system's UI controls for starting tests and switching tests. The test should show the initial world state, then wait for the user to press Start (run the test), Step (advance the sim forward 1 step, update display, wait for further input), or Next (skip the test).
+[ ] - Collisons having effects, splash, fragmentation, etc.
+[ ] - Add material-specific collision behaviors?
+[ ] - chain reaction mechanics?
