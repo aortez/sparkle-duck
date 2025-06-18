@@ -117,6 +117,7 @@ add_executable(sparkle-duck
     src/MaterialType.cpp
     src/CellB.cpp
     src/WorldB.cpp
+    src/WorldInterface.cpp
     src/WorldCohesionCalculator.cpp
     src/WorldDiagramGenerator.cpp
     src/WorldFactory.cpp
@@ -188,6 +189,7 @@ add_executable(sparkle-duck-tests
     src/MaterialType.cpp
     src/CellB.cpp
     src/WorldB.cpp
+    src/WorldInterface.cpp
     src/WorldCohesionCalculator.cpp
     src/WorldDiagramGenerator.cpp
     src/WorldFactory.cpp

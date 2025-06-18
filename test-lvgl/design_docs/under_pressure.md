@@ -274,10 +274,7 @@ Rapid pressure changes can propagate as waves:
 ## Future Extensions
 
 ### Pressure-Based Features
-- **Hydraulic Systems**: Pressure-driven mechanical devices
-- **Geophysics**: Earthquake and volcano simulations
-- **Structural Engineering**: Building stress analysis
-- **Fluid Dynamics**: Pump and turbine simulations
+- **Hydraulic Systems**: Believable water flow.
 
 ### Integration Points
 - **Cohesion/Adhesion**: Pressure affects material bonding

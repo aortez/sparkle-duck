@@ -182,8 +182,6 @@ public:
     // Dump timer statistics
     void dumpTimerStats() const override { timers.dumpTimerStats(); }
     
-    // ASCII visualization
-    std::string toAsciiDiagram() const override;
 
     // Minimum amount of matter that we should bother processing.
     static constexpr double MIN_MATTER_THRESHOLD = 0.001;

@@ -265,8 +265,6 @@ public:
     void dumpTimerStats() const override { timers_.dumpTimerStats(); }
     void markUserInput() override { /* no-op for now */ }
     
-    // ASCII visualization
-    std::string toAsciiDiagram() const override;
     
     // =================================================================
     // WORLDINTERFACE IMPLEMENTATION - WORLD TYPE MANAGEMENT

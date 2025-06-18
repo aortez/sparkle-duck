@@ -153,3 +153,52 @@ For arbitrary gravity direction, slices are perpendicular to gravity vector.
 
 // Pseudo-code for solid pressure if (material == DIRT || material == SAND) { // Granular - acts somewhat fluid-like under high pressure apply_hydrostatic_pressure(); if (pressure > friction_threshold) { allow_flow(); } } else if (material == WOOD || material == METAL) { // Rigid - only compress, don't flow apply_compression_only(); }
 
+## Force Combination Logic & Threshold System
+
+  The WorldB physics system uses a hierarchical force model where multiple forces combine to determine whether and how materials move:
+
+  Force Hierarchy
+
+  1. Driving Forces (cause movement)
+    - Gravity: gravity_vector * material_density * fill_ratio * deltaTime
+    - Adhesion: Vector sum of attractions to different adjacent materials
+    - External Forces: User interactions, pressure gradients
+  2. Resistance Forces (oppose movement)
+    - Cohesion: Static threshold based on same-material neighbor count
+    - Friction: Material-specific resistance to sliding
+
+  Threshold Decision Logic
+
+  // Force combination at each timestep
+  Vector2d net_driving_force = gravity_force + adhesion_force + external_forces;
+  double total_resistance = cohesion_resistance + friction_resistance;
+
+  // Binary threshold check
+  if (net_driving_force.magnitude() > total_resistance) {
+      // Material can move - proceed with boundary crossing detection
+      Vector2d movement_direction = net_driving_force.normalized();
+      double excess_energy = net_driving_force.magnitude() - total_resistance;
+
+      // Scale velocity by excess energy for realistic physics
+      cell.velocity += movement_direction * excess_energy;
+  } else {
+      // Material is "stuck" - zero velocity and skip movement
+      cell.velocity = Vector2d(0, 0);
+  }
+
+  Material-Specific Behaviors
+
+  - WATER: Low cohesion (0.1) → flows easily under gravity alone
+  - DIRT: Medium cohesion (0.4) → requires moderate force to separate
+  - METAL: High cohesion (0.9) → strong resistance, stays connected
+  - WOOD: High cohesion (0.7) + medium adhesion → structural integrity
+
+  Key Design Principles
+
+  1. Contact-Only Physics: Forces only act between adjacent cells (no action at distance)
+  2. Static Thresholds: Cohesion acts like static friction - materials either move or don't
+  3. Vector Addition: Multiple adhesion forces naturally cancel when balanced
+  4. Energy Conservation: Excess force above threshold becomes kinetic energy
+
+  This creates realistic material differentiation where WATER pools naturally, METAL clumps stick together, and DIRT forms stable piles - all from the same
+  underlying force calculation system.

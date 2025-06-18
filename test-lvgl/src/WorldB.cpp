@@ -3,7 +3,6 @@
 #include "SimulatorUI.h"
 #include "Vector2i.h"
 #include "WorldCohesionCalculator.h"
-#include "WorldDiagramGenerator.h"
 #include "WorldInterpolationTool.h"
 #include "spdlog/spdlog.h"
 
@@ -1983,10 +1982,6 @@ bool WorldB::hasStructuralSupport(uint32_t x, uint32_t y) {
 }
 
 
-std::string WorldB::toAsciiDiagram() const
-{
-    return WorldDiagramGenerator::generateAsciiDiagram(cells_.data(), width_, height_);
-}
 
 // =================================================================
 // DYNAMIC PRESSURE SYSTEM IMPLEMENTATION

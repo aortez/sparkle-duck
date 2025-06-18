@@ -10,6 +10,7 @@ class SimulatorUI;
 class CellInterface;
 struct WorldState;
 enum class WorldType;
+class WorldDiagramGenerator;
 
 /**
  * \file
@@ -302,7 +303,9 @@ public:
     // =================================================================
     
     // Generate ASCII diagram of the entire world state
-    virtual std::string toAsciiDiagram() const = 0;
+    std::string toAsciiDiagram() const;
+    
+    // Note: Implementation is provided in WorldInterface.cpp using WorldDiagramGenerator
     
     // =================================================================
     // UI INTEGRATION
