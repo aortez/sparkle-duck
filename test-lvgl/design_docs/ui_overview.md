@@ -235,28 +235,6 @@ The UI initialization follows this order in `SimulatorUI::initialize()`:
 - **Drag System**: Click and drag to move materials
 - **Force Application**: Optional cursor force for particle manipulation
 
-## File Organization
-
-```
-src/
-├── SimulatorUI.h/.cpp        # Main UI implementation
-├── SimulationManager.h/.cpp  # UI/World coordinator
-├── WorldInterface.h          # Physics/UI abstraction
-├── main.cpp                  # Application entry point
-├── lib/
-│   ├── driver_backends.h/.cpp    # Display backend abstraction
-│   ├── backends.h                # Backend interface definitions
-│   ├── simulator_loop.h          # Event loop utilities
-│   └── display_backends/         # Platform-specific backends
-│       ├── wayland.cpp
-│       ├── x11.cpp
-│       ├── sdl.cpp
-│       └── fbdev.cpp
-└── tests/
-    ├── TestUI.h/.cpp         # Testing interface
-    └── visual_test_runner.h/.cpp  # Visual test framework
-```
-
 ## Notable Features
 
 ### Screenshot System

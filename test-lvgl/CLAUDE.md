@@ -65,8 +65,8 @@ SPARKLE_DUCK_VISUAL_TESTS=1 ./run_tests.sh
 - **WorldRules**: Complex physics with pressure systems and material mixing
 
 ### Shared Components
-- **Vector2d**: 2D floating point mathematics for physics calculations
-- **Vector2i**: 2D integer mathematics for physics calculations
+- **Vector2d**: 2D floating point vector class
+- **Vector2i**: 2D integer vector class
 - **SimulatorUI**: LVGL-based interface supporting both physics systems
 
 ### UI Framework
@@ -191,44 +191,102 @@ Can be found here:
   │   ├── main.cpp                           # Application entry point
   │   ├── Cell.{cpp,h}                       # RulesA cell implementation
   │   ├── CellB.{cpp,h}                      # RulesB cell implementation
+  │   ├── CellInterface.h                    # Cell abstraction interface
   │   ├── World.{cpp,h}                      # RulesA physics system
   │   ├── WorldB.{cpp,h}                     # RulesB physics system
+  │   ├── WorldInterface.{cpp,h}             # Physics/UI abstraction
+  │   ├── WorldFactory.{cpp,h}               # World creation factory
+  │   ├── WorldState.{cpp,h}                 # Cross-world state management
+  │   ├── WorldSetup.{cpp,h}                 # World initialization utilities
   │   ├── SimulatorUI.{cpp,h}                # LVGL-based UI
-  │   ├── MaterialType.{cpp,h}               # Material system
-  │   ├── Vector2{d,i}.{cpp,h}               # 2D math utilities
-  │   ├── SimulationManager.{cpp,h}          # World switching logic
-  │   ├── WorldFactory.{cpp,h}               # World creation
+  │   ├── SimulationManager.{cpp,h}          # UI/World coordinator
+  │   ├── MaterialType.{cpp,h}               # Material system for WorldB
   │   ├── MaterialPicker.{cpp,h}             # Material selection UI
-  │   ├── CrashDumpHandler.{cpp,h}           # Debug crash dumps
-  │   ├── Timers.{cpp,h}                     # Performance timing
-  │   ├── WorldCohesionCalculator.{cpp,h}    # Cohesion physics
+  │   ├── Vector2d.{cpp,h}                   # 2D floating point vector
+  │   ├── Vector2i.{cpp,h}                   # 2D integer vector
   │   ├── WorldDiagramGenerator.{cpp,h}      # ASCII visualization
+  │   ├── WorldInterpolationTool.{cpp,h}     # World data interpolation
+  │   ├── WorldBCohesionCalculator.{cpp,h}   # Cohesion physics for WorldB
+  │   ├── WorldBSupportCalculator.{cpp,h}    # Support calculations for WorldB
+  │   ├── CrashDumpHandler.{cpp,h}           # Debug crash handling
+  │   ├── Timers.{cpp,h}                     # Performance timing
+  │   ├── ScopeTimer.h                       # RAII timing utility
+  │   ├── SparkleAssert.h                    # Custom assertion macros
   │   ├── lib/                               # LVGL backend support
-  │   │   ├── display_backends/              # SDL, Wayland, X11, FBDEV
-  │   │   └── driver_backends.{cpp,h}        # Backend management
-  │   └── tests/                             # Unit and visual tests
-  │       ├── WorldBVisual_test.cpp          # RulesB physics tests
+  │   │   ├── driver_backends.{cpp,h}        # Display backend abstraction
+  │   │   ├── backends.h                     # Backend interface definitions
+  │   │   ├── simulator_loop.h               # Event loop utilities
+  │   │   ├── simulator_settings.h           # Application settings
+  │   │   ├── simulator_util.{c,h}           # Utility functions
+  │   │   ├── mouse_cursor_icon.c            # Mouse cursor graphics
+  │   │   └── display_backends/              # Platform-specific backends
+  │   │       ├── wayland.cpp                # Wayland backend
+  │   │       ├── x11.cpp                    # X11 backend
+  │   │       ├── sdl.cpp                    # SDL backend
+  │   │       └── fbdev.cpp                  # Linux framebuffer backend
+  │   └── tests/                             # Testing framework (all tests)
+  │       ├── TestUI.{cpp,h}                 # Testing interface
+  │       ├── visual_test_runner.{cpp,h}     # Visual test framework
+  │       ├── WorldBVisualTestBase.h         # WorldB test base class
+  │       ├── Vector2d_test.{cpp,h}          # Vector math tests
+  │       ├── Vector2i_test.cpp              # Integer vector tests
   │       ├── WorldVisual_test.cpp           # RulesA physics tests
-  │       ├── Vector2d_test.cpp              # Math tests
-  │       └── visual_test_runner.{cpp,h}     # Test framework
+  │       ├── WorldBVisual_test.cpp          # RulesB physics tests
+  │       ├── InterfaceCompatibility_test.cpp # WorldInterface tests
+  │       ├── PressureSystemVisual_test.cpp  # Pressure system tests
+  │       ├── PressureSystem_test.cpp        # Pressure mechanics tests
+  │       ├── PressureDynamic_test.cpp       # Dynamic pressure tests
+  │       ├── PressureHydrostatic_test.cpp   # Hydrostatic pressure tests
+  │       ├── DensityMechanics_test.cpp      # Density behavior tests
+  │       ├── WaterPressure180_test.cpp      # Water physics tests
+  │       ├── CollisionSystem_test.cpp       # Collision mechanics tests
+  │       ├── COMCohesionForce_test.cpp      # Cohesion force tests
+  │       ├── ForceCalculation_test.cpp      # Force computation tests
+  │       ├── ForceDebug_test.cpp            # Force debugging tests
+  │       ├── ForceInfluencedMovement_test.cpp # Force-based movement
+  │       ├── ForcePhysicsIntegration_test.cpp # Force integration
+  │       ├── HorizontalLineStability_test.cpp # Stability tests
+  │       ├── DistanceToSupport_test.cpp     # Support distance tests
+  │       ├── TimersTest.cpp                 # Timer system tests
+  │       ├── CrashDumpHandler_test.cpp      # Crash handler tests
+  │       ├── MaterialTypeJSON_test.cpp      # Material JSON tests
+  │       ├── ResultTest.cpp                 # Result type tests
+  │       ├── Vector2dJSON_test.cpp          # Vector JSON tests
+  │       └── WorldStateJSON_test.cpp        # World state JSON tests
   ├── design_docs/                           # Architecture documentation
   │   ├── GridMechanics.md                   # RulesB physics design
-  │   ├── WorldB-Development-Plan.md         # Development roadmap
-  │   ├── ui_overview.md                     # UI architecture
-  │   └── under_pressure.md                  # Pressure system design
-  ├── lvgl/                                  # LVGL graphics library
-  ├── spdlog/                                # Logging library
+  │   ├── MaterialPicker-UI-Design.md        # Material picker UI design
+  │   ├── WebRTC-test-driver.md              # P2P API for test framework
+  │   ├── plantA.md                          # Plant organism design
+  │   ├── runtime_api_design.md              # Runtime communication API
+  │   ├── ui_overview.md                     # UI architecture and layout
+  │   ├── under_pressure.md                  # Pressure system design
+  │   ├── visual_test_framework.md           # Visual testing framework
+  │   └── web-rtc-interactivity.md           # WebRTC interactivity design
   ├── scripts/                               # Build and utility scripts
   │   ├── run_build.sh                       # Main build script
   │   ├── run_main.sh                        # Run simulation
   │   ├── run_tests.sh                       # Unit tests
-  │   └── run_visual_tests.sh                # Visual tests
-  ├── build/                                 # Build artifacts
-  ├── bin/                                   # Compiled executables
-  ├── CMakeLists.txt                         # CMake configuration
-  ├── CLAUDE.md                              # AI assistant instructions
-  └── core/                                  # Shared utilities
-      └── Result.h                           # Error handling
+  │   ├── run_visual_tests.sh                # Visual tests
+  │   ├── build_debug.sh                     # Debug build
+  │   ├── build_release.sh                   # Release build
+  │   ├── format.sh                          # Code formatting
+  │   ├── debug_latest_crash.sh              # Crash debugging
+  │   ├── backend_conf.sh                    # Backend configuration
+  │   ├── gen_wl_protocols.sh                # Wayland protocol generation
+  │   └── wl_protocols/                      # Generated Wayland protocols
+  │       ├── wayland_xdg_shell.c            # XDG shell protocol
+  │       └── wayland_xdg_shell.h            # XDG shell headers
+  ├── lvgl/                                  # LVGL graphics library (submodule)
+  ├── spdlog/                                # Logging library (submodule)
+  ├── build/                                 # Build artifacts (generated)
+  ├── bin/                                   # Compiled executables (generated)
+  ├── lib/                                   # Static libraries (generated)
+  ├── core/                                  # Shared utilities
+  │   └── Result.h                           # Error handling types
+  ├── world-interface-plan.md                # WorldInterface implementation plan
+  └── CMakeLists.txt                         # CMake configuration
+
 
 ## Development Status
 
@@ -239,7 +297,7 @@ Can be found here:
 - First pass at Cohesion and adhesion.
 
 ** Up Next:
-- **1**: Add Pressure - refer to under_pressure.md
+- **1**: Refined Pressure - refer to under_pressure.md.  Verify pressure works.  Fix tests.
 - **2**: Add Tree organism to simulation.
 
 ### Architecture Status

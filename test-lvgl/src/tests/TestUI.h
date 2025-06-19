@@ -5,7 +5,6 @@
 #include <string>
 #include <atomic>
 
-// Forward declarations
 class WorldInterface;
 
 class TestUI {
