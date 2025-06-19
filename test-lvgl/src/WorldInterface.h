@@ -93,6 +93,9 @@ public:
     // Works with both WorldA (mapped to dirt/water) and WorldB (direct support)
     virtual void addMaterialAtPixel(int pixelX, int pixelY, MaterialType type, double amount = 1.0) = 0;
     
+    // Add material at cell coordinates (useful for testing)
+    virtual void addMaterialAtCell(uint32_t x, uint32_t y, MaterialType type, double amount = 1.0) = 0;
+    
     // Material selection state management (for UI coordination)
     virtual void setSelectedMaterial(MaterialType type) = 0;
     virtual MaterialType getSelectedMaterial() const = 0;

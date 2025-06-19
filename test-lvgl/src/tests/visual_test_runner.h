@@ -147,6 +147,7 @@ protected:
     // Usage pattern: 1) createWorldB(), 2) setup materials/conditions, 3) logInitialTestState()
     void logInitialTestState(const WorldB* world, const std::string& test_description = "");
     void logInitialTestState(const World* world, const std::string& test_description = "");
+    void logInitialTestState(const WorldInterface* world, const std::string& test_description = "");
     
     // Test state
     bool visual_mode_ = false;

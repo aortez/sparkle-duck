@@ -26,9 +26,6 @@ public:
     void initialize();
 
     // Test control methods
-    void waitForStart();          // Block until Start button is pressed
-    void waitForNext();           // Block until Next button is pressed
-    void waitForStep();           // Block until Step button is pressed
     void enableStartButton();     // Enable the Start button
     void enableNextButton();      // Enable the Next button
     void enableStepButton();      // Enable the Step button

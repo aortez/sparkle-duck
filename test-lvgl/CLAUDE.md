@@ -227,8 +227,7 @@ Can be found here:
   │   └── tests/                             # Testing framework (all tests)
   │       ├── TestUI.{cpp,h}                 # Testing interface
   │       ├── visual_test_runner.{cpp,h}     # Visual test framework
-  │       ├── WorldBVisualTestBase.h         # WorldB test base class
-  │       ├── Vector2d_test.{cpp,h}          # Vector math tests
+    │       ├── Vector2d_test.{cpp,h}          # Vector math tests
   │       ├── Vector2i_test.cpp              # Integer vector tests
   │       ├── WorldVisual_test.cpp           # RulesA physics tests
   │       ├── WorldBVisual_test.cpp          # RulesB physics tests

@@ -1,9 +1,28 @@
-#include "WorldBVisualTestBase.h"
+#include "visual_test_runner.h"
+#include "../WorldB.h"
+#include "../MaterialType.h"
 #include <spdlog/spdlog.h>
 
-class WorldBVisualTest : public WorldBVisualTestBase {
-    // Individual test classes can inherit from WorldBVisualTestBase 
-    // and automatically get setAddParticlesEnabled(false) behavior
+class WorldBVisualTest : public VisualTestBase {
+protected:
+    void SetUp() override {
+        VisualTestBase::SetUp();
+        
+        // Create world with default size (3x3)
+        world = createWorldB(3, 3);
+        
+        // Apply test-specific defaults
+        world->setAddParticlesEnabled(false);
+        world->setWallsEnabled(false);
+        world->setup();  // Setup with initial materials (most tests want this)
+    }
+    
+    void TearDown() override {
+        world.reset();
+        VisualTestBase::TearDown();
+    }
+    
+    std::unique_ptr<WorldInterface> world;
 };
 
 TEST_F(WorldBVisualTest, EmptyWorldAdvance) {
@@ -163,10 +182,10 @@ TEST_F(WorldBVisualTest, ResetFunctionality) {
 TEST_F(WorldBVisualTest, VelocityBehaviorTimestepCorrectness) {
     spdlog::info("Starting WorldBVisualTest::VelocityBehaviorTimestepCorrectness test");
     
-    // Override to create a 1x4 world for this test
-    width = 4;
-    height = 1;
-    createTestWorldB();
+    // Create a new 4x1 world for this test
+    world = createWorldB(4, 1);
+    world->setAddParticlesEnabled(false);
+    world->setWallsEnabled(false);
     
     // Reset to empty state for this test (don't use the default setup materials)
     world->reset();
@@ -175,18 +194,26 @@ TEST_F(WorldBVisualTest, VelocityBehaviorTimestepCorrectness) {
     world->setGravity(0.0);
     
     // Clear the world first (reset() may have added default materials)
-    for (uint32_t y = 0; y < height; y++) {
-        for (uint32_t x = 0; x < width; x++) {
-            CellB& cell = world->at(x, y);
-            cell.clear();
+    // Since we can't directly access cells through WorldInterface, 
+    // we need to cast to WorldB for this specific test
+    if (auto* worldB = dynamic_cast<WorldB*>(world.get())) {
+        for (uint32_t y = 0; y < worldB->getHeight(); y++) {
+            for (uint32_t x = 0; x < worldB->getWidth(); x++) {
+                CellB& cell = worldB->at(x, y);
+                cell.clear();
+            }
         }
     }
     
     // Add dirt particle at leftmost cell (0,0) with rightward velocity
     world->addMaterialAtCell(0, 0, MaterialType::DIRT);
     
+    // This test needs direct access to WorldB implementation details
+    auto* worldB = dynamic_cast<WorldB*>(world.get());
+    ASSERT_NE(worldB, nullptr) << "This test requires WorldB implementation";
+    
     // Get initial cell and set a known velocity
-    CellB& startCell = world->at(0, 0);
+    CellB& startCell = worldB->at(0, 0);
     ASSERT_FALSE(startCell.isEmpty()) << "Start cell should have dirt material";
     
     // Set a controlled velocity: 1.0 cells per second rightward
@@ -219,8 +246,8 @@ TEST_F(WorldBVisualTest, VelocityBehaviorTimestepCorrectness) {
         world->advanceTime(deltaTime);
         
         // Check if particle has moved to cell (1,0)
-        CellB& firstCell = world->at(0, 0);
-        CellB& secondCell = world->at(1, 0);
+        CellB& firstCell = worldB->at(0, 0);
+        CellB& secondCell = worldB->at(1, 0);
         
         if (firstCell.isEmpty() || !secondCell.isEmpty()) {
             reachedFirstBoundary = true;
@@ -265,17 +292,26 @@ struct CollisionTestCase {
     std::string description;
 };
 
-class CollisionBehaviorTest : public WorldBVisualTestBase, 
-                             public ::testing::WithParamInterface<CollisionTestCase> {};
+class CollisionBehaviorTest : public VisualTestBase, 
+                             public ::testing::WithParamInterface<CollisionTestCase> {
+protected:
+    void SetUp() override {
+        VisualTestBase::SetUp();
+        
+        // World will be created in the test itself with custom dimensions
+    }
+    
+    std::unique_ptr<WorldInterface> world;
+};
 
 TEST_P(CollisionBehaviorTest, MaterialCollisionBehavior) {
     const auto& testCase = GetParam();
     spdlog::info("Starting CollisionBehaviorTest: {}", testCase.description);
     
     // Create 3x1 world for collision testing
-    width = 3;
-    height = 1;
-    createTestWorldB();
+    world = createWorldB(3, 1);
+    world->setAddParticlesEnabled(false);
+    world->setWallsEnabled(false);
     
     // Empty world
     world->reset();
@@ -288,7 +324,11 @@ TEST_P(CollisionBehaviorTest, MaterialCollisionBehavior) {
     world->addMaterialAtCell(2, 0, testCase.targetMaterial);
     
     // Give moving particle rightward velocity toward target
-    CellB& movingCell = world->at(0, 0);
+    // Need direct access to cells for velocity setting
+    auto* worldB = dynamic_cast<WorldB*>(world.get());
+    ASSERT_NE(worldB, nullptr) << "This test requires WorldB implementation";
+    
+    CellB& movingCell = worldB->at(0, 0);
     const double initialVelocity = 2.0; // cells/second rightward
     movingCell.setVelocity(Vector2d(initialVelocity, 0.0));
     
@@ -307,9 +347,9 @@ TEST_P(CollisionBehaviorTest, MaterialCollisionBehavior) {
     
     for (int step = 0; step < maxSteps; step++) {
         // Record state before timestep
-        CellB& cell0 = world->at(0, 0);
-        CellB& cell1 = world->at(1, 0);
-        CellB& cell2 = world->at(2, 0);
+        CellB& cell0 = worldB->at(0, 0);
+        CellB& cell1 = worldB->at(1, 0);
+        CellB& cell2 = worldB->at(2, 0);
         
         // Check if moving material has moved to middle cell (collision imminent)
         if (!cell1.isEmpty() && cell1.getMaterialType() == testCase.movingMaterial && !collisionDetected) {

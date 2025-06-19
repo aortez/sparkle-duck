@@ -539,6 +539,17 @@ void VisualTestBase::logInitialTestState(const World* world, const std::string& 
     spdlog::info("[TEST SETUP] {}\n{}", description, ascii);
 }
 
+void VisualTestBase::logInitialTestState(const WorldInterface* world, const std::string& test_description) {
+    if (!world || !VisualTestEnvironment::isAsciiLoggingEnabled()) return;
+    
+    // Try to cast to specific implementations to get ASCII diagram
+    if (auto* worldB = dynamic_cast<const WorldB*>(world)) {
+        logInitialTestState(worldB, test_description);
+    } else if (auto* worldA = dynamic_cast<const World*>(world)) {
+        logInitialTestState(worldA, test_description);
+    }
+}
+
 // Utility function for backward compatibility
 bool isVisualModeEnabled() {
     return VisualTestCoordinator::getInstance().isVisualModeEnabled();

@@ -144,17 +144,7 @@ void TestUI::updateTestLabel(const std::string& status)
     }
 }
 
-void TestUI::waitForStart()
-{
-    // This method is now deprecated - waiting is handled in VisualTestBase
-    // to avoid blocking the LVGL event thread
-}
 
-void TestUI::waitForNext()
-{
-    // This method is now deprecated - waiting is handled in VisualTestBase
-    // to avoid blocking the LVGL event thread
-}
 
 void TestUI::enableStartButton()
 {
@@ -177,11 +167,6 @@ void TestUI::disableNextButton()
     }
 }
 
-void TestUI::waitForStep()
-{
-    // This method is now deprecated - waiting is handled in VisualTestBase
-    // to avoid blocking the LVGL event thread
-}
 
 void TestUI::enableStepButton()
 {

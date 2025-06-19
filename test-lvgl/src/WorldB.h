@@ -266,7 +266,7 @@ public:
     const CellB& at(const Vector2i& pos) const;
     
     // Add material at specific cell coordinates
-    void addMaterialAtCell(uint32_t x, uint32_t y, MaterialType type, double amount = 1.0);
+    void addMaterialAtCell(uint32_t x, uint32_t y, MaterialType type, double amount = 1.0) override;
     
     // Physics constants from GridMechanics.md (all per-timestep values)
     static constexpr double MAX_VELOCITY_PER_TIMESTEP = 20.0;           // cells/timestep

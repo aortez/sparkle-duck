@@ -98,6 +98,9 @@ public:
     // Universal material addition (mapped to dirt/water for WorldA compatibility)
     void addMaterialAtPixel(int pixelX, int pixelY, MaterialType type, double amount = 1.0) override;
     
+    // Add material at cell coordinates (useful for testing)
+    void addMaterialAtCell(uint32_t x, uint32_t y, MaterialType type, double amount = 1.0) override;
+    
     // Material selection state management
     void setSelectedMaterial(MaterialType type) override { selected_material_ = type; }
     MaterialType getSelectedMaterial() const override { return selected_material_; }

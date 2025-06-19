@@ -1668,6 +1668,16 @@ void World::addMaterialAtPixel(int pixelX, int pixelY, MaterialType type, double
     }
 }
 
+void World::addMaterialAtCell(uint32_t x, uint32_t y, MaterialType type, double amount)
+{
+    // Convert cell coordinates to pixel coordinates (center of cell)
+    int pixelX = x * Cell::WIDTH + Cell::WIDTH / 2;
+    int pixelY = y * Cell::HEIGHT + Cell::HEIGHT / 2;
+    
+    // Use the existing pixel-based method
+    addMaterialAtPixel(pixelX, pixelY, type, amount);
+}
+
 bool World::hasMaterialAtPixel(int pixelX, int pixelY) const
 {
     int cellX, cellY;
