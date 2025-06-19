@@ -236,6 +236,9 @@ public:
 
 protected:
     Timers timers;
+    
+    // WorldInterface hook implementations
+    void onPreResize(uint32_t /*newWidth*/, uint32_t /*newHeight*/) override;
 
 private:
     // Physics simulation methods (broken down from advanceTime)

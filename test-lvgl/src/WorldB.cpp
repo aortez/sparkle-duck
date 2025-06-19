@@ -474,39 +474,32 @@ void WorldB::updateCursorForce(int pixelX, int pixelY, bool isActive)
 
 void WorldB::resizeGrid(uint32_t newWidth, uint32_t newHeight)
 {
-    if (newWidth == width_ && newHeight == height_) {
+    if (!shouldResize(newWidth, newHeight)) {
         return;
     }
     
-    spdlog::info("Resizing WorldB grid from {}x{} to {}x{}", 
-                 width_, height_, newWidth, newHeight);
+    onPreResize(newWidth, newHeight);
     
-    // Create new cell grid
-    std::vector<CellB> newCells(newWidth * newHeight);
+    // Phase 1: Generate interpolated cells using the interpolation tool
+    std::vector<CellB> interpolatedCells = WorldInterpolationTool::generateInterpolatedCellsB(
+        cells_, width_, height_, newWidth, newHeight);
     
-    // Copy existing cells (if they fit in new dimensions)
-    const uint32_t copyWidth = std::min(width_, newWidth);
-    const uint32_t copyHeight = std::min(height_, newHeight);
-    
-    for (uint32_t y = 0; y < copyHeight; ++y) {
-        for (uint32_t x = 0; x < copyWidth; ++x) {
-            const size_t oldIndex = y * width_ + x;
-            const size_t newIndex = y * newWidth + x;
-            newCells[newIndex] = cells_[oldIndex];
-        }
-    }
-    
-    // Update dimensions and swap cell storage
+    // Phase 2: Update world state with the new interpolated cells
     width_ = newWidth;
     height_ = newHeight;
-    cells_ = std::move(newCells);
+    cells_ = std::move(interpolatedCells);
     
+    onPostResize();
+    
+    spdlog::info("WorldB bilinear resize complete");
+}
+
+void WorldB::onPostResize()
+{
     // Rebuild boundary walls if enabled
     if (areWallsEnabled()) {
         setupBoundaryWalls();
     }
-    
-    spdlog::info("Grid resize complete");
 }
 
 // =================================================================

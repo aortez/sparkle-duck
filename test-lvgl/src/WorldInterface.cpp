@@ -101,3 +101,15 @@ std::string WorldInterface::toAsciiDiagram() const
 {
     return WorldDiagramGenerator::generateAsciiDiagram(*this);
 }
+
+bool WorldInterface::shouldResize(uint32_t newWidth, uint32_t newHeight) const
+{
+    if (newWidth == getWidth() && newHeight == getHeight()) {
+        spdlog::debug("Resize requested but dimensions unchanged: {}x{}", getWidth(), getHeight());
+        return false;
+    }
+    
+    spdlog::info("Resizing {} grid: {}x{} -> {}x{}", 
+                 getWorldTypeName(), getWidth(), getHeight(), newWidth, newHeight);
+    return true;
+}

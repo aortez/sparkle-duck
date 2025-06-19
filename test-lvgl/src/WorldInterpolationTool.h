@@ -33,6 +33,34 @@ public:
     static bool resizeWorldWithBilinearFiltering(WorldInterface& world, 
                                                 uint32_t newWidth, 
                                                 uint32_t newHeight);
+    
+    /**
+     * @brief Generate interpolated cells for WorldB without modifying the world
+     * @param oldCells The current cell data
+     * @param oldWidth Current grid width
+     * @param oldHeight Current grid height
+     * @param newWidth Target grid width
+     * @param newHeight Target grid height
+     * @return Vector of interpolated cells for the new grid dimensions
+     */
+    static std::vector<CellB> generateInterpolatedCellsB(
+        const std::vector<CellB>& oldCells,
+        uint32_t oldWidth, uint32_t oldHeight,
+        uint32_t newWidth, uint32_t newHeight);
+    
+    /**
+     * @brief Generate interpolated cells for WorldA without modifying the world
+     * @param oldCells The current cell data
+     * @param oldWidth Current grid width
+     * @param oldHeight Current grid height
+     * @param newWidth Target grid width
+     * @param newHeight Target grid height
+     * @return Vector of interpolated cells for the new grid dimensions
+     */
+    static std::vector<Cell> generateInterpolatedCellsA(
+        const std::vector<Cell>& oldCells,
+        uint32_t oldWidth, uint32_t oldHeight,
+        uint32_t newWidth, uint32_t newHeight);
 
 private:
     // =================================================================
@@ -70,11 +98,6 @@ private:
                                         const CellB& cell01, const CellB& cell11,
                                         double fx, double fy);
     
-    /**
-     * @brief Resize WorldB using bilinear filtering
-     */
-    static bool resizeWorldB(WorldInterface& world, uint32_t newWidth, uint32_t newHeight);
-    
     // =================================================================
     // WORLDA (MIXED MATERIALS) INTERPOLATION  
     // =================================================================
@@ -85,11 +108,6 @@ private:
     static Cell createInterpolatedCell(const Cell& cell00, const Cell& cell10,
                                      const Cell& cell01, const Cell& cell11,
                                      double fx, double fy);
-    
-    /**
-     * @brief Resize WorldA using bilinear filtering
-     */
-    static bool resizeWorldA(WorldInterface& world, uint32_t newWidth, uint32_t newHeight);
     
     // =================================================================
     // SAMPLING HELPERS

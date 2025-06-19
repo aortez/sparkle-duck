@@ -344,4 +344,14 @@ protected:
     
     // Initialize WorldSetup - should be called by concrete class constructors
     void initializeWorldSetup();
+    
+    // Common resize logic - checks dimensions and logs resize operation
+    // Returns true if resize should proceed, false if dimensions are unchanged
+    bool shouldResize(uint32_t newWidth, uint32_t newHeight) const;
+    
+    // Hook for world-specific pre-resize operations (e.g., time reversal marking)
+    virtual void onPreResize(uint32_t /*newWidth*/, uint32_t /*newHeight*/) {}
+    
+    // Hook for world-specific post-resize operations (e.g., boundary wall setup)
+    virtual void onPostResize() {}
 };

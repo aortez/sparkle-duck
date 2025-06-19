@@ -1907,58 +1907,31 @@ void World::updateCursorForce(int pixelX, int pixelY, bool isActive)
 
 void World::resizeGrid(uint32_t newWidth, uint32_t newHeight)
 {
-    // Don't resize if dimensions haven't changed
-    if (newWidth == width && newHeight == height) {
-        spdlog::debug("Resize requested but dimensions unchanged: {}x{}", width, height);
+    if (!shouldResize(newWidth, newHeight)) {
         return;
     }
 
-    spdlog::info(
-        "Resizing World grid: {}x{} -> {}x{}",
-        width,
-        height,
-        newWidth,
-        newHeight);
+    onPreResize(newWidth, newHeight);
 
-    // Mark this as user input for time reversal (preserving history)
-    markUserInput();
-
-    // Try bilinear interpolation first for smoother rescaling
-    if (WorldInterpolationTool::resizeWorldWithBilinearFiltering(*this, newWidth, newHeight)) {
-        spdlog::info("WorldA bilinear resize completed successfully");
-        return;
-    }
+    // Phase 1: Generate interpolated cells using the interpolation tool
+    std::vector<Cell> interpolatedCells = WorldInterpolationTool::generateInterpolatedCellsA(
+        cells, width, height, newWidth, newHeight);
     
-    spdlog::warn("Bilinear resize failed for WorldA, falling back to WorldSetup method");
-
-    // Fallback to original WorldSetup-based interpolation
-    // Capture current world state before resizing using WorldSetup
-    uint32_t oldWidth = width;
-    uint32_t oldHeight = height;
-    std::vector<WorldSetup::ResizeData> oldState = worldSetup_->captureWorldState(*this);
-
-    // Clear existing cells and resize
-    cells.clear();
+    // Phase 2: Update world state with the new interpolated cells
     width = newWidth;
     height = newHeight;
-    cells.resize(width * height);
-
-    // Initialize new cells with default values
-    for (auto& cell : cells) {
-        cell.update(0.0, Vector2d(0.0, 0.0), Vector2d(0.0, 0.0));
-        cell.water = 0.0;
-    }
-
-    // Apply the preserved state using feature-preserving interpolation
-    if (!oldState.empty()) {
-        worldSetup_->applyWorldState(*this, oldState, oldWidth, oldHeight);
-    }
-    else {
-        // If no previous state, use the default world setup
-        reset();
-    }
+    cells = std::move(interpolatedCells);
+    
+    onPostResize();
+    
+    spdlog::info("WorldA bilinear resize complete");
 }
 
+void World::onPreResize(uint32_t /*newWidth*/, uint32_t /*newHeight*/)
+{
+    // Mark this as user input for time reversal (preserving history)
+    markUserInput();
+}
 
 // Time reversal implementation
 void World::saveWorldState()

@@ -8,6 +8,7 @@
 #include <spdlog/spdlog.h>
 #include <algorithm>
 #include <stdexcept>
+#include <cassert>
 
 // =================================================================
 // PUBLIC INTERFACE
@@ -17,29 +18,119 @@ bool WorldInterpolationTool::resizeWorldWithBilinearFiltering(WorldInterface& wo
                                                             uint32_t newWidth, 
                                                             uint32_t newHeight)
 {
-    // Check if resize is needed
-    if (world.getWidth() == newWidth && world.getHeight() == newHeight) {
-        spdlog::info("No resize needed - dimensions already {}x{}", newWidth, newHeight);
-        return true;
-    }
+    // This method is now deprecated - worlds should call resizeGrid directly
+    // which will use the generateInterpolatedCells* methods
+    spdlog::warn("resizeWorldWithBilinearFiltering is deprecated - use world.resizeGrid() directly");
+    world.resizeGrid(newWidth, newHeight);
+    return true;
+}
+
+std::vector<CellB> WorldInterpolationTool::generateInterpolatedCellsB(
+    const std::vector<CellB>& oldCells,
+    uint32_t oldWidth, uint32_t oldHeight,
+    uint32_t newWidth, uint32_t newHeight)
+{
+    assert(!oldCells.empty() && "Old cells vector must not be empty");
+    assert(oldCells.size() == oldWidth * oldHeight && "Old cells size must match dimensions");
+    assert(newWidth > 0 && newHeight > 0 && "New dimensions must be positive");
     
-    spdlog::info("Resizing world with bilinear filtering from {}x{} to {}x{}", 
-                 world.getWidth(), world.getHeight(), newWidth, newHeight);
+    std::vector<CellB> newCells;
+    newCells.reserve(newWidth * newHeight);
     
-    // Route to appropriate world-specific implementation
-    try {
-        if (world.getWorldType() == WorldType::RulesB) {
-            return resizeWorldB(world, newWidth, newHeight);
-        } else if (world.getWorldType() == WorldType::RulesA) {
-            return resizeWorldA(world, newWidth, newHeight);
-        } else {
-            spdlog::error("Unknown world type for bilinear resize");
-            return false;
+    // Calculate scaling factors
+    double scaleX = static_cast<double>(oldWidth) / static_cast<double>(newWidth);
+    double scaleY = static_cast<double>(oldHeight) / static_cast<double>(newHeight);
+    
+    spdlog::debug("Interpolating CellB grid: {}x{} -> {}x{}, scale factors: {:.3f}x{:.3f}", 
+                  oldWidth, oldHeight, newWidth, newHeight, scaleX, scaleY);
+    
+    // Generate interpolated cells for each position in the new grid
+    for (uint32_t newY = 0; newY < newHeight; ++newY) {
+        for (uint32_t newX = 0; newX < newWidth; ++newX) {
+            // Map destination cell to source coordinates
+            double srcX = (static_cast<double>(newX) + 0.5) * scaleX - 0.5;
+            double srcY = (static_cast<double>(newY) + 0.5) * scaleY - 0.5;
+            
+            // Get integer source coordinates and fractional parts
+            int srcX0 = static_cast<int>(std::floor(srcX));
+            int srcY0 = static_cast<int>(std::floor(srcY));
+            int srcX1 = srcX0 + 1;
+            int srcY1 = srcY0 + 1;
+            
+            double fx = srcX - srcX0;
+            double fy = srcY - srcY0;
+            
+            // Clamp to valid grid bounds
+            clampToGrid(srcX0, srcY0, oldWidth, oldHeight);
+            clampToGrid(srcX1, srcY1, oldWidth, oldHeight);
+            
+            // Get the 4 neighboring cells from old grid
+            const CellB& cell00 = oldCells[srcY0 * oldWidth + srcX0];
+            const CellB& cell10 = oldCells[srcY0 * oldWidth + srcX1];
+            const CellB& cell01 = oldCells[srcY1 * oldWidth + srcX0];
+            const CellB& cell11 = oldCells[srcY1 * oldWidth + srcX1];
+            
+            // Create interpolated cell and add to new grid
+            newCells.push_back(createInterpolatedCellB(cell00, cell10, cell01, cell11, fx, fy));
         }
-    } catch (const std::exception& e) {
-        spdlog::error("Bilinear resize failed: {}", e.what());
-        return false;
     }
+    
+    assert(newCells.size() == newWidth * newHeight && "New cells size must match dimensions");
+    return newCells;
+}
+
+std::vector<Cell> WorldInterpolationTool::generateInterpolatedCellsA(
+    const std::vector<Cell>& oldCells,
+    uint32_t oldWidth, uint32_t oldHeight,
+    uint32_t newWidth, uint32_t newHeight)
+{
+    assert(!oldCells.empty() && "Old cells vector must not be empty");
+    assert(oldCells.size() == oldWidth * oldHeight && "Old cells size must match dimensions");
+    assert(newWidth > 0 && newHeight > 0 && "New dimensions must be positive");
+    
+    std::vector<Cell> newCells;
+    newCells.reserve(newWidth * newHeight);
+    
+    // Calculate scaling factors
+    double scaleX = static_cast<double>(oldWidth) / static_cast<double>(newWidth);
+    double scaleY = static_cast<double>(oldHeight) / static_cast<double>(newHeight);
+    
+    spdlog::debug("Interpolating Cell grid: {}x{} -> {}x{}, scale factors: {:.3f}x{:.3f}", 
+                  oldWidth, oldHeight, newWidth, newHeight, scaleX, scaleY);
+    
+    // Generate interpolated cells for each position in the new grid
+    for (uint32_t newY = 0; newY < newHeight; ++newY) {
+        for (uint32_t newX = 0; newX < newWidth; ++newX) {
+            // Map destination cell to source coordinates
+            double srcX = (static_cast<double>(newX) + 0.5) * scaleX - 0.5;
+            double srcY = (static_cast<double>(newY) + 0.5) * scaleY - 0.5;
+            
+            // Get integer source coordinates and fractional parts
+            int srcX0 = static_cast<int>(std::floor(srcX));
+            int srcY0 = static_cast<int>(std::floor(srcY));
+            int srcX1 = srcX0 + 1;
+            int srcY1 = srcY0 + 1;
+            
+            double fx = srcX - srcX0;
+            double fy = srcY - srcY0;
+            
+            // Clamp to valid grid bounds
+            clampToGrid(srcX0, srcY0, oldWidth, oldHeight);
+            clampToGrid(srcX1, srcY1, oldWidth, oldHeight);
+            
+            // Get the 4 neighboring cells from old grid
+            const Cell& cell00 = oldCells[srcY0 * oldWidth + srcX0];
+            const Cell& cell10 = oldCells[srcY0 * oldWidth + srcX1];
+            const Cell& cell01 = oldCells[srcY1 * oldWidth + srcX0];
+            const Cell& cell11 = oldCells[srcY1 * oldWidth + srcX1];
+            
+            // Create interpolated cell and add to new grid
+            newCells.push_back(createInterpolatedCell(cell00, cell10, cell01, cell11, fx, fy));
+        }
+    }
+    
+    assert(newCells.size() == newWidth * newHeight && "New cells size must match dimensions");
+    return newCells;
 }
 
 // =================================================================
@@ -146,70 +237,7 @@ CellB WorldInterpolationTool::createInterpolatedCellB(const CellB& cell00, const
     return result;
 }
 
-bool WorldInterpolationTool::resizeWorldB(WorldInterface& world, uint32_t newWidth, uint32_t newHeight)
-{
-    const uint32_t oldWidth = world.getWidth();
-    const uint32_t oldHeight = world.getHeight();
-    
-    // Calculate scaling factors
-    double scaleX = static_cast<double>(oldWidth) / static_cast<double>(newWidth);
-    double scaleY = static_cast<double>(oldHeight) / static_cast<double>(newHeight);
-    
-    spdlog::debug("WorldB bilinear scaling factors: scaleX={:.3f}, scaleY={:.3f}", scaleX, scaleY);
-    
-    // Capture old world state
-    std::vector<CellB> oldCells;
-    oldCells.reserve(oldWidth * oldHeight);
-    
-    for (uint32_t y = 0; y < oldHeight; ++y) {
-        for (uint32_t x = 0; x < oldWidth; ++x) {
-            // Cast CellInterface to CellB (safe for WorldB)
-            const CellB& cellB = static_cast<const CellB&>(world.getCellInterface(x, y));
-            oldCells.push_back(cellB);
-        }
-    }
-    
-    // Resize the grid using standard method (this creates new empty cells)
-    world.resizeGrid(newWidth, newHeight);
-    
-    // Now populate the new grid with bilinear interpolated values
-    for (uint32_t newY = 0; newY < newHeight; ++newY) {
-        for (uint32_t newX = 0; newX < newWidth; ++newX) {
-            // Map destination cell to source coordinates
-            double srcX = (static_cast<double>(newX) + 0.5) * scaleX - 0.5;
-            double srcY = (static_cast<double>(newY) + 0.5) * scaleY - 0.5;
-            
-            // Get integer source coordinates and fractional parts
-            int srcX0 = static_cast<int>(std::floor(srcX));
-            int srcY0 = static_cast<int>(std::floor(srcY));
-            int srcX1 = srcX0 + 1;
-            int srcY1 = srcY0 + 1;
-            
-            double fx = srcX - srcX0;
-            double fy = srcY - srcY0;
-            
-            // Clamp to valid grid bounds
-            clampToGrid(srcX0, srcY0, oldWidth, oldHeight);
-            clampToGrid(srcX1, srcY1, oldWidth, oldHeight);
-            
-            // Get the 4 neighboring cells from old grid
-            const CellB& cell00 = oldCells[srcY0 * oldWidth + srcX0];
-            const CellB& cell10 = oldCells[srcY0 * oldWidth + srcX1];
-            const CellB& cell01 = oldCells[srcY1 * oldWidth + srcX0];
-            const CellB& cell11 = oldCells[srcY1 * oldWidth + srcX1];
-            
-            // Create interpolated cell and assign to new grid
-            CellB interpolatedCell = createInterpolatedCellB(cell00, cell10, cell01, cell11, fx, fy);
-            
-            // Copy interpolated cell to the new grid
-            CellB& targetCell = static_cast<CellB&>(world.getCellInterface(newX, newY));
-            targetCell = interpolatedCell;
-        }
-    }
-    
-    spdlog::info("WorldB bilinear resize completed successfully");
-    return true;
-}
+// resizeWorldB method removed - use generateInterpolatedCellsB instead
 
 // =================================================================
 // WORLDA (MIXED MATERIALS) INTERPOLATION
@@ -247,76 +275,7 @@ Cell WorldInterpolationTool::createInterpolatedCell(const Cell& cell00, const Ce
     return result;
 }
 
-bool WorldInterpolationTool::resizeWorldA(WorldInterface& world, uint32_t newWidth, uint32_t newHeight)
-{
-    const uint32_t oldWidth = world.getWidth();
-    const uint32_t oldHeight = world.getHeight();
-    
-    // Calculate scaling factors
-    double scaleX = static_cast<double>(oldWidth) / static_cast<double>(newWidth);
-    double scaleY = static_cast<double>(oldHeight) / static_cast<double>(newHeight);
-    
-    spdlog::debug("WorldA bilinear scaling factors: scaleX={:.3f}, scaleY={:.3f}", scaleX, scaleY);
-    
-    // Capture old world state
-    std::vector<Cell> oldCells;
-    oldCells.reserve(oldWidth * oldHeight);
-    
-    for (uint32_t y = 0; y < oldHeight; ++y) {
-        for (uint32_t x = 0; x < oldWidth; ++x) {
-            // Cast CellInterface to Cell (safe for WorldA)
-            const Cell& cell = static_cast<const Cell&>(world.getCellInterface(x, y));
-            oldCells.push_back(cell);
-        }
-    }
-    
-    // Resize the grid directly to avoid recursion with resizeGrid()
-    // We need to bypass the public resizeGrid() method that would call us again
-    // TODO: This is a temporary fix - the architecture should be refactored
-    //       to separate low-level grid resize from bilinear filtering
-    
-    // For now, return false to let World::resizeGrid() use the fallback method
-    spdlog::warn("Bilinear resize for WorldA disabled due to recursion issue - using fallback");
-    return false;
-    
-    // Populate new grid with bilinear interpolated values
-    for (uint32_t newY = 0; newY < newHeight; ++newY) {
-        for (uint32_t newX = 0; newX < newWidth; ++newX) {
-            // Map destination cell to source coordinates
-            double srcX = (static_cast<double>(newX) + 0.5) * scaleX - 0.5;
-            double srcY = (static_cast<double>(newY) + 0.5) * scaleY - 0.5;
-            
-            // Get integer source coordinates and fractional parts
-            int srcX0 = static_cast<int>(std::floor(srcX));
-            int srcY0 = static_cast<int>(std::floor(srcY));
-            int srcX1 = srcX0 + 1;
-            int srcY1 = srcY0 + 1;
-            
-            double fx = srcX - srcX0;
-            double fy = srcY - srcY0;
-            
-            // Clamp to valid grid bounds
-            clampToGrid(srcX0, srcY0, oldWidth, oldHeight);
-            clampToGrid(srcX1, srcY1, oldWidth, oldHeight);
-            
-            // Get the 4 neighboring cells from old grid
-            const Cell& cell00 = oldCells[srcY0 * oldWidth + srcX0];
-            const Cell& cell10 = oldCells[srcY0 * oldWidth + srcX1];
-            const Cell& cell01 = oldCells[srcY1 * oldWidth + srcX0];
-            const Cell& cell11 = oldCells[srcY1 * oldWidth + srcX1];
-            
-            // Create interpolated cell and assign to new grid
-            Cell interpolatedCell = createInterpolatedCell(cell00, cell10, cell01, cell11, fx, fy);
-            
-            // Copy interpolated cell to the new grid
-            Cell& targetCell = static_cast<Cell&>(world.getCellInterface(newX, newY));
-            targetCell = interpolatedCell;
-        }
-    }
-    
-    spdlog::info("WorldA bilinear resize completed successfully");
-    return true;
-}
+// resizeWorldA method removed - use generateInterpolatedCellsA instead
 
 // =================================================================
 // UTILITY HELPERS

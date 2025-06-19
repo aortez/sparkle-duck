@@ -203,33 +203,23 @@ public:
     void clearHistory() override { /* no-op */ }
     size_t getHistorySize() const override { return 0; }
     
-    // =================================================================
     // WORLDINTERFACE IMPLEMENTATION - WORLD SETUP (SIMPLIFIED)
-    // =================================================================
-    
     // WorldB-specific wall setup behavior (overrides base class)
     void setWallsEnabled(bool enabled) override;
     bool areWallsEnabled() const override; // WorldB defaults to true instead of false
     
-    // =================================================================
     // WORLDINTERFACE IMPLEMENTATION - CURSOR FORCE
-    // =================================================================
-    
     void setCursorForceEnabled(bool enabled) override { cursor_force_enabled_ = enabled; }
     void updateCursorForce(int pixelX, int pixelY, bool isActive) override;
     void clearCursorForce() override { cursor_force_active_ = false; }
     
-    // =================================================================
     // WORLDINTERFACE IMPLEMENTATION - COHESION PHYSICS CONTROL
-    // =================================================================
-    
     void setCohesionEnabled(bool enabled) override { cohesion_enabled_ = enabled; }
     bool isCohesionEnabled() const override { return cohesion_enabled_; }
     
     void setCohesionForceEnabled(bool enabled) override { cohesion_force_enabled_ = enabled; }
     bool isCohesionForceEnabled() const override { return cohesion_force_enabled_; }
     
-    // Cohesion strength parameters
     void setCohesionForceStrength(double strength) override { cohesion_force_strength_ = strength; }
     double getCohesionForceStrength() const override { return cohesion_force_strength_; }
     
@@ -242,36 +232,22 @@ public:
     void setCohesionBindStrength(double strength) override { cohesion_bind_strength_ = strength; }
     double getCohesionBindStrength() const override { return cohesion_bind_strength_; }
     
-    // COM cohesion range control
     void setCOMCohesionRange(uint32_t range) override { com_cohesion_range_ = range; }
     uint32_t getCOMCohesionRange() const override { return com_cohesion_range_; }
     
-    // =================================================================
     // WORLDINTERFACE IMPLEMENTATION - GRID MANAGEMENT
-    // =================================================================
-    
     void resizeGrid(uint32_t newWidth, uint32_t newHeight) override;
     
-    // =================================================================
     // WORLDINTERFACE IMPLEMENTATION - PERFORMANCE AND DEBUGGING
-    // =================================================================
-    
     void dumpTimerStats() const override { timers_.dumpTimerStats(); }
     void markUserInput() override { /* no-op for now */ }
     
-    
-    // =================================================================
     // WORLDINTERFACE IMPLEMENTATION - WORLD TYPE MANAGEMENT
-    // =================================================================
-    
     WorldType getWorldType() const override;
     void preserveState(::WorldState& state) const override;
     void restoreState(const ::WorldState& state) override;
     
-    // =================================================================
     // WORLDINTERFACE IMPLEMENTATION - UI INTEGRATION
-    // =================================================================
-    
     void setUI(std::unique_ptr<SimulatorUI> ui) override;
     void setUIReference(SimulatorUI* ui) override;
     SimulatorUI* getUI() const override { return ui_ref_ ? ui_ref_ : ui_.get(); }
@@ -341,6 +317,10 @@ public:
     // Support calculation methods moved to WorldBSupportCalculator
     WorldBSupportCalculator& getSupportCalculator() { return support_calculator_; }
     const WorldBSupportCalculator& getSupportCalculator() const { return support_calculator_; }
+
+protected:
+    // WorldInterface hook implementations
+    void onPostResize() override;
 
 private:
     // =================================================================
