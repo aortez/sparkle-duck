@@ -189,7 +189,7 @@ TEST_F(PressureHydrostaticTest, HydrostaticPressureDrivesMovement) {
     // Run simulation to observe pressure-driven movement
     spdlog::info("\n--- PRESSURE-DRIVEN FLOW SEQUENCE ---");
     
-    for (int timestep = 0; timestep < 15; timestep++) {
+    for (int timestep = 0; timestep < 50; timestep++) {
         double leftPressureBefore = leftLow.getHydrostaticPressure();
         double rightLowFillBefore = rightLow.getFillRatio();
         Vector2d leftVelBefore = leftLow.getVelocity();
