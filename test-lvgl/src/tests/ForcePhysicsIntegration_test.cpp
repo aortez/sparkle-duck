@@ -2,7 +2,7 @@
 #include <cmath>
 #include "../WorldB.h"
 #include "../MaterialType.h"
-#include "../WorldCohesionCalculator.h"
+#include "../WorldBCohesionCalculator.h"
 
 class ForcePhysicsIntegrationTest : public ::testing::Test {
 protected:
@@ -75,7 +75,7 @@ TEST_F(ForcePhysicsIntegrationTest, ManualHighVelocityTriggersCrossing) {
     std::cout << "Should trigger boundary crossing: " << (expectedCOMChange.mag() > 1.0 ? "YES" : "NO") << std::endl;
     
     // Test force threshold (should pass for isolated water)
-    auto cohesion = WorldCohesionCalculator(*world).calculateCohesionForce(2, 2);
+    auto cohesion = WorldBCohesionCalculator(*world).calculateCohesionForce(2, 2);
     auto adhesion = world->calculateAdhesionForce(2, 2);
     Vector2d gravity_force(0.0, 9.81 * deltaTime * 1.0); // gravity * deltaTime * density
     Vector2d net_driving_force = gravity_force + adhesion.force_direction * adhesion.force_magnitude;

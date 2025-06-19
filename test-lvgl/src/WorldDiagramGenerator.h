@@ -29,5 +29,4 @@ public:
      * @return ASCII diagram string with borders and cell representations
      */
     static std::string generateAsciiDiagram(const WorldInterface& world);
-
 };

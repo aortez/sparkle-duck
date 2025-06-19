@@ -1,32 +1,31 @@
-#include "WorldCohesionCalculator.h"
-#include "WorldInterface.h"
+#include "WorldBCohesionCalculator.h"
+#include "WorldB.h"
+#include "WorldBSupportCalculator.h"
 #include "CellB.h"
 #include "MaterialType.h"
 #include "spdlog/spdlog.h"
 #include <cmath>
 #include <algorithm>
 
-WorldCohesionCalculator::WorldCohesionCalculator(const WorldInterface& world)
-    : world_(world)
+WorldBCohesionCalculator::WorldBCohesionCalculator(const WorldB& world)
+    : world_(world), support_calculator_(std::make_unique<WorldBSupportCalculator>(world))
 {
 }
 
-const CellB& WorldCohesionCalculator::getCellAt(uint32_t x, uint32_t y) const
+const CellB& WorldBCohesionCalculator::getCellAt(uint32_t x, uint32_t y) const
 {
-    // Access cell through WorldInterface - need to cast to WorldB to access CellB
-    // This is safe since WorldCohesionCalculator is only used with WorldB
-    const auto& cell_interface = world_.getCellInterface(x, y);
-    return static_cast<const CellB&>(cell_interface);
+    // Direct access to CellB through WorldB
+    return world_.at(x, y);
 }
 
-bool WorldCohesionCalculator::isValidCell(int x, int y) const
+bool WorldBCohesionCalculator::isValidCell(int x, int y) const
 {
     return x >= 0 && y >= 0 && 
            static_cast<uint32_t>(x) < world_.getWidth() && 
            static_cast<uint32_t>(y) < world_.getHeight();
 }
 
-WorldCohesionCalculator::CohesionForce WorldCohesionCalculator::calculateCohesionForce(
+WorldBCohesionCalculator::CohesionForce WorldBCohesionCalculator::calculateCohesionForce(
     uint32_t x, uint32_t y) const
 {
     const CellB& cell = getCellAt(x, y);
@@ -49,7 +48,7 @@ WorldCohesionCalculator::CohesionForce WorldCohesionCalculator::calculateCohesio
             if (isValidCell(nx, ny)) {
                 const CellB& neighbor = getCellAt(nx, ny);
                 if (neighbor.getMaterialType() == cell.getMaterialType() && 
-                    neighbor.getFillRatio() > WorldCohesionCalculator::MIN_MATTER_THRESHOLD) {
+                    neighbor.getFillRatio() > WorldBCohesionCalculator::MIN_MATTER_THRESHOLD) {
                     
                     // Weight by neighbor's fill ratio for partial cells
                     connected_neighbors += 1; // Count as 1 neighbor
@@ -59,8 +58,8 @@ WorldCohesionCalculator::CohesionForce WorldCohesionCalculator::calculateCohesio
     }
     
     // Use directional support for realistic physics
-    bool has_vertical = hasVerticalSupport(x, y);
-    bool has_horizontal = hasHorizontalSupport(x, y);
+    bool has_vertical = support_calculator_->hasVerticalSupport(x, y);
+    bool has_horizontal = support_calculator_->hasHorizontalSupport(x, y);
     
     // Calculate support factor based on directional support
     double support_factor;
@@ -87,7 +86,7 @@ WorldCohesionCalculator::CohesionForce WorldCohesionCalculator::calculateCohesio
     return {resistance, connected_neighbors};
 }
 
-WorldCohesionCalculator::COMCohesionForce WorldCohesionCalculator::calculateCOMCohesionForce(
+WorldBCohesionCalculator::COMCohesionForce WorldBCohesionCalculator::calculateCOMCohesionForce(
     uint32_t x, uint32_t y, uint32_t com_cohesion_range) const
 {
     const CellB& cell = getCellAt(x, y);
@@ -114,7 +113,7 @@ WorldCohesionCalculator::COMCohesionForce WorldCohesionCalculator::calculateCOMC
             if (isValidCell(nx, ny)) {
                 const CellB& neighbor = getCellAt(nx, ny);
                 if (neighbor.getMaterialType() == cell.getMaterialType() && 
-                    neighbor.getFillRatio() > WorldCohesionCalculator::MIN_MATTER_THRESHOLD) {
+                    neighbor.getFillRatio() > WorldBCohesionCalculator::MIN_MATTER_THRESHOLD) {
                     
                     // Get neighbor's world position including its COM offset
                     Vector2d neighbor_world_pos(static_cast<double>(nx) + neighbor.getCOM().x,
@@ -129,7 +128,7 @@ WorldCohesionCalculator::COMCohesionForce WorldCohesionCalculator::calculateCOMC
         }
     }
     
-    if (connection_count == 0 || total_weight < WorldCohesionCalculator::MIN_MATTER_THRESHOLD) {
+    if (connection_count == 0 || total_weight < WorldBCohesionCalculator::MIN_MATTER_THRESHOLD) {
         return {{0.0, 0.0}, 0.0, {0.0, 0.0}, 0};
     }
     
@@ -168,104 +167,3 @@ WorldCohesionCalculator::COMCohesionForce WorldCohesionCalculator::calculateCOMC
     return {final_force, force_magnitude, neighbor_center, connection_count};
 }
 
-bool WorldCohesionCalculator::hasVerticalSupport(uint32_t x, uint32_t y) const
-{
-    if (!isValidCell(static_cast<int>(x), static_cast<int>(y))) {
-        spdlog::trace("hasVerticalSupport({},{}) = false (invalid cell)", x, y);
-        return false;
-    }
-    
-    const CellB& cell = getCellAt(x, y);
-    if (cell.isEmpty()) {
-        spdlog::trace("hasVerticalSupport({},{}) = false (empty cell)", x, y);
-        return false;
-    }
-    
-    // Check if already at ground level
-    if (y == world_.getHeight() - 1) {
-        spdlog::trace("hasVerticalSupport({},{}) = true (at ground level)", x, y);
-        return true;
-    }
-    
-    // Check cells directly below for continuous material (no gaps allowed)
-    for (uint32_t dy = 1; dy <= MAX_VERTICAL_SUPPORT_DISTANCE; dy++) {
-        uint32_t support_y = y + dy;
-        
-        // If we reach beyond the world boundary, no material support available
-        if (support_y >= world_.getHeight()) {
-            spdlog::info("hasVerticalSupport({},{}) = false (reached world boundary at distance {}, no material below)", x, y, dy);
-            break;
-        }
-        
-        const CellB& below = getCellAt(x, support_y);
-        if (!below.isEmpty()) {
-            // RECURSIVE SUPPORT CHECK: Supporting block must itself be supported
-            bool supporting_block_supported = hasVerticalSupport(x, support_y);
-            if (supporting_block_supported) {
-                spdlog::trace("hasVerticalSupport({},{}) = true (material {} below at distance {} is itself supported)", 
-                             x, y, getMaterialName(below.getMaterialType()), dy);
-                return true;
-            } else {
-                spdlog::trace("hasVerticalSupport({},{}) = false (material {} below at distance {} is unsupported)", 
-                             x, y, getMaterialName(below.getMaterialType()), dy);
-                return false;
-            }
-        } else {
-            // CRITICAL FIX: Stop at first empty cell - no support through gaps
-            spdlog::trace("hasVerticalSupport({},{}) = false (empty cell at distance {}, no continuous support)", x, y, dy);
-            return false;
-        }
-    }
-    
-    spdlog::info("hasVerticalSupport({},{}) = false (no material below within {} cells)", 
-                 x, y, MAX_VERTICAL_SUPPORT_DISTANCE);
-    return false;
-}
-
-bool WorldCohesionCalculator::hasHorizontalSupport(uint32_t x, uint32_t y) const
-{
-    if (!isValidCell(static_cast<int>(x), static_cast<int>(y))) {
-        spdlog::trace("hasHorizontalSupport({},{}) = false (invalid cell)", x, y);
-        return false;
-    }
-    
-    const CellB& cell = getCellAt(x, y);
-    if (cell.isEmpty()) {
-        spdlog::trace("hasHorizontalSupport({},{}) = false (empty cell)", x, y);
-        return false;
-    }
-    
-    const MaterialProperties& cell_props = getMaterialProperties(cell.getMaterialType());
-    
-    // Check immediate neighbors only (no BFS for horizontal support)
-    for (int dx = -1; dx <= 1; dx++) {
-        for (int dy = -1; dy <= 1; dy++) {
-            if (dx == 0 && dy == 0) continue; // Skip self
-            
-            int nx = static_cast<int>(x) + dx;
-            int ny = static_cast<int>(y) + dy;
-            
-            if (!isValidCell(nx, ny)) continue;
-            
-            const CellB& neighbor = getCellAt(nx, ny);
-            if (neighbor.isEmpty()) continue;
-            
-            const MaterialProperties& neighbor_props = getMaterialProperties(neighbor.getMaterialType());
-            
-            // Check for rigid support: high-density neighbor with strong adhesion
-            if (neighbor_props.density > RIGID_DENSITY_THRESHOLD) {
-                // Calculate mutual adhesion between materials
-                double mutual_adhesion = std::sqrt(cell_props.adhesion * neighbor_props.adhesion);
-                
-                if (mutual_adhesion > STRONG_ADHESION_THRESHOLD) {
-                    spdlog::trace("hasHorizontalSupport({},{}) = true (rigid {} neighbor with adhesion {:.3f})", 
-                                 x, y, getMaterialName(neighbor.getMaterialType()), mutual_adhesion);
-                    return true;
-                }
-            }
-        }
-    }
-    
-    spdlog::trace("hasHorizontalSupport({},{}) = false (no rigid neighbors with strong adhesion)", x, y);
-    return false;
-}

@@ -1,7 +1,7 @@
 #include "visual_test_runner.h"
 #include <cmath>
 #include "../WorldB.h"
-#include "../WorldCohesionCalculator.h"
+#include "../WorldBCohesionCalculator.h"
 #include "../MaterialType.h"
 #include <spdlog/spdlog.h>
 #include <thread>
@@ -87,7 +87,7 @@ protected:
 };
 
 TEST_F(ForceCalculationTest, EmptyCellHasZeroForces) {
-    auto cohesion = WorldCohesionCalculator(*world).calculateCohesionForce(2, 2);
+    auto cohesion = WorldBCohesionCalculator(*world).calculateCohesionForce(2, 2);
     auto adhesion = world->calculateAdhesionForce(2, 2);
     
     EXPECT_EQ(cohesion.resistance_magnitude, 0.0);
@@ -99,7 +99,7 @@ TEST_F(ForceCalculationTest, EmptyCellHasZeroForces) {
 TEST_F(ForceCalculationTest, IsolatedWaterHasNoForces) {
     world->addMaterialAtCell(2, 2, MaterialType::WATER, 1.0);
     
-    auto cohesion = WorldCohesionCalculator(*world).calculateCohesionForce(2, 2);
+    auto cohesion = WorldBCohesionCalculator(*world).calculateCohesionForce(2, 2);
     auto adhesion = world->calculateAdhesionForce(2, 2);
     
     // No same-material neighbors = no cohesion resistance
@@ -135,7 +135,7 @@ TEST_F(ForceCalculationTest, WaterWithWaterNeighborsHasCohesion) {
         waitForNext();
         
         spdlog::info("[TEST] Calculating cohesion forces");
-        auto cohesion = WorldCohesionCalculator(*world).calculateCohesionForce(2, 2);
+        auto cohesion = WorldBCohesionCalculator(*world).calculateCohesionForce(2, 2);
         
         // Should have cohesion resistance from 2 same-material neighbors
         EXPECT_GT(cohesion.resistance_magnitude, 0.0);
@@ -187,7 +187,7 @@ TEST_F(ForceCalculationTest, MetalHasHighCohesion) {
     world->addMaterialAtCell(2, 2, MaterialType::METAL, 1.0);
     world->addMaterialAtCell(2, 1, MaterialType::METAL, 1.0); // Above (2,2)
     
-    auto cohesion_metal = WorldCohesionCalculator(*world).calculateCohesionForce(2, 2);
+    auto cohesion_metal = WorldBCohesionCalculator(*world).calculateCohesionForce(2, 2);
     
     // Create new world for WATER test to avoid interference
     auto water_world = std::make_unique<WorldB>(5, 5, nullptr);
@@ -195,7 +195,7 @@ TEST_F(ForceCalculationTest, MetalHasHighCohesion) {
     water_world->addMaterialAtCell(2, 2, MaterialType::WATER, 1.0);
     water_world->addMaterialAtCell(2, 1, MaterialType::WATER, 1.0); // Above (2,2)
     
-    auto cohesion_water = WorldCohesionCalculator(*water_world).calculateCohesionForce(2, 2);
+    auto cohesion_water = WorldBCohesionCalculator(*water_world).calculateCohesionForce(2, 2);
     
     // With same neighbor count (1), METAL should have higher resistance due to higher cohesion property
     EXPECT_GT(cohesion_metal.resistance_magnitude, cohesion_water.resistance_magnitude);
@@ -232,7 +232,7 @@ TEST_F(ForceCalculationTest, PartialCellsFillRatioWeighting) {
     world->addMaterialAtCell(2, 2, MaterialType::WATER, 0.5); // Half-filled
     world->addMaterialAtCell(2, 1, MaterialType::WATER, 0.8); // Above, 80% filled
     
-    auto cohesion = WorldCohesionCalculator(*world).calculateCohesionForce(2, 2);
+    auto cohesion = WorldBCohesionCalculator(*world).calculateCohesionForce(2, 2);
     
     // Expected: cohesion_property * connected_neighbors * own_fill_ratio
     // Note: connected_neighbors is count (1), not weighted by fill ratio
@@ -375,8 +375,8 @@ TEST_F(ForceCalculationTest, MetalParticlesCohesionResistance) {
     }
     
     // If no velocity changes detected, verify cohesion forces are at least being calculated
-    auto cohesion_left = WorldCohesionCalculator(*large_world).calculateCohesionForce(2, 3);
-    auto cohesion_right = WorldCohesionCalculator(*large_world).calculateCohesionForce(4, 3);
+    auto cohesion_left = WorldBCohesionCalculator(*large_world).calculateCohesionForce(2, 3);
+    auto cohesion_right = WorldBCohesionCalculator(*large_world).calculateCohesionForce(4, 3);
     
     // Even if movement wasn't detected, cohesion forces should exist
     EXPECT_GT(cohesion_left.resistance_magnitude, 0.0) 
@@ -696,12 +696,12 @@ TEST_F(ForceCalculationTest, SupportedVsFloatingStructures) {
     }
     
     // Calculate cohesion forces for comparison
-    auto cohesion_ground_base = WorldCohesionCalculator(*large_world).calculateCohesionForce(1, 7);      // Ground level
-    auto cohesion_ground_middle = WorldCohesionCalculator(*large_world).calculateCohesionForce(1, 6);    // Middle of tower
-    auto cohesion_ground_top = WorldCohesionCalculator(*large_world).calculateCohesionForce(1, 5);       // Top of tower
+    auto cohesion_ground_base = WorldBCohesionCalculator(*large_world).calculateCohesionForce(1, 7);      // Ground level
+    auto cohesion_ground_middle = WorldBCohesionCalculator(*large_world).calculateCohesionForce(1, 6);    // Middle of tower
+    auto cohesion_ground_top = WorldBCohesionCalculator(*large_world).calculateCohesionForce(1, 5);       // Top of tower
     
-    auto cohesion_floating_bottom = WorldCohesionCalculator(*large_world).calculateCohesionForce(6, 2);  // Bottom of floating pair
-    auto cohesion_floating_top = WorldCohesionCalculator(*large_world).calculateCohesionForce(6, 3);     // Top of floating pair
+    auto cohesion_floating_bottom = WorldBCohesionCalculator(*large_world).calculateCohesionForce(6, 2);  // Bottom of floating pair
+    auto cohesion_floating_top = WorldBCohesionCalculator(*large_world).calculateCohesionForce(6, 3);     // Top of floating pair
     
     // Ground-connected structure should have MUCH higher cohesion resistance
     // (BFS should find ground support through connected materials)

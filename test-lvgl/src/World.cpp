@@ -50,8 +50,8 @@ World::World(uint32_t width, uint32_t height, lv_obj_t* draw_area)
     // Initialize timers
     timers.startTimer("total_simulation");
 
-    // Create configurable world setup
-    worldSetup = std::make_unique<ConfigurableWorldSetup>();
+    // Initialize WorldSetup using base class method
+    initializeWorldSetup();
 
 }
 
@@ -120,7 +120,7 @@ void World::processParticleAddition(double deltaTimeSeconds)
 {
     if (addParticlesEnabled) {
         timers.startTimer("add_particles");
-        worldSetup->addParticles(*this, timestep++, deltaTimeSeconds);
+        worldSetup_->addParticles(*this, timestep++, deltaTimeSeconds);
         timers.stopTimer("add_particles");
     }
     else {
@@ -1582,25 +1582,6 @@ void World::reset()
     spdlog::info("World (RulesA) reset complete - world is now empty");
 }
 
-void World::setup()
-{
-    spdlog::info("Setting up World (RulesA) with initial materials");
-    
-    // First reset to empty state
-    reset();
-    
-    spdlog::info("About to check worldSetup pointer...");
-    // Use the world setup strategy to initialize the world
-    if (worldSetup) {
-        spdlog::info("Calling WorldSetup::setup for World (RulesA)");
-        worldSetup->setup(*this);
-    } else {
-        spdlog::error("WorldSetup is null in World::setup()!");
-    }
-    
-    spdlog::info("World (RulesA) setup complete");
-    spdlog::info("DEBUGGING: Total mass after setup = {:.3f}", getTotalMass());
-}
 
 void World::addDirtAtPixel(int pixelX, int pixelY)
 {
@@ -1923,45 +1904,6 @@ void World::updateCursorForce(int pixelX, int pixelY, bool isActive)
 }
 
 // ConfigurableWorldSetup control methods
-void World::setLeftThrowEnabled(bool enabled)
-{
-    ConfigurableWorldSetup* configSetup = dynamic_cast<ConfigurableWorldSetup*>(worldSetup.get());
-    if (configSetup) {
-        configSetup->setLeftThrowEnabled(enabled);
-    }
-}
-
-void World::setRightThrowEnabled(bool enabled)
-{
-    ConfigurableWorldSetup* configSetup = dynamic_cast<ConfigurableWorldSetup*>(worldSetup.get());
-    if (configSetup) {
-        configSetup->setRightThrowEnabled(enabled);
-    }
-}
-
-void World::setLowerRightQuadrantEnabled(bool enabled)
-{
-    ConfigurableWorldSetup* configSetup = dynamic_cast<ConfigurableWorldSetup*>(worldSetup.get());
-    if (configSetup) {
-        configSetup->setLowerRightQuadrantEnabled(enabled);
-    }
-}
-
-void World::setWallsEnabled(bool enabled)
-{
-    ConfigurableWorldSetup* configSetup = dynamic_cast<ConfigurableWorldSetup*>(worldSetup.get());
-    if (configSetup) {
-        configSetup->setWallsEnabled(enabled);
-    }
-}
-
-void World::setRainRate(double rate)
-{
-    ConfigurableWorldSetup* configSetup = dynamic_cast<ConfigurableWorldSetup*>(worldSetup.get());
-    if (configSetup) {
-        configSetup->setRainRate(rate);
-    }
-}
 
 void World::resizeGrid(uint32_t newWidth, uint32_t newHeight)
 {
@@ -1993,7 +1935,7 @@ void World::resizeGrid(uint32_t newWidth, uint32_t newHeight)
     // Capture current world state before resizing using WorldSetup
     uint32_t oldWidth = width;
     uint32_t oldHeight = height;
-    std::vector<WorldSetup::ResizeData> oldState = worldSetup->captureWorldState(*this);
+    std::vector<WorldSetup::ResizeData> oldState = worldSetup_->captureWorldState(*this);
 
     // Clear existing cells and resize
     cells.clear();
@@ -2009,7 +1951,7 @@ void World::resizeGrid(uint32_t newWidth, uint32_t newHeight)
 
     // Apply the preserved state using feature-preserving interpolation
     if (!oldState.empty()) {
-        worldSetup->applyWorldState(*this, oldState, oldWidth, oldHeight);
+        worldSetup_->applyWorldState(*this, oldState, oldWidth, oldHeight);
     }
     else {
         // If no previous state, use the default world setup
@@ -2017,40 +1959,6 @@ void World::resizeGrid(uint32_t newWidth, uint32_t newHeight)
     }
 }
 
-bool World::isLeftThrowEnabled() const
-{
-    const ConfigurableWorldSetup* configSetup =
-        dynamic_cast<const ConfigurableWorldSetup*>(worldSetup.get());
-    return configSetup ? configSetup->isLeftThrowEnabled() : false;
-}
-
-bool World::isRightThrowEnabled() const
-{
-    const ConfigurableWorldSetup* configSetup =
-        dynamic_cast<const ConfigurableWorldSetup*>(worldSetup.get());
-    return configSetup ? configSetup->isRightThrowEnabled() : false;
-}
-
-bool World::isLowerRightQuadrantEnabled() const
-{
-    const ConfigurableWorldSetup* configSetup =
-        dynamic_cast<const ConfigurableWorldSetup*>(worldSetup.get());
-    return configSetup ? configSetup->isLowerRightQuadrantEnabled() : false;
-}
-
-bool World::areWallsEnabled() const
-{
-    const ConfigurableWorldSetup* configSetup =
-        dynamic_cast<const ConfigurableWorldSetup*>(worldSetup.get());
-    return configSetup ? configSetup->areWallsEnabled() : false;
-}
-
-double World::getRainRate() const
-{
-    const ConfigurableWorldSetup* configSetup =
-        dynamic_cast<const ConfigurableWorldSetup*>(worldSetup.get());
-    return configSetup ? configSetup->getRainRate() : 0.0;
-}
 
 // Time reversal implementation
 void World::saveWorldState()

@@ -1,5 +1,6 @@
 #include "SimulationManager.h"
 #include "SimulatorUI.h"
+#include "WorldSetup.h"
 #include "spdlog/spdlog.h"
 
 SimulationManager::SimulationManager(WorldType initialType, uint32_t width, uint32_t height, lv_obj_t* screen)

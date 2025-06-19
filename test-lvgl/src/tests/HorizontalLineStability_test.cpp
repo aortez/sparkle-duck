@@ -1,7 +1,7 @@
 #include "visual_test_runner.h"
 #include "../WorldB.h"
 #include "../MaterialType.h"
-#include "../WorldCohesionCalculator.h"
+#include "../WorldBCohesionCalculator.h"
 #include "spdlog/spdlog.h"
 #include <thread>
 #include <chrono>
@@ -50,7 +50,7 @@ protected:
     
     void logCellDetails(uint32_t x, uint32_t y, const std::string& description) {
         const CellB& cell = world->at(x, y);
-        auto cohesion = WorldCohesionCalculator(*world).calculateCohesionForce(x, y);
+        auto cohesion = WorldBCohesionCalculator(*world).calculateCohesionForce(x, y);
         auto adhesion = world->calculateAdhesionForce(x, y);
         
         spdlog::info("Cell ({},{}) - {}: material={}, fill={:.1f}, neighbors={}, cohesion_resistance={:.3f}, adhesion_magnitude={:.3f}",
@@ -64,7 +64,7 @@ protected:
     
     void logForceAnalysis(uint32_t x, uint32_t y, double deltaTime = 0.016) {
         const CellB& cell = world->at(x, y);
-        auto cohesion = WorldCohesionCalculator(*world).calculateCohesionForce(x, y);
+        auto cohesion = WorldBCohesionCalculator(*world).calculateCohesionForce(x, y);
         auto adhesion = world->calculateAdhesionForce(x, y);
         
         // Calculate forces as done in queueMaterialMoves

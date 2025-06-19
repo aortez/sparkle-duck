@@ -11,6 +11,7 @@ class CellInterface;
 struct WorldState;
 enum class WorldType;
 class WorldDiagramGenerator;
+class WorldSetup;
 
 /**
  * \file
@@ -41,7 +42,8 @@ public:
     virtual void reset() = 0;
     
     // Setup the world with initial materials (calls reset() first)
-    virtual void setup() = 0;
+    // Default implementation uses worldSetup_ strategy pattern
+    virtual void setup();
     
     // =================================================================
     // GRID ACCESS AND PROPERTIES
@@ -205,34 +207,34 @@ public:
     // =================================================================
     
     // Enable/disable left-side particle throwing
-    virtual void setLeftThrowEnabled(bool enabled) = 0;
+    virtual void setLeftThrowEnabled(bool enabled);
     
     // Enable/disable right-side particle throwing
-    virtual void setRightThrowEnabled(bool enabled) = 0;
+    virtual void setRightThrowEnabled(bool enabled);
     
     // Enable/disable lower-right quadrant features
-    virtual void setLowerRightQuadrantEnabled(bool enabled) = 0;
+    virtual void setLowerRightQuadrantEnabled(bool enabled);
     
     // Enable/disable world boundary walls
-    virtual void setWallsEnabled(bool enabled) = 0;
+    virtual void setWallsEnabled(bool enabled);
     
     // Set rain particle generation rate
-    virtual void setRainRate(double rate) = 0;
+    virtual void setRainRate(double rate);
     
     // Check if left throw is enabled
-    virtual bool isLeftThrowEnabled() const = 0;
+    virtual bool isLeftThrowEnabled() const;
     
     // Check if right throw is enabled
-    virtual bool isRightThrowEnabled() const = 0;
+    virtual bool isRightThrowEnabled() const;
     
     // Check if lower-right quadrant is enabled
-    virtual bool isLowerRightQuadrantEnabled() const = 0;
+    virtual bool isLowerRightQuadrantEnabled() const;
     
     // Check if walls are enabled
-    virtual bool areWallsEnabled() const = 0;
+    virtual bool areWallsEnabled() const;
     
     // Get current rain rate
-    virtual double getRainRate() const = 0;
+    virtual double getRainRate() const;
     
     // =================================================================
     // CURSOR FORCE INTERACTION
@@ -332,4 +334,14 @@ public:
     
     // Restore world state from cross-world switching
     virtual void restoreState(const WorldState& state) = 0;
+
+protected:
+    // Shared WorldSetup instance for all world implementations
+    std::unique_ptr<WorldSetup> worldSetup_;
+    
+    // Helper method for world type naming in logging
+    virtual const char* getWorldTypeName() const = 0;
+    
+    // Initialize WorldSetup - should be called by concrete class constructors
+    void initializeWorldSetup();
 };

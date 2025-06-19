@@ -56,8 +56,6 @@ public:
     void draw() override;
 
     void reset() override;
-    
-    void setup() override;
 
     Cell& at(uint32_t x, uint32_t y);
     const Cell& at(uint32_t x, uint32_t y) const;
@@ -79,6 +77,9 @@ public:
     void setUI(std::unique_ptr<SimulatorUI> ui) override;
     void setUIReference(SimulatorUI* ui) override;
     SimulatorUI* getUI() const override { return ui_ref_ ? ui_ref_ : ui_.get(); }
+    
+    // World type identification
+    const char* getWorldTypeName() const override { return "World (RulesA)"; }
 
 
     // Get the total mass of dirt in the world.
@@ -221,23 +222,7 @@ public:
     void setDynamicPressureEnabled(bool /* enabled */) override { /* no-op */ }
     bool isDynamicPressureEnabled() const override { return false; }
 
-    // Set the world setup strategy
-    void setWorldSetup(std::unique_ptr<WorldSetup> setup) { worldSetup = std::move(setup); }
 
-    // Get the current world setup strategy
-    std::unique_ptr<WorldSetup> getWorldSetup() { return std::move(worldSetup); }
-
-    // ConfigurableWorldSetup control methods
-    void setLeftThrowEnabled(bool enabled) override;
-    void setRightThrowEnabled(bool enabled) override;
-    void setLowerRightQuadrantEnabled(bool enabled) override;
-    void setWallsEnabled(bool enabled) override;
-    void setRainRate(double rate) override;
-    bool isLeftThrowEnabled() const override;
-    bool isRightThrowEnabled() const override;
-    bool isLowerRightQuadrantEnabled() const override;
-    bool areWallsEnabled() const override;
-    double getRainRate() const override;
 
     double timescale = 1.0;
 
@@ -352,8 +337,6 @@ private:
     // Material selection state (for UI coordination)
     MaterialType selected_material_;
 
-    // World setup strategy
-    std::unique_ptr<WorldSetup> worldSetup;
 
     // UI interface
     std::unique_ptr<SimulatorUI> ui_;                    // Owned UI (legacy architecture)
@@ -401,7 +384,7 @@ private:
     Vector2i pixelToCell(int pixelX, int pixelY) const;
 
     // Helper to get world setup for resize operations
-    const WorldSetup* getWorldSetup() const { return worldSetup.get(); }
+    const WorldSetup* getWorldSetup() const { return worldSetup_.get(); }
 
     // Helper method to restore state with potential grid size changes
     void restoreWorldState(const WorldState& state);

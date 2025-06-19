@@ -3,6 +3,7 @@
 #include "src/SparkleAssert.h"
 #include "src/SimulationManager.h"
 #include "src/WorldFactory.h"
+#include "src/WorldSetup.h"
 #include <fstream>
 #include <filesystem>
 #include <thread>

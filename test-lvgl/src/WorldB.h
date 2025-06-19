@@ -4,7 +4,8 @@
 #include "MaterialType.h"
 #include "Timers.h"
 #include "Vector2i.h"
-#include "WorldCohesionCalculator.h"
+#include "WorldBCohesionCalculator.h"
+#include "WorldBSupportCalculator.h"
 #include "WorldInterface.h"
 #include "WorldSetup.h"
 #include "WorldState.h"
@@ -26,7 +27,7 @@ class SimulatorUI;
 
 class WorldB : public WorldInterface {
 public:
-    // Force calculation structures for adhesion physics (cohesion moved to WorldCohesionCalculator)
+    // Force calculation structures for adhesion physics.
     struct AdhesionForce {
         Vector2d force_direction;     // Direction of adhesive pull/resistance
         double force_magnitude;       // Strength of adhesive force
@@ -206,16 +207,9 @@ public:
     // WORLDINTERFACE IMPLEMENTATION - WORLD SETUP (SIMPLIFIED)
     // =================================================================
     
-    void setLeftThrowEnabled(bool enabled) override;
-    void setRightThrowEnabled(bool enabled) override;
-    void setLowerRightQuadrantEnabled(bool enabled) override;
+    // WorldB-specific wall setup behavior (overrides base class)
     void setWallsEnabled(bool enabled) override;
-    void setRainRate(double rate) override;
-    bool isLeftThrowEnabled() const override;
-    bool isRightThrowEnabled() const override;
-    bool isLowerRightQuadrantEnabled() const override;
-    bool areWallsEnabled() const override;
-    double getRainRate() const override;
+    bool areWallsEnabled() const override; // WorldB defaults to true instead of false
     
     // =================================================================
     // WORLDINTERFACE IMPLEMENTATION - CURSOR FORCE
@@ -282,6 +276,9 @@ public:
     void setUIReference(SimulatorUI* ui) override;
     SimulatorUI* getUI() const override { return ui_ref_ ? ui_ref_ : ui_.get(); }
     
+    // World type identification
+    const char* getWorldTypeName() const override { return "WorldB (RulesB)"; }
+    
     // =================================================================
     // WORLDB-SPECIFIC METHODS
     // =================================================================
@@ -320,7 +317,7 @@ public:
     MaterialMove createCollisionAwareMove(const CellB& fromCell, const CellB& toCell, 
                                           const Vector2i& fromPos, const Vector2i& toPos,
                                           const Vector2i& direction, double deltaTime = 0.0,
-                                          const WorldCohesionCalculator::COMCohesionForce& com_cohesion = {{0.0, 0.0}, 0.0, {0.0, 0.0}, 0});
+                                          const WorldBCohesionCalculator::COMCohesionForce& com_cohesion = {{0.0, 0.0}, 0.0, {0.0, 0.0}, 0});
     
     // Get pending moves for testing (call queueMaterialMoves first)
     const std::vector<MaterialMove>& getPendingMoves() const { return pending_moves_; }
@@ -341,11 +338,9 @@ public:
     // Calculate adhesion force from different-material neighbors
     AdhesionForce calculateAdhesionForce(uint32_t x, uint32_t y);
     
-    // Calculate distance to structural support for cohesion decay
-    double calculateDistanceToSupport(uint32_t x, uint32_t y);
-    
-    // Check if a position has structural support (ground, walls, stationary material)
-    bool hasStructuralSupport(uint32_t x, uint32_t y);
+    // Support calculation methods moved to WorldBSupportCalculator
+    WorldBSupportCalculator& getSupportCalculator() { return support_calculator_; }
+    const WorldBSupportCalculator& getSupportCalculator() const { return support_calculator_; }
 
 private:
     // =================================================================
@@ -436,11 +431,6 @@ private:
     
     // World setup controls
     bool add_particles_enabled_;
-    bool left_throw_enabled_;
-    bool right_throw_enabled_;
-    bool quadrant_enabled_;
-    bool walls_enabled_;
-    double rain_rate_;
     
     // Cursor force state
     bool cursor_force_enabled_;
@@ -491,9 +481,9 @@ private:
     // Performance timing
     mutable Timers timers_;
     
-    // World setup strategy
-    std::unique_ptr<WorldSetup> world_setup_;
-    
+    // Support calculation
+    mutable WorldBSupportCalculator support_calculator_;
+
     // UI interface
     std::unique_ptr<SimulatorUI> ui_;                    // Owned UI (legacy architecture)
     SimulatorUI* ui_ref_;                                // Non-owning reference (SimulationManager architecture)

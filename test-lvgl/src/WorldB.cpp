@@ -2,7 +2,7 @@
 #include "Cell.h"
 #include "SimulatorUI.h"
 #include "Vector2i.h"
-#include "WorldCohesionCalculator.h"
+#include "WorldBCohesionCalculator.h"
 #include "WorldInterpolationTool.h"
 #include "spdlog/spdlog.h"
 
@@ -30,11 +30,6 @@ WorldB::WorldB(uint32_t width, uint32_t height, lv_obj_t* draw_area)
       hydrostatic_pressure_enabled_(true),
       dynamic_pressure_enabled_(true),
       add_particles_enabled_(true),
-      left_throw_enabled_(false),
-      right_throw_enabled_(false),
-      quadrant_enabled_(false),
-      walls_enabled_(true),
-      rain_rate_(0.0),
       cursor_force_enabled_(true),
       cursor_force_active_(false),
       cursor_force_x_(0),
@@ -60,6 +55,7 @@ WorldB::WorldB(uint32_t width, uint32_t height, lv_obj_t* draw_area)
       dragged_velocity_(0.0, 0.0),
       dragged_com_(0.0, 0.0),
       selected_material_(MaterialType::DIRT),
+      support_calculator_(*this),
       ui_ref_(nullptr)
 {
     spdlog::info("Creating WorldB: {}x{} grid with pure-material physics", width_, height_);
@@ -73,14 +69,14 @@ WorldB::WorldB(uint32_t width, uint32_t height, lv_obj_t* draw_area)
     }
     
     // Set up boundary walls if enabled
-    if (walls_enabled_) {
+    if (areWallsEnabled()) {
         setupBoundaryWalls();
     }
     
     timers_.startTimer("total_simulation");
     
-    // Create configurable world setup
-    world_setup_ = std::make_unique<ConfigurableWorldSetup>();
+    // Initialize WorldSetup using base class method
+    initializeWorldSetup();
     
     spdlog::info("WorldB initialization complete");
 }
@@ -104,9 +100,9 @@ void WorldB::advanceTime(double deltaTimeSeconds)
                   deltaTimeSeconds, timestep_);
     
     // Add particles if enabled
-    if (add_particles_enabled_ && world_setup_) {
+    if (add_particles_enabled_ && worldSetup_) {
         timers_.startTimer("add_particles");
-        world_setup_->addParticles(*this, timestep_, deltaTimeSeconds);
+        worldSetup_->addParticles(*this, timestep_, deltaTimeSeconds);
         timers_.stopTimer("add_particles");
     }
     
@@ -182,24 +178,11 @@ void WorldB::reset()
 
 void WorldB::setup()
 {
-    spdlog::info("Setting up WorldB with initial materials");
+    // Use the base class implementation for standard setup
+    WorldInterface::setup();
     
-    // First reset to empty state
-    reset();
-    
-    spdlog::info("After reset, about to do WorldSetup");
-    
-    // Use the world setup strategy to initialize the world
-    spdlog::info("About to check world_setup_ pointer...");
-    if (world_setup_) {
-        spdlog::info("Calling WorldSetup::setup for WorldB");
-        world_setup_->setup(*this);
-    } else {
-        spdlog::error("WorldSetup is null in WorldB::setup()!");
-    }
-    
-    // Rebuild boundary walls if enabled
-    if (walls_enabled_) {
+    // WorldB-specific: Rebuild boundary walls if enabled
+    if (areWallsEnabled()) {
         setupBoundaryWalls();
     }
     
@@ -519,7 +502,7 @@ void WorldB::resizeGrid(uint32_t newWidth, uint32_t newHeight)
     cells_ = std::move(newCells);
     
     // Rebuild boundary walls if enabled
-    if (walls_enabled_) {
+    if (areWallsEnabled()) {
         setupBoundaryWalls();
     }
     
@@ -644,7 +627,7 @@ void WorldB::applyCohesionForces(double deltaTime)
             }
             
             // Calculate COM cohesion force
-            WorldCohesionCalculator::COMCohesionForce com_cohesion = WorldCohesionCalculator(*this).calculateCOMCohesionForce(x, y, com_cohesion_range_);
+            WorldBCohesionCalculator::COMCohesionForce com_cohesion = WorldBCohesionCalculator(*this).calculateCOMCohesionForce(x, y, com_cohesion_range_);
             
             // Apply forces to velocity
             Vector2d velocity = cell.getVelocity();
@@ -701,18 +684,18 @@ void WorldB::queueMaterialMoves(double deltaTime)
             
             // PHASE 2: Force-Based Movement Threshold
             // Calculate cohesion and adhesion forces before movement decisions
-            WorldCohesionCalculator::CohesionForce cohesion;
+            WorldBCohesionCalculator::CohesionForce cohesion;
             if (cohesion_enabled_) {
-                cohesion = WorldCohesionCalculator(*this).calculateCohesionForce(x, y);
+                cohesion = WorldBCohesionCalculator(*this).calculateCohesionForce(x, y);
             } else {
                 cohesion = {0.0, 0}; // No cohesion resistance when disabled
             }
             AdhesionForce adhesion = calculateAdhesionForce(x, y);
             
             // NEW: Calculate COM-based cohesion force
-            WorldCohesionCalculator::COMCohesionForce com_cohesion;
+            WorldBCohesionCalculator::COMCohesionForce com_cohesion;
             if (cohesion_force_enabled_) {
-                com_cohesion = WorldCohesionCalculator(*this).calculateCOMCohesionForce(x, y, com_cohesion_range_);
+                com_cohesion = WorldBCohesionCalculator(*this).calculateCOMCohesionForce(x, y, com_cohesion_range_);
             } else {
                 com_cohesion = {{0.0, 0.0}, 0.0, {0.0, 0.0}, 0}; // No COM cohesion when disabled
             }
@@ -1182,40 +1165,13 @@ Vector2d WorldB::getCellWorldPosition(uint32_t x, uint32_t y, const Vector2d& co
 // WORLD SETUP CONTROL METHODS
 // =================================================================
 
-void WorldB::setLeftThrowEnabled(bool enabled)
-{
-    ConfigurableWorldSetup* configSetup = dynamic_cast<ConfigurableWorldSetup*>(world_setup_.get());
-    if (configSetup) {
-        configSetup->setLeftThrowEnabled(enabled);
-    }
-    left_throw_enabled_ = enabled; // Keep member variable in sync
-}
-
-void WorldB::setRightThrowEnabled(bool enabled)
-{
-    ConfigurableWorldSetup* configSetup = dynamic_cast<ConfigurableWorldSetup*>(world_setup_.get());
-    if (configSetup) {
-        configSetup->setRightThrowEnabled(enabled);
-    }
-    right_throw_enabled_ = enabled; // Keep member variable in sync
-}
-
-void WorldB::setLowerRightQuadrantEnabled(bool enabled)
-{
-    ConfigurableWorldSetup* configSetup = dynamic_cast<ConfigurableWorldSetup*>(world_setup_.get());
-    if (configSetup) {
-        configSetup->setLowerRightQuadrantEnabled(enabled);
-    }
-    quadrant_enabled_ = enabled; // Keep member variable in sync
-}
 
 void WorldB::setWallsEnabled(bool enabled)
 {
-    ConfigurableWorldSetup* configSetup = dynamic_cast<ConfigurableWorldSetup*>(world_setup_.get());
+    ConfigurableWorldSetup* configSetup = dynamic_cast<ConfigurableWorldSetup*>(worldSetup_.get());
     if (configSetup) {
         configSetup->setWallsEnabled(enabled);
     }
-    walls_enabled_ = enabled; // Keep member variable in sync
     
     // Rebuild walls if needed
     if (enabled) {
@@ -1233,44 +1189,14 @@ void WorldB::setWallsEnabled(bool enabled)
     }
 }
 
-void WorldB::setRainRate(double rate)
-{
-    ConfigurableWorldSetup* configSetup = dynamic_cast<ConfigurableWorldSetup*>(world_setup_.get());
-    if (configSetup) {
-        configSetup->setRainRate(rate);
-    }
-    rain_rate_ = rate; // Keep member variable in sync
-}
 
-bool WorldB::isLeftThrowEnabled() const
-{
-    const ConfigurableWorldSetup* configSetup = dynamic_cast<const ConfigurableWorldSetup*>(world_setup_.get());
-    return configSetup ? configSetup->isLeftThrowEnabled() : left_throw_enabled_;
-}
-
-bool WorldB::isRightThrowEnabled() const
-{
-    const ConfigurableWorldSetup* configSetup = dynamic_cast<const ConfigurableWorldSetup*>(world_setup_.get());
-    return configSetup ? configSetup->isRightThrowEnabled() : right_throw_enabled_;
-}
-
-bool WorldB::isLowerRightQuadrantEnabled() const
-{
-    const ConfigurableWorldSetup* configSetup = dynamic_cast<const ConfigurableWorldSetup*>(world_setup_.get());
-    return configSetup ? configSetup->isLowerRightQuadrantEnabled() : quadrant_enabled_;
-}
 
 bool WorldB::areWallsEnabled() const
 {
-    const ConfigurableWorldSetup* configSetup = dynamic_cast<const ConfigurableWorldSetup*>(world_setup_.get());
-    return configSetup ? configSetup->areWallsEnabled() : walls_enabled_;
+    const ConfigurableWorldSetup* configSetup = dynamic_cast<const ConfigurableWorldSetup*>(worldSetup_.get());
+    return configSetup ? configSetup->areWallsEnabled() : true;
 }
 
-double WorldB::getRainRate() const
-{
-    const ConfigurableWorldSetup* configSetup = dynamic_cast<const ConfigurableWorldSetup*>(world_setup_.get());
-    return configSetup ? configSetup->getRainRate() : rain_rate_;
-}
 
 // World type management implementation
 WorldType WorldB::getWorldType() const
@@ -1293,11 +1219,11 @@ void WorldB::preserveState(::WorldState& state) const
     state.water_pressure_threshold = 0.0; // WorldB uses simplified pressure
     
     // Copy world setup flags
-    state.left_throw_enabled = left_throw_enabled_;
-    state.right_throw_enabled = right_throw_enabled_;
-    state.lower_right_quadrant_enabled = quadrant_enabled_;
-    state.walls_enabled = walls_enabled_;
-    state.rain_rate = rain_rate_;
+    state.left_throw_enabled = isLeftThrowEnabled();
+    state.right_throw_enabled = isRightThrowEnabled();
+    state.lower_right_quadrant_enabled = isLowerRightQuadrantEnabled();
+    state.walls_enabled = areWallsEnabled();
+    state.rain_rate = getRainRate();
     
     // Copy time reversal state (WorldB doesn't support time reversal)
     state.time_reversal_enabled = false;
@@ -1354,11 +1280,11 @@ void WorldB::restoreState(const ::WorldState& state)
     // Note: WorldB doesn't use dirt_fragmentation_factor or water_pressure_threshold
     
     // Restore world setup flags
-    left_throw_enabled_ = state.left_throw_enabled;
-    right_throw_enabled_ = state.right_throw_enabled;
-    quadrant_enabled_ = state.lower_right_quadrant_enabled;
-    walls_enabled_ = state.walls_enabled;
-    rain_rate_ = state.rain_rate;
+    setLeftThrowEnabled(state.left_throw_enabled);
+    setRightThrowEnabled(state.right_throw_enabled);
+    setLowerRightQuadrantEnabled(state.lower_right_quadrant_enabled);
+    setWallsEnabled(state.walls_enabled);
+    setRainRate(state.rain_rate);
     
     // Restore control flags
     add_particles_enabled_ = state.add_particles_enabled;
@@ -1417,7 +1343,7 @@ std::vector<Vector2i> WorldB::getAllBoundaryCrossings(const Vector2d& newCOM)
 WorldB::MaterialMove WorldB::createCollisionAwareMove(const CellB& fromCell, const CellB& toCell, 
                                                       const Vector2i& fromPos, const Vector2i& toPos,
                                                       const Vector2i& direction, double /* deltaTime */,
-                                                      const WorldCohesionCalculator::COMCohesionForce& com_cohesion)
+                                                      const WorldBCohesionCalculator::COMCohesionForce& com_cohesion)
 {
     MaterialMove move;
     
@@ -1797,193 +1723,6 @@ WorldB::AdhesionForce WorldB::calculateAdhesionForce(uint32_t x, uint32_t y)
 }
 
 // =================================================================
-// DISTANCE-BASED COHESION SUPPORT CALCULATION
-// =================================================================
-
-double WorldB::calculateDistanceToSupport(uint32_t x, uint32_t y) {
-    spdlog::info("calculateDistanceToSupport({},{}) called", x, y);
-    const CellB& cell = at(x, y);
-    if (cell.isEmpty()) {
-        spdlog::info("calculateDistanceToSupport({},{}) = {} (empty cell)", x, y, MAX_SUPPORT_DISTANCE);
-        return MAX_SUPPORT_DISTANCE; // No material = no support needed
-    }
-    
-    MaterialType material = cell.getMaterialType();
-    
-    // Use simpler 2D array for distance tracking (avoid Vector2i comparisons)
-    std::vector<std::vector<int>> distances(width_, std::vector<int>(height_, -1));
-    std::queue<std::pair<uint32_t, uint32_t>> queue;
-    
-    queue.push({x, y});
-    distances[x][y] = 0;
-    
-    // 8-directional neighbor offsets (including diagonals)
-    static const std::array<std::pair<int, int>, 8> directions = {{
-        {-1, -1}, {-1, 0}, {-1, 1},
-        { 0, -1},          { 0, 1},
-        { 1, -1}, { 1, 0}, { 1, 1}
-    }};
-    
-    while (!queue.empty()) {
-        auto current = queue.front();
-        queue.pop();
-        
-        uint32_t cx = current.first;
-        uint32_t cy = current.second;
-        
-        // Check if current position has structural support
-        if (hasStructuralSupport(cx, cy)) {
-            int distance = distances[cx][cy];
-            spdlog::trace("Support found for material at ({},{}) - distance: {}", x, y, distance);
-            return static_cast<double>(distance);
-        }
-        
-        // Limit search depth to prevent infinite loops and improve performance
-        if (distances[cx][cy] >= static_cast<int>(MAX_SUPPORT_DISTANCE)) {
-            continue;
-        }
-        
-        // Explore all 8 neighbors
-        for (const auto& dir : directions) {
-            int nx = static_cast<int>(cx) + dir.first;
-            int ny = static_cast<int>(cy) + dir.second;
-            
-            if (nx >= 0 && ny >= 0 && 
-                nx < static_cast<int>(width_) && ny < static_cast<int>(height_) &&
-                distances[nx][ny] == -1) { // Not visited
-                
-                const CellB& nextCell = at(nx, ny);
-                
-                // Follow paths through connected material
-                // Either same material, or structural support material (metal, walls)
-                bool canConnect = false;
-                if (nextCell.getMaterialType() == material && 
-                    nextCell.getFillRatio() > MIN_MATTER_THRESHOLD) {
-                    canConnect = true; // Same material connection
-                } else if (!nextCell.isEmpty() && hasStructuralSupport(nx, ny)) {
-                    canConnect = true; // Structural support connection (metal, walls, etc.)
-                }
-                
-                if (canConnect) {
-                    distances[nx][ny] = distances[cx][cy] + 1;
-                    queue.push({static_cast<uint32_t>(nx), static_cast<uint32_t>(ny)});
-                }
-            }
-        }
-    }
-    
-    // No support found within search radius
-    spdlog::trace("No support found for material at ({},{}) within distance {}", x, y, MAX_SUPPORT_DISTANCE);
-    return MAX_SUPPORT_DISTANCE;
-}
-
-bool WorldB::hasStructuralSupport(uint32_t x, uint32_t y) {
-    if (!isValidCell(x, y)) {
-        spdlog::trace("hasStructuralSupport({},{}) = false (invalid cell)", x, y);
-        return false;
-    }
-    
-    const CellB& cell = at(x, y);
-    
-    // Empty cells provide no support
-    if (cell.isEmpty()) {
-        spdlog::trace("hasStructuralSupport({},{}) = false (empty cell)", x, y);
-        return false;
-    }
-    
-    // Support conditions (in order of priority):
-    
-    // 1. WALL material is always considered structural support
-    if (cell.getMaterialType() == MaterialType::WALL) {
-        spdlog::trace("hasStructuralSupport({},{}) = true (WALL material)", x, y);
-        return true;
-    }
-    
-    // 2. Bottom edge of world (ground) provides support
-    if (y == height_ - 1) {
-        spdlog::trace("hasStructuralSupport({},{}) = true (ground level, y={}, height={})", x, y, y, height_);
-        return true;
-    }
-    
-    // 3. High-density materials provide structural support
-    // METAL has density 7.8, so it acts as structural anchor
-    const MaterialProperties& props = getMaterialProperties(cell.getMaterialType());
-    if (props.density > 5.0) {
-        spdlog::trace("hasStructuralSupport({},{}) = true (high density {:.1f})", x, y, props.density);
-        return true;
-    }
-    
-    // 4. NEW: Limited-depth BFS to find nearby structural support
-    // Check within MAX_SUPPORT_DISTANCE (10 cells) for ground/walls/anchors
-    std::queue<std::pair<Vector2i, int>> search_queue; // position, distance
-    std::set<std::pair<int, int>> visited; // Track visited cells to avoid cycles
-    
-    search_queue.push({{static_cast<int>(x), static_cast<int>(y)}, 0});
-    visited.insert({static_cast<int>(x), static_cast<int>(y)});
-    
-    while (!search_queue.empty()) {
-        auto [pos, distance] = search_queue.front();
-        search_queue.pop();
-        
-        // Skip if we've exceeded maximum search distance
-        if (distance >= MAX_SUPPORT_DISTANCE) {
-            continue;
-        }
-        
-        // Check all 8 neighbors from current position
-        for (int dx = -1; dx <= 1; dx++) {
-            for (int dy = -1; dy <= 1; dy++) {
-                if (dx == 0 && dy == 0) continue; // Skip self
-                
-                int nx = pos.x + dx;
-                int ny = pos.y + dy;
-                
-                if (!isValidCell(nx, ny) || visited.count({nx, ny})) {
-                    continue;
-                }
-                
-                visited.insert({nx, ny});
-                const CellB& neighbor = at(nx, ny);
-                
-                // Skip empty cells
-                if (neighbor.isEmpty()) {
-                    continue;
-                }
-                
-                // Check for immediate structural support
-                if (neighbor.getMaterialType() == MaterialType::WALL ||
-                    ny == static_cast<int>(height_) - 1) { // Ground level
-                    
-                    spdlog::trace("hasStructuralSupport({},{}) = true (found {} at distance {})", 
-                                 x, y, neighbor.getMaterialType() == MaterialType::WALL ? "WALL" : "GROUND", distance + 1);
-                    return true;
-                }
-                
-                // High-density materials act as anchors
-                const MaterialProperties& neighbor_props = getMaterialProperties(neighbor.getMaterialType());
-                if (neighbor_props.density > 5.0) {
-                    spdlog::trace("hasStructuralSupport({},{}) = true (found high-density {} at distance {})", 
-                                 x, y, getMaterialName(neighbor.getMaterialType()), distance + 1);
-                    return true;
-                }
-                
-                // Continue BFS only through connected materials (same type)
-                // This prevents "floating through air" false positives
-                if (neighbor.getMaterialType() == cell.getMaterialType() && 
-                    neighbor.getFillRatio() > MIN_MATTER_THRESHOLD) {
-                    search_queue.push({{nx, ny}, distance + 1});
-                }
-            }
-        }
-    }
-    
-    spdlog::trace("hasStructuralSupport({},{}) = false (no support found within {} cells)", x, y, MAX_SUPPORT_DISTANCE);
-    return false;
-}
-
-
-
-// =================================================================
 // DYNAMIC PRESSURE SYSTEM IMPLEMENTATION
 // =================================================================
 
@@ -2091,4 +1830,3 @@ void WorldB::applyDynamicPressureForces(double deltaTime)
     
     timers_.stopTimer("combined_pressure_forces");
 }
-
