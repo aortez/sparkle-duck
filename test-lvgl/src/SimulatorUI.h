@@ -32,7 +32,7 @@ public:
     // UI update methods
     void updateMassLabel(double totalMass);
     void updateFPSLabel(uint32_t fps);
-    
+
     // Frame limiting control
     bool isFrameLimitingEnabled() const { return frame_limiting_enabled_; }
 
@@ -50,37 +50,38 @@ public:
 
 private:
     WorldInterface* world_;
-    SimulationManager* manager_;  // Manager handles world switching
+    SimulationManager* manager_; // Manager handles world switching
     lv_obj_t* screen_;
     lv_obj_t* draw_area_;
     lv_obj_t* mass_label_;
     lv_obj_t* fps_label_;
     lv_obj_t* pause_label_;
     lv_obj_t* world_type_btnm_;
-    
+
     // Material picker UI
     std::unique_ptr<MaterialPicker> material_picker_;
 
     // UI state
     double timescale_;
     bool is_paused_;
-    bool frame_limiting_enabled_;  // Control frame rate limiting
-    
+    bool frame_limiting_enabled_; // Control frame rate limiting
+
     // Mouse interaction mode tracking
     enum class InteractionMode {
-        NONE,        // No active interaction
-        GRAB_MODE,   // Dragging existing material (current behavior)
-        PAINT_MODE   // Painting new material along path
+        NONE,      // No active interaction
+        GRAB_MODE, // Dragging existing material (current behavior)
+        PAINT_MODE // Painting new material along path
     };
     InteractionMode interaction_mode_;
-    MaterialType paint_material_;  // Material type for paint mode
+    MaterialType paint_material_; // Material type for paint mode
 
     // Layout dimensions
     static constexpr int CONTROL_WIDTH = 200;
     static constexpr int DRAW_AREA_SIZE = 850;
     static constexpr int WORLD_TYPE_COLUMN_WIDTH = 150;
-    static constexpr int WORLD_TYPE_COLUMN_X = DRAW_AREA_SIZE + 10;  // 10px margin from draw area
-    static constexpr int MAIN_CONTROLS_X = WORLD_TYPE_COLUMN_X + WORLD_TYPE_COLUMN_WIDTH + 10;  // 10px margin from world type column
+    static constexpr int WORLD_TYPE_COLUMN_X = DRAW_AREA_SIZE + 10; // 10px margin from draw area
+    static constexpr int MAIN_CONTROLS_X =
+        WORLD_TYPE_COLUMN_X + WORLD_TYPE_COLUMN_WIDTH + 10; // 10px margin from world type column
 
     // Storage for callback data to keep them alive
     std::vector<std::unique_ptr<CallbackData>> callback_data_storage_;
@@ -145,9 +146,8 @@ private:
 
     // Helper to create callback data
     CallbackData* createCallbackData(lv_obj_t* label = nullptr);
-    
+
     // World type switching methods (delegates to manager)
     void requestWorldTypeSwitch(WorldType newType);
     void updateWorldTypeButtonMatrix(WorldType currentType);
-    
 };

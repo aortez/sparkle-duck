@@ -1,8 +1,8 @@
 #pragma once
 
-#include <string>
 #include "lvgl/src/libs/thorvg/rapidjson/document.h"
 #include "lvgl/src/libs/thorvg/rapidjson/writer.h"
+#include <string>
 
 class Vector2d {
 public:
@@ -16,19 +16,19 @@ public:
     Vector2d subtract(const Vector2d& other) const;
     Vector2d times(double scalar) const;
     double mag() const;
-    double magnitude() const {return mag(); }
+    double magnitude() const { return mag(); }
     double length() const { return mag(); }
     double dot(const Vector2d& other) const;
     Vector2d normalize() const;
     std::string toString() const;
-    
+
     // Collision physics operations
     Vector2d reflect(const Vector2d& normal) const;
     double angle() const;
     double angleTo(const Vector2d& other) const;
     Vector2d rotateBy(double radians) const;
     Vector2d perpendicular() const;
-    
+
     // JSON serialization support
     rapidjson::Value toJson(rapidjson::Document::AllocatorType& allocator) const;
     static Vector2d fromJson(const rapidjson::Value& json);

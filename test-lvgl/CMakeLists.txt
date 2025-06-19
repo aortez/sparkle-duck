@@ -173,6 +173,8 @@ add_executable(sparkle-duck-tests
     src/tests/COMCohesionForce_test.cpp
     src/tests/PressureDynamic_test.cpp
     src/tests/PressureHydrostatic_test.cpp
+    src/tests/PressureIntegration_test.cpp
+    src/tests/PressureSimple_test.cpp
     src/tests/TestUI.cpp
     src/tests/visual_test_runner.cpp
     src/tests/ResultTest.cpp

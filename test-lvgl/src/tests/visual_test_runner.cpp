@@ -2,6 +2,7 @@
 #include <future>
 #include <spdlog/spdlog.h>
 #include "../WorldB.h"
+#include "../WorldInterface.h"
 
 // External global settings used by the backend system
 extern simulator_settings_t settings;
@@ -182,6 +183,10 @@ void VisualTestBase::SetUp() {
     const ::testing::TestInfo* test_info = ::testing::UnitTest::GetInstance()->current_test_info();
     current_test_name_ = std::string(test_info->test_case_name()) + "." + std::string(test_info->name());
     std::cout << "\n=== Starting Test: " << current_test_name_ << " ===\n";
+    
+    // Reset restart state for each test
+    restart_enabled_ = false;
+    restart_requested_ = false;
 
     if (visual_mode_) {
         // Store original cell size for restoration
@@ -193,6 +198,8 @@ void VisualTestBase::SetUp() {
             lv_obj_clean(lv_scr_act());
             ui_ = std::make_unique<TestUI>(lv_scr_act(), current_test_name_);
             ui_->initialize();
+            // Ensure UI starts in non-restart mode
+            ui_->setRestartMode(false);
         });
     }
 }
@@ -278,31 +285,21 @@ void VisualTestBase::runSimulation(World* world, int steps, const std::string& d
         auto& coordinator = VisualTestCoordinator::getInstance();
         double deltaTime = 0.016;
         
-        // Limit visual updates to reasonable framerate (every 3 physics steps = ~20 FPS)
-        const int visual_update_interval = 3;
-        
         for (int i = 0; i < steps; ++i) {
             world->advanceTime(deltaTime);
             
-            // Only update visuals every few steps to reduce LVGL load
-            if (i % visual_update_interval == 0 || i == steps - 1) {
-                coordinator.postTask([world, this, description, i, steps] {
-                    world->draw();
-                    // Update label with current progress
-                    std::string status = current_test_name_ + " - " + description +
-                                         " [" + std::to_string(i + 1) + "/" + std::to_string(steps) + "]";
-                    if(ui_) ui_->updateTestLabel(status);
-                });
-                
-                // Give LVGL time to process the drawing
-                std::this_thread::sleep_for(std::chrono::milliseconds(15));
-            }
+            // Update visuals for every frame to ensure we see all physics behavior
+            coordinator.postTaskSync([world, this, description, i, steps] {
+                world->draw();
+                // Update label with current progress
+                std::string status = current_test_name_ + " - " + description +
+                                     " [" + std::to_string(i + 1) + "/" + std::to_string(steps) + "]";
+                if(ui_) ui_->updateTestLabel(status);
+            });
+            
+            // Small delay to make the animation visible (approximately 60 FPS)
+            std::this_thread::sleep_for(std::chrono::milliseconds(16));
         }
-        
-        // Add a final sync to ensure all drawing is complete before test ends
-        coordinator.postTaskSync([world] {
-            world->draw();
-        });
     } else {
         double deltaTime = 0.016;
         for (int i = 0; i < steps; ++i) {
@@ -313,8 +310,6 @@ void VisualTestBase::runSimulation(World* world, int steps, const std::string& d
 
 void VisualTestBase::waitForStart() {
     if (visual_mode_ && ui_) {
-        spdlog::info("[TEST] Waiting for Start button press (restart_enabled={})", restart_enabled_);
-        
         auto& coordinator = VisualTestCoordinator::getInstance();
         // Reset button states and update UI on LVGL thread
         coordinator.postTaskSync([this] {
@@ -341,6 +336,9 @@ void VisualTestBase::waitForStart() {
             restart_requested_ = ui_->restart_requested_.load();
             spdlog::info("[TEST] Restart requested: {}", restart_requested_);
         }
+        
+        spdlog::info("[TEST] Exiting waitForStart() - restart_enabled_={}, restart_requested_={}", 
+                     restart_enabled_, restart_requested_);
     } else {
         spdlog::info("[TEST] waitForStart() - non-visual mode, continuing immediately");
     }
@@ -348,8 +346,6 @@ void VisualTestBase::waitForStart() {
 
 void VisualTestBase::waitForNext() {
     if (visual_mode_ && ui_) {
-        spdlog::info("[TEST] Waiting for Next button press");
-        
         auto& coordinator = VisualTestCoordinator::getInstance();
         // Reset button state and enable Next button on LVGL thread
         coordinator.postTaskSync([this] {
@@ -363,14 +359,12 @@ void VisualTestBase::waitForNext() {
             std::this_thread::sleep_for(std::chrono::milliseconds(50));
         }
         
-        spdlog::info("[TEST] Next button pressed!");
+        spdlog::info("[TEST] Next button pressed");
         
         // Disable Next button after press
         coordinator.postTaskSync([this] {
             ui_->disableNextButton();
         });
-    } else {
-        spdlog::info("[TEST] waitForNext() - non-visual mode, continuing immediately");
     }
 }
 
@@ -547,6 +541,90 @@ void VisualTestBase::logInitialTestState(const WorldInterface* world, const std:
         logInitialTestState(worldB, test_description);
     } else if (auto* worldA = dynamic_cast<const World*>(world)) {
         logInitialTestState(worldA, test_description);
+    }
+}
+
+// Enhanced visual test helpers implementation
+void VisualTestBase::updateDisplay(WorldInterface* world, const std::string& status) {
+    if (!visual_mode_ || !world) return;
+    
+    auto& coordinator = VisualTestCoordinator::getInstance();
+    coordinator.postTaskSync([this, world, status] {
+        world->draw();
+        if (ui_ && !status.empty()) {
+            ui_->updateButtonStatus(status);
+        }
+    });
+    
+    // Small delay to ensure visual update is visible
+    pauseIfVisual(50);
+}
+
+void VisualTestBase::showInitialState(WorldInterface* world, const std::string& description) {
+    if (!world) return;
+    
+    // Log initial state with ASCII diagram
+    logInitialTestState(world, description);
+    
+    if (visual_mode_) {
+        // Disable restart for simple test flow (MUST happen before waitForStart)
+        disableTestRestart();
+        
+        // Update visual display
+        updateDisplay(world, "Initial state: " + description);
+        
+        // Wait for user to start
+        waitForStart();
+    }
+}
+
+void VisualTestBase::stepSimulation(WorldInterface* world, int steps, const std::string& stepDescription) {
+    if (!world) return;
+    
+    if (visual_mode_) {
+        auto& coordinator = VisualTestCoordinator::getInstance();
+        
+        for (int i = 0; i < steps; ++i) {
+            // Advance physics
+            world->advanceTime(0.016); // ~60 FPS timestep
+            
+            // Update display with progress
+            std::string status = stepDescription.empty() ? 
+                "Step " + std::to_string(i + 1) + "/" + std::to_string(steps) :
+                stepDescription + " [" + std::to_string(i + 1) + "/" + std::to_string(steps) + "]";
+            
+            coordinator.postTaskSync([this, world, status] {
+                world->draw();
+                if (ui_) {
+                    ui_->updateButtonStatus(status);
+                }
+            });
+            
+            // In step mode, wait for user input
+            if (ui_ && ui_->isStepModeEnabled()) {
+                waitForStep();
+            } else {
+                // Auto-advance with short pause to make steps visible
+                pauseIfVisual(100);
+            }
+        }
+        
+        // Final status update
+        if (ui_) {
+            std::string finalStatus = stepDescription.empty() ?
+                "Completed " + std::to_string(steps) + " steps" :
+                stepDescription + " - Complete";
+            
+            coordinator.postTaskSync([this, finalStatus] {
+                ui_->updateButtonStatus(finalStatus);
+            });
+        }
+    } else {
+        // Non-visual mode: just advance time
+        double deltaTime = 0.016;
+        for (int i = 0; i < steps; ++i) {
+            world->advanceTime(deltaTime);
+        }
     }
 }
 

@@ -194,18 +194,16 @@ void TestUI::startButtonEventHandler(lv_event_t* e)
     if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
         TestUI* ui = static_cast<TestUI*>(lv_event_get_user_data(e));
         if (ui) {
-            spdlog::info("[UI] Start button clicked! (restart_mode={})", ui->restart_mode_enabled_);
+            spdlog::info("[UI] Start button clicked");
             
             ui->start_pressed_.store(true);
             
             if (ui->restart_mode_enabled_) {
                 ui->restart_requested_.store(true);
                 ui->updateButtonStatus("Restarting test...");
-                spdlog::info("[UI] Restart requested");
                 // Keep start button enabled for repeated restarts
             } else {
                 ui->updateButtonStatus("Test started!");
-                spdlog::info("[UI] Test started (normal mode)");
                 // Disable start button after first press in normal mode
                 lv_obj_add_state(ui->start_button_, LV_STATE_DISABLED);
             }

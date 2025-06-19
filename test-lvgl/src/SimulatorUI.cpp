@@ -1,10 +1,10 @@
 #include "SimulatorUI.h"
-#include "SimulationManager.h"
 #include "Cell.h"
-#include "WorldInterface.h"
-#include "WorldFactory.h"
-#include "WorldState.h"
 #include "MaterialType.h"
+#include "SimulationManager.h"
+#include "WorldFactory.h"
+#include "WorldInterface.h"
+#include "WorldState.h"
 #include "lvgl/lvgl.h"
 #include "lvgl/src/others/snapshot/lv_snapshot.h"
 #include "spdlog/spdlog.h"
@@ -38,7 +38,7 @@ SimulatorUI::SimulatorUI(lv_obj_t* screen)
       world_type_btnm_(nullptr),
       timescale_(1.0),
       is_paused_(false),
-      frame_limiting_enabled_(true),  // Default to frame limiting enabled
+      frame_limiting_enabled_(true), // Default to frame limiting enabled
       interaction_mode_(InteractionMode::NONE),
       paint_material_(MaterialType::DIRT)
 {}
@@ -84,7 +84,7 @@ void SimulatorUI::initialize()
     createControlButtons();
     createSliders();
     setupDrawAreaEvents();
-    
+
     // Set initial button matrix state based on current world type
     if (world_) {
         updateWorldTypeButtonMatrix(world_->getWorldType());
@@ -110,7 +110,7 @@ void SimulatorUI::createLabels()
     fps_label_ = lv_label_create(screen_);
     lv_label_set_text(fps_label_, "FPS: 0");
     lv_obj_align(fps_label_, LV_ALIGN_TOP_LEFT, 10, 10); // Top-left corner of world area
-    
+
     // Create frame limiting toggle button below FPS display
     lv_obj_t* frame_limit_btn = lv_btn_create(screen_);
     lv_obj_set_size(frame_limit_btn, 120, 30);
@@ -118,7 +118,8 @@ void SimulatorUI::createLabels()
     lv_obj_t* frame_limit_label = lv_label_create(frame_limit_btn);
     lv_label_set_text(frame_limit_label, "Limit: On");
     lv_obj_center(frame_limit_label);
-    lv_obj_add_event_cb(frame_limit_btn, frameLimitBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
+    lv_obj_add_event_cb(
+        frame_limit_btn, frameLimitBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
 }
 
 void SimulatorUI::createWorldTypeColumn()
@@ -129,25 +130,27 @@ void SimulatorUI::createWorldTypeColumn()
     lv_obj_align(world_type_label, LV_ALIGN_TOP_LEFT, WORLD_TYPE_COLUMN_X, 10);
 
     // Create world type button matrix with vertical stack
-    static const char* world_btnm_map[] = {"WorldA", "\n", "WorldB", ""};
+    static const char* world_btnm_map[] = { "WorldA", "\n", "WorldB", "" };
     world_type_btnm_ = lv_buttonmatrix_create(screen_);
-    lv_obj_set_size(world_type_btnm_, WORLD_TYPE_COLUMN_WIDTH, 100); // 100px height for vertical stack
+    lv_obj_set_size(
+        world_type_btnm_, WORLD_TYPE_COLUMN_WIDTH, 100); // 100px height for vertical stack
     lv_obj_align(world_type_btnm_, LV_ALIGN_TOP_LEFT, WORLD_TYPE_COLUMN_X, 30);
     lv_buttonmatrix_set_map(world_type_btnm_, world_btnm_map);
     lv_buttonmatrix_set_one_checked(world_type_btnm_, true);
-    
+
     // Make buttons checkable
     lv_buttonmatrix_set_button_ctrl(world_type_btnm_, 0, LV_BUTTONMATRIX_CTRL_CHECKABLE);
     lv_buttonmatrix_set_button_ctrl(world_type_btnm_, 1, LV_BUTTONMATRIX_CTRL_CHECKABLE);
-    
+
     // Set initial selection to WorldB (default per CLAUDE.md)
     lv_buttonmatrix_set_selected_button(world_type_btnm_, 1);
-    
+
     // Style the button matrix
     lv_obj_set_style_bg_color(world_type_btnm_, lv_color_hex(0x404040), LV_PART_ITEMS);
-    lv_obj_set_style_bg_color(world_type_btnm_, lv_color_hex(0x0080FF), LV_PART_ITEMS | LV_STATE_CHECKED);
+    lv_obj_set_style_bg_color(
+        world_type_btnm_, lv_color_hex(0x0080FF), LV_PART_ITEMS | LV_STATE_CHECKED);
     lv_obj_set_style_text_color(world_type_btnm_, lv_color_white(), LV_PART_ITEMS);
-    
+
     lv_obj_add_event_cb(
         world_type_btnm_,
         worldTypeButtonMatrixEventCb,
@@ -160,33 +163,35 @@ void SimulatorUI::createMaterialPicker()
     // Create material picker label
     lv_obj_t* material_label = lv_label_create(screen_);
     lv_label_set_text(material_label, "Materials:");
-    lv_obj_align(material_label, LV_ALIGN_TOP_LEFT, WORLD_TYPE_COLUMN_X, 140);  // Below world type buttons
-    
+    lv_obj_align(
+        material_label, LV_ALIGN_TOP_LEFT, WORLD_TYPE_COLUMN_X, 140); // Below world type buttons
+
     // Create material picker container
     lv_obj_t* picker_container = lv_obj_create(screen_);
-    lv_obj_set_size(picker_container, WORLD_TYPE_COLUMN_WIDTH, 320); // Give enough space for 4x2 grid
+    lv_obj_set_size(
+        picker_container, WORLD_TYPE_COLUMN_WIDTH, 320); // Give enough space for 4x2 grid
     lv_obj_align(picker_container, LV_ALIGN_TOP_LEFT, WORLD_TYPE_COLUMN_X, 160); // Below label
     lv_obj_set_style_pad_all(picker_container, 5, 0);
     lv_obj_set_style_border_width(picker_container, 1, 0);
     lv_obj_set_style_border_color(picker_container, lv_color_hex(0x606060), 0);
-    
+
     // Create MaterialPicker instance
     material_picker_ = std::make_unique<MaterialPicker>(picker_container);
-    material_picker_->setParentUI(this);  // Set up parent UI reference for notifications
+    material_picker_->setParentUI(this); // Set up parent UI reference for notifications
     material_picker_->createMaterialSelector();
-    
+
     spdlog::info("Material picker created in SimulatorUI");
 }
 
 void SimulatorUI::onMaterialSelectionChanged(MaterialType newMaterial)
 {
     spdlog::info("Material selection changed to: {}", getMaterialName(newMaterial));
-    
+
     // Update the world's selected material
     if (world_) {
         world_->setSelectedMaterial(newMaterial);
     }
-    
+
     // Update paint material for paint mode
     paint_material_ = newMaterial;
 }
@@ -258,7 +263,7 @@ void SimulatorUI::createControlButtons()
     lv_obj_t* bind_strength_slider = lv_slider_create(screen_);
     lv_obj_set_size(bind_strength_slider, CONTROL_WIDTH, 10);
     lv_obj_align(bind_strength_slider, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 335);
-    lv_slider_set_range(bind_strength_slider, 0, 200);      // 0.0 to 2.0 range
+    lv_slider_set_range(bind_strength_slider, 0, 200);           // 0.0 to 2.0 range
     lv_slider_set_value(bind_strength_slider, 100, LV_ANIM_OFF); // Default 1.0 -> 100
     lv_obj_add_event_cb(
         bind_strength_slider,
@@ -273,7 +278,8 @@ void SimulatorUI::createControlButtons()
     lv_obj_t* cohesion_force_label = lv_label_create(cohesion_force_btn);
     lv_label_set_text(cohesion_force_label, "Cohesion Force: On");
     lv_obj_center(cohesion_force_label);
-    lv_obj_add_event_cb(cohesion_force_btn, cohesionForceBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
+    lv_obj_add_event_cb(
+        cohesion_force_btn, cohesionForceBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
 
     // Create COM cohesion strength slider below the force button
     lv_obj_t* com_cohesion_strength_label = lv_label_create(screen_);
@@ -287,8 +293,8 @@ void SimulatorUI::createControlButtons()
     lv_obj_t* com_cohesion_strength_slider = lv_slider_create(screen_);
     lv_obj_set_size(com_cohesion_strength_slider, CONTROL_WIDTH, 10);
     lv_obj_align(com_cohesion_strength_slider, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 425);
-    lv_slider_set_range(com_cohesion_strength_slider, 0, 30000);    // 0.0 to 300.0 range
-    lv_slider_set_value(com_cohesion_strength_slider, 15000, LV_ANIM_OFF);  // Default 150.0 -> 15000
+    lv_slider_set_range(com_cohesion_strength_slider, 0, 30000);           // 0.0 to 300.0 range
+    lv_slider_set_value(com_cohesion_strength_slider, 15000, LV_ANIM_OFF); // Default 150.0 -> 15000
     lv_obj_add_event_cb(
         com_cohesion_strength_slider,
         cohesionForceStrengthSliderEventCb,
@@ -307,7 +313,7 @@ void SimulatorUI::createControlButtons()
     lv_obj_t* com_range_slider = lv_slider_create(screen_);
     lv_obj_set_size(com_range_slider, CONTROL_WIDTH, 10);
     lv_obj_align(com_range_slider, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 455);
-    lv_slider_set_range(com_range_slider, 1, 5);      // 1 to 5 cells range
+    lv_slider_set_range(com_range_slider, 1, 5);           // 1 to 5 cells range
     lv_slider_set_value(com_range_slider, 2, LV_ANIM_OFF); // Default 2
     lv_obj_add_event_cb(
         com_range_slider,
@@ -336,7 +342,7 @@ void SimulatorUI::createControlButtons()
     lv_obj_t* adhesion_strength_slider = lv_slider_create(screen_);
     lv_obj_set_size(adhesion_strength_slider, CONTROL_WIDTH, 10);
     lv_obj_align(adhesion_strength_slider, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 555);
-    lv_slider_set_range(adhesion_strength_slider, 0, 1000);     // 0.0 to 10.0 range
+    lv_slider_set_range(adhesion_strength_slider, 0, 1000);          // 0.0 to 10.0 range
     lv_slider_set_value(adhesion_strength_slider, 500, LV_ANIM_OFF); // Default 5.0 -> 500
     lv_obj_add_event_cb(
         adhesion_strength_slider,
@@ -410,7 +416,7 @@ void SimulatorUI::createSliders()
 {
     // Position sliders to the right of the main control buttons
     const int SLIDER_COLUMN_X = MAIN_CONTROLS_X + CONTROL_WIDTH + 10;
-    
+
     // Move Pause/Resume button to top of slider column
     lv_obj_t* pause_btn = lv_btn_create(screen_);
     lv_obj_set_size(pause_btn, CONTROL_WIDTH, 50);
@@ -674,10 +680,7 @@ void SimulatorUI::createSliders()
     lv_obj_align(dynamic_switch, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X + 180, 640);
     lv_obj_add_state(dynamic_switch, LV_STATE_CHECKED); // Default enabled
     lv_obj_add_event_cb(
-        dynamic_switch,
-        dynamicPressureToggleEventCb,
-        LV_EVENT_VALUE_CHANGED,
-        createCallbackData());
+        dynamic_switch, dynamicPressureToggleEventCb, LV_EVENT_VALUE_CHANGED, createCallbackData());
 }
 
 void SimulatorUI::setupDrawAreaEvents()
@@ -710,8 +713,12 @@ void SimulatorUI::drawAreaEventCb(lv_event_t* e)
 {
     lv_event_code_t code = lv_event_get_code(e);
     CallbackData* data = static_cast<CallbackData*>(lv_event_get_user_data(e));
-    spdlog::info("Draw area event: code={}, data={}, world={}", (int)code, (void*)data, data ? (void*)data->world : nullptr);
-    
+    spdlog::info(
+        "Draw area event: code={}, data={}, world={}",
+        (int)code,
+        (void*)data,
+        data ? (void*)data->world : nullptr);
+
     if (!data || !data->world) {
         spdlog::error("Draw area event but data or world is null!");
         return;
@@ -731,19 +738,25 @@ void SimulatorUI::drawAreaEventCb(lv_event_t* e)
         // Mode-based interaction: grab existing material or start painting
         bool hasMaterial = world_ptr->hasMaterialAtPixel(point.x, point.y);
         MaterialType selectedMaterial = world_ptr->getSelectedMaterial();
-        
+
         if (hasMaterial) {
             // Cell has material - enter GRAB_MODE
             data->ui->interaction_mode_ = data->ui->InteractionMode::GRAB_MODE;
-            spdlog::info("Mouse pressed at ({},{}) - GRAB_MODE: starting drag of existing material", 
-                         point.x, point.y);
+            spdlog::info(
+                "Mouse pressed at ({},{}) - GRAB_MODE: starting drag of existing material",
+                point.x,
+                point.y);
             world_ptr->startDragging(point.x, point.y);
-        } else {
+        }
+        else {
             // Cell is empty - enter PAINT_MODE
             data->ui->interaction_mode_ = data->ui->InteractionMode::PAINT_MODE;
             data->ui->paint_material_ = selectedMaterial;
-            spdlog::info("Mouse pressed at ({},{}) - PAINT_MODE: painting {} material", 
-                         point.x, point.y, getMaterialName(selectedMaterial));
+            spdlog::info(
+                "Mouse pressed at ({},{}) - PAINT_MODE: painting {} material",
+                point.x,
+                point.y,
+                getMaterialName(selectedMaterial));
             world_ptr->addMaterialAtPixel(point.x, point.y, selectedMaterial);
         }
         world_ptr->updateCursorForce(point.x, point.y, true);
@@ -753,9 +766,13 @@ void SimulatorUI::drawAreaEventCb(lv_event_t* e)
         if (data->ui->interaction_mode_ == data->ui->InteractionMode::GRAB_MODE) {
             spdlog::info("Mouse pressing at ({},{}) - GRAB_MODE: updating drag", point.x, point.y);
             world_ptr->updateDrag(point.x, point.y);
-        } else if (data->ui->interaction_mode_ == data->ui->InteractionMode::PAINT_MODE) {
-            spdlog::info("Mouse pressing at ({},{}) - PAINT_MODE: painting {} material", 
-                         point.x, point.y, getMaterialName(data->ui->paint_material_));
+        }
+        else if (data->ui->interaction_mode_ == data->ui->InteractionMode::PAINT_MODE) {
+            spdlog::info(
+                "Mouse pressing at ({},{}) - PAINT_MODE: painting {} material",
+                point.x,
+                point.y,
+                getMaterialName(data->ui->paint_material_));
             world_ptr->addMaterialAtPixel(point.x, point.y, data->ui->paint_material_);
         }
         world_ptr->updateCursorForce(point.x, point.y, true);
@@ -765,11 +782,13 @@ void SimulatorUI::drawAreaEventCb(lv_event_t* e)
         if (data->ui->interaction_mode_ == data->ui->InteractionMode::GRAB_MODE) {
             spdlog::info("Mouse released at ({},{}) - GRAB_MODE: ending drag", point.x, point.y);
             world_ptr->endDragging(point.x, point.y);
-        } else if (data->ui->interaction_mode_ == data->ui->InteractionMode::PAINT_MODE) {
-            spdlog::info("Mouse released at ({},{}) - PAINT_MODE: finished painting", point.x, point.y);
+        }
+        else if (data->ui->interaction_mode_ == data->ui->InteractionMode::PAINT_MODE) {
+            spdlog::info(
+                "Mouse released at ({},{}) - PAINT_MODE: finished painting", point.x, point.y);
             // No special action needed for paint mode - just stop painting
         }
-        
+
         // Reset interaction mode and clear cursor force
         data->ui->interaction_mode_ = data->ui->InteractionMode::NONE;
         world_ptr->clearCursorForce();
@@ -811,12 +830,16 @@ void SimulatorUI::resetBtnEventCb(lv_event_t* e)
 {
     if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
         CallbackData* data = static_cast<CallbackData*>(lv_event_get_user_data(e));
-        spdlog::info("Reset button clicked: data={}, manager={}", (void*)data, data ? (void*)data->manager : nullptr);
+        spdlog::info(
+            "Reset button clicked: data={}, manager={}",
+            (void*)data,
+            data ? (void*)data->manager : nullptr);
         if (data && data->manager) {
             spdlog::info("Calling reset on simulation manager {}", (void*)data->manager);
             data->manager->reset();
             spdlog::info("Reset completed");
-        } else {
+        }
+        else {
             spdlog::error("Reset button clicked but data or manager is null!");
         }
     }
@@ -954,7 +977,8 @@ void SimulatorUI::frameLimitBtnEventCb(lv_event_t* e)
             data->ui->frame_limiting_enabled_ = !data->ui->frame_limiting_enabled_;
             const lv_obj_t* btn = static_cast<const lv_obj_t*>(lv_event_get_target(e));
             lv_obj_t* label = lv_obj_get_child(btn, 0);
-            lv_label_set_text(label, data->ui->frame_limiting_enabled_ ? "Limit: On" : "Limit: Off");
+            lv_label_set_text(
+                label, data->ui->frame_limiting_enabled_ ? "Limit: On" : "Limit: Off");
         }
     }
 }
@@ -1108,13 +1132,13 @@ void SimulatorUI::waterCohesionSliderEventCb(lv_event_t* e)
     if (lv_event_get_code(e) == LV_EVENT_VALUE_CHANGED && data) {
         int32_t value = lv_slider_get_value(slider);
         double cohesion = value / 1000.0; // Map 0-1000 to 0.0-1.0
-        
+
         // Update WorldA cohesion (legacy system)
         Cell::setCohesionStrength(cohesion);
-        
+
         // Update WorldB water cohesion (pure-material system)
         setMaterialCohesion(MaterialType::WATER, cohesion);
-        
+
         char buf[16];
         snprintf(buf, sizeof(buf), "%.3f", cohesion);
         lv_label_set_text(data->associated_label, buf);
@@ -1306,7 +1330,8 @@ void SimulatorUI::printAsciiBtnEventCb(lv_event_t* e)
         if (data && data->world) {
             std::string ascii_diagram = data->world->toAsciiDiagram();
             spdlog::info("Current world state (ASCII diagram):\n{}", ascii_diagram);
-        } else {
+        }
+        else {
             spdlog::warn("Print ASCII button clicked but no world available");
         }
     }
@@ -1400,7 +1425,6 @@ void SimulatorUI::forwardBtnEventCb(lv_event_t* e)
     }
 }
 
-
 void SimulatorUI::worldTypeButtonMatrixEventCb(lv_event_t* e)
 {
     if (lv_event_get_code(e) == LV_EVENT_VALUE_CHANGED) {
@@ -1408,13 +1432,14 @@ void SimulatorUI::worldTypeButtonMatrixEventCb(lv_event_t* e)
         if (data && data->ui) {
             lv_obj_t* btnm = static_cast<lv_obj_t*>(lv_event_get_target(e));
             uint32_t selected = lv_buttonmatrix_get_selected_button(btnm);
-            
+
             // Convert button selection to WorldType
             WorldType newType = (selected == 0) ? WorldType::RulesA : WorldType::RulesB;
-            
-            printf("World type switch requested: %s\n", 
-                   newType == WorldType::RulesA ? "WorldA (RulesA)" : "WorldB (RulesB)");
-            
+
+            printf(
+                "World type switch requested: %s\n",
+                newType == WorldType::RulesA ? "WorldA (RulesA)" : "WorldB (RulesB)");
+
             // Request the world switch from the simulation manager
             data->ui->requestWorldTypeSwitch(newType);
         }
@@ -1427,14 +1452,15 @@ void SimulatorUI::requestWorldTypeSwitch(WorldType newType)
         spdlog::error("Cannot switch world type - no simulation manager set");
         return;
     }
-    
+
     spdlog::info("Requesting world type switch to {}", getWorldTypeName(newType));
-    
+
     if (manager_->switchWorldType(newType)) {
         // Update UI to reflect the switch
         updateWorldTypeButtonMatrix(newType);
         spdlog::info("World type switch request completed successfully");
-    } else {
+    }
+    else {
         spdlog::error("World type switch request failed");
     }
 }
@@ -1510,4 +1536,3 @@ void SimulatorUI::comCohesionRangeSliderEventCb(lv_event_t* e)
         lv_label_set_text(data->associated_label, buf);
     }
 }
-

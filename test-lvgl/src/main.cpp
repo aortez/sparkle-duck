@@ -1,8 +1,8 @@
+#include "CrashDumpHandler.h"
 #include "SimulationManager.h"
 #include "SimulatorUI.h"
 #include "World.h"
 #include "WorldFactory.h"
-#include "CrashDumpHandler.h"
 #include "src/lib/driver_backends.h"
 #include "src/lib/simulator_loop.h"
 #include "src/lib/simulator_settings.h"
@@ -76,7 +76,10 @@ static void print_usage(void)
     fprintf(stdout, "-W window_width set window width (default: 1200)\n");
     fprintf(stdout, "-H window_height set window height (default: 1200)\n");
     fprintf(stdout, "-s max_steps set maximum number of simulation steps (0 = unlimited)\n");
-    fprintf(stdout, "-w world_type select physics system: rulesA (mixed materials) or rulesB (pure materials, default)\n");
+    fprintf(
+        stdout,
+        "-w world_type select physics system: rulesA (mixed materials) or rulesB (pure materials, "
+        "default)\n");
     fprintf(
         stdout,
         "\nDefault window size (1200x1200) provides a square window with comfortable space for the "
@@ -137,7 +140,8 @@ static void configure_simulator(int argc, char** argv)
             case 'w':
                 try {
                     selected_world_type = parseWorldType(optarg);
-                } catch (const std::runtime_error& e) {
+                }
+                catch (const std::runtime_error& e) {
                     die("error: %s\n", e.what());
                 }
                 break;
@@ -170,7 +174,7 @@ int main(int argc, char** argv)
 
         // Create basic file sink (overwrites each run)
         auto file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(
-            "sparkle-duck.log", true); // true = truncate (overwrite)
+            "sparkle-duck.log", true);              // true = truncate (overwrite)
         file_sink->set_level(spdlog::level::trace); // Everything to file
 
         // Create logger with both sinks
@@ -206,11 +210,15 @@ int main(int argc, char** argv)
     const int grid_height = (850 / Cell::HEIGHT) - 1;
 
     // Create the simulation manager (which creates both UI and world)
-    auto manager = std::make_unique<SimulationManager>(selected_world_type, grid_width, grid_height, lv_scr_act());
+    auto manager = std::make_unique<SimulationManager>(
+        selected_world_type, grid_width, grid_height, lv_scr_act());
     manager_ptr = manager.get();
-    
-    spdlog::info("Created {} physics system ({}x{} grid)", 
-                 getWorldTypeName(selected_world_type), grid_width, grid_height);
+
+    spdlog::info(
+        "Created {} physics system ({}x{} grid)",
+        getWorldTypeName(selected_world_type),
+        grid_width,
+        grid_height);
 
     // Install crash dump handler
     CrashDumpHandler::install(manager_ptr);

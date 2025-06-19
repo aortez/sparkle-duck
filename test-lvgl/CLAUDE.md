@@ -14,24 +14,35 @@ The project features **dual physics systems**:
 
 ### Building
 ```bash
-# Main build
-./run_build.sh
+# Build release version (optimized)
+make release
 
-# Debug/release variants
-./build_debug.sh
-./build_release.sh
+# Build debug version (with symbols and LOG_DEBUG)
+make debug
 
-# Manual CMake build
+# Format source code
+make format
+
+# Clean build artifacts
+make clean
+
+# Show all available targets
+make help
+
+# Manual CMake build (if needed)
 cmake -B build -S .
 make -C build -j12
 ```
 
 ### Running
 ```bash
-# Run the simulation
-./run_main.sh
+# Run the simulation (defaults to wayland backend)
+make run
 
-# Run with specific display backend.
+# Run with specific options using ARGS
+make run ARGS='-b sdl -s 100'
+
+# Run directly with specific display backend
 # RECOMMENDED: always specify steps with -s option,
 # otherwise it will not automatically exit.
 ./build/bin/sparkle-duck -b wayland -s 100
@@ -40,14 +51,20 @@ make -C build -j12
 
 ### Testing
 ```bash
-# Run all unit tests
-./run_tests.sh
+# Run unit tests (builds debug first)
+make test
+
+# Run all tests (unit + visual)
+make test-all
 
 # Run visual tests (requires display)
-./run_visual_tests.sh
+make visual-tests
 
-# Enable visual mode for tests manually.
-SPARKLE_DUCK_VISUAL_TESTS=1 ./run_tests.sh
+# Run tests with filters using ARGS
+make test ARGS='--gtest_filter=WorldB*'
+
+# The actual test binary (uses google test)
+./build/bin/sparkle-duck-tests
 ```
 
 ## Architecture
@@ -314,7 +331,7 @@ Can be found here:
 - [ ] Implement absorption/penetration behaviors (WATER+DIRT, etc.)
 
 ## Misc TODO
-[ ] - Add a Makefile to capture some common targets ('clean', 'debug', 'release', 'test-all'... anything else?); update CLAUDE.md with instructions.
+[x] - Add a Makefile to capture some common targets ('clean', 'debug', 'release', 'test-all'... anything else?); update CLAUDE.md with instructions.
 [ ] - some way to talk to the application while it runs... a DBus API, a socket API, what are the other options? This would be useful!
 [ ] - In WorldB, Update left click, so if it is on a currently on a filled cell that is not the selected type, or is not full, fill it with the selected type.
 [ ] - How can we make denser materials sink below less dense ones?

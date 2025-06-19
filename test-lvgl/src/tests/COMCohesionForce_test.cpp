@@ -38,7 +38,8 @@ protected:
     }
     
     void TearDown() override {
-        world.reset();
+        // Don't reset world here - VisualTestBase::TearDown() handles cleanup
+        // Resetting before base class teardown can cause issues with UI disconnection
         VisualTestBase::TearDown();
     }
     

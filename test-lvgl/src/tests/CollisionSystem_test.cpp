@@ -4,12 +4,17 @@
 #include "../MaterialType.h"
 #include "../Vector2d.h"
 #include "spdlog/spdlog.h"
+#include <sstream>
+#include <iomanip>
 
 class CollisionSystemTest : public VisualTestBase {
 protected:
     void SetUp() override {
         // Call parent SetUp first
         VisualTestBase::SetUp();
+        
+        // Ensure restart is disabled for collision tests
+        disableTestRestart();
         
         // Create world with desired size using framework method
         world = createWorldB(5, 5);
@@ -31,8 +36,10 @@ protected:
     }
     
     void TearDown() override {
-        world.reset();
+        // Call parent TearDown first (it may need to access the world)
         VisualTestBase::TearDown();
+        // Then clean up our world
+        world.reset();
     }
     
     // Clean world for testing without any materials
@@ -118,6 +125,9 @@ TEST_F(CollisionSystemTest, DetectsBoundaryCrossingForMovingParticle) {
     // Create empty target cell
     setupCell(3, 2, MaterialType::AIR, 0.0);
     
+    // Show initial state in visual mode
+    showInitialState(world.get(), "DIRT particle with rightward velocity (COM at x=0.8)");
+    
     // Capture moves after deltaTime that will cause boundary crossing
     double deltaTime = 0.5; // COM will be 0.8 + 0.5*0.5 = 1.05, crossing boundary
     auto moves = capturePendingMoves(deltaTime);
@@ -133,6 +143,22 @@ TEST_F(CollisionSystemTest, DetectsBoundaryCrossingForMovingParticle) {
     EXPECT_EQ(move.material, MaterialType::DIRT);
     EXPECT_EQ(move.collision_type, WorldB::CollisionType::TRANSFER_ONLY); // Into empty cell
     EXPECT_GT(move.amount, 0.0);
+    
+    // Visual demonstration of the boundary crossing
+    if (visual_mode_) {
+        // Show the calculation
+        updateDisplay(world.get(), "COM calculation: 0.8 + (0.5 * 0.5) = 1.05 > 1.0 (boundary)");
+        pauseIfVisual(1000);
+        
+        // Now simulate the actual transfer
+        updateDisplay(world.get(), "Simulating material transfer...");
+        world->advanceTime(deltaTime);
+        updateDisplay(world.get(), "Material transferred to neighboring cell");
+        pauseIfVisual(1000);
+        
+        // Wait for next test
+        waitForNext();
+    }
 }
 
 TEST_F(CollisionSystemTest, DetectsElasticCollisionBetweenMetals) {
@@ -204,8 +230,37 @@ TEST_F(CollisionSystemTest, ProcessElasticCollision) {
     Vector2d initialVelocity1 = world->at(1, 2).getVelocity();
     Vector2d initialVelocity2 = world->at(2, 2).getVelocity();
     
-    // Simulate one timestep with collision
-    world->advanceTime(0.25); // Smaller timestep to ensure collision happens
+    // Show initial state in visual mode
+    showInitialState(world.get(), "Two METAL particles: left moving right, right stationary");
+    
+    if (visual_mode_) {
+        // Show initial velocities
+        std::stringstream ss;
+        ss << "Initial velocities: v1=(" << std::fixed << std::setprecision(2) 
+           << initialVelocity1.x << ",0) v2=(0,0)";
+        updateDisplay(world.get(), ss.str());
+        pauseIfVisual(1000);
+        
+        // Step through the collision
+        updateDisplay(world.get(), "Simulating elastic collision...");
+        stepSimulation(world.get(), 15, "Elastic collision");
+        
+        // Show final velocities
+        Vector2d finalVelocity1 = world->at(1, 2).getVelocity();
+        Vector2d finalVelocity2 = world->at(2, 2).getVelocity();
+        
+        ss.str("");
+        ss << "Final velocities: v1=(" << std::fixed << std::setprecision(2) 
+           << finalVelocity1.x << ",0) v2=(" << finalVelocity2.x << ",0)";
+        updateDisplay(world.get(), ss.str());
+        pauseIfVisual(2000);
+        
+        // Wait for next test
+        waitForNext();
+    } else {
+        // Non-visual mode: just run the simulation
+        world->advanceTime(0.25); // Smaller timestep to ensure collision happens
+    }
     
     // Verify: Velocities should have changed due to elastic collision
     Vector2d finalVelocity1 = world->at(1, 2).getVelocity();

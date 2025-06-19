@@ -17,7 +17,8 @@ protected:
         world = createWorldB(3, 3);
         
         // Override universal defaults for pressure testing - this test needs dynamic pressure enabled
-        world->setDynamicPressureEnabled(false);     // Disable dynamic pressure by default now
+        // NOTE: These settings must come AFTER createWorldB which applies universal defaults
+        world->setDynamicPressureEnabled(true);      // Enable dynamic pressure for this test
         world->setHydrostaticPressureEnabled(false); // Keep hydrostatic disabled for controlled testing
         world->setPressureScale(1.0);                // Enable pressure scale
         
@@ -26,7 +27,7 @@ protected:
         world->setAddParticlesEnabled(false);
         world->setGravity(9.81); // Enable gravity to push material down
         
-        spdlog::debug("[TEST] PressureDynamic test settings: dynamic_pressure=disabled, hydrostatic_pressure=disabled, walls=disabled");
+        spdlog::debug("[TEST] PressureDynamic test settings: dynamic_pressure=enabled, hydrostatic_pressure=disabled, walls=disabled");
     }
     
     std::unique_ptr<WorldB> world;

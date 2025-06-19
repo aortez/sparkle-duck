@@ -122,15 +122,15 @@ Vector2d Vector2d::fromJson(const rapidjson::Value& json)
     if (!json.IsObject()) {
         throw std::runtime_error("Vector2d::fromJson: JSON value must be an object");
     }
-    
+
     if (!json.HasMember("x") || !json.HasMember("y")) {
         throw std::runtime_error("Vector2d::fromJson: JSON object must have 'x' and 'y' members");
     }
-    
+
     if (!json["x"].IsNumber() || !json["y"].IsNumber()) {
         throw std::runtime_error("Vector2d::fromJson: 'x' and 'y' members must be numbers");
     }
-    
+
     return Vector2d(json["x"].GetDouble(), json["y"].GetDouble());
 }
 
@@ -156,11 +156,13 @@ double Vector2d::angleTo(const Vector2d& other) const
     double thisAngle = angle();
     double otherAngle = other.angle();
     double diff = otherAngle - thisAngle;
-    
+
     // Normalize to [-π, π]
-    while (diff > M_PI) diff -= 2.0 * M_PI;
-    while (diff < -M_PI) diff += 2.0 * M_PI;
-    
+    while (diff > M_PI)
+        diff -= 2.0 * M_PI;
+    while (diff < -M_PI)
+        diff += 2.0 * M_PI;
+
     return diff;
 }
 
@@ -168,11 +170,8 @@ Vector2d Vector2d::rotateBy(double radians) const
 {
     double cosAngle = std::cos(radians);
     double sinAngle = std::sin(radians);
-    
-    return Vector2d(
-        x * cosAngle - y * sinAngle,
-        x * sinAngle + y * cosAngle
-    );
+
+    return Vector2d(x * cosAngle - y * sinAngle, x * sinAngle + y * cosAngle);
 }
 
 Vector2d Vector2d::perpendicular() const

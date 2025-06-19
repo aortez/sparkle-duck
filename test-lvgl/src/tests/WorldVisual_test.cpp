@@ -28,7 +28,8 @@ protected:
             world->setElasticityFactor(0.8);
         }
         
-        world.reset();
+        // Don't reset world here - let base class handle cleanup
+        // to avoid dangling pointer in TestUI
         
         // Restore default fragmentation factor
         World::DIRT_FRAGMENTATION_FACTOR = 0.1;

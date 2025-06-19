@@ -124,9 +124,11 @@ void Cell::update(double newDirty, const Vector2d& newCom, const Vector2d& newV)
 }
 
 // Helper function to safely set a pixel on the canvas.
-__attribute__((unused)) static void safe_set_pixel(lv_obj_t* canvas, int x, int y, lv_color_t color, lv_opa_t opa)
+__attribute__((unused)) static void safe_set_pixel(
+    lv_obj_t* canvas, int x, int y, lv_color_t color, lv_opa_t opa)
 {
-    if (x >= 0 && x < static_cast<int>(Cell::WIDTH) && y >= 0 && y < static_cast<int>(Cell::HEIGHT)) {
+    if (x >= 0 && x < static_cast<int>(Cell::WIDTH) && y >= 0
+        && y < static_cast<int>(Cell::HEIGHT)) {
         lv_canvas_set_px(canvas, x, y, color, opa);
     }
 }
@@ -477,7 +479,8 @@ void Cell::applyViscosity(const Cell& neighbor)
     }
 }
 
-Vector2d Cell::calculateBuoyancy(const Cell& cell, const Cell& neighbor, const Vector2i& offset) const
+Vector2d Cell::calculateBuoyancy(
+    const Cell& cell, const Cell& neighbor, const Vector2i& offset) const
 {
     // Get effective densities of both cells
     double cellDensity = cell.getEffectiveDensity();
@@ -512,8 +515,8 @@ Vector2d Cell::calculateBuoyancy(const Cell& cell, const Cell& neighbor, const V
     // Apply lateral buoyancy for horizontal displacement
     // Weaker effect for side-to-side movement, but still helps with separation
     if (offset.x != 0) {
-        double lateralForce = buoyantForce * 0.3; // Reduced lateral effect
-        buoyancyForce.x = -offset.x * lateralForce;     // Push away from denser neighbor
+        double lateralForce = buoyantForce * 0.3;   // Reduced lateral effect
+        buoyancyForce.x = -offset.x * lateralForce; // Push away from denser neighbor
     }
 
     return buoyancyForce;
@@ -541,13 +544,14 @@ void Cell::addDirtWithVelocity(double amount, const Vector2d& velocity)
 {
     if (amount <= 0.0) return;
     safeAddMaterial(dirt, amount);
-    
+
     // Update velocity based on momentum conservation
     double totalMaterial = getTotalMaterial();
     if (totalMaterial > 0.0) {
         // Weighted average of existing velocity and new velocity
         v = (v * (totalMaterial - amount) + velocity * amount) / totalMaterial;
-    } else {
+    }
+    else {
         v = velocity;
     }
     markDirty();
@@ -557,13 +561,14 @@ void Cell::addWaterWithVelocity(double amount, const Vector2d& velocity)
 {
     if (amount <= 0.0) return;
     safeAddMaterial(water, amount);
-    
+
     // Update velocity based on momentum conservation
     double totalMaterial = getTotalMaterial();
     if (totalMaterial > 0.0) {
         // Weighted average of existing velocity and new velocity
         v = (v * (totalMaterial - amount) + velocity * amount) / totalMaterial;
-    } else {
+    }
+    else {
         v = velocity;
     }
     markDirty();
@@ -573,7 +578,7 @@ void Cell::addDirtWithCOM(double amount, const Vector2d& comOffset, const Vector
 {
     if (amount <= 0.0) return;
     safeAddMaterial(dirt, amount);
-    
+
     // Update center of mass based on weighted average
     double totalMaterial = getTotalMaterial();
     if (totalMaterial > 0.0) {
@@ -582,14 +587,16 @@ void Cell::addDirtWithCOM(double amount, const Vector2d& comOffset, const Vector
         // Clamp COM to valid bounds [-1, 1]
         com.x = std::max(-1.0, std::min(1.0, com.x));
         com.y = std::max(-1.0, std::min(1.0, com.y));
-    } else {
+    }
+    else {
         com = comOffset;
     }
-    
+
     // Update velocity as well
     if (totalMaterial > 0.0) {
         v = (v * (totalMaterial - amount) + velocity * amount) / totalMaterial;
-    } else {
+    }
+    else {
         v = velocity;
     }
     markDirty();
@@ -621,39 +628,39 @@ bool Cell::isEmpty() const
 std::string Cell::toAsciiCharacter() const
 {
     if (isEmpty()) {
-        return "  ";  // Two spaces for empty cells (2x1 format)
+        return "  "; // Two spaces for empty cells (2x1 format)
     }
-    
+
     // Find the dominant material in this cell
     double max_amount = 0.0;
     char material_char = ' ';
-    
+
     if (dirt > max_amount) {
         max_amount = dirt;
-        material_char = '#';  // Dirt
+        material_char = '#'; // Dirt
     }
     if (water > max_amount) {
         max_amount = water;
-        material_char = '~';  // Water
+        material_char = '~'; // Water
     }
     if (wood > max_amount) {
         max_amount = wood;
-        material_char = 'W';  // Wood
+        material_char = 'W'; // Wood
     }
     if (leaf > max_amount) {
         max_amount = leaf;
-        material_char = 'L';  // Leaf
+        material_char = 'L'; // Leaf
     }
     if (metal > max_amount) {
         max_amount = metal;
-        material_char = 'M';  // Metal
+        material_char = 'M'; // Metal
     }
-    
+
     // Convert total material to 0-9 scale
     double total_material = getTotalMaterial();
     int fill_level = static_cast<int>(std::round(total_material * 9.0));
     fill_level = std::clamp(fill_level, 0, 9);
-    
+
     // Return 2-character representation: material + fill level
     return std::string(1, material_char) + std::to_string(fill_level);
 }

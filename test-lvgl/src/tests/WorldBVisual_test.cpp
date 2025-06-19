@@ -18,7 +18,7 @@ protected:
     }
     
     void TearDown() override {
-        world.reset();
+        // Don't reset world here - let VisualTestBase handle cleanup in correct order
         VisualTestBase::TearDown();
     }
     

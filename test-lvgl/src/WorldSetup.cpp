@@ -16,11 +16,9 @@ void WorldSetup::fillLowerRightQuadrant(WorldInterface& world)
     uint32_t startY = world.getHeight() / 2;
     uint32_t sizeX = world.getWidth() - startX;
     uint32_t sizeY = world.getHeight() - startY;
-    
-    spdlog::info(
-        "Filling lower right quadrant with dirt ({}x{} cells)",
-        sizeX, sizeY);
-        
+
+    spdlog::info("Filling lower right quadrant with dirt ({}x{} cells)", sizeX, sizeY);
+
     for (uint32_t y = startY; y < world.getHeight(); ++y) {
         for (uint32_t x = startX; x < world.getWidth(); ++x) {
             // Convert cell coordinates to pixel coordinates for material addition
@@ -36,8 +34,11 @@ void WorldSetup::makeWalls(WorldInterface& world)
     // Wall creation is now handled by each world implementation internally
     // World and WorldB have their own wall systems (different material types)
     // This method is kept for interface compatibility but delegates to world implementation
-    spdlog::info("World walls handled by implementation ({}x{} boundary)", world.getWidth(), world.getHeight());
-    
+    spdlog::info(
+        "World walls handled by implementation ({}x{} boundary)",
+        world.getWidth(),
+        world.getHeight());
+
     // Note: Walls are controlled via setWallsEnabled() and handled in each world's reset/setup
 }
 
@@ -47,7 +48,7 @@ void WorldSetup::makeMiddleMetalWall(WorldInterface& world)
     uint32_t middle_x = world.getWidth() / 2;
     uint32_t wall_height = world.getHeight() / 2;
     spdlog::info("Adding metal wall at x={} from top to y={}", middle_x, wall_height);
-    
+
     for (uint32_t y = 0; y < wall_height; y++) {
         // Convert cell coordinates to pixel coordinates using actual cell dimensions
         int pixelX = middle_x * Cell::WIDTH + Cell::WIDTH / 2; // Cell center
@@ -76,7 +77,8 @@ void DefaultWorldSetup::setup(WorldInterface& world)
     makeWalls(world);
 }
 
-void DefaultWorldSetup::addParticles(WorldInterface& world, uint32_t timestep, double deltaTimeSeconds)
+void DefaultWorldSetup::addParticles(
+    WorldInterface& world, uint32_t timestep, double deltaTimeSeconds)
 {
     // Now using CellInterface for direct cell access
     static double lastSimTime = 0.0;
@@ -131,14 +133,15 @@ void DefaultWorldSetup::addParticles(WorldInterface& world, uint32_t timestep, d
     if (simTime >= eventState.nextRightThrow) {
         spdlog::debug("Adding right periodic throw at time {:.3f}s", simTime);
         uint32_t centerY = world.getHeight() / 2 - 2;
-        CellInterface& cell = world.getCellInterface(world.getWidth() - 3, centerY); // Against the right wall
+        CellInterface& cell =
+            world.getCellInterface(world.getWidth() - 3, centerY); // Against the right wall
         cell.addDirtWithVelocity(1.0, Vector2d(-10, -10));
         // Schedule next throw
         eventState.nextRightThrow += period;
     }
 
     lastSimTime = simTime;
-    
+
     /* TEMPORARILY DISABLED - Complex particle logic with cell access
     static double lastSimTime = 0.0;
     static struct EventState {
@@ -265,7 +268,8 @@ void ConfigurableWorldSetup::setup(WorldInterface& world)
     }
 }
 
-void ConfigurableWorldSetup::addParticles(WorldInterface& world, uint32_t timestep, double deltaTimeSeconds)
+void ConfigurableWorldSetup::addParticles(
+    WorldInterface& world, uint32_t timestep, double deltaTimeSeconds)
 {
     // Now using CellInterface for direct cell access
     static double lastSimTime = 0.0;
@@ -365,7 +369,8 @@ void ConfigurableWorldSetup::addParticles(WorldInterface& world, uint32_t timest
 }
 
 // Feature-preserving resize implementation
-std::vector<WorldSetup::ResizeData> WorldSetup::captureWorldState(const WorldInterface& /* world */) const
+std::vector<WorldSetup::ResizeData> WorldSetup::captureWorldState(
+    const WorldInterface& /* world */) const
 {
     // Resize functionality not available for WorldInterface - requires direct cell access
     // Return empty state for now - TODO: implement resize support if needed

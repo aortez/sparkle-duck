@@ -143,28 +143,29 @@ public:
 
     void applyViscosity(const Cell& neighbor);
 
-    Vector2d calculateBuoyancy(const Cell& cell, const Cell& neighbor, const Vector2i& offset) const;
+    Vector2d calculateBuoyancy(
+        const Cell& cell, const Cell& neighbor, const Vector2i& offset) const;
 
     // =================================================================
     // CELLINTERFACE IMPLEMENTATION
     // =================================================================
-    
+
     // Basic material addition
     void addDirt(double amount) override;
     void addWater(double amount) override;
-    
+
     // Advanced material addition with physics
     void addDirtWithVelocity(double amount, const Vector2d& velocity) override;
     void addWaterWithVelocity(double amount, const Vector2d& velocity) override;
     void addDirtWithCOM(double amount, const Vector2d& com, const Vector2d& velocity) override;
-    
+
     // Cell state management (markDirty already declared above with override)
     void clear() override;
-    
+
     // Material properties
     double getTotalMaterial() const override;
     bool isEmpty() const override;
-    
+
     // ASCII visualization
     std::string toAsciiCharacter() const override;
 

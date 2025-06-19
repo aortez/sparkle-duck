@@ -39,8 +39,9 @@ Vector2i Vector2i::normalize() const
 {
     double magnitude = mag();
     if (magnitude > 0.0) {
-        return Vector2i(static_cast<int>(std::round(x / magnitude)), 
-                       static_cast<int>(std::round(y / magnitude)));
+        return Vector2i(
+            static_cast<int>(std::round(x / magnitude)),
+            static_cast<int>(std::round(y / magnitude)));
     }
     return *this;
 }
