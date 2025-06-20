@@ -63,7 +63,7 @@ make visual-tests
 # Run tests with filters using ARGS
 make test ARGS='--gtest_filter=WorldB*'
 
-# The actual test binary (uses google test)
+# The test binary:
 ./build/bin/sparkle-duck-tests
 ```
 

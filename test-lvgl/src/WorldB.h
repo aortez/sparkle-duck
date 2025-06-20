@@ -296,7 +296,7 @@ public:
     // Distance-based cohesion decay constants
     static constexpr double SUPPORT_DECAY_RATE = 0.3; // Decay rate per distance unit
     static constexpr double MIN_SUPPORT_FACTOR =
-        0.1; // Minimum cohesion factor (never goes to zero)
+        0.05; // Minimum cohesion factor (never goes to zero)
     static constexpr double MAX_SUPPORT_DISTANCE =
         10; // Maximum search distance for support (legacy)
 
@@ -328,7 +328,7 @@ public:
     // Support calculation methods moved to WorldBSupportCalculator
     WorldBSupportCalculator& getSupportCalculator() { return support_calculator_; }
     const WorldBSupportCalculator& getSupportCalculator() const { return support_calculator_; }
-    
+
     // Material transfer computation - computes moves without processing them
     std::vector<MaterialMove> computeMaterialMoves(double deltaTime);
 

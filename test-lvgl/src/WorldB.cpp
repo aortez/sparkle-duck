@@ -713,7 +713,7 @@ void WorldB::updateTransfers(double deltaTime)
 std::vector<WorldB::MaterialMove> WorldB::computeMaterialMoves(double deltaTime)
 {
     std::vector<MaterialMove> moves;
-    
+
     for (uint32_t y = 0; y < height_; ++y) {
         for (uint32_t x = 0; x < width_; ++x) {
             CellB& cell = at(x, y);
@@ -921,7 +921,7 @@ std::vector<WorldB::MaterialMove> WorldB::computeMaterialMoves(double deltaTime)
             }
         }
     }
-    
+
     return moves;
 }
 

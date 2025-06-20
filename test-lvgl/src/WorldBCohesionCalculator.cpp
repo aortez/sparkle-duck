@@ -81,7 +81,7 @@ WorldBCohesionCalculator::CohesionForce WorldBCohesionCalculator::calculateCohes
     }
     else {
         // Minimal cohesion without structural support
-        support_factor = MIN_SUPPORT_FACTOR; // 0.1
+        support_factor = WorldB::MIN_SUPPORT_FACTOR; // 0.05
         spdlog::trace(
             "No structural support for {} at ({},{})",
             getMaterialName(cell.getMaterialType()),

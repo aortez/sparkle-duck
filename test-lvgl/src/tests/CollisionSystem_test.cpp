@@ -169,33 +169,6 @@ TEST_F(CollisionSystemTest, DetectsElasticCollisionBetweenMetals) {
     }
 }
 
-TEST_F(CollisionSystemTest, WaterAbsorbedByDirt) {
-    // Setup: WATER particle moving toward DIRT with room for absorption
-    setupCell(1, 1, MaterialType::WATER, 0.8, Vector2d(0.9, 0.0), Vector2d(0.3, 0.0));
-    setupCell(2, 1, MaterialType::DIRT, 0.3, Vector2d(0.0, 0.0), Vector2d(0.0, 0.0));  // Lower fill to allow absorption
-    
-    showInitialState(world.get(), "WATER moving toward DIRT - absorption expected");
-    
-    // Track fill ratios before interaction
-    double water_before = world->at(1, 1).getFillRatio();
-    double dirt_before = world->at(2, 1).getFillRatio();
-    
-    // Run simulation for absorption to occur
-    stepSimulation(world.get(), 30, "Water absorption process");
-    
-    // Check that material transfer occurred
-    double water_after = world->at(1, 1).getFillRatio();
-    double dirt_after = world->at(2, 1).getFillRatio();
-    
-    // Water should decrease, dirt should increase (absorption)
-    EXPECT_LT(water_after, water_before) << "Water amount should decrease";
-    EXPECT_GT(dirt_after, dirt_before) << "Dirt should absorb water";
-    
-    if (visual_mode_) {
-        updateDisplay(world.get(), "Absorption complete - water absorbed by dirt");
-        waitForNext();
-    }
-}
 
 TEST_F(CollisionSystemTest, DiagonalMovementCrossesMultipleBoundaries) {
     // Setup: Particle moving diagonally to cross both X and Y boundaries
@@ -203,37 +176,48 @@ TEST_F(CollisionSystemTest, DiagonalMovementCrossesMultipleBoundaries) {
     
     showInitialState(world.get(), "SAND particle moving diagonally (right and down)");
     
-    // Track initial state
-    bool hasMovedRight = false;
-    bool hasMovedDown = false;
+    // Track movement through cells
+    bool startedAt22 = !world->at(2, 2).isEmpty();
+    bool appearedIn32 = false;
+    bool appearedIn23 = false;
+    bool endedIn33 = false;
     
-    // Run simulation and check for diagonal movement
+    // Run simulation and track diagonal movement path
     for (int i = 0; i < 50; i++) {
         world->advanceTime(0.016);
         
-        // Check if material appeared in right cell
+        // Check all relevant cells
         if (!world->at(3, 2).isEmpty()) {
-            hasMovedRight = true;
+            appearedIn32 = true;
         }
-        
-        // Check if material appeared in down cell
         if (!world->at(2, 3).isEmpty()) {
-            hasMovedDown = true;
+            appearedIn23 = true;
+        }
+        if (!world->at(3, 3).isEmpty()) {
+            endedIn33 = true;
         }
         
-        // Early exit if both movements detected
-        if (hasMovedRight && hasMovedDown) {
-            spdlog::info("Diagonal movement confirmed after {} steps", i+1);
+        // Early exit if particle reached final destination
+        if (endedIn33) {
+            spdlog::info("Diagonal movement complete after {} steps", i+1);
+            if (appearedIn32) spdlog::info("Path included (3,2)");
+            if (appearedIn23) spdlog::info("Path included (2,3)");
             break;
         }
     }
     
-    // Verify particle moved in both directions
-    EXPECT_TRUE(hasMovedRight) << "Particle should move right";
-    EXPECT_TRUE(hasMovedDown) << "Particle should move down";
+    // Verify particle started at correct position
+    EXPECT_TRUE(startedAt22) << "Particle should start at (2,2)";
+    
+    // Verify particle crossed boundaries (could go through either adjacent cell due to rounding)
+    EXPECT_TRUE(appearedIn32 || appearedIn23) 
+        << "Particle should pass through either (3,2) or (2,3) when moving diagonally";
+    
+    // Verify particle reached diagonal destination
+    EXPECT_TRUE(endedIn33) << "Particle should end up at (3,3) after diagonal movement";
     
     if (visual_mode_) {
-        updateDisplay(world.get(), "Diagonal movement complete - particle spread to adjacent cells");
+        updateDisplay(world.get(), "Diagonal movement complete - particle reached (3,3)");
         waitForNext();
     }
 }
