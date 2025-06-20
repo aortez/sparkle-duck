@@ -4,15 +4,16 @@
 
 Trees are living organisms in the WorldB physics simulation that grow from seeds, consume resources, and interact with the material physics system. This document defines the complete design for tree-based artificial life in the simulation.
 
-## Phase 0: Design Refinement
+## Design
 
 ### Core Design Decisions
 
 #### Update Timing
 - Trees update every physics timestep alongside regular material physics
-- Trees can choose to "act" or "wait" based on internal energy and growth timers
-- No multi-timestep actions - all operations complete immediately
-- Growth attempts happen every N timesteps (configurable per tree)
+- Uses a biological clock system where different processes (growth, nutrient uptake, reproduction) have independent timers
+- Each process has a cooldown period after activation to limit action rates
+- Trees accumulate "readiness" for actions when not on cooldown
+- No multi-timestep actions - all operations complete immediately when triggered
 
 #### Resource Systems
 
@@ -228,28 +229,28 @@ Environmental Factors:
 
 ## Implementation Plan
 
-### Phase 1: Foundation (Week 1)
+### Phase 1: Foundation
 1. Add SEED and ROOT to MaterialType enum
 2. Create basic TreeManager class
 3. Integrate TreeManager into WorldB
 4. Implement seed planting mechanism
 5. Basic germination (SEED → WOOD conversion)
 
-### Phase 2: Growth System (Week 2)
+### Phase 2: Growth System
 1. Implement TreeCell and Tree structures
 2. Add growth mechanics with atomic operations
 3. Create growth pattern algorithms
 4. Handle underground ROOT growth
 5. Add organism_id to CellB for tree ownership
 
-### Phase 3: Resource Economy (Week 3)
+### Phase 3: Resource Economy
 1. Implement light map calculation
 2. Add photosynthesis energy production
 3. Create water absorption from WATER/AIR
 4. Implement nutrient extraction from DIRT
 5. Add resource distribution through tree network
 
-### Phase 4: Advanced Features (Week 4)
+### Phase 4: Advanced Features
 1. Multiple tree tracking and competition
 2. Seed production and dispersal
 3. Tree death and decomposition
@@ -269,11 +270,6 @@ Environmental Factors:
 - Multiple tree competition
 - Resource depletion and regeneration
 - Tree death and decomposition
-
-### Performance Tests
-- 100+ trees simultaneous simulation
-- Light map calculation efficiency
-- Resource distribution scaling
 
 ## Future Enhancements
 
