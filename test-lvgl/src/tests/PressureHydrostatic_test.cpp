@@ -3,6 +3,7 @@
 #include <cmath>
 #include "../WorldB.h"
 #include "../MaterialType.h"
+#include "../WorldBPressureCalculator.h"
 #include <spdlog/spdlog.h>
 
 class PressureHydrostaticTest : public VisualTestBase {
@@ -290,8 +291,9 @@ TEST_F(PressureHydrostaticTest, SliceBasedHydrostaticCalculation) {
     spdlog::info("  Bottom [2,3]: hydrostatic_pressure={:.3f} effective_density={:.3f}", 
                  bottomWater.getHydrostaticPressure(), bottomWater.getEffectiveDensity());
     
-    // Manually trigger hydrostatic pressure calculation
-    world->calculateHydrostaticPressure();
+    // Manually trigger hydrostatic pressure calculation using the pressure calculator
+    WorldBPressureCalculator pressureCalc(*world);
+    pressureCalc.calculateHydrostaticPressure();
     
     spdlog::info("After pressure calculation:");
     spdlog::info("  Top [2,1]: hydrostatic_pressure={:.3f}", topWater.getHydrostaticPressure());
@@ -370,8 +372,9 @@ TEST_F(PressureHydrostaticTest, MixedMaterialHydrostaticPressure) {
     spdlog::info("  WATER [2,2]: effective_density={:.3f}", waterCell.getEffectiveDensity());
     spdlog::info("  DIRT [2,3]: effective_density={:.3f}", dirtCell.getEffectiveDensity());
     
-    // Calculate hydrostatic pressure
-    world->calculateHydrostaticPressure();
+    // Calculate hydrostatic pressure using the pressure calculator
+    WorldBPressureCalculator pressureCalc(*world);
+    pressureCalc.calculateHydrostaticPressure();
     
     spdlog::info("After pressure calculation:");
     spdlog::info("  METAL [2,1]: hydrostatic_pressure={:.3f}", metalCell.getHydrostaticPressure());

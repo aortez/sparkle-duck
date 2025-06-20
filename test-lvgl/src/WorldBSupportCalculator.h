@@ -1,5 +1,6 @@
 #pragma once
 
+#include "WorldBCalculatorBase.h"
 #include "MaterialType.h"
 #include "Vector2d.h"
 #include <cstdint>
@@ -21,7 +22,7 @@ class WorldB;
  * require structural foundation (vertical) or rigid connections (horizontal)
  * to maintain cohesion and resist movement.
  */
-class WorldBSupportCalculator {
+class WorldBSupportCalculator : public WorldBCalculatorBase {
 public:
     /**
      * @brief Constructor takes a WorldB for accessing world data
@@ -29,16 +30,7 @@ public:
      */
     explicit WorldBSupportCalculator(const WorldB& world);
 
-    // Disable copy construction and assignment
-    WorldBSupportCalculator(const WorldBSupportCalculator&) = delete;
-    WorldBSupportCalculator& operator=(const WorldBSupportCalculator&) = delete;
-
-    // Allow move construction and assignment
-    WorldBSupportCalculator(WorldBSupportCalculator&&) = default;
-    WorldBSupportCalculator& operator=(WorldBSupportCalculator&&) = default;
-
-    // Support calculation constants
-    static constexpr double MIN_MATTER_THRESHOLD = 0.001; // Minimum matter to process
+    // Support-specific constants
     static constexpr uint32_t MAX_VERTICAL_SUPPORT_DISTANCE =
         5;                                                   // Max distance for vertical support
     static constexpr double RIGID_DENSITY_THRESHOLD = 5.0;   // Density threshold for rigid support
@@ -95,22 +87,5 @@ public:
     double calculateDistanceToSupport(uint32_t x, uint32_t y) const;
 
 private:
-    // Reference to the world for accessing grid data
-    const WorldB& world_;
-
-    /**
-     * @brief Get cell at specific coordinates
-     * @param x Column coordinate
-     * @param y Row coordinate
-     * @return Reference to cell at (x,y)
-     */
-    const CellB& getCellAt(uint32_t x, uint32_t y) const;
-
-    /**
-     * @brief Check if coordinates are valid for the grid
-     * @param x Column coordinate
-     * @param y Row coordinate
-     * @return true if coordinates are within bounds
-     */
-    bool isValidCell(int x, int y) const;
+    // No additional private members needed
 };

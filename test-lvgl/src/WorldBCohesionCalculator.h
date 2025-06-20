@@ -1,5 +1,6 @@
 #pragma once
 
+#include "WorldBCalculatorBase.h"
 #include "MaterialType.h"
 #include "Vector2d.h"
 #include <cstdint>
@@ -21,21 +22,13 @@ class WorldBSupportCalculator;
  * WorldBSupportCalculator)
  * 2. Force cohesion: Adds attractive forces toward connected material clusters
  */
-class WorldBCohesionCalculator {
+class WorldBCohesionCalculator : public WorldBCalculatorBase {
 public:
     /**
      * @brief Constructor takes a WorldB for accessing world data
      * @param world WorldB providing access to grid and cells
      */
     explicit WorldBCohesionCalculator(const WorldB& world);
-
-    // Disable copy construction and assignment
-    WorldBCohesionCalculator(const WorldBCohesionCalculator&) = delete;
-    WorldBCohesionCalculator& operator=(const WorldBCohesionCalculator&) = delete;
-
-    // Allow move construction and assignment
-    WorldBCohesionCalculator(WorldBCohesionCalculator&&) = default;
-    WorldBCohesionCalculator& operator=(WorldBCohesionCalculator&&) = default;
 
     // Force calculation structures for cohesion physics (moved from WorldB)
     struct CohesionForce {
@@ -54,9 +47,8 @@ public:
         bool force_active;          // Whether force should be applied (cutoff check)
     };
 
-    // Cohesion calculation constants
-    static constexpr double MIN_MATTER_THRESHOLD = 0.001; // Minimum matter to process
-    static constexpr double MIN_SUPPORT_FACTOR = 0.1;     // Minimum cohesion when no support
+    // Cohesion-specific constants
+    static constexpr double MIN_SUPPORT_FACTOR = 0.1; // Minimum cohesion when no support
 
     CohesionForce calculateCohesionForce(uint32_t x, uint32_t y) const;
 
@@ -64,10 +56,5 @@ public:
         uint32_t x, uint32_t y, uint32_t com_cohesion_range) const;
 
 private:
-    const WorldB& world_;
     mutable std::unique_ptr<WorldBSupportCalculator> support_calculator_; // Support calculations
-
-    const CellB& getCellAt(uint32_t x, uint32_t y) const;
-
-    bool isValidCell(int x, int y) const;
 };

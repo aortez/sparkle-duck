@@ -6,6 +6,7 @@
 #include "Vector2i.h"
 #include "WorldBCohesionCalculator.h"
 #include "WorldBSupportCalculator.h"
+#include "WorldBPressureCalculator.h"
 #include "WorldFactory.h"
 #include "WorldInterface.h"
 #include "WorldSetup.h"
@@ -64,31 +65,6 @@ public:
         Vector2d com_cohesion_direction{ 0.0, 0.0 }; // Direction of COM cohesion force
     };
 
-    // Blocked transfer data for dynamic pressure accumulation
-    struct BlockedTransfer {
-        int fromX, fromY;          // Source cell coordinates
-        double blocked_amount;     // Amount that failed to transfer
-        MaterialType material;     // Material type that was blocked
-        Vector2d blocked_velocity; // Velocity vector of blocked material
-        Vector2d boundary_normal;  // Direction of attempted transfer
-        double blocked_energy;     // Kinetic energy that was blocked
-
-        BlockedTransfer(
-            int x,
-            int y,
-            double amount,
-            MaterialType mat,
-            const Vector2d& velocity,
-            const Vector2d& normal)
-            : fromX(x),
-              fromY(y),
-              blocked_amount(amount),
-              material(mat),
-              blocked_velocity(velocity),
-              boundary_normal(normal),
-              blocked_energy(velocity.magnitude() * amount)
-        {}
-    };
 
     WorldB(uint32_t width, uint32_t height, lv_obj_t* draw_area);
     ~WorldB();
@@ -200,11 +176,13 @@ public:
     void setDynamicPressureEnabled(bool enabled) override { dynamic_pressure_enabled_ = enabled; }
     bool isDynamicPressureEnabled() const override { return dynamic_pressure_enabled_; }
 
-    // Pressure calculation methods (public for testing)
-    void calculateHydrostaticPressure();
-    Vector2d calculatePressureForce(const CellB& cell) const;
-    double getHydrostaticWeight(MaterialType material) const;
-    double getDynamicWeight(MaterialType material) const;
+    // Pressure calculator access
+    WorldBPressureCalculator& getPressureCalculator() { return pressure_calculator_; }
+    const WorldBPressureCalculator& getPressureCalculator() const { return pressure_calculator_; }
+    
+    // Pressure system getters for calculator
+    double getPressureScale() const { return pressure_scale_; }
+    Vector2d getGravityVector() const { return Vector2d(0.0, gravity_); }
 
     // =================================================================
     // WORLDINTERFACE IMPLEMENTATION - TIME REVERSAL (NO-OP)
@@ -410,16 +388,6 @@ private:
     bool checkFloatingParticleCollision(int cellX, int cellY);
     void handleFloatingParticleCollision(int cellX, int cellY);
 
-    // Dynamic pressure system
-    void queueBlockedTransfer(
-        int fromX,
-        int fromY,
-        double blocked_amount,
-        MaterialType material,
-        const Vector2d& velocity,
-        const Vector2d& boundary_normal);
-    void processBlockedTransfers();
-    void applyDynamicPressureForces(double deltaTime);
 
     // Pressure calculation (simplified hydrostatic) - moved to public for testing
 
@@ -515,13 +483,15 @@ private:
     std::vector<MaterialMove> pending_moves_;
 
     // Dynamic pressure system
-    std::vector<BlockedTransfer> blocked_transfers_;
 
     // Performance timing
     mutable Timers timers_;
 
     // Support calculation
     mutable WorldBSupportCalculator support_calculator_;
+    
+    // Pressure calculation
+    WorldBPressureCalculator pressure_calculator_;
 
     // UI interface
     std::unique_ptr<SimulatorUI> ui_; // Owned UI (legacy architecture)

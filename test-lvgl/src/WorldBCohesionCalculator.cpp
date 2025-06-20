@@ -8,20 +8,8 @@
 #include <cmath>
 
 WorldBCohesionCalculator::WorldBCohesionCalculator(const WorldB& world)
-    : world_(world), support_calculator_(std::make_unique<WorldBSupportCalculator>(world))
+    : WorldBCalculatorBase(world), support_calculator_(std::make_unique<WorldBSupportCalculator>(world))
 {}
-
-const CellB& WorldBCohesionCalculator::getCellAt(uint32_t x, uint32_t y) const
-{
-    // Direct access to CellB through WorldB
-    return world_.at(x, y);
-}
-
-bool WorldBCohesionCalculator::isValidCell(int x, int y) const
-{
-    return x >= 0 && y >= 0 && static_cast<uint32_t>(x) < world_.getWidth()
-        && static_cast<uint32_t>(y) < world_.getHeight();
-}
 
 WorldBCohesionCalculator::CohesionForce WorldBCohesionCalculator::calculateCohesionForce(
     uint32_t x, uint32_t y) const
@@ -46,7 +34,7 @@ WorldBCohesionCalculator::CohesionForce WorldBCohesionCalculator::calculateCohes
             if (isValidCell(nx, ny)) {
                 const CellB& neighbor = getCellAt(nx, ny);
                 if (neighbor.getMaterialType() == cell.getMaterialType()
-                    && neighbor.getFillRatio() > WorldBCohesionCalculator::MIN_MATTER_THRESHOLD) {
+                    && neighbor.getFillRatio() > MIN_MATTER_THRESHOLD) {
 
                     // Weight by neighbor's fill ratio for partial cells
                     connected_neighbors += 1; // Count as 1 neighbor
@@ -184,7 +172,7 @@ WorldBCohesionCalculator::COMCohesionForce WorldBCohesionCalculator::calculateCO
             if (isValidCell(nx, ny)) {
                 const CellB& neighbor = getCellAt(nx, ny);
                 if (neighbor.getMaterialType() == cell.getMaterialType()
-                    && neighbor.getFillRatio() > WorldBCohesionCalculator::MIN_MATTER_THRESHOLD) {
+                    && neighbor.getFillRatio() > MIN_MATTER_THRESHOLD) {
 
                     // Get neighbor's world position including its COM offset
                     Vector2d neighbor_world_pos(
@@ -202,7 +190,7 @@ WorldBCohesionCalculator::COMCohesionForce WorldBCohesionCalculator::calculateCO
         }
     }
 
-    if (connection_count == 0 || total_weight < WorldBCohesionCalculator::MIN_MATTER_THRESHOLD) {
+    if (connection_count == 0 || total_weight < MIN_MATTER_THRESHOLD) {
         return {
             { 0.0, 0.0 }, 0.0, { 0.0, 0.0 }, 0, total_neighbor_mass, cell_mass, in_outer_zone
         };

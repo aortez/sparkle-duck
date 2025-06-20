@@ -10,20 +10,8 @@
 #include <queue>
 #include <set>
 
-WorldBSupportCalculator::WorldBSupportCalculator(const WorldB& world) : world_(world)
+WorldBSupportCalculator::WorldBSupportCalculator(const WorldB& world) : WorldBCalculatorBase(world)
 {}
-
-const CellB& WorldBSupportCalculator::getCellAt(uint32_t x, uint32_t y) const
-{
-    // Direct access to CellB through WorldB
-    return world_.at(x, y);
-}
-
-bool WorldBSupportCalculator::isValidCell(int x, int y) const
-{
-    return x >= 0 && y >= 0 && static_cast<uint32_t>(x) < world_.getWidth()
-        && static_cast<uint32_t>(y) < world_.getHeight();
-}
 
 bool WorldBSupportCalculator::hasVerticalSupport(uint32_t x, uint32_t y) const
 {

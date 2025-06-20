@@ -57,6 +57,7 @@ WorldB::WorldB(uint32_t width, uint32_t height, lv_obj_t* draw_area)
       dragged_com_(0.0, 0.0),
       selected_material_(MaterialType::DIRT),
       support_calculator_(*this),
+      pressure_calculator_(*this),
       ui_ref_(nullptr)
 {
     spdlog::info("Creating WorldB: {}x{} grid with pure-material physics", width_, height_);
@@ -119,9 +120,7 @@ void WorldB::advanceTime(double deltaTimeSeconds)
         // Process queued material moves
         processMaterialMoves();
 
-        // Process blocked transfers and apply dynamic pressure forces
-        processBlockedTransfers();
-        applyDynamicPressureForces(scaledDeltaTime);
+        // Pressure processing is now handled inside applyPressure
 
         timestep_++;
     }
@@ -1003,128 +1002,11 @@ void WorldB::processMaterialMoves()
     timers_.stopTimer("process_moves");
 }
 
-void WorldB::applyPressure(double /* deltaTime */)
+void WorldB::applyPressure(double deltaTime)
 {
-    if (pressure_system_ == PressureSystem::Original) {
-        calculateHydrostaticPressure();
-    }
-    // Other pressure systems ignored for now
+    pressure_calculator_.applyPressure(deltaTime);
 }
 
-void WorldB::calculateHydrostaticPressure()
-{
-    timers_.startTimer("hydrostatic_pressure");
-
-    // Skip calculation if hydrostatic pressure is disabled
-    if (!hydrostatic_pressure_enabled_) {
-        timers_.stopTimer("hydrostatic_pressure");
-        return;
-    }
-
-    // Slice-based hydrostatic pressure calculation, following under_pressure.md design.
-    // Process slices perpendicular to gravity direction.
-    // For simplicity, assume gravity points downward (positive Y direction).
-    Vector2d gravity_dir(0.0, 1.0); // Normalized gravity direction (downward)
-    double gravity_magnitude = std::abs(gravity_);
-    double slice_thickness = 1.0; // One cell thickness per slice
-
-    // Process vertical columns (slices perpendicular to downward gravity).
-    for (uint32_t x = 0; x < width_; ++x) {
-        double accumulated_pressure = 0.0;
-
-        // Process cells from top to bottom (following gravity direction).
-        for (uint32_t y = 0; y < height_; ++y) {
-            CellB& cell = at(x, y);
-
-            // Set current accumulated pressure on this cell.
-            cell.setHydrostaticPressure(accumulated_pressure);
-
-            // Add this cell's contribution to pressure for cells below.
-            if (!cell.isEmpty()) {
-                double effective_density = cell.getEffectiveDensity();
-                accumulated_pressure += effective_density * gravity_magnitude * slice_thickness;
-            }
-        }
-    }
-
-    timers_.stopTimer("hydrostatic_pressure");
-}
-
-Vector2d WorldB::calculatePressureForce(const CellB& cell) const
-{
-    // Combined pressure force calculation following design in under_pressure.md.
-
-    // Hydrostatic component (gravity-aligned).
-    Vector2d gravity_direction(0.0, 1.0); // Normalized gravity direction (downward)
-    double hydrostatic_multiplier = 0.1;  // Configurable strength multiplier
-    Vector2d hydrostatic_force =
-        gravity_direction * cell.getHydrostaticPressure() * hydrostatic_multiplier;
-
-    // Dynamic component (blocked-transfer direction).
-    double dynamic_multiplier = 1.0; // Configurable strength multiplier
-    Vector2d dynamic_force =
-        cell.getPressureGradient() * cell.getDynamicPressure() * dynamic_multiplier;
-
-    // Material-specific weighting.
-    MaterialType material = cell.getMaterialType();
-    double hydrostatic_weight = getHydrostaticWeight(material);
-    double dynamic_weight = getDynamicWeight(material);
-
-    // Combined force with material-specific weighting.
-    Vector2d total_force = hydrostatic_force * hydrostatic_weight + dynamic_force * dynamic_weight;
-
-    return total_force;
-}
-
-double WorldB::getHydrostaticWeight(MaterialType material) const
-{
-    // Material-specific hydrostatic pressure sensitivity
-    switch (material) {
-        case MaterialType::WATER:
-            return 1.0; // High hydrostatic sensitivity
-        case MaterialType::DIRT:
-            return 0.7; // Moderate hydrostatic sensitivity
-        case MaterialType::SAND:
-            return 0.7; // Moderate hydrostatic sensitivity
-        case MaterialType::WOOD:
-            return 0.3; // Low hydrostatic sensitivity (compression only)
-        case MaterialType::METAL:
-            return 0.1; // Very low hydrostatic sensitivity (very rigid)
-        case MaterialType::LEAF:
-            return 0.8; // High hydrostatic sensitivity (light material)
-        case MaterialType::WALL:
-            return 0.0; // Immobile
-        case MaterialType::AIR:
-            return 0.0; // No mass
-        default:
-            return 0.5; // Default moderate sensitivity
-    }
-}
-
-double WorldB::getDynamicWeight(MaterialType material) const
-{
-    // Material-specific dynamic pressure sensitivity
-    switch (material) {
-        case MaterialType::WATER:
-            return 0.8; // Responds well to dynamic pressure
-        case MaterialType::DIRT:
-            return 1.0; // High dynamic pressure response (granular)
-        case MaterialType::SAND:
-            return 1.0; // High dynamic pressure response (granular)
-        case MaterialType::WOOD:
-            return 0.5; // Moderate dynamic pressure response
-        case MaterialType::METAL:
-            return 0.3; // Low dynamic pressure response (rigid)
-        case MaterialType::LEAF:
-            return 0.9; // High dynamic pressure response (light)
-        case MaterialType::WALL:
-            return 0.0; // Immobile
-        case MaterialType::AIR:
-            return 0.0; // No mass
-        default:
-            return 0.6; // Default moderate response
-    }
-}
 
 void WorldB::setupBoundaryWalls()
 {
@@ -1750,13 +1632,15 @@ void WorldB::handleTransferMove(CellB& fromCell, CellB& toCell, const MaterialMo
 
         // Queue blocked transfer for dynamic pressure accumulation
         if (dynamic_pressure_enabled_) {
-            queueBlockedTransfer(
+            pressure_calculator_.queueBlockedTransfer({
                 move.fromX,
                 move.fromY,
+                move.toX,
+                move.toY,
                 transfer_deficit,
-                move.material,
                 fromCell.getVelocity(),
-                move.boundary_normal);
+                fromCell.getVelocity().magnitude() * transfer_deficit
+            });
         }
 
         applyCellBoundaryReflection(fromCell, direction, move.material);
@@ -1888,13 +1772,15 @@ void WorldB::handleInelasticCollision(CellB& fromCell, CellB& toCell, const Mate
             transfer_deficit);
 
         // Queue blocked transfer for dynamic pressure accumulation
-        queueBlockedTransfer(
+        pressure_calculator_.queueBlockedTransfer({
             move.fromX,
             move.fromY,
+            move.toX,
+            move.toY,
             transfer_deficit,
-            move.material,
             fromCell.getVelocity(),
-            move.boundary_normal);
+            fromCell.getVelocity().magnitude() * transfer_deficit
+        });
     }
 
     spdlog::trace(
@@ -1999,133 +1885,3 @@ WorldB::AdhesionForce WorldB::calculateAdhesionForce(uint32_t x, uint32_t y)
     return { total_force, total_force.mag(), strongest_attractor, contact_count };
 }
 
-// =================================================================
-// DYNAMIC PRESSURE SYSTEM IMPLEMENTATION
-// =================================================================
-
-void WorldB::queueBlockedTransfer(
-    int fromX,
-    int fromY,
-    double blocked_amount,
-    MaterialType material,
-    const Vector2d& velocity,
-    const Vector2d& boundary_normal)
-{
-    if (blocked_amount <= MIN_MATTER_THRESHOLD || !dynamic_pressure_enabled_) {
-        return;
-    }
-
-    blocked_transfers_.emplace_back(
-        fromX, fromY, blocked_amount, material, velocity, boundary_normal);
-
-    spdlog::trace(
-        "Queued blocked transfer: pos=({},{}) amount={:.3f} material={} energy={:.3f}",
-        fromX,
-        fromY,
-        blocked_amount,
-        static_cast<int>(material),
-        velocity.magnitude() * blocked_amount);
-}
-
-void WorldB::processBlockedTransfers()
-{
-    if (!dynamic_pressure_enabled_ || blocked_transfers_.empty()) {
-        return;
-    }
-
-    static constexpr double DYNAMIC_ACCUMULATION_RATE = 0.1; // Rate of pressure buildup
-
-    timers_.startTimer("dynamic_pressure_accumulation");
-
-    for (const auto& blocked : blocked_transfers_) {
-        // Bounds check
-        if (blocked.fromX < 0 || blocked.fromY < 0 || blocked.fromX >= static_cast<int>(width_)
-            || blocked.fromY >= static_cast<int>(height_)) {
-            continue;
-        }
-
-        CellB& cell =
-            at(static_cast<uint32_t>(blocked.fromX), static_cast<uint32_t>(blocked.fromY));
-
-        // Convert blocked kinetic energy to dynamic pressure
-        double pressure_increase = blocked.blocked_energy * DYNAMIC_ACCUMULATION_RATE * 10;
-        cell.setDynamicPressure(cell.getDynamicPressure() + pressure_increase);
-
-        // Update pressure gradient direction (weighted average)
-        Vector2d current_gradient = cell.getPressureGradient();
-        double current_pressure = cell.getDynamicPressure();
-        double new_weight = pressure_increase / current_pressure;
-
-        Vector2d updated_gradient =
-            current_gradient * (1.0 - new_weight) + blocked.boundary_normal * new_weight;
-        cell.setPressureGradient(updated_gradient.normalize());
-
-        spdlog::trace(
-            "Applied dynamic pressure: pos=({},{}) increase={:.3f} total={:.3f}",
-            blocked.fromX,
-            blocked.fromY,
-            pressure_increase,
-            current_pressure);
-    }
-
-    timers_.stopTimer("dynamic_pressure_accumulation");
-
-    // Clear processed blocked transfers
-    blocked_transfers_.clear();
-}
-
-void WorldB::applyDynamicPressureForces(double deltaTime)
-{
-    // Updated to use combined pressure force calculation (see under_pressure.md)
-    if (!dynamic_pressure_enabled_ && !hydrostatic_pressure_enabled_) {
-        return;
-    }
-
-    static constexpr double DYNAMIC_DECAY_RATE = 0.05; // Rate of dynamic pressure dissipation
-
-    timers_.startTimer("combined_pressure_forces");
-
-    for (uint32_t y = 0; y < height_; ++y) {
-        for (uint32_t x = 0; x < width_; ++x) {
-            CellB& cell = at(x, y);
-
-            // Skip empty cells
-            if (cell.isEmpty()) {
-                continue;
-            }
-
-            // Calculate combined pressure force (hydrostatic + dynamic)
-            Vector2d total_pressure_force = calculatePressureForce(cell);
-
-            // Skip negligible forces
-            if (total_pressure_force.magnitude() <= 0.001) {
-                continue;
-            }
-
-            // Apply combined pressure force to velocity (Phase 2.2)
-            Vector2d new_velocity =
-                cell.getVelocity() + total_pressure_force * deltaTime * pressure_scale_;
-            cell.setVelocity(new_velocity);
-
-            // Apply pressure decay (dynamic only - hydrostatic is recalculated each frame)
-            double current_dynamic_pressure = cell.getDynamicPressure();
-            if (current_dynamic_pressure > 0.001) {
-                double decayed_pressure =
-                    current_dynamic_pressure * (1.0 - DYNAMIC_DECAY_RATE * deltaTime);
-                cell.setDynamicPressure(decayed_pressure);
-            }
-
-            spdlog::trace(
-                "Applied combined pressure force: pos=({},{}) hydrostatic={:.3f} dynamic={:.3f} "
-                "force=({:.3f},{:.3f})",
-                x,
-                y,
-                cell.getHydrostaticPressure(),
-                cell.getDynamicPressure(),
-                total_pressure_force.x,
-                total_pressure_force.y);
-        }
-    }
-
-    timers_.stopTimer("combined_pressure_forces");
-}
