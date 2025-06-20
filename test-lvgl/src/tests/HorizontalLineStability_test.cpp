@@ -23,22 +23,22 @@ protected:
         
         // Disable walls to prevent boundary interference with our test setup
         world->setWallsEnabled(false);
-        
+              
         // Set up the test scenario:
-        // MDD-  (top row: Metal at (0,0), Dirt at (1,0) and (2,0), empty at (3,0))
+        // WDD-  (top row: Wall at (0,0), Dirt at (1,0) and (2,0), empty at (3,0))
         // ----  (bottom row: all empty)
         
-        world->addMaterialAtCell(0, 0, MaterialType::METAL, 1.0);  // Support anchor
+        world->addMaterialAtCell(0, 0, MaterialType::WALL, 1.0);  // Support anchor
         world->addMaterialAtCell(1, 0, MaterialType::DIRT, 1.0);   // Connected dirt
         world->addMaterialAtCell(2, 0, MaterialType::DIRT, 1.0);   // Cantilever dirt (should fall)
         
         spdlog::info("=== Test Setup Complete ===");
         spdlog::info("Initial configuration:");
-        spdlog::info("(0,0): METAL  (1,0): DIRT  (2,0): DIRT  (3,0): EMPTY");
+        spdlog::info("(0,0): WALL  (1,0): DIRT  (2,0): DIRT  (3,0): EMPTY");
         spdlog::info("(0,1): EMPTY  (1,1): EMPTY  (2,1): EMPTY  (3,1): EMPTY");
         
         // Log initial state details
-        logCellDetails(0, 0, "METAL anchor");
+        logCellDetails(0, 0, "WALL anchor");
         logCellDetails(1, 0, "DIRT connected");
         logCellDetails(2, 0, "DIRT cantilever (should fall)");
     }
@@ -217,7 +217,7 @@ TEST_F(HorizontalLineStabilityTest, CantileverDirtShouldFall) {
     EXPECT_TRUE(cantileverFell) 
         << "Cantilever dirt should fall due to gravity, but cohesion from 1 neighbor (resistance=0.4) "
         << "is stronger than gravity force (~0.24), creating an unrealistic floating bridge effect";
-        
+           
     if (cantileverFell) {
         spdlog::info("SUCCESS: Cantilever dirt fell as expected (realistic physics)");
     } else {
@@ -227,7 +227,7 @@ TEST_F(HorizontalLineStabilityTest, CantileverDirtShouldFall) {
 }
 
 TEST_F(HorizontalLineStabilityTest, ConnectedDirtShouldStayStable) {
-    // The dirt at (1,0) should stay stable since it's connected to metal support
+    // The dirt at (1,0) should stay stable since it's connected to wall support
     // and has proper structural backing
     
     spdlog::info("=== Testing Connected Dirt Stability ===");

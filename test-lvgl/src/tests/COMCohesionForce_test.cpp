@@ -183,7 +183,7 @@ TEST_F(COMCohesionForceTest, COMCohesionIntegrationWithPhysics) {
     world->addMaterialAtCell(4, 1, MaterialType::METAL, 1.0); // Right particle (gap at x=3)
     
     // Disable COM cohesion for baseline test
-    world->setCohesionForceEnabled(false);
+    world->setCohesionComForceEnabled(false);
     
     // Record initial positions
     Vector2d left_initial_world_pos(2.0 + world->at(2, 1).getCOM().x, 1.0 + world->at(2, 1).getCOM().y);
@@ -220,7 +220,7 @@ TEST_F(COMCohesionForceTest, COMCohesionIntegrationWithPhysics) {
     world->addMaterialAtCell(4, 1, MaterialType::METAL, 1.0); // Right particle
     
     // Enable COM cohesion
-    world->setCohesionForceEnabled(true);
+    world->setCohesionComForceEnabled(true);
     updateVisualDisplay();
     
     // Run simulation WITH COM cohesion
@@ -293,7 +293,7 @@ TEST_F(COMCohesionForceTest, COMCohesionClusteringQuantitative) {
     waitForStart();
     
     // Enable COM cohesion
-    world->setCohesionForceEnabled(true);
+    world->setCohesionComForceEnabled(true);
     
     // Run simulation
     const double deltaTime = 0.016;
@@ -343,7 +343,7 @@ TEST_F(COMCohesionForceTest, COMCohesionMaterialStrengthComparison) {
     world->addMaterialAtCell(1, 2, MaterialType::WATER, 1.0);
     world->addMaterialAtCell(3, 2, MaterialType::WATER, 1.0);
     
-    world->setCohesionForceEnabled(true);
+    world->setCohesionComForceEnabled(true);
     
     // Run WATER test
     const double deltaTime = 0.016;
@@ -514,7 +514,7 @@ TEST_F(COMCohesionForceTest, COMCohesionClusterFormation) {
         world->addMaterialAtCell(3, 3, MaterialType::DIRT, 1.0); // Center
         
         // Enable COM cohesion forces
-        world->setCohesionForceEnabled(true);
+        world->setCohesionComForceEnabled(true);
         
         // Show initial scattered setup
         updateVisualDisplay();
@@ -651,8 +651,8 @@ TEST_F(COMCohesionForceTest, VelocityConservationAfterHorizontalCollision) {
     }
     
     // Disable all cohesion and adhesion forces for clean collision testing
-    world->setCohesionForceEnabled(false);  // Disable COM cohesion forces
-    world->setCohesionEnabled(false);       // Disable cohesion binding resistance
+    world->setCohesionComForceEnabled(false);  // Disable COM cohesion forces
+    world->setCohesionBindForceEnabled(false);       // Disable cohesion binding resistance
     world->setAdhesionEnabled(false);       // Disable adhesion forces
     
     // Set up the test scenario

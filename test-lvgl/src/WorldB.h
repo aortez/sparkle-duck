@@ -231,14 +231,23 @@ public:
     void clearCursorForce() override { cursor_force_active_ = false; }
 
     // WORLDINTERFACE IMPLEMENTATION - COHESION PHYSICS CONTROL
-    void setCohesionEnabled(bool enabled) override { cohesion_enabled_ = enabled; }
-    bool isCohesionEnabled() const override { return cohesion_enabled_; }
+    void setCohesionBindForceEnabled(bool enabled) override
+    {
+        cohesion_bind_force_enabled_ = enabled;
+    }
+    bool isCohesionBindForceEnabled() const override { return cohesion_bind_force_enabled_; }
 
-    void setCohesionForceEnabled(bool enabled) override { cohesion_force_enabled_ = enabled; }
-    bool isCohesionForceEnabled() const override { return cohesion_force_enabled_; }
+    void setCohesionComForceEnabled(bool enabled) override
+    {
+        cohesion_com_force_enabled_ = enabled;
+    }
+    bool isCohesionComForceEnabled() const override { return cohesion_com_force_enabled_; }
 
-    void setCohesionForceStrength(double strength) override { cohesion_force_strength_ = strength; }
-    double getCohesionForceStrength() const override { return cohesion_force_strength_; }
+    void setCohesionComForceStrength(double strength) override
+    {
+        cohesion_com_force_strength_ = strength;
+    }
+    double getCohesionComForceStrength() const override { return cohesion_com_force_strength_; }
 
     void setAdhesionStrength(double strength) override { adhesion_strength_ = strength; }
     double getAdhesionStrength() const override { return adhesion_strength_; }
@@ -246,8 +255,11 @@ public:
     void setAdhesionEnabled(bool enabled) override { adhesion_enabled_ = enabled; }
     bool isAdhesionEnabled() const override { return adhesion_enabled_; }
 
-    void setCohesionBindStrength(double strength) override { cohesion_bind_strength_ = strength; }
-    double getCohesionBindStrength() const override { return cohesion_bind_strength_; }
+    void setCohesionBindForceStrength(double strength) override
+    {
+        cohesion_bind_force_strength_ = strength;
+    }
+    double getCohesionBindForceStrength() const override { return cohesion_bind_force_strength_; }
 
     void setCOMCohesionRange(uint32_t range) override { com_cohesion_range_ = range; }
     uint32_t getCOMCohesionRange() const override { return com_cohesion_range_; }
@@ -448,13 +460,13 @@ private:
     int cursor_force_y_;
 
     // Cohesion physics control
-    bool cohesion_enabled_;
-    bool cohesion_force_enabled_;
-    bool adhesion_enabled_;          // Enable/disable adhesion physics
-    double cohesion_force_strength_; // Scaling factor for COM cohesion force magnitude
-    double adhesion_strength_;       // Scaling factor for adhesion force magnitude
-    double cohesion_bind_strength_;  // Scaling factor for cohesion resistance
-    uint32_t com_cohesion_range_;    // Range for COM cohesion neighbors (default 2)
+    bool cohesion_bind_force_enabled_;    // Enable/disable cohesion bind force (resistance)
+    bool cohesion_com_force_enabled_;     // Enable/disable cohesion COM force (attraction)
+    bool adhesion_enabled_;               // Enable/disable adhesion physics
+    double cohesion_com_force_strength_;  // Scaling factor for COM cohesion force magnitude
+    double adhesion_strength_;            // Scaling factor for adhesion force magnitude
+    double cohesion_bind_force_strength_; // Scaling factor for cohesion bind resistance
+    uint32_t com_cohesion_range_;         // Range for COM cohesion neighbors (default 2)
 
     // Drag state (enhanced with visual feedback)
     bool is_dragging_;

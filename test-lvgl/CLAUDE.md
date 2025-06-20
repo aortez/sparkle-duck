@@ -327,8 +327,6 @@ Can be found here:
 - [x] Implement elastic collision handler for METAL-METAL interactions
 - [ ] Add splash effect system for WATER collisions
 - [ ] Create fragmentation mechanics for brittle materials
-- [x] Design absorption/penetration behaviors (WATER+DIRT, etc.)
-- [ ] Implement absorption/penetration behaviors (WATER+DIRT, etc.)
 
 ## Misc TODO
 [x] - Add a Makefile to capture some common targets ('clean', 'debug', 'release', 'test-all'... anything else?); update CLAUDE.md with instructions.
@@ -340,3 +338,12 @@ Can be found here:
 [ ] - Add material-specific collision behaviors?
 [ ] - chain reaction mechanics?
 [ ] - CellInterface?
+
+## Coding Guidelines
+- Comments end with a period.
+- DRY.
+- Exit early.
+- Use const.
+- Use explicit names.
+- If a comment says the same approximate thing as the explicit name right next to it, the comment is not needed.
+- Look for opportunities to refactor.

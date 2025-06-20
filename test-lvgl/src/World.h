@@ -161,18 +161,20 @@ public:
     void updateCursorForce(int pixelX, int pixelY, bool isActive) override;
     void clearCursorForce() override { cursorForceActive = false; }
 
-    // Cohesion physics control (no-op for WorldA)
-    void setCohesionEnabled([[maybe_unused]] bool enabled) override { /* no-op for WorldA */ }
-    bool isCohesionEnabled() const override { return false; }
+    // Cohesion bind force control (no-op for WorldA)
+    void setCohesionBindForceEnabled([[maybe_unused]] bool enabled) override
+    { /* no-op for WorldA */ }
+    bool isCohesionBindForceEnabled() const override { return false; }
 
-    // Cohesion force physics control (no-op for WorldA)
-    void setCohesionForceEnabled([[maybe_unused]] bool enabled) override { /* no-op for WorldA */ }
-    bool isCohesionForceEnabled() const override { return false; }
+    // Cohesion COM force control (no-op for WorldA)
+    void setCohesionComForceEnabled([[maybe_unused]] bool enabled) override { /* no-op for WorldA */
+    }
+    bool isCohesionComForceEnabled() const override { return false; }
 
     // Cohesion strength parameters (no-op for WorldA)
-    void setCohesionForceStrength([[maybe_unused]] double strength) override
+    void setCohesionComForceStrength([[maybe_unused]] double strength) override
     { /* no-op for WorldA */ }
-    double getCohesionForceStrength() const override { return 1.0; }
+    double getCohesionComForceStrength() const override { return 1.0; }
 
     void setAdhesionStrength([[maybe_unused]] double strength) override { /* no-op for WorldA */ }
     double getAdhesionStrength() const override { return 1.0; }
@@ -180,9 +182,9 @@ public:
     void setAdhesionEnabled([[maybe_unused]] bool enabled) override { /* no-op for WorldA */ }
     bool isAdhesionEnabled() const override { return false; }
 
-    void setCohesionBindStrength([[maybe_unused]] double strength) override { /* no-op for WorldA */
-    }
-    double getCohesionBindStrength() const override { return 1.0; }
+    void setCohesionBindForceStrength([[maybe_unused]] double strength) override
+    { /* no-op for WorldA */ }
+    double getCohesionBindForceStrength() const override { return 1.0; }
 
     // COM cohesion range control (no-op for WorldA)
     void setCOMCohesionRange([[maybe_unused]] uint32_t range) override { /* no-op for WorldA */ }

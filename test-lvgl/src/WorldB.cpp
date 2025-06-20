@@ -34,12 +34,12 @@ WorldB::WorldB(uint32_t width, uint32_t height, lv_obj_t* draw_area)
       cursor_force_active_(false),
       cursor_force_x_(0),
       cursor_force_y_(0),
-      cohesion_enabled_(true),
-      cohesion_force_enabled_(true),
+      cohesion_bind_force_enabled_(true),
+      cohesion_com_force_enabled_(true),
       adhesion_enabled_(true),
-      cohesion_force_strength_(150.0),
+      cohesion_com_force_strength_(150.0),
       adhesion_strength_(5.0),
-      cohesion_bind_strength_(1.0),
+      cohesion_bind_force_strength_(1.0),
       com_cohesion_range_(2),
       is_dragging_(false),
       drag_start_x_(-1),
@@ -638,7 +638,7 @@ void WorldB::applyGravity(double deltaTime)
 
 void WorldB::applyCohesionForces(double deltaTime)
 {
-    if (!cohesion_force_enabled_) {
+    if (!cohesion_com_force_enabled_) {
         return;
     }
 
@@ -666,7 +666,7 @@ void WorldB::applyCohesionForces(double deltaTime)
 
             // COM cohesion force integration
             Vector2d com_cohesion_force = com_cohesion.force_direction
-                * com_cohesion.force_magnitude * deltaTime * cohesion_force_strength_;
+                * com_cohesion.force_magnitude * deltaTime * cohesion_com_force_strength_;
             velocity = velocity + com_cohesion_force;
 
             // Adhesion force integration (only if enabled)
@@ -725,7 +725,7 @@ std::vector<WorldB::MaterialMove> WorldB::computeMaterialMoves(double deltaTime)
             // PHASE 2: Force-Based Movement Threshold
             // Calculate cohesion and adhesion forces before movement decisions
             WorldBCohesionCalculator::CohesionForce cohesion;
-            if (cohesion_enabled_) {
+            if (cohesion_bind_force_enabled_) {
                 cohesion = WorldBCohesionCalculator(*this).calculateCohesionForce(x, y);
             }
             else {
@@ -735,7 +735,7 @@ std::vector<WorldB::MaterialMove> WorldB::computeMaterialMoves(double deltaTime)
 
             // NEW: Calculate COM-based cohesion force
             WorldBCohesionCalculator::COMCohesionForce com_cohesion;
-            if (cohesion_force_enabled_) {
+            if (cohesion_com_force_enabled_) {
                 com_cohesion = WorldBCohesionCalculator(*this).calculateCOMCohesionForce(
                     x, y, com_cohesion_range_);
             }
@@ -748,10 +748,10 @@ std::vector<WorldB::MaterialMove> WorldB::computeMaterialMoves(double deltaTime)
             // Apply strength multipliers to forces (now with separate adhesion and COM cohesion
             // controls)
             double effective_resistance =
-                cohesion.resistance_magnitude * cohesion_bind_strength_ * deltaTime * 50;
+                cohesion.resistance_magnitude * cohesion_bind_force_strength_ * deltaTime * 50;
             double effective_adhesion_magnitude = adhesion.force_magnitude * adhesion_strength_;
             double effective_com_cohesion_magnitude =
-                com_cohesion.force_magnitude * cohesion_force_strength_;
+                com_cohesion.force_magnitude * cohesion_com_force_strength_;
 
             // Store forces in cell for visualization (using effective values)
             cell.setAccumulatedCohesionForce(
@@ -766,8 +766,8 @@ std::vector<WorldB::MaterialMove> WorldB::computeMaterialMoves(double deltaTime)
             Vector2d gravity_force(0.0, gravity_ * deltaTime);
             Vector2d com_cohesion_force = com_cohesion.force_direction
                 * com_cohesion.force_magnitude * deltaTime
-                * cohesion_force_strength_; // COM cohesion scales with magnitude, deltaTime and
-                                            // strength
+                * cohesion_com_force_strength_; // COM cohesion scales with magnitude, deltaTime and
+                                                // strength
             Vector2d net_driving_force = gravity_force
                 + adhesion.force_direction * effective_adhesion_magnitude + com_cohesion_force;
 

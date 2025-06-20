@@ -487,10 +487,10 @@ void VisualTestBase::applyUniversalPhysicsDefaults(WorldB* world) {
     
     // Apply cohesion defaults
     if (VisualTestEnvironment::isCohesionDisabledByDefault()) {
-        world->setCohesionEnabled(false);
-        world->setCohesionForceEnabled(false);
-        world->setCohesionForceStrength(0.0);
-        world->setCohesionBindStrength(0.0);
+        world->setCohesionBindForceEnabled(false);
+        world->setCohesionComForceEnabled(false);
+        world->setCohesionComForceStrength(0.0);
+        world->setCohesionBindForceStrength(0.0);
         spdlog::debug("[TEST] - All cohesion systems disabled by default");
     }
     

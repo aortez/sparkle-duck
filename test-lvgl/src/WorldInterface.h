@@ -258,21 +258,21 @@ public:
     // COHESION PHYSICS CONTROL
     // =================================================================
 
-    // Enable/disable cohesion physics calculations
-    virtual void setCohesionEnabled(bool enabled) = 0;
+    // Enable/disable cohesion bind force (resistance to separation)
+    virtual void setCohesionBindForceEnabled(bool enabled) = 0;
 
-    // Check if cohesion physics is enabled
-    virtual bool isCohesionEnabled() const = 0;
+    // Check if cohesion bind force is enabled
+    virtual bool isCohesionBindForceEnabled() const = 0;
 
-    // Enable/disable cohesion force physics calculations
-    virtual void setCohesionForceEnabled(bool enabled) = 0;
+    // Enable/disable cohesion COM force (center-of-mass attraction)
+    virtual void setCohesionComForceEnabled(bool enabled) = 0;
 
-    // Check if cohesion force physics is enabled
-    virtual bool isCohesionForceEnabled() const = 0;
+    // Check if cohesion COM force is enabled
+    virtual bool isCohesionComForceEnabled() const = 0;
 
     // Cohesion strength parameters
-    virtual void setCohesionForceStrength(double strength) = 0;
-    virtual double getCohesionForceStrength() const = 0;
+    virtual void setCohesionComForceStrength(double strength) = 0;
+    virtual double getCohesionComForceStrength() const = 0;
 
     virtual void setAdhesionStrength(double strength) = 0;
     virtual double getAdhesionStrength() const = 0;
@@ -281,8 +281,8 @@ public:
     virtual void setAdhesionEnabled(bool enabled) = 0;
     virtual bool isAdhesionEnabled() const = 0;
 
-    virtual void setCohesionBindStrength(double strength) = 0;
-    virtual double getCohesionBindStrength() const = 0;
+    virtual void setCohesionBindForceStrength(double strength) = 0;
+    virtual double getCohesionBindForceStrength() const = 0;
 
     // COM cohesion range control
     virtual void setCOMCohesionRange(uint32_t range) = 0;

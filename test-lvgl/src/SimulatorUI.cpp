@@ -928,9 +928,9 @@ void SimulatorUI::cohesionBtnEventCb(lv_event_t* e)
     if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
         CallbackData* data = static_cast<CallbackData*>(lv_event_get_user_data(e));
         if (data && data->world) {
-            bool current_state = data->world->isCohesionEnabled();
+            bool current_state = data->world->isCohesionBindForceEnabled();
             bool new_state = !current_state;
-            data->world->setCohesionEnabled(new_state);
+            data->world->setCohesionBindForceEnabled(new_state);
             const lv_obj_t* btn = static_cast<const lv_obj_t*>(lv_event_get_target(e));
             lv_obj_t* label = lv_obj_get_child(btn, 0);
             lv_label_set_text(label, new_state ? "Cohesion Bind: On" : "Cohesion Bind: Off");
@@ -943,9 +943,9 @@ void SimulatorUI::cohesionForceBtnEventCb(lv_event_t* e)
     if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
         CallbackData* data = static_cast<CallbackData*>(lv_event_get_user_data(e));
         if (data && data->world) {
-            bool current_state = data->world->isCohesionForceEnabled();
+            bool current_state = data->world->isCohesionComForceEnabled();
             bool new_state = !current_state;
-            data->world->setCohesionForceEnabled(new_state);
+            data->world->setCohesionComForceEnabled(new_state);
             const lv_obj_t* btn = static_cast<const lv_obj_t*>(lv_event_get_target(e));
             lv_obj_t* label = lv_obj_get_child(btn, 0);
             lv_label_set_text(label, new_state ? "Cohesion Force: On" : "Cohesion Force: Off");
@@ -1481,7 +1481,7 @@ void SimulatorUI::cohesionForceStrengthSliderEventCb(lv_event_t* e)
         int32_t value = lv_slider_get_value(slider);
         double strength = value / 100.0; // Range 0.0 to 20.0
         if (data->world) {
-            data->world->setCohesionForceStrength(strength);
+            data->world->setCohesionComForceStrength(strength);
         }
         char buf[16];
         snprintf(buf, sizeof(buf), "%.1f", strength);
@@ -1513,7 +1513,7 @@ void SimulatorUI::cohesionBindStrengthSliderEventCb(lv_event_t* e)
         int32_t value = lv_slider_get_value(slider);
         double strength = value / 100.0; // Range 0.0 to 2.0
         if (data->world) {
-            data->world->setCohesionBindStrength(strength);
+            data->world->setCohesionBindForceStrength(strength);
         }
         char buf[16];
         snprintf(buf, sizeof(buf), "%.1f", strength);
