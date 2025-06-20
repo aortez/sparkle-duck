@@ -86,7 +86,7 @@ TEST_F(PressureDynamicTest, BlockedTransferAccumulatesDynamicPressure) {
     bool pressureDetected = false;
     int pressureDetectedTimestep = -1;
     
-    const int maxTimesteps = 10;
+    const int maxTimesteps = 30;  // Triple the length to observe more dynamics
     
     if (visual_mode_) {
         // Use framework's step simulation which handles Step/Start modes automatically

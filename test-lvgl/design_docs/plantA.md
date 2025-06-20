@@ -1,214 +1,302 @@
-# Plant Organism Design (PlantA)
+# Tree Organism Design
 
 ## Overview
 
-PlantA introduces living organisms to the WorldB physics simulation. Plants are multi-cellular organisms that grow from seed cells, consume and produce resources, and exhibit complex biological behaviors within the existing material physics system.
+Trees are living organisms in the WorldB physics simulation that grow from seeds, consume resources, and interact with the material physics system. This document defines the complete design for tree-based artificial life in the simulation.
 
-## Core Concept
+## Phase 0: Design Refinement
 
-- **Seed Origin**: Each plant grows from a single cell acting as the initial seed
-- **Organic Growth**: Plants expand by converting adjacent cells into plant tissue
-- **Energy Economy**: Plants balance energy consumption (growth) with energy production (photosynthesis)
-- **Resource Dependencies**: Plants require light, water, nutrients, and air for survival and growth
+### Core Design Decisions
 
-## Plant Cell Types
+#### Update Timing
+- Trees update every physics timestep alongside regular material physics
+- Trees can choose to "act" or "wait" based on internal energy and growth timers
+- No multi-timestep actions - all operations complete immediately
+- Growth attempts happen every N timesteps (configurable per tree)
 
-### WOOD Cells (Structure/Seed)
-- **Primary Role**: Structural support and initial seed
-- **Capabilities**: Basic resource transport, minimal energy generation
-- **Growth**: Can develop into any other plant cell type
-- **Durability**: Resistant to damage, provides plant stability
+#### Resource Systems
 
-### LEAF Cells (Photosynthesis)
-- **Primary Role**: Maximum light capture and air processing
-- **Capabilities**: High photosynthesis rate, efficient air exchange
-- **Specialization**: Optimized for energy production over structure
-- **Environmental**: Prefer exposure to open air and light sources
+**Light**
+- Gradient from top of world (intensity 1.0) to bottom (intensity 0.0)
+- Blocked by opaque materials (WALL, METAL have opacity 1.0)
+- LEAF cells collect light based on exposure
+- Light drives photosynthesis energy production
 
-### ROOT Cells (Nutrient Absorption)
-- **Primary Role**: Nutrient extraction from soil
-- **Capabilities**: Extract nutrients from DIRT cells, anchor plant
-- **Location**: Typically underground or in contact with DIRT
-- **Function**: Primary nutrient gateway for entire plant organism
+**Water**
+- Absorbed from adjacent WATER cells
+- Can extract humidity from AIR cells (lower rate)
+- Transported through tree network via capillary action
+- Required for all growth and photosynthesis
 
-## Resource System
+**Nutrients**
+- Stored in DIRT cells as a depletion value [0.0-1.0]
+- ROOT cells extract nutrients, depleting the soil
+- Nutrients regenerate slowly over time (soil recovery)
+- Different materials provide different nutrient levels
 
-### Energy
-- **Storage**: Each plant cell maintains local energy reserves
-- **Transport**: Energy flows between connected plant cells
-- **Consumption**: Required for growth, maintenance, and reproduction
-- **Production**: Generated through photosynthesis equation
+**Energy**
+- Internal resource not visible in physics simulation
+- Produced via photosynthesis equation
+- Consumed by growth, maintenance, and reproduction
+- Stored locally in each tree cell
 
-### Photosynthesis Equation
+#### Material Integration
+
+**New Materials**
+- SEED: Dense material (density 8.0), grows into tree
+- ROOT: Underground tree tissue for nutrient extraction
+
+**Tree Materials**
+- SEED → WOOD (trunk/branches)
+- WOOD → LEAF (photosynthesis) or ROOT (nutrients)
+- All tree materials subject to normal physics
+- Tree cells have special "organism_id" marking ownership
+
+### Growth Mechanics
+
+#### Atomic Operations
+- Growth replaces target cell atomically (no intermediate empty state)
+- Prevents cascading physics effects during growth
+- Original material is "consumed" by the growing tree
+
+#### Energy Costs
 ```
-Energy = (Light × Light_Efficiency) + (Water × Water_Efficiency) + 
-         (Nutrients × Nutrient_Efficiency) + (Air × Air_Efficiency)
+Growth Cost = Base Cost + (Target Density × Displacement Factor) + Depth Penalty
 ```
 
-### Resource Gathering Rates
+#### Underground Growth
+- ROOT growth temporarily "locks" surrounding DIRT
+- Prevents soil collapse during growth operation
+- Creates stable tunnels for root networks
+- Higher energy cost than above-ground growth
 
-#### Light Collection
-- **WOOD cells**: 1x base light gathering
-- **LEAF cells**: 5x base light gathering
-- **ROOT cells**: 0.1x base light gathering (minimal)
+## Architecture
 
-#### Air Exchange
-- **WOOD cells**: 1x base air exchange
-- **LEAF cells**: 4x base air exchange
-- **ROOT cells**: 0.2x base air exchange
+### TreeManager
 
-#### Water Absorption
-- **All plant cells**: Absorb water from adjacent WATER cells
-- **ROOT cells**: 2x water absorption efficiency
-- **Transport**: Water moves through plant tissue via connected cells
+```cpp
+class TreeManager {
+public:
+    // Lifecycle
+    void update(WorldB& world, double deltaTime);
+    TreeId plantSeed(uint32_t x, uint32_t y);
+    void removeTree(TreeId id);
+    
+    // Resource management
+    void updateLightMap(const WorldB& world);
+    void processPhotosynthesis();
+    void distributeResources();
+    
+    // Growth
+    void attemptGrowth(TreeId id, WorldB& world);
+    
+private:
+    std::unordered_map<TreeId, Tree> trees_;
+    std::vector<std::vector<float>> light_map_;
+    uint32_t next_tree_id_;
+};
+```
 
-#### Nutrient Extraction
-- **ROOT cells**: Extract nutrients from adjacent DIRT cells
-- **Transport**: Nutrients distributed through plant network
-- **WOOD/LEAF cells**: No direct nutrient gathering
+### Tree Structure
 
-## Growth Mechanics
+```cpp
+struct TreeCell {
+    Vector2i position;
+    MaterialType type;  // WOOD, LEAF, ROOT
+    double energy;
+    double water;
+};
 
-### Growth Conditions
-1. **Energy Threshold**: Cell must have sufficient energy reserves
-2. **Adjacent Space**: Target cell must be convertible (DIRT, AIR, or low-density materials)
-3. **Resource Access**: New cell type must be sustainable in location
-4. **Network Connectivity**: New cell must connect to existing plant network
+class Tree {
+public:
+    TreeId id;
+    std::vector<TreeCell> cells;
+    uint32_t age;  // timesteps since planting
+    uint32_t last_growth_timestep;
+    
+    // Growth parameters
+    uint32_t growth_interval;  // Timesteps between growth attempts
+    double growth_energy_threshold;
+    
+    // Resource pools (distributed across cells)
+    double totalEnergy() const;
+    double totalWater() const;
+};
+```
 
-### Growth Process
-1. **Target Selection**: Plant analyzes adjacent cells for growth potential
-2. **Material Conversion**: Target cell material converted to plant tissue (atomic operation)
-3. **Cell Specialization**: New cell becomes WOOD, LEAF, or ROOT based on environment
-4. **Energy Cost**: Growth depletes energy from source cell
+### Integration with WorldB
 
-### Underground Growth Mechanics
-Growing underground presents unique challenges due to soil physics and gravity:
+```cpp
+class WorldB {
+    // Existing members...
+    std::unique_ptr<TreeManager> tree_manager_;
+    
+    // In advanceTime():
+    if (tree_manager_) {
+        tree_manager_->update(*this, scaledDeltaTime);
+    }
+};
+```
 
-#### Atomic Growth-Replace System
-- **Simultaneous Operation**: Root growth and dirt consumption happen atomically
-- **No Intermediate Empty Cells**: Prevents cascade of falling dirt particles
-- **Physics Bypass**: Growth temporarily overrides normal material physics
+## Tree Lifecycle
 
-#### Soil Structure Integrity
-- **Structural Support**: ROOT cells provide stability to surrounding DIRT
-- **Supported Soil**: DIRT cells adjacent to ROOT cells resist gravity collapse
-- **Network Effect**: Connected root networks create stable underground zones
-- **Gradual Loosening**: Soil only becomes unstable when root networks are damaged
+### Stage 1: Seed (Timesteps 0-100)
+- Single SEED cell planted by user or dropped by mature tree
+- Absorbs water from environment
+- Checks for suitable growth conditions
+- Consumes seed energy reserves
 
-#### Energy Costs for Underground Growth
-- **Base Growth Cost**: Standard energy for converting materials
-- **Displacement Cost**: Additional energy for "pushing through" dense materials
-- **Depth Penalty**: Growing deeper underground requires more energy
-- **Soil Density**: Denser/compacted soil costs more energy to penetrate
+### Stage 2: Germination (Timesteps 100-200)
+- SEED converts to WOOD (first growth)
+- Immediately attempts to grow one ROOT downward
+- Begins establishing resource networks
+- Very vulnerable to resource shortage
 
-#### Root Network Pathways
-- **Pioneer Roots**: First roots create permanent "tunnels" through soil
-- **Network Expansion**: Subsequent roots can follow existing pathways at reduced cost
-- **Structural Channels**: Established root networks provide stable growth corridors
-- **Branching Strategy**: Roots branch from main channels to access nutrients
+### Stage 3: Sapling (Timesteps 200-1000)
+- Rapid growth phase
+- Prioritizes ROOT growth for stability and nutrients
+- Begins growing LEAF cells for energy production
+- Establishes basic tree structure
 
-#### Alternative Growth Strategies
-- **Surface Spreading**: Roots prefer growing horizontally near surface where possible
-- **Opportunistic Growth**: Roots exploit existing cracks, loose soil, or water channels
-- **Depth Targeting**: Deep growth only when shallow nutrients are exhausted
-- **Soil Preparation**: Roots may "soften" soil over multiple timesteps before growth
+### Stage 4: Mature (Timesteps 1000+)
+- Balanced growth based on resource availability
+- Can produce new SEEDs when energy surplus exists
+- Maintains existing structure
+- Competes with nearby trees for resources
 
-### Growth Patterns
-- **ROOT Growth**: Prefers DIRT cells, grows downward/outward
-- **LEAF Growth**: Prefers AIR cells, grows toward light sources
-- **WOOD Growth**: Structural expansion, connects other cell types
+### Stage 5: Decline (Variable)
+- Triggered by sustained resource shortage
+- Individual cells begin dying (convert to DIRT)
+- Can recover if conditions improve
+- Complete death returns all material to environment
 
-## Environmental Factors
+## Resource Equations
 
-### Light Distribution
-- **Source**: Top of simulation world provides maximum light
-- **Gradient**: Light intensity decreases with depth
-- **Shadows**: Dense materials (METAL, WALL) block light transmission
-- **Calculation**: Each cell receives light based on path to surface
+### Photosynthesis
+```
+Energy Production = 
+    (Light Intensity × Light Efficiency × LEAF Count) +
+    (Water Available × Water Efficiency) +
+    (Nutrients × Nutrient Efficiency) -
+    (Maintenance Cost × Total Cells)
 
-### Nutrient Distribution
-- **Source**: DIRT cells contain base nutrient levels
-- **Depletion**: ROOT cells gradually deplete nutrients from soil
-- **Regeneration**: Nutrients slowly regenerate in DIRT over time
-- **Concentration**: Some areas may have higher nutrient density
+Where:
+- Light Efficiency = 0.8 for LEAF, 0.1 for WOOD, 0.0 for ROOT
+- Water Efficiency = 0.3
+- Nutrient Efficiency = 0.4
+- Maintenance Cost = 0.1 per cell per timestep
+```
 
-### Water Availability
-- **Source**: Adjacent WATER cells provide moisture
-- **Transport**: Water moves through plant tissue network
-- **Requirements**: All plant cells need minimum water for survival
+### Growth Energy Requirements
+```
+Growth Cost = Base + (Material Factors) + (Environmental Factors)
 
-## Plant Lifecycle
+Base Costs:
+- WOOD growth: 10 energy
+- LEAF growth: 8 energy  
+- ROOT growth: 12 energy
 
-### Growth Phase
-- **Rapid Expansion**: High energy investment in new cell production
-- **Specialization**: Cells differentiate based on environmental needs
-- **Network Building**: Establishing efficient resource transport pathways
+Material Factors:
+- AIR displacement: ×1.0
+- WATER displacement: ×1.5
+- DIRT displacement: ×2.0
+- Cannot displace: WALL, METAL, other trees
 
-### Mature Phase
-- **Energy Balance**: Production matches consumption
-- **Reproduction**: Excess energy invested in seed production
-- **Maintenance**: Ongoing cellular repair and resource management
+Environmental Factors:
+- Depth penalty: +1 energy per cell below surface
+- Distance from trunk: +0.5 energy per cell
+```
 
-### Stress/Death Phase
-- **Resource Shortage**: Insufficient light, water, or nutrients
-- **Cell Death**: Individual cells may die and convert to DIRT
-- **Plant Death**: Complete organism failure if critical cells lost
+## Growth Patterns
 
-## Implementation Considerations
+### Growth Priority System
+1. **Survival Growth**: ROOT cells if nutrients < 20%
+2. **Energy Growth**: LEAF cells if energy production negative
+3. **Structural Growth**: WOOD cells for height/spread
+4. **Reproductive Growth**: SEED production if surplus energy
 
-### Data Structures
-- **Plant ID**: Each plant organism needs unique identifier
-- **Cell Network**: Track which cells belong to each plant
-- **Resource Pools**: Energy and resource storage per cell
-- **Growth State**: Track growth potential and timing
+### Directional Preferences
+- **LEAF**: Grows toward highest light intensity
+- **ROOT**: Grows toward highest nutrient concentration
+- **WOOD**: Grows upward (against gravity) and outward
 
-### Physics Integration
-- **Material Properties**: Plant cells have specific density, elasticity
-- **Collision Behavior**: Plant tissue interacts with other materials
-- **Growth Forces**: Growing cells exert pressure on surroundings
+### Growth Constraints
+- Must maintain connection to existing tree network
+- Cannot grow through WALL or METAL
+- Limited by available energy
+- Respects material physics (no floating trees)
 
-### Performance Optimization
-- **Growth Timing**: Limit growth calculations to active plants
-- **Resource Caching**: Cache light/nutrient calculations where possible
-- **Network Efficiency**: Optimize resource transport algorithms
+## Implementation Plan
+
+### Phase 1: Foundation (Week 1)
+1. Add SEED and ROOT to MaterialType enum
+2. Create basic TreeManager class
+3. Integrate TreeManager into WorldB
+4. Implement seed planting mechanism
+5. Basic germination (SEED → WOOD conversion)
+
+### Phase 2: Growth System (Week 2)
+1. Implement TreeCell and Tree structures
+2. Add growth mechanics with atomic operations
+3. Create growth pattern algorithms
+4. Handle underground ROOT growth
+5. Add organism_id to CellB for tree ownership
+
+### Phase 3: Resource Economy (Week 3)
+1. Implement light map calculation
+2. Add photosynthesis energy production
+3. Create water absorption from WATER/AIR
+4. Implement nutrient extraction from DIRT
+5. Add resource distribution through tree network
+
+### Phase 4: Advanced Features (Week 4)
+1. Multiple tree tracking and competition
+2. Seed production and dispersal
+3. Tree death and decomposition
+4. Visual differentiation (tree cells slightly different color)
+5. Performance optimization
+
+## Testing Strategy
+
+### Unit Tests
+- TreeManager operations (plant, remove, update)
+- Resource calculations (photosynthesis, growth costs)
+- Growth pattern algorithms
+- Tree network connectivity
+
+### Visual Tests
+- Single tree growth over time
+- Multiple tree competition
+- Resource depletion and regeneration
+- Tree death and decomposition
+
+### Performance Tests
+- 100+ trees simultaneous simulation
+- Light map calculation efficiency
+- Resource distribution scaling
 
 ## Future Enhancements
 
-### Advanced Behaviors
-- **Tropism**: Growth toward/away from stimuli (light, gravity, nutrients)
-- **Competition**: Multiple plants competing for limited resources
-- **Symbiosis**: Plants sharing resources or providing mutual benefits
-- **Seasonal Cycles**: Periodic growth/dormancy patterns
+### Genetic Variation
+- Trees have variable growth parameters
+- Mutation on reproduction
+- Natural selection for successful traits
+
+### Environmental Adaptation
+- Trees adapt growth patterns to environment
+- Drought resistance traits
+- Shade tolerance variations
 
 ### Ecosystem Interactions
-- **Decomposition**: Dead plant material enriches soil nutrients
-- **Oxygen Production**: Plants generate AIR cells through photosynthesis
-- **Habitat Creation**: Plants modify local environment for other organisms
+- Decomposer organisms
+- Nutrient cycling
+- Symbiotic relationships
+- Seasonal variations
 
-### Genetic Variation
-- **Plant Species**: Different plant types with unique characteristics
-- **Mutation**: Random variations in plant properties over generations
-- **Evolution**: Natural selection pressure based on survival success
+## Open Questions
 
-## Questions for Further Development
-
-1. **Energy Values**: What are the specific numeric values for energy production/consumption?
-2. **Growth Rate**: How frequently should plants attempt growth (every N timesteps)?
-3. **Resource Limits**: Should there be maximum carrying capacity for resources per cell?
-4. **Plant Death**: How quickly should dying plants decompose back to base materials?
-5. **User Interaction**: Should players be able to plant seeds directly or only through natural reproduction?
-6. **Visual Representation**: How should plant cells be visually distinguished from static materials?
-
-## Integration with Existing Systems
-
-### WorldB Compatibility
-- **Material System**: Plant cells fit within existing MaterialType enum
-- **Physics Engine**: Plant growth works within current cell-based physics
-- **UI Integration**: Material picker can include plant seed option
-- **Smart Grabber**: Can interact with plant cells like other materials
-
-### Testing Framework
-- **Growth Tests**: Verify plant expansion under various conditions
-- **Resource Tests**: Validate photosynthesis and resource transport
-- **Stress Tests**: Confirm proper behavior under resource scarcity
-- **Performance Tests**: Ensure plant calculations don't impact simulation speed
+1. **Growth Timing**: Should trees attempt growth every N timesteps or based on energy thresholds?
+2. **Resource Visualization**: How to show nutrient depletion in DIRT cells?
+3. **Seed Dispersal**: Physics-based (falling) or random placement?
+4. **Performance Limits**: Maximum number of trees before slowdown?
+5. **User Interaction**: Can users prune/harvest trees?
