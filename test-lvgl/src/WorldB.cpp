@@ -704,14 +704,16 @@ void WorldB::updateTransfers(double deltaTime)
     // Clear previous moves
     pending_moves_.clear();
 
-    // Queue material moves based on COM positions and velocities
-    queueMaterialMoves(deltaTime);
+    // Compute material moves based on COM positions and velocities
+    pending_moves_ = computeMaterialMoves(deltaTime);
 
     timers_.stopTimer("update_transfers");
 }
 
-void WorldB::queueMaterialMoves(double deltaTime)
+std::vector<WorldB::MaterialMove> WorldB::computeMaterialMoves(double deltaTime)
 {
+    std::vector<MaterialMove> moves;
+    
     for (uint32_t y = 0; y < height_; ++y) {
         for (uint32_t x = 0; x < width_; ++x) {
             CellB& cell = at(x, y);
@@ -896,7 +898,7 @@ void WorldB::queueMaterialMoves(double deltaTime)
                             move.collision_energy);
                     }
 
-                    pending_moves_.push_back(move);
+                    moves.push_back(move);
                 }
                 else {
                     // Hit world boundary - apply elastic reflection immediately
@@ -919,6 +921,8 @@ void WorldB::queueMaterialMoves(double deltaTime)
             }
         }
     }
+    
+    return moves;
 }
 
 void WorldB::processMaterialMoves()

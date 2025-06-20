@@ -53,12 +53,10 @@ TEST_F(ForceDebugTest, DebugWaterForces) {
     std::cout << "Velocity before: (" << velocityBefore.x << ", " << velocityBefore.y << ")" << std::endl;
     
     world->clearPendingMoves();
-    world->queueMaterialMovesForTesting(deltaTime);
+    auto moves = world->computeMaterialMoves(deltaTime);
     
     Vector2d velocityAfter = waterCell.getVelocity();
     std::cout << "Velocity after: (" << velocityAfter.x << ", " << velocityAfter.y << ")" << std::endl;
-    
-    const auto& moves = world->getPendingMoves();
     std::cout << "Generated moves: " << moves.size() << std::endl;
     
     // This test should help us understand what's happening

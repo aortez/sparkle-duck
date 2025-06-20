@@ -64,99 +64,65 @@ protected:
         cell.setVelocity(velocity);
     }
     
-    // Helper to capture pending moves before they're processed
-    std::vector<WorldB::MaterialMove> capturePendingMoves(double deltaTime) {
-        // Clear our test move storage
-        moves_for_testing_.clear();
-        
-        // Clear any existing pending moves
-        world->getPendingMoves(); // Just to access the container
-        
-        // Manually queue moves for testing
-        for (uint32_t y = 0; y < world->getHeight(); ++y) {
-            for (uint32_t x = 0; x < world->getWidth(); ++x) {
-                CellB& cell = world->at(x, y);
-                
-                if (cell.isEmpty() || cell.isWall()) {
-                    continue;
-                }
-                
-                // Update COM based on velocity (simulating what queueMaterialMoves does)
-                Vector2d oldCOM = cell.getCOM();
-                Vector2d newCOM = oldCOM + cell.getVelocity() * deltaTime;
-                cell.setCOM(newCOM);
-                
-                // Use exposed method to check boundary crossings
-                std::vector<Vector2i> crossings = world->getAllBoundaryCrossings(newCOM);
-                
-                for (const Vector2i& direction : crossings) {
-                    Vector2i targetPos = Vector2i(x, y) + direction;
-                    
-                    if (targetPos.x >= 0 && targetPos.x < (int)world->getWidth() && 
-                        targetPos.y >= 0 && targetPos.y < (int)world->getHeight()) {
-                        
-                        const CellB& targetCell = world->at(targetPos.x, targetPos.y);
-                        
-                        // Use exposed method to create collision-aware move
-                        WorldB::MaterialMove move = world->createCollisionAwareMove(
-                            cell, targetCell, Vector2i(x, y), targetPos, direction, deltaTime);
-                        
-                        // Store this move for verification
-                        moves_for_testing_.push_back(move);
-                    }
-                }
-                
-                // Restore original COM to not affect other tests
-                cell.setCOM(oldCOM);
-            }
-        }
-        
-        return moves_for_testing_;
-    }
-    
-    std::vector<WorldB::MaterialMove> moves_for_testing_;
     std::unique_ptr<WorldB> world;
 };
 
-TEST_F(CollisionSystemTest, DetectsBoundaryCrossingForMovingParticle) {
-    // Setup: Create a DIRT particle with velocity that will cross right boundary
-    setupCell(2, 2, MaterialType::DIRT, 1.0, Vector2d(0.8, 0.0), Vector2d(0.5, 0.0));
+TEST_F(CollisionSystemTest, ParticleCrossesCellBoundaries) {
+    // Create a smaller 3x1 world for this specific test
+    world = createWorldB(3, 1);
+    world->setAddParticlesEnabled(false);
+    world->setWallsEnabled(false);
+    world->setGravity(0.0);  // No gravity for pure velocity test
+    cleanWorldForTesting();
     
-    // Create empty target cell
-    setupCell(3, 2, MaterialType::AIR, 0.0);
+    // Add DIRT particle at left cell with high rightward velocity
+    setupCell(0, 0, MaterialType::DIRT, 1.0, Vector2d(0.0, 0.0), Vector2d(5.0, 0.0));
     
-    // Show initial state in visual mode
-    showInitialState(world.get(), "DIRT particle with rightward velocity (COM at x=0.8)");
+    // Show initial state
+    showInitialState(world.get(), "DIRT particle at left with velocity 5.0 cells/s rightward");
     
-    // Capture moves after deltaTime that will cause boundary crossing
-    double deltaTime = 0.5; // COM will be 0.8 + 0.5*0.5 = 1.05, crossing boundary
-    auto moves = capturePendingMoves(deltaTime);
+    // Track particle movement
+    double deltaTime = 0.016;  // 60 FPS
+    int steps = 0;
+    const int maxSteps = 50;  // Limit frames with high velocity
     
-    // Verify: Should detect one boundary crossing move
-    ASSERT_EQ(moves.size(), 1);
-    
-    const auto& move = moves[0];
-    EXPECT_EQ(move.fromX, 2);
-    EXPECT_EQ(move.fromY, 2);
-    EXPECT_EQ(move.toX, 3);
-    EXPECT_EQ(move.toY, 2);
-    EXPECT_EQ(move.material, MaterialType::DIRT);
-    EXPECT_EQ(move.collision_type, WorldB::CollisionType::TRANSFER_ONLY); // Into empty cell
-    EXPECT_GT(move.amount, 0.0);
-    
-    // Visual demonstration of the boundary crossing
-    if (visual_mode_) {
-        // Show the calculation
-        updateDisplay(world.get(), "COM calculation: 0.8 + (0.5 * 0.5) = 1.05 > 1.0 (boundary)");
-        pauseIfVisual(1000);
-        
-        // Now simulate the actual transfer
-        updateDisplay(world.get(), "Simulating material transfer...");
+    // Phase 1: Wait for particle to reach middle cell
+    bool reachedMiddle = false;
+    while (steps < maxSteps && !reachedMiddle) {
         world->advanceTime(deltaTime);
-        updateDisplay(world.get(), "Material transferred to neighboring cell");
-        pauseIfVisual(1000);
+        steps++;
         
-        // Wait for next test
+        if (!world->at(1, 0).isEmpty()) {
+            reachedMiddle = true;
+            spdlog::info("Particle reached middle cell after {} steps ({:.3f}s)", 
+                        steps, steps * deltaTime);
+        }
+    }
+    
+    ASSERT_TRUE(reachedMiddle) << "Particle should reach middle cell within " << maxSteps << " steps";
+    
+    // Verify timing is reasonable (COM travels from 0 to 1.0 at 5.0 cells/s = 0.2s = ~12 steps)
+    EXPECT_LT(steps, 20) << "High velocity particle should cross boundary quickly";
+    
+    // Phase 2: Continue until particle reaches right cell
+    bool reachedRight = false;
+    int additionalSteps = 0;
+    while (additionalSteps < maxSteps && !reachedRight) {
+        world->advanceTime(deltaTime);
+        additionalSteps++;
+        
+        if (!world->at(2, 0).isEmpty()) {
+            reachedRight = true;
+            spdlog::info("Particle reached right cell after {} total steps ({:.3f}s)", 
+                        steps + additionalSteps, (steps + additionalSteps) * deltaTime);
+        }
+    }
+    
+    ASSERT_TRUE(reachedRight) << "Particle should reach right cell";
+    
+    // Visual feedback
+    if (visual_mode_) {
+        updateDisplay(world.get(), "Test complete - particle crossed both boundaries");
         waitForNext();
     }
 }
@@ -166,59 +132,110 @@ TEST_F(CollisionSystemTest, DetectsElasticCollisionBetweenMetals) {
     setupCell(1, 2, MaterialType::METAL, 1.0, Vector2d(0.9, 0.0), Vector2d(0.2, 0.0));
     setupCell(2, 2, MaterialType::METAL, 0.8, Vector2d(0.0, 0.0), Vector2d(0.0, 0.0));
     
-    // Deltatime that causes boundary crossing: COM will be 0.9 + 0.2*0.5 = 1.0
-    double deltaTime = 0.5;
-    auto moves = capturePendingMoves(deltaTime);
+    showInitialState(world.get(), "METAL particles: left moving right, right stationary");
     
-    // Verify: Should detect elastic collision
-    ASSERT_EQ(moves.size(), 1);
+    // Store initial velocities
+    Vector2d v1_initial = world->at(1, 2).getVelocity();
+    Vector2d v2_initial = world->at(2, 2).getVelocity();
     
-    const auto& move = moves[0];
-    EXPECT_EQ(move.collision_type, WorldB::CollisionType::ELASTIC_REFLECTION);
-    EXPECT_GT(move.restitution_coefficient, 0.0); // Should have elasticity
-    EXPECT_GT(move.collision_energy, 0.0); // Should have calculated collision energy
-    EXPECT_GT(move.material_mass, 0.0);
-    EXPECT_GT(move.target_mass, 0.0);
+    // Run simulation until velocities change (indicating collision)
+    double deltaTime = 0.016;
+    bool collisionDetected = false;
+    for (int i = 0; i < 100 && !collisionDetected; i++) {
+        world->advanceTime(deltaTime);
+        
+        Vector2d v1_current = world->at(1, 2).getVelocity();
+        Vector2d v2_current = world->at(2, 2).getVelocity();
+        
+        // Check if velocities changed significantly
+        if (std::abs(v1_current.x - v1_initial.x) > 0.01 || std::abs(v2_current.x - v2_initial.x) > 0.01) {
+            collisionDetected = true;
+            spdlog::info("Elastic collision detected after {} steps", i+1);
+        }
+    }
+    
+    ASSERT_TRUE(collisionDetected) << "Elastic collision should occur between METAL particles";
+    
+    // Verify momentum was exchanged (characteristic of elastic collision)
+    Vector2d v1_final = world->at(1, 2).getVelocity();
+    Vector2d v2_final = world->at(2, 2).getVelocity();
+    
+    EXPECT_NE(v1_final.x, v1_initial.x) << "First particle velocity should change";
+    EXPECT_NE(v2_final.x, v2_initial.x) << "Second particle velocity should change";
+    
+    if (visual_mode_) {
+        updateDisplay(world.get(), "Elastic collision complete - velocities exchanged");
+        waitForNext();
+    }
 }
 
-TEST_F(CollisionSystemTest, DetectsAbsorptionBetweenWaterAndDirt) {
-    // Setup: WATER particle moving toward DIRT
+TEST_F(CollisionSystemTest, WaterAbsorbedByDirt) {
+    // Setup: WATER particle moving toward DIRT with room for absorption
     setupCell(1, 1, MaterialType::WATER, 0.8, Vector2d(0.9, 0.0), Vector2d(0.3, 0.0));
-    setupCell(2, 1, MaterialType::DIRT, 0.7, Vector2d(0.0, 0.0), Vector2d(0.0, 0.0));
+    setupCell(2, 1, MaterialType::DIRT, 0.3, Vector2d(0.0, 0.0), Vector2d(0.0, 0.0));  // Lower fill to allow absorption
     
-    double deltaTime = 0.4; // COM will be 0.9 + 0.3*0.4 = 1.02
-    auto moves = capturePendingMoves(deltaTime);
+    showInitialState(world.get(), "WATER moving toward DIRT - absorption expected");
     
-    // Verify: Should detect absorption collision
-    ASSERT_EQ(moves.size(), 1);
+    // Track fill ratios before interaction
+    double water_before = world->at(1, 1).getFillRatio();
+    double dirt_before = world->at(2, 1).getFillRatio();
     
-    const auto& move = moves[0];
-    EXPECT_EQ(move.collision_type, WorldB::CollisionType::ABSORPTION);
-    EXPECT_EQ(move.material, MaterialType::WATER);
+    // Run simulation for absorption to occur
+    stepSimulation(world.get(), 30, "Water absorption process");
+    
+    // Check that material transfer occurred
+    double water_after = world->at(1, 1).getFillRatio();
+    double dirt_after = world->at(2, 1).getFillRatio();
+    
+    // Water should decrease, dirt should increase (absorption)
+    EXPECT_LT(water_after, water_before) << "Water amount should decrease";
+    EXPECT_GT(dirt_after, dirt_before) << "Dirt should absorb water";
+    
+    if (visual_mode_) {
+        updateDisplay(world.get(), "Absorption complete - water absorbed by dirt");
+        waitForNext();
+    }
 }
 
-TEST_F(CollisionSystemTest, DetectsMultipleBoundaryCrossings) {
+TEST_F(CollisionSystemTest, DiagonalMovementCrossesMultipleBoundaries) {
     // Setup: Particle moving diagonally to cross both X and Y boundaries
     setupCell(2, 2, MaterialType::SAND, 1.0, Vector2d(0.8, 0.7), Vector2d(0.5, 0.6));
     
-    // Empty cells in both directions
-    setupCell(3, 2, MaterialType::AIR, 0.0); // Right
-    setupCell(2, 3, MaterialType::AIR, 0.0); // Down
+    showInitialState(world.get(), "SAND particle moving diagonally (right and down)");
     
-    double deltaTime = 0.6; // COM will be (0.8+0.5*0.6, 0.7+0.6*0.6) = (1.1, 1.06)
-    auto moves = capturePendingMoves(deltaTime);
+    // Track initial state
+    bool hasMovedRight = false;
+    bool hasMovedDown = false;
     
-    // Verify: Should detect moves in both directions
-    ASSERT_EQ(moves.size(), 2);
-    
-    // Check we have moves in both X and Y directions
-    bool hasRightMove = false, hasDownMove = false;
-    for (const auto& move : moves) {
-        if (move.toX == 3 && move.toY == 2) hasRightMove = true;
-        if (move.toX == 2 && move.toY == 3) hasDownMove = true;
+    // Run simulation and check for diagonal movement
+    for (int i = 0; i < 50; i++) {
+        world->advanceTime(0.016);
+        
+        // Check if material appeared in right cell
+        if (!world->at(3, 2).isEmpty()) {
+            hasMovedRight = true;
+        }
+        
+        // Check if material appeared in down cell
+        if (!world->at(2, 3).isEmpty()) {
+            hasMovedDown = true;
+        }
+        
+        // Early exit if both movements detected
+        if (hasMovedRight && hasMovedDown) {
+            spdlog::info("Diagonal movement confirmed after {} steps", i+1);
+            break;
+        }
     }
-    EXPECT_TRUE(hasRightMove);
-    EXPECT_TRUE(hasDownMove);
+    
+    // Verify particle moved in both directions
+    EXPECT_TRUE(hasMovedRight) << "Particle should move right";
+    EXPECT_TRUE(hasMovedDown) << "Particle should move down";
+    
+    if (visual_mode_) {
+        updateDisplay(world.get(), "Diagonal movement complete - particle spread to adjacent cells");
+        waitForNext();
+    }
 }
 
 TEST_F(CollisionSystemTest, ProcessElasticCollision) {

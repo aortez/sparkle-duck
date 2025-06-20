@@ -143,10 +143,9 @@ TEST_F(HorizontalLineStabilityTest, CantileverDirtShouldFall) {
         
         // Clear pending moves and queue new ones
         world->clearPendingMoves();
-        world->queueMaterialMovesForTesting(deltaTime);
+        auto pendingMoves = world->computeMaterialMoves(deltaTime);
         
         // Check if cantilever dirt has a pending move
-        const auto& pendingMoves = world->getPendingMoves();
         bool cantileverHasMove = false;
         for (const auto& move : pendingMoves) {
             if (move.fromX == 2 && move.fromY == 0) {

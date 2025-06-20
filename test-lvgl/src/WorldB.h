@@ -312,26 +312,8 @@ public:
     // TESTING METHODS
     // =================================================================
 
-    // Expose collision detection for testing
-    std::vector<Vector2i> getAllBoundaryCrossings(const Vector2d& newCOM);
-    MaterialMove createCollisionAwareMove(
-        const CellB& fromCell,
-        const CellB& toCell,
-        const Vector2i& fromPos,
-        const Vector2i& toPos,
-        const Vector2i& direction,
-        double deltaTime = 0.0,
-        const WorldBCohesionCalculator::COMCohesionForce& com_cohesion = {
-            { 0.0, 0.0 }, 0.0, { 0.0, 0.0 }, 0 });
-
-    // Get pending moves for testing (call queueMaterialMoves first)
-    const std::vector<MaterialMove>& getPendingMoves() const { return pending_moves_; }
-
     // Clear pending moves for testing
     void clearPendingMoves() { pending_moves_.clear(); }
-
-    // Expose force-influenced move queuing for testing
-    void queueMaterialMovesForTesting(double deltaTime) { queueMaterialMoves(deltaTime); }
 
     // Expose cells array for static method testing
     const CellB* getCellsData() const { return cells_.data(); }
@@ -346,6 +328,9 @@ public:
     // Support calculation methods moved to WorldBSupportCalculator
     WorldBSupportCalculator& getSupportCalculator() { return support_calculator_; }
     const WorldBSupportCalculator& getSupportCalculator() const { return support_calculator_; }
+    
+    // Material transfer computation - computes moves without processing them
+    std::vector<MaterialMove> computeMaterialMoves(double deltaTime);
 
 protected:
     // WorldInterface hook implementations
@@ -364,10 +349,19 @@ private:
     void processVelocityLimiting(double deltaTime);
 
     // Material transfer system
-    void queueMaterialMoves(double deltaTime);
     void processMaterialMoves();
 
     // Enhanced collision detection and move creation
+    std::vector<Vector2i> getAllBoundaryCrossings(const Vector2d& newCOM);
+    MaterialMove createCollisionAwareMove(
+        const CellB& fromCell,
+        const CellB& toCell,
+        const Vector2i& fromPos,
+        const Vector2i& toPos,
+        const Vector2i& direction,
+        double deltaTime = 0.0,
+        const WorldBCohesionCalculator::COMCohesionForce& com_cohesion = {
+            { 0.0, 0.0 }, 0.0, { 0.0, 0.0 }, 0 });
     CollisionType determineCollisionType(
         MaterialType from, MaterialType to, double collision_energy);
 

@@ -38,8 +38,7 @@ TEST_F(ForcePhysicsIntegrationTest, GravityBuildsVelocityOverTime) {
         
         // Check if moves were generated in this timestep
         world->clearPendingMoves();
-        world->queueMaterialMovesForTesting(deltaTime);
-        const auto& moves = world->getPendingMoves();
+        auto moves = world->computeMaterialMoves(deltaTime);
         
         if (!moves.empty()) {
             std::cout << "  -> Generated " << moves.size() << " moves!" << std::endl;
@@ -85,9 +84,7 @@ TEST_F(ForcePhysicsIntegrationTest, ManualHighVelocityTriggersCrossing) {
     
     // Queue moves
     world->clearPendingMoves();
-    world->queueMaterialMovesForTesting(deltaTime);
-    
-    const auto& moves = world->getPendingMoves();
+    auto moves = world->computeMaterialMoves(deltaTime);
     std::cout << "Generated moves: " << moves.size() << std::endl;
     
     EXPECT_GT(moves.size(), 0) << "High velocity should trigger boundary crossing and generate moves";
