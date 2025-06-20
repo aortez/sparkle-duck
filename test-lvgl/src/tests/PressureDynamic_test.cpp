@@ -52,8 +52,6 @@ TEST_F(PressureDynamicTest, BlockedTransferAccumulatesDynamicPressure) {
     world->addMaterialAtCell(0, 1, MaterialType::WATER, 1.0);   // Full source cell
     world->addMaterialAtCell(1, 1, MaterialType::WATER, 0.95);  // Nearly full target (leaves only 0.05 capacity)
     
-    showInitialState(world.get(), "Full WATER → Nearly full WATER: Natural pressure buildup");
-    
     CellB& sourceCell = world->at(0, 1);
     CellB& targetCell = world->at(1, 1);
     
@@ -73,14 +71,8 @@ TEST_F(PressureDynamicTest, BlockedTransferAccumulatesDynamicPressure) {
                  targetCell.getFillRatio(), targetCell.getVelocity().x, targetCell.getVelocity().y, targetInitialPressure);
     spdlog::info("  Target capacity remaining: {:.3f}", 1.0 - targetCell.getFillRatio());
     
-    if (visual_mode_) {
-        std::stringstream ss;
-        ss << "Source has velocity (3.0, 0.0) pushing right\n";
-        ss << "Target is 95% full (only 5% capacity left)\n";
-        ss << "Transfers should be mostly blocked";
-        updateDisplay(world.get(), ss.str());
-        pauseIfVisual(2000);
-    }
+    // Use showInitialStateWithStep to give user choice between Start and Step
+    showInitialStateWithStep(world.get(), "Full WATER → Nearly full WATER: Natural pressure buildup");
     
     // Test Phase 1: Natural pressure accumulation from blocked transfers
     spdlog::info("\n--- PHASE 1: Testing natural pressure accumulation ---");
@@ -95,46 +87,81 @@ TEST_F(PressureDynamicTest, BlockedTransferAccumulatesDynamicPressure) {
     int pressureDetectedTimestep = -1;
     
     const int maxTimesteps = 10;
-    for (int timestep = 0; timestep < maxTimesteps; timestep++) {
-        // Record state before timestep
-        sourcePressureHistory.push_back(sourceCell.getDynamicPressure());
-        targetPressureHistory.push_back(targetCell.getDynamicPressure());
-        sourceFillHistory.push_back(sourceCell.getFillRatio());
-        targetFillHistory.push_back(targetCell.getFillRatio());
-        
-        // Run physics timestep - this should naturally attempt transfers
-        world->advanceTime(0.016);
-        
-        // Check for pressure accumulation
-        double currentSourcePressure = sourceCell.getDynamicPressure();
-        double currentTargetPressure = targetCell.getDynamicPressure();
-        
-        spdlog::info("Timestep {}: source_pressure={:.6f}, target_pressure={:.6f}, target_fill={:.3f}",
-                     timestep + 1, currentSourcePressure, currentTargetPressure, targetCell.getFillRatio());
-        
-        // Detect when pressure first appears
-        if (!pressureDetected && (currentSourcePressure > 0.001 || currentTargetPressure > 0.001)) {
-            pressureDetected = true;
-            pressureDetectedTimestep = timestep + 1;
-            spdlog::info("  🔥 PRESSURE DETECTED at timestep {}!", pressureDetectedTimestep);
-        }
-        
-        if (visual_mode_ && timestep % 2 == 0) {
+    
+    if (visual_mode_) {
+        // Use framework's step simulation which handles Step/Start modes automatically
+        for (int timestep = 0; timestep < maxTimesteps; timestep++) {
+            // Record state before timestep
+            sourcePressureHistory.push_back(sourceCell.getDynamicPressure());
+            targetPressureHistory.push_back(targetCell.getDynamicPressure());
+            sourceFillHistory.push_back(sourceCell.getFillRatio());
+            targetFillHistory.push_back(targetCell.getFillRatio());
+            
+            // Show current state
             std::stringstream ss;
             ss << "Timestep " << timestep + 1 << ":\n";
-            ss << "Source pressure: " << std::fixed << std::setprecision(6) << currentSourcePressure << "\n";
-            ss << "Target fill: " << std::setprecision(3) << targetCell.getFillRatio();
+            ss << "Source: vel=(" << std::fixed << std::setprecision(3) 
+               << sourceCell.getVelocity().x << "," << sourceCell.getVelocity().y << ") "
+               << "COM=(" << sourceCell.getCOM().x << "," << sourceCell.getCOM().y << ")\n";
+            ss << "Target: fill=" << targetCell.getFillRatio() << " "
+               << "vel=(" << targetCell.getVelocity().x << "," << targetCell.getVelocity().y << ")\n";
+            ss << "Source pressure: " << std::setprecision(6) << sourceCell.getDynamicPressure() << "\n";
+            ss << "Target pressure: " << targetCell.getDynamicPressure();
             if (pressureDetected) {
                 ss << "\n🔥 Pressure building!";
             }
+            
+            // Use stepSimulation which handles step mode automatically
             updateDisplay(world.get(), ss.str());
-            pauseIfVisual(500);
+            stepSimulation(world.get(), 1, "Testing pressure accumulation");
+            
+            // Check for pressure accumulation after the step
+            double currentSourcePressure = sourceCell.getDynamicPressure();
+            double currentTargetPressure = targetCell.getDynamicPressure();
+            
+            spdlog::info("Timestep {}: source_pressure={:.6f}, target_pressure={:.6f}, target_fill={:.3f}",
+                         timestep + 1, currentSourcePressure, currentTargetPressure, targetCell.getFillRatio());
+            
+            // Detect when pressure first appears
+            if (!pressureDetected && (currentSourcePressure > 0.001 || currentTargetPressure > 0.001)) {
+                pressureDetected = true;
+                pressureDetectedTimestep = timestep + 1;
+                spdlog::info("  🔥 PRESSURE DETECTED at timestep {}!", pressureDetectedTimestep);
+            }
+            
+            // Stop early if target becomes completely full
+            if (targetCell.getFillRatio() >= 0.999) {
+                spdlog::info("  Target cell reached full capacity");
+                break;
+            }
         }
-        
-        // Stop early if target becomes completely full
-        if (targetCell.getFillRatio() >= 0.999) {
-            spdlog::info("  Target cell reached full capacity");
-            break;
+    } else {
+        // Non-visual mode: run all steps at once
+        for (int timestep = 0; timestep < maxTimesteps; timestep++) {
+            // Record state before timestep
+            sourcePressureHistory.push_back(sourceCell.getDynamicPressure());
+            targetPressureHistory.push_back(targetCell.getDynamicPressure());
+            sourceFillHistory.push_back(sourceCell.getFillRatio());
+            targetFillHistory.push_back(targetCell.getFillRatio());
+            
+            world->advanceTime(0.016);
+            
+            double currentSourcePressure = sourceCell.getDynamicPressure();
+            double currentTargetPressure = targetCell.getDynamicPressure();
+            
+            spdlog::info("Timestep {}: source_pressure={:.6f}, target_pressure={:.6f}, target_fill={:.3f}",
+                         timestep + 1, currentSourcePressure, currentTargetPressure, targetCell.getFillRatio());
+            
+            if (!pressureDetected && (currentSourcePressure > 0.001 || currentTargetPressure > 0.001)) {
+                pressureDetected = true;
+                pressureDetectedTimestep = timestep + 1;
+                spdlog::info("  🔥 PRESSURE DETECTED at timestep {}!", pressureDetectedTimestep);
+            }
+            
+            if (targetCell.getFillRatio() >= 0.999) {
+                spdlog::info("  Target cell reached full capacity");
+                break;
+            }
         }
     }
     
@@ -224,16 +251,24 @@ TEST_F(PressureDynamicTest, BlockedTransferAccumulatesDynamicPressure) {
     double decayStartPressure = sourceCell.getDynamicPressure();
     decayHistory.push_back(decayStartPressure);
     
-    for (int i = 0; i < 10; i++) {
-        world->advanceTime(0.016);
-        decayHistory.push_back(sourceCell.getDynamicPressure());
-        
-        if (visual_mode_ && i % 3 == 0) {
+    if (visual_mode_) {
+        // Use framework's step simulation for decay phase
+        for (int i = 0; i < 10; i++) {
             std::stringstream ss;
             ss << "Decay step " << i + 1 << ":\n";
-            ss << "Pressure: " << std::fixed << std::setprecision(6) << sourceCell.getDynamicPressure();
+            ss << "Pressure: " << std::fixed << std::setprecision(6) << sourceCell.getDynamicPressure() << "\n";
+            ss << "Source velocity: (" << std::setprecision(3) << sourceCell.getVelocity().x 
+               << "," << sourceCell.getVelocity().y << ")";
             updateDisplay(world.get(), ss.str());
-            pauseIfVisual(300);
+            
+            stepSimulation(world.get(), 1, "Testing pressure decay");
+            decayHistory.push_back(sourceCell.getDynamicPressure());
+        }
+    } else {
+        // Non-visual mode: run all decay steps at once
+        for (int i = 0; i < 10; i++) {
+            world->advanceTime(0.016);
+            decayHistory.push_back(sourceCell.getDynamicPressure());
         }
     }
     
@@ -330,7 +365,7 @@ TEST_F(PressureDynamicTest, PressureDrivenMovementAgainstGravity) {
         spdlog::info("  Iteration {}: pressure={:.3f}, blocked_energy={:.3f}", 
                      i+1, accumulatedPressure, blockedEnergy);
                      
-        if (visual_mode_ && i % 2 == 0) {
+        if (visual_mode_) {
             std::stringstream ss;
             ss << "Building pressure: " << std::fixed << std::setprecision(3) << accumulatedPressure;
             updateDisplay(world.get(), ss.str());
