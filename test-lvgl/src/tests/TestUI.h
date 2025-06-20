@@ -44,6 +44,9 @@ public:
     std::atomic<bool> next_pressed_{false};
     std::atomic<bool> step_pressed_{false};
     std::atomic<bool> restart_requested_{false};
+    
+    // Friend class for button access
+    friend class VisualTestBase;
 
 private:
     WorldInterface* world_;

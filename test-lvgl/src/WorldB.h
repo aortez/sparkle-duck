@@ -356,6 +356,7 @@ private:
     // Physics simulation steps
     void applyGravity(double deltaTime);
     void applyCohesionForces(double deltaTime);
+    void resolveForces(double deltaTime);  // Apply accumulated forces based on resistance
     void updateTransfers(double deltaTime);
     void applyPressure(double deltaTime);
     void processVelocityLimiting(double deltaTime);

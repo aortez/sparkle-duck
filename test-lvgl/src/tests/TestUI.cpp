@@ -227,31 +227,14 @@ void TestUI::stepButtonEventHandler(lv_event_t* e)
 {
     if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
         TestUI* ui = static_cast<TestUI*>(lv_event_get_user_data(e));
-        if (ui && ui->world_) {
+        if (ui) {
             spdlog::info("[UI] Step button clicked! (step_mode={})", ui->step_mode_enabled_);
             
+            // Always signal that step was pressed
             ui->step_pressed_.store(true);
             
-            if (ui->step_mode_enabled_) {
-                // Step mode: advance simulation one timestep
-                ui->updateButtonStatus("Advancing one timestep...");
-                spdlog::info("[UI] Step mode: advancing simulation one timestep");
-                
-                auto& coordinator = VisualTestCoordinator::getInstance();
-                coordinator.postTaskSync([ui] {
-                    ui->world_->advanceTime(0.016);  // One timestep (~60 FPS)
-                    ui->world_->draw();
-                });
-                
-                ui->updateButtonStatus("Step completed!");
-                spdlog::info("[UI] Step completed");
-            } else {
-                // Legacy mode: just signal step pressed
-                ui->updateButtonStatus("Step advanced!");
-                spdlog::info("[UI] Step pressed (legacy mode)");
-            }
-        } else {
-            spdlog::warn("[UI] Step button clicked but no world connected!");
+            // The test framework will handle the actual stepping
+            spdlog::info("[UI] Step button press signaled to test framework");
         }
     }
 }

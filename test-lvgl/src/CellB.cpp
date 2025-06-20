@@ -21,6 +21,7 @@ CellB::CellB()
       accumulated_cohesion_force_(0.0, 0.0),
       accumulated_adhesion_force_(0.0, 0.0),
       accumulated_com_cohesion_force_(0.0, 0.0),
+      pending_force_(0.0, 0.0),
       canvas_(nullptr),
       needs_redraw_(true)
 {}
@@ -36,6 +37,7 @@ CellB::CellB(MaterialType type, double fill)
       accumulated_cohesion_force_(0.0, 0.0),
       accumulated_adhesion_force_(0.0, 0.0),
       accumulated_com_cohesion_force_(0.0, 0.0),
+      pending_force_(0.0, 0.0),
       canvas_(nullptr),
       needs_redraw_(true)
 {}
@@ -61,6 +63,7 @@ CellB::CellB(const CellB& other)
       accumulated_cohesion_force_(other.accumulated_cohesion_force_),
       accumulated_adhesion_force_(other.accumulated_adhesion_force_),
       accumulated_com_cohesion_force_(other.accumulated_com_cohesion_force_),
+      pending_force_(other.pending_force_),
       buffer_(other.buffer_.size()), // Create new buffer with same size
       canvas_(nullptr),              // Don't copy LVGL object
       needs_redraw_(true)            // New copy needs redraw
@@ -86,6 +89,10 @@ CellB& CellB::operator=(const CellB& other)
         hydrostatic_pressure_ = other.hydrostatic_pressure_;
         dynamic_pressure_ = other.dynamic_pressure_;
         pressure_gradient_ = other.pressure_gradient_;
+        accumulated_cohesion_force_ = other.accumulated_cohesion_force_;
+        accumulated_adhesion_force_ = other.accumulated_adhesion_force_;
+        accumulated_com_cohesion_force_ = other.accumulated_com_cohesion_force_;
+        pending_force_ = other.pending_force_;
 
         // Resize buffer if needed but don't copy contents
         buffer_.resize(other.buffer_.size());

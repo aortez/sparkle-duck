@@ -110,8 +110,7 @@ void WorldB::advanceTime(double deltaTimeSeconds)
 
     if (scaledDeltaTime > 0.0) {
         // Main physics steps
-        applyGravity(scaledDeltaTime);
-        applyCohesionForces(scaledDeltaTime);
+        resolveForces(scaledDeltaTime);  // Accumulate and apply all forces based on resistance
         processVelocityLimiting(scaledDeltaTime);
         updateTransfers(scaledDeltaTime);
         applyPressure(scaledDeltaTime);
@@ -627,9 +626,8 @@ void WorldB::applyGravity(double deltaTime)
 
     for (auto& cell : cells_) {
         if (!cell.isEmpty() && !cell.isWall()) {
-            Vector2d velocity = cell.getVelocity();
-            velocity = velocity + gravityForce;
-            cell.setVelocity(velocity);
+            // Accumulate gravity force instead of applying directly
+            cell.addPendingForce(gravityForce);
         }
     }
 
@@ -661,27 +659,110 @@ void WorldB::applyCohesionForces(double deltaTime)
                 WorldBCohesionCalculator(*this).calculateCOMCohesionForce(
                     x, y, com_cohesion_range_);
 
-            // Apply forces to velocity
-            Vector2d velocity = cell.getVelocity();
+            // Accumulate forces instead of applying directly to velocity
 
-            // COM cohesion force integration
+            // COM cohesion force accumulation
             Vector2d com_cohesion_force = com_cohesion.force_direction
                 * com_cohesion.force_magnitude * deltaTime * cohesion_com_force_strength_;
-            velocity = velocity + com_cohesion_force;
+            cell.addPendingForce(com_cohesion_force);
 
-            // Adhesion force integration (only if enabled)
+            // Adhesion force accumulation (only if enabled)
             if (adhesion_enabled_) {
                 AdhesionForce adhesion = calculateAdhesionForce(x, y);
                 Vector2d adhesion_force = adhesion.force_direction * adhesion.force_magnitude
                     * deltaTime * adhesion_strength_;
-                velocity = velocity + adhesion_force;
+                cell.addPendingForce(adhesion_force);
             }
-
-            cell.setVelocity(velocity);
         }
     }
 
     timers_.stopTimer("apply_cohesion_forces");
+}
+
+void WorldB::resolveForces(double deltaTime)
+{
+    timers_.startTimer("resolve_forces");
+
+    // Clear pending forces at the start of each physics frame
+    for (auto& cell : cells_) {
+        cell.clearPendingForce();
+    }
+
+    // Apply gravity forces
+    applyGravity(deltaTime);
+    
+    // Apply cohesion and adhesion forces
+    applyCohesionForces(deltaTime);
+
+    // Now resolve all accumulated forces against resistance
+    for (uint32_t y = 0; y < height_; ++y) {
+        for (uint32_t x = 0; x < width_; ++x) {
+            CellB& cell = at(x, y);
+
+            if (cell.isEmpty() || cell.isWall()) {
+                continue;
+            }
+
+            // Get the total pending force
+            Vector2d pending_force = cell.getPendingForce();
+            double driving_magnitude = pending_force.mag();
+
+            // Calculate resistance forces
+            double effective_resistance = 0.0;
+            
+            if (cohesion_bind_force_enabled_) {
+                WorldBCohesionCalculator::CohesionForce cohesion = 
+                    WorldBCohesionCalculator(*this).calculateCohesionForce(x, y);
+                effective_resistance = 
+                    cohesion.resistance_magnitude * cohesion_bind_force_strength_ * deltaTime * 50;
+            }
+
+            // Debug logging for force comparison
+            if (driving_magnitude > 0.001 || effective_resistance > 0.001) {
+                spdlog::debug(
+                    "Cell ({},{}) {} - Pending forces: ({:.3f},{:.3f}), magnitude: {:.3f}, resistance: {:.3f}",
+                    x, y,
+                    getMaterialName(cell.getMaterialType()),
+                    pending_force.x,
+                    pending_force.y,
+                    driving_magnitude,
+                    effective_resistance);
+            }
+
+            // Apply forces to velocity only if driving force exceeds resistance
+            if (driving_magnitude > effective_resistance) {
+                Vector2d velocity = cell.getVelocity();
+                
+                // If resistance is significant, reduce the applied force
+                if (effective_resistance > 0.001) {
+                    double force_reduction_factor = 1.0 - (effective_resistance / driving_magnitude);
+                    force_reduction_factor = std::max(0.0, force_reduction_factor);
+                    pending_force = pending_force * force_reduction_factor;
+                }
+                
+                velocity = velocity + pending_force;
+                cell.setVelocity(velocity);
+                
+                spdlog::debug(
+                    "Cell ({},{}) {} - Forces applied! New velocity: ({:.3f},{:.3f})",
+                    x, y,
+                    getMaterialName(cell.getMaterialType()),
+                    velocity.x,
+                    velocity.y);
+            }
+            else if (driving_magnitude > 0.001) {
+                spdlog::debug(
+                    "Cell ({},{}) {} - Forces blocked by resistance! Velocity unchanged.",
+                    x, y,
+                    getMaterialName(cell.getMaterialType()));
+            }
+
+            // Clear pending forces after resolution
+            cell.clearPendingForce();
+        }
+    }
+
+    timers_.stopTimer("resolve_forces");
 }
 
 void WorldB::processVelocityLimiting(double deltaTime)
@@ -761,74 +842,8 @@ std::vector<WorldB::MaterialMove> WorldB::computeMaterialMoves(double deltaTime)
             cell.setAccumulatedCOMCohesionForce(
                 com_cohesion.force_direction * effective_com_cohesion_magnitude);
 
-            // Calculate net driving force (gravity + adhesion + COM cohesion, with deltaTime
-            // scaling for COM cohesion)
-            Vector2d gravity_force(0.0, gravity_ * deltaTime);
-            Vector2d com_cohesion_force = com_cohesion.force_direction
-                * com_cohesion.force_magnitude * deltaTime
-                * cohesion_com_force_strength_; // COM cohesion scales with magnitude, deltaTime and
-                                                // strength
-            Vector2d net_driving_force = gravity_force
-                + adhesion.force_direction * effective_adhesion_magnitude + com_cohesion_force;
-
-            // Movement threshold from cohesion resistance (absolute threshold, with strength
-            // multiplier)
-            double movement_threshold = effective_resistance;
-            double driving_magnitude = net_driving_force.mag();
-
-            // Vector-based resistance: resist cohesion-opposing forces but preserve gravity
-            Vector2d velocity = cell.getVelocity();
-            if (movement_threshold > 0.001 && com_cohesion.force_direction.mag() > 0.001) {
-                // Normalize cohesion direction to get resistance direction
-                Vector2d cohesion_direction = com_cohesion.force_direction.normalize();
-                Vector2d gravity_direction(0.0, 1.0); // Downward
-
-                // Calculate how much velocity opposes the cohesion force
-                double velocity_opposing_cohesion = velocity.dot(cohesion_direction);
-
-                // Only apply resistance if velocity is opposing cohesion AND it's not
-                // gravity-aligned
-                if (velocity_opposing_cohesion < 0) {
-                    // Check if cohesion force opposes gravity (upward cohesion)
-                    double cohesion_gravity_alignment = cohesion_direction.dot(gravity_direction);
-
-                    // Don't resist gravity-driven motion: if cohesion points upward, don't resist
-                    // downward velocity
-                    if (cohesion_gravity_alignment >= -0.1) { // Allow small tolerance
-                        double resistance_strength = movement_threshold
-                            / (driving_magnitude + 0.001); // Avoid division by zero
-                        resistance_strength =
-                            std::min(resistance_strength, 1.0); // Cap at 100% resistance
-
-                        // Remove the velocity component that opposes cohesion
-                        Vector2d resistance_component =
-                            cohesion_direction * velocity_opposing_cohesion * resistance_strength;
-                        velocity = velocity - resistance_component;
-
-                        cell.setVelocity(velocity);
-
-                        spdlog::trace(
-                            "Directional resistance applied: {} at ({},{}) - removed velocity "
-                            "component {:.3f} opposing cohesion direction ({:.2f},{:.2f})",
-                            getMaterialName(cell.getMaterialType()),
-                            x,
-                            y,
-                            velocity_opposing_cohesion * resistance_strength,
-                            cohesion_direction.x,
-                            cohesion_direction.y);
-                    }
-                    else {
-                        spdlog::trace(
-                            "Gravity-preserving resistance: {} at ({},{}) - skipped resistance "
-                            "because cohesion opposes gravity (cohesion: {:.2f},{:.2f})",
-                            getMaterialName(cell.getMaterialType()),
-                            x,
-                            y,
-                            cohesion_direction.x,
-                            cohesion_direction.y);
-                    }
-                }
-            }
+            // NOTE: Force calculation and resistance checking now handled in resolveForces()
+            // This method only needs to handle material movement based on COM positions
 
             // Debug: Check if cell has any velocity or interesting COM
             Vector2d current_velocity = cell.getVelocity();
@@ -836,17 +851,14 @@ std::vector<WorldB::MaterialMove> WorldB::computeMaterialMoves(double deltaTime)
             if (current_velocity.length() > 0.01 || std::abs(oldCOM.x) > 0.5
                 || std::abs(oldCOM.y) > 0.5) {
                 spdlog::debug(
-                    "Cell ({},{}) {} - Velocity: ({:.3f},{:.3f}), COM: ({:.3f},{:.3f}), Forces: "
-                    "driving={:.3f} > resistance={:.3f}",
+                    "Cell ({},{}) {} - Velocity: ({:.3f},{:.3f}), COM: ({:.3f},{:.3f})",
                     x,
                     y,
                     getMaterialName(cell.getMaterialType()),
                     current_velocity.x,
                     current_velocity.y,
                     oldCOM.x,
-                    oldCOM.y,
-                    driving_magnitude,
-                    movement_threshold);
+                    oldCOM.y);
             }
 
             // Update COM based on velocity (with proper deltaTime integration)

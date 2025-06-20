@@ -55,13 +55,47 @@ WorldBCohesionCalculator::CohesionForce WorldBCohesionCalculator::calculateCohes
         }
     }
 
+    // Check for metal neighbors that provide structural support
+    uint32_t metal_neighbors = 0;
+    if (cell.getMaterialType() == MaterialType::METAL) {
+        // Count metal neighbors for structural support
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dy = -1; dy <= 1; dy++) {
+                if (dx == 0 && dy == 0) continue; // Skip self
+                
+                int nx = static_cast<int>(x) + dx;
+                int ny = static_cast<int>(y) + dy;
+                
+                if (isValidCell(nx, ny)) {
+                    const CellB& neighbor = getCellAt(nx, ny);
+                    if (neighbor.getMaterialType() == MaterialType::METAL 
+                        && neighbor.getFillRatio() > 0.5) {
+                        metal_neighbors++;
+                    }
+                }
+            }
+        }
+    }
+
     // Use directional support for realistic physics
     bool has_vertical = support_calculator_->hasVerticalSupport(x, y);
     bool has_horizontal = support_calculator_->hasHorizontalSupport(x, y);
 
     // Calculate support factor based on directional support
     double support_factor;
-    if (has_vertical) {
+    
+    // Metal with sufficient metal neighbors provides full structural support
+    if (metal_neighbors >= 2) {
+        // Metal network provides full support in all directions
+        support_factor = 1.0;
+        spdlog::trace(
+            "Metal structural network support for {} at ({},{}) with {} metal neighbors",
+            getMaterialName(cell.getMaterialType()),
+            x,
+            y,
+            metal_neighbors);
+    }
+    else if (has_vertical) {
         // Full cohesion with vertical support (load-bearing from below)
         support_factor = 1.0;
         spdlog::trace(

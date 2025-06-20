@@ -329,8 +329,6 @@ Can be found here:
 - [ ] Create fragmentation mechanics for brittle materials
 
 ## Misc TODO
-[x] - Add a Makefile to capture some common targets ('clean', 'debug', 'release', 'test-all'... anything else?); update CLAUDE.md with instructions.
-[ ] - some way to talk to the application while it runs... a DBus API, a socket API, what are the other options? This would be useful!
 [ ] - In WorldB, Update left click, so if it is on a currently on a filled cell that is not the selected type, or is not full, fill it with the selected type.
 [ ] - How can we make denser materials sink below less dense ones?
 [ ] - Complete VisualTest system's UI controls for starting tests and switching tests. The test should show the initial world state, then wait for the user to press Start (run the test), Step (advance the sim forward 1 step, update display, wait for further input), or Next (skip the test).
@@ -338,6 +336,7 @@ Can be found here:
 [ ] - Add material-specific collision behaviors?
 [ ] - chain reaction mechanics?
 [ ] - CellInterface?
+[ ] - some way to talk to the application while it runs... a DBus API, a socket API, what are the other options? This would be useful!
 
 ## Coding Guidelines
 - Comments end with a period.

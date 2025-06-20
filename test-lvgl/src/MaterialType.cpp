@@ -24,8 +24,8 @@ static std::array<MaterialProperties, 8> MATERIAL_PROPERTIES = {
       // SAND: Dense granular material, settles faster than dirt
       { 1.8, 0.2, 0.2, 0.1, false, false },
 
-      // METAL: Very dense rigid material with high elasticity
-      { 7.8, 0.8, 0.9, 0.1, false, true },
+      // METAL: Very dense rigid material with high elasticity and maximum cohesion
+      { 7.8, 0.8, 1.0, 0.1, false, true },
 
       // LEAF: Very light organic matter
       { 0.3, 0.4, 0.3, 0.2, false, false },

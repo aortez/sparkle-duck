@@ -80,6 +80,16 @@ public:
         accumulated_com_cohesion_force_ = Vector2d(0, 0);
     }
 
+    // =================================================================
+    // PHYSICS FORCE ACCUMULATION
+    // =================================================================
+
+    // Get/set pending forces to be applied during force resolution
+    const Vector2d& getPendingForce() const { return pending_force_; }
+    void setPendingForce(const Vector2d& force) { pending_force_ = force; }
+    void addPendingForce(const Vector2d& force) { pending_force_ = pending_force_ + force; }
+    void clearPendingForce() { pending_force_ = Vector2d(0, 0); }
+
     // Material state queries
     bool isEmpty() const override { return fill_ratio_ < MIN_FILL_THRESHOLD; }
     bool isFull() const { return fill_ratio_ > MAX_FILL_THRESHOLD; }
@@ -245,6 +255,9 @@ private:
     Vector2d accumulated_cohesion_force_;     // Last calculated cohesion force
     Vector2d accumulated_adhesion_force_;     // Last calculated adhesion force
     Vector2d accumulated_com_cohesion_force_; // Last calculated COM cohesion force
+
+    // Physics force accumulation
+    Vector2d pending_force_; // Forces to be applied during resolution phase
 
     // Rendering state
     std::vector<uint8_t> buffer_; // Buffer for LVGL canvas pixel data

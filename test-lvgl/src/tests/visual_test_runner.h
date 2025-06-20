@@ -108,14 +108,24 @@ protected:
     void waitForNext();           // Block until Next button is pressed (visual mode only)
     void pauseIfVisual(int milliseconds = 500); // Pause in visual mode, no-op otherwise
     
+    // Enhanced start/step functionality
+    enum class TestAction {
+        START,  // User pressed Start - run continuously
+        STEP    // User pressed Step - run step by step
+    };
+    TestAction waitForStartOrStep();  // Block until Start or Step button is pressed
+    
     // Step-by-step simulation control for manual testing
     void stepSimulation(World* world, int steps = 1);  // Advance N simulation steps
     void waitForStep();           // Block until Step button is pressed (visual mode only)
     
     // Enhanced visual test helpers
     void updateDisplay(WorldInterface* world, const std::string& status = "");  // Update display with optional status
+    void updateDisplayNoDelay(WorldInterface* world, const std::string& status = "");  // Update display without built-in delay
     void showInitialState(WorldInterface* world, const std::string& description);  // Show initial state and wait for start
+    void showInitialStateWithStep(WorldInterface* world, const std::string& description);  // Show initial state with Start/Step choice
     void stepSimulation(WorldInterface* world, int steps, const std::string& stepDescription);  // Enhanced stepping with status
+    void runContinuousSimulation(WorldInterface* world, int steps, const std::string& description);  // Run with rendering every frame
     
     // Test restart functionality
     void enableTestRestart() { restart_enabled_ = true; }

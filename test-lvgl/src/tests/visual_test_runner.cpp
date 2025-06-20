@@ -344,6 +344,50 @@ void VisualTestBase::waitForStart() {
     }
 }
 
+VisualTestBase::TestAction VisualTestBase::waitForStartOrStep() {
+    if (visual_mode_ && ui_) {
+        auto& coordinator = VisualTestCoordinator::getInstance();
+        // Reset button states and update UI on LVGL thread
+        coordinator.postTaskSync([this] {
+            ui_->start_pressed_.store(false);
+            ui_->step_pressed_.store(false);
+            ui_->enableStepButton();  // Enable Step button alongside Start
+            ui_->updateButtonStatus("Press Start to run or Step to advance manually");
+        });
+        
+        // Wait on the test thread for either button to be pressed
+        while (!ui_->start_pressed_.load() && !ui_->step_pressed_.load()) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        }
+        
+        if (ui_->start_pressed_.load()) {
+            spdlog::info("[TEST] Start button pressed - running continuously");
+            
+            // Disable Step button when Start is pressed
+            coordinator.postTaskSync([this] {
+                ui_->disableStepButton();
+                ui_->updateButtonStatus("Running test continuously...");
+            });
+            
+            return TestAction::START;
+        } else {
+            spdlog::info("[TEST] Step button pressed - entering step mode");
+            
+            // Disable Start button and enable step mode
+            coordinator.postTaskSync([this] {
+                lv_obj_add_state(ui_->start_button_, LV_STATE_DISABLED);
+                ui_->setStepMode(true);
+                ui_->updateButtonStatus("Step mode active - press Step to advance");
+            });
+            
+            return TestAction::STEP;
+        }
+    } else {
+        spdlog::info("[TEST] waitForStartOrStep() - non-visual mode, defaulting to START");
+        return TestAction::START;
+    }
+}
+
 void VisualTestBase::waitForNext() {
     if (visual_mode_ && ui_) {
         auto& coordinator = VisualTestCoordinator::getInstance();
@@ -410,15 +454,13 @@ void VisualTestBase::stepSimulation(World* world, int steps) {
 
 void VisualTestBase::waitForStep() {
     if (visual_mode_ && ui_) {
-        spdlog::info("[TEST] Waiting for Step button press (step mode enabled)");
+        spdlog::info("[TEST] Waiting for Step button press");
         
         auto& coordinator = VisualTestCoordinator::getInstance();
-        // Configure step mode and enable Step button on LVGL thread
+        // Reset step pressed flag and ensure button is enabled
         coordinator.postTaskSync([this] {
             ui_->step_pressed_.store(false);
-            ui_->setStepMode(true);  // Enable automatic timestep advancement
             ui_->enableStepButton();
-            ui_->updateButtonStatus("Press Step to advance one timestep");
         });
         
         // Wait on the test thread (not LVGL thread) to avoid blocking events
@@ -426,7 +468,7 @@ void VisualTestBase::waitForStep() {
             std::this_thread::sleep_for(std::chrono::milliseconds(50));
         }
         
-        spdlog::info("[TEST] Step button pressed! Simulation advanced one timestep.");
+        spdlog::info("[TEST] Step button pressed!");
         
         // Note: Step button remains enabled for repeated stepping
         // No need to disable it since user may want multiple steps
@@ -560,6 +602,18 @@ void VisualTestBase::updateDisplay(WorldInterface* world, const std::string& sta
     pauseIfVisual(50);
 }
 
+void VisualTestBase::updateDisplayNoDelay(WorldInterface* world, const std::string& status) {
+    if (!visual_mode_ || !world) return;
+    
+    auto& coordinator = VisualTestCoordinator::getInstance();
+    coordinator.postTaskSync([this, world, status] {
+        world->draw();
+        if (ui_ && !status.empty()) {
+            ui_->updateButtonStatus(status);
+        }
+    });
+}
+
 void VisualTestBase::showInitialState(WorldInterface* world, const std::string& description) {
     if (!world) return;
     
@@ -578,6 +632,33 @@ void VisualTestBase::showInitialState(WorldInterface* world, const std::string& 
     }
 }
 
+void VisualTestBase::showInitialStateWithStep(WorldInterface* world, const std::string& description) {
+    if (!world) return;
+    
+    // Log initial state with ASCII diagram
+    logInitialTestState(world, description);
+    
+    if (visual_mode_) {
+        // Disable restart for simple test flow
+        disableTestRestart();
+        
+        // Update visual display
+        updateDisplay(world, "Initial state: " + description);
+        
+        // Wait for user to choose Start or Step
+        TestAction action = waitForStartOrStep();
+        
+        // Store the chosen action for later use in stepSimulation
+        if (action == TestAction::STEP) {
+            // Enable step mode in UI
+            auto& coordinator = VisualTestCoordinator::getInstance();
+            coordinator.postTaskSync([this] {
+                ui_->setStepMode(true);
+            });
+        }
+    }
+}
+
 void VisualTestBase::stepSimulation(WorldInterface* world, int steps, const std::string& stepDescription) {
     if (!world) return;
     
@@ -585,12 +666,28 @@ void VisualTestBase::stepSimulation(WorldInterface* world, int steps, const std:
         auto& coordinator = VisualTestCoordinator::getInstance();
         
         for (int i = 0; i < steps; ++i) {
+            // In step mode, wait for user input BEFORE advancing
+            if (ui_ && ui_->isStepModeEnabled()) {
+                // Update status to show what's about to happen
+                std::string preStepStatus = stepDescription.empty() ? 
+                    "Ready for step " + std::to_string(i + 1) + "/" + std::to_string(steps) + " - press Step" :
+                    stepDescription + " [" + std::to_string(i + 1) + "/" + std::to_string(steps) + "] - press Step";
+                
+                coordinator.postTaskSync([this, preStepStatus] {
+                    if (ui_) {
+                        ui_->updateButtonStatus(preStepStatus);
+                    }
+                });
+                
+                waitForStep();
+            }
+            
             // Advance physics
             world->advanceTime(0.016); // ~60 FPS timestep
             
             // Update display with progress
             std::string status = stepDescription.empty() ? 
-                "Step " + std::to_string(i + 1) + "/" + std::to_string(steps) :
+                "Step " + std::to_string(i + 1) + "/" + std::to_string(steps) + " completed" :
                 stepDescription + " [" + std::to_string(i + 1) + "/" + std::to_string(steps) + "]";
             
             coordinator.postTaskSync([this, world, status] {
@@ -600,11 +697,8 @@ void VisualTestBase::stepSimulation(WorldInterface* world, int steps, const std:
                 }
             });
             
-            // In step mode, wait for user input
-            if (ui_ && ui_->isStepModeEnabled()) {
-                waitForStep();
-            } else {
-                // Auto-advance with short pause to make steps visible
+            // In continuous mode, add small pause to make steps visible
+            if (!ui_ || !ui_->isStepModeEnabled()) {
                 pauseIfVisual(100);
             }
         }
@@ -614,6 +708,58 @@ void VisualTestBase::stepSimulation(WorldInterface* world, int steps, const std:
             std::string finalStatus = stepDescription.empty() ?
                 "Completed " + std::to_string(steps) + " steps" :
                 stepDescription + " - Complete";
+            
+            coordinator.postTaskSync([this, finalStatus] {
+                ui_->updateButtonStatus(finalStatus);
+            });
+        }
+    } else {
+        // Non-visual mode: just advance time
+        double deltaTime = 0.016;
+        for (int i = 0; i < steps; ++i) {
+            world->advanceTime(deltaTime);
+        }
+    }
+}
+
+void VisualTestBase::runContinuousSimulation(WorldInterface* world, int steps, const std::string& description) {
+    if (!world) return;
+    
+    if (visual_mode_) {
+        // If in step mode, use stepSimulation behavior instead
+        if (ui_ && ui_->isStepModeEnabled()) {
+            stepSimulation(world, steps, description);
+            return;
+        }
+        
+        auto& coordinator = VisualTestCoordinator::getInstance();
+        double deltaTime = 0.016; // ~60 FPS
+        
+        for (int i = 0; i < steps; ++i) {
+            // Advance physics
+            world->advanceTime(deltaTime);
+            
+            // Update display immediately without delay
+            std::string status = description.empty() ? 
+                "Step " + std::to_string(i + 1) + "/" + std::to_string(steps) :
+                description + " [" + std::to_string(i + 1) + "/" + std::to_string(steps) + "]";
+            
+            coordinator.postTaskSync([this, world, status] {
+                world->draw();
+                if (ui_) {
+                    ui_->updateButtonStatus(status);
+                }
+            });
+            
+            // Sleep for consistent frame rate (16ms = ~60 FPS)
+            std::this_thread::sleep_for(std::chrono::milliseconds(16));
+        }
+        
+        // Final status update
+        if (ui_) {
+            std::string finalStatus = description.empty() ?
+                "Completed " + std::to_string(steps) + " steps" :
+                description + " - Complete";
             
             coordinator.postTaskSync([this, finalStatus] {
                 ui_->updateButtonStatus(finalStatus);
