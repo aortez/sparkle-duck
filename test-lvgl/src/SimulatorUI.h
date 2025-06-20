@@ -18,6 +18,7 @@ public:
         WorldInterface* world;
         SimulationManager* manager;
         lv_obj_t* associated_label; // For sliders that need to update labels
+        lv_obj_t* radio_buttons[3]; // For radio button groups (mutual exclusion)
     };
 
     SimulatorUI(lv_obj_t* screen);
@@ -143,6 +144,7 @@ private:
     static void adhesionStrengthSliderEventCb(lv_event_t* e);
     static void cohesionBindStrengthSliderEventCb(lv_event_t* e);
     static void comCohesionRangeSliderEventCb(lv_event_t* e);
+    static void comCohesionModeRadioEventCb(lv_event_t* e);
 
     // Helper to create callback data
     CallbackData* createCallbackData(lv_obj_t* label = nullptr);

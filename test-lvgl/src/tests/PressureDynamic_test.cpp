@@ -4,6 +4,8 @@
 #include "../WorldB.h"
 #include "../MaterialType.h"
 #include <spdlog/spdlog.h>
+#include <sstream>
+#include <iomanip>
 
 class PressureDynamicTest : public VisualTestBase {
 protected:
@@ -40,11 +42,15 @@ TEST_F(PressureDynamicTest, BlockedTransferAccumulatesDynamicPressure) {
     world->addMaterialAtCell(1, 1, MaterialType::WATER, 1.0);
     CellB& waterCell = world->at(1, 1);
     
-    // Log initial test state after setup
-    logInitialTestState(world.get(), "WATER cell ready for pressure testing");
+    showInitialState(world.get(), "Single WATER cell at center for pressure testing");
     
     double initialPressure = waterCell.getDynamicPressure();
     spdlog::info("Initial dynamic pressure: {:.6f}", initialPressure);
+    
+    if (visual_mode_) {
+        updateDisplay(world.get(), "Testing manual pressure accumulation from blocked transfers");
+        pauseIfVisual(1000);
+    }
     
     // Manually simulate a blocked transfer - this tests our core dynamic pressure mechanism
     Vector2d blockedVelocity(2.0, 0.0);    // Rightward velocity that got blocked
@@ -78,6 +84,11 @@ TEST_F(PressureDynamicTest, BlockedTransferAccumulatesDynamicPressure) {
         spdlog::info("  Pressure: {:.3f}", pressureBefore);
         spdlog::info("  Velocity: ({:.3f}, {:.3f})", velocityBefore.x, velocityBefore.y);
         
+        if (visual_mode_) {
+            updateDisplay(world.get(), "Applying pressure forces...");
+            pauseIfVisual(500);
+        }
+        
         // Run a timestep to apply pressure forces and decay
         world->advanceTime(0.016);
         
@@ -92,6 +103,15 @@ TEST_F(PressureDynamicTest, BlockedTransferAccumulatesDynamicPressure) {
         // Test assertions for pressure physics
         EXPECT_LT(pressureAfter, pressureBefore) << "Dynamic pressure should decay over time";
         EXPECT_GT(velocityAfter.x, velocityBefore.x) << "Pressure forces should increase rightward velocity";
+        
+        if (visual_mode_) {
+            std::stringstream ss;
+            ss << "Test complete:\n";
+            ss << "Pressure decayed: " << (pressureAfter < pressureBefore ? "✓" : "✗") << "\n";
+            ss << "Velocity increased: " << (velocityAfter.x > velocityBefore.x ? "✓" : "✗");
+            updateDisplay(world.get(), ss.str());
+            waitForNext();
+        }
         
         spdlog::info("✅ Dynamic pressure physics working correctly!");
     } else {
@@ -114,6 +134,8 @@ TEST_F(PressureDynamicTest, PressureDrivenMovementAgainstGravity) {
     world->addMaterialAtCell(1, 1, MaterialType::WATER, 1.0);  // Bottom water (full)
     world->addMaterialAtCell(2, 1, MaterialType::WALL, 1.0);   // Wall blocks rightward flow
     
+    showInitialState(world.get(), "Pressure test: WATER blocked by WALL, pressure pushes upward");
+    
     CellB& topWater = world->at(1, 0);
     CellB& bottomWater = world->at(1, 1);
     // CellB& wall = world->at(2, 1); // Wall for blocking movement
@@ -128,6 +150,15 @@ TEST_F(PressureDynamicTest, PressureDrivenMovementAgainstGravity) {
     
     const double gravity = 9.81; // We know the gravity value from world setup
     
+    if (visual_mode_) {
+        std::stringstream ss;
+        ss << "Bottom water has rightward velocity (3.0, 0.0)\n";
+        ss << "Wall blocks rightward movement\n";
+        ss << "Pressure should redirect upward against gravity";
+        updateDisplay(world.get(), ss.str());
+        pauseIfVisual(2000);
+    }
+    
     spdlog::info("Initial setup:");
     spdlog::info("  Top water: pos=(1,0) fill={:.2f} vel=({:.2f},{:.2f}) pressure={:.3f}", 
                  topWater.getFillRatio(), topWater.getVelocity().x, topWater.getVelocity().y, topWater.getDynamicPressure());
@@ -141,6 +172,11 @@ TEST_F(PressureDynamicTest, PressureDrivenMovementAgainstGravity) {
     // Step 1: Build up pressure in bottom cell by simulating blocked rightward transfers
     spdlog::info("\n--- STEP 1: Building pressure in bottom cell ---");
     
+    if (visual_mode_) {
+        updateDisplay(world.get(), "Step 1: Building pressure from blocked transfers...");
+        pauseIfVisual(1000);
+    }
+    
     // Artificially build pressure to simulate multiple blocked transfer attempts
     double accumulatedPressure = 0.0;
     for (int i = 0; i < 5; i++) {
@@ -153,12 +189,24 @@ TEST_F(PressureDynamicTest, PressureDrivenMovementAgainstGravity) {
         
         spdlog::info("  Iteration {}: pressure={:.3f}, blocked_energy={:.3f}", 
                      i+1, accumulatedPressure, blockedEnergy);
+                     
+        if (visual_mode_ && i % 2 == 0) {
+            std::stringstream ss;
+            ss << "Building pressure: " << std::fixed << std::setprecision(3) << accumulatedPressure;
+            updateDisplay(world.get(), ss.str());
+            pauseIfVisual(500);
+        }
     }
     
     spdlog::info("Bottom cell pressure after buildup: {:.3f}", bottomWater.getDynamicPressure());
     
     // Step 2: Redirect pressure upward due to wall blocking and cell connectivity  
     spdlog::info("\n--- STEP 2: Redirecting pressure upward ---");
+    
+    if (visual_mode_) {
+        updateDisplay(world.get(), "Step 2: Redirecting pressure upward...");
+        pauseIfVisual(1000);
+    }
     
     // Since rightward movement is blocked, pressure should seek alternative paths
     // In a connected fluid system, pressure propagates to neighboring cells
@@ -174,6 +222,15 @@ TEST_F(PressureDynamicTest, PressureDrivenMovementAgainstGravity) {
     spdlog::info("After pressure propagation:");
     spdlog::info("  Top cell pressure: {:.3f} (gradient: upward)", topWater.getDynamicPressure());
     spdlog::info("  Bottom cell pressure: {:.3f}", bottomWater.getDynamicPressure());
+    
+    if (visual_mode_) {
+        std::stringstream ss;
+        ss << "Pressure propagated upward:\n";
+        ss << "Top cell: " << std::fixed << std::setprecision(3) << topWater.getDynamicPressure() << "\n";
+        ss << "Bottom cell: " << bottomWater.getDynamicPressure();
+        updateDisplay(world.get(), ss.str());
+        pauseIfVisual(1500);
+    }
     
     // Step 3: Apply pressure forces and see if they overcome gravity
     spdlog::info("\n--- STEP 3: Testing pressure vs gravity forces ---");
@@ -193,6 +250,11 @@ TEST_F(PressureDynamicTest, PressureDrivenMovementAgainstGravity) {
     spdlog::info("  Gravity force: +{:.4f} (downward)", gravityForce);
     spdlog::info("  Pressure force: ({:.4f}, {:.4f})", pressureForce.x, pressureForce.y);
     spdlog::info("  Net Y force: {:.4f} (negative = upward)", gravityForce + pressureForce.y);
+    
+    if (visual_mode_) {
+        updateDisplay(world.get(), "Applying physics timestep...");
+        pauseIfVisual(500);
+    }
     
     // Apply one physics timestep
     world->advanceTime(0.016);
@@ -218,6 +280,18 @@ TEST_F(PressureDynamicTest, PressureDrivenMovementAgainstGravity) {
     
     // Assertions for this complex scenario
     EXPECT_TRUE(pressureDecayed) << "Dynamic pressure should decay over time";
+    
+    if (visual_mode_) {
+        std::stringstream ss;
+        ss << "Test Results:\n";
+        ss << "Pressure overcame gravity: " << (pressureOvercameGravity ? "YES ✓" : "NO ✗") << "\n";
+        ss << "Pressure decayed: " << (pressureDecayed ? "YES ✓" : "NO ✗") << "\n";
+        ss << "Velocity change: (" << std::fixed << std::setprecision(4) 
+           << topVelocityAfter.x - topVelocityBefore.x << ", " 
+           << topVelocityAfter.y - topVelocityBefore.y << ")";
+        updateDisplay(world.get(), ss.str());
+        waitForNext();
+    }
     
     if (pressureOvercameGravity) {
         spdlog::info("🚀 SUCCESS: Pressure forces overcame gravity!");
@@ -245,32 +319,72 @@ TEST_F(PressureDynamicTest, DynamicPressureDecaysOverTime) {
     dirtCell.setPressureGradient(Vector2d(1.0, 0.0));
     dirtCell.setVelocity(Vector2d(0.0, 0.0)); // Start with no velocity
     
+    showInitialState(world.get(), "DIRT cell with artificial high pressure (5.0)");
+    
     double initialPressure = dirtCell.getDynamicPressure();
     
     spdlog::info("Initial dynamic pressure: {:.3f}", initialPressure);
+    
+    if (visual_mode_) {
+        std::stringstream ss;
+        ss << "Initial pressure: " << std::fixed << std::setprecision(3) << initialPressure << "\n";
+        ss << "Pressure gradient: rightward (1.0, 0.0)\n";
+        ss << "Tracking pressure decay over time...";
+        updateDisplay(world.get(), ss.str());
+        pauseIfVisual(2000);
+    }
     
     // Run multiple timesteps and track pressure decay
     std::vector<double> pressureHistory;
     std::vector<Vector2d> velocityHistory;
     
-    for (int timestep = 0; timestep < 50; timestep++) {
-        double currentPressure = dirtCell.getDynamicPressure();
-        Vector2d currentVelocity = dirtCell.getVelocity();
-        
-        pressureHistory.push_back(currentPressure);
-        velocityHistory.push_back(currentVelocity);
-        
-        if (timestep % 10 == 0) {
-            spdlog::info("Timestep {}: pressure={:.4f}, velocity=({:.3f}, {:.3f})", 
-                         timestep, currentPressure, currentVelocity.x, currentVelocity.y);
+    if (visual_mode_) {
+        // Visual mode: show decay animation
+        for (int timestep = 0; timestep < 50; timestep++) {
+            double currentPressure = dirtCell.getDynamicPressure();
+            Vector2d currentVelocity = dirtCell.getVelocity();
+            
+            pressureHistory.push_back(currentPressure);
+            velocityHistory.push_back(currentVelocity);
+            
+            if (timestep % 5 == 0) {
+                std::stringstream ss;
+                ss << "Timestep " << timestep << ":\n";
+                ss << "Pressure: " << std::fixed << std::setprecision(4) << currentPressure << "\n";
+                ss << "Velocity: (" << std::setprecision(3) << currentVelocity.x << ", " << currentVelocity.y << ")";
+                updateDisplay(world.get(), ss.str());
+                pauseIfVisual(200);
+            }
+            
+            world->advanceTime(0.016);
+            
+            // Stop when pressure becomes negligible
+            if (currentPressure < 0.01) {
+                spdlog::info("Pressure decayed to negligible level at timestep {}", timestep);
+                break;
+            }
         }
-        
-        world->advanceTime(0.016);
-        
-        // Stop when pressure becomes negligible
-        if (currentPressure < 0.01) {
-            spdlog::info("Pressure decayed to negligible level at timestep {}", timestep);
-            break;
+    } else {
+        // Non-visual mode: run quickly
+        for (int timestep = 0; timestep < 50; timestep++) {
+            double currentPressure = dirtCell.getDynamicPressure();
+            Vector2d currentVelocity = dirtCell.getVelocity();
+            
+            pressureHistory.push_back(currentPressure);
+            velocityHistory.push_back(currentVelocity);
+            
+            if (timestep % 10 == 0) {
+                spdlog::info("Timestep {}: pressure={:.4f}, velocity=({:.3f}, {:.3f})", 
+                             timestep, currentPressure, currentVelocity.x, currentVelocity.y);
+            }
+            
+            world->advanceTime(0.016);
+            
+            // Stop when pressure becomes negligible
+            if (currentPressure < 0.01) {
+                spdlog::info("Pressure decayed to negligible level at timestep {}", timestep);
+                break;
+            }
         }
     }
     
@@ -285,6 +399,17 @@ TEST_F(PressureDynamicTest, DynamicPressureDecaysOverTime) {
     
     // Pressure forces should have affected velocity (rightward due to gradient)
     EXPECT_GT(finalVelocity.x, 0.1) << "Pressure forces should create rightward velocity";
+    
+    if (visual_mode_) {
+        std::stringstream ss;
+        ss << "Test Complete:\n";
+        ss << "Initial pressure: " << std::fixed << std::setprecision(3) << initialPressure << "\n";
+        ss << "Final pressure: " << std::setprecision(6) << finalPressure << "\n";
+        ss << "Decay to <10%: " << (finalPressure < initialPressure * 0.1 ? "✓" : "✗") << "\n";
+        ss << "Rightward velocity gained: " << (finalVelocity.x > 0.1 ? "✓" : "✗");
+        updateDisplay(world.get(), ss.str());
+        waitForNext();
+    }
     
     spdlog::info("✅ DynamicPressureDecaysOverTime test completed successfully");
 }
@@ -302,6 +427,8 @@ TEST_F(PressureDynamicTest, RealisticTwoParticleCollisionPressure) {
     // Leave [1,1] empty initially
     world->addMaterialAtCell(2, 1, MaterialType::WALL, 1.0);   // Wall provides ultimate blockage
     
+    showInitialState(world.get(), "WATER→EMPTY→WALL: Testing collision pressure buildup");
+    
     CellB& sourceWater = world->at(0, 1);
     CellB& targetCell = world->at(1, 1);  // Will be empty initially  
     CellB& wall = world->at(2, 1);
@@ -318,6 +445,15 @@ TEST_F(PressureDynamicTest, RealisticTwoParticleCollisionPressure) {
     
     // Wall provides blockage
     wall.setVelocity(Vector2d(0.0, 0.0));
+    
+    if (visual_mode_) {
+        std::stringstream ss;
+        ss << "Source water has strong rightward velocity (5.0, 0.0)\n";
+        ss << "Will strategically block transfer at timestep 5\n";
+        ss << "Watch for pressure buildup from collision";
+        updateDisplay(world.get(), ss.str());
+        pauseIfVisual(2000);
+    }
     
     spdlog::info("Initial setup:");
     spdlog::info("  Source water [0,1]: fill={:.2f} vel=({:.2f},{:.2f}) COM=({:.2f},{:.2f}) pressure={:.3f}", 
@@ -344,6 +480,11 @@ TEST_F(PressureDynamicTest, RealisticTwoParticleCollisionPressure) {
             spdlog::info("  🚧 STRATEGIC BLOCKAGE: Filling target cell to 95% to create transfer resistance");
             targetCell.setFillRatio(0.95);  // Make target nearly full to block further transfers
             targetCell.setMaterialType(MaterialType::WATER);
+            
+            if (visual_mode_) {
+                updateDisplay(world.get(), "🚧 BLOCKAGE CREATED: Target cell filled to 95%");
+                pauseIfVisual(1000);
+            }
         }
         
         world->advanceTime(0.016);
@@ -354,6 +495,16 @@ TEST_F(PressureDynamicTest, RealisticTwoParticleCollisionPressure) {
         Vector2d targetVelAfter = targetCell.getVelocity();
         Vector2d sourceCOMAfter = sourceWater.getCOM();
         double targetFillAfter = targetCell.getFillRatio();
+        
+        if (visual_mode_ && timestep % 2 == 0) {
+            std::stringstream ss;
+            ss << "Timestep " << timestep + 1 << ":\n";
+            ss << "Source pressure: " << std::fixed << std::setprecision(3) << sourcePressureAfter << "\n";
+            ss << "Target pressure: " << targetPressureAfter << "\n";
+            ss << "Target fill: " << targetFillAfter;
+            updateDisplay(world.get(), ss.str());
+            pauseIfVisual(300);
+        }
         
         spdlog::info("Timestep {}:", timestep + 1);
         spdlog::info("  Source: pressure {:.3f}→{:.3f} vel ({:.2f},{:.2f})→({:.2f},{:.2f}) COM ({:.2f},{:.2f})→({:.2f},{:.2f})",
@@ -369,6 +520,15 @@ TEST_F(PressureDynamicTest, RealisticTwoParticleCollisionPressure) {
         if (sourcePressureAfter > 0.01 || targetPressureAfter > 0.01) {
             spdlog::info("  🔥 PRESSURE DETECTED! Source: {:.3f}, Target: {:.3f}", 
                          sourcePressureAfter, targetPressureAfter);
+            
+            if (visual_mode_) {
+                std::stringstream ss;
+                ss << "🔥 PRESSURE DETECTED!\n";
+                ss << "Source: " << std::fixed << std::setprecision(3) << sourcePressureAfter << "\n";
+                ss << "Target: " << targetPressureAfter;
+                updateDisplay(world.get(), ss.str());
+                pauseIfVisual(2000);
+            }
             
             // Test that pressure is building up from blocked transfers
             bool pressureIncreased = (sourcePressureAfter > sourcePressureBefore) || 
@@ -416,6 +576,17 @@ TEST_F(PressureDynamicTest, RealisticTwoParticleCollisionPressure) {
     bool anyPressureGenerated = (finalSourcePressure > 0.01) || (finalTargetPressure > 0.01);
     EXPECT_TRUE(anyPressureGenerated) << "Blocked material transfer should generate dynamic pressure";
     
+    if (visual_mode_) {
+        std::stringstream ss;
+        ss << "Final Analysis:\n";
+        ss << "Pressure generated: " << (anyPressureGenerated ? "YES ✓" : "NO ✗") << "\n";
+        ss << "Source pressure: " << std::fixed << std::setprecision(3) << finalSourcePressure << "\n";
+        ss << "Target pressure: " << finalTargetPressure << "\n";
+        ss << "Total system pressure: " << (finalSourcePressure + finalTargetPressure);
+        updateDisplay(world.get(), ss.str());
+        waitForNext();
+    }
+    
     if (anyPressureGenerated) {
         spdlog::info("✅ SUCCESS: Blocked material transfer generated dynamic pressure!");
         
@@ -453,6 +624,8 @@ TEST_F(PressureDynamicTest, PressureTransferDuringSuccessfulMove) {
     world->addMaterialAtCell(0, 1, MaterialType::WATER, 0.8);
     // Cell at [1,1] remains empty (AIR)
     
+    showInitialState(world.get(), "WATER with pressure → EMPTY: Testing pressure transfer");
+    
     CellB& sourceCell = world->at(0, 1);
     CellB& targetCell = world->at(1, 1);
     
@@ -468,6 +641,20 @@ TEST_F(PressureDynamicTest, PressureTransferDuringSuccessfulMove) {
     spdlog::info("Before transfer:");
     spdlog::info("  Source pressure: {:.3f}", sourcePressureBefore);
     spdlog::info("  Target pressure: {:.3f}", targetPressureBefore);
+    
+    if (visual_mode_) {
+        std::stringstream ss;
+        ss << "Source has pressure: " << std::fixed << std::setprecision(3) << sourcePressureBefore << "\n";
+        ss << "Source velocity: rightward (1.5, 0.0)\n";
+        ss << "COM near boundary for transfer";
+        updateDisplay(world.get(), ss.str());
+        pauseIfVisual(2000);
+    }
+    
+    if (visual_mode_) {
+        updateDisplay(world.get(), "Executing material transfer...");
+        pauseIfVisual(500);
+    }
     
     // Run timestep to trigger material transfer
     world->advanceTime(0.016);
@@ -490,6 +677,17 @@ TEST_F(PressureDynamicTest, PressureTransferDuringSuccessfulMove) {
     // Target may have gained some pressure (depending on implementation)
     // This assertion is more lenient since pressure transfer mechanics may vary
     spdlog::info("Pressure transfer ratio: {:.3f}", targetPressureAfter / sourcePressureBefore);
+    
+    if (visual_mode_) {
+        std::stringstream ss;
+        ss << "Transfer Complete:\n";
+        ss << "Material transferred: " << (targetFillAfter > 0.1 ? "YES ✓" : "NO ✗") << "\n";
+        ss << "Target fill: " << std::fixed << std::setprecision(3) << targetFillAfter << "\n";
+        ss << "Source pressure: " << sourcePressureBefore << " → " << sourcePressureAfter << "\n";
+        ss << "Target pressure: " << targetPressureBefore << " → " << targetPressureAfter;
+        updateDisplay(world.get(), ss.str());
+        waitForNext();
+    }
     
     spdlog::info("✅ PressureTransferDuringSuccessfulMove test completed successfully");
 }

@@ -82,6 +82,11 @@ The UI is organized into several distinct columns from left to right:
 - **Quadrant Toggle**: "Quadrant: On/Off"
 - **Screenshot Button**: Captures simulation image
 - **Print ASCII Button**: Outputs world state to console
+- **COM Cohesion Mode Label**: "COM Cohesion Mode:"
+- **COM Cohesion Mode Radio Buttons**: Mode selection
+  - Original (default)
+  - Centering
+  - Mass-Based
 
 ### Simulation Controls & Sliders Column (Position: 1440px from left)
 
@@ -140,7 +145,7 @@ The UI initialization follows this order in `SimulatorUI::initialize()`:
 - Mass: "Total Mass: 0.00" at Y=10
 - FPS: "FPS: 0" at Y=40
 
-### **Action Buttons** (Y=10-635, 50px height each):
+### **Action Buttons** (Y=10-935, 50px height each):
 - Reset (Y=10), Pause (Y=70), Debug (Y=130)
 - Pressure System dropdown (Y=190-210)
 - Force toggle (Y=260), Gravity toggle (Y=310)
@@ -148,6 +153,16 @@ The UI initialization follows this order in `SimulatorUI::initialize()`:
 - Quadrant toggle (Y=490), Screenshot (Y=550)
 - Time History toggle (Y=600)
 - Backward/Forward buttons (Y=635, split width)
+- Adhesion toggle (Y=495)
+- Adhesion Strength slider (Y=515-535)
+- Cohesion Bind Strength slider (Y=555-575)
+- Cohesion Force Strength slider (Y=595-615)
+- Cohesion Strength slider (Y=635-655)
+- COM Range slider (Y=675-695)
+- Left Throw slider (Y=715-735)
+- Right Throw slider (Y=755-775)
+- Print ASCII button (Y=780)
+- COM Cohesion Mode radio buttons (Y=835-935)
 
 ### **Parameter Sliders** (Y=670-1050, 40px spacing):
 - Timescale (Y=670-690)

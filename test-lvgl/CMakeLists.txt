@@ -97,6 +97,9 @@ string(APPEND LVGL_PKG_CONFIG_LIB "-llvgl_linux")
 file(GLOB LV_LINUX_SRC src/lib/*.c src/lib/*.cpp)
 set(LV_LINUX_INC src/lib)
 
+set(CONFIG_LV_BUILD_DEMOS OFF CACHE BOOL "" FORCE)
+set(CONFIG_LV_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+
 add_subdirectory(./lvgl ${CMAKE_BINARY_DIR}/lvgl)
 target_include_directories(lvgl PUBLIC ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/src/lib ${PKG_CONFIG_INC})
 
@@ -128,7 +131,7 @@ add_executable(sparkle-duck
     src/WorldInterpolationTool.cpp
     ${LV_LINUX_SRC} 
     ${LV_LINUX_BACKEND_SRC})
-target_link_libraries(sparkle-duck lvgl_linux lvgl lvgl::examples lvgl::demos lvgl::thorvg spdlog::spdlog m pthread ${PKG_CONFIG_LIB} ${SDL2_LIBRARIES} ${SDL2_IMAGE_LIBRARIES})
+target_link_libraries(sparkle-duck lvgl_linux lvgl lvgl::thorvg spdlog::spdlog m pthread ${PKG_CONFIG_LIB} ${SDL2_LIBRARIES} ${SDL2_IMAGE_LIBRARIES})
 target_include_directories(sparkle-duck PRIVATE ${SDL2_INCLUDE_DIRS} ${SDL2_IMAGE_INCLUDE_DIRS})
 
 # Enable warnings and treat them as errors for main executable
@@ -171,6 +174,8 @@ add_executable(sparkle-duck-tests
     src/tests/HorizontalLineStability_test.cpp
     src/tests/DistanceToSupport_test.cpp
     src/tests/COMCohesionForce_test.cpp
+    src/tests/CenteringMode_test.cpp
+    src/tests/MassBasedCohesion_test.cpp
     src/tests/PressureDynamic_test.cpp
     src/tests/PressureHydrostatic_test.cpp
     src/tests/PressureIntegration_test.cpp

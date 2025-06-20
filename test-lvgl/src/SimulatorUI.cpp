@@ -2,6 +2,7 @@
 #include "Cell.h"
 #include "MaterialType.h"
 #include "SimulationManager.h"
+#include "WorldB.h"
 #include "WorldFactory.h"
 #include "WorldInterface.h"
 #include "WorldState.h"
@@ -68,6 +69,10 @@ SimulatorUI::CallbackData* SimulatorUI::createCallbackData(lv_obj_t* label)
     data->world = world_;
     data->manager = manager_;
     data->associated_label = label;
+    // Initialize radio buttons array to nullptr
+    for (int i = 0; i < 3; i++) {
+        data->radio_buttons[i] = nullptr;
+    }
     CallbackData* ptr = data.get();
     callback_data_storage_.push_back(std::move(data));
     return ptr;
@@ -321,10 +326,54 @@ void SimulatorUI::createControlButtons()
         LV_EVENT_ALL,
         createCallbackData(com_range_value_label));
 
+    // Create COM cohesion mode radio buttons
+    lv_obj_t* com_mode_label = lv_label_create(screen_);
+    lv_label_set_text(com_mode_label, "COM Cohesion Mode:");
+    lv_obj_align(com_mode_label, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 835);
+
+    // Create container for radio buttons
+    lv_obj_t* com_mode_container = lv_obj_create(screen_);
+    lv_obj_set_size(com_mode_container, 250, 80);
+    lv_obj_align(com_mode_container, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 855);
+    lv_obj_set_style_bg_color(com_mode_container, lv_color_make(40, 40, 40), 0);
+    lv_obj_set_style_border_width(com_mode_container, 0, 0);
+    lv_obj_set_style_pad_all(com_mode_container, 5, 0);
+
+    // Create radio button group
+    lv_obj_t* radio_original = lv_checkbox_create(com_mode_container);
+    lv_checkbox_set_text(radio_original, "Original");
+    lv_obj_align(radio_original, LV_ALIGN_TOP_LEFT, 0, 0);
+    lv_obj_add_flag(radio_original, LV_OBJ_FLAG_EVENT_BUBBLE);
+    lv_obj_add_state(radio_original, LV_STATE_CHECKED); // Default to original mode
+
+    lv_obj_t* radio_centering = lv_checkbox_create(com_mode_container);
+    lv_checkbox_set_text(radio_centering, "Centering");
+    lv_obj_align(radio_centering, LV_ALIGN_TOP_LEFT, 0, 25);
+    lv_obj_add_flag(radio_centering, LV_OBJ_FLAG_EVENT_BUBBLE);
+
+    lv_obj_t* radio_mass_based = lv_checkbox_create(com_mode_container);
+    lv_checkbox_set_text(radio_mass_based, "Mass-Based");
+    lv_obj_align(radio_mass_based, LV_ALIGN_TOP_LEFT, 0, 50);
+    lv_obj_add_flag(radio_mass_based, LV_OBJ_FLAG_EVENT_BUBBLE);
+
+    // Store radio buttons in callback data for mutual exclusion
+    CallbackData* radio_data = createCallbackData();
+    radio_data->radio_buttons[0] = radio_original;
+    radio_data->radio_buttons[1] = radio_centering;
+    radio_data->radio_buttons[2] = radio_mass_based;
+
+    // Add callbacks to all radio buttons
+    lv_obj_add_event_cb(
+        radio_original, comCohesionModeRadioEventCb, LV_EVENT_VALUE_CHANGED, radio_data);
+    lv_obj_add_event_cb(
+        radio_centering, comCohesionModeRadioEventCb, LV_EVENT_VALUE_CHANGED, radio_data);
+    lv_obj_add_event_cb(
+        radio_mass_based, comCohesionModeRadioEventCb, LV_EVENT_VALUE_CHANGED, radio_data);
+
     // Create adhesion toggle button
     lv_obj_t* adhesion_btn = lv_btn_create(screen_);
     lv_obj_set_size(adhesion_btn, CONTROL_WIDTH, 50);
-    lv_obj_align(adhesion_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 475);
+    lv_obj_align(adhesion_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 495);
     lv_obj_t* adhesion_label = lv_label_create(adhesion_btn);
     lv_label_set_text(adhesion_label, "Adhesion: On");
     lv_obj_center(adhesion_label);
@@ -333,15 +382,15 @@ void SimulatorUI::createControlButtons()
     // Create adhesion strength slider
     lv_obj_t* adhesion_strength_label = lv_label_create(screen_);
     lv_label_set_text(adhesion_strength_label, "Adhesion Strength");
-    lv_obj_align(adhesion_strength_label, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 535);
+    lv_obj_align(adhesion_strength_label, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 555);
 
     lv_obj_t* adhesion_strength_value_label = lv_label_create(screen_);
     lv_label_set_text(adhesion_strength_value_label, "5.0");
-    lv_obj_align(adhesion_strength_value_label, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X + 140, 535);
+    lv_obj_align(adhesion_strength_value_label, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X + 140, 555);
 
     lv_obj_t* adhesion_strength_slider = lv_slider_create(screen_);
     lv_obj_set_size(adhesion_strength_slider, CONTROL_WIDTH, 10);
-    lv_obj_align(adhesion_strength_slider, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 555);
+    lv_obj_align(adhesion_strength_slider, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 575);
     lv_slider_set_range(adhesion_strength_slider, 0, 1000);          // 0.0 to 10.0 range
     lv_slider_set_value(adhesion_strength_slider, 500, LV_ANIM_OFF); // Default 5.0 -> 500
     lv_obj_add_event_cb(
@@ -353,7 +402,7 @@ void SimulatorUI::createControlButtons()
     // Create left throw toggle button
     lv_obj_t* left_throw_btn = lv_btn_create(screen_);
     lv_obj_set_size(left_throw_btn, CONTROL_WIDTH, 50);
-    lv_obj_align(left_throw_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 575);
+    lv_obj_align(left_throw_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 595);
     lv_obj_t* left_throw_label = lv_label_create(left_throw_btn);
     lv_label_set_text(left_throw_label, "Left Throw: On");
     lv_obj_center(left_throw_label);
@@ -363,7 +412,7 @@ void SimulatorUI::createControlButtons()
     // Create right throw toggle button
     lv_obj_t* right_throw_btn = lv_btn_create(screen_);
     lv_obj_set_size(right_throw_btn, CONTROL_WIDTH, 50);
-    lv_obj_align(right_throw_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 635);
+    lv_obj_align(right_throw_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 655);
     lv_obj_t* right_throw_label = lv_label_create(right_throw_btn);
     lv_label_set_text(right_throw_label, "Right Throw: On");
     lv_obj_center(right_throw_label);
@@ -373,7 +422,7 @@ void SimulatorUI::createControlButtons()
     // Create quadrant toggle button
     lv_obj_t* quadrant_btn = lv_btn_create(screen_);
     lv_obj_set_size(quadrant_btn, CONTROL_WIDTH, 50);
-    lv_obj_align(quadrant_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 695);
+    lv_obj_align(quadrant_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 715);
     lv_obj_t* quadrant_label = lv_label_create(quadrant_btn);
     lv_label_set_text(quadrant_label, "Quadrant: On");
     lv_obj_center(quadrant_label);
@@ -382,7 +431,7 @@ void SimulatorUI::createControlButtons()
     // Create screenshot button
     lv_obj_t* screenshot_btn = lv_btn_create(screen_);
     lv_obj_set_size(screenshot_btn, CONTROL_WIDTH, 50);
-    lv_obj_align(screenshot_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 700);
+    lv_obj_align(screenshot_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 720);
     lv_obj_t* screenshot_label = lv_label_create(screenshot_btn);
     lv_label_set_text(screenshot_label, "Screenshot");
     lv_obj_center(screenshot_label);
@@ -392,7 +441,7 @@ void SimulatorUI::createControlButtons()
     // Create print ASCII button
     lv_obj_t* print_ascii_btn = lv_btn_create(screen_);
     lv_obj_set_size(print_ascii_btn, CONTROL_WIDTH, 50);
-    lv_obj_align(print_ascii_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 760);
+    lv_obj_align(print_ascii_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 780);
     lv_obj_t* print_ascii_label = lv_label_create(print_ascii_btn);
     lv_label_set_text(print_ascii_label, "Print ASCII");
     lv_obj_center(print_ascii_label);
@@ -1060,6 +1109,10 @@ void SimulatorUI::cellSizeSliderEventCb(lv_event_t* e)
 void SimulatorUI::quitBtnEventCb(lv_event_t* e)
 {
     if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
+        // Take exit screenshot before quitting
+        takeExitScreenshot();
+
+        // Exit the application
         exit(0);
     }
 }
@@ -1534,5 +1587,51 @@ void SimulatorUI::comCohesionRangeSliderEventCb(lv_event_t* e)
         char buf[16];
         snprintf(buf, sizeof(buf), "%u", range);
         lv_label_set_text(data->associated_label, buf);
+    }
+}
+
+void SimulatorUI::comCohesionModeRadioEventCb(lv_event_t* e)
+{
+    if (lv_event_get_code(e) == LV_EVENT_VALUE_CHANGED) {
+        CallbackData* data = static_cast<CallbackData*>(lv_event_get_user_data(e));
+        if (data && data->world) {
+            lv_obj_t* clicked_radio = static_cast<lv_obj_t*>(lv_event_get_target(e));
+
+            // If this radio was clicked and is now checked
+            if (lv_obj_has_state(clicked_radio, LV_STATE_CHECKED)) {
+                // Uncheck all other radio buttons
+                for (int i = 0; i < 3; i++) {
+                    if (data->radio_buttons[i] != clicked_radio) {
+                        lv_obj_clear_state(data->radio_buttons[i], LV_STATE_CHECKED);
+                    }
+                }
+
+                // Determine which mode was selected
+                WorldB::COMCohesionMode mode;
+                const char* mode_name;
+                if (clicked_radio == data->radio_buttons[0]) {
+                    mode = WorldB::COMCohesionMode::ORIGINAL;
+                    mode_name = "ORIGINAL";
+                }
+                else if (clicked_radio == data->radio_buttons[1]) {
+                    mode = WorldB::COMCohesionMode::CENTERING;
+                    mode_name = "CENTERING";
+                }
+                else {
+                    mode = WorldB::COMCohesionMode::MASS_BASED;
+                    mode_name = "MASS_BASED";
+                }
+
+                // Try to cast to WorldB to access the specific method
+                WorldB* worldB = dynamic_cast<WorldB*>(data->world);
+                if (worldB) {
+                    worldB->setCOMCohesionMode(mode);
+                    spdlog::info("COM cohesion mode set to: {}", mode_name);
+                }
+                else {
+                    spdlog::warn("COM cohesion mode selection only works with WorldB");
+                }
+            }
+        }
     }
 }

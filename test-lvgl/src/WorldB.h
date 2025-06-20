@@ -264,6 +264,16 @@ public:
     void setCOMCohesionRange(uint32_t range) override { com_cohesion_range_ = range; }
     uint32_t getCOMCohesionRange() const override { return com_cohesion_range_; }
 
+    // COM cohesion mode control
+    enum class COMCohesionMode {
+        ORIGINAL,  // Current implementation
+        CENTERING, // Force toward cell center (0,0)
+        MASS_BASED // New mass-based with cutoff
+    };
+
+    void setCOMCohesionMode(COMCohesionMode mode) { com_cohesion_mode_ = mode; }
+    COMCohesionMode getCOMCohesionMode() const { return com_cohesion_mode_; }
+
     // WORLDINTERFACE IMPLEMENTATION - GRID MANAGEMENT
     void resizeGrid(uint32_t newWidth, uint32_t newHeight) override;
 
@@ -317,6 +327,12 @@ public:
         5; // Check 5 cells down for vertical support
     static constexpr double RIGID_DENSITY_THRESHOLD =
         5.0; // Materials above this density provide rigid support
+
+    // Mass-based COM cohesion constants
+    static constexpr double COM_COHESION_INNER_THRESHOLD =
+        0.5; // COM must be > 0.5 from center to activate
+    static constexpr double COM_COHESION_MIN_DISTANCE = 0.1; // Prevent division by near-zero
+    static constexpr double COM_COHESION_MAX_FORCE = 5.0;    // Cap maximum force magnitude
     static constexpr double STRONG_ADHESION_THRESHOLD =
         0.5; // Minimum adhesion needed for horizontal support
 
@@ -356,7 +372,7 @@ private:
     // Physics simulation steps
     void applyGravity(double deltaTime);
     void applyCohesionForces(double deltaTime);
-    void resolveForces(double deltaTime);  // Apply accumulated forces based on resistance
+    void resolveForces(double deltaTime); // Apply accumulated forces based on resistance
     void updateTransfers(double deltaTime);
     void applyPressure(double deltaTime);
     void processVelocityLimiting(double deltaTime);
@@ -374,7 +390,7 @@ private:
         const Vector2i& direction,
         double deltaTime = 0.0,
         const WorldBCohesionCalculator::COMCohesionForce& com_cohesion = {
-            { 0.0, 0.0 }, 0.0, { 0.0, 0.0 }, 0 });
+            { 0.0, 0.0 }, 0.0, { 0.0, 0.0 }, 0, 0.0, 0.0, false });
     CollisionType determineCollisionType(
         MaterialType from, MaterialType to, double collision_energy);
 
@@ -463,6 +479,7 @@ private:
     // Cohesion physics control
     bool cohesion_bind_force_enabled_;    // Enable/disable cohesion bind force (resistance)
     bool cohesion_com_force_enabled_;     // Enable/disable cohesion COM force (attraction)
+    COMCohesionMode com_cohesion_mode_;   // COM cohesion calculation mode
     bool adhesion_enabled_;               // Enable/disable adhesion physics
     double cohesion_com_force_strength_;  // Scaling factor for COM cohesion force magnitude
     double adhesion_strength_;            // Scaling factor for adhesion force magnitude
