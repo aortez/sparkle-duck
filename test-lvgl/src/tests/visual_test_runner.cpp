@@ -685,6 +685,18 @@ void VisualTestBase::updateDisplayNoDelay(WorldInterface* world, const std::stri
     });
 }
 
+void VisualTestBase::updateDisplayOrLog(WorldInterface* world, const std::string& status) {
+    if (visual_mode_) {
+        // Visual mode: update display
+        updateDisplay(world, status);
+    } else {
+        // Non-visual mode: log the status
+        if (!status.empty()) {
+            spdlog::info("[STATUS] {}", status);
+        }
+    }
+}
+
 void VisualTestBase::showInitialState(WorldInterface* world, const std::string& description) {
     if (!world) return;
     

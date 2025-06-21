@@ -95,7 +95,7 @@ TEST_F(PressureDynamicTest, BlockedTransferAccumulatesDynamicPressure) {
     
     logWorldState(world.get(), fmt::format("Before timestep 0"));
 
-    // Use the new unified simulation loop with lambda to capture state
+    // Run simulation using unified loop.
     runSimulationLoop(maxTimesteps, [&](int timestep) {
         // Record state before timestep
         sourcePressureHistory.push_back(sourceCell.getDynamicPressure());
@@ -103,26 +103,17 @@ TEST_F(PressureDynamicTest, BlockedTransferAccumulatesDynamicPressure) {
         sourceFillHistory.push_back(sourceCell.getFillRatio());
         targetFillHistory.push_back(targetCell.getFillRatio());
         
-        // Build status display for visual mode
-        if (visual_mode_) {
-            std::stringstream ss;
-            ss << "Timestep " << timestep + 1 << ":\n";
-            ss << "Source: vel=(" << std::fixed << std::setprecision(3) 
-               << sourceCell.getVelocity().x << "," << sourceCell.getVelocity().y << ") "
-               << "COM=(" << sourceCell.getCOM().x << "," << sourceCell.getCOM().y << ")\n";
-            ss << "Target: fill=" << targetCell.getFillRatio() << " "
-               << "vel=(" << targetCell.getVelocity().x << "," << targetCell.getVelocity().y << ")\n";
-            ss << "Source pressure: " << std::setprecision(6) << sourceCell.getDynamicPressure() << "\n";
-            ss << "Target pressure: " << targetCell.getDynamicPressure();
-            if (pressureDetected) {
-                ss << "\n🔥 Pressure building!";
-            }
-            updateDisplay(world.get(), ss.str());
+        // Show current state.
+        std::stringstream ss;
+        ss << "Timestep " << timestep + 1 << " - Pressure Test\n";
+        ss << "🔍 Source (0,1): P=" << std::setprecision(6) << sourceCell.getDynamicPressure() << "\n";
+        ss << "🎯 Target (1,1): P=" << targetCell.getDynamicPressure();
+        if (pressureDetected) {
+            ss << "\n🔥 Pressure building!";
         }
+        updateDisplayOrLog(world.get(), ss.str());
         
         logWorldState(world.get(), fmt::format("Before timestep {}", timestep));
-        
-        // Physics step is handled by runSimulationLoop
         
         // Check debug pressure IMMEDIATELY after physics step (before it decays)
         double immediateSourceDebugPressure = sourceCell.getDebugPressureMagnitude();
@@ -167,10 +158,14 @@ TEST_F(PressureDynamicTest, BlockedTransferAccumulatesDynamicPressure) {
                         pressureDetectedTimestep, currentSourcePressure, currentTargetPressure,
                         sourceDebugPressure, targetDebugPressure);
         }
-    }, 
-    "Testing pressure accumulation",
-    [&]() { return targetCell.getFillRatio() >= 0.999; }  // Early stop condition
-    );
+    }, "Testing pressure accumulation", [&]() -> bool {
+        // Early stop condition: target cell reached full capacity
+        if (targetCell.getFillRatio() >= 0.999) {
+            spdlog::info("  Target cell reached full capacity");
+            return true; // Stop simulation
+        }
+        return false; // Continue simulation
+    });
     
     // Analyze pressure accumulation results
     double maxSourcePressure = *std::max_element(sourcePressureHistory.begin(), sourcePressureHistory.end());
@@ -370,29 +365,24 @@ TEST_F(PressureDynamicTest, DynamicPressureDrivesHorizontalFlow) {
         // Calculate pressure gradient at middle cell to see if it points toward hole
         Vector2d pressureGradient = world->getPressureCalculator().calculatePressureGradient(0, 1);
         
-        // Build status display for visual mode
-        if (visual_mode_) {
-            std::stringstream ss;
-            ss << "Timestep " << timestep + 1 << ":\n";
-            ss << "Middle cell (0,1): pressure=" << std::fixed << std::setprecision(6) 
-               << middleCell.getDynamicPressure() << "\n";
-            ss << "Pressure gradient: (" << std::setprecision(3) 
-               << pressureGradient.x << "," << pressureGradient.y << ")\n";
-            ss << "Center (1,1): fill=" << centerCell.getFillRatio() << "\n";
-            ss << "Lower-right (2,2): fill=" << lowerRightCell.getFillRatio() << "\n";
-            
-            if (!stage1_passed && middleCell.getDynamicPressure() > 0.001) {
-                ss << "\n🎯 STAGE 1 PASSED: Pressure detected!";
-            }
-            if (!stage2_passed && centerCell.getFillRatio() > 0.001) {
-                ss << "\n🎯 STAGE 2 PASSED: Water reached center!";
-            }
-            if (!stage3_passed && lowerRightCell.getFillRatio() > 0.001) {
-                ss << "\n🎯 STAGE 3 PASSED: Water reached target!";
-            }
-            
-            updateDisplay(world.get(), ss.str());
+        // Build status display
+        std::stringstream ss;
+        ss << "Timestep " << timestep + 1 << " - Horizontal Flow Test\n";
+        ss << "🔍 Middle (0,1): P=" << std::setprecision(6) << middleCell.getDynamicPressure() << "\n";
+        ss << "🎯 Center (1,1): fill=" << std::setprecision(3) << centerCell.getFillRatio() << "\n";
+        ss << "📍 Target (2,2): fill=" << lowerRightCell.getFillRatio();
+        
+        if (!stage1_passed && middleCell.getDynamicPressure() > 0.001) {
+            ss << "\n🎯 STAGE 1 PASSED: Pressure detected!";
         }
+        if (!stage2_passed && centerCell.getFillRatio() > 0.001) {
+            ss << "\n🎯 STAGE 2 PASSED: Water reached center!";
+        }
+        if (!stage3_passed && lowerRightCell.getFillRatio() > 0.001) {
+            ss << "\n🎯 STAGE 3 PASSED: Water reached target!";
+        }
+        
+        updateDisplayOrLog(world.get(), ss.str());
         
         // Check stage progression
         if (!stage1_passed && middleCell.getDynamicPressure() > 0.001) {

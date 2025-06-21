@@ -124,6 +124,7 @@ protected:
     // Enhanced visual test helpers
     void updateDisplay(WorldInterface* world, const std::string& status = "");  // Update display with optional status
     void updateDisplayNoDelay(WorldInterface* world, const std::string& status = "");  // Update display without built-in delay
+    void updateDisplayOrLog(WorldInterface* world, const std::string& status);  // Update display in visual mode, log in non-visual mode
     void showInitialState(WorldInterface* world, const std::string& description);  // Show initial state and wait for start
     void showInitialStateWithStep(WorldInterface* world, const std::string& description);  // Show initial state with Start/Step choice
     void stepSimulation(WorldInterface* world, int steps, const std::string& stepDescription);  // Enhanced stepping with status
