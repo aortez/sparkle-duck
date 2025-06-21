@@ -106,16 +106,6 @@ public:
     double getDynamicWeight(MaterialType type) const;
 
     /**
-     * @brief Clear all blocked transfers (for testing)
-     */
-    void clearBlockedTransfers() { blocked_transfers_.clear(); }
-
-    /**
-     * @brief Get count of pending blocked transfers (for testing)
-     */
-    size_t getBlockedTransferCount() const { return blocked_transfers_.size(); }
-
-    /**
      * @brief Calculate pressure gradient at a cell position
      * @param x X coordinate of cell
      * @param y Y coordinate of cell
@@ -150,9 +140,11 @@ public:
      */
     void applyPressureForces(double deltaTime);
 
+    // Queue of blocked transfers.
+    std::vector<BlockedTransfer> blocked_transfers_;
+
 private:
-    WorldB& world_ref_;                              // Non-const reference for modifying cells
-    std::vector<BlockedTransfer> blocked_transfers_; // Queue of blocked transfers
+    WorldB& world_ref_; // Non-const reference for modifying cells
 
     // Constants for pressure-driven flow
     static constexpr double PRESSURE_FLOW_RATE = 10.0;    // Flow rate multiplier

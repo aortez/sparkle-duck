@@ -591,17 +591,35 @@ void VisualTestBase::logWorldState(const WorldB* world, const std::string& conte
     
     spdlog::debug("=== World State: {} ===", context);
     double totalMass = 0.0;
+    const double PRESSURE_LOG_THRESHOLD = 0.0001;  // Very small threshold for pressure logging
     
     for (uint32_t y = 0; y < world->getHeight(); y++) {
         for (uint32_t x = 0; x < world->getWidth(); x++) {
             const CellB& cell = world->at(x, y);
             if (cell.getFillRatio() > 0.001) {  // Only log cells with meaningful mass
-                spdlog::debug("  Cell({},{}) - Material: {}, Fill: {:.6f}, Velocity: ({:.3f},{:.3f}), COM: ({:.3f},{:.3f})",
-                             x, y, 
-                             getMaterialName(cell.getMaterialType()),
-                             cell.getFillRatio(),
-                             cell.getVelocity().x, cell.getVelocity().y,
-                             cell.getCOM().x, cell.getCOM().y);
+                // Check if cell has any significant pressure
+                double dynamicPressure = cell.getDynamicPressure();
+                double hydrostaticPressure = cell.getHydrostaticPressure();
+                double debugPressure = cell.getDebugPressureMagnitude();  // Pressure before it was consumed
+                
+                if (dynamicPressure > PRESSURE_LOG_THRESHOLD || hydrostaticPressure > PRESSURE_LOG_THRESHOLD || debugPressure > PRESSURE_LOG_THRESHOLD) {
+                    // Log with pressure information
+                    spdlog::debug("  Cell({},{}) - Material: {}, Fill: {:.6f}, Velocity: ({:.3f},{:.3f}), COM: ({:.3f},{:.3f}), DynP: {:.6f}, HydroP: {:.6f}, DebugP: {:.6f}",
+                                 x, y, 
+                                 getMaterialName(cell.getMaterialType()),
+                                 cell.getFillRatio(),
+                                 cell.getVelocity().x, cell.getVelocity().y,
+                                 cell.getCOM().x, cell.getCOM().y,
+                                 dynamicPressure, hydrostaticPressure, debugPressure);
+                } else {
+                    // Log without pressure (original format)
+                    spdlog::debug("  Cell({},{}) - Material: {}, Fill: {:.6f}, Velocity: ({:.3f},{:.3f}), COM: ({:.3f},{:.3f})",
+                                 x, y, 
+                                 getMaterialName(cell.getMaterialType()),
+                                 cell.getFillRatio(),
+                                 cell.getVelocity().x, cell.getVelocity().y,
+                                 cell.getCOM().x, cell.getCOM().y);
+                }
                 totalMass += cell.getFillRatio();
             }
         }
