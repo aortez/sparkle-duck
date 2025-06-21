@@ -9,6 +9,7 @@
 #include <string>
 
 #include "lvgl/lvgl.h"
+#include "spdlog/spdlog.h"
 
 CellB::CellB()
     : material_type_(MaterialType::AIR),
@@ -17,10 +18,12 @@ CellB::CellB()
       velocity_(0.0, 0.0),
       hydrostatic_pressure_(0.0f),
       dynamic_pressure_(0.0f),
-      pressure_gradient_(0.0, 0.0),
+      pressure_vector_(0.0, 0.0),
       accumulated_cohesion_force_(0.0, 0.0),
       accumulated_adhesion_force_(0.0, 0.0),
       accumulated_com_cohesion_force_(0.0, 0.0),
+      debug_pressure_magnitude_(0.0f),
+      debug_pressure_vector_(0.0, 0.0),
       pending_force_(0.0, 0.0),
       canvas_(nullptr),
       needs_redraw_(true)
@@ -33,10 +36,12 @@ CellB::CellB(MaterialType type, double fill)
       velocity_(0.0, 0.0),
       hydrostatic_pressure_(0.0f),
       dynamic_pressure_(0.0f),
-      pressure_gradient_(0.0, 0.0),
+      pressure_vector_(0.0, 0.0),
       accumulated_cohesion_force_(0.0, 0.0),
       accumulated_adhesion_force_(0.0, 0.0),
       accumulated_com_cohesion_force_(0.0, 0.0),
+      debug_pressure_magnitude_(0.0f),
+      debug_pressure_vector_(0.0, 0.0),
       pending_force_(0.0, 0.0),
       canvas_(nullptr),
       needs_redraw_(true)
@@ -59,10 +64,12 @@ CellB::CellB(const CellB& other)
       velocity_(other.velocity_),
       hydrostatic_pressure_(other.hydrostatic_pressure_),
       dynamic_pressure_(other.dynamic_pressure_),
-      pressure_gradient_(other.pressure_gradient_),
+      pressure_vector_(other.pressure_vector_),
       accumulated_cohesion_force_(other.accumulated_cohesion_force_),
       accumulated_adhesion_force_(other.accumulated_adhesion_force_),
       accumulated_com_cohesion_force_(other.accumulated_com_cohesion_force_),
+      debug_pressure_magnitude_(other.debug_pressure_magnitude_),
+      debug_pressure_vector_(other.debug_pressure_vector_),
       pending_force_(other.pending_force_),
       buffer_(other.buffer_.size()), // Create new buffer with same size
       canvas_(nullptr),              // Don't copy LVGL object
@@ -88,10 +95,12 @@ CellB& CellB::operator=(const CellB& other)
         velocity_ = other.velocity_;
         hydrostatic_pressure_ = other.hydrostatic_pressure_;
         dynamic_pressure_ = other.dynamic_pressure_;
-        pressure_gradient_ = other.pressure_gradient_;
+        pressure_vector_ = other.pressure_vector_;
         accumulated_cohesion_force_ = other.accumulated_cohesion_force_;
         accumulated_adhesion_force_ = other.accumulated_adhesion_force_;
         accumulated_com_cohesion_force_ = other.accumulated_com_cohesion_force_;
+        debug_pressure_magnitude_ = other.debug_pressure_magnitude_;
+        debug_pressure_vector_ = other.debug_pressure_vector_;
         pending_force_ = other.pending_force_;
 
         // Resize buffer if needed but don't copy contents
@@ -530,10 +539,18 @@ void CellB::draw(lv_obj_t* parent, uint32_t x, uint32_t y)
     }
 
     // Use debug mode based on Cell::debugDraw static flag
+    spdlog::trace(
+        "[RENDER] CellB::draw() called for cell ({},{}) - debugDraw={}, dynamic_pressure_={}",
+        x,
+        y,
+        Cell::debugDraw,
+        dynamic_pressure_);
     if (Cell::debugDraw) {
+        spdlog::trace("[RENDER] Entering drawDebug() mode");
         drawDebug(parent, x, y);
     }
     else {
+        spdlog::trace("[RENDER] Entering drawNormal() mode");
         drawNormal(parent, x, y);
     }
 
@@ -979,14 +996,35 @@ void CellB::drawDebug(lv_obj_t* parent, uint32_t x, uint32_t y)
         }
 
         // Draw dynamic pressure visualization as magenta thick line from cell center
-        if (dynamic_pressure_ > 0.01f) {
+        // Use cached debug values to show pressure even after it's been dissipated
+        float display_pressure =
+            debug_pressure_magnitude_ > 0.01f ? debug_pressure_magnitude_ : dynamic_pressure_;
+        Vector2d display_vector =
+            debug_pressure_magnitude_ > 0.01f ? debug_pressure_vector_ : pressure_vector_;
+
+        spdlog::trace(
+            "[RENDER DEBUG] Cell dynamic_pressure_={}, debug_pressure_magnitude_={}, "
+            "threshold=0.01",
+            dynamic_pressure_,
+            debug_pressure_magnitude_);
+
+        if (display_pressure > 0.01f && display_vector.magnitude() > 0.001) {
             double scale = 10.0; // Scale pressure to visible length
             int cell_center_x = Cell::WIDTH / 2;
             int cell_center_y = Cell::HEIGHT / 2;
             int end_x =
-                cell_center_x + static_cast<int>(pressure_gradient_.x * dynamic_pressure_ * scale);
+                cell_center_x + static_cast<int>(display_vector.x * display_pressure * scale);
             int end_y =
-                cell_center_y + static_cast<int>(pressure_gradient_.y * dynamic_pressure_ * scale);
+                cell_center_y + static_cast<int>(display_vector.y * display_pressure * scale);
+
+            spdlog::info(
+                "[RENDER] Drawing pressure arrow: pressure={}, vector=({},{}), "
+                "arrow_length=({},{})",
+                display_pressure,
+                display_vector.x,
+                display_vector.y,
+                end_x - cell_center_x,
+                end_y - cell_center_y);
 
             lv_draw_line_dsc_t pressure_line_dsc;
             lv_draw_line_dsc_init(&pressure_line_dsc);

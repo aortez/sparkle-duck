@@ -190,6 +190,13 @@ public:
     void setCOMCohesionRange([[maybe_unused]] uint32_t range) override { /* no-op for WorldA */ }
     uint32_t getCOMCohesionRange() const override { return 2; }
 
+    // Air resistance control (no-op for WorldA)
+    void setAirResistanceEnabled([[maybe_unused]] bool enabled) override { /* no-op for WorldA */ }
+    bool isAirResistanceEnabled() const override { return false; }
+    void setAirResistanceStrength([[maybe_unused]] double strength) override
+    { /* no-op for WorldA */ }
+    double getAirResistanceStrength() const override { return 0.0; }
+
     // Dump timer statistics
     void dumpTimerStats() const override { timers.dumpTimerStats(); }
 

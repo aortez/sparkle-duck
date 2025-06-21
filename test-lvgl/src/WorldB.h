@@ -5,8 +5,8 @@
 #include "Timers.h"
 #include "Vector2i.h"
 #include "WorldBCohesionCalculator.h"
-#include "WorldBSupportCalculator.h"
 #include "WorldBPressureCalculator.h"
+#include "WorldBSupportCalculator.h"
 #include "WorldFactory.h"
 #include "WorldInterface.h"
 #include "WorldSetup.h"
@@ -63,8 +63,10 @@ public:
         // NEW: COM cohesion force data
         double com_cohesion_magnitude = 0.0;         // Strength of COM cohesion force
         Vector2d com_cohesion_direction{ 0.0, 0.0 }; // Direction of COM cohesion force
-    };
 
+        // NEW: Pressure from excess material that can't transfer
+        double pressure_from_excess = 0.0; // Pressure to add to source cell
+    };
 
     WorldB(uint32_t width, uint32_t height, lv_obj_t* draw_area);
     ~WorldB();
@@ -179,7 +181,7 @@ public:
     // Pressure calculator access
     WorldBPressureCalculator& getPressureCalculator() { return pressure_calculator_; }
     const WorldBPressureCalculator& getPressureCalculator() const { return pressure_calculator_; }
-    
+
     // Pressure system getters for calculator
     double getPressureScale() const { return pressure_scale_; }
     Vector2d getGravityVector() const { return Vector2d(0.0, gravity_); }
@@ -241,6 +243,12 @@ public:
 
     void setCOMCohesionRange(uint32_t range) override { com_cohesion_range_ = range; }
     uint32_t getCOMCohesionRange() const override { return com_cohesion_range_; }
+
+    // WORLDINTERFACE IMPLEMENTATION - AIR RESISTANCE CONTROL
+    void setAirResistanceEnabled(bool enabled) override { air_resistance_enabled_ = enabled; }
+    bool isAirResistanceEnabled() const override { return air_resistance_enabled_; }
+    void setAirResistanceStrength(double strength) override { air_resistance_strength_ = strength; }
+    double getAirResistanceStrength() const override { return air_resistance_strength_; }
 
     // COM cohesion mode control
     enum class COMCohesionMode {
@@ -349,6 +357,7 @@ private:
 
     // Physics simulation steps
     void applyGravity(double deltaTime);
+    void applyAirResistance(double deltaTime);
     void applyCohesionForces(double deltaTime);
     void resolveForces(double deltaTime); // Apply accumulated forces based on resistance
     void updateTransfers(double deltaTime);
@@ -387,7 +396,6 @@ private:
     // Floating particle collision detection
     bool checkFloatingParticleCollision(int cellX, int cellY);
     void handleFloatingParticleCollision(int cellX, int cellY);
-
 
     // Pressure calculation (simplified hydrostatic) - moved to public for testing
 
@@ -454,6 +462,10 @@ private:
     double cohesion_bind_force_strength_; // Scaling factor for cohesion bind resistance
     uint32_t com_cohesion_range_;         // Range for COM cohesion neighbors (default 2)
 
+    // Air resistance control
+    bool air_resistance_enabled_;    // Enable/disable air resistance forces
+    double air_resistance_strength_; // Strength multiplier for air resistance
+
     // Drag state (enhanced with visual feedback)
     bool is_dragging_;
     int drag_start_x_;
@@ -489,7 +501,7 @@ private:
 
     // Support calculation
     mutable WorldBSupportCalculator support_calculator_;
-    
+
     // Pressure calculation
     WorldBPressureCalculator pressure_calculator_;
 

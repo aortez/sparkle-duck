@@ -30,10 +30,13 @@ Trees are living organisms in the WorldB physics simulation that grow from seeds
 - Required for all growth and photosynthesis
 
 **Nutrients**
-- Stored in DIRT cells as a depletion value [0.0-1.0]
+- Stored in DIRT cells as a nutrient level [0.0-1.0]
 - ROOT cells extract nutrients, depleting the soil
 - Nutrients regenerate slowly over time (soil recovery)
-- Different materials provide different nutrient levels
+- Nutrient levels will be stored as metadata attached to DIRT cells
+- Nutrient data persists with the cell through movement and interactions
+- Careful analysis of movement systems will need to be done to ensure nutrients
+transfer correctly.
 
 **Energy**
 - Internal resource not visible in physics simulation
@@ -138,6 +141,15 @@ class WorldB {
     }
 };
 ```
+
+### Material Metadata Design
+
+CellB uses a variant-of-pointers pattern for material-specific data:
+- DIRT cells: `DirtMetadata` with nutrients and water content
+- AIR cells: Optional humidity data
+- Tree cells: Organism ID ownership tracking
+- Minimal memory overhead (8 bytes per cell)
+- Only cells needing metadata pay allocation cost
 
 ## Tree Lifecycle
 
@@ -292,7 +304,7 @@ Environmental Factors:
 ## Open Questions
 
 1. **Growth Timing**: Should trees attempt growth every N timesteps or based on energy thresholds?
-2. **Resource Visualization**: How to show nutrient depletion in DIRT cells?
+2. **Resource Visualization**: How to show nutrient depletion in DIRT cells? (Note: Nutrient data will be stored as metadata - see Resource Systems section)
 3. **Seed Dispersal**: Physics-based (falling) or random placement?
 4. **Performance Limits**: Maximum number of trees before slowdown?
 5. **User Interaction**: Can users prune/harvest trees?

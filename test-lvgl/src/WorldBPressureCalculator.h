@@ -1,9 +1,9 @@
 #pragma once
 
-#include "WorldBCalculatorBase.h"
 #include "MaterialType.h"
 #include "Vector2d.h"
-#include "WorldInterface.h"  // For PressureSystem enum
+#include "WorldBCalculatorBase.h"
+#include "WorldInterface.h" // For PressureSystem enum
 #include <cstdint>
 #include <vector>
 
@@ -32,20 +32,19 @@ public:
 
     // Blocked transfer data for dynamic pressure accumulation
     struct BlockedTransfer {
-        int fromX, fromY;          // Source cell coordinates
-        int toX, toY;              // Target cell coordinates  
-        double transfer_amount;    // Amount that was blocked
-        Vector2d velocity;         // Velocity at time of blocking
-        double energy;             // Kinetic energy of blocked transfer
+        int fromX, fromY;       // Source cell coordinates
+        int toX, toY;           // Target cell coordinates
+        double transfer_amount; // Amount that was blocked
+        Vector2d velocity;      // Velocity at time of blocking
+        double energy;          // Kinetic energy of blocked transfer
     };
 
     // Pressure-specific constants
-    static constexpr double SLICE_THICKNESS = 1.0;           // Thickness of pressure slices
-    static constexpr double HYDROSTATIC_MULTIPLIER = 0.002;  // Hydrostatic force strength
-    static constexpr double DYNAMIC_MULTIPLIER = 0.1;        // Dynamic force strength
-    static constexpr double DYNAMIC_ACCUMULATION_RATE = 0.05; // Rate of pressure buildup
-    static constexpr double DYNAMIC_DECAY_RATE = 0.02;       // Rate of pressure dissipation
-    static constexpr double MIN_PRESSURE_THRESHOLD = 0.01;   // Ignore pressures below this
+    static constexpr double SLICE_THICKNESS = 1.0;          // Thickness of pressure slices
+    static constexpr double HYDROSTATIC_MULTIPLIER = 0.002; // Hydrostatic force strength
+    static constexpr double DYNAMIC_MULTIPLIER = 1;         // Dynamic force strength
+    static constexpr double DYNAMIC_DECAY_RATE = 0.02;      // Rate of pressure dissipation
+    static constexpr double MIN_PRESSURE_THRESHOLD = 0.01;  // Ignore pressures below this
 
     /**
      * @brief Main pressure application method
@@ -55,7 +54,7 @@ public:
 
     /**
      * @brief Calculate hydrostatic pressure for all cells
-     * 
+     *
      * Implements slice-based calculation perpendicular to gravity direction.
      * Pressure accumulates based on material density and gravity magnitude.
      */
@@ -69,7 +68,7 @@ public:
 
     /**
      * @brief Process blocked transfers and accumulate dynamic pressure
-     * 
+     *
      * Converts blocked kinetic energy into dynamic pressure at source cells.
      * Updates pressure gradients based on blocked transfer directions.
      */
@@ -78,7 +77,7 @@ public:
     /**
      * @brief Apply combined pressure forces to all cells
      * @param deltaTime Time step for force application
-     * 
+     *
      * Combines hydrostatic and dynamic pressure forces based on material properties.
      * Updates cell velocities according to pressure gradients.
      */
@@ -116,6 +115,6 @@ public:
     size_t getBlockedTransferCount() const { return blocked_transfers_.size(); }
 
 private:
-    WorldB& world_ref_;  // Non-const reference for modifying cells
+    WorldB& world_ref_;                              // Non-const reference for modifying cells
     std::vector<BlockedTransfer> blocked_transfers_; // Queue of blocked transfers
 };

@@ -1,8 +1,8 @@
 #pragma once
 
-#include "WorldBCalculatorBase.h"
 #include "MaterialType.h"
 #include "Vector2d.h"
+#include "WorldBCalculatorBase.h"
 #include <cstdint>
 
 // Forward declarations

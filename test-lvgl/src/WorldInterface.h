@@ -289,6 +289,22 @@ public:
     virtual uint32_t getCOMCohesionRange() const = 0;
 
     // =================================================================
+    // AIR RESISTANCE CONTROL
+    // =================================================================
+
+    // Enable/disable air resistance forces
+    virtual void setAirResistanceEnabled(bool enabled) = 0;
+
+    // Check if air resistance is enabled
+    virtual bool isAirResistanceEnabled() const = 0;
+
+    // Set air resistance strength (multiplier for the force)
+    virtual void setAirResistanceStrength(double strength) = 0;
+
+    // Get current air resistance strength
+    virtual double getAirResistanceStrength() const = 0;
+
+    // =================================================================
     // GRID MANAGEMENT
     // =================================================================
 
@@ -306,13 +322,13 @@ public:
     virtual void markUserInput() = 0;
 
     // =================================================================
-    // ASCII VISUALIZATION
+    // EMOJI VISUALIZATION
     // =================================================================
 
-    // Generate ASCII diagram of the entire world state
+    // Generate emoji diagram of the entire world state
     std::string toAsciiDiagram() const;
 
-    // Note: Implementation is provided in WorldInterface.cpp using WorldDiagramGenerator
+    // Note: Implementation uses emoji rendering with Unicode box drawing
 
     // =================================================================
     // UI INTEGRATION

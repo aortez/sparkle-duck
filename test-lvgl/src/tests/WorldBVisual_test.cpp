@@ -14,6 +14,7 @@ protected:
         // Apply test-specific defaults
         world->setAddParticlesEnabled(false);
         world->setWallsEnabled(false);
+        world->setAirResistanceEnabled(false);  // Disable air resistance for tests
         world->setup();  // Setup with initial materials (most tests want this)
     }
     

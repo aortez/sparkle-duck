@@ -2,6 +2,7 @@
 #include "Cell.h"
 #include "SimulatorUI.h"
 #include "Vector2i.h"
+#include "WorldBAirResistanceCalculator.h"
 #include "WorldBCohesionCalculator.h"
 #include "WorldInterpolationTool.h"
 #include "spdlog/spdlog.h"
@@ -42,6 +43,8 @@ WorldB::WorldB(uint32_t width, uint32_t height, lv_obj_t* draw_area)
       adhesion_strength_(5.0),
       cohesion_bind_force_strength_(1.0),
       com_cohesion_range_(2),
+      air_resistance_enabled_(true),
+      air_resistance_strength_(0.1),
       is_dragging_(false),
       drag_start_x_(-1),
       drag_start_y_(-1),
@@ -115,12 +118,12 @@ void WorldB::advanceTime(double deltaTimeSeconds)
         resolveForces(scaledDeltaTime); // Accumulate and apply all forces based on resistance
         processVelocityLimiting(scaledDeltaTime);
         updateTransfers(scaledDeltaTime);
-        applyPressure(scaledDeltaTime);
 
-        // Process queued material moves
+        // Process queued material moves - this detects NEW blocked transfers
         processMaterialMoves();
 
         // Pressure processing is now handled inside applyPressure
+        applyPressure(scaledDeltaTime);
 
         timestep_++;
     }
@@ -634,6 +637,36 @@ void WorldB::applyGravity(double deltaTime)
     timers_.stopTimer("apply_gravity");
 }
 
+void WorldB::applyAirResistance(double deltaTime)
+{
+    if (!air_resistance_enabled_) {
+        return;
+    }
+
+    timers_.startTimer("apply_air_resistance");
+
+    WorldBAirResistanceCalculator air_resistance_calculator(*this);
+
+    for (uint32_t y = 0; y < height_; ++y) {
+        for (uint32_t x = 0; x < width_; ++x) {
+            CellB& cell = at(x, y);
+
+            if (!cell.isEmpty() && !cell.isWall()) {
+                // Calculate and accumulate air resistance force
+                Vector2d air_resistance_force = air_resistance_calculator.calculateAirResistance(
+                    x, y, air_resistance_strength_);
+
+                // Scale by deltaTime for frame-independent physics
+                air_resistance_force = air_resistance_force * deltaTime;
+
+                cell.addPendingForce(air_resistance_force);
+            }
+        }
+    }
+
+    timers_.stopTimer("apply_air_resistance");
+}
+
 void WorldB::applyCohesionForces(double deltaTime)
 {
     if (!cohesion_com_force_enabled_) {
@@ -701,6 +734,9 @@ void WorldB::resolveForces(double deltaTime)
 
     // Apply gravity forces
     applyGravity(deltaTime);
+
+    // Apply air resistance forces
+    applyAirResistance(deltaTime);
 
     // Apply cohesion and adhesion forces
     applyCohesionForces(deltaTime);
@@ -966,6 +1002,31 @@ void WorldB::processMaterialMoves()
         CellB& fromCell = at(move.fromX, move.fromY);
         CellB& toCell = at(move.toX, move.toY);
 
+        // Apply any pressure from excess that couldn't transfer
+        if (move.pressure_from_excess > 0.0) {
+            toCell.setDynamicPressure(toCell.getDynamicPressure() + move.pressure_from_excess);
+
+            // Set pressure vector in the direction of the blocked transfer
+            // This represents the direction the pressure wants to push
+            Vector2d pressure_direction = move.boundary_normal;
+            if (pressure_direction.magnitude() > 0.001) {
+                pressure_direction.normalize();
+                toCell.setPressureVector(pressure_direction);
+
+                // Also cache for debug visualization since pressure might be cleared before render
+                toCell.setDebugPressure(toCell.getDynamicPressure(), pressure_direction);
+            }
+
+            spdlog::debug(
+                "Applied pressure from excess: cell({},{}) pressure increased by {:.3f}, vector: "
+                "({:.3f},{:.3f})",
+                move.toX,
+                move.toY,
+                move.pressure_from_excess,
+                pressure_direction.x,
+                pressure_direction.y);
+        }
+
         // Handle collision during the move based on collision_type
         if (move.collision_type != CollisionType::TRANSFER_ONLY) {
             spdlog::debug(
@@ -1004,9 +1065,69 @@ void WorldB::processMaterialMoves()
 
 void WorldB::applyPressure(double deltaTime)
 {
-    pressure_calculator_.applyPressure(deltaTime);
-}
+    if (!dynamic_pressure_enabled_) {
+        return;
+    }
 
+    // Apply pressure forces - pressure is dissipated when converted to velocity
+    const double PRESSURE_FORCE_SCALE = 1.0;   // Tune this
+    const double BACKGROUND_DECAY_RATE = 0.02; // 2% per timestep for unused pressure
+
+    for (uint32_t y = 0; y < height_; y++) {
+        for (uint32_t x = 0; x < width_; x++) {
+            CellB& cell = at(x, y);
+            double pressure = cell.getDynamicPressure();
+
+            if (pressure > 0.001) {
+                // Calculate pressure force
+                Vector2d pressure_force =
+                    cell.getPressureGradient() * pressure * PRESSURE_FORCE_SCALE * deltaTime;
+
+                if (pressure_force.magnitude() > 0.001) {
+                    // Cache pressure state for debug visualization before clearing
+                    cell.setDebugPressure(pressure, cell.getPressureVector());
+
+                    // Apply pressure force to velocity
+                    cell.setVelocity(cell.getVelocity() + pressure_force);
+
+                    // Dissipate the pressure that was converted to velocity
+                    // Pressure is fully consumed when applied as force
+                    cell.setDynamicPressure(0.0);
+
+                    spdlog::trace(
+                        "Cell ({},{}) pressure dissipated: {:.3f} -> 0.0, force applied: "
+                        "({:.3f},{:.3f})",
+                        x,
+                        y,
+                        pressure,
+                        pressure_force.x,
+                        pressure_force.y);
+                }
+                else {
+                    // No significant force direction - just apply background decay
+                    double new_pressure = pressure * (1.0 - BACKGROUND_DECAY_RATE * deltaTime);
+                    cell.setDynamicPressure(new_pressure);
+
+                    spdlog::trace(
+                        "Cell ({},{}) pressure decay: {:.3f} -> {:.3f} (no force direction)",
+                        x,
+                        y,
+                        pressure,
+                        new_pressure);
+                }
+            }
+
+            // Decay debug visualization cache
+            if (cell.getDebugPressureMagnitude() > 0.001f) {
+                cell.setDebugPressure(
+                    cell.getDebugPressureMagnitude() * 0.9f, cell.getPressureVector());
+                if (cell.getDebugPressureMagnitude() < 0.001f) {
+                    cell.setDebugPressure(0.0f, Vector2d(0.0, 0.0));
+                }
+            }
+        }
+    }
+}
 
 void WorldB::setupBoundaryWalls()
 {
@@ -1421,7 +1542,38 @@ WorldB::MaterialMove WorldB::createCollisionAwareMove(
     move.toX = toPos.x;
     move.toY = toPos.y;
     move.material = fromCell.getMaterialType();
-    move.amount = std::min(fromCell.getFillRatio(), 1.0 - toCell.getFillRatio());
+
+    // Calculate how much wants to transfer vs what can transfer
+    double wants_to_transfer = fromCell.getFillRatio(); // Cell wants to follow its COM
+    double capacity = toCell.getCapacity();
+
+    // Queue only what will actually succeed
+    move.amount = std::min(wants_to_transfer, capacity);
+
+    // Store pressure generation info in the move for later application
+    double excess = wants_to_transfer - move.amount;
+    move.pressure_from_excess = 0.0; // Initialize
+
+    if (excess > MIN_MATTER_THRESHOLD && dynamic_pressure_enabled_) {
+        double blocked_mass = excess * getMaterialDensity(fromCell.getMaterialType());
+        double energy = fromCell.getVelocity().magnitude() * blocked_mass;
+        double pressure_increase = energy * 0.1; // Tune this conversion factor
+
+        // Store pressure to be applied to target cell when processing moves
+        move.pressure_from_excess = pressure_increase;
+
+        spdlog::debug(
+            "Pressure from excess at ({},{}) -> ({},{}): excess={:.3f}, energy={:.3f}, "
+            "pressure_to_add={:.3f}",
+            fromPos.x,
+            fromPos.y,
+            toPos.x,
+            toPos.y,
+            excess,
+            energy,
+            pressure_increase);
+    }
+
     move.momentum = fromCell.getVelocity();
     move.boundary_normal = Vector2d(direction.x, direction.y);
 
@@ -1632,15 +1784,27 @@ void WorldB::handleTransferMove(CellB& fromCell, CellB& toCell, const MaterialMo
 
         // Queue blocked transfer for dynamic pressure accumulation
         if (dynamic_pressure_enabled_) {
-            pressure_calculator_.queueBlockedTransfer({
-                move.fromX,
-                move.fromY,
-                move.toX,
-                move.toY,
-                transfer_deficit,
-                fromCell.getVelocity(),
-                fromCell.getVelocity().magnitude() * transfer_deficit
-            });
+            // Calculate energy with proper mass consideration
+            double material_density = getMaterialDensity(move.material);
+            double blocked_mass = transfer_deficit * material_density;
+            double energy = fromCell.getVelocity().magnitude() * blocked_mass;
+
+            spdlog::debug(
+                "Blocked transfer energy calculation: material={}, density={:.2f}, "
+                "blocked_mass={:.4f}, velocity={:.2f}, energy={:.4f}",
+                getMaterialName(move.material),
+                material_density,
+                blocked_mass,
+                fromCell.getVelocity().magnitude(),
+                energy);
+
+            pressure_calculator_.queueBlockedTransfer({ move.fromX,
+                                                        move.fromY,
+                                                        move.toX,
+                                                        move.toY,
+                                                        transfer_deficit, // transfer_amount
+                                                        fromCell.getVelocity(),
+                                                        energy });
         }
 
         applyCellBoundaryReflection(fromCell, direction, move.material);
@@ -1739,22 +1903,21 @@ void WorldB::handleInelasticCollision(CellB& fromCell, CellB& toCell, const Mate
             target_velocity_change.y);
     }
 
-    // Allow some material transfer (reduced amount) - this may fail if target is full.
-    double reduced_amount = move.amount * 0.3; // Transfer 30% of material
+    // Allow material transfer based on natural capacity limits.
+    double transfer_amount = move.amount; // Full amount, let capacity decide
 
     // Attempt direct material transfer and measure actual amount transferred.
     double actual_transfer =
-        fromCell.transferToWithPhysics(toCell, reduced_amount, move.boundary_normal);
+        fromCell.transferToWithPhysics(toCell, transfer_amount, move.boundary_normal);
 
     // Check for blocked transfer and queue for dynamic pressure accumulation.
-    double transfer_deficit = reduced_amount - actual_transfer;
+    double transfer_deficit = transfer_amount - actual_transfer;
 
     // Debug logging to understand what's happening.
     spdlog::debug(
-        "Inelastic collision transfer attempt: original_amount={:.6f}, reduced_amount={:.6f}, "
+        "Inelastic collision transfer attempt: requested_amount={:.6f}, "
         "actual_transfer={:.6f}, deficit={:.6f}",
-        move.amount,
-        reduced_amount,
+        transfer_amount,
         actual_transfer,
         transfer_deficit);
     spdlog::debug(
@@ -1767,20 +1930,32 @@ void WorldB::handleInelasticCollision(CellB& fromCell, CellB& toCell, const Mate
         spdlog::debug(
             "🚫 Inelastic collision blocked transfer: requested={:.3f}, transferred={:.3f}, "
             "deficit={:.3f}",
-            reduced_amount,
+            transfer_amount,
             actual_transfer,
             transfer_deficit);
 
         // Queue blocked transfer for dynamic pressure accumulation
-        pressure_calculator_.queueBlockedTransfer({
-            move.fromX,
-            move.fromY,
-            move.toX,
-            move.toY,
-            transfer_deficit,
-            fromCell.getVelocity(),
-            fromCell.getVelocity().magnitude() * transfer_deficit
-        });
+        // Calculate energy with proper mass consideration
+        double material_density = getMaterialDensity(move.material);
+        double blocked_mass = transfer_deficit * material_density;
+        double energy = fromCell.getVelocity().magnitude() * blocked_mass;
+
+        spdlog::debug(
+            "Inelastic collision blocked energy: material={}, density={:.2f}, "
+            "blocked_mass={:.4f}, velocity={:.2f}, energy={:.4f}",
+            getMaterialName(move.material),
+            material_density,
+            blocked_mass,
+            fromCell.getVelocity().magnitude(),
+            energy);
+
+        pressure_calculator_.queueBlockedTransfer({ move.fromX,
+                                                    move.fromY,
+                                                    move.toX,
+                                                    move.toY,
+                                                    transfer_deficit,
+                                                    fromCell.getVelocity(),
+                                                    energy });
     }
 
     spdlog::trace(
@@ -1884,4 +2059,3 @@ WorldB::AdhesionForce WorldB::calculateAdhesionForce(uint32_t x, uint32_t y)
 
     return { total_force, total_force.mag(), strongest_attractor, contact_count };
 }
-

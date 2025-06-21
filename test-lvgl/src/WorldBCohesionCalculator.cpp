@@ -8,7 +8,8 @@
 #include <cmath>
 
 WorldBCohesionCalculator::WorldBCohesionCalculator(const WorldB& world)
-    : WorldBCalculatorBase(world), support_calculator_(std::make_unique<WorldBSupportCalculator>(world))
+    : WorldBCalculatorBase(world),
+      support_calculator_(std::make_unique<WorldBSupportCalculator>(world))
 {}
 
 WorldBCohesionCalculator::CohesionForce WorldBCohesionCalculator::calculateCohesionForce(

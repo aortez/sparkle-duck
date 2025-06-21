@@ -125,8 +125,21 @@ public:
     float getDynamicPressure() const { return dynamic_pressure_; }
     void setDynamicPressure(float pressure) { dynamic_pressure_ = pressure; }
 
-    const Vector2d& getPressureGradient() const { return pressure_gradient_; }
-    void setPressureGradient(const Vector2d& gradient) { pressure_gradient_ = gradient; }
+    // Simplified pressure system: direct vector instead of gradient
+    const Vector2d& getPressureVector() const { return pressure_vector_; }
+    void setPressureVector(const Vector2d& vector) { pressure_vector_ = vector; }
+
+    // Legacy gradient interface (deprecated - returns pressure vector)
+    const Vector2d& getPressureGradient() const { return pressure_vector_; }
+    void setPressureGradient(const Vector2d& gradient) { pressure_vector_ = gradient; }
+
+    // Debug visualization setters
+    void setDebugPressure(float magnitude, const Vector2d& vector)
+    {
+        debug_pressure_magnitude_ = magnitude;
+        debug_pressure_vector_ = vector;
+    }
+    float getDebugPressureMagnitude() const { return debug_pressure_magnitude_; }
 
     // Legacy pressure interface (for compatibility)
     double getPressure() const { return hydrostatic_pressure_ + dynamic_pressure_; }
@@ -249,12 +262,16 @@ private:
     // Dual pressure system (Phase 1)
     float hydrostatic_pressure_; // From gravity/weight [0, max_hydrostatic]
     float dynamic_pressure_;     // From blocked transfers [0, max_dynamic]
-    Vector2d pressure_gradient_; // Combined pressure direction
+    Vector2d pressure_vector_;   // Direct pressure force vector (not gradient)
 
     // Force accumulation for visualization
     Vector2d accumulated_cohesion_force_;     // Last calculated cohesion force
     Vector2d accumulated_adhesion_force_;     // Last calculated adhesion force
     Vector2d accumulated_com_cohesion_force_; // Last calculated COM cohesion force
+
+    // Debug visualization cache
+    float debug_pressure_magnitude_; // Last pressure magnitude before dissipation
+    Vector2d debug_pressure_vector_; // Last pressure vector before dissipation
 
     // Physics force accumulation
     Vector2d pending_force_; // Forces to be applied during resolution phase

@@ -1,5 +1,5 @@
 #include "WorldInterface.h"
-#include "WorldDiagramGenerator.h"
+#include "WorldDiagramGeneratorEmoji.h"
 #include "WorldSetup.h"
 #include "spdlog/spdlog.h"
 
@@ -105,7 +105,7 @@ double WorldInterface::getRainRate() const
 
 std::string WorldInterface::toAsciiDiagram() const
 {
-    return WorldDiagramGenerator::generateAsciiDiagram(*this);
+    return WorldDiagramGeneratorEmoji::generateMixedDiagram(*this);
 }
 
 bool WorldInterface::shouldResize(uint32_t newWidth, uint32_t newHeight) const

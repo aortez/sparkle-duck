@@ -1,14 +1,14 @@
 #include "WorldBPressureCalculator.h"
-#include "WorldB.h"
 #include "CellB.h"
+#include "WorldB.h"
 #include "WorldInterface.h" // For PressureSystem enum
-#include <cmath>
 #include <algorithm>
+#include <cmath>
+#include <spdlog/spdlog.h>
 
 WorldBPressureCalculator::WorldBPressureCalculator(WorldB& world)
     : WorldBCalculatorBase(world), world_ref_(world)
-{
-}
+{}
 
 void WorldBPressureCalculator::applyPressure(double deltaTime)
 {
@@ -44,7 +44,7 @@ void WorldBPressureCalculator::calculateHydrostaticPressure()
     // Slice-based hydrostatic pressure calculation, following under_pressure.md design.
     const Vector2d gravity = world_ref_.getGravityVector();
     const double gravity_magnitude = gravity.magnitude();
-    
+
     if (gravity_magnitude < 0.0001) {
         return; // No gravity, no hydrostatic pressure
     }
@@ -84,28 +84,87 @@ void WorldBPressureCalculator::processBlockedTransfers()
 
     // Process each blocked transfer
     for (const auto& transfer : blocked_transfers_) {
-        // Validate source cell
-        if (!isValidCell(transfer.fromX, transfer.fromY)) {
-            continue;
+        // Determine where to apply pressure
+        bool apply_to_target = false;
+
+        // Check if target cell is valid for pressure transmission
+        if (isValidCell(transfer.toX, transfer.toY)) {
+            CellB& target_cell = world_ref_.at(transfer.toX, transfer.toY);
+
+            // Check target cell type
+            if (target_cell.isWall()) {
+                // Walls eliminate pressure - skip this transfer
+                spdlog::debug(
+                    "Blocked transfer from ({},{}) to ({},{}): target is WALL - pressure "
+                    "eliminated",
+                    transfer.fromX,
+                    transfer.fromY,
+                    transfer.toX,
+                    transfer.toY);
+                continue;
+            }
+            else if (!target_cell.isEmpty()) {
+                // Non-empty, non-wall target can receive pressure
+                apply_to_target = true;
+            }
+            else {
+                // Empty cells - no pressure buildup
+                spdlog::debug(
+                    "Blocked transfer from ({},{}) to ({},{}): target is empty - no pressure",
+                    transfer.fromX,
+                    transfer.fromY,
+                    transfer.toX,
+                    transfer.toY);
+                continue;
+            }
         }
 
-        CellB& source_cell = world_ref_.at(transfer.fromX, transfer.fromY);
-        
         // Convert blocked kinetic energy to dynamic pressure
         double blocked_energy = transfer.energy;
-        double current_pressure = source_cell.getDynamicPressure();
-        double new_pressure = current_pressure + blocked_energy * DYNAMIC_ACCUMULATION_RATE;
-        
-        // Cap maximum dynamic pressure
-        new_pressure = std::min(new_pressure, 10.0); // Max from under_pressure.md
-        source_cell.setDynamicPressure(new_pressure);
 
-        // Update pressure gradient based on blocked direction
-        Vector2d blocked_direction = transfer.velocity.normalize();
-        Vector2d current_gradient = source_cell.getPressureGradient();
-        Vector2d new_gradient = (current_gradient * current_pressure + 
-                                blocked_direction * blocked_energy) / (current_pressure + blocked_energy);
-        source_cell.setPressureGradient(new_gradient.normalize());
+        if (apply_to_target) {
+            // Apply pressure to target cell
+            CellB& target_cell = world_ref_.at(transfer.toX, transfer.toY);
+
+            // Get material-specific dynamic weight
+            double material_weight = getDynamicWeight(target_cell.getMaterialType());
+            double weighted_energy = blocked_energy * material_weight;
+
+            double current_pressure = target_cell.getDynamicPressure();
+            double new_pressure = current_pressure + weighted_energy;
+
+            spdlog::debug(
+                "Blocked transfer from ({},{}) to ({},{}): amount={:.3f}, energy={:.3f}, "
+                "applying to TARGET cell with material={}, weight={:.2f}, current_pressure={:.6f}, "
+                "new_pressure={:.6f}",
+                transfer.fromX,
+                transfer.fromY,
+                transfer.toX,
+                transfer.toY,
+                transfer.transfer_amount,
+                blocked_energy,
+                getMaterialName(target_cell.getMaterialType()),
+                material_weight,
+                current_pressure,
+                new_pressure);
+
+            target_cell.setDynamicPressure(new_pressure);
+
+            // Update pressure vector - same direction as blocked velocity
+            Vector2d blocked_direction = transfer.velocity;
+            if (blocked_direction.magnitude() > 0.001) {
+                blocked_direction.normalize();
+                // Combine with existing pressure vector using weighted average
+                Vector2d current_vector = target_cell.getPressureVector();
+                Vector2d new_vector =
+                    (current_vector * current_pressure + blocked_direction * weighted_energy)
+                    / (current_pressure + weighted_energy);
+                if (new_vector.magnitude() > 0.001) {
+                    new_vector.normalize();
+                    target_cell.setPressureVector(new_vector);
+                }
+            }
+        }
     }
 
     // Clear processed transfers
@@ -118,22 +177,53 @@ void WorldBPressureCalculator::applyDynamicPressureForces(double deltaTime)
     for (uint32_t y = 0; y < world_ref_.getHeight(); ++y) {
         for (uint32_t x = 0; x < world_ref_.getWidth(); ++x) {
             CellB& cell = world_ref_.at(x, y);
-            
+
             // Skip empty cells
             if (cell.getFillRatio() < MIN_MATTER_THRESHOLD) {
                 continue;
             }
 
-            // Calculate and apply pressure force
-            Vector2d pressure_force = calculatePressureForce(cell);
-            cell.setVelocity(cell.getVelocity() + pressure_force * deltaTime);
-
-            // Decay dynamic pressure over time
+            // Get current dynamic pressure
             double dynamic_pressure = cell.getDynamicPressure();
-            if (dynamic_pressure > MIN_PRESSURE_THRESHOLD) {
-                cell.setDynamicPressure(dynamic_pressure * (1.0 - DYNAMIC_DECAY_RATE * deltaTime));
-            } else {
+            if (dynamic_pressure < MIN_PRESSURE_THRESHOLD) {
+                continue;
+            }
+
+            // Calculate pressure force
+            Vector2d pressure_force = calculatePressureForce(cell);
+
+            // Apply FULL force to velocity without deltaTime scaling
+            // This applies all pressure at once for clearer verification
+            Vector2d velocity_before = cell.getVelocity();
+            Vector2d velocity_after = velocity_before + pressure_force;
+            cell.setVelocity(velocity_after);
+
+            // Apply ALL pressure at once for verification
+            // This helps verify if blocked force input is proportional to pressure force output
+            // When pressure is applied, it should be fully consumed in one timestep
+
+            // Extract just the dynamic component of the force
+            Vector2d dynamic_force = cell.getPressureGradient() * dynamic_pressure
+                * getDynamicWeight(cell.getMaterialType()) * world_ref_.getPressureScale()
+                * DYNAMIC_MULTIPLIER;
+            double dynamic_force_magnitude = dynamic_force.magnitude();
+
+            if (dynamic_force_magnitude > 0.0001) {
+                // Apply all dynamic pressure at once - full dissipation
+                // This makes the relationship between blocked transfers and pressure forces clearer
                 cell.setDynamicPressure(0.0);
+
+                spdlog::debug(
+                    "Cell ({},{}) full pressure dissipation: dynamic_force={:.4f}, "
+                    "pressure {:.4f} -> 0.0 (fully applied)",
+                    x,
+                    y,
+                    dynamic_force_magnitude,
+                    dynamic_pressure);
+            }
+            else {
+                // No significant force, just apply background decay
+                cell.setDynamicPressure(dynamic_pressure * (1.0 - DYNAMIC_DECAY_RATE * deltaTime));
             }
         }
     }
@@ -142,22 +232,25 @@ void WorldBPressureCalculator::applyDynamicPressureForces(double deltaTime)
 Vector2d WorldBPressureCalculator::calculatePressureForce(const CellB& cell) const
 {
     // Combined pressure force calculation following design in under_pressure.md.
-    
+
     // Hydrostatic component (gravity-aligned)
     Vector2d gravity_direction = world_ref_.getGravityVector().normalize();
-    Vector2d hydrostatic_force = gravity_direction * cell.getHydrostaticPressure() * HYDROSTATIC_MULTIPLIER;
-    
+    Vector2d hydrostatic_force =
+        gravity_direction * cell.getHydrostaticPressure() * HYDROSTATIC_MULTIPLIER;
+
     // Dynamic component (blocked-transfer direction)
-    Vector2d dynamic_force = cell.getPressureGradient() * cell.getDynamicPressure() * DYNAMIC_MULTIPLIER;
-    
+    Vector2d dynamic_force =
+        cell.getPressureGradient() * cell.getDynamicPressure() * DYNAMIC_MULTIPLIER;
+
     // Material-specific weighting
     double hydrostatic_weight = getHydrostaticWeight(cell.getMaterialType());
     double dynamic_weight = getDynamicWeight(cell.getMaterialType());
-    
+
     // Scale by global pressure setting
     double pressure_scale = world_ref_.getPressureScale();
-    
-    return (hydrostatic_force * hydrostatic_weight + dynamic_force * dynamic_weight) * pressure_scale;
+
+    return (hydrostatic_force * hydrostatic_weight + dynamic_force * dynamic_weight)
+        * pressure_scale;
 }
 
 double WorldBPressureCalculator::getHydrostaticWeight(MaterialType type) const
@@ -165,20 +258,20 @@ double WorldBPressureCalculator::getHydrostaticWeight(MaterialType type) const
     // Material-specific hydrostatic pressure sensitivity
     switch (type) {
         case MaterialType::WATER:
-            return 1.0;  // High hydrostatic sensitivity
+            return 1.0; // High hydrostatic sensitivity
         case MaterialType::SAND:
         case MaterialType::DIRT:
-            return 0.7;  // Moderate hydrostatic sensitivity
+            return 0.7; // Moderate hydrostatic sensitivity
         case MaterialType::WOOD:
-            return 0.3;  // Low hydrostatic sensitivity
+            return 0.3; // Low hydrostatic sensitivity
         case MaterialType::METAL:
-            return 0.1;  // Very low hydrostatic sensitivity
+            return 0.1; // Very low hydrostatic sensitivity
         case MaterialType::LEAF:
-            return 0.4;  // Low-moderate sensitivity
+            return 0.4; // Low-moderate sensitivity
         case MaterialType::WALL:
         case MaterialType::AIR:
         default:
-            return 0.0;  // No hydrostatic response
+            return 0.0; // No hydrostatic response
     }
 }
 
@@ -187,18 +280,18 @@ double WorldBPressureCalculator::getDynamicWeight(MaterialType type) const
     // Material-specific dynamic pressure sensitivity
     switch (type) {
         case MaterialType::WATER:
-            return 0.8;  // High dynamic response
+            return 0.8; // High dynamic response
         case MaterialType::SAND:
         case MaterialType::DIRT:
-            return 1.0;  // Full dynamic response
+            return 1.0; // Full dynamic response
         case MaterialType::WOOD:
         case MaterialType::METAL:
-            return 0.5;  // Moderate dynamic response (compression)
+            return 0.5; // Moderate dynamic response (compression)
         case MaterialType::LEAF:
-            return 0.6;  // Moderate dynamic response
+            return 0.6; // Moderate dynamic response
         case MaterialType::WALL:
         case MaterialType::AIR:
         default:
-            return 0.0;  // No dynamic response
+            return 0.0; // No dynamic response
     }
 }

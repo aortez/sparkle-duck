@@ -730,6 +730,26 @@ void SimulatorUI::createSliders()
     lv_obj_add_state(dynamic_switch, LV_STATE_CHECKED); // Default enabled
     lv_obj_add_event_cb(
         dynamic_switch, dynamicPressureToggleEventCb, LV_EVENT_VALUE_CHANGED, createCallbackData());
+
+    // Air resistance slider
+    lv_obj_t* air_resistance_label = lv_label_create(screen_);
+    lv_label_set_text(air_resistance_label, "Air Resistance");
+    lv_obj_align(air_resistance_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 670);
+
+    lv_obj_t* air_resistance_value_label = lv_label_create(screen_);
+    lv_label_set_text(air_resistance_value_label, "0.10");
+    lv_obj_align(air_resistance_value_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X + 120, 670);
+
+    lv_obj_t* air_resistance_slider = lv_slider_create(screen_);
+    lv_obj_set_size(air_resistance_slider, CONTROL_WIDTH, 10);
+    lv_obj_align(air_resistance_slider, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 690);
+    lv_slider_set_range(air_resistance_slider, 0, 100);          // 0.0 to 1.0 range
+    lv_slider_set_value(air_resistance_slider, 10, LV_ANIM_OFF); // Default 0.1 -> 10
+    lv_obj_add_event_cb(
+        air_resistance_slider,
+        airResistanceSliderEventCb,
+        LV_EVENT_ALL,
+        createCallbackData(air_resistance_value_label));
 }
 
 void SimulatorUI::setupDrawAreaEvents()
@@ -1265,6 +1285,22 @@ void SimulatorUI::dynamicPressureToggleEventCb(lv_event_t* e)
             data->world->setDynamicPressureEnabled(enabled);
             spdlog::info("Dynamic pressure {}", enabled ? "enabled" : "disabled");
         }
+    }
+}
+
+void SimulatorUI::airResistanceSliderEventCb(lv_event_t* e)
+{
+    lv_obj_t* slider = static_cast<lv_obj_t*>(lv_event_get_target(e));
+    CallbackData* data = static_cast<CallbackData*>(lv_event_get_user_data(e));
+    if (lv_event_get_code(e) == LV_EVENT_VALUE_CHANGED && data) {
+        int32_t value = lv_slider_get_value(slider);
+        double air_resistance = value / 100.0; // Map 0-100 to 0.0-1.0
+        if (data->world) {
+            data->world->setAirResistanceStrength(air_resistance);
+        }
+        char buf[16];
+        snprintf(buf, sizeof(buf), "%.2f", air_resistance);
+        lv_label_set_text(data->associated_label, buf);
     }
 }
 

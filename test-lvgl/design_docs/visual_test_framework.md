@@ -66,6 +66,20 @@ Thread synchronization is achieved through:
    - Programmatic assertions on world state
    - Screenshot capture for documentation
 
+### Framework Methods for Visual Tests
+
+**showInitialState(world, description)** - Display initial world state with Start button only
+
+**showInitialStateWithStep(world, description)** - Display initial state with Start/Step/Step10 buttons
+
+**stepSimulation(world, steps, description)** - Advance simulation with proper Step mode handling
+
+**updateDisplay(world, status)** - Update the world display and status message
+
+**pauseIfVisual(ms)** - Pause for specified milliseconds in visual mode only
+
+**waitForNext()** - Wait for user to press Next button before proceeding to next test
+
 ### Test Modes
 
 **Headless Mode** (Default)
@@ -83,6 +97,50 @@ Thread synchronization is achieved through:
 - Detailed observation of physics behavior
 - Useful for debugging complex interactions
 
+## Test Implementation Patterns
+
+### Visual vs Non-Visual Code Paths
+
+Tests must handle both visual and non-visual execution modes:
+
+```cpp
+if (visual_mode_) {
+    // Visual mode: Use framework methods for user interaction
+    showInitialStateWithStep(world.get(), "Test description");
+    
+    for (int step = 0; step < maxSteps; ++step) {
+        updateDisplay(world.get(), "Status message");
+        stepSimulation(world.get(), 1, "Step description");
+    }
+    
+    waitForNext();
+} else {
+    // Non-visual mode: Direct simulation advancement
+    for (int step = 0; step < maxSteps; ++step) {
+        world->advanceTime(0.016);
+    }
+}
+```
+
+### Step Mode Support
+
+For full Step/Start button functionality:
+
+```cpp
+// Use this instead of showInitialState() for Step mode support
+showInitialStateWithStep(world.get(), "Initial state description");
+
+// Use stepSimulation() instead of direct advanceTime() in visual mode
+stepSimulation(world.get(), 1, "What this step tests");
+
+// Update display with current status
+updateDisplay(world.get(), "Current state: velocity=" + std::to_string(vel));
+
+// Final test summary before next test
+updateDisplay(world.get(), "Test complete: all assertions passed");
+waitForNext();
+```
+
 ## Writing Visual Tests
 
 ### Basic Test Structure
@@ -92,38 +150,52 @@ class MyVisualTest : public VisualTestBase {
 protected:
     void SetUp() override {
         VisualTestBase::SetUp();
-        world = createTestWorld();
+        world = createWorldB(10, 10);
+        
+        // Apply test-specific settings
+        world->setAirResistanceEnabled(false);
+        world->setup();
     }
     
-    void runTest() {
-        // Do any custom set up work here.
-        ...
-        
-        // Show initial state:
-        updateDisplay();
-        waitForStart();
-        
-        // Run simulation
-        for (int i = 0; i < 100; i++) {
-            stepSimulation(1);
-            updateDisplay();
-            
-            // Optional: wait for manual step
-            if (isStepMode()) {
-                waitForStep();
-            }
-            
-            // Validate/log results
-            // ... 
-        }
-        
-        // Validate/log results
-        // ...
-    }
+    std::unique_ptr<WorldInterface> world;
 };
 
 TEST_F(MyVisualTest, WaterFlowsDownhill) {
-    runTest();
+    // Setup initial conditions
+    world->addMaterialAtCell(5, 1, MaterialType::WATER, 1.0);
+    
+    // Show initial state with Step/Start support
+    showInitialStateWithStep(world.get(), "Water flows downhill test");
+    
+    const int maxSteps = 20;
+    
+    if (visual_mode_) {
+        // Visual mode with interactive controls
+        for (int step = 0; step < maxSteps; ++step) {
+            // Status message showing current state
+            std::stringstream ss;
+            ss << "Step " << step + 1 << " of " << maxSteps;
+            updateDisplay(world.get(), ss.str());
+            
+            // Use stepSimulation for proper Step button handling
+            stepSimulation(world.get(), 1, "Observing water flow");
+            
+            // Check assertions
+            // ...
+        }
+        
+        // Final summary
+        updateDisplay(world.get(), "Test complete: Water reached bottom");
+        waitForNext();
+        
+    } else {
+        // Non-visual mode runs without UI
+        for (int step = 0; step < maxSteps; ++step) {
+            world->advanceTime(0.016);
+            // Check assertions
+            // ...
+        }
+    }
 }
 ```
 
@@ -162,5 +234,9 @@ void runTest() override {
 5. **Document Expected Results** - Comments should explain what correct behavior looks like
 6. **Minimize Test Duration** - Keep interactive tests short for better developer experience
 7. **Consider Composibility/Re-useability**
+8. **Separate Visual/Non-Visual Logic** - Use `if (visual_mode_)` to handle both execution modes
+9. **Use Framework Methods in Visual Mode** - Call `stepSimulation()` instead of `advanceTime()` when in visual mode
+10. **Provide Continuous Feedback** - Update status messages during long-running simulations
+11. **Support Step Mode** - Use `showInitialStateWithStep()` and `stepSimulation()` for full interactivity
 
 The visual test framework transforms physics validation from abstract assertions into observable phenomena, making it easier to develop, debug, and demonstrate the simulation's capabilities.

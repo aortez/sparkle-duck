@@ -17,7 +17,7 @@ This dual-source system provides both realistic gravitational pressure distribut
 
 **Dynamic Pressure = Accumulated Transfer Resistance**
 - When a cell's COM crosses a boundary but transfer is blocked
-- Attempted transfer energy accumulates as pressure within source cell
+- Attempted transfer energy accumulates as pressure in target cell
 - Influences future movement and transfer attempts
 
 ## Implementation Plan
@@ -116,18 +116,6 @@ dynamic_pressure_ *= (1.0f - dynamic_decay_rate * timestep);
 ```
 
 **2.4 Pressure Transfer During Material Movement**
-When successful transfers occur:
-```cpp
-void transferPressure(CellB& source, CellB& target, float transfer_ratio) {
-    // Dynamic pressure transfers proportionally
-    float transferred_dynamic = source.dynamic_pressure_ * transfer_ratio;
-    source.dynamic_pressure_ -= transferred_dynamic;
-    target.dynamic_pressure_ += transferred_dynamic * getPressureInheritance(target.type);
-    
-    // Hydrostatic pressure recalculated based on new material distribution
-    // (handled in next hydrostatic calculation pass)
-}
-```
 
 ### Phase 3: Material-Specific Pressure Response
 
