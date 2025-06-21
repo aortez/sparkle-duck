@@ -164,6 +164,7 @@ public:
     // Cohesion bind force control (no-op for WorldA)
     void setCohesionBindForceEnabled([[maybe_unused]] bool enabled) override
     { /* no-op for WorldA */ }
+
     bool isCohesionBindForceEnabled() const override { return false; }
 
     // Cohesion COM force control (no-op for WorldA)
@@ -242,6 +243,9 @@ public:
 
     // Mark that user input has occurred (for triggering saves)
     void markUserInput() override { hasUserInputSinceLastSave = true; }
+
+    // Get a string representation of all world settings
+    std::string settingsToString() const override;
 
     // World type management
     WorldType getWorldType() const override;

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "MaterialMove.h"
 #include "MaterialType.h"
 #include "Vector2d.h"
 #include "WorldBCalculatorBase.h"
@@ -114,7 +115,47 @@ public:
      */
     size_t getBlockedTransferCount() const { return blocked_transfers_.size(); }
 
+    /**
+     * @brief Calculate pressure gradient at a cell position
+     * @param x X coordinate of cell
+     * @param y Y coordinate of cell
+     * @return Pressure gradient vector pointing from high to low pressure
+     *
+     * Calculates the pressure gradient by comparing total pressure (hydrostatic + dynamic)
+     * with neighboring cells. The gradient points in the direction of decreasing pressure.
+     */
+    Vector2d calculatePressureGradient(uint32_t x, uint32_t y) const;
+
+    /**
+     * @brief Calculate pressure-driven material flows
+     * @param deltaTime Time step for the current frame
+     * @return Vector of MaterialMove objects representing pressure-driven flows
+     *
+     * Analyzes pressure gradients across the grid and generates material transfers
+     * from high pressure to low pressure regions. Material flows down the pressure
+     * gradient (from high to low).
+     */
+    std::vector<MaterialMove> calculatePressureFlow(double deltaTime);
+
+    /**
+     * @brief Apply pressure forces to cell velocities and handle pressure decay
+     * @param deltaTime Time step for the current frame
+     *
+     * Converts dynamic pressure into velocity changes and applies pressure decay.
+     * This method handles:
+     * - Converting pressure to forces based on pressure gradients
+     * - Applying forces to cell velocities
+     * - Decaying dynamic pressure over time
+     * - Managing debug visualization state
+     */
+    void applyPressureForces(double deltaTime);
+
 private:
     WorldB& world_ref_;                              // Non-const reference for modifying cells
     std::vector<BlockedTransfer> blocked_transfers_; // Queue of blocked transfers
+
+    // Constants for pressure-driven flow
+    static constexpr double PRESSURE_FLOW_RATE = 10.0;    // Flow rate multiplier
+    static constexpr double PRESSURE_FORCE_SCALE = 1.0;   // Force scale factor
+    static constexpr double BACKGROUND_DECAY_RATE = 0.02; // 2% decay per timestep
 };

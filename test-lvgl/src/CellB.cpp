@@ -582,47 +582,47 @@ void CellB::drawNormal(lv_obj_t* parent, uint32_t x, uint32_t y)
     lv_layer_t layer;
     lv_canvas_init_layer(canvas_, &layer);
 
-    // Draw black background for all cells
+    // Draw black background for consistency with debug mode
     lv_draw_rect_dsc_t bg_rect_dsc;
     lv_draw_rect_dsc_init(&bg_rect_dsc);
     bg_rect_dsc.bg_color = lv_color_hex(0x000000); // Black background
     bg_rect_dsc.bg_opa = LV_OPA_COVER;
     bg_rect_dsc.border_width = 0;
-    lv_area_t coords = {
-        0, 0, static_cast<int32_t>(Cell::WIDTH), static_cast<int32_t>(Cell::HEIGHT)
+    lv_area_t bg_coords = {
+        0, 0, static_cast<int32_t>(Cell::WIDTH - 1), static_cast<int32_t>(Cell::HEIGHT - 1)
     };
-    lv_draw_rect(&layer, &bg_rect_dsc, &coords);
+    lv_draw_rect(&layer, &bg_rect_dsc, &bg_coords);
 
     // Render material if not empty
     if (!isEmpty()) {
         lv_color_t material_color;
 
-        // Enhanced material color mapping with better visual distinction
+        // Use same material color mapping as debug mode
         switch (material_type_) {
             case MaterialType::DIRT:
-                material_color = lv_color_hex(0x8B4513); // Rich saddle brown
+                material_color = lv_color_hex(0xA0522D); // Sienna brown
                 break;
             case MaterialType::WATER:
-                material_color = lv_color_hex(0x1E90FF); // Dodger blue (more vibrant)
+                material_color = lv_color_hex(0x00BFFF); // Deep sky blue
                 break;
             case MaterialType::WOOD:
-                material_color = lv_color_hex(0xD2691E); // Chocolate brown (warmer wood tone)
+                material_color = lv_color_hex(0xDEB887); // Burlywood
                 break;
             case MaterialType::SAND:
-                material_color = lv_color_hex(0xF4A460); // Sandy brown
+                material_color = lv_color_hex(0xFFB347); // Sandy orange
                 break;
             case MaterialType::METAL:
-                material_color = lv_color_hex(0xB0C4DE); // Light steel blue (more metallic)
+                material_color = lv_color_hex(0xC0C0C0); // Silver
                 break;
             case MaterialType::LEAF:
-                material_color = lv_color_hex(0x32CD32); // Lime green (brighter, more vibrant)
+                material_color = lv_color_hex(0x00FF32); // Bright lime green
                 break;
             case MaterialType::WALL:
-                material_color = lv_color_hex(0x696969); // Dim gray (darker, more solid)
+                material_color = lv_color_hex(0x808080); // Gray
                 break;
             case MaterialType::AIR:
             default:
-                // Air gets black background only
+                // Air is transparent - already has black background
                 lv_canvas_finish_layer(canvas_, &layer);
                 return;
         }
@@ -630,175 +630,25 @@ void CellB::drawNormal(lv_obj_t* parent, uint32_t x, uint32_t y)
         // Calculate opacity based on fill ratio
         lv_opa_t opacity = static_cast<lv_opa_t>(fill_ratio_ * LV_OPA_COVER);
 
-        // Apply COM offset to material positioning for smooth physics visualization
-        // COM range is [-1, 1], convert to pixel offset within cell bounds
-        const double offset_factor = 0.3; // Scale factor for COM offset (30% of cell size max)
-        int com_offset_x = static_cast<int>(com_.x * Cell::WIDTH * offset_factor);
-        int com_offset_y = static_cast<int>(com_.y * Cell::HEIGHT * offset_factor);
-
-        // Calculate material rendering area with COM offset
-        // Start with full cell size, then apply COM offset for positioning
-        int material_left = 0 + com_offset_x;
-        int material_top = 0 + com_offset_y;
-        int material_right = material_left + Cell::WIDTH;
-        int material_bottom = material_top + Cell::HEIGHT;
-
-        // Clamp to cell boundaries to prevent overflow
-        material_left = std::max(0, std::min(material_left, static_cast<int>(Cell::WIDTH - 1)));
-        material_top = std::max(0, std::min(material_top, static_cast<int>(Cell::HEIGHT - 1)));
-        material_right =
-            std::max(material_left + 1, std::min(material_right, static_cast<int>(Cell::WIDTH)));
-        material_bottom =
-            std::max(material_top + 1, std::min(material_bottom, static_cast<int>(Cell::HEIGHT)));
-
-        // Create material rendering coordinates with COM offset
-        lv_area_t material_coords = {
-            material_left, material_top, material_right - 1, material_bottom - 1
-        };
-
-        // Draw material-specific visual effects
+        // Draw material layer with enhanced border to match debug mode
         lv_draw_rect_dsc_t rect_dsc;
         lv_draw_rect_dsc_init(&rect_dsc);
         rect_dsc.bg_color = material_color;
-        rect_dsc.bg_opa = opacity;
+        rect_dsc.bg_opa =
+            static_cast<lv_opa_t>(opacity * 0.7); // More transparent to match debug mode
+        rect_dsc.border_color = material_color;
+        rect_dsc.border_opa = opacity;
+        rect_dsc.border_width = 2;
+        rect_dsc.radius = 2;
 
-        // Material-specific border and corner effects
-        switch (material_type_) {
-            case MaterialType::DIRT:
-                // Rough, earthy appearance
-                rect_dsc.border_color = lv_color_hex(0x654321); // Darker brown border
-                rect_dsc.border_opa = static_cast<lv_opa_t>(opacity * 0.6);
-                rect_dsc.border_width = 1;
-                rect_dsc.radius = 0; // Sharp corners for granular look
-                break;
+        // Draw full cell area
+        lv_area_t coords = {
+            0, 0, static_cast<int32_t>(Cell::WIDTH - 1), static_cast<int32_t>(Cell::HEIGHT - 1)
+        };
 
-            case MaterialType::WATER:
-                // Smooth, flowing appearance
-                rect_dsc.border_color = lv_color_hex(0x0066CC); // Darker blue border
-                rect_dsc.border_opa = static_cast<lv_opa_t>(opacity * 0.4);
-                rect_dsc.border_width = 1;
-                rect_dsc.radius = 3; // Rounded for fluid look
-                break;
-
-            case MaterialType::WOOD:
-                // Organic, fibrous appearance
-                rect_dsc.border_color = lv_color_hex(0x8B4513); // Wood grain color
-                rect_dsc.border_opa = static_cast<lv_opa_t>(opacity * 0.7);
-                rect_dsc.border_width = 2;
-                rect_dsc.radius = 1; // Slight rounding
-                break;
-
-            case MaterialType::SAND:
-                // Granular, loose appearance
-                rect_dsc.border_color = lv_color_hex(0xCD853F); // Peru color border
-                rect_dsc.border_opa = static_cast<lv_opa_t>(opacity * 0.5);
-                rect_dsc.border_width = 1;
-                rect_dsc.radius = 0; // Sharp for granular effect
-                break;
-
-            case MaterialType::METAL:
-                // Solid, reflective appearance
-                rect_dsc.border_color = lv_color_hex(0x708090); // Slate gray border
-                rect_dsc.border_opa = opacity;                  // Full opacity for metallic edge
-                rect_dsc.border_width = 2;
-                rect_dsc.radius = 0; // Sharp, industrial look
-                break;
-
-            case MaterialType::LEAF:
-                // Organic, natural appearance
-                rect_dsc.border_color = lv_color_hex(0x228B22); // Forest green border
-                rect_dsc.border_opa = static_cast<lv_opa_t>(opacity * 0.6);
-                rect_dsc.border_width = 1;
-                rect_dsc.radius = 2; // Rounded for organic feel
-                break;
-
-            case MaterialType::WALL:
-                // Solid, structural appearance
-                rect_dsc.border_color = lv_color_hex(0x2F2F2F); // Very dark gray border
-                rect_dsc.border_opa = opacity;
-                rect_dsc.border_width = 3; // Thick border for solid appearance
-                rect_dsc.radius = 0;       // Sharp, architectural look
-                break;
-
-            default:
-                // Default styling
-                rect_dsc.border_color = material_color;
-                rect_dsc.border_opa = static_cast<lv_opa_t>(opacity * 0.3);
-                rect_dsc.border_width = 1;
-                rect_dsc.radius = 1;
-                break;
-        }
-
-        lv_draw_rect(&layer, &rect_dsc, &material_coords);
-
-        // Add material-specific texture effects for enhanced visual distinction
-        switch (material_type_) {
-            case MaterialType::METAL:
-                // Add metallic shine effect - small bright spot
-                if (fill_ratio_ > 0.5) {
-                    lv_draw_rect_dsc_t shine_dsc;
-                    lv_draw_rect_dsc_init(&shine_dsc);
-                    shine_dsc.bg_color = lv_color_hex(0xFFFFFF); // White shine
-                    shine_dsc.bg_opa = static_cast<lv_opa_t>(opacity * 0.3);
-                    shine_dsc.border_width = 0;
-                    shine_dsc.radius = 2;
-
-                    lv_area_t shine_coords = {
-                        material_coords.x1 + 2,
-                        material_coords.y1 + 2,
-                        material_coords.x1 + static_cast<int32_t>(Cell::WIDTH / 3),
-                        material_coords.y1 + static_cast<int32_t>(Cell::HEIGHT / 3)
-                    };
-                    lv_draw_rect(&layer, &shine_dsc, &shine_coords);
-                }
-                break;
-
-            case MaterialType::WATER:
-                // Add subtle transparency gradient for water fluidity
-                if (fill_ratio_ > 0.3) {
-                    lv_draw_rect_dsc_t water_overlay_dsc;
-                    lv_draw_rect_dsc_init(&water_overlay_dsc);
-                    water_overlay_dsc.bg_color = lv_color_hex(0x87CEEB); // Sky blue overlay
-                    water_overlay_dsc.bg_opa = static_cast<lv_opa_t>(opacity * 0.2);
-                    water_overlay_dsc.border_width = 0;
-                    water_overlay_dsc.radius = 3;
-
-                    lv_area_t overlay_coords = { material_coords.x1 + 1,
-                                                 material_coords.y1 + 1,
-                                                 material_coords.x2 - 1,
-                                                 material_coords.y2 - 1 };
-                    lv_draw_rect(&layer, &water_overlay_dsc, &overlay_coords);
-                }
-                break;
-
-            case MaterialType::SAND:
-                // Add granular texture dots for sand
-                if (fill_ratio_ > 0.4) {
-                    lv_draw_rect_dsc_t grain_dsc;
-                    lv_draw_rect_dsc_init(&grain_dsc);
-                    grain_dsc.bg_color = lv_color_hex(0xDEB887); // Burlywood dots
-                    grain_dsc.bg_opa = static_cast<lv_opa_t>(opacity * 0.4);
-                    grain_dsc.border_width = 0;
-                    grain_dsc.radius = 0;
-
-                    // Add small rectangular "grains"
-                    for (int i = 2; i < static_cast<int>(Cell::WIDTH) - 2; i += 4) {
-                        for (int j = 2; j < static_cast<int>(Cell::HEIGHT) - 2; j += 4) {
-                            lv_area_t grain_coords = { material_coords.x1 + i,
-                                                       material_coords.y1 + j,
-                                                       material_coords.x1 + i + 1,
-                                                       material_coords.y1 + j + 1 };
-                            lv_draw_rect(&layer, &grain_dsc, &grain_coords);
-                        }
-                    }
-                }
-                break;
-
-            default:
-                // No additional texture for other materials
-                break;
-        }
+        lv_draw_rect(&layer, &rect_dsc, &coords);
     }
+    // Empty cells remain transparent - no rendering needed
 
     lv_canvas_finish_layer(canvas_, &layer);
 }
@@ -835,7 +685,7 @@ void CellB::drawDebug(lv_obj_t* parent, uint32_t x, uint32_t y)
     bg_rect_dsc.bg_opa = LV_OPA_COVER;
     bg_rect_dsc.border_width = 0;
     lv_area_t coords = {
-        0, 0, static_cast<int32_t>(Cell::WIDTH), static_cast<int32_t>(Cell::HEIGHT)
+        0, 0, static_cast<int32_t>(Cell::WIDTH - 1), static_cast<int32_t>(Cell::HEIGHT - 1)
     };
     lv_draw_rect(&layer, &bg_rect_dsc, &coords);
 

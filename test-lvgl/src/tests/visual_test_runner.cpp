@@ -586,6 +586,29 @@ void VisualTestBase::logInitialTestState(const WorldInterface* world, const std:
     }
 }
 
+void VisualTestBase::logWorldState(const WorldB* world, const std::string& context) {
+    if (!world) return;
+    
+    spdlog::debug("=== World State: {} ===", context);
+    double totalMass = 0.0;
+    
+    for (uint32_t y = 0; y < world->getHeight(); y++) {
+        for (uint32_t x = 0; x < world->getWidth(); x++) {
+            const CellB& cell = world->at(x, y);
+            if (cell.getFillRatio() > 0.001) {  // Only log cells with meaningful mass
+                spdlog::debug("  Cell({},{}) - Material: {}, Fill: {:.6f}, Velocity: ({:.3f},{:.3f}), COM: ({:.3f},{:.3f})",
+                             x, y, 
+                             getMaterialName(cell.getMaterialType()),
+                             cell.getFillRatio(),
+                             cell.getVelocity().x, cell.getVelocity().y,
+                             cell.getCOM().x, cell.getCOM().y);
+                totalMass += cell.getFillRatio();
+            }
+        }
+    }
+    spdlog::debug("  Total mass in world: {:.6f}", totalMass);
+}
+
 // Enhanced visual test helpers implementation
 void VisualTestBase::updateDisplay(WorldInterface* world, const std::string& status) {
     if (!visual_mode_ || !world) return;

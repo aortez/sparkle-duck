@@ -122,8 +122,34 @@ void WorldB::advanceTime(double deltaTimeSeconds)
         // Process queued material moves - this detects NEW blocked transfers
         processMaterialMoves();
 
-        // Pressure processing is now handled inside applyPressure
-        applyPressure(scaledDeltaTime);
+        // Calculate hydrostatic pressure if enabled
+        if (hydrostatic_pressure_enabled_) {
+            pressure_calculator_.calculateHydrostaticPressure();
+        }
+
+        // Process dynamic pressure if enabled
+        if (dynamic_pressure_enabled_) {
+            // Process any blocked transfers that were queued during processMaterialMoves
+            pressure_calculator_.processBlockedTransfers();
+
+            // Calculate pressure-driven material flows
+            auto pressure_moves = pressure_calculator_.calculatePressureFlow(scaledDeltaTime);
+
+            // Add pressure-driven moves to pending moves
+            if (!pressure_moves.empty()) {
+                spdlog::info(
+                    "Adding {} pressure-driven material transfers to pending moves",
+                    pressure_moves.size());
+                pending_moves_.insert(
+                    pending_moves_.end(), pressure_moves.begin(), pressure_moves.end());
+
+                // Process these moves immediately since we're already in the pressure phase
+                processMaterialMoves();
+            }
+
+            // Apply pressure forces to velocities and handle decay
+            pressure_calculator_.applyPressureForces(scaledDeltaTime);
+        }
 
         timestep_++;
     }
@@ -843,7 +869,7 @@ void WorldB::updateTransfers(double deltaTime)
     timers_.stopTimer("update_transfers");
 }
 
-std::vector<WorldB::MaterialMove> WorldB::computeMaterialMoves(double deltaTime)
+std::vector<MaterialMove> WorldB::computeMaterialMoves(double deltaTime)
 {
     std::vector<MaterialMove> moves;
 
@@ -1061,72 +1087,6 @@ void WorldB::processMaterialMoves()
 
     pending_moves_.clear();
     timers_.stopTimer("process_moves");
-}
-
-void WorldB::applyPressure(double deltaTime)
-{
-    if (!dynamic_pressure_enabled_) {
-        return;
-    }
-
-    // Apply pressure forces - pressure is dissipated when converted to velocity
-    const double PRESSURE_FORCE_SCALE = 1.0;   // Tune this
-    const double BACKGROUND_DECAY_RATE = 0.02; // 2% per timestep for unused pressure
-
-    for (uint32_t y = 0; y < height_; y++) {
-        for (uint32_t x = 0; x < width_; x++) {
-            CellB& cell = at(x, y);
-            double pressure = cell.getDynamicPressure();
-
-            if (pressure > 0.001) {
-                // Calculate pressure force
-                Vector2d pressure_force =
-                    cell.getPressureGradient() * pressure * PRESSURE_FORCE_SCALE * deltaTime;
-
-                if (pressure_force.magnitude() > 0.001) {
-                    // Cache pressure state for debug visualization before clearing
-                    cell.setDebugPressure(pressure, cell.getPressureVector());
-
-                    // Apply pressure force to velocity
-                    cell.setVelocity(cell.getVelocity() + pressure_force);
-
-                    // Dissipate the pressure that was converted to velocity
-                    // Pressure is fully consumed when applied as force
-                    cell.setDynamicPressure(0.0);
-
-                    spdlog::trace(
-                        "Cell ({},{}) pressure dissipated: {:.3f} -> 0.0, force applied: "
-                        "({:.3f},{:.3f})",
-                        x,
-                        y,
-                        pressure,
-                        pressure_force.x,
-                        pressure_force.y);
-                }
-                else {
-                    // No significant force direction - just apply background decay
-                    double new_pressure = pressure * (1.0 - BACKGROUND_DECAY_RATE * deltaTime);
-                    cell.setDynamicPressure(new_pressure);
-
-                    spdlog::trace(
-                        "Cell ({},{}) pressure decay: {:.3f} -> {:.3f} (no force direction)",
-                        x,
-                        y,
-                        pressure,
-                        new_pressure);
-                }
-            }
-
-            // Decay debug visualization cache
-            if (cell.getDebugPressureMagnitude() > 0.001f) {
-                cell.setDebugPressure(
-                    cell.getDebugPressureMagnitude() * 0.9f, cell.getPressureVector());
-                if (cell.getDebugPressureMagnitude() < 0.001f) {
-                    cell.setDebugPressure(0.0f, Vector2d(0.0, 0.0));
-                }
-            }
-        }
-    }
 }
 
 void WorldB::setupBoundaryWalls()
@@ -1386,6 +1346,49 @@ bool WorldB::areWallsEnabled() const
     return configSetup ? configSetup->areWallsEnabled() : true;
 }
 
+std::string WorldB::settingsToString() const
+{
+    std::stringstream ss;
+    ss << "=== WorldB (RulesB) Settings ===\n";
+    ss << "Grid size: " << width_ << "x" << height_ << "\n";
+    ss << "Gravity: " << gravity_ << "\n";
+    ss << "Pressure system: ";
+    switch (pressure_system_) {
+        case PressureSystem::Original:
+            ss << "Original";
+            break;
+        case PressureSystem::TopDown:
+            ss << "TopDown";
+            break;
+        case PressureSystem::IterativeSettling:
+            ss << "IterativeSettling";
+            break;
+    }
+    ss << "\n";
+    ss << "Hydrostatic pressure enabled: " << (hydrostatic_pressure_enabled_ ? "true" : "false")
+       << "\n";
+    ss << "Dynamic pressure enabled: " << (dynamic_pressure_enabled_ ? "true" : "false") << "\n";
+    ss << "Pressure scale: " << pressure_scale_ << "\n";
+    ss << "Elasticity factor: " << elasticity_factor_ << "\n";
+    ss << "Add particles enabled: " << (add_particles_enabled_ ? "true" : "false") << "\n";
+    ss << "Walls enabled: " << (areWallsEnabled() ? "true" : "false") << "\n";
+    ss << "Rain rate: " << getRainRate() << "\n";
+    ss << "Left throw enabled: " << (isLeftThrowEnabled() ? "true" : "false") << "\n";
+    ss << "Right throw enabled: " << (isRightThrowEnabled() ? "true" : "false") << "\n";
+    ss << "Lower right quadrant enabled: " << (isLowerRightQuadrantEnabled() ? "true" : "false")
+       << "\n";
+    ss << "Cursor force enabled: " << (cursor_force_enabled_ ? "true" : "false") << "\n";
+    ss << "Cohesion COM force enabled: " << (isCohesionComForceEnabled() ? "true" : "false")
+       << "\n";
+    ss << "Cohesion bind force enabled: " << (isCohesionBindForceEnabled() ? "true" : "false")
+       << "\n";
+    ss << "Adhesion enabled: " << (adhesion_enabled_ ? "true" : "false") << "\n";
+    ss << "Air resistance enabled: " << (air_resistance_enabled_ ? "true" : "false") << "\n";
+    ss << "Air resistance strength: " << air_resistance_strength_ << "\n";
+    ss << "Material removal threshold: " << MIN_MATTER_THRESHOLD << "\n";
+    return ss.str();
+}
+
 // World type management implementation
 WorldType WorldB::getWorldType() const
 {
@@ -1525,7 +1528,7 @@ std::vector<Vector2i> WorldB::getAllBoundaryCrossings(const Vector2d& newCOM)
     return crossings;
 }
 
-WorldB::MaterialMove WorldB::createCollisionAwareMove(
+MaterialMove WorldB::createCollisionAwareMove(
     const CellB& fromCell,
     const CellB& toCell,
     const Vector2i& fromPos,
@@ -1614,7 +1617,7 @@ WorldB::MaterialMove WorldB::createCollisionAwareMove(
     return move;
 }
 
-WorldB::CollisionType WorldB::determineCollisionType(
+CollisionType WorldB::determineCollisionType(
     MaterialType from, MaterialType to, double collision_energy)
 {
     // Get material properties for both materials

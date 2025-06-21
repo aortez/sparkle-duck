@@ -148,7 +148,12 @@ Uses GoogleTest with custom visual test framework supporting both physics system
 - **Vector2d_test.cpp**: 2D mathematics validation
 - **UI component tests**: SimulatorUI functionality
 
+### Notes
 Visual tests can display simulation while running when `SPARKLE_DUCK_VISUAL_TESTS=1` is enabled.
+
+Always rebuild test binaries after modifying code - running outdated test executables will show old behavior and error messages that don't match the current source.
+
+  Example: make -C build sparkle-duck-tests -j12 && ./build/bin/sparkle-duck-tests --gtest_filter=MyTest
 
 ## Development Environment
 
@@ -204,7 +209,7 @@ Can be found here:
 ## Project Directory Structure
 
   test-lvgl/
-  ├── src/                                    # Main source code
+  ├── src/
   │   ├── main.cpp                           # Application entry point
   │   ├── Cell.{cpp,h}                       # RulesA cell implementation
   │   ├── CellB.{cpp,h}                      # RulesB cell implementation
@@ -224,6 +229,7 @@ Can be found here:
   │   ├── WorldDiagramGenerator.{cpp,h}      # ASCII visualization
   │   ├── WorldInterpolationTool.{cpp,h}     # World data interpolation
   │   ├── WorldBCohesionCalculator.{cpp,h}   # Cohesion physics for WorldB
+  │   ├── WorldBPressureCalculator.{cpp,h}   # WorldB Pressure calculator
   │   ├── WorldBSupportCalculator.{cpp,h}    # Support calculations for WorldB
   │   ├── CrashDumpHandler.{cpp,h}           # Debug crash handling
   │   ├── Timers.{cpp,h}                     # Performance timing
@@ -241,10 +247,10 @@ Can be found here:
   │   │       ├── x11.cpp                    # X11 backend
   │   │       ├── sdl.cpp                    # SDL backend
   │   │       └── fbdev.cpp                  # Linux framebuffer backend
-  │   └── tests/                             # Testing framework (all tests)
+  │   └── tests/                             # Testing framework
   │       ├── TestUI.{cpp,h}                 # Testing interface
   │       ├── visual_test_runner.{cpp,h}     # Visual test framework
-    │       ├── Vector2d_test.{cpp,h}          # Vector math tests
+  │       ├── Vector2d_test.{cpp,h}          # Vector math tests
   │       ├── Vector2i_test.cpp              # Integer vector tests
   │       ├── WorldVisual_test.cpp           # RulesA physics tests
   │       ├── WorldBVisual_test.cpp          # RulesB physics tests

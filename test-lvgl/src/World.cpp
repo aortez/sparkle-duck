@@ -2136,6 +2136,42 @@ void World::restoreWorldState(const WorldState& state)
     }
 }
 
+std::string World::settingsToString() const
+{
+    std::stringstream ss;
+    ss << "=== World (RulesA) Settings ===\n";
+    ss << "Grid size: " << width << "x" << height << "\n";
+    ss << "Gravity: " << gravity << "\n";
+    ss << "Pressure system: ";
+    switch (pressureSystem) {
+        case PressureSystem::Original:
+            ss << "Original";
+            break;
+        case PressureSystem::TopDown:
+            ss << "TopDown";
+            break;
+        case PressureSystem::IterativeSettling:
+            ss << "IterativeSettling";
+            break;
+    }
+    ss << "\n";
+    ss << "Pressure scale: " << pressureScale << "\n";
+    ss << "Water pressure threshold: " << waterPressureThreshold << "\n";
+    ss << "Elasticity factor: " << ELASTICITY_FACTOR << "\n";
+    ss << "Dirt fragmentation factor: " << DIRT_FRAGMENTATION_FACTOR << "\n";
+    ss << "Add particles enabled: " << (addParticlesEnabled ? "true" : "false") << "\n";
+    ss << "Walls enabled: " << (areWallsEnabled() ? "true" : "false") << "\n";
+    ss << "Rain rate: " << getRainRate() << "\n";
+    ss << "Left throw enabled: " << (isLeftThrowEnabled() ? "true" : "false") << "\n";
+    ss << "Right throw enabled: " << (isRightThrowEnabled() ? "true" : "false") << "\n";
+    ss << "Lower right quadrant enabled: " << (isLowerRightQuadrantEnabled() ? "true" : "false")
+       << "\n";
+    ss << "Cursor force enabled: " << (cursorForceEnabled ? "true" : "false") << "\n";
+    ss << "Timescale: " << timescale << "\n";
+    ss << "Min matter threshold: " << MIN_MATTER_THRESHOLD << "\n";
+    return ss.str();
+}
+
 // World type management implementation
 WorldType World::getWorldType() const
 {

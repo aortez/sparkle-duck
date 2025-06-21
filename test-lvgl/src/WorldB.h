@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CellB.h"
+#include "MaterialMove.h"
 #include "MaterialType.h"
 #include "Timers.h"
 #include "Vector2i.h"
@@ -34,38 +35,6 @@ public:
         double force_magnitude;       // Strength of adhesive force
         MaterialType target_material; // Strongest interacting material
         uint32_t contact_points;      // Number of contact interfaces
-    };
-
-    // Enhanced material transfer system with collision physics
-    enum class CollisionType {
-        TRANSFER_ONLY,       // Material moves between cells (current behavior)
-        ELASTIC_REFLECTION,  // Bouncing with energy conservation
-        INELASTIC_COLLISION, // Bouncing with energy loss
-        FRAGMENTATION,       // Break apart into smaller pieces
-        ABSORPTION           // One material absorbs the other
-    };
-
-    struct MaterialMove {
-        int fromX, fromY;
-        int toX, toY;
-        double amount;
-        MaterialType material;
-        Vector2d momentum;
-        Vector2d boundary_normal; // Direction of boundary crossing for physics
-
-        // NEW: Collision-specific data
-        CollisionType collision_type = CollisionType::TRANSFER_ONLY;
-        double collision_energy = 0.0;        // Calculated impact energy
-        double restitution_coefficient = 0.0; // Material-specific bounce factor
-        double material_mass = 0.0;           // Mass of moving material
-        double target_mass = 0.0;             // Mass of target material (if any)
-
-        // NEW: COM cohesion force data
-        double com_cohesion_magnitude = 0.0;         // Strength of COM cohesion force
-        Vector2d com_cohesion_direction{ 0.0, 0.0 }; // Direction of COM cohesion force
-
-        // NEW: Pressure from excess material that can't transfer
-        double pressure_from_excess = 0.0; // Pressure to add to source cell
     };
 
     WorldB(uint32_t width, uint32_t height, lv_obj_t* draw_area);
@@ -266,6 +235,7 @@ public:
     // WORLDINTERFACE IMPLEMENTATION - PERFORMANCE AND DEBUGGING
     void dumpTimerStats() const override { timers_.dumpTimerStats(); }
     void markUserInput() override { /* no-op for now */ }
+    std::string settingsToString() const override;
 
     // WORLDINTERFACE IMPLEMENTATION - WORLD TYPE MANAGEMENT
     WorldType getWorldType() const override;
@@ -361,7 +331,6 @@ private:
     void applyCohesionForces(double deltaTime);
     void resolveForces(double deltaTime); // Apply accumulated forces based on resistance
     void updateTransfers(double deltaTime);
-    void applyPressure(double deltaTime);
     void processVelocityLimiting(double deltaTime);
 
     // Material transfer system

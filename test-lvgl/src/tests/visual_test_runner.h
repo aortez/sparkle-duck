@@ -164,6 +164,9 @@ protected:
     void logInitialTestState(const World* world, const std::string& test_description = "");
     void logInitialTestState(const WorldInterface* world, const std::string& test_description = "");
     
+    // Log current world state including material positions, velocities, and total mass
+    void logWorldState(const WorldB* world, const std::string& context = "");
+    
     // Test state
     bool visual_mode_ = false;
     std::unique_ptr<TestUI> ui_;

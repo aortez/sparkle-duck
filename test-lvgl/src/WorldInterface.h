@@ -321,6 +321,9 @@ public:
     // Mark that user input has occurred (for state saving triggers)
     virtual void markUserInput() = 0;
 
+    // Get a string representation of all world settings
+    virtual std::string settingsToString() const = 0;
+
     // =================================================================
     // EMOJI VISUALIZATION
     // =================================================================

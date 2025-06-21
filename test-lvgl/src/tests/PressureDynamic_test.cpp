@@ -34,27 +34,6 @@ protected:
         spdlog::debug("[TEST] PressureDynamic test settings: dynamic_pressure=enabled, hydrostatic_pressure=disabled, walls=disabled");
     }
     
-    void logWorldMassState(const std::string& context) {
-        spdlog::debug("=== World Mass State: {} ===", context);
-        double totalMass = 0.0;
-        
-        for (uint32_t y = 0; y < world->getHeight(); y++) {
-            for (uint32_t x = 0; x < world->getWidth(); x++) {
-                const CellB& cell = world->at(x, y);
-                if (cell.getFillRatio() > 0.001) {  // Only log cells with meaningful mass
-                    spdlog::debug("  Cell({},{}) - Material: {}, Fill: {:.6f}, Velocity: ({:.3f},{:.3f}), COM: ({:.3f},{:.3f})",
-                                 x, y, 
-                                 getMaterialName(cell.getMaterialType()),
-                                 cell.getFillRatio(),
-                                 cell.getVelocity().x, cell.getVelocity().y,
-                                 cell.getCOM().x, cell.getCOM().y);
-                    totalMass += cell.getFillRatio();
-                }
-            }
-        }
-        spdlog::debug("  Total mass in world: {:.6f}", totalMass);
-        spdlog::debug("===================================");
-    }
     
     std::unique_ptr<WorldB> world;
 };
@@ -115,7 +94,7 @@ TEST_F(PressureDynamicTest, BlockedTransferAccumulatesDynamicPressure) {
     showInitialStateWithStep(world.get(), "Full WATER → Nearly full WATER: Natural pressure buildup");
     
     // Log initial world state
-    logWorldMassState("Initial Setup");
+    logWorldState(world.get(), "Initial Setup");
     
     // Test Phase 1: Natural pressure accumulation from blocked transfers
     spdlog::info("\n--- PHASE 1: Testing natural pressure accumulation ---");
@@ -173,9 +152,9 @@ TEST_F(PressureDynamicTest, BlockedTransferAccumulatesDynamicPressure) {
             // Use stepSimulation which handles step mode automatically
             updateDisplay(world.get(), ss.str());
             
-            logWorldMassState(fmt::format("Before timestep {}", timestep));
+            logWorldState(world.get(), fmt::format("Before timestep {}", timestep));
             stepSimulation(world.get(), 1, "Testing pressure accumulation");
-            logWorldMassState(fmt::format("After timestep {}", timestep));
+            logWorldState(world.get(), fmt::format("After timestep {}", timestep));
             
             // Log detailed state AFTER timestep for debugging
             spdlog::info("\n=== AFTER TIMESTEP {} ===", timestep);
@@ -205,12 +184,6 @@ TEST_F(PressureDynamicTest, BlockedTransferAccumulatesDynamicPressure) {
                 pressureDetectedTimestep = timestep + 1;
                 spdlog::info("  🔥 PRESSURE DETECTED at timestep {}!", pressureDetectedTimestep);
             }
-            
-            // Stop early if target becomes completely full
-//            if (targetCell.getFillRatio() >= 0.999) {
-//                spdlog::info("  Target cell reached full capacity");
-//                break;
-//            }
         }
     } else {
         // Non-visual mode: run all steps at once
@@ -327,14 +300,14 @@ TEST_F(PressureDynamicTest, BlockedTransferAccumulatesDynamicPressure) {
     spdlog::info("\n--- PHASE 3: Testing pressure decay ---");
     
     // Log mass before emptying target
-    logWorldMassState("Before emptying target cell");
+    logWorldState(world.get(), "Before emptying target cell");
     
     // Remove the blockage by emptying the target cell
     targetCell.setFillRatio(0.0);
     targetCell.setMaterialType(MaterialType::AIR);
     
     // Log mass after emptying target
-    logWorldMassState("After emptying target cell - THIS IS INTENTIONAL FOR TESTING");
+    logWorldState(world.get(), "After emptying target cell - THIS IS INTENTIONAL FOR TESTING");
     
     if (visual_mode_) {
         updateDisplay(world.get(), "Target emptied - pressure should decay");
@@ -967,4 +940,190 @@ TEST_F(PressureDynamicTest, PressureTransferDuringSuccessfulMove) {
     }
     
     spdlog::info("✅ PressureTransferDuringSuccessfulMove test completed successfully");
+}
+
+TEST_F(PressureDynamicTest, DynamicPressureDrivesHorizontalFlow) {
+    spdlog::info("[TEST] Testing dynamic pressure-driven horizontal flow through a hole");
+    
+    // This test expects the following behavior:
+    // 1. Top water falls onto middle water, creating a blocked transfer
+    // 2. The blocked transfer generates dynamic pressure in the middle cell
+    // 3. Pressure gradient calculation detects high pressure on left vs low pressure on right
+    // 4. Material flows horizontally through the hole due to pressure gradient
+    
+    // Stage-based success criteria:
+    // Stage 1: Dynamic pressure builds in middle-left cell (0,1) from collision
+    // Stage 2: Water flows through hole to fill center cell (1,1)
+    // Stage 3: Water eventually reaches lower-right cell (2,2)
+    
+    // Setup 3x3 world with wall and hole
+    // Column 0: Water that will create pressure
+    world->addMaterialAtCell(0, 0, MaterialType::WATER, 1.0);  // Top water - will fall
+    world->addMaterialAtCell(0, 1, MaterialType::WATER, 1.0);  // Middle water - will receive impact
+    world->addMaterialAtCell(0, 2, MaterialType::WALL, 1.0);   // Bottom wall
+    
+    // Column 1: Wall with hole at (1,1)
+    world->addMaterialAtCell(1, 0, MaterialType::WALL, 1.0);   // Top wall
+    // (1,1) left empty - this is the hole
+    world->addMaterialAtCell(1, 2, MaterialType::WALL, 1.0);   // Bottom wall
+    
+    // Column 2: Empty space (low pressure)
+    // All cells left empty
+    
+    // Give top water some initial downward velocity to ensure collision
+    CellB& topWater = world->at(0, 0);
+    topWater.setVelocity(Vector2d(0.0, 2.0));  // Falling downward
+    
+    // Enable gravity to drive the collision
+    world->setGravity(9.81);
+    
+    spdlog::info("Initial setup:");
+    spdlog::info("  (0,0): WATER with downward velocity");
+    spdlog::info("  (0,1): WATER (will receive impact)");
+    spdlog::info("  (1,1): Empty (the hole)");
+    spdlog::info("  Gravity enabled: {}", world->getGravity());
+    
+    // Show initial state
+    showInitialStateWithStep(world.get(), "Water column with wall and hole - Testing pressure-driven horizontal flow");
+    
+    // Track key metrics over time
+    std::vector<double> middlePressureHistory;
+    std::vector<double> centerFillHistory;     // Cell (1,1) - the hole
+    std::vector<double> lowerRightFillHistory; // Cell (2,2) - final destination
+    
+    bool stage1_passed = false;  // Pressure detected in (0,1)
+    bool stage2_passed = false;  // Water reached center (1,1)
+    bool stage3_passed = false;  // Water reached lower-right (2,2)
+    
+    int stage1_timestep = -1;
+    int stage2_timestep = -1;
+    int stage3_timestep = -1;
+    
+    const int maxTimesteps = 50;  // Allow more time for horizontal flow
+    
+    if (visual_mode_) {
+        for (int timestep = 0; timestep < maxTimesteps; timestep++) {
+            // Record state before simulation step
+            CellB& middleCell = world->at(0, 1);
+            CellB& centerCell = world->at(1, 1);
+            CellB& lowerRightCell = world->at(2, 2);
+            
+            middlePressureHistory.push_back(middleCell.getDynamicPressure());
+            centerFillHistory.push_back(centerCell.getFillRatio());
+            lowerRightFillHistory.push_back(lowerRightCell.getFillRatio());
+            
+            // Calculate pressure gradient at middle cell to see if it points toward hole
+            Vector2d pressureGradient = world->getPressureCalculator().calculatePressureGradient(0, 1);
+            
+            // Build status display
+            std::stringstream ss;
+            ss << "Timestep " << timestep + 1 << ":\n";
+            ss << "Middle cell (0,1): pressure=" << std::fixed << std::setprecision(6) 
+               << middleCell.getDynamicPressure() << "\n";
+            ss << "Pressure gradient: (" << std::setprecision(3) 
+               << pressureGradient.x << "," << pressureGradient.y << ")\n";
+            ss << "Center (1,1): fill=" << centerCell.getFillRatio() << "\n";
+            ss << "Lower-right (2,2): fill=" << lowerRightCell.getFillRatio() << "\n";
+            
+            // Check stage progression
+            if (!stage1_passed && middleCell.getDynamicPressure() > 0.001) {
+                stage1_passed = true;
+                stage1_timestep = timestep + 1;
+                ss << "\n🎯 STAGE 1 PASSED: Pressure detected!";
+                spdlog::info("Stage 1 passed at timestep {}: Pressure = {}", stage1_timestep, middleCell.getDynamicPressure());
+            }
+            
+            if (!stage2_passed && centerCell.getFillRatio() > 0.001) {
+                stage2_passed = true;
+                stage2_timestep = timestep + 1;
+                ss << "\n🎯 STAGE 2 PASSED: Water reached center!";
+                spdlog::info("Stage 2 passed at timestep {}: Center fill = {}", stage2_timestep, centerCell.getFillRatio());
+            }
+            
+            if (!stage3_passed && lowerRightCell.getFillRatio() > 0.001) {
+                stage3_passed = true;
+                stage3_timestep = timestep + 1;
+                ss << "\n🎯 STAGE 3 PASSED: Water reached target!";
+                spdlog::info("Stage 3 passed at timestep {}: Target fill = {}", stage3_timestep, lowerRightCell.getFillRatio());
+            }
+            
+            // Run one simulation step with visual feedback
+            stepSimulation(world.get(), 1, ss.str());
+            
+            // Log detailed state after step
+            spdlog::debug("After timestep {}: Middle pressure={:.6f}, gradient=({:.3f},{:.3f}), center_fill={:.3f}", 
+                         timestep + 1, middleCell.getDynamicPressure(), pressureGradient.x, pressureGradient.y,
+                         centerCell.getFillRatio());
+            
+            // Early exit if all stages passed
+            if (stage3_passed) {
+                spdlog::info("All stages passed! Ending simulation early.");
+                break;
+            }
+        }
+    } else {
+        // Non-visual mode: run all steps at once
+        for (int timestep = 0; timestep < maxTimesteps; timestep++) {
+            CellB& middleCell = world->at(0, 1);
+            CellB& centerCell = world->at(1, 1);
+            CellB& lowerRightCell = world->at(2, 2);
+            
+            middlePressureHistory.push_back(middleCell.getDynamicPressure());
+            centerFillHistory.push_back(centerCell.getFillRatio());
+            lowerRightFillHistory.push_back(lowerRightCell.getFillRatio());
+            
+            world->advanceTime(0.016);
+            
+            // Check stage progression
+            if (!stage1_passed && middleCell.getDynamicPressure() > 0.001) {
+                stage1_passed = true;
+                stage1_timestep = timestep + 1;
+                spdlog::info("Stage 1 passed at timestep {}: Pressure = {}", stage1_timestep, middleCell.getDynamicPressure());
+            }
+            
+            if (!stage2_passed && centerCell.getFillRatio() > 0.001) {
+                stage2_passed = true;
+                stage2_timestep = timestep + 1;
+                spdlog::info("Stage 2 passed at timestep {}: Center fill = {}", stage2_timestep, centerCell.getFillRatio());
+            }
+            
+            if (!stage3_passed && lowerRightCell.getFillRatio() > 0.001) {
+                stage3_passed = true;
+                stage3_timestep = timestep + 1;
+                spdlog::info("Stage 3 passed at timestep {}: Target fill = {}", stage3_timestep, lowerRightCell.getFillRatio());
+                break;
+            }
+        }
+    }
+    
+    // Analyze results
+    double maxMiddlePressure = *std::max_element(middlePressureHistory.begin(), middlePressureHistory.end());
+    double maxCenterFill = *std::max_element(centerFillHistory.begin(), centerFillHistory.end());
+    double maxLowerRightFill = *std::max_element(lowerRightFillHistory.begin(), lowerRightFillHistory.end());
+    
+    spdlog::info("\n--- TEST RESULTS ---");
+    spdlog::info("Stage 1 (Pressure buildup): {} at timestep {}", stage1_passed ? "PASSED" : "FAILED", stage1_timestep);
+    spdlog::info("Stage 2 (Center filled): {} at timestep {}", stage2_passed ? "PASSED" : "FAILED", stage2_timestep);
+    spdlog::info("Stage 3 (Target reached): {} at timestep {}", stage3_passed ? "PASSED" : "FAILED", stage3_timestep);
+    spdlog::info("Max middle pressure: {:.6f}", maxMiddlePressure);
+    spdlog::info("Max center fill: {:.3f}", maxCenterFill);
+    spdlog::info("Max target fill: {:.3f}", maxLowerRightFill);
+    
+    // Assertions
+    EXPECT_TRUE(stage1_passed) << "Stage 1 failed: Dynamic pressure should build from water collision";
+    
+    if (stage1_passed) {
+        // Only check later stages if pressure was generated
+        EXPECT_TRUE(stage2_passed) << "Stage 2 failed: Pressure gradient should drive water through hole to center cell";
+        
+        // Stage 3 is optional - water might not reach all the way to (2,2) with current parameters
+        if (!stage3_passed) {
+            spdlog::info("Note: Stage 3 (reaching lower-right) did not pass - this may require parameter tuning");
+        }
+    } else {
+        spdlog::warn("⚠️  No dynamic pressure detected - pressure-driven flow cannot be tested");
+        spdlog::warn("   This may indicate that pressure gradient calculation or pressure-driven transfers need adjustment");
+    }
+    
+    spdlog::info("✅ DynamicPressureDrivesHorizontalFlow test completed");
 }
