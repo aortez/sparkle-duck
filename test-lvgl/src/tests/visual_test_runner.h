@@ -14,6 +14,7 @@
 #include <functional>
 #include <vector>
 #include <future>
+#include <sstream>
 
 #include "../World.h"
 #include "../WorldB.h"
@@ -111,13 +112,14 @@ protected:
     // Enhanced start/step functionality
     enum class TestAction {
         START,  // User pressed Start - run continuously
-        STEP    // User pressed Step - run step by step
+        STEP,   // User pressed Step - run step by step
+        NEXT    // User pressed Next - skip to next test
     };
     TestAction waitForStartOrStep();  // Block until Start or Step button is pressed
     
     // Step-by-step simulation control for manual testing
     void stepSimulation(World* world, int steps = 1);  // Advance N simulation steps
-    void waitForStep();           // Block until Step button is pressed (visual mode only)
+    TestAction waitForStep();     // Block until Step, Start (continue), or Next is pressed
     
     // Enhanced visual test helpers
     void updateDisplay(WorldInterface* world, const std::string& status = "");  // Update display with optional status
@@ -167,6 +169,49 @@ protected:
     // Log current world state including material positions, velocities, and total mass
     void logWorldState(const WorldB* world, const std::string& context = "");
     
+    // New unified simulation loop that eliminates visual/non-visual duplication
+    // RecorderFunc should be a callable that takes an int timestep parameter
+    // Example usage:
+    //   runSimulationLoop(30, [&](int step) { 
+    //       pressureHistory.push_back(cell.getPressure());
+    //   }, "Testing pressure");
+    template<typename RecorderFunc>
+    void runSimulationLoop(int maxSteps, RecorderFunc recorder, 
+                          const std::string& description = "",
+                          std::function<bool()> earlyStopCondition = nullptr) {
+        for (int step = 0; step < maxSteps; ++step) {
+            // Let the recorder capture state/perform test logic
+            recorder(step);
+            
+            // Handle display and stepping based on mode
+            if (visual_mode_) {
+                // Build status display if description provided
+                if (!description.empty()) {
+                    std::stringstream ss;
+                    ss << description << " [Step " << (step + 1) << "/" << maxSteps << "]";
+                    updateDisplay(getWorldInterface(), ss.str());
+                }
+                
+                // Use existing step simulation which handles Step/Start modes
+                stepSimulation(getWorldInterface(), 1, description);
+            } else {
+                // Non-visual mode: just advance time
+                getWorldInterface()->advanceTime(0.016);
+            }
+            
+            // Check early stop condition if provided
+            if (earlyStopCondition && earlyStopCondition()) {
+                break;
+            }
+        }
+    }
+    
+    // Virtual method for derived tests to provide their world interface
+    // Tests using WorldB should override this to return world.get()
+    virtual WorldInterface* getWorldInterface() {
+        return nullptr; // Base implementation - tests must override
+    }
+
     // Test state
     bool visual_mode_ = false;
     std::unique_ptr<TestUI> ui_;

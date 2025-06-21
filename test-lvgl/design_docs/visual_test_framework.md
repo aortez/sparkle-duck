@@ -99,9 +99,61 @@ Thread synchronization is achieved through:
 
 ## Test Implementation Patterns
 
-### Visual vs Non-Visual Code Paths
+### Unified Simulation Loop (Recommended)
 
-Tests must handle both visual and non-visual execution modes:
+**NEW APPROACH**: Use `runSimulationLoop()` to eliminate code duplication between visual and non-visual modes:
+
+```cpp
+class MyTest : public VisualTestBase {
+    WorldInterface* getWorldInterface() override {
+        return world.get();  // Required for unified loop
+    }
+    std::unique_ptr<WorldB> world;
+};
+
+TEST_F(MyTest, ExampleTest) {
+    // Setup
+    world->addMaterialAtCell(1, 1, MaterialType::WATER, 1.0);
+    showInitialState(world.get(), "Water falling test");
+    
+    // State tracking variables
+    std::vector<double> velocities;
+    bool hitBottom = false;
+    
+    // Single loop for both modes - NO DUPLICATION
+    runSimulationLoop(30, [&](int step) {
+        // Test logic runs identically in both modes
+        auto& cell = world->at(1, 1);
+        velocities.push_back(cell.getVelocity().y);
+        
+        if (cell.getPosition().y > 8) {
+            hitBottom = true;
+        }
+        
+        // Optional: visual-only display
+        if (visual_mode_) {
+            updateDisplay(world.get(), "Step " + std::to_string(step));
+        }
+    },
+    "Testing water falling",           // Description for visual mode
+    [&]() { return hitBottom; }        // Optional early stop condition
+    );
+    
+    // Verify results
+    EXPECT_TRUE(hitBottom);
+}
+```
+
+**Benefits**:
+- Single test logic for both modes
+- Framework handles visual/non-visual differences
+- Lambda captures state variables cleanly
+
+**Reference**: See `src/tests/UnifiedSimLoopExample_test.cpp` for comprehensive examples and best practices.
+
+### Legacy Pattern (Avoid for New Tests)
+
+The old pattern required duplicated code paths:
 
 ```cpp
 if (visual_mode_) {
@@ -121,6 +173,11 @@ if (visual_mode_) {
     }
 }
 ```
+
+**Problems with legacy pattern**:
+- Code duplication between visual/non-visual branches
+- Maintenance burden when updating test logic
+- Risk of visual/non-visual modes testing different behavior
 
 ### Step Mode Support
 
@@ -143,7 +200,9 @@ waitForNext();
 
 ## Writing Visual Tests
 
-### Basic Test Structure
+### Modern Test Structure (Recommended)
+
+Using the unified simulation loop pattern:
 
 ```cpp
 class MyVisualTest : public VisualTestBase {
@@ -154,46 +213,89 @@ protected:
         
         // Apply test-specific settings
         world->setAirResistanceEnabled(false);
-        world->setup();
+        world->setGravity(9.81);
     }
     
-    std::unique_ptr<WorldInterface> world;
+    // Required for unified simulation loop
+    WorldInterface* getWorldInterface() override {
+        return world.get();
+    }
+    
+    std::unique_ptr<WorldB> world;
 };
 
 TEST_F(MyVisualTest, WaterFlowsDownhill) {
     // Setup initial conditions
     world->addMaterialAtCell(5, 1, MaterialType::WATER, 1.0);
     
-    // Show initial state with Step/Start support
+    // Show initial state
+    showInitialState(world.get(), "Water flows downhill test");
+    
+    // State tracking
+    std::vector<double> waterPositions;
+    bool reachedBottom = false;
+    
+    // Single loop handles both visual and non-visual modes
+    runSimulationLoop(20, [&](int step) {
+        // Find water cell (it moves as it falls)
+        for (uint32_t y = 0; y < world->getHeight(); y++) {
+            for (uint32_t x = 0; x < world->getWidth(); x++) {
+                auto& cell = world->at(x, y);
+                if (cell.getMaterialType() == MaterialType::WATER && 
+                    cell.getFillRatio() > 0.5) {
+                    waterPositions.push_back(y);
+                    
+                    if (y >= world->getHeight() - 2) {
+                        reachedBottom = true;
+                    }
+                    
+                    // Optional custom status for visual mode
+                    if (visual_mode_) {
+                        std::stringstream ss;
+                        ss << "Water at Y=" << y << ", velocity=" 
+                           << cell.getVelocity().y;
+                        updateDisplay(world.get(), ss.str());
+                    }
+                    return; // Found water, done for this step
+                }
+            }
+        }
+    },
+    "Observing water flow",        // Basic description
+    [&]() { return reachedBottom; } // Stop early when water reaches bottom
+    );
+    
+    // Verify results (works in both modes)
+    EXPECT_TRUE(reachedBottom) << "Water should reach bottom";
+    EXPECT_GT(waterPositions.size(), 5) << "Water should move multiple times";
+}
+```
+
+### Legacy Test Structure (For Reference Only)
+
+The old pattern with duplicated code:
+
+```cpp
+// DON'T USE THIS PATTERN FOR NEW TESTS
+TEST_F(MyVisualTest, LegacyPattern) {
+    world->addMaterialAtCell(5, 1, MaterialType::WATER, 1.0);
     showInitialStateWithStep(world.get(), "Water flows downhill test");
     
     const int maxSteps = 20;
     
     if (visual_mode_) {
-        // Visual mode with interactive controls
+        // Visual mode code...
         for (int step = 0; step < maxSteps; ++step) {
-            // Status message showing current state
-            std::stringstream ss;
-            ss << "Step " << step + 1 << " of " << maxSteps;
-            updateDisplay(world.get(), ss.str());
-            
-            // Use stepSimulation for proper Step button handling
+            // Duplicate logic here
+            updateDisplay(world.get(), "Step " + std::to_string(step));
             stepSimulation(world.get(), 1, "Observing water flow");
-            
-            // Check assertions
-            // ...
         }
-        
-        // Final summary
-        updateDisplay(world.get(), "Test complete: Water reached bottom");
         waitForNext();
-        
     } else {
-        // Non-visual mode runs without UI
+        // Non-visual mode code...
         for (int step = 0; step < maxSteps; ++step) {
+            // Same logic duplicated here
             world->advanceTime(0.016);
-            // Check assertions
-            // ...
         }
     }
 }
@@ -227,16 +329,30 @@ void runTest() override {
 
 ## Best Practices
 
-1. **Keep Tests Focused** - Each test should validate one specific behavior
-2. **Use Descriptive Names** - Test names should clearly indicate what's being tested
-3. **Provide Visual Context** - Add status messages explaining test progression
-4. **Enable Restart** - Allow repeated observation of interesting behaviors
-5. **Document Expected Results** - Comments should explain what correct behavior looks like
-6. **Minimize Test Duration** - Keep interactive tests short for better developer experience
-7. **Consider Composibility/Re-useability**
-8. **Separate Visual/Non-Visual Logic** - Use `if (visual_mode_)` to handle both execution modes
-9. **Use Framework Methods in Visual Mode** - Call `stepSimulation()` instead of `advanceTime()` when in visual mode
-10. **Provide Continuous Feedback** - Update status messages during long-running simulations
-11. **Support Step Mode** - Use `showInitialStateWithStep()` and `stepSimulation()` for full interactivity
+### Code Structure
+1. **Use runSimulationLoop()** - Eliminate visual/non-visual duplication with the unified loop pattern
+2. **Override getWorldInterface()** - Required for unified simulation loop to work
+3. **Capture State with Lambdas** - Use `[&]` to capture local variables by reference
+4. **Don't Call Physics Methods in Lambda** - Let the framework handle `advanceTime()` and `stepSimulation()`
+
+### Test Design
+5. **Keep Tests Focused** - Each test should validate one specific behavior
+6. **Use Descriptive Names** - Test names should clearly indicate what's being tested
+7. **Minimize Test Duration** - Keep interactive tests short for better developer experience
+8. **Document Expected Results** - Comments should explain what correct behavior looks like
+
+### Visual Interaction
+9. **Provide Visual Context** - Add status messages explaining test progression
+10. **Use Optional Visual Enhancements** - Add `if (visual_mode_)` only for extra visual feedback
+11. **Support Early Termination** - Use early stop conditions for "wait until X happens" tests
+12. **Enable Restart** - Allow repeated observation of interesting behaviors
+
+### Reference Implementation
+**See `src/tests/UnifiedSimLoopExample_test.cpp`** for comprehensive examples of:
+- Simple state tracking
+- Multi-cell relationships  
+- Stage-based progression
+- Performance measurement
+- Best practice patterns
 
 The visual test framework transforms physics validation from abstract assertions into observable phenomena, making it easier to develop, debug, and demonstrate the simulation's capabilities.

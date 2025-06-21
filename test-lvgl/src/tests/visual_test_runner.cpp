@@ -373,11 +373,11 @@ VisualTestBase::TestAction VisualTestBase::waitForStartOrStep() {
         } else {
             spdlog::info("[TEST] Step button pressed - entering step mode");
             
-            // Disable Start button and enable step mode
+            // Keep Start button enabled for switching to continuous mode
+            // Just enable step mode without disabling Start
             coordinator.postTaskSync([this] {
-                lv_obj_add_state(ui_->start_button_, LV_STATE_DISABLED);
                 ui_->setStepMode(true);
-                ui_->updateButtonStatus("Step mode active - press Step to advance");
+                ui_->updateButtonStatus("Step mode active - press Step to advance, Start to run continuously");
             });
             
             return TestAction::STEP;
@@ -452,28 +452,58 @@ void VisualTestBase::stepSimulation(World* world, int steps) {
     }
 }
 
-void VisualTestBase::waitForStep() {
+VisualTestBase::TestAction VisualTestBase::waitForStep() {
     if (visual_mode_ && ui_) {
-        spdlog::info("[TEST] Waiting for Step button press");
+        spdlog::info("[TEST] Waiting for Step, Start (continue), or Next button press");
         
         auto& coordinator = VisualTestCoordinator::getInstance();
-        // Reset step pressed flag and ensure button is enabled
+        // Reset button flags and ensure buttons are enabled
         coordinator.postTaskSync([this] {
             ui_->step_pressed_.store(false);
+            ui_->start_pressed_.store(false);
+            ui_->next_pressed_.store(false);
             ui_->enableStepButton();
+            ui_->enableStartButton();  // Keep Start enabled to allow running to completion
+            ui_->enableNextButton();   // Keep Next enabled to allow skipping
+            ui_->updateButtonStatus("Press Step to advance, Start to run continuously, or Next to skip");
         });
         
-        // Wait on the test thread (not LVGL thread) to avoid blocking events
-        while (!ui_->step_pressed_.load()) {
+        // Wait on the test thread for any button to be pressed
+        while (!ui_->step_pressed_.load() && 
+               !ui_->start_pressed_.load() && 
+               !ui_->next_pressed_.load()) {
             std::this_thread::sleep_for(std::chrono::milliseconds(50));
         }
         
-        spdlog::info("[TEST] Step button pressed!");
-        
-        // Note: Step button remains enabled for repeated stepping
-        // No need to disable it since user may want multiple steps
+        if (ui_->step_pressed_.load()) {
+            spdlog::info("[TEST] Step button pressed - continuing step mode");
+            return TestAction::STEP;
+        } else if (ui_->start_pressed_.load()) {
+            spdlog::info("[TEST] Start button pressed - switching to continuous mode");
+            
+            // Update UI to reflect continuous mode
+            coordinator.postTaskSync([this] {
+                ui_->setStepMode(false);  // Exit step mode
+                ui_->disableStepButton();
+                ui_->updateButtonStatus("Running continuously...");
+            });
+            
+            return TestAction::START;
+        } else {
+            spdlog::info("[TEST] Next button pressed - skipping test");
+            
+            // Disable buttons when skipping
+            coordinator.postTaskSync([this] {
+                ui_->disableStepButton();
+                ui_->disableNextButton();
+                ui_->updateButtonStatus("Skipping to next test...");
+            });
+            
+            return TestAction::NEXT;
+        }
     } else {
-        spdlog::info("[TEST] waitForStep() - non-visual mode, continuing immediately");
+        spdlog::info("[TEST] waitForStep() - non-visual mode, defaulting to STEP");
+        return TestAction::STEP;
     }
 }
 
@@ -720,7 +750,39 @@ void VisualTestBase::stepSimulation(WorldInterface* world, int steps, const std:
                     }
                 });
                 
-                waitForStep();
+                TestAction action = waitForStep();
+                
+                // Handle the action
+                if (action == TestAction::START) {
+                    // User wants to run continuously - exit step mode and run remaining steps
+                    spdlog::info("[TEST] Switching from step mode to continuous mode");
+                    
+                    // Run remaining steps continuously
+                    for (int j = i; j < steps; ++j) {
+                        world->advanceTime(0.016);
+                        
+                        std::string status = stepDescription.empty() ? 
+                            "Step " + std::to_string(j + 1) + "/" + std::to_string(steps) :
+                            stepDescription + " [" + std::to_string(j + 1) + "/" + std::to_string(steps) + "]";
+                        
+                        coordinator.postTaskSync([this, world, status] {
+                            world->draw();
+                            if (ui_) {
+                                ui_->updateButtonStatus(status);
+                            }
+                        });
+                        
+                        pauseIfVisual(100);
+                    }
+                    
+                    // Exit the outer loop since we've completed all steps
+                    break;
+                } else if (action == TestAction::NEXT) {
+                    // User wants to skip - exit immediately
+                    spdlog::info("[TEST] Skipping remaining steps");
+                    return;
+                }
+                // Otherwise action == TestAction::STEP, continue stepping
             }
             
             // Advance physics

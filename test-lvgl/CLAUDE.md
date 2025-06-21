@@ -148,6 +148,12 @@ Uses GoogleTest with custom visual test framework supporting both physics system
 - **Vector2d_test.cpp**: 2D mathematics validation
 - **UI component tests**: SimulatorUI functionality
 
+### Visual Test Framework
+The project uses a unified visual test framework:
+- Tests can be written in a generic way that allows them to run headless, or visually, allowing the user to run or step through the tests and see the results.
+- Design doc: visual_test_framework.md
+- **UnifiedSimLoopExample_test.cpp**: REFERENCE GUIDE: demonstrating best practices for writing tests with the new `runSimulationLoop()` pattern.
+
 ### Notes
 Visual tests can display simulation while running when `SPARKLE_DUCK_VISUAL_TESTS=1` is enabled.
 
@@ -353,12 +359,9 @@ Can be found here:
 - Look for opportunities to refactor.
 - It is ok to have public data members... make them private only if needed.
 
-## Conversation Guidelines
-
-Primary Objective: Engage in honest, insight-driven dialogue that advances understanding.
-
-### Success Metric
-
-The only currency that matters: Does this advance or halt productive thinking? If we're heading down an unproductive path, point it out directly.
+### Zen Mindset
 
 When you contemplate the problem to understand it, you find the solution you like best.
+
+###
+notify-send "<jobs done>"

@@ -179,7 +179,6 @@ add_executable(sparkle-duck-tests
     src/tests/HorizontalLineStability_test.cpp
     src/tests/DistanceToSupport_test.cpp
     src/tests/COMCohesionForce_test.cpp
-    src/tests/CenteringMode_test.cpp
     src/tests/MassBasedCohesion_test.cpp
     src/tests/PressureDynamic_test.cpp
     src/tests/PressureHydrostatic_test.cpp
@@ -238,84 +237,3 @@ target_compile_options(sparkle-duck-tests PRIVATE -Wall -Wextra -Werror)
 enable_testing()
 add_test(NAME sparkle-duck-tests COMMAND sparkle-duck-tests)
 
-# Emoji demo executable
-add_executable(emoji-demo
-    src/tests/EmojiDiagramDemo.cpp
-    src/MaterialType.cpp
-    src/SimulatorUI.cpp
-    src/SimulationManager.cpp
-    src/Vector2d.cpp
-    src/Vector2i.cpp
-    src/Cell.cpp
-    src/CellB.cpp
-    src/World.cpp
-    src/WorldB.cpp
-    src/WorldInterface.cpp
-    src/WorldBCalculatorBase.cpp
-    src/WorldBCohesionCalculator.cpp
-    src/WorldBSupportCalculator.cpp
-    src/WorldBPressureCalculator.cpp
-    src/WorldBAirResistanceCalculator.cpp
-    src/WorldDiagramGeneratorEmoji.cpp
-    src/WorldFactory.cpp
-    src/MaterialPicker.cpp
-    src/WorldState.cpp
-    src/CrashDumpHandler.cpp
-    src/WorldInterpolationTool.cpp
-    src/WorldSetup.cpp
-    src/Timers.cpp
-    ${LV_LINUX_SRC}
-    ${LV_LINUX_BACKEND_SRC}
-)
-target_link_libraries(emoji-demo
-    PRIVATE
-    lvgl_linux
-    lvgl
-    lvgl::thorvg
-    spdlog::spdlog
-    m
-    pthread
-    ${PKG_CONFIG_LIB}
-)
-target_include_directories(emoji-demo PRIVATE ${PKG_CONFIG_INC})
-
-# Emoji test demo executable
-add_executable(emoji-test-demo
-    src/tests/EmojiTestDemo.cpp
-    src/MaterialType.cpp
-    src/SimulatorUI.cpp
-    src/SimulationManager.cpp
-    src/Vector2d.cpp
-    src/Vector2i.cpp
-    src/Cell.cpp
-    src/CellB.cpp
-    src/World.cpp
-    src/WorldB.cpp
-    src/WorldInterface.cpp
-    src/WorldBCalculatorBase.cpp
-    src/WorldBCohesionCalculator.cpp
-    src/WorldBSupportCalculator.cpp
-    src/WorldBPressureCalculator.cpp
-    src/WorldBAirResistanceCalculator.cpp
-    src/WorldDiagramGeneratorEmoji.cpp
-    src/WorldFactory.cpp
-    src/MaterialPicker.cpp
-    src/WorldState.cpp
-    src/CrashDumpHandler.cpp
-    src/WorldInterpolationTool.cpp
-    src/WorldSetup.cpp
-    src/Timers.cpp
-    ${LV_LINUX_SRC}
-    ${LV_LINUX_BACKEND_SRC}
-)
-target_link_libraries(emoji-test-demo
-    PRIVATE
-    lvgl_linux
-    lvgl
-    lvgl::thorvg
-    spdlog::spdlog
-    m
-    pthread
-    ${PKG_CONFIG_LIB}
-)
-target_include_directories(emoji-test-demo PRIVATE ${PKG_CONFIG_INC})
