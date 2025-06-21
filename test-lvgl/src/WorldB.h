@@ -147,6 +147,21 @@ public:
     void setDynamicPressureEnabled(bool enabled) override { dynamic_pressure_enabled_ = enabled; }
     bool isDynamicPressureEnabled() const override { return dynamic_pressure_enabled_; }
 
+    void setHydrostaticPressureStrength(double strength) override
+    {
+        hydrostatic_pressure_strength_ = strength;
+    }
+    double getHydrostaticPressureStrength() const override
+    {
+        return hydrostatic_pressure_strength_;
+    }
+
+    void setDynamicPressureStrength(double strength) override
+    {
+        dynamic_pressure_strength_ = strength;
+    }
+    double getDynamicPressureStrength() const override { return dynamic_pressure_strength_; }
+
     // Pressure calculator access
     WorldBPressureCalculator& getPressureCalculator() { return pressure_calculator_; }
     const WorldBPressureCalculator& getPressureCalculator() const { return pressure_calculator_; }
@@ -411,6 +426,8 @@ private:
     // Dual pressure system controls
     bool hydrostatic_pressure_enabled_;
     bool dynamic_pressure_enabled_;
+    double hydrostatic_pressure_strength_;
+    double dynamic_pressure_strength_;
 
     // World setup controls
     bool add_particles_enabled_;

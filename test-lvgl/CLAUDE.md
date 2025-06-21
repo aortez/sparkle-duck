@@ -65,6 +65,9 @@ make test ARGS='--gtest_filter=WorldB*'
 
 # The test binary:
 ./build/bin/sparkle-duck-tests
+
+# The application saves a screenshot at exit, take a look!
+./build/bin/screenshot-last-exit.png
 ```
 
 ## Architecture
@@ -362,6 +365,3 @@ Can be found here:
 ### Zen Mindset
 
 When you contemplate the problem to understand it, you find the solution you like best.
-
-###
-notify-send "<jobs done>"

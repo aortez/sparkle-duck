@@ -239,6 +239,13 @@ public:
     void setDynamicPressureEnabled(bool /* enabled */) override { /* no-op */ }
     bool isDynamicPressureEnabled() const override { return false; }
 
+    // Dual pressure strength controls (no-op for World - only WorldB supports these)
+    void setHydrostaticPressureStrength(double /* strength */) override { /* no-op */ }
+    double getHydrostaticPressureStrength() const override { return 1.0; }
+
+    void setDynamicPressureStrength(double /* strength */) override { /* no-op */ }
+    double getDynamicPressureStrength() const override { return 1.0; }
+
     double timescale = 1.0;
 
     // Mark that user input has occurred (for triggering saves)

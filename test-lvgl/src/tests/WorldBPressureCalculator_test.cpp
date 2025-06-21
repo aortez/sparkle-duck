@@ -8,7 +8,7 @@ class WorldBPressureCalculatorTest : public ::testing::Test {
 protected:
     void SetUp() override {
         // Create a 6x6 world.
-        world = std::make_unique<WorldB>(6, 6);
+        world = std::make_unique<WorldB>(6, 6, nullptr);
         
         // Enable dynamic pressure for these tests
         world->setPressureSystem(WorldInterface::PressureSystem::TopDown);
@@ -24,25 +24,115 @@ protected:
     WorldBPressureCalculator* pressureCalc;
 };
 
-// 2. BlockedTransfer Structure Tests
-
-TEST_F(WorldBPressureCalculatorTest, DISABLED_EnergyCalculation) {
-    // Verify energy = velocity.magnitude() * transfer_amount
-    // Test with different velocities and amounts
-    
-    // TODO: Enable this test once implemented
-    FAIL() << "Test not yet implemented";
-}
-
 // 3. Processing Logic Tests
 
-TEST_F(WorldBPressureCalculatorTest, DISABLED_ProcessBlockedTransfers_IgnoresTransfersToWalls) {
-    // Queue transfer to a WALL cell
-    // Process and verify no pressure added
+// Data-driven test structure for blocked transfers to different materials
+struct BlockedTransferTestCase {
+    std::string name;
+    MaterialType targetMaterial;
+    double expectedPressureChange;  // 0 for walls, >0 for other materials
+    std::string expectedBehavior;
+};
+
+class ProcessBlockedTransfersTest : public WorldBPressureCalculatorTest,
+                                   public ::testing::WithParamInterface<BlockedTransferTestCase> {
+};
+
+TEST_P(ProcessBlockedTransfersTest, ProcessBlockedTransfers_HandlesTargetMaterialCorrectly) {
+    const auto& testCase = GetParam();
     
-    // TODO: Enable this test once implemented
-    FAIL() << "Test not yet implemented";
+    // Setup: Create target cell with specified material
+    const int targetX = 2, targetY = 2;
+    world->addMaterialAtCell(targetX, targetY, testCase.targetMaterial, 1.0);
+    CellB& targetCell = world->at(targetX, targetY);
+    
+    // Record initial pressure (should be 0)
+    double initialPressure = targetCell.getDynamicPressure();
+    EXPECT_EQ(0.0, initialPressure) << "Initial pressure should be zero";
+    
+    // Create a blocked transfer TO the target cell
+    WorldBPressureCalculator::BlockedTransfer transfer{};
+    transfer.fromX = 1;
+    transfer.fromY = 2;
+    transfer.toX = targetX;
+    transfer.toY = targetY;
+    transfer.transfer_amount = 0.5;
+    transfer.velocity = Vector2d(2.0, 0.0);  // Rightward velocity
+    transfer.energy = 2.0;  // kinetic energy = 0.5 * mass * velocity^2
+    
+    // Queue and process the transfer
+    pressureCalc->queueBlockedTransfer(transfer);
+    pressureCalc->processBlockedTransfers();
+    
+    // Get final pressure
+    double finalPressure = targetCell.getDynamicPressure();
+    
+    // Verify expected behavior based on material type
+    if (testCase.expectedPressureChange == 0.0) {
+        EXPECT_EQ(initialPressure, finalPressure) 
+            << "Material " << getMaterialName(testCase.targetMaterial) 
+            << " should not accumulate pressure: " << testCase.expectedBehavior;
+    } else {
+        EXPECT_GT(finalPressure, initialPressure) 
+            << "Material " << getMaterialName(testCase.targetMaterial) 
+            << " should accumulate pressure from blocked transfers";
+        
+        // For materials that accumulate pressure, verify it's proportional to energy and material weight
+        double materialWeight = pressureCalc->getDynamicWeight(testCase.targetMaterial);
+        double expectedPressure = transfer.energy * materialWeight;
+        EXPECT_NEAR(finalPressure, expectedPressure, 0.001)
+            << "Pressure should equal energy * material_weight for " 
+            << getMaterialName(testCase.targetMaterial);
+    }
+    
+    // Additional verification for pressure vector (if pressure was added)
+    if (finalPressure > 0.0) {
+        Vector2d pressureVector = targetCell.getPressureVector();
+        EXPECT_GT(pressureVector.magnitude(), 0.0) 
+            << "Pressure vector should be set when pressure is added";
+        
+        // Vector should align with blocked transfer velocity direction
+        Vector2d normalizedVelocity = transfer.velocity.normalize();
+        double alignment = pressureVector.dot(normalizedVelocity);
+        EXPECT_GT(alignment, 0.8) 
+            << "Pressure vector should align with blocked velocity direction";
+    }
 }
+
+// Test cases covering different target materials
+INSTANTIATE_TEST_SUITE_P(
+    TargetMaterialVariations,
+    ProcessBlockedTransfersTest,
+    ::testing::Values(
+        BlockedTransferTestCase{
+            "TransferToWall",
+            MaterialType::WALL,
+            0.0,  // No pressure accumulation
+            "Walls eliminate pressure completely"
+        },
+        BlockedTransferTestCase{
+            "TransferToMetal",
+            MaterialType::METAL,
+            0.5,  // METAL has dynamic weight of 0.5
+            "Metal cells should accumulate reduced pressure"
+        },
+        BlockedTransferTestCase{
+            "TransferToWater",
+            MaterialType::WATER,
+            0.8,  // WATER has dynamic weight of 0.8
+            "Water cells should accumulate high pressure"
+        },
+        BlockedTransferTestCase{
+            "TransferToDirt",
+            MaterialType::DIRT,
+            1.0,  // DIRT has dynamic weight of 1.0
+            "Dirt cells should accumulate full pressure"
+        }
+    ),
+    [](const ::testing::TestParamInfo<BlockedTransferTestCase>& info) {
+        return info.param.name;
+    }
+);
 
 TEST_F(WorldBPressureCalculatorTest, DISABLED_ProcessBlockedTransfers_IgnoresTransfersToEmptyCells) {
     // Queue transfer to empty (AIR) cell

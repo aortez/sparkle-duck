@@ -69,14 +69,23 @@ The UI is organized into several distinct columns from left to right:
 
 ### Physics Controls Column (Position: 1230px from left)
 - **Debug Toggle**: "Debug: Off/On"
+
+#### WorldA Pressure Controls Section
+- **Section Header**: "=== WorldA Pressure ==="
 - **Pressure System Label**: "Pressure System:"
-- **Pressure System Dropdown**: System selection
+- **Pressure System Dropdown**: System selection (WorldA only)
   - Original (COM)
   - Top-Down Hydrostatic
   - Iterative Settling
+- **Pressure Scale Slider**: Pressure strength for WorldA (0.0-10.0)
+
+#### General Physics Controls
 - **Force Toggle**: "Force: Off/On"
 - **Gravity Toggle**: "Gravity: On/Off"
 - **Cohesion Toggle**: "Cohesion: On/Off"
+- **Cohesion Bind Strength Slider**: Bind strength (0.0-2.0)
+- **Cohesion Force Toggle**: "Cohesion Force: On/Off"
+- **Cohesion Strength Slider**: COM cohesion strength (0.0-300.0)
 - **Left Throw Toggle**: "Left Throw: On/Off"
 - **Right Throw Toggle**: "Right Throw: On/Off"
 - **Quadrant Toggle**: "Quadrant: On/Off"
@@ -101,12 +110,19 @@ The UI is organized into several distinct columns from left to right:
 - **Elasticity Slider**: Material elasticity (0.8 default)
 - **Dirt Fragmentation Slider**: Fragmentation factor (0.00 default)
 - **Cell Size Slider**: Grid cell size (50 default)
-- **Pressure Scale Slider**: Pressure system scaling (10 default)
 - **Rain Rate Slider**: Rain generation rate (0/s default)
 - **Water Cohesion Slider**: Water cohesion strength (0.500 default)
 - **Water Viscosity Slider**: Water viscosity factor (0.100 default)
 - **Water Pressure Threshold Slider**: Pressure threshold (0.0004 default)
 - **Water Buoyancy Slider**: Buoyancy strength (0.100 default)
+
+#### WorldB Pressure Controls Section
+- **Section Header**: "=== WorldB Pressure ==="
+- **Hydrostatic Pressure Toggle**: Enable/disable hydrostatic pressure
+- **Hydrostatic Strength Slider**: Strength of hydrostatic pressure (0.0-3.0, default 1.0)
+- **Dynamic Pressure Toggle**: Enable/disable dynamic pressure accumulation
+- **Dynamic Strength Slider**: Strength of dynamic pressure (0.0-3.0, default 1.0)
+- **Air Resistance Slider**: Air resistance strength (0.0-1.0, default 0.10)
 
 ### Bottom Right
 - **Quit Button**: Red button to exit application
@@ -129,6 +145,24 @@ The layout follows a logical left-to-right flow:
 4. **Simulation & Parameter Controls** (playback controls and precise parameter adjustment)
 
 This organization groups related functionality and provides clear visual separation between different types of controls. Simulation controls (pause/reset) are positioned in the rightmost column for easy access during operation. Physics parameter toggles are separated from continuous parameter sliders to distinguish between discrete on/off settings and graduated adjustments.
+
+### Pressure System Organization
+
+The pressure controls are explicitly separated by world type to prevent confusion:
+
+#### **WorldA Pressure Controls**
+- Located in the main controls column (X=1230)
+- Grouped under "=== WorldA Pressure ===" header
+- Includes pressure system algorithm selection and unified pressure scale
+- Only affects WorldA (RulesA) physics system
+
+#### **WorldB Pressure Controls**  
+- Located in the slider column (X=1440)
+- Grouped under "=== WorldB Pressure ===" header
+- Individual toggles and strength controls for hydrostatic and dynamic pressure
+- Only affects WorldB (RulesB) physics system
+
+This separation ensures users understand which controls affect which physics system, preventing confusion when switching between WorldA and WorldB.
 ## Widget Organization in Code
 
 The UI initialization follows this order in `SimulatorUI::initialize()`:
@@ -145,36 +179,34 @@ The UI initialization follows this order in `SimulatorUI::initialize()`:
 - Mass: "Total Mass: 0.00" at Y=10
 - FPS: "FPS: 0" at Y=40
 
-### **Action Buttons** (Y=10-935, 50px height each):
+### **Main Controls Column** (X=1230):
 - Reset (Y=10), Pause (Y=70), Debug (Y=130)
-- Pressure System dropdown (Y=190-210)
-- Force toggle (Y=260), Gravity toggle (Y=310)
-- Left/Right Throw toggles (Y=370, Y=430)
-- Quadrant toggle (Y=490), Screenshot (Y=550)
-- Time History toggle (Y=600)
-- Backward/Forward buttons (Y=635, split width)
-- Adhesion toggle (Y=495)
-- Adhesion Strength slider (Y=515-535)
-- Cohesion Bind Strength slider (Y=555-575)
-- Cohesion Force Strength slider (Y=595-615)
-- Cohesion Strength slider (Y=635-655)
-- COM Range slider (Y=675-695)
-- Left Throw slider (Y=715-735)
-- Right Throw slider (Y=755-775)
-- Print ASCII button (Y=780)
-- COM Cohesion Mode radio buttons (Y=835-935)
+- **WorldA Pressure Header** (Y=70)
+- Pressure System dropdown (Y=115-155) - WorldA only
+- Pressure Scale slider (Y=165-185) - WorldA only
+- Force toggle (Y=205), Gravity toggle (Y=265)
+- Cohesion Bind toggle (Y=325)
+- Cohesion Bind Strength slider (Y=380-400)
+- Cohesion Force toggle (Y=415)
+- Cohesion Strength slider (Y=470-490)
+- Additional controls continue below...
 
-### **Parameter Sliders** (Y=670-1050, 40px spacing):
-- Timescale (Y=670-690)
-- Elasticity (Y=710-730)
-- Dirt Fragmentation (Y=750-770)
-- Cell Size (Y=790-810)
-- Pressure Scale (Y=830-850)
-- Rain Rate (Y=870-890)
-- Water Cohesion (Y=910-930)
-- Water Viscosity (Y=950-970)
-- Water Pressure Threshold (Y=990-1010)
-- Water Buoyancy (Y=1030-1050)
+### **Slider Column** (X=1440):
+- Timescale (Y=90-110)
+- Elasticity (Y=130-150)
+- Dirt Fragmentation (Y=170-190)
+- Cell Size (Y=210-230)
+- Rain Rate (Y=250-270)
+- Water Cohesion (Y=290-310)
+- Water Viscosity (Y=330-350)
+- Water Pressure Threshold (Y=370-390)
+- Water Buoyancy (Y=410-430)
+- **WorldB Pressure Header** (Y=620)
+- Hydrostatic Pressure toggle (Y=645)
+- Dynamic Pressure toggle (Y=675)
+- Hydrostatic Strength slider (Y=715-735)
+- Dynamic Strength slider (Y=765-785)
+- Air Resistance slider (Y=815-835)
 
 ### **Special Elements**:
 - Quit button: Bottom-right corner with red background

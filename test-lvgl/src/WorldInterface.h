@@ -176,6 +176,14 @@ public:
     virtual void setDynamicPressureEnabled(bool enabled) = 0;
     virtual bool isDynamicPressureEnabled() const = 0;
 
+    // Set strength of hydrostatic pressure system (WorldB only)
+    virtual void setHydrostaticPressureStrength(double strength) = 0;
+    virtual double getHydrostaticPressureStrength() const = 0;
+
+    // Set strength of dynamic pressure system (WorldB only)
+    virtual void setDynamicPressureStrength(double strength) = 0;
+    virtual double getDynamicPressureStrength() const = 0;
+
     // =================================================================
     // TIME REVERSAL FUNCTIONALITY
     // =================================================================

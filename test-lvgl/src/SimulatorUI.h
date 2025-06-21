@@ -127,6 +127,10 @@ private:
     static void dynamicPressureToggleEventCb(lv_event_t* e);
     static void airResistanceSliderEventCb(lv_event_t* e);
 
+    // WorldB pressure strength sliders
+    static void hydrostaticPressureStrengthSliderEventCb(lv_event_t* e);
+    static void dynamicPressureStrengthSliderEventCb(lv_event_t* e);
+
     // WorldSetup control buttons
     static void leftThrowBtnEventCb(lv_event_t* e);
     static void rightThrowBtnEventCb(lv_event_t* e);

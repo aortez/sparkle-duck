@@ -30,6 +30,8 @@ WorldB::WorldB(uint32_t width, uint32_t height, lv_obj_t* draw_area)
       pressure_system_(PressureSystem::Original),
       hydrostatic_pressure_enabled_(true),
       dynamic_pressure_enabled_(true),
+      hydrostatic_pressure_strength_(1.0),
+      dynamic_pressure_strength_(1.0),
       add_particles_enabled_(true),
       cursor_force_enabled_(true),
       cursor_force_active_(false),

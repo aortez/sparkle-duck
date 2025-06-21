@@ -212,14 +212,19 @@ void SimulatorUI::createControlButtons()
     lv_obj_center(debug_label);
     lv_obj_add_event_cb(debug_btn, debugBtnEventCb, LV_EVENT_CLICKED, nullptr);
 
+    // === WorldA Pressure Controls ===
+    lv_obj_t* worldA_pressure_header = lv_label_create(screen_);
+    lv_label_set_text(worldA_pressure_header, "=== WorldA Pressure ===");
+    lv_obj_align(worldA_pressure_header, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 70);
+
     // Create pressure system dropdown
     lv_obj_t* pressure_label = lv_label_create(screen_);
     lv_label_set_text(pressure_label, "Pressure System:");
-    lv_obj_align(pressure_label, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 70);
+    lv_obj_align(pressure_label, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 95);
 
     lv_obj_t* pressure_dropdown = lv_dropdown_create(screen_);
     lv_obj_set_size(pressure_dropdown, CONTROL_WIDTH, 40);
-    lv_obj_align(pressure_dropdown, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 90);
+    lv_obj_align(pressure_dropdown, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 115);
     lv_dropdown_set_options(
         pressure_dropdown, "Original (COM)\nTop-Down Hydrostatic\nIterative Settling");
     lv_dropdown_set_selected(pressure_dropdown, 0); // Default to Original
@@ -229,10 +234,30 @@ void SimulatorUI::createControlButtons()
         LV_EVENT_VALUE_CHANGED,
         createCallbackData());
 
+    // Pressure scale slider (WorldA only)
+    lv_obj_t* pressure_scale_label = lv_label_create(screen_);
+    lv_label_set_text(pressure_scale_label, "Pressure Scale (WorldA)");
+    lv_obj_align(pressure_scale_label, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 165);
+
+    lv_obj_t* pressure_scale_value_label = lv_label_create(screen_);
+    lv_label_set_text(pressure_scale_value_label, "1.0");
+    lv_obj_align(pressure_scale_value_label, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X + 135, 165);
+
+    lv_obj_t* pressure_scale_slider = lv_slider_create(screen_);
+    lv_obj_set_size(pressure_scale_slider, CONTROL_WIDTH, 10);
+    lv_obj_align(pressure_scale_slider, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 185);
+    lv_slider_set_range(pressure_scale_slider, 0, 1000);
+    lv_slider_set_value(pressure_scale_slider, 100, LV_ANIM_OFF);
+    lv_obj_add_event_cb(
+        pressure_scale_slider,
+        pressureScaleSliderEventCb,
+        LV_EVENT_ALL,
+        createCallbackData(pressure_scale_value_label));
+
     // Create cursor force toggle button
     lv_obj_t* force_btn = lv_btn_create(screen_);
     lv_obj_set_size(force_btn, CONTROL_WIDTH, 50);
-    lv_obj_align(force_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 140);
+    lv_obj_align(force_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 205);
     lv_obj_t* force_label = lv_label_create(force_btn);
     lv_label_set_text(force_label, "Force: Off");
     lv_obj_center(force_label);
@@ -241,7 +266,7 @@ void SimulatorUI::createControlButtons()
     // Create gravity toggle button
     lv_obj_t* gravity_btn = lv_btn_create(screen_);
     lv_obj_set_size(gravity_btn, CONTROL_WIDTH, 50);
-    lv_obj_align(gravity_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 200);
+    lv_obj_align(gravity_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 265);
     lv_obj_t* gravity_label = lv_label_create(gravity_btn);
     lv_label_set_text(gravity_label, "Gravity: On");
     lv_obj_center(gravity_label);
@@ -250,7 +275,7 @@ void SimulatorUI::createControlButtons()
     // Create cohesion toggle button
     lv_obj_t* cohesion_btn = lv_btn_create(screen_);
     lv_obj_set_size(cohesion_btn, CONTROL_WIDTH, 50);
-    lv_obj_align(cohesion_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 260);
+    lv_obj_align(cohesion_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 325);
     lv_obj_t* cohesion_label = lv_label_create(cohesion_btn);
     lv_label_set_text(cohesion_label, "Cohesion Bind: On");
     lv_obj_center(cohesion_label);
@@ -259,15 +284,15 @@ void SimulatorUI::createControlButtons()
     // Create cohesion bind strength slider below the bind button
     lv_obj_t* bind_strength_label = lv_label_create(screen_);
     lv_label_set_text(bind_strength_label, "Bind Strength");
-    lv_obj_align(bind_strength_label, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 315);
+    lv_obj_align(bind_strength_label, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 380);
 
     lv_obj_t* bind_strength_value_label = lv_label_create(screen_);
     lv_label_set_text(bind_strength_value_label, "1.0");
-    lv_obj_align(bind_strength_value_label, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X + 120, 315);
+    lv_obj_align(bind_strength_value_label, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X + 120, 380);
 
     lv_obj_t* bind_strength_slider = lv_slider_create(screen_);
     lv_obj_set_size(bind_strength_slider, CONTROL_WIDTH, 10);
-    lv_obj_align(bind_strength_slider, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 335);
+    lv_obj_align(bind_strength_slider, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 400);
     lv_slider_set_range(bind_strength_slider, 0, 200);           // 0.0 to 2.0 range
     lv_slider_set_value(bind_strength_slider, 100, LV_ANIM_OFF); // Default 1.0 -> 100
     lv_obj_add_event_cb(
@@ -279,7 +304,7 @@ void SimulatorUI::createControlButtons()
     // Create cohesion force toggle button
     lv_obj_t* cohesion_force_btn = lv_btn_create(screen_);
     lv_obj_set_size(cohesion_force_btn, CONTROL_WIDTH, 50);
-    lv_obj_align(cohesion_force_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 350);
+    lv_obj_align(cohesion_force_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 415);
     lv_obj_t* cohesion_force_label = lv_label_create(cohesion_force_btn);
     lv_label_set_text(cohesion_force_label, "Cohesion Force: On");
     lv_obj_center(cohesion_force_label);
@@ -289,15 +314,15 @@ void SimulatorUI::createControlButtons()
     // Create COM cohesion strength slider below the force button
     lv_obj_t* com_cohesion_strength_label = lv_label_create(screen_);
     lv_label_set_text(com_cohesion_strength_label, "Cohesion Strength");
-    lv_obj_align(com_cohesion_strength_label, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 405);
+    lv_obj_align(com_cohesion_strength_label, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 470);
 
     lv_obj_t* com_cohesion_strength_value_label = lv_label_create(screen_);
     lv_label_set_text(com_cohesion_strength_value_label, "150.0");
-    lv_obj_align(com_cohesion_strength_value_label, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X + 165, 405);
+    lv_obj_align(com_cohesion_strength_value_label, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X + 165, 470);
 
     lv_obj_t* com_cohesion_strength_slider = lv_slider_create(screen_);
     lv_obj_set_size(com_cohesion_strength_slider, CONTROL_WIDTH, 10);
-    lv_obj_align(com_cohesion_strength_slider, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 425);
+    lv_obj_align(com_cohesion_strength_slider, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 490);
     lv_slider_set_range(com_cohesion_strength_slider, 0, 30000);           // 0.0 to 300.0 range
     lv_slider_set_value(com_cohesion_strength_slider, 15000, LV_ANIM_OFF); // Default 150.0 -> 15000
     lv_obj_add_event_cb(
@@ -309,15 +334,15 @@ void SimulatorUI::createControlButtons()
     // Create COM cohesion range slider
     lv_obj_t* com_range_label = lv_label_create(screen_);
     lv_label_set_text(com_range_label, "COM Range");
-    lv_obj_align(com_range_label, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 435);
+    lv_obj_align(com_range_label, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 530);
 
     lv_obj_t* com_range_value_label = lv_label_create(screen_);
     lv_label_set_text(com_range_value_label, "2");
-    lv_obj_align(com_range_value_label, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X + 120, 435);
+    lv_obj_align(com_range_value_label, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X + 120, 530);
 
     lv_obj_t* com_range_slider = lv_slider_create(screen_);
     lv_obj_set_size(com_range_slider, CONTROL_WIDTH, 10);
-    lv_obj_align(com_range_slider, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 455);
+    lv_obj_align(com_range_slider, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 550);
     lv_slider_set_range(com_range_slider, 1, 5);           // 1 to 5 cells range
     lv_slider_set_value(com_range_slider, 2, LV_ANIM_OFF); // Default 2
     lv_obj_add_event_cb(
@@ -329,12 +354,12 @@ void SimulatorUI::createControlButtons()
     // Create COM cohesion mode radio buttons
     lv_obj_t* com_mode_label = lv_label_create(screen_);
     lv_label_set_text(com_mode_label, "COM Cohesion Mode:");
-    lv_obj_align(com_mode_label, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 835);
+    lv_obj_align(com_mode_label, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 930);
 
     // Create container for radio buttons
     lv_obj_t* com_mode_container = lv_obj_create(screen_);
     lv_obj_set_size(com_mode_container, 250, 80);
-    lv_obj_align(com_mode_container, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 855);
+    lv_obj_align(com_mode_container, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 950);
     lv_obj_set_style_bg_color(com_mode_container, lv_color_make(40, 40, 40), 0);
     lv_obj_set_style_border_width(com_mode_container, 0, 0);
     lv_obj_set_style_pad_all(com_mode_container, 5, 0);
@@ -373,7 +398,7 @@ void SimulatorUI::createControlButtons()
     // Create adhesion toggle button
     lv_obj_t* adhesion_btn = lv_btn_create(screen_);
     lv_obj_set_size(adhesion_btn, CONTROL_WIDTH, 50);
-    lv_obj_align(adhesion_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 495);
+    lv_obj_align(adhesion_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 590);
     lv_obj_t* adhesion_label = lv_label_create(adhesion_btn);
     lv_label_set_text(adhesion_label, "Adhesion: On");
     lv_obj_center(adhesion_label);
@@ -382,15 +407,15 @@ void SimulatorUI::createControlButtons()
     // Create adhesion strength slider
     lv_obj_t* adhesion_strength_label = lv_label_create(screen_);
     lv_label_set_text(adhesion_strength_label, "Adhesion Strength");
-    lv_obj_align(adhesion_strength_label, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 555);
+    lv_obj_align(adhesion_strength_label, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 650);
 
     lv_obj_t* adhesion_strength_value_label = lv_label_create(screen_);
     lv_label_set_text(adhesion_strength_value_label, "5.0");
-    lv_obj_align(adhesion_strength_value_label, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X + 140, 555);
+    lv_obj_align(adhesion_strength_value_label, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X + 140, 650);
 
     lv_obj_t* adhesion_strength_slider = lv_slider_create(screen_);
     lv_obj_set_size(adhesion_strength_slider, CONTROL_WIDTH, 10);
-    lv_obj_align(adhesion_strength_slider, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 575);
+    lv_obj_align(adhesion_strength_slider, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 670);
     lv_slider_set_range(adhesion_strength_slider, 0, 1000);          // 0.0 to 10.0 range
     lv_slider_set_value(adhesion_strength_slider, 500, LV_ANIM_OFF); // Default 5.0 -> 500
     lv_obj_add_event_cb(
@@ -402,7 +427,7 @@ void SimulatorUI::createControlButtons()
     // Create left throw toggle button
     lv_obj_t* left_throw_btn = lv_btn_create(screen_);
     lv_obj_set_size(left_throw_btn, CONTROL_WIDTH, 50);
-    lv_obj_align(left_throw_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 595);
+    lv_obj_align(left_throw_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 690);
     lv_obj_t* left_throw_label = lv_label_create(left_throw_btn);
     lv_label_set_text(left_throw_label, "Left Throw: On");
     lv_obj_center(left_throw_label);
@@ -412,7 +437,7 @@ void SimulatorUI::createControlButtons()
     // Create right throw toggle button
     lv_obj_t* right_throw_btn = lv_btn_create(screen_);
     lv_obj_set_size(right_throw_btn, CONTROL_WIDTH, 50);
-    lv_obj_align(right_throw_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 655);
+    lv_obj_align(right_throw_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 750);
     lv_obj_t* right_throw_label = lv_label_create(right_throw_btn);
     lv_label_set_text(right_throw_label, "Right Throw: On");
     lv_obj_center(right_throw_label);
@@ -422,7 +447,7 @@ void SimulatorUI::createControlButtons()
     // Create quadrant toggle button
     lv_obj_t* quadrant_btn = lv_btn_create(screen_);
     lv_obj_set_size(quadrant_btn, CONTROL_WIDTH, 50);
-    lv_obj_align(quadrant_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 715);
+    lv_obj_align(quadrant_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 810);
     lv_obj_t* quadrant_label = lv_label_create(quadrant_btn);
     lv_label_set_text(quadrant_label, "Quadrant: On");
     lv_obj_center(quadrant_label);
@@ -431,7 +456,7 @@ void SimulatorUI::createControlButtons()
     // Create screenshot button
     lv_obj_t* screenshot_btn = lv_btn_create(screen_);
     lv_obj_set_size(screenshot_btn, CONTROL_WIDTH, 50);
-    lv_obj_align(screenshot_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 720);
+    lv_obj_align(screenshot_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 815);
     lv_obj_t* screenshot_label = lv_label_create(screenshot_btn);
     lv_label_set_text(screenshot_label, "Screenshot");
     lv_obj_center(screenshot_label);
@@ -441,7 +466,7 @@ void SimulatorUI::createControlButtons()
     // Create print ASCII button
     lv_obj_t* print_ascii_btn = lv_btn_create(screen_);
     lv_obj_set_size(print_ascii_btn, CONTROL_WIDTH, 50);
-    lv_obj_align(print_ascii_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 780);
+    lv_obj_align(print_ascii_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 875);
     lv_obj_t* print_ascii_label = lv_label_create(print_ascii_btn);
     lv_label_set_text(print_ascii_label, "Print ASCII");
     lv_obj_center(print_ascii_label);
@@ -589,26 +614,6 @@ void SimulatorUI::createSliders()
         LV_EVENT_ALL,
         createCallbackData(cell_size_value_label));
 
-    // Pressure scale slider
-    lv_obj_t* pressure_scale_label = lv_label_create(screen_);
-    lv_label_set_text(pressure_scale_label, "Pressure Scale");
-    lv_obj_align(pressure_scale_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 370);
-
-    lv_obj_t* pressure_scale_value_label = lv_label_create(screen_);
-    lv_label_set_text(pressure_scale_value_label, "1.0");
-    lv_obj_align(pressure_scale_value_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X + 135, 370);
-
-    lv_obj_t* pressure_scale_slider = lv_slider_create(screen_);
-    lv_obj_set_size(pressure_scale_slider, CONTROL_WIDTH, 10);
-    lv_obj_align(pressure_scale_slider, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 390);
-    lv_slider_set_range(pressure_scale_slider, 0, 1000);
-    lv_slider_set_value(pressure_scale_slider, 100, LV_ANIM_OFF);
-    lv_obj_add_event_cb(
-        pressure_scale_slider,
-        pressureScaleSliderEventCb,
-        LV_EVENT_ALL,
-        createCallbackData(pressure_scale_value_label));
-
     // Rain rate slider
     lv_obj_t* rain_label = lv_label_create(screen_);
     lv_label_set_text(rain_label, "Rain Rate");
@@ -706,13 +711,18 @@ void SimulatorUI::createSliders()
         LV_EVENT_ALL,
         createCallbackData(buoyancy_value_label));
 
+    // === WorldB Pressure Controls ===
+    lv_obj_t* worldB_pressure_header = lv_label_create(screen_);
+    lv_label_set_text(worldB_pressure_header, "=== WorldB Pressure ===");
+    lv_obj_align(worldB_pressure_header, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 620);
+
     // Hydrostatic pressure toggle
     lv_obj_t* hydrostatic_label = lv_label_create(screen_);
     lv_label_set_text(hydrostatic_label, "Hydrostatic Pressure");
-    lv_obj_align(hydrostatic_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 610);
+    lv_obj_align(hydrostatic_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 645);
 
     lv_obj_t* hydrostatic_switch = lv_switch_create(screen_);
-    lv_obj_align(hydrostatic_switch, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X + 180, 610);
+    lv_obj_align(hydrostatic_switch, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X + 180, 645);
     lv_obj_add_state(hydrostatic_switch, LV_STATE_CHECKED); // Default enabled
     lv_obj_add_event_cb(
         hydrostatic_switch,
@@ -723,26 +733,66 @@ void SimulatorUI::createSliders()
     // Dynamic pressure toggle
     lv_obj_t* dynamic_label = lv_label_create(screen_);
     lv_label_set_text(dynamic_label, "Dynamic Pressure");
-    lv_obj_align(dynamic_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 640);
+    lv_obj_align(dynamic_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 675);
 
     lv_obj_t* dynamic_switch = lv_switch_create(screen_);
-    lv_obj_align(dynamic_switch, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X + 180, 640);
+    lv_obj_align(dynamic_switch, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X + 180, 675);
     lv_obj_add_state(dynamic_switch, LV_STATE_CHECKED); // Default enabled
     lv_obj_add_event_cb(
         dynamic_switch, dynamicPressureToggleEventCb, LV_EVENT_VALUE_CHANGED, createCallbackData());
 
+    // Hydrostatic pressure strength slider (WorldB only)
+    lv_obj_t* hydrostatic_strength_label = lv_label_create(screen_);
+    lv_label_set_text(hydrostatic_strength_label, "Hydrostatic Strength");
+    lv_obj_align(hydrostatic_strength_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 715);
+
+    lv_obj_t* hydrostatic_strength_value_label = lv_label_create(screen_);
+    lv_label_set_text(hydrostatic_strength_value_label, "1.0");
+    lv_obj_align(hydrostatic_strength_value_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X + 140, 715);
+
+    lv_obj_t* hydrostatic_strength_slider = lv_slider_create(screen_);
+    lv_obj_set_size(hydrostatic_strength_slider, CONTROL_WIDTH, 10);
+    lv_obj_align(hydrostatic_strength_slider, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 735);
+    lv_slider_set_range(hydrostatic_strength_slider, 0, 300);           // 0.0 to 3.0 range
+    lv_slider_set_value(hydrostatic_strength_slider, 100, LV_ANIM_OFF); // Default 1.0 -> 100
+    lv_obj_add_event_cb(
+        hydrostatic_strength_slider,
+        hydrostaticPressureStrengthSliderEventCb,
+        LV_EVENT_ALL,
+        createCallbackData(hydrostatic_strength_value_label));
+
+    // Dynamic pressure strength slider (WorldB only)
+    lv_obj_t* dynamic_strength_label = lv_label_create(screen_);
+    lv_label_set_text(dynamic_strength_label, "Dynamic Strength");
+    lv_obj_align(dynamic_strength_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 765);
+
+    lv_obj_t* dynamic_strength_value_label = lv_label_create(screen_);
+    lv_label_set_text(dynamic_strength_value_label, "1.0");
+    lv_obj_align(dynamic_strength_value_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X + 140, 765);
+
+    lv_obj_t* dynamic_strength_slider = lv_slider_create(screen_);
+    lv_obj_set_size(dynamic_strength_slider, CONTROL_WIDTH, 10);
+    lv_obj_align(dynamic_strength_slider, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 785);
+    lv_slider_set_range(dynamic_strength_slider, 0, 300);           // 0.0 to 3.0 range
+    lv_slider_set_value(dynamic_strength_slider, 100, LV_ANIM_OFF); // Default 1.0 -> 100
+    lv_obj_add_event_cb(
+        dynamic_strength_slider,
+        dynamicPressureStrengthSliderEventCb,
+        LV_EVENT_ALL,
+        createCallbackData(dynamic_strength_value_label));
+
     // Air resistance slider
     lv_obj_t* air_resistance_label = lv_label_create(screen_);
     lv_label_set_text(air_resistance_label, "Air Resistance");
-    lv_obj_align(air_resistance_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 670);
+    lv_obj_align(air_resistance_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 815);
 
     lv_obj_t* air_resistance_value_label = lv_label_create(screen_);
     lv_label_set_text(air_resistance_value_label, "0.10");
-    lv_obj_align(air_resistance_value_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X + 120, 670);
+    lv_obj_align(air_resistance_value_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X + 120, 815);
 
     lv_obj_t* air_resistance_slider = lv_slider_create(screen_);
     lv_obj_set_size(air_resistance_slider, CONTROL_WIDTH, 10);
-    lv_obj_align(air_resistance_slider, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 690);
+    lv_obj_align(air_resistance_slider, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 835);
     lv_slider_set_range(air_resistance_slider, 0, 100);          // 0.0 to 1.0 range
     lv_slider_set_value(air_resistance_slider, 10, LV_ANIM_OFF); // Default 0.1 -> 10
     lv_obj_add_event_cb(
@@ -929,6 +979,13 @@ void SimulatorUI::pressureSystemDropdownEventCb(lv_event_t* e)
     if (lv_event_get_code(e) == LV_EVENT_VALUE_CHANGED) {
         CallbackData* data = static_cast<CallbackData*>(lv_event_get_user_data(e));
         if (data && data->world) {
+            // Only apply pressure system changes to WorldA (RulesA)
+            if (data->world->getWorldType() != WorldType::RulesA) {
+                spdlog::info("Pressure system dropdown only affects WorldA (RulesA) - current "
+                             "world is WorldB (RulesB)");
+                return;
+            }
+
             lv_obj_t* dropdown = static_cast<lv_obj_t*>(lv_event_get_target(e));
             uint16_t selected = lv_dropdown_get_selected(dropdown);
 
@@ -956,7 +1013,7 @@ void SimulatorUI::pressureSystemDropdownEventCb(lv_event_t* e)
             const char* system_names[] = { "Original (COM)",
                                            "Top-Down Hydrostatic",
                                            "Iterative Settling" };
-            printf("Pressure system switched to: %s\n", system_names[selected]);
+            spdlog::info("Pressure system switched to: {}", system_names[selected]);
         }
     }
 }
@@ -1092,6 +1149,16 @@ void SimulatorUI::pressureScaleSliderEventCb(lv_event_t* e)
         int32_t value = lv_slider_get_value(slider);
         double pressure_scale = value / 100.0;
         if (data->world) {
+            // Only apply pressure scale changes to WorldA (RulesA)
+            if (data->world->getWorldType() != WorldType::RulesA) {
+                spdlog::debug("Pressure scale slider only affects WorldA (RulesA) - current world "
+                              "is WorldB (RulesB)");
+                // Still update the label to show the value for consistency
+                char buf[16];
+                snprintf(buf, sizeof(buf), "%.1f", pressure_scale);
+                lv_label_set_text(data->associated_label, buf);
+                return;
+            }
             data->world->setPressureScale(pressure_scale);
         }
         char buf[16];
@@ -1300,6 +1367,46 @@ void SimulatorUI::airResistanceSliderEventCb(lv_event_t* e)
         }
         char buf[16];
         snprintf(buf, sizeof(buf), "%.2f", air_resistance);
+        lv_label_set_text(data->associated_label, buf);
+    }
+}
+
+void SimulatorUI::hydrostaticPressureStrengthSliderEventCb(lv_event_t* e)
+{
+    lv_obj_t* slider = static_cast<lv_obj_t*>(lv_event_get_target(e));
+    CallbackData* data = static_cast<CallbackData*>(lv_event_get_user_data(e));
+    if (lv_event_get_code(e) == LV_EVENT_VALUE_CHANGED && data) {
+        int32_t value = lv_slider_get_value(slider);
+        double strength = value / 100.0; // Map 0-300 to 0.0-3.0
+        if (data->world) {
+            // Only apply to WorldB (RulesB)
+            if (data->world->getWorldType() == WorldType::RulesB) {
+                data->world->setHydrostaticPressureStrength(strength);
+                spdlog::debug("Hydrostatic pressure strength set to {:.2f}", strength);
+            }
+        }
+        char buf[16];
+        snprintf(buf, sizeof(buf), "%.1f", strength);
+        lv_label_set_text(data->associated_label, buf);
+    }
+}
+
+void SimulatorUI::dynamicPressureStrengthSliderEventCb(lv_event_t* e)
+{
+    lv_obj_t* slider = static_cast<lv_obj_t*>(lv_event_get_target(e));
+    CallbackData* data = static_cast<CallbackData*>(lv_event_get_user_data(e));
+    if (lv_event_get_code(e) == LV_EVENT_VALUE_CHANGED && data) {
+        int32_t value = lv_slider_get_value(slider);
+        double strength = value / 100.0; // Map 0-300 to 0.0-3.0
+        if (data->world) {
+            // Only apply to WorldB (RulesB)
+            if (data->world->getWorldType() == WorldType::RulesB) {
+                data->world->setDynamicPressureStrength(strength);
+                spdlog::debug("Dynamic pressure strength set to {:.2f}", strength);
+            }
+        }
+        char buf[16];
+        snprintf(buf, sizeof(buf), "%.1f", strength);
         lv_label_set_text(data->associated_label, buf);
     }
 }

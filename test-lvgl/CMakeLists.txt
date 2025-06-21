@@ -185,6 +185,7 @@ add_executable(sparkle-duck-tests
     src/tests/PressureIntegration_test.cpp
     src/tests/PressureSimple_test.cpp
     src/tests/PressureTransmission_test.cpp
+    src/tests/WorldBPressureCalculator_test.cpp
     src/tests/TestUI.cpp
     src/tests/visual_test_runner.cpp
     src/tests/ResultTest.cpp
