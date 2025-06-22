@@ -278,6 +278,78 @@ The UI initialization follows this order in `SimulatorUI::initialize()`:
 - **Real-time Updates**: Mouse position tracked for particle addition and cursor force
 - **Coordinate Translation**: Pixel coordinates converted to grid coordinates
 
+#### LVGLEventBuilder Pattern
+The LVGLEventBuilder extends the existing LVGLBuilder pattern to integrate with the event-driven state machine architecture:
+
+**Key Features:**
+- **Type-Safe Event Generation**: UI widgets emit strongly-typed events into the event system
+- **Builder Pattern Integration**: Extends existing builders with event handling methods
+- **Lambda-Based Callbacks**: Clean syntax using lambdas to generate events from UI interactions
+
+**Example Usage:**
+```cpp
+// Create UI elements that emit events
+auto pauseBtn = LVGLEventBuilder::button(parent, eventRouter)
+    .text("Pause")
+    .size(100, 40)
+    .onPauseResume()  // Emits PauseCommand/ResumeCommand
+    .buildOrLog();
+
+auto slider = LVGLEventBuilder::slider(parent, eventRouter)
+    .label("Speed")
+    .range(0, 100)
+    .onTimescaleChange()  // Emits SetTimescaleCommand
+    .buildOrLog();
+```
+
+**Benefits:**
+- **Clean State Code**: UI creation and event routing in one fluent interface
+- **No Manual Callbacks**: Eliminates boilerplate callback code and user_data casting
+- **Reusable Patterns**: Common UI patterns (pause/resume, sliders) have convenience methods
+- **Event System Integration**: Automatic routing to immediate or queued processing based on event type
+
+This pattern bridges LVGL's C-style callbacks with our type-safe event system, making UI code more maintainable and testable.
+
+### UI Lifecycle Management Strategy
+
+#### Current Lifecycle Model
+The current UI lifecycle is tightly coupled to the application lifecycle:
+1. **Creation**: UI is created once at application startup by SimulationManager
+2. **Lifetime**: UI persists for the entire application lifetime
+3. **Destruction**: UI is destroyed only at application shutdown
+4. **World Switching**: When switching physics systems, the UI updates its world pointer but isn't recreated
+
+#### Proposed State-Based Lifecycle
+In the new event-driven architecture, UI components will have dynamic lifecycles tied to state transitions:
+
+**State-Specific UI Components:**
+- **MainMenu State**: Creates `MainMenuUI` with start/config/exit buttons
+- **SimRunning State**: Creates `SimulatorUI` with full simulation controls
+- **SimPaused State**: Keeps existing `SimulatorUI` but may disable certain controls
+- **Config State**: Creates `ConfigUI` for settings management
+- **Loading/Saving States**: Creates progress dialogs or file browsers
+
+**Lifecycle Hooks:**
+```cpp
+// States can optionally define these methods
+void onEnter(DirtSimStateMachine& dsm);  // Create UI components
+void onExit(DirtSimStateMachine& dsm);   // Destroy UI components
+```
+
+**Benefits:**
+1. **Memory Efficiency**: Only UI components for current state are in memory
+2. **Clean Separation**: Each state manages its own UI requirements
+3. **Flexibility**: Easy to add new UI states without affecting others
+4. **Testability**: UI components can be tested in isolation per state
+
+**UI Persistence Strategy:**
+For smooth transitions, some UI state needs to persist:
+- **Material Selection**: Currently selected material type
+- **Physics Parameters**: Slider values and toggle states
+- **Camera/View State**: Zoom level, pan position (if implemented)
+
+This data will be stored in `SharedSimState` and restored when recreating UI components.
+
 ### Integration with Physics Systems
 
 #### Dual Physics Support

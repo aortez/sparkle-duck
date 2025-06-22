@@ -1,11 +1,14 @@
 #include "SimulatorUI.h"
 #include "Cell.h"
+#include "EventRouter.h"
 #include "MaterialType.h"
 #include "SimulationManager.h"
 #include "WorldB.h"
 #include "WorldFactory.h"
 #include "WorldInterface.h"
 #include "WorldState.h"
+#include "ui/LVGLBuilder.h"
+#include "ui/LVGLEventBuilder.h"
 #include "lvgl/lvgl.h"
 #include "lvgl/src/others/snapshot/lv_snapshot.h"
 #include "spdlog/spdlog.h"
@@ -21,6 +24,8 @@
 #include <unistd.h> // For readlink on Linux
 #include <vector>
 
+using namespace DirtSim;
+
 // Forward declare lodepng functions to avoid header conflicts
 extern "C" {
 unsigned lodepng_encode24(
@@ -28,9 +33,10 @@ unsigned lodepng_encode24(
 const char* lodepng_error_text(unsigned error);
 }
 
-SimulatorUI::SimulatorUI(lv_obj_t* screen)
+SimulatorUI::SimulatorUI(lv_obj_t* screen, EventRouter* eventRouter)
     : world_(nullptr),
       manager_(nullptr),
+      event_router_(eventRouter),
       screen_(screen),
       draw_area_(nullptr),
       mass_label_(nullptr),
@@ -98,10 +104,22 @@ void SimulatorUI::initialize()
 
 void SimulatorUI::createDrawArea()
 {
-    draw_area_ = lv_obj_create(screen_);
-    lv_obj_set_size(draw_area_, DRAW_AREA_SIZE, DRAW_AREA_SIZE);
-    lv_obj_align(draw_area_, LV_ALIGN_LEFT_MID, 0, 0);
-    lv_obj_set_style_pad_all(draw_area_, 0, 0);
+    if (event_router_) {
+        draw_area_ = LVGLEventBuilder::drawArea(screen_, event_router_)
+            .size(DRAW_AREA_SIZE, DRAW_AREA_SIZE)
+            .position(0, 0, LV_ALIGN_LEFT_MID)
+            .onMouseEvents()  // This sets up mouse down/move/up events
+            .buildOrLog();
+        if (draw_area_) {
+            lv_obj_set_style_pad_all(draw_area_, 0, 0);
+        }
+    } else {
+        // Fallback to old system
+        draw_area_ = lv_obj_create(screen_);
+        lv_obj_set_size(draw_area_, DRAW_AREA_SIZE, DRAW_AREA_SIZE);
+        lv_obj_align(draw_area_, LV_ALIGN_LEFT_MID, 0, 0);
+        lv_obj_set_style_pad_all(draw_area_, 0, 0);
+    }
 }
 
 void SimulatorUI::createLabels()
@@ -136,31 +154,54 @@ void SimulatorUI::createWorldTypeColumn()
 
     // Create world type button matrix with vertical stack
     static const char* world_btnm_map[] = { "WorldA", "\n", "WorldB", "" };
-    world_type_btnm_ = lv_buttonmatrix_create(screen_);
-    lv_obj_set_size(
-        world_type_btnm_, WORLD_TYPE_COLUMN_WIDTH, 100); // 100px height for vertical stack
-    lv_obj_align(world_type_btnm_, LV_ALIGN_TOP_LEFT, WORLD_TYPE_COLUMN_X, 30);
-    lv_buttonmatrix_set_map(world_type_btnm_, world_btnm_map);
-    lv_buttonmatrix_set_one_checked(world_type_btnm_, true);
+    
+    if (event_router_) {
+        world_type_btnm_ = LVGLEventBuilder::buttonMatrix(screen_, event_router_)
+            .map(world_btnm_map)
+            .size(WORLD_TYPE_COLUMN_WIDTH, 100)
+            .position(WORLD_TYPE_COLUMN_X, 30, LV_ALIGN_TOP_LEFT)
+            .oneChecked(true)
+            .buttonCtrl(0, LV_BUTTONMATRIX_CTRL_CHECKABLE)
+            .buttonCtrl(1, LV_BUTTONMATRIX_CTRL_CHECKABLE)
+            .selectedButton(1)  // WorldB is default
+            .style(LV_PART_ITEMS, [](lv_style_t* style) {
+                lv_style_set_bg_color(style, lv_color_hex(0x404040));
+                lv_style_set_text_color(style, lv_color_white());
+            })
+            .style(static_cast<lv_style_selector_t>(static_cast<int>(LV_PART_ITEMS) | static_cast<int>(LV_STATE_CHECKED)), 
+                   [](lv_style_t* style) {
+                lv_style_set_bg_color(style, lv_color_hex(0x0080FF));
+            })
+            .onWorldTypeSelect()
+            .buildOrLog();
+    } else {
+        // Fallback to old callback system
+        world_type_btnm_ = lv_buttonmatrix_create(screen_);
+        lv_obj_set_size(
+            world_type_btnm_, WORLD_TYPE_COLUMN_WIDTH, 100); // 100px height for vertical stack
+        lv_obj_align(world_type_btnm_, LV_ALIGN_TOP_LEFT, WORLD_TYPE_COLUMN_X, 30);
+        lv_buttonmatrix_set_map(world_type_btnm_, world_btnm_map);
+        lv_buttonmatrix_set_one_checked(world_type_btnm_, true);
 
-    // Make buttons checkable
-    lv_buttonmatrix_set_button_ctrl(world_type_btnm_, 0, LV_BUTTONMATRIX_CTRL_CHECKABLE);
-    lv_buttonmatrix_set_button_ctrl(world_type_btnm_, 1, LV_BUTTONMATRIX_CTRL_CHECKABLE);
+        // Make buttons checkable
+        lv_buttonmatrix_set_button_ctrl(world_type_btnm_, 0, LV_BUTTONMATRIX_CTRL_CHECKABLE);
+        lv_buttonmatrix_set_button_ctrl(world_type_btnm_, 1, LV_BUTTONMATRIX_CTRL_CHECKABLE);
 
-    // Set initial selection to WorldB (default per CLAUDE.md)
-    lv_buttonmatrix_set_selected_button(world_type_btnm_, 1);
+        // Set initial selection to WorldB (default per CLAUDE.md)
+        lv_buttonmatrix_set_selected_button(world_type_btnm_, 1);
 
-    // Style the button matrix
-    lv_obj_set_style_bg_color(world_type_btnm_, lv_color_hex(0x404040), LV_PART_ITEMS);
-    lv_obj_set_style_bg_color(
-        world_type_btnm_, lv_color_hex(0x0080FF), static_cast<lv_style_selector_t>(static_cast<int>(LV_PART_ITEMS) | static_cast<int>(LV_STATE_CHECKED)));
-    lv_obj_set_style_text_color(world_type_btnm_, lv_color_white(), LV_PART_ITEMS);
+        // Style the button matrix
+        lv_obj_set_style_bg_color(world_type_btnm_, lv_color_hex(0x404040), LV_PART_ITEMS);
+        lv_obj_set_style_bg_color(
+            world_type_btnm_, lv_color_hex(0x0080FF), static_cast<lv_style_selector_t>(static_cast<int>(LV_PART_ITEMS) | static_cast<int>(LV_STATE_CHECKED)));
+        lv_obj_set_style_text_color(world_type_btnm_, lv_color_white(), LV_PART_ITEMS);
 
-    lv_obj_add_event_cb(
-        world_type_btnm_,
-        worldTypeButtonMatrixEventCb,
-        LV_EVENT_VALUE_CHANGED,
-        createCallbackData());
+        lv_obj_add_event_cb(
+            world_type_btnm_,
+            worldTypeButtonMatrixEventCb,
+            LV_EVENT_VALUE_CHANGED,
+            createCallbackData());
+    }
 }
 
 void SimulatorUI::createMaterialPicker()
@@ -204,13 +245,23 @@ void SimulatorUI::onMaterialSelectionChanged(MaterialType newMaterial)
 void SimulatorUI::createControlButtons()
 {
     // Create debug toggle button
-    lv_obj_t* debug_btn = lv_btn_create(screen_);
-    lv_obj_set_size(debug_btn, CONTROL_WIDTH, 50);
-    lv_obj_align(debug_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 10);
-    lv_obj_t* debug_label = lv_label_create(debug_btn);
-    lv_label_set_text(debug_label, "Debug: Off");
-    lv_obj_center(debug_label);
-    lv_obj_add_event_cb(debug_btn, debugBtnEventCb, LV_EVENT_CLICKED, nullptr);
+    if (event_router_) {
+        debug_btn_ = LVGLEventBuilder::button(screen_, event_router_)
+            .onDebugToggle()
+            .size(CONTROL_WIDTH, 50)
+            .position(MAIN_CONTROLS_X, 10)
+            .text("Debug: Off")
+            .buildOrLog();
+    } else {
+        lv_obj_t* debug_btn = lv_btn_create(screen_);
+        lv_obj_set_size(debug_btn, CONTROL_WIDTH, 50);
+        lv_obj_align(debug_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 10);
+        lv_obj_t* debug_label = lv_label_create(debug_btn);
+        lv_label_set_text(debug_label, "Debug: Off");
+        lv_obj_center(debug_label);
+        lv_obj_add_event_cb(debug_btn, debugBtnEventCb, LV_EVENT_CLICKED, nullptr);
+        debug_btn_ = debug_btn;
+    }
 
     // === WorldA Pressure Controls ===
     lv_obj_t* worldA_pressure_header = lv_label_create(screen_);
@@ -264,13 +315,24 @@ void SimulatorUI::createControlButtons()
     lv_obj_add_event_cb(force_btn, forceBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
 
     // Create gravity toggle button
-    lv_obj_t* gravity_btn = lv_btn_create(screen_);
-    lv_obj_set_size(gravity_btn, CONTROL_WIDTH, 50);
-    lv_obj_align(gravity_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 265);
-    lv_obj_t* gravity_label = lv_label_create(gravity_btn);
-    lv_label_set_text(gravity_label, "Gravity: On");
-    lv_obj_center(gravity_label);
-    lv_obj_add_event_cb(gravity_btn, gravityBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
+    if (event_router_) {
+        LVGLEventBuilder::button(screen_, event_router_)
+            .onGravityToggle()  // Call event method first
+            .size(CONTROL_WIDTH, 50)
+            .position(MAIN_CONTROLS_X, 265, LV_ALIGN_TOP_LEFT)
+            .text("Gravity: On")
+            .toggle(true)  // Make it a toggle button
+            .buildOrLog();
+    } else {
+        // Fallback to old callback system
+        lv_obj_t* gravity_btn = lv_btn_create(screen_);
+        lv_obj_set_size(gravity_btn, CONTROL_WIDTH, 50);
+        lv_obj_align(gravity_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 265);
+        lv_obj_t* gravity_label = lv_label_create(gravity_btn);
+        lv_label_set_text(gravity_label, "Gravity: On");
+        lv_obj_center(gravity_label);
+        lv_obj_add_event_cb(gravity_btn, gravityBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
+    }
 
     // Create cohesion toggle button
     lv_obj_t* cohesion_btn = lv_btn_create(screen_);
@@ -454,14 +516,24 @@ void SimulatorUI::createControlButtons()
     lv_obj_add_event_cb(quadrant_btn, quadrantBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
 
     // Create screenshot button
-    lv_obj_t* screenshot_btn = lv_btn_create(screen_);
-    lv_obj_set_size(screenshot_btn, CONTROL_WIDTH, 50);
-    lv_obj_align(screenshot_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 815);
-    lv_obj_t* screenshot_label = lv_label_create(screenshot_btn);
-    lv_label_set_text(screenshot_label, "Screenshot");
-    lv_obj_center(screenshot_label);
-    lv_obj_add_event_cb(
-        screenshot_btn, screenshotBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
+    if (event_router_) {
+        LVGLEventBuilder::button(screen_, event_router_)
+            .onScreenshot()  // Call event method first
+            .size(CONTROL_WIDTH, 50)
+            .position(MAIN_CONTROLS_X, 815, LV_ALIGN_TOP_LEFT)
+            .text("Screenshot")
+            .buildOrLog();
+    } else {
+        // Fallback to old callback system
+        lv_obj_t* screenshot_btn = lv_btn_create(screen_);
+        lv_obj_set_size(screenshot_btn, CONTROL_WIDTH, 50);
+        lv_obj_align(screenshot_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 815);
+        lv_obj_t* screenshot_label = lv_label_create(screenshot_btn);
+        lv_label_set_text(screenshot_label, "Screenshot");
+        lv_obj_center(screenshot_label);
+        lv_obj_add_event_cb(
+            screenshot_btn, screenshotBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
+    }
 
     // Create print ASCII button
     lv_obj_t* print_ascii_btn = lv_btn_create(screen_);
@@ -492,22 +564,46 @@ void SimulatorUI::createSliders()
     const int SLIDER_COLUMN_X = MAIN_CONTROLS_X + CONTROL_WIDTH + 10;
 
     // Move Pause/Resume button to top of slider column
-    lv_obj_t* pause_btn = lv_btn_create(screen_);
-    lv_obj_set_size(pause_btn, CONTROL_WIDTH, 50);
-    lv_obj_align(pause_btn, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 10);
-    pause_label_ = lv_label_create(pause_btn);
-    lv_label_set_text(pause_label_, "Pause");
-    lv_obj_center(pause_label_);
-    lv_obj_add_event_cb(pause_btn, pauseBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
+    if (event_router_) {
+        auto pause_btn = LVGLEventBuilder::button(screen_, event_router_)
+            .onPauseResume()  // Call event method first
+            .size(CONTROL_WIDTH, 50)
+            .position(SLIDER_COLUMN_X, 10, LV_ALIGN_TOP_LEFT)
+            .buildOrLog();
+        if (pause_btn) {
+            pause_label_ = lv_label_create(pause_btn);
+            lv_label_set_text(pause_label_, "Pause");
+            lv_obj_center(pause_label_);
+        }
+    } else {
+        // Fallback to old callback system
+        lv_obj_t* pause_btn = lv_btn_create(screen_);
+        lv_obj_set_size(pause_btn, CONTROL_WIDTH, 50);
+        lv_obj_align(pause_btn, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 10);
+        pause_label_ = lv_label_create(pause_btn);
+        lv_label_set_text(pause_label_, "Pause");
+        lv_obj_center(pause_label_);
+        lv_obj_add_event_cb(pause_btn, pauseBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
+    }
 
     // Move Reset button below Pause
-    lv_obj_t* reset_btn = lv_btn_create(screen_);
-    lv_obj_set_size(reset_btn, CONTROL_WIDTH, 50);
-    lv_obj_align(reset_btn, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 70);
-    lv_obj_t* reset_label = lv_label_create(reset_btn);
-    lv_label_set_text(reset_label, "Reset");
-    lv_obj_center(reset_label);
-    lv_obj_add_event_cb(reset_btn, resetBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
+    if (event_router_) {
+        LVGLEventBuilder::button(screen_, event_router_)
+            .onReset()  // Call event method first
+            .size(CONTROL_WIDTH, 50)
+            .position(SLIDER_COLUMN_X, 70, LV_ALIGN_TOP_LEFT)
+            .text("Reset")
+            .buildOrLog();
+    } else {
+        // Fallback to old callback system
+        lv_obj_t* reset_btn = lv_btn_create(screen_);
+        lv_obj_set_size(reset_btn, CONTROL_WIDTH, 50);
+        lv_obj_align(reset_btn, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 70);
+        lv_obj_t* reset_label = lv_label_create(reset_btn);
+        lv_label_set_text(reset_label, "Reset");
+        lv_obj_center(reset_label);
+        lv_obj_add_event_cb(reset_btn, resetBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
+    }
 
     // Move Time History controls below Reset
     lv_obj_t* time_reversal_btn = lv_btn_create(screen_);
@@ -538,41 +634,60 @@ void SimulatorUI::createSliders()
 
     // Start sliders below the moved buttons
     // Timescale slider
-    lv_obj_t* slider_label = lv_label_create(screen_);
-    lv_label_set_text(slider_label, "Timescale");
-    lv_obj_align(slider_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 210);
+    if (event_router_) {
+        LVGLEventBuilder::slider(screen_, event_router_)
+            .onTimescaleChange()  // Call event method first
+            .position(SLIDER_COLUMN_X, 230, LV_ALIGN_TOP_LEFT)
+            .size(CONTROL_WIDTH, 10)
+            .range(0, 100)
+            .value(50)
+            .label("Timescale", SLIDER_COLUMN_X, 210)
+            .valueLabel("%.1fx", SLIDER_COLUMN_X + 110, 210)
+            .buildOrLog();
+    } else {
+        // Fallback to old callback system
+        lv_obj_t* slider_label = lv_label_create(screen_);
+        lv_label_set_text(slider_label, "Timescale");
+        lv_obj_align(slider_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 210);
 
-    lv_obj_t* timescale_value_label = lv_label_create(screen_);
-    lv_label_set_text(timescale_value_label, "1.0x");
-    lv_obj_align(timescale_value_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X + 110, 210);
+        lv_obj_t* timescale_value_label = lv_label_create(screen_);
+        lv_label_set_text(timescale_value_label, "1.0x");
+        lv_obj_align(timescale_value_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X + 110, 210);
 
-    lv_obj_t* slider = lv_slider_create(screen_);
-    lv_obj_set_size(slider, CONTROL_WIDTH, 10);
-    lv_obj_align(slider, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 230);
-    lv_slider_set_range(slider, 0, 100);
-    lv_slider_set_value(slider, 50, LV_ANIM_OFF);
-    lv_obj_add_event_cb(
-        slider, timescaleSliderEventCb, LV_EVENT_ALL, createCallbackData(timescale_value_label));
+        lv_obj_t* slider = lv_slider_create(screen_);
+        lv_obj_set_size(slider, CONTROL_WIDTH, 10);
+        lv_obj_align(slider, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 230);
+        lv_slider_set_range(slider, 0, 100);
+        lv_slider_set_value(slider, 50, LV_ANIM_OFF);
+        lv_obj_add_event_cb(
+            slider, timescaleSliderEventCb, LV_EVENT_ALL, createCallbackData(timescale_value_label));
+    }
 
-    // Elasticity slider
-    lv_obj_t* elasticity_label = lv_label_create(screen_);
-    lv_label_set_text(elasticity_label, "Elasticity");
-    lv_obj_align(elasticity_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 250);
-
-    lv_obj_t* elasticity_value_label = lv_label_create(screen_);
-    lv_label_set_text(elasticity_value_label, "0.8");
-    lv_obj_align(elasticity_value_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X + 110, 250);
-
-    lv_obj_t* elasticity_slider = lv_slider_create(screen_);
-    lv_obj_set_size(elasticity_slider, CONTROL_WIDTH, 10);
-    lv_obj_align(elasticity_slider, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 270);
-    lv_slider_set_range(elasticity_slider, 0, 200);
-    lv_slider_set_value(elasticity_slider, 80, LV_ANIM_OFF);
-    lv_obj_add_event_cb(
-        elasticity_slider,
-        elasticitySliderEventCb,
-        LV_EVENT_ALL,
-        createCallbackData(elasticity_value_label));
+    // Elasticity slider - migrated to EventRouter or LVGLBuilder
+    if (event_router_) {
+        LVGLEventBuilder::slider(screen_, event_router_)
+            .onElasticityChange()  // Call event method first
+            .position(SLIDER_COLUMN_X, 270, LV_ALIGN_TOP_LEFT)
+            .size(CONTROL_WIDTH, 10)
+            .range(0, 200)
+            .value(80)
+            .label("Elasticity")
+            .valueLabel("%.1f")
+            .buildOrLog();
+    } else {
+        // Fallback to LVGLBuilder
+        [[maybe_unused]] auto elasticity_slider = LVGLBuilder::slider(screen_)
+            .position(SLIDER_COLUMN_X, 270)
+            .size(CONTROL_WIDTH, 10)
+            .range(0, 200)
+            .value(80)
+            .label("Elasticity")
+            .valueLabel("%.1f")
+            .callback(elasticitySliderEventCb, [this](lv_obj_t* value_label) -> void* {
+                return createCallbackData(value_label);
+            })
+            .buildOrLog();
+    }
 
     // Dirt fragmentation slider
     lv_obj_t* fragmentation_label = lv_label_create(screen_);
@@ -804,9 +919,13 @@ void SimulatorUI::createSliders()
 
 void SimulatorUI::setupDrawAreaEvents()
 {
-    lv_obj_add_event_cb(draw_area_, drawAreaEventCb, LV_EVENT_PRESSED, createCallbackData());
-    lv_obj_add_event_cb(draw_area_, drawAreaEventCb, LV_EVENT_PRESSING, createCallbackData());
-    lv_obj_add_event_cb(draw_area_, drawAreaEventCb, LV_EVENT_RELEASED, createCallbackData());
+    // Only set up old callbacks if not using event router
+    if (!event_router_) {
+        lv_obj_add_event_cb(draw_area_, drawAreaEventCb, LV_EVENT_PRESSED, createCallbackData());
+        lv_obj_add_event_cb(draw_area_, drawAreaEventCb, LV_EVENT_PRESSING, createCallbackData());
+        lv_obj_add_event_cb(draw_area_, drawAreaEventCb, LV_EVENT_RELEASED, createCallbackData());
+    }
+    // If using event router, events were already set up in createDrawArea()
 }
 
 void SimulatorUI::updateMassLabel(double totalMass)

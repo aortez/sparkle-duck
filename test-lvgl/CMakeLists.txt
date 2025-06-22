@@ -104,6 +104,12 @@ add_subdirectory(./lvgl ${CMAKE_BINARY_DIR}/lvgl)
 target_include_directories(lvgl PUBLIC ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/src/lib ${PKG_CONFIG_INC})
 
 add_subdirectory(./spdlog ${CMAKE_BINARY_DIR}/spdlog)
+
+# Add args header-only library
+set(ARGS_BUILD_EXAMPLE OFF CACHE BOOL "Build examples" FORCE)
+set(ARGS_BUILD_UNITTESTS OFF CACHE BOOL "Build unit tests" FORCE)
+add_subdirectory(./external/args ${CMAKE_BINARY_DIR}/args)
+
 add_library(lvgl_linux STATIC ${LV_LINUX_SRC} ${LV_LINUX_BACKEND_SRC})
 target_include_directories(lvgl_linux PRIVATE ${LV_LINUX_INC} ${PROJECT_SOURCE_DIR})
 
@@ -117,6 +123,7 @@ add_executable(sparkle-duck
     src/WorldSetup.cpp
     src/SimulatorUI.cpp
     src/SimulationManager.cpp
+    src/UIManager.cpp
     src/MaterialType.cpp
     src/CellB.cpp
     src/WorldB.cpp
@@ -134,10 +141,21 @@ add_executable(sparkle-duck
     src/WorldState.cpp
     src/CrashDumpHandler.cpp
     src/WorldInterpolationTool.cpp
+    src/ui/LVGLBuilder.cpp
+    src/ui/LVGLEventBuilder.cpp
+    src/EventProcessor.cpp
+    src/EventRouter.cpp
+    src/DirtSimStateMachine.cpp
+    src/states/Startup.cpp
+    src/states/MainMenu.cpp
+    src/states/SimRunning.cpp
+    src/states/SimPaused.cpp
+    src/states/Config.cpp
+    src/states/Shutdown.cpp
     ${LV_LINUX_SRC} 
     ${LV_LINUX_BACKEND_SRC})
 target_link_libraries(sparkle-duck lvgl_linux lvgl lvgl::thorvg spdlog::spdlog m pthread ${PKG_CONFIG_LIB} ${SDL2_LIBRARIES} ${SDL2_IMAGE_LIBRARIES})
-target_include_directories(sparkle-duck PRIVATE ${SDL2_INCLUDE_DIRS} ${SDL2_IMAGE_INCLUDE_DIRS})
+target_include_directories(sparkle-duck PRIVATE ${SDL2_INCLUDE_DIRS} ${SDL2_IMAGE_INCLUDE_DIRS} ${CMAKE_SOURCE_DIR}/external/args)
 
 # Enable warnings and treat them as errors for main executable
 target_compile_options(sparkle-duck PRIVATE -Wall -Wextra -Werror)
@@ -193,6 +211,12 @@ add_executable(sparkle-duck-tests
     src/tests/ResultTest.cpp
     src/tests/TimersTest.cpp
     src/tests/UnifiedSimLoopExample_test.cpp
+    src/tests/EventClassification_test.cpp
+    src/tests/DirtSimStateMachine_test.cpp
+    src/tests/StateTests.cpp
+    src/tests/DualPathRoutingTests.cpp
+    src/tests/IntegrationTests.cpp
+    src/tests/StateTransitionTests.cpp
     simple_reset_test.cpp
     src/Vector2d.cpp
     src/Vector2i.cpp
@@ -202,6 +226,7 @@ add_executable(sparkle-duck-tests
     src/WorldSetup.cpp
     src/SimulatorUI.cpp
     src/SimulationManager.cpp
+    src/UIManager.cpp
     src/MaterialType.cpp
     src/CellB.cpp
     src/WorldB.cpp
@@ -219,6 +244,17 @@ add_executable(sparkle-duck-tests
     src/WorldState.cpp
     src/CrashDumpHandler.cpp
     src/WorldInterpolationTool.cpp
+    src/ui/LVGLBuilder.cpp
+    src/ui/LVGLEventBuilder.cpp
+    src/EventProcessor.cpp
+    src/EventRouter.cpp
+    src/DirtSimStateMachine.cpp
+    src/states/Startup.cpp
+    src/states/MainMenu.cpp
+    src/states/SimRunning.cpp
+    src/states/SimPaused.cpp
+    src/states/Config.cpp
+    src/states/Shutdown.cpp
     ${LV_LINUX_SRC} 
     ${LV_LINUX_BACKEND_SRC}
 )

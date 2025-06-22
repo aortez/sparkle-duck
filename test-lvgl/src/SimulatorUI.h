@@ -8,6 +8,7 @@
 // Forward declarations
 class WorldInterface;
 class SimulationManager;
+class EventRouter;
 enum class WorldType;
 
 class SimulatorUI {
@@ -21,7 +22,7 @@ public:
         lv_obj_t* radio_buttons[3]; // For radio button groups (mutual exclusion)
     };
 
-    SimulatorUI(lv_obj_t* screen);
+    SimulatorUI(lv_obj_t* screen, EventRouter* eventRouter = nullptr);
     ~SimulatorUI();
 
     // Set the world and manager after UI creation
@@ -52,6 +53,7 @@ public:
 private:
     WorldInterface* world_;
     SimulationManager* manager_; // Manager handles world switching
+    EventRouter* event_router_; // Event routing system
     lv_obj_t* screen_;
     lv_obj_t* draw_area_;
     lv_obj_t* mass_label_;

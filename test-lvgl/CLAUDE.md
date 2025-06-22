@@ -355,19 +355,23 @@ Can be found here:
 [ ] - chain reaction mechanics?
 [ ] - CellInterface?
 [ ] - some way to talk to the application while it runs... a DBus API, a socket API, what are the other options? This would be useful!
+[ ] - install args command line library and update main app to have a better CLI interface.
 
 ## Coding Guidelines
-- Comments ALWAYS end with a period.
-- Exit early.
-- Use const.
-- Use explicit names.
+- Comments ALWAYS end with a period.  Add them if you don't already see them.  No broken windows.
+- Exit early to reduce scope.  It makes things easier to understand.
+- Use const for immutable data.
+- Use explicit names.  E.g. rather than `doIt`, prefer `backupMainDatabase`.
+- If there is no other obvious order, prefer alphabetical.
 - If a comment says the same approximate thing as the explicit name right next to it, the comment is not needed.
 - Look for opportunities to refactor.
 - It is ok to have public data members... make them private only if needed.
 
 ### Zen Mindset
-
 When you contemplate the problem to understand it, you find the solution you like best.
 
 ## Cookies are delicious
 And sparkle duck (🦆✨) dirt simulator knows de way!
+
+## Everyone loves HOWTOs!
+And they also Love README.md too!
