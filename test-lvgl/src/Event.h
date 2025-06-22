@@ -2,14 +2,14 @@
 
 #include "MaterialType.h"
 #include "WorldInterface.h"
+#include <concepts>
 #include <cstdint>
 #include <string>
 #include <variant>
-#include <concepts>
 
 /**
  * @brief Event definitions for the dual-path event system.
- * 
+ *
  * Includes events needed to connect the state machine to current UI callbacks.
  */
 
@@ -20,7 +20,7 @@
 /**
  * @brief Concept for events that have a name() method.
  */
-template<typename T>
+template <typename T>
 concept HasEventName = requires {
     { T::name() } -> std::convertible_to<const char*>;
 };
@@ -164,6 +164,34 @@ struct ToggleDebugCommand {
     static constexpr const char* name() { return "ToggleDebugCommand"; }
 };
 
+/**
+ * @brief Toggle cursor force visualization.
+ */
+struct ToggleForceCommand {
+    static constexpr const char* name() { return "ToggleForceCommand"; }
+};
+
+/**
+ * @brief Toggle cohesion physics.
+ */
+struct ToggleCohesionCommand {
+    static constexpr const char* name() { return "ToggleCohesionCommand"; }
+};
+
+/**
+ * @brief Toggle adhesion physics.
+ */
+struct ToggleAdhesionCommand {
+    static constexpr const char* name() { return "ToggleAdhesionCommand"; }
+};
+
+/**
+ * @brief Toggle time history tracking.
+ */
+struct ToggleTimeHistoryCommand {
+    static constexpr const char* name() { return "ToggleTimeHistoryCommand"; }
+};
+
 // =================================================================
 // UI CONTROL EVENTS
 // =================================================================
@@ -180,6 +208,13 @@ struct CaptureScreenshotCommand {
  */
 struct QuitApplicationCommand {
     static constexpr const char* name() { return "QuitApplicationCommand"; }
+};
+
+/**
+ * @brief Print ASCII diagram of world state.
+ */
+struct PrintAsciiDiagramCommand {
+    static constexpr const char* name() { return "PrintAsciiDiagramCommand"; }
 };
 
 // =================================================================
@@ -225,38 +260,43 @@ using Event = std::variant<
     GetSimStatsCommand,
     PauseCommand,
     ResumeCommand,
-    
+
     // Simulation control
     StartSimulationCommand,
     AdvanceSimulationCommand,
     ResetSimulationCommand,
     SwitchWorldTypeCommand,
     SaveWorldCommand,
-    
+
     // Mouse events
     MouseDownEvent,
     MouseMoveEvent,
     MouseUpEvent,
-    
+
     // Physics parameters
     SetGravityCommand,
     SetElasticityCommand,
     SetTimescaleCommand,
     ToggleDebugCommand,
-    
+    ToggleForceCommand,
+    ToggleCohesionCommand,
+    ToggleAdhesionCommand,
+    ToggleTimeHistoryCommand,
+
     // UI control
     CaptureScreenshotCommand,
     QuitApplicationCommand,
+    PrintAsciiDiagramCommand,
     SelectMaterialCommand,
-    
+
     // State transitions
     OpenConfigCommand,
-    InitCompleteEvent
->;
+    InitCompleteEvent>;
 
 /**
  * @brief Helper to get event name from variant.
  */
-inline std::string getEventName(const Event& event) {
+inline std::string getEventName(const Event& event)
+{
     return std::visit([](auto&& e) { return std::string(e.name()); }, event);
 }

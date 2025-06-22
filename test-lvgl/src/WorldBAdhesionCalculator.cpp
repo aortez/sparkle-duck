@@ -1,15 +1,14 @@
 #include "WorldBAdhesionCalculator.h"
-#include "WorldB.h"
 #include "CellB.h"
+#include "WorldB.h"
 #include <cmath>
 
 WorldBAdhesionCalculator::WorldBAdhesionCalculator(const WorldB& world)
     : WorldBCalculatorBase(world)
-{
-}
+{}
 
-WorldBAdhesionCalculator::AdhesionForce 
-WorldBAdhesionCalculator::calculateAdhesionForce(uint32_t x, uint32_t y) const
+WorldBAdhesionCalculator::AdhesionForce WorldBAdhesionCalculator::calculateAdhesionForce(
+    uint32_t x, uint32_t y) const
 {
     const CellB& cell = getCellAt(x, y);
     if (cell.isEmpty()) {

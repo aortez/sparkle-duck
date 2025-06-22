@@ -724,7 +724,8 @@ void CellB::drawDebug(lv_obj_t* parent, uint32_t x, uint32_t y)
 
         if (material_type_ != MaterialType::AIR) {
             // Calculate opacity based on fill ratio
-            lv_opa_t opacity = static_cast<lv_opa_t>(fill_ratio_ * static_cast<double>(LV_OPA_COVER));
+            lv_opa_t opacity =
+                static_cast<lv_opa_t>(fill_ratio_ * static_cast<double>(LV_OPA_COVER));
 
             // Draw material layer with enhanced border for debug
             lv_draw_rect_dsc_t rect_dsc;

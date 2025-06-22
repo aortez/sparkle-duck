@@ -10,14 +10,14 @@
 
 WorldBCollisionCalculator::WorldBCollisionCalculator(WorldB& world)
     : WorldBCalculatorBase(world), world_(world)
-{
-}
+{}
 
 // =================================================================
 // COLLISION DETECTION
 // =================================================================
 
-std::vector<Vector2i> WorldBCollisionCalculator::getAllBoundaryCrossings(const Vector2d& newCOM) const
+std::vector<Vector2i> WorldBCollisionCalculator::getAllBoundaryCrossings(
+    const Vector2d& newCOM) const
 {
     std::vector<Vector2i> crossings;
 
@@ -335,13 +335,14 @@ void WorldBCollisionCalculator::handleTransferMove(
                 fromCell.getVelocity().magnitude(),
                 energy);
 
-            world_.getPressureCalculator().queueBlockedTransfer({ move.fromX,
-                                                                  move.fromY,
-                                                                  move.toX,
-                                                                  move.toY,
-                                                                  transfer_deficit, // transfer_amount
-                                                                  fromCell.getVelocity(),
-                                                                  energy });
+            world_.getPressureCalculator().queueBlockedTransfer(
+                { move.fromX,
+                  move.fromY,
+                  move.toX,
+                  move.toY,
+                  transfer_deficit, // transfer_amount
+                  fromCell.getVelocity(),
+                  energy });
         }
 
         applyCellBoundaryReflection(fromCell, direction, move.material);
@@ -375,7 +376,7 @@ void WorldBCollisionCalculator::handleElasticCollision(
         // Move the particle that crossed the boundary back slightly
         double separation_distance = 0.02; // Small separation to ensure clean separation
         Vector2d fromCOM = fromCell.getCOM();
-        
+
         // Check which boundary was crossed and apply separation
         if (move.boundary_normal.x > 0.5) { // Crossed right boundary (normal points left)
             fromCOM.x = std::min(fromCOM.x, 1.0 - separation_distance);
@@ -385,7 +386,7 @@ void WorldBCollisionCalculator::handleElasticCollision(
             fromCOM.x = std::max(fromCOM.x, -1.0 + separation_distance);
             fromCell.setCOM(fromCOM);
         }
-        
+
         if (move.boundary_normal.y > 0.5) { // Crossed bottom boundary (normal points up)
             fromCOM.y = std::min(fromCOM.y, 1.0 - separation_distance);
             fromCell.setCOM(fromCOM);
@@ -419,21 +420,21 @@ void WorldBCollisionCalculator::handleElasticCollision(
         // Also apply separation for reflections
         double separation_distance = 0.02;
         Vector2d fromCOM = fromCell.getCOM();
-        
+
         if (surface_normal.x > 0.5) {
             fromCOM.x = std::min(fromCOM.x, 1.0 - separation_distance);
         }
         else if (surface_normal.x < -0.5) {
             fromCOM.x = std::max(fromCOM.x, -1.0 + separation_distance);
         }
-        
+
         if (surface_normal.y > 0.5) {
             fromCOM.y = std::min(fromCOM.y, 1.0 - separation_distance);
         }
         else if (surface_normal.y < -0.5) {
             fromCOM.y = std::max(fromCOM.y, -1.0 + separation_distance);
         }
-        
+
         fromCell.setCOM(fromCOM);
 
         spdlog::warn(
@@ -552,7 +553,8 @@ void WorldBCollisionCalculator::handleInelasticCollision(
         actual_transfer);
 }
 
-void WorldBCollisionCalculator::handleFragmentation(CellB& fromCell, CellB& toCell, const MaterialMove& move)
+void WorldBCollisionCalculator::handleFragmentation(
+    CellB& fromCell, CellB& toCell, const MaterialMove& move)
 {
     // TODO: Implement fragmentation mechanics
     // For now, treat as inelastic collision with complete material transfer
@@ -565,7 +567,8 @@ void WorldBCollisionCalculator::handleFragmentation(CellB& fromCell, CellB& toCe
     handleInelasticCollision(fromCell, toCell, move);
 }
 
-void WorldBCollisionCalculator::handleAbsorption(CellB& fromCell, CellB& toCell, const MaterialMove& move)
+void WorldBCollisionCalculator::handleAbsorption(
+    CellB& fromCell, CellB& toCell, const MaterialMove& move)
 {
     // One material absorbs the other - implement absorption logic
     if (move.material == MaterialType::WATER && toCell.getMaterialType() == MaterialType::DIRT) {

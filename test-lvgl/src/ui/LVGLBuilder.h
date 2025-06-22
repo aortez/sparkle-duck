@@ -179,11 +179,39 @@ public:
         std::string text_;
         Position position_;
     };
+    
+    /**
+     * DropdownBuilder - Interface for creating dropdown widgets.
+     */
+    class DropdownBuilder {
+    public:
+        explicit DropdownBuilder(lv_obj_t* parent);
+        
+        DropdownBuilder& options(const char* options);
+        DropdownBuilder& selected(uint16_t index);
+        DropdownBuilder& position(int x, int y, lv_align_t align = LV_ALIGN_TOP_LEFT);
+        DropdownBuilder& position(const Position& pos);
+        DropdownBuilder& size(int width, int height);
+        DropdownBuilder& size(const Size& size);
+        
+        Result<lv_obj_t*, std::string> build();
+        
+        // Build with automatic error logging (returns dropdown or nullptr)
+        lv_obj_t* buildOrLog();
+        
+    private:
+        lv_obj_t* parent_;
+        std::string options_;
+        uint16_t selectedIndex_ = 0;
+        Position position_;
+        Size size_;
+    };
 
     // Static factory methods for fluent interface
     static SliderBuilder slider(lv_obj_t* parent);
     static ButtonBuilder button(lv_obj_t* parent);
     static LabelBuilder label(lv_obj_t* parent);
+    static DropdownBuilder dropdown(lv_obj_t* parent);
     
     // Utility methods for common positioning patterns
     static Position topLeft(int x, int y) { return Position(x, y, LV_ALIGN_TOP_LEFT); }

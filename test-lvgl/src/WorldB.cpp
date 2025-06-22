@@ -398,9 +398,11 @@ void WorldB::updateDrag(int pixelX, int pixelY)
             floating_particle_.setVelocity(Vector2d(dx, dy));
 
             // Check for collisions with the target cell
-            if (collision_calculator_.checkFloatingParticleCollision(last_drag_cell_x_, last_drag_cell_y_, floating_particle_)) {
+            if (collision_calculator_.checkFloatingParticleCollision(
+                    last_drag_cell_x_, last_drag_cell_y_, floating_particle_)) {
                 CellB& targetCell = at(last_drag_cell_x_, last_drag_cell_y_);
-                collision_calculator_.handleFloatingParticleCollision(last_drag_cell_x_, last_drag_cell_y_, floating_particle_, targetCell);
+                collision_calculator_.handleFloatingParticleCollision(
+                    last_drag_cell_x_, last_drag_cell_y_, floating_particle_, targetCell);
             }
         }
     }
@@ -742,7 +744,8 @@ void WorldB::applyCohesionForces(double deltaTime)
 
             // Adhesion force accumulation (only if enabled)
             if (adhesion_calculator_.isAdhesionEnabled()) {
-                WorldBAdhesionCalculator::AdhesionForce adhesion = adhesion_calculator_.calculateAdhesionForce(x, y);
+                WorldBAdhesionCalculator::AdhesionForce adhesion =
+                    adhesion_calculator_.calculateAdhesionForce(x, y);
                 Vector2d adhesion_force = adhesion.force_direction * adhesion.force_magnitude
                     * deltaTime * adhesion_calculator_.getAdhesionStrength();
                 cell.addPendingForce(adhesion_force);
@@ -894,7 +897,8 @@ std::vector<MaterialMove> WorldB::computeMaterialMoves(double deltaTime)
             else {
                 cohesion = { 0.0, 0 }; // No cohesion resistance when disabled
             }
-            WorldBAdhesionCalculator::AdhesionForce adhesion = adhesion_calculator_.calculateAdhesionForce(x, y);
+            WorldBAdhesionCalculator::AdhesionForce adhesion =
+                adhesion_calculator_.calculateAdhesionForce(x, y);
 
             // NEW: Calculate COM-based cohesion force
             WorldBCohesionCalculator::COMCohesionForce com_cohesion;
@@ -912,7 +916,8 @@ std::vector<MaterialMove> WorldB::computeMaterialMoves(double deltaTime)
             // controls)
             double effective_resistance =
                 cohesion.resistance_magnitude * cohesion_bind_force_strength_ * deltaTime * 50;
-            double effective_adhesion_magnitude = adhesion.force_magnitude * adhesion_calculator_.getAdhesionStrength();
+            double effective_adhesion_magnitude =
+                adhesion.force_magnitude * adhesion_calculator_.getAdhesionStrength();
             double effective_com_cohesion_magnitude =
                 com_cohesion.force_magnitude * cohesion_com_force_strength_;
 
@@ -947,7 +952,8 @@ std::vector<MaterialMove> WorldB::computeMaterialMoves(double deltaTime)
             Vector2d newCOM = cell.getCOM() + cell.getVelocity() * deltaTime;
 
             // Enhanced: Check if COM crosses any boundary [-1,1] for universal collision detection
-            std::vector<Vector2i> crossed_boundaries = collision_calculator_.getAllBoundaryCrossings(newCOM);
+            std::vector<Vector2i> crossed_boundaries =
+                collision_calculator_.getAllBoundaryCrossings(newCOM);
 
             if (!crossed_boundaries.empty()) {
                 spdlog::debug(
@@ -1112,7 +1118,6 @@ void WorldB::setupBoundaryWalls()
     spdlog::info("Boundary walls setup complete");
 }
 
-
 // =================================================================
 // HELPER METHODS
 // =================================================================
@@ -1227,7 +1232,8 @@ std::string WorldB::settingsToString() const
        << "\n";
     ss << "Cohesion bind force enabled: " << (isCohesionBindForceEnabled() ? "true" : "false")
        << "\n";
-    ss << "Adhesion enabled: " << (adhesion_calculator_.isAdhesionEnabled() ? "true" : "false") << "\n";
+    ss << "Adhesion enabled: " << (adhesion_calculator_.isAdhesionEnabled() ? "true" : "false")
+       << "\n";
     ss << "Air resistance enabled: " << (air_resistance_enabled_ ? "true" : "false") << "\n";
     ss << "Air resistance strength: " << air_resistance_strength_ << "\n";
     ss << "Material removal threshold: " << MIN_MATTER_THRESHOLD << "\n";
@@ -1356,8 +1362,6 @@ void WorldB::restoreState(const ::WorldState& state)
     spdlog::info("WorldB state restored: {} total mass", getTotalMass());
 }
 
-
 // =================================================================
 // FORCE CALCULATION METHODS
 // =================================================================
-

@@ -34,6 +34,7 @@ public:
     // UI update methods
     void updateMassLabel(double totalMass);
     void updateFPSLabel(uint32_t fps);
+    void updateDebugButton();
 
     // Frame limiting control
     bool isFrameLimitingEnabled() const { return frame_limiting_enabled_; }
@@ -53,13 +54,14 @@ public:
 private:
     WorldInterface* world_;
     SimulationManager* manager_; // Manager handles world switching
-    EventRouter* event_router_; // Event routing system
+    EventRouter* event_router_;  // Event routing system
     lv_obj_t* screen_;
     lv_obj_t* draw_area_;
     lv_obj_t* mass_label_;
     lv_obj_t* fps_label_;
     lv_obj_t* pause_label_;
     lv_obj_t* world_type_btnm_;
+    lv_obj_t* debug_btn_ = nullptr;
 
     // Material picker UI
     std::unique_ptr<MaterialPicker> material_picker_;

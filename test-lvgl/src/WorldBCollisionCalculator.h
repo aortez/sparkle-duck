@@ -24,8 +24,7 @@ class WorldB;
  * The collision system implements material-specific interaction behaviors
  * based on physical properties like density, elasticity, and brittleness.
  */
-class WorldBCollisionCalculator : public WorldBCalculatorBase
-{
+class WorldBCollisionCalculator : public WorldBCalculatorBase {
 public:
     /**
      * @brief Constructor
@@ -96,8 +95,7 @@ public:
      * @param floating_particle The floating particle
      * @return True if collision occurs
      */
-    bool checkFloatingParticleCollision(
-        int cellX, int cellY, const CellB& floating_particle) const;
+    bool checkFloatingParticleCollision(int cellX, int cellY, const CellB& floating_particle) const;
 
     // ===== COLLISION RESPONSE =====
 
@@ -166,8 +164,7 @@ public:
      * @param direction Direction of failed transfer
      * @param material Material type for elasticity calculation
      */
-    void applyCellBoundaryReflection(
-        CellB& cell, const Vector2i& direction, MaterialType material);
+    void applyCellBoundaryReflection(CellB& cell, const Vector2i& direction, MaterialType material);
 
     // ===== UTILITY METHODS =====
 

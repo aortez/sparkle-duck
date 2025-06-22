@@ -18,6 +18,31 @@ namespace DirtSim {
  */
 class LVGLEventBuilder {
 public:
+    // Forward declarations
+    class SliderBuilder;
+    class ButtonBuilder;
+    class ButtonMatrixBuilder;
+    class DropdownBuilder;
+    
+    /**
+     * @brief Create a slider with event routing support.
+     */
+    static SliderBuilder slider(lv_obj_t* parent, EventRouter* router);
+    
+    /**
+     * @brief Create a button with event routing support.
+     */
+    static ButtonBuilder button(lv_obj_t* parent, EventRouter* router);
+    
+    /**
+     * @brief Create a button matrix with event routing support.
+     */
+    static ButtonMatrixBuilder buttonMatrix(lv_obj_t* parent, EventRouter* router);
+    
+    /**
+     * @brief Create a dropdown with event routing support.
+     */
+    static DropdownBuilder dropdown(lv_obj_t* parent, EventRouter* router);
     /**
      * @brief Extended SliderBuilder with event system integration.
      */
@@ -92,12 +117,47 @@ public:
         /**
          * @brief Convenience method for gravity toggle button.
          */
-        ButtonBuilder& onGravityToggle();$1
+        ButtonBuilder& onGravityToggle();
+
+        /**
+         * @brief Convenience method for print ASCII button.
+         */
+        ButtonBuilder& onPrintAscii();
         
         /**
          * @brief Convenience method for debug toggle button.
          */
         ButtonBuilder& onDebugToggle();
+        
+        /**
+         * @brief Convenience method for quit button.
+         */
+        ButtonBuilder& onQuit();
+        
+        /**
+         * @brief Convenience method for screenshot button.
+         */
+        ButtonBuilder& onScreenshot();
+        
+        /**
+         * @brief Convenience method for force toggle button.
+         */
+        ButtonBuilder& onForceToggle();
+        
+        /**
+         * @brief Convenience method for cohesion toggle button.
+         */
+        ButtonBuilder& onCohesionToggle();
+        
+        /**
+         * @brief Convenience method for adhesion toggle button.
+         */
+        ButtonBuilder& onAdhesionToggle();
+        
+        /**
+         * @brief Convenience method for time history toggle button.
+         */
+        ButtonBuilder& onTimeHistoryToggle();
         
         /**
          * @brief Set the event router for this builder.
@@ -164,6 +224,35 @@ public:
     };
     
     /**
+     * @brief Extended dropdown builder for event handling.
+     */
+    class DropdownBuilder : public LVGLBuilder::DropdownBuilder {
+    public:
+        using LVGLBuilder::DropdownBuilder::DropdownBuilder;
+        
+        /**
+         * @brief Set up dropdown to emit events on value change.
+         * @param handler Function that takes the selected index and returns an Event
+         */
+        DropdownBuilder& onValueChange(std::function<Event(uint16_t)> handler);
+        
+        /**
+         * @brief Convenience method for pressure system dropdown.
+         * Maps indices to pressure system types.
+         */
+        DropdownBuilder& onPressureSystemChange();
+        
+        /**
+         * @brief Set the event router for this builder.
+         */
+        DropdownBuilder& withEventRouter(EventRouter* router);
+        
+    private:
+        EventRouter* eventRouter_ = nullptr;
+        std::shared_ptr<std::function<Event(uint16_t)>> eventHandler_;
+    };
+    
+    /**
      * @brief Extended draw area builder for mouse events.
      */
     class DrawAreaBuilder {
@@ -206,10 +295,7 @@ public:
         std::pair<int, int> getRelativeCoords(lv_obj_t* obj, lv_point_t* point);
     };
     
-    // Factory methods that return extended builders
-    static SliderBuilder slider(lv_obj_t* parent, EventRouter* router);
-    static ButtonBuilder button(lv_obj_t* parent, EventRouter* router);
-    static ButtonMatrixBuilder buttonMatrix(lv_obj_t* parent, EventRouter* router);
+    // Factory method for draw area
     static DrawAreaBuilder drawArea(lv_obj_t* parent, EventRouter* router);
     
     /**

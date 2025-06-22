@@ -7,11 +7,11 @@
 #include "WorldFactory.h"
 #include "WorldInterface.h"
 #include "WorldState.h"
-#include "ui/LVGLBuilder.h"
-#include "ui/LVGLEventBuilder.h"
 #include "lvgl/lvgl.h"
 #include "lvgl/src/others/snapshot/lv_snapshot.h"
 #include "spdlog/spdlog.h"
+#include "ui/LVGLBuilder.h"
+#include "ui/LVGLEventBuilder.h"
 
 #include <algorithm>
 #include <cmath>
@@ -106,14 +106,15 @@ void SimulatorUI::createDrawArea()
 {
     if (event_router_) {
         draw_area_ = LVGLEventBuilder::drawArea(screen_, event_router_)
-            .size(DRAW_AREA_SIZE, DRAW_AREA_SIZE)
-            .position(0, 0, LV_ALIGN_LEFT_MID)
-            .onMouseEvents()  // This sets up mouse down/move/up events
-            .buildOrLog();
+                         .size(DRAW_AREA_SIZE, DRAW_AREA_SIZE)
+                         .position(0, 0, LV_ALIGN_LEFT_MID)
+                         .onMouseEvents() // This sets up mouse down/move/up events
+                         .buildOrLog();
         if (draw_area_) {
             lv_obj_set_style_pad_all(draw_area_, 0, 0);
         }
-    } else {
+    }
+    else {
         // Fallback to old system
         draw_area_ = lv_obj_create(screen_);
         lv_obj_set_size(draw_area_, DRAW_AREA_SIZE, DRAW_AREA_SIZE);
@@ -154,27 +155,31 @@ void SimulatorUI::createWorldTypeColumn()
 
     // Create world type button matrix with vertical stack
     static const char* world_btnm_map[] = { "WorldA", "\n", "WorldB", "" };
-    
+
     if (event_router_) {
-        world_type_btnm_ = LVGLEventBuilder::buttonMatrix(screen_, event_router_)
-            .map(world_btnm_map)
-            .size(WORLD_TYPE_COLUMN_WIDTH, 100)
-            .position(WORLD_TYPE_COLUMN_X, 30, LV_ALIGN_TOP_LEFT)
-            .oneChecked(true)
-            .buttonCtrl(0, LV_BUTTONMATRIX_CTRL_CHECKABLE)
-            .buttonCtrl(1, LV_BUTTONMATRIX_CTRL_CHECKABLE)
-            .selectedButton(1)  // WorldB is default
-            .style(LV_PART_ITEMS, [](lv_style_t* style) {
-                lv_style_set_bg_color(style, lv_color_hex(0x404040));
-                lv_style_set_text_color(style, lv_color_white());
-            })
-            .style(static_cast<lv_style_selector_t>(static_cast<int>(LV_PART_ITEMS) | static_cast<int>(LV_STATE_CHECKED)), 
-                   [](lv_style_t* style) {
-                lv_style_set_bg_color(style, lv_color_hex(0x0080FF));
-            })
-            .onWorldTypeSelect()
-            .buildOrLog();
-    } else {
+        world_type_btnm_ =
+            LVGLEventBuilder::buttonMatrix(screen_, event_router_)
+                .map(world_btnm_map)
+                .size(WORLD_TYPE_COLUMN_WIDTH, 100)
+                .position(WORLD_TYPE_COLUMN_X, 30, LV_ALIGN_TOP_LEFT)
+                .oneChecked(true)
+                .buttonCtrl(0, LV_BUTTONMATRIX_CTRL_CHECKABLE)
+                .buttonCtrl(1, LV_BUTTONMATRIX_CTRL_CHECKABLE)
+                .selectedButton(1) // WorldB is default
+                .style(
+                    LV_PART_ITEMS,
+                    [](lv_style_t* style) {
+                        lv_style_set_bg_color(style, lv_color_hex(0x404040));
+                        lv_style_set_text_color(style, lv_color_white());
+                    })
+                .style(
+                    static_cast<lv_style_selector_t>(
+                        static_cast<int>(LV_PART_ITEMS) | static_cast<int>(LV_STATE_CHECKED)),
+                    [](lv_style_t* style) { lv_style_set_bg_color(style, lv_color_hex(0x0080FF)); })
+                .onWorldTypeSelect()
+                .buildOrLog();
+    }
+    else {
         // Fallback to old callback system
         world_type_btnm_ = lv_buttonmatrix_create(screen_);
         lv_obj_set_size(
@@ -193,7 +198,10 @@ void SimulatorUI::createWorldTypeColumn()
         // Style the button matrix
         lv_obj_set_style_bg_color(world_type_btnm_, lv_color_hex(0x404040), LV_PART_ITEMS);
         lv_obj_set_style_bg_color(
-            world_type_btnm_, lv_color_hex(0x0080FF), static_cast<lv_style_selector_t>(static_cast<int>(LV_PART_ITEMS) | static_cast<int>(LV_STATE_CHECKED)));
+            world_type_btnm_,
+            lv_color_hex(0x0080FF),
+            static_cast<lv_style_selector_t>(
+                static_cast<int>(LV_PART_ITEMS) | static_cast<int>(LV_STATE_CHECKED)));
         lv_obj_set_style_text_color(world_type_btnm_, lv_color_white(), LV_PART_ITEMS);
 
         lv_obj_add_event_cb(
@@ -247,12 +255,13 @@ void SimulatorUI::createControlButtons()
     // Create debug toggle button
     if (event_router_) {
         debug_btn_ = LVGLEventBuilder::button(screen_, event_router_)
-            .onDebugToggle()
-            .size(CONTROL_WIDTH, 50)
-            .position(MAIN_CONTROLS_X, 10)
-            .text("Debug: Off")
-            .buildOrLog();
-    } else {
+                         .onDebugToggle()
+                         .size(CONTROL_WIDTH, 50)
+                         .position(MAIN_CONTROLS_X, 10)
+                         .text("Debug: Off")
+                         .buildOrLog();
+    }
+    else {
         lv_obj_t* debug_btn = lv_btn_create(screen_);
         lv_obj_set_size(debug_btn, CONTROL_WIDTH, 50);
         lv_obj_align(debug_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 10);
@@ -306,24 +315,36 @@ void SimulatorUI::createControlButtons()
         createCallbackData(pressure_scale_value_label));
 
     // Create cursor force toggle button
-    lv_obj_t* force_btn = lv_btn_create(screen_);
-    lv_obj_set_size(force_btn, CONTROL_WIDTH, 50);
-    lv_obj_align(force_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 205);
-    lv_obj_t* force_label = lv_label_create(force_btn);
-    lv_label_set_text(force_label, "Force: Off");
-    lv_obj_center(force_label);
-    lv_obj_add_event_cb(force_btn, forceBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
+    if (event_router_) {
+        LVGLEventBuilder::button(screen_, event_router_)
+            .onForceToggle()
+            .size(CONTROL_WIDTH, 50)
+            .position(MAIN_CONTROLS_X, 205, LV_ALIGN_TOP_LEFT)
+            .text("Force: Off")
+            .toggle(true)
+            .buildOrLog();
+    }
+    else {
+        lv_obj_t* force_btn = lv_btn_create(screen_);
+        lv_obj_set_size(force_btn, CONTROL_WIDTH, 50);
+        lv_obj_align(force_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 205);
+        lv_obj_t* force_label = lv_label_create(force_btn);
+        lv_label_set_text(force_label, "Force: Off");
+        lv_obj_center(force_label);
+        lv_obj_add_event_cb(force_btn, forceBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
+    }
 
     // Create gravity toggle button
     if (event_router_) {
         LVGLEventBuilder::button(screen_, event_router_)
-            .onGravityToggle()  // Call event method first
+            .onGravityToggle() // Call event method first
             .size(CONTROL_WIDTH, 50)
             .position(MAIN_CONTROLS_X, 265, LV_ALIGN_TOP_LEFT)
             .text("Gravity: On")
-            .toggle(true)  // Make it a toggle button
+            .toggle(true) // Make it a toggle button
             .buildOrLog();
-    } else {
+    }
+    else {
         // Fallback to old callback system
         lv_obj_t* gravity_btn = lv_btn_create(screen_);
         lv_obj_set_size(gravity_btn, CONTROL_WIDTH, 50);
@@ -335,13 +356,25 @@ void SimulatorUI::createControlButtons()
     }
 
     // Create cohesion toggle button
-    lv_obj_t* cohesion_btn = lv_btn_create(screen_);
-    lv_obj_set_size(cohesion_btn, CONTROL_WIDTH, 50);
-    lv_obj_align(cohesion_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 325);
-    lv_obj_t* cohesion_label = lv_label_create(cohesion_btn);
-    lv_label_set_text(cohesion_label, "Cohesion Bind: On");
-    lv_obj_center(cohesion_label);
-    lv_obj_add_event_cb(cohesion_btn, cohesionBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
+    if (event_router_) {
+        LVGLEventBuilder::button(screen_, event_router_)
+            .onCohesionToggle()
+            .size(CONTROL_WIDTH, 50)
+            .position(MAIN_CONTROLS_X, 325, LV_ALIGN_TOP_LEFT)
+            .text("Cohesion Bind: On")
+            .toggle(true)
+            .buildOrLog();
+    }
+    else {
+        lv_obj_t* cohesion_btn = lv_btn_create(screen_);
+        lv_obj_set_size(cohesion_btn, CONTROL_WIDTH, 50);
+        lv_obj_align(cohesion_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 325);
+        lv_obj_t* cohesion_label = lv_label_create(cohesion_btn);
+        lv_label_set_text(cohesion_label, "Cohesion Bind: On");
+        lv_obj_center(cohesion_label);
+        lv_obj_add_event_cb(
+            cohesion_btn, cohesionBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
+    }
 
     // Create cohesion bind strength slider below the bind button
     lv_obj_t* bind_strength_label = lv_label_create(screen_);
@@ -364,14 +397,27 @@ void SimulatorUI::createControlButtons()
         createCallbackData(bind_strength_value_label));
 
     // Create cohesion force toggle button
-    lv_obj_t* cohesion_force_btn = lv_btn_create(screen_);
-    lv_obj_set_size(cohesion_force_btn, CONTROL_WIDTH, 50);
-    lv_obj_align(cohesion_force_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 415);
-    lv_obj_t* cohesion_force_label = lv_label_create(cohesion_force_btn);
-    lv_label_set_text(cohesion_force_label, "Cohesion Force: On");
-    lv_obj_center(cohesion_force_label);
-    lv_obj_add_event_cb(
-        cohesion_force_btn, cohesionForceBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
+    // TODO: This currently uses the same ToggleCohesionCommand as the bind button
+    // May need separate commands for bind vs force cohesion
+    if (event_router_) {
+        LVGLEventBuilder::button(screen_, event_router_)
+            .onCohesionToggle() // TODO: Create onCohesionForceToggle() for clarity
+            .size(CONTROL_WIDTH, 50)
+            .position(MAIN_CONTROLS_X, 415, LV_ALIGN_TOP_LEFT)
+            .text("Cohesion Force: On")
+            .toggle(true)
+            .buildOrLog();
+    }
+    else {
+        lv_obj_t* cohesion_force_btn = lv_btn_create(screen_);
+        lv_obj_set_size(cohesion_force_btn, CONTROL_WIDTH, 50);
+        lv_obj_align(cohesion_force_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 415);
+        lv_obj_t* cohesion_force_label = lv_label_create(cohesion_force_btn);
+        lv_label_set_text(cohesion_force_label, "Cohesion Force: On");
+        lv_obj_center(cohesion_force_label);
+        lv_obj_add_event_cb(
+            cohesion_force_btn, cohesionForceBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
+    }
 
     // Create COM cohesion strength slider below the force button
     lv_obj_t* com_cohesion_strength_label = lv_label_create(screen_);
@@ -458,13 +504,25 @@ void SimulatorUI::createControlButtons()
         radio_mass_based, comCohesionModeRadioEventCb, LV_EVENT_VALUE_CHANGED, radio_data);
 
     // Create adhesion toggle button
-    lv_obj_t* adhesion_btn = lv_btn_create(screen_);
-    lv_obj_set_size(adhesion_btn, CONTROL_WIDTH, 50);
-    lv_obj_align(adhesion_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 590);
-    lv_obj_t* adhesion_label = lv_label_create(adhesion_btn);
-    lv_label_set_text(adhesion_label, "Adhesion: On");
-    lv_obj_center(adhesion_label);
-    lv_obj_add_event_cb(adhesion_btn, adhesionBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
+    if (event_router_) {
+        LVGLEventBuilder::button(screen_, event_router_)
+            .onAdhesionToggle()
+            .size(CONTROL_WIDTH, 50)
+            .position(MAIN_CONTROLS_X, 590, LV_ALIGN_TOP_LEFT)
+            .text("Adhesion: On")
+            .toggle(true)
+            .buildOrLog();
+    }
+    else {
+        lv_obj_t* adhesion_btn = lv_btn_create(screen_);
+        lv_obj_set_size(adhesion_btn, CONTROL_WIDTH, 50);
+        lv_obj_align(adhesion_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 590);
+        lv_obj_t* adhesion_label = lv_label_create(adhesion_btn);
+        lv_label_set_text(adhesion_label, "Adhesion: On");
+        lv_obj_center(adhesion_label);
+        lv_obj_add_event_cb(
+            adhesion_btn, adhesionBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
+    }
 
     // Create adhesion strength slider
     lv_obj_t* adhesion_strength_label = lv_label_create(screen_);
@@ -518,12 +576,13 @@ void SimulatorUI::createControlButtons()
     // Create screenshot button
     if (event_router_) {
         LVGLEventBuilder::button(screen_, event_router_)
-            .onScreenshot()  // Call event method first
+            .onScreenshot() // Call event method first
             .size(CONTROL_WIDTH, 50)
             .position(MAIN_CONTROLS_X, 815, LV_ALIGN_TOP_LEFT)
             .text("Screenshot")
             .buildOrLog();
-    } else {
+    }
+    else {
         // Fallback to old callback system
         lv_obj_t* screenshot_btn = lv_btn_create(screen_);
         lv_obj_set_size(screenshot_btn, CONTROL_WIDTH, 50);
@@ -536,26 +595,49 @@ void SimulatorUI::createControlButtons()
     }
 
     // Create print ASCII button
-    lv_obj_t* print_ascii_btn = lv_btn_create(screen_);
-    lv_obj_set_size(print_ascii_btn, CONTROL_WIDTH, 50);
-    lv_obj_align(print_ascii_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 875);
-    lv_obj_t* print_ascii_label = lv_label_create(print_ascii_btn);
-    lv_label_set_text(print_ascii_label, "Print ASCII");
-    lv_obj_center(print_ascii_label);
-    lv_obj_add_event_cb(
-        print_ascii_btn, printAsciiBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
+    if (event_router_) {
+        LVGLEventBuilder::button(screen_, event_router_)
+            .onPrintAscii()
+            .size(CONTROL_WIDTH, 50)
+            .position(MAIN_CONTROLS_X, 875, LV_ALIGN_TOP_LEFT)
+            .text("Print ASCII")
+            .buildOrLog();
+    }
+    else {
+        lv_obj_t* print_ascii_btn = lv_btn_create(screen_);
+        lv_obj_set_size(print_ascii_btn, CONTROL_WIDTH, 50);
+        lv_obj_align(print_ascii_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 875);
+        lv_obj_t* print_ascii_label = lv_label_create(print_ascii_btn);
+        lv_label_set_text(print_ascii_label, "Print ASCII");
+        lv_obj_center(print_ascii_label);
+        lv_obj_add_event_cb(
+            print_ascii_btn, printAsciiBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
+    }
 
     // Time reversal controls have been moved to slider column
 
     // Create quit button
-    lv_obj_t* quit_btn = lv_btn_create(screen_);
-    lv_obj_set_size(quit_btn, CONTROL_WIDTH, 50);
-    lv_obj_align(quit_btn, LV_ALIGN_BOTTOM_RIGHT, -10, -10);
-    lv_obj_set_style_bg_color(quit_btn, lv_color_hex(0xFF0000), 0);
-    lv_obj_t* quit_label = lv_label_create(quit_btn);
-    lv_label_set_text(quit_label, "Quit");
-    lv_obj_center(quit_label);
-    lv_obj_add_event_cb(quit_btn, quitBtnEventCb, LV_EVENT_CLICKED, nullptr);
+    if (event_router_) {
+        auto quit_btn = LVGLEventBuilder::button(screen_, event_router_)
+                            .onQuit()
+                            .size(CONTROL_WIDTH, 50)
+                            .position(-10, -10, LV_ALIGN_BOTTOM_RIGHT)
+                            .text("Quit")
+                            .buildOrLog();
+        if (quit_btn) {
+            lv_obj_set_style_bg_color(quit_btn, lv_color_hex(0xFF0000), 0);
+        }
+    }
+    else {
+        lv_obj_t* quit_btn = lv_btn_create(screen_);
+        lv_obj_set_size(quit_btn, CONTROL_WIDTH, 50);
+        lv_obj_align(quit_btn, LV_ALIGN_BOTTOM_RIGHT, -10, -10);
+        lv_obj_set_style_bg_color(quit_btn, lv_color_hex(0xFF0000), 0);
+        lv_obj_t* quit_label = lv_label_create(quit_btn);
+        lv_label_set_text(quit_label, "Quit");
+        lv_obj_center(quit_label);
+        lv_obj_add_event_cb(quit_btn, quitBtnEventCb, LV_EVENT_CLICKED, nullptr);
+    }
 }
 
 void SimulatorUI::createSliders()
@@ -566,16 +648,17 @@ void SimulatorUI::createSliders()
     // Move Pause/Resume button to top of slider column
     if (event_router_) {
         auto pause_btn = LVGLEventBuilder::button(screen_, event_router_)
-            .onPauseResume()  // Call event method first
-            .size(CONTROL_WIDTH, 50)
-            .position(SLIDER_COLUMN_X, 10, LV_ALIGN_TOP_LEFT)
-            .buildOrLog();
+                             .onPauseResume() // Call event method first
+                             .size(CONTROL_WIDTH, 50)
+                             .position(SLIDER_COLUMN_X, 10, LV_ALIGN_TOP_LEFT)
+                             .buildOrLog();
         if (pause_btn) {
             pause_label_ = lv_label_create(pause_btn);
             lv_label_set_text(pause_label_, "Pause");
             lv_obj_center(pause_label_);
         }
-    } else {
+    }
+    else {
         // Fallback to old callback system
         lv_obj_t* pause_btn = lv_btn_create(screen_);
         lv_obj_set_size(pause_btn, CONTROL_WIDTH, 50);
@@ -589,12 +672,13 @@ void SimulatorUI::createSliders()
     // Move Reset button below Pause
     if (event_router_) {
         LVGLEventBuilder::button(screen_, event_router_)
-            .onReset()  // Call event method first
+            .onReset() // Call event method first
             .size(CONTROL_WIDTH, 50)
             .position(SLIDER_COLUMN_X, 70, LV_ALIGN_TOP_LEFT)
             .text("Reset")
             .buildOrLog();
-    } else {
+    }
+    else {
         // Fallback to old callback system
         lv_obj_t* reset_btn = lv_btn_create(screen_);
         lv_obj_set_size(reset_btn, CONTROL_WIDTH, 50);
@@ -636,7 +720,7 @@ void SimulatorUI::createSliders()
     // Timescale slider
     if (event_router_) {
         LVGLEventBuilder::slider(screen_, event_router_)
-            .onTimescaleChange()  // Call event method first
+            .onTimescaleChange() // Call event method first
             .position(SLIDER_COLUMN_X, 230, LV_ALIGN_TOP_LEFT)
             .size(CONTROL_WIDTH, 10)
             .range(0, 100)
@@ -644,7 +728,8 @@ void SimulatorUI::createSliders()
             .label("Timescale", SLIDER_COLUMN_X, 210)
             .valueLabel("%.1fx", SLIDER_COLUMN_X + 110, 210)
             .buildOrLog();
-    } else {
+    }
+    else {
         // Fallback to old callback system
         lv_obj_t* slider_label = lv_label_create(screen_);
         lv_label_set_text(slider_label, "Timescale");
@@ -660,13 +745,16 @@ void SimulatorUI::createSliders()
         lv_slider_set_range(slider, 0, 100);
         lv_slider_set_value(slider, 50, LV_ANIM_OFF);
         lv_obj_add_event_cb(
-            slider, timescaleSliderEventCb, LV_EVENT_ALL, createCallbackData(timescale_value_label));
+            slider,
+            timescaleSliderEventCb,
+            LV_EVENT_ALL,
+            createCallbackData(timescale_value_label));
     }
 
     // Elasticity slider - migrated to EventRouter or LVGLBuilder
     if (event_router_) {
         LVGLEventBuilder::slider(screen_, event_router_)
-            .onElasticityChange()  // Call event method first
+            .onElasticityChange() // Call event method first
             .position(SLIDER_COLUMN_X, 270, LV_ALIGN_TOP_LEFT)
             .size(CONTROL_WIDTH, 10)
             .range(0, 200)
@@ -674,19 +762,23 @@ void SimulatorUI::createSliders()
             .label("Elasticity")
             .valueLabel("%.1f")
             .buildOrLog();
-    } else {
+    }
+    else {
         // Fallback to LVGLBuilder
-        [[maybe_unused]] auto elasticity_slider = LVGLBuilder::slider(screen_)
-            .position(SLIDER_COLUMN_X, 270)
-            .size(CONTROL_WIDTH, 10)
-            .range(0, 200)
-            .value(80)
-            .label("Elasticity")
-            .valueLabel("%.1f")
-            .callback(elasticitySliderEventCb, [this](lv_obj_t* value_label) -> void* {
-                return createCallbackData(value_label);
-            })
-            .buildOrLog();
+        [[maybe_unused]] auto elasticity_slider =
+            LVGLBuilder::slider(screen_)
+                .position(SLIDER_COLUMN_X, 270)
+                .size(CONTROL_WIDTH, 10)
+                .range(0, 200)
+                .value(80)
+                .label("Elasticity")
+                .valueLabel("%.1f")
+                .callback(
+                    elasticitySliderEventCb,
+                    [this](lv_obj_t* value_label) -> void* {
+                        return createCallbackData(value_label);
+                    })
+                .buildOrLog();
     }
 
     // Dirt fragmentation slider
@@ -937,12 +1029,13 @@ void SimulatorUI::updateMassLabel(double totalMass)
     }
 }
 
-void SimulatorUI::updateFPSLabel(uint32_t fps)
+void SimulatorUI::updateDebugButton()
 {
-    if (fps_label_) {
-        char buf[32];
-        snprintf(buf, sizeof(buf), "FPS: %u", fps);
-        lv_label_set_text(fps_label_, buf);
+    if (debug_btn_) {
+        lv_obj_t* label = lv_obj_get_child(debug_btn_, 0);
+        if (label) {
+            lv_label_set_text(label, Cell::debugDraw ? "Debug: On" : "Debug: Off");
+        }
     }
 }
 
@@ -1895,5 +1988,14 @@ void SimulatorUI::comCohesionModeRadioEventCb(lv_event_t* e)
                 }
             }
         }
+    }
+}
+
+void SimulatorUI::updateFPSLabel(uint32_t fps)
+{
+    if (fps_label_) {
+        char buf[32];
+        snprintf(buf, sizeof(buf), "FPS: %u", fps);
+        lv_label_set_text(fps_label_, buf);
     }
 }

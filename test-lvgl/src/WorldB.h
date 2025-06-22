@@ -159,10 +159,13 @@ public:
     // Pressure calculator access
     WorldBPressureCalculator& getPressureCalculator() { return pressure_calculator_; }
     const WorldBPressureCalculator& getPressureCalculator() const { return pressure_calculator_; }
-    
+
     // Collision calculator access
     WorldBCollisionCalculator& getCollisionCalculator() { return collision_calculator_; }
-    const WorldBCollisionCalculator& getCollisionCalculator() const { return collision_calculator_; }
+    const WorldBCollisionCalculator& getCollisionCalculator() const
+    {
+        return collision_calculator_;
+    }
 
     // Pressure system getters for calculator
     double getPressureScale() const { return pressure_scale_; }
@@ -211,10 +214,19 @@ public:
     }
     double getCohesionComForceStrength() const override { return cohesion_com_force_strength_; }
 
-    void setAdhesionStrength(double strength) override { adhesion_calculator_.setAdhesionStrength(strength); }
-    double getAdhesionStrength() const override { return adhesion_calculator_.getAdhesionStrength(); }
+    void setAdhesionStrength(double strength) override
+    {
+        adhesion_calculator_.setAdhesionStrength(strength);
+    }
+    double getAdhesionStrength() const override
+    {
+        return adhesion_calculator_.getAdhesionStrength();
+    }
 
-    void setAdhesionEnabled(bool enabled) override { adhesion_calculator_.setAdhesionEnabled(enabled); }
+    void setAdhesionEnabled(bool enabled) override
+    {
+        adhesion_calculator_.setAdhesionEnabled(enabled);
+    }
     bool isAdhesionEnabled() const override { return adhesion_calculator_.isAdhesionEnabled(); }
 
     void setCohesionBindForceStrength(double strength) override

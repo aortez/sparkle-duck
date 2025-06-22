@@ -1,15 +1,15 @@
 #ifndef WORLDBADHESIONCALCULATOR_H
 #define WORLDBADHESIONCALCULATOR_H
 
-#include "WorldBCalculatorBase.h"
-#include "Vector2d.h"
 #include "MaterialType.h"
+#include "Vector2d.h"
+#include "WorldBCalculatorBase.h"
 
 class WorldB;
 
 /**
  * Calculator for adhesion forces between cells in WorldB.
- * 
+ *
  * Adhesion forces create attractive forces between neighboring cells of
  * different material types. The force strength is based on the geometric
  * mean of the materials' adhesion properties, weighted by fill ratios
@@ -34,7 +34,7 @@ public:
     // Adhesion parameters
     void setAdhesionEnabled(bool enabled) { adhesion_enabled_ = enabled; }
     bool isAdhesionEnabled() const { return adhesion_enabled_; }
-    
+
     void setAdhesionStrength(double strength) { adhesion_strength_ = strength; }
     double getAdhesionStrength() const { return adhesion_strength_; }
 

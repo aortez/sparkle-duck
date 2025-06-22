@@ -1,8 +1,30 @@
 #include "LVGLEventBuilder.h"
-#include "../WorldFactory.h"  // For WorldType enum
+#include "../World.h"  // For PressureMode enum
 #include <spdlog/spdlog.h>
 
 namespace DirtSim {
+
+// ===== Static Factory Methods =====
+
+LVGLEventBuilder::SliderBuilder LVGLEventBuilder::slider(lv_obj_t* parent, EventRouter* router) {
+    return SliderBuilder(parent).withEventRouter(router);
+}
+
+LVGLEventBuilder::ButtonBuilder LVGLEventBuilder::button(lv_obj_t* parent, EventRouter* router) {
+    return ButtonBuilder(parent).withEventRouter(router);
+}
+
+LVGLEventBuilder::ButtonMatrixBuilder LVGLEventBuilder::buttonMatrix(lv_obj_t* parent, EventRouter* router) {
+    return ButtonMatrixBuilder(parent).withEventRouter(router);
+}
+
+LVGLEventBuilder::DropdownBuilder LVGLEventBuilder::dropdown(lv_obj_t* parent, EventRouter* router) {
+    return DropdownBuilder(parent).withEventRouter(router);
+}
+
+LVGLEventBuilder::DrawAreaBuilder LVGLEventBuilder::drawArea(lv_obj_t* parent, EventRouter* router) {
+    return DrawAreaBuilder(parent).withEventRouter(router);
+}
 
 // ===== Generic Event Callback =====
 
@@ -127,10 +149,36 @@ LVGLEventBuilder::ButtonBuilder& LVGLEventBuilder::ButtonBuilder::onGravityToggl
     return onToggle(Event{SetGravityCommand{true}}, Event{SetGravityCommand{false}});
 }
 
-$1
+LVGLEventBuilder::ButtonBuilder& LVGLEventBuilder::ButtonBuilder::onPrintAscii() {
+    return onClick(Event{PrintAsciiDiagramCommand{}});
+}
 
 LVGLEventBuilder::ButtonBuilder& LVGLEventBuilder::ButtonBuilder::onDebugToggle() {
     return onClick(Event{ToggleDebugCommand{}});
+}
+
+LVGLEventBuilder::ButtonBuilder& LVGLEventBuilder::ButtonBuilder::onQuit() {
+    return onClick(Event{QuitApplicationCommand{}});
+}
+
+LVGLEventBuilder::ButtonBuilder& LVGLEventBuilder::ButtonBuilder::onScreenshot() {
+    return onClick(Event{CaptureScreenshotCommand{}});
+}
+
+LVGLEventBuilder::ButtonBuilder& LVGLEventBuilder::ButtonBuilder::onForceToggle() {
+    return onClick(Event{ToggleForceCommand{}});
+}
+
+LVGLEventBuilder::ButtonBuilder& LVGLEventBuilder::ButtonBuilder::onCohesionToggle() {
+    return onClick(Event{ToggleCohesionCommand{}});
+}
+
+LVGLEventBuilder::ButtonBuilder& LVGLEventBuilder::ButtonBuilder::onAdhesionToggle() {
+    return onClick(Event{ToggleAdhesionCommand{}});
+}
+
+LVGLEventBuilder::ButtonBuilder& LVGLEventBuilder::ButtonBuilder::onTimeHistoryToggle() {
+    return onClick(Event{ToggleTimeHistoryCommand{}});
 }
 
 // ===== ButtonMatrixBuilder Implementation =====
@@ -266,7 +314,24 @@ lv_obj_t* LVGLEventBuilder::ButtonMatrixBuilder::buildOrLog() {
     return result.value();
 }
 
-// ===== DrawAreaBuilder Implementation =====
+// ===== DropdownBuilder Implementation =====
+
+LVGLEventBuilder::DropdownBuilder& LVGLEventBuilder::DropdownBuilder::withEventRouter(EventRouter* router) {
+    eventRouter_ = router;
+    return *this;
+}
+
+LVGLEventBuilder::DropdownBuilder& LVGLEventBuilder::DropdownBuilder::onValueChange(std::function<Event(uint16_t)> handler) {
+    eventHandler_ = std::make_shared<std::function<Event(uint16_t)>>(std::move(handler));
+    return *this;
+}
+
+LVGLEventBuilder::DropdownBuilder& LVGLEventBuilder::DropdownBuilder::onPressureSystemChange() {
+    // TODO: Implement when SetPressureModeCommand is added to the event system
+    // For now, pressure system changes will remain as direct manipulation
+    spdlog::warn("onPressureSystemChange() not yet implemented - pressure system needs direct manipulation");
+    return *this;
+}
 
 LVGLEventBuilder::DrawAreaBuilder::DrawAreaBuilder(lv_obj_t* parent) 
     : parent_(parent), drawArea_(nullptr) {}
@@ -398,30 +463,6 @@ lv_obj_t* LVGLEventBuilder::DrawAreaBuilder::buildOrLog() {
     return result.value();
 }
 
-// ===== Factory Methods =====
 
-LVGLEventBuilder::SliderBuilder LVGLEventBuilder::slider(lv_obj_t* parent, EventRouter* router) {
-    LVGLEventBuilder::SliderBuilder builder(parent);
-    builder.withEventRouter(router);
-    return builder;
-}
-
-LVGLEventBuilder::ButtonBuilder LVGLEventBuilder::button(lv_obj_t* parent, EventRouter* router) {
-    LVGLEventBuilder::ButtonBuilder builder(parent);
-    builder.withEventRouter(router);
-    return builder;
-}
-
-LVGLEventBuilder::ButtonMatrixBuilder LVGLEventBuilder::buttonMatrix(lv_obj_t* parent, EventRouter* router) {
-    LVGLEventBuilder::ButtonMatrixBuilder builder(parent);
-    builder.withEventRouter(router);
-    return builder;
-}
-
-LVGLEventBuilder::DrawAreaBuilder LVGLEventBuilder::drawArea(lv_obj_t* parent, EventRouter* router) {
-    DrawAreaBuilder builder(parent);
-    builder.withEventRouter(router);
-    return builder;
-}
 
 } // namespace DirtSim

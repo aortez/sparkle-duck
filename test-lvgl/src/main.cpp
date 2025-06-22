@@ -1,15 +1,15 @@
 #include "CrashDumpHandler.h"
+#include "DirtSimStateMachine.h"
+#include "Event.h"
 #include "SimulationManager.h"
 #include "SimulatorUI.h"
 #include "World.h"
 #include "WorldFactory.h"
-#include "DirtSimStateMachine.h"
-#include "Event.h"
+#include "args.hxx"
 #include "src/lib/driver_backends.h"
 #include "src/lib/simulator_loop.h"
 #include "src/lib/simulator_settings.h"
 #include "src/lib/simulator_util.h"
-#include "args.hxx"
 
 #include <chrono>
 #include <cstdio>
@@ -62,7 +62,6 @@ static void print_lvgl_version()
         LVGL_VERSION_INFO);
 }
 
-
 int main(int argc, char** argv)
 {
     // Set up file and console logging.
@@ -94,28 +93,47 @@ int main(int argc, char** argv)
     spdlog::debug("Logging configured: console (INFO+) and file sparkle-duck.log (TRACE+)");
 
     // Set up argument parser.
-    args::ArgumentParser parser("Sparkle Duck - A cell-based multi-material physics simulation",
-                                "Default window size (1200x1200) provides a square window with comfortable space for the UI.");
-    
-    args::HelpFlag help(parser, "help", "Display this help menu", {'h', "help"});
-    args::Flag version(parser, "version", "Print LVGL version", {'V', "version"});
-    args::Flag list_backends(parser, "list-backends", "List supported backends", {'B', "list-backends"});
-    args::ValueFlag<std::string> backend(parser, "backend", "Select display backend (wayland, x11, fbdev, sdl)", {'b', "backend"});
-    args::ValueFlag<int> window_width(parser, "width", "Set window width (default: 1200)", {'W', "width"}, 1200);
-    args::ValueFlag<int> window_height(parser, "height", "Set window height (default: 1200)", {'H', "height"}, 1200);
-    args::ValueFlag<int> max_steps(parser, "steps", "Set maximum number of simulation steps (0 = unlimited)", {'s', "steps"}, 0);
-    args::ValueFlag<std::string> world_type(parser, "world", "Select physics system: rulesA (mixed materials) or rulesB (pure materials, default)", 
-                                             {'w', "world"}, "rulesB");
-    args::Flag event_system(parser, "event-system", "Use the new event-driven state machine (experimental)", {"event-system"});
-    
+    args::ArgumentParser parser(
+        "Sparkle Duck - A cell-based multi-material physics simulation",
+        "Default window size (1200x1200) provides a square window with comfortable space for the "
+        "UI.");
+
+    args::HelpFlag help(parser, "help", "Display this help menu", { 'h', "help" });
+    args::Flag version(parser, "version", "Print LVGL version", { 'V', "version" });
+    args::Flag list_backends(
+        parser, "list-backends", "List supported backends", { 'B', "list-backends" });
+    args::ValueFlag<std::string> backend(
+        parser, "backend", "Select display backend (wayland, x11, fbdev, sdl)", { 'b', "backend" });
+    args::ValueFlag<int> window_width(
+        parser, "width", "Set window width (default: 1200)", { 'W', "width" }, 1200);
+    args::ValueFlag<int> window_height(
+        parser, "height", "Set window height (default: 1200)", { 'H', "height" }, 1200);
+    args::ValueFlag<int> max_steps(
+        parser,
+        "steps",
+        "Set maximum number of simulation steps (0 = unlimited)",
+        { 's', "steps" },
+        0);
+    args::ValueFlag<std::string> world_type(
+        parser,
+        "world",
+        "Select physics system: rulesA (mixed materials) or rulesB (pure materials, default)",
+        { 'w', "world" },
+        "rulesB");
+    args::Flag event_system(
+        parser,
+        "event-system",
+        "Use the new event-driven state machine (experimental)",
+        { "event-system" });
+
     // Register backends before parsing
     driver_backends_register();
-    
+
     // Default values from environment if set
     settings.window_width = atoi(getenv("LV_SIM_WINDOW_WIDTH") ?: "1200");
     settings.window_height = atoi(getenv("LV_SIM_WINDOW_HEIGHT") ?: "1200");
     settings.max_steps = 0;
-    
+
     try {
         parser.ParseCLI(argc, argv);
     }
@@ -133,34 +151,35 @@ int main(int argc, char** argv)
         std::cerr << parser;
         return 1;
     }
-    
+
     // Process parsed arguments
     if (version) {
         print_lvgl_version();
         return 0;
     }
-    
+
     if (list_backends) {
         driver_backends_print_supported();
         return 0;
     }
-    
+
     if (backend) {
         selected_backend = args::get(backend);
         if (driver_backends_is_supported(selected_backend.c_str()) == 0) {
             std::cerr << "Error: no such backend: " << selected_backend << std::endl;
             return 1;
         }
-    } else {
+    }
+    else {
         // No backend specified, use default (empty string will auto-select)
         selected_backend = "";
     }
-    
+
     // Apply settings from command line arguments
     if (window_width) settings.window_width = args::get(window_width);
     if (window_height) settings.window_height = args::get(window_height);
     if (max_steps) settings.max_steps = args::get(max_steps);
-    
+
     if (world_type) {
         try {
             selected_world_type = parseWorldType(args::get(world_type));
@@ -170,7 +189,7 @@ int main(int argc, char** argv)
             return 1;
         }
     }
-    
+
     if (event_system) {
         use_event_system = true;
         spdlog::info("Event-driven state machine enabled (experimental)");
@@ -192,46 +211,47 @@ int main(int argc, char** argv)
 
     if (use_event_system) {
         spdlog::info("Starting with event-driven state machine");
-        
+
         // Create the state machine with display.
         auto stateMachine = std::make_unique<DirtSim::DirtSimStateMachine>(lv_disp_get_default());
-        
+
         // Initialize the state machine - transition from Startup -> MainMenu -> SimRunning.
         stateMachine->handleEvent(InitCompleteEvent{});
-        
+
         // Skip the main menu and go directly to simulation for now.
         // TODO: In the future, show the main menu and let user click start.
         stateMachine->handleEvent(StartSimulationCommand{});
-        
+
         // Get the SimulationManager from the state machine.
         auto* simManager = stateMachine->getSimulationManager();
         if (!simManager) {
             spdlog::error("Failed to get SimulationManager from state machine");
             spdlog::warn("Falling back to traditional SimulationManager");
             use_event_system = false;
-        } else {
+        }
+        else {
             manager_ptr = simManager;
-            
+
             spdlog::info(
                 "Using SimulationManager from event system ({}x{} grid)",
                 simManager->getWidth(),
                 simManager->getHeight());
-            
+
             // Install crash dump handler.
             CrashDumpHandler::install(manager_ptr);
             spdlog::info("Crash dump handler installed - assertions will generate JSON dumps");
-            
+
             // Enter the run loop with the state machine's SimulationManager.
             driver_backends_run_loop(*simManager);
-            
+
             // Cleanup
             CrashDumpHandler::uninstall();
-            
+
             // State machine will clean up when it goes out of scope
             return 0;
         }
     }
-    
+
     if (!use_event_system) {
         // Traditional path with SimulationManager
         auto manager = std::make_unique<SimulationManager>(
@@ -257,7 +277,7 @@ int main(int argc, char** argv)
         // Cleanup crash dump handler
         CrashDumpHandler::uninstall();
     }
-    
+
     spdlog::info("Application shutting down cleanly");
 
     return 0;

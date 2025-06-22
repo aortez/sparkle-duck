@@ -2,6 +2,17 @@
 #include "spdlog/spdlog.h"
 #include <cstdio>
 
+// Result utilities
+template<typename T>
+auto Ok(T&& value) {
+    return Result<std::decay_t<T>, std::string>::okay(std::forward<T>(value));
+}
+
+template<typename E>
+auto Error(const E& error) {
+    return Result<lv_obj_t*, E>(error);
+}
+
 // ============================================================================
 // SliderBuilder Implementation
 // ============================================================================
@@ -430,10 +441,75 @@ Result<lv_obj_t*, std::string> LVGLBuilder::LabelBuilder::build() {
     return Result<lv_obj_t*, std::string>::okay(label);
 }
 
-lv_obj_t* LVGLBuilder::LabelBuilder::buildOrLog() {
+// ============================================================================
+// DropdownBuilder Implementation
+// ============================================================================
+
+LVGLBuilder::DropdownBuilder::DropdownBuilder(lv_obj_t* parent)
+    : parent_(parent)
+    , position_(0, 0, LV_ALIGN_TOP_LEFT)
+    , size_(150, 40) {
+}
+
+LVGLBuilder::DropdownBuilder& LVGLBuilder::DropdownBuilder::options(const char* options) {
+    options_ = options ? options : "";
+    return *this;
+}
+
+LVGLBuilder::DropdownBuilder& LVGLBuilder::DropdownBuilder::selected(uint16_t index) {
+    selectedIndex_ = index;
+    return *this;
+}
+
+LVGLBuilder::DropdownBuilder& LVGLBuilder::DropdownBuilder::position(int x, int y, lv_align_t align) {
+    position_ = Position(x, y, align);
+    return *this;
+}
+
+LVGLBuilder::DropdownBuilder& LVGLBuilder::DropdownBuilder::position(const Position& pos) {
+    position_ = pos;
+    return *this;
+}
+
+LVGLBuilder::DropdownBuilder& LVGLBuilder::DropdownBuilder::size(int width, int height) {
+    size_ = Size(width, height);
+    return *this;
+}
+
+LVGLBuilder::DropdownBuilder& LVGLBuilder::DropdownBuilder::size(const Size& s) {
+    size_ = s;
+    return *this;
+}
+
+Result<lv_obj_t*, std::string> LVGLBuilder::DropdownBuilder::build() {
+    if (!parent_) {
+        return Error<std::string>("DropdownBuilder: parent is null");
+    }
+    
+    lv_obj_t* dropdown = lv_dropdown_create(parent_);
+    if (!dropdown) {
+        return Error<std::string>("DropdownBuilder: failed to create dropdown");
+    }
+    
+    // Set options
+    if (!options_.empty()) {
+        lv_dropdown_set_options(dropdown, options_.c_str());
+    }
+    
+    // Set selected index
+    lv_dropdown_set_selected(dropdown, selectedIndex_);
+    
+    // Set size and position
+    lv_obj_set_size(dropdown, size_.width, size_.height);
+    lv_obj_align(dropdown, position_.align, position_.x, position_.y);
+    
+    return Ok(dropdown);
+}
+
+lv_obj_t* LVGLBuilder::DropdownBuilder::buildOrLog() {
     auto result = build();
     if (result.isError()) {
-        spdlog::error("LabelBuilder::buildOrLog failed: {}", result.error());
+        spdlog::error("DropdownBuilder::buildOrLog failed: {}", result.error());
         return nullptr;
     }
     return result.value();
@@ -451,6 +527,6 @@ LVGLBuilder::ButtonBuilder LVGLBuilder::button(lv_obj_t* parent) {
     return ButtonBuilder(parent);
 }
 
-LVGLBuilder::LabelBuilder LVGLBuilder::label(lv_obj_t* parent) {
-    return LabelBuilder(parent);
+LVGLBuilder::DropdownBuilder LVGLBuilder::dropdown(lv_obj_t* parent) {
+    return DropdownBuilder(parent);
 }

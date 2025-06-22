@@ -1,15 +1,18 @@
 #pragma once
 
-#include "SimulationStats.h"
 #include "MaterialType.h"
+#include "SimulationStats.h"
 #include <atomic>
 #include <chrono>
-#include <shared_mutex>
 #include <mutex>
+#include <shared_mutex>
+
+// Forward declaration
+class WorldInterface;
 
 /**
  * @brief Thread-safe shared state for simulation data.
- * 
+ *
  * This class provides thread-safe access to simulation state that needs
  * to be shared between the UI thread and simulation thread. It uses
  * atomic variables for simple data and mutex protection for complex data.
@@ -17,113 +20,102 @@
 class SharedSimState {
 public:
     SharedSimState() = default;
-    
+
     // =================================================================
     // ATOMIC STATE (Lock-free access)
     // =================================================================
-    
+
     /**
      * @brief Check if application should exit.
      */
-    bool getShouldExit() const { 
-        return shouldExit_.load(std::memory_order_acquire); 
-    }
-    
+    bool getShouldExit() const { return shouldExit_.load(std::memory_order_acquire); }
+
     /**
      * @brief Set exit flag.
      */
-    void setShouldExit(bool value) { 
-        shouldExit_.store(value, std::memory_order_release); 
-    }
-    
+    void setShouldExit(bool value) { shouldExit_.store(value, std::memory_order_release); }
+
     /**
      * @brief Check if simulation is paused.
      */
-    bool getIsPaused() const { 
-        return isPaused_.load(std::memory_order_acquire); 
-    }
-    
+    bool getIsPaused() const { return isPaused_.load(std::memory_order_acquire); }
+
     /**
      * @brief Set pause state.
      */
-    void setIsPaused(bool value) { 
-        isPaused_.store(value, std::memory_order_release); 
-    }
-    
+    void setIsPaused(bool value) { isPaused_.store(value, std::memory_order_release); }
+
     /**
      * @brief Get current simulation step.
      */
-    uint32_t getCurrentStep() const { 
-        return currentStep_.load(std::memory_order_acquire); 
-    }
-    
+    uint32_t getCurrentStep() const { return currentStep_.load(std::memory_order_acquire); }
+
     /**
      * @brief Set current simulation step.
      */
-    void setCurrentStep(uint32_t step) { 
-        currentStep_.store(step, std::memory_order_release); 
-    }
-    
+    void setCurrentStep(uint32_t step) { currentStep_.store(step, std::memory_order_release); }
+
     /**
      * @brief Get current FPS.
      */
-    float getCurrentFPS() const { 
-        return currentFPS_.load(std::memory_order_acquire); 
-    }
-    
+    float getCurrentFPS() const { return currentFPS_.load(std::memory_order_acquire); }
+
     /**
      * @brief Set current FPS.
      */
-    void setCurrentFPS(float fps) { 
-        currentFPS_.store(fps, std::memory_order_release); 
-    }
-    
+    void setCurrentFPS(float fps) { currentFPS_.store(fps, std::memory_order_release); }
+
     /**
      * @brief Get selected material type.
      */
-    MaterialType getSelectedMaterial() const {
+    MaterialType getSelectedMaterial() const
+    {
         return static_cast<MaterialType>(selectedMaterial_.load(std::memory_order_acquire));
     }
-    
+
     /**
      * @brief Set selected material type.
      */
-    void setSelectedMaterial(MaterialType material) {
+    void setSelectedMaterial(MaterialType material)
+    {
         selectedMaterial_.store(static_cast<int>(material), std::memory_order_release);
     }
-    
+
     // =================================================================
     // COMPLEX STATE (Mutex-protected)
     // =================================================================
-    
+
     /**
      * @brief Get simulation statistics (thread-safe copy).
      */
-    SimulationStats getStats() const {
+    SimulationStats getStats() const
+    {
         std::shared_lock lock(statsMutex_);
         return currentStats_;
     }
-    
+
     /**
      * @brief Update simulation statistics.
      */
-    void updateStats(const SimulationStats& stats) {
+    void updateStats(const SimulationStats& stats)
+    {
         std::unique_lock lock(statsMutex_);
         currentStats_ = stats;
     }
-    
+
     /**
      * @brief Get total mass from stats.
      */
-    double getTotalMass() const {
+    double getTotalMass() const
+    {
         std::shared_lock lock(statsMutex_);
         return currentStats_.totalMass;
     }
-    
+
     // =================================================================
     // UI STATE PERSISTENCE
     // =================================================================
-    
+
     /**
      * @brief Physics parameter state for UI persistence.
      */
@@ -133,37 +125,64 @@ public:
         double timescale = 1.0;
         bool debugEnabled = false;
         bool gravityEnabled = true;
+        bool forceVisualizationEnabled = false;
+        bool cohesionEnabled = true;
+        bool adhesionEnabled = true;
+        bool timeHistoryEnabled = false;
         // Add more as needed
     };
-    
+
     /**
      * @brief Get physics parameters.
      */
-    PhysicsParams getPhysicsParams() const {
+    PhysicsParams getPhysicsParams() const
+    {
         std::shared_lock lock(paramsMutex_);
         return physicsParams_;
     }
-    
+
     /**
      * @brief Update physics parameters.
      */
-    void updatePhysicsParams(const PhysicsParams& params) {
+    void updatePhysicsParams(const PhysicsParams& params)
+    {
         std::unique_lock lock(paramsMutex_);
         physicsParams_ = params;
     }
-    
+
+    /**
+     * @brief Get current world interface.
+     */
+    WorldInterface* getCurrentWorld() const
+    {
+        std::shared_lock lock(worldMutex_);
+        return currentWorld_;
+    }
+
+    /**
+     * @brief Set current world interface.
+     */
+    void setCurrentWorld(WorldInterface* world)
+    {
+        std::unique_lock lock(worldMutex_);
+        currentWorld_ = world;
+    }
+
 private:
     // Atomic variables for lock-free access
-    std::atomic<bool> shouldExit_{false};
-    std::atomic<bool> isPaused_{false};
-    std::atomic<uint32_t> currentStep_{0};
-    std::atomic<float> currentFPS_{0.0f};
-    std::atomic<int> selectedMaterial_{static_cast<int>(MaterialType::DIRT)};
-    
+    std::atomic<bool> shouldExit_{ false };
+    std::atomic<bool> isPaused_{ false };
+    std::atomic<uint32_t> currentStep_{ 0 };
+    std::atomic<float> currentFPS_{ 0.0f };
+    std::atomic<int> selectedMaterial_{ static_cast<int>(MaterialType::DIRT) };
+
     // Mutex-protected complex data
     mutable std::shared_mutex statsMutex_;
     SimulationStats currentStats_;
-    
+
     mutable std::shared_mutex paramsMutex_;
     PhysicsParams physicsParams_;
+
+    mutable std::shared_mutex worldMutex_;
+    WorldInterface* currentWorld_ = nullptr;
 };
