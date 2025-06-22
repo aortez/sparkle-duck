@@ -89,7 +89,7 @@ protected:
 
 TEST_F(ForceCalculationTest, EmptyCellHasZeroForces) {
     auto cohesion = WorldBCohesionCalculator(*world).calculateCohesionForce(2, 2);
-    auto adhesion = world->calculateAdhesionForce(2, 2);
+    auto adhesion = world->getAdhesionCalculator().calculateAdhesionForce(2, 2);
     
     EXPECT_EQ(cohesion.resistance_magnitude, 0.0);
     EXPECT_EQ(cohesion.connected_neighbors, 0);
@@ -101,7 +101,7 @@ TEST_F(ForceCalculationTest, IsolatedWaterHasNoForces) {
     world->addMaterialAtCell(2, 2, MaterialType::WATER, 1.0);
     
     auto cohesion = WorldBCohesionCalculator(*world).calculateCohesionForce(2, 2);
-    auto adhesion = world->calculateAdhesionForce(2, 2);
+    auto adhesion = world->getAdhesionCalculator().calculateAdhesionForce(2, 2);
     
     // No same-material neighbors = no cohesion resistance
     EXPECT_EQ(cohesion.resistance_magnitude, 0.0);
@@ -173,7 +173,7 @@ TEST_F(ForceCalculationTest, WaterWithDirtNeighborHasAdhesion) {
     updateVisualDisplay();
     waitForNext();
     
-    auto adhesion = world->calculateAdhesionForce(2, 2);
+    auto adhesion = world->getAdhesionCalculator().calculateAdhesionForce(2, 2);
     
     // Should have adhesion force from different-material neighbor
     EXPECT_GT(adhesion.force_magnitude, 0.0);
@@ -221,7 +221,7 @@ TEST_F(ForceCalculationTest, AdhesionUsesGeometricMean) {
     world->addMaterialAtCell(2, 2, MaterialType::WATER, 1.0);
     world->addMaterialAtCell(3, 2, MaterialType::METAL, 1.0); // Right
     
-    auto adhesion = world->calculateAdhesionForce(2, 2);
+    auto adhesion = world->getAdhesionCalculator().calculateAdhesionForce(2, 2);
     
     // Verify mutual adhesion calculation (geometric mean)
     const MaterialProperties& water_props = getMaterialProperties(MaterialType::WATER);

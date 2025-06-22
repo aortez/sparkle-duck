@@ -168,8 +168,8 @@ void Cell::drawNormal(lv_obj_t* /* parent */, uint32_t /* x */, uint32_t /* y */
     lv_color_t brown = lv_color_hex(0x8B4513); // Saddle brown color
 
     // Calculate opacity based on dirt amount (0.0 to 1.0)
-    lv_opa_t opacity_dirt = static_cast<lv_opa_t>(dirt * LV_OPA_COVER);
-    lv_opa_t opacity_water = static_cast<lv_opa_t>(water * LV_OPA_COVER);
+    lv_opa_t opacity_dirt = static_cast<lv_opa_t>(dirt * static_cast<double>(LV_OPA_COVER));
+    lv_opa_t opacity_water = static_cast<lv_opa_t>(water * static_cast<double>(LV_OPA_COVER));
 
     lv_layer_t layer;
     lv_canvas_init_layer(canvas, &layer);
@@ -215,8 +215,8 @@ void Cell::drawDebug(lv_obj_t* /* parent */, uint32_t /* x */, uint32_t /* y */)
     lv_color_t brown = lv_color_hex(0x8B4513); // Saddle brown color
 
     // Calculate opacity based on dirt amount (0.0 to 1.0)
-    lv_opa_t opacity_dirt = static_cast<lv_opa_t>(dirt * LV_OPA_COVER);
-    lv_opa_t opacity_water = static_cast<lv_opa_t>(water * LV_OPA_COVER);
+    lv_opa_t opacity_dirt = static_cast<lv_opa_t>(dirt * static_cast<double>(LV_OPA_COVER));
+    lv_opa_t opacity_water = static_cast<lv_opa_t>(water * static_cast<double>(LV_OPA_COVER));
 
     lv_layer_t layer;
     lv_canvas_init_layer(canvas, &layer);

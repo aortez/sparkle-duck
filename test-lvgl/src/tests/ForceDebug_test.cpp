@@ -25,7 +25,7 @@ TEST_F(ForceDebugTest, DebugWaterForces) {
     
     // Calculate forces directly
     auto cohesion = WorldBCohesionCalculator(*world).calculateCohesionForce(2, 2);
-    auto adhesion = world->calculateAdhesionForce(2, 2);
+    auto adhesion = world->getAdhesionCalculator().calculateAdhesionForce(2, 2);
     
     std::cout << "=== WATER FORCE DEBUG ===" << std::endl;
     std::cout << "Cohesion resistance: " << cohesion.resistance_magnitude << std::endl;

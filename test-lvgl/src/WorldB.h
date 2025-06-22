@@ -5,7 +5,9 @@
 #include "MaterialType.h"
 #include "Timers.h"
 #include "Vector2i.h"
+#include "WorldBAdhesionCalculator.h"
 #include "WorldBCohesionCalculator.h"
+#include "WorldBCollisionCalculator.h"
 #include "WorldBPressureCalculator.h"
 #include "WorldBSupportCalculator.h"
 #include "WorldFactory.h"
@@ -29,14 +31,6 @@ class SimulatorUI;
 
 class WorldB : public WorldInterface {
 public:
-    // Force calculation structures for adhesion physics.
-    struct AdhesionForce {
-        Vector2d force_direction;     // Direction of adhesive pull/resistance
-        double force_magnitude;       // Strength of adhesive force
-        MaterialType target_material; // Strongest interacting material
-        uint32_t contact_points;      // Number of contact interfaces
-    };
-
     WorldB(uint32_t width, uint32_t height, lv_obj_t* draw_area);
     ~WorldB();
 
@@ -165,6 +159,10 @@ public:
     // Pressure calculator access
     WorldBPressureCalculator& getPressureCalculator() { return pressure_calculator_; }
     const WorldBPressureCalculator& getPressureCalculator() const { return pressure_calculator_; }
+    
+    // Collision calculator access
+    WorldBCollisionCalculator& getCollisionCalculator() { return collision_calculator_; }
+    const WorldBCollisionCalculator& getCollisionCalculator() const { return collision_calculator_; }
 
     // Pressure system getters for calculator
     double getPressureScale() const { return pressure_scale_; }
@@ -213,11 +211,11 @@ public:
     }
     double getCohesionComForceStrength() const override { return cohesion_com_force_strength_; }
 
-    void setAdhesionStrength(double strength) override { adhesion_strength_ = strength; }
-    double getAdhesionStrength() const override { return adhesion_strength_; }
+    void setAdhesionStrength(double strength) override { adhesion_calculator_.setAdhesionStrength(strength); }
+    double getAdhesionStrength() const override { return adhesion_calculator_.getAdhesionStrength(); }
 
-    void setAdhesionEnabled(bool enabled) override { adhesion_enabled_ = enabled; }
-    bool isAdhesionEnabled() const override { return adhesion_enabled_; }
+    void setAdhesionEnabled(bool enabled) override { adhesion_calculator_.setAdhesionEnabled(enabled); }
+    bool isAdhesionEnabled() const override { return adhesion_calculator_.isAdhesionEnabled(); }
 
     void setCohesionBindForceStrength(double strength) override
     {
@@ -322,11 +320,14 @@ public:
     // =================================================================
 
     // Calculate adhesion force from different-material neighbors
-    AdhesionForce calculateAdhesionForce(uint32_t x, uint32_t y);
 
     // Support calculation methods moved to WorldBSupportCalculator
     WorldBSupportCalculator& getSupportCalculator() { return support_calculator_; }
     const WorldBSupportCalculator& getSupportCalculator() const { return support_calculator_; }
+
+    // Adhesion calculation methods moved to WorldBAdhesionCalculator
+    WorldBAdhesionCalculator& getAdhesionCalculator() { return adhesion_calculator_; }
+    const WorldBAdhesionCalculator& getAdhesionCalculator() const { return adhesion_calculator_; }
 
     // Material transfer computation - computes moves without processing them
     std::vector<MaterialMove> computeMaterialMoves(double deltaTime);
@@ -351,44 +352,8 @@ private:
     // Material transfer system
     void processMaterialMoves();
 
-    // Enhanced collision detection and move creation
-    std::vector<Vector2i> getAllBoundaryCrossings(const Vector2d& newCOM);
-    MaterialMove createCollisionAwareMove(
-        const CellB& fromCell,
-        const CellB& toCell,
-        const Vector2i& fromPos,
-        const Vector2i& toPos,
-        const Vector2i& direction,
-        double deltaTime = 0.0,
-        const WorldBCohesionCalculator::COMCohesionForce& com_cohesion = {
-            { 0.0, 0.0 }, 0.0, { 0.0, 0.0 }, 0, 0.0, 0.0, false });
-    CollisionType determineCollisionType(
-        MaterialType from, MaterialType to, double collision_energy);
-
-    // Collision physics calculations
-    double calculateMaterialMass(const CellB& cell);
-    double calculateCollisionEnergy(
-        const MaterialMove& move, const CellB& fromCell, const CellB& toCell);
-
-    // Collision handlers
-    void handleTransferMove(CellB& fromCell, CellB& toCell, const MaterialMove& move);
-    void handleElasticCollision(CellB& fromCell, CellB& toCell, const MaterialMove& move);
-    void handleInelasticCollision(CellB& fromCell, CellB& toCell, const MaterialMove& move);
-    void handleFragmentation(CellB& fromCell, CellB& toCell, const MaterialMove& move);
-    void handleAbsorption(CellB& fromCell, CellB& toCell, const MaterialMove& move);
-
-    // Floating particle collision detection
-    bool checkFloatingParticleCollision(int cellX, int cellY);
-    void handleFloatingParticleCollision(int cellX, int cellY);
-
-    // Pressure calculation (simplified hydrostatic) - moved to public for testing
-
     // Boundary wall management
     void setupBoundaryWalls();
-
-    // Elastic boundary reflection system
-    void applyBoundaryReflection(CellB& cell, const Vector2i& direction);
-    void applyCellBoundaryReflection(CellB& cell, const Vector2i& direction, MaterialType material);
 
     // Coordinate conversion helpers
     void pixelToCell(int pixelX, int pixelY, int& cellX, int& cellY) const;
@@ -442,9 +407,7 @@ private:
     bool cohesion_bind_force_enabled_;    // Enable/disable cohesion bind force (resistance)
     bool cohesion_com_force_enabled_;     // Enable/disable cohesion COM force (attraction)
     COMCohesionMode com_cohesion_mode_;   // COM cohesion calculation mode
-    bool adhesion_enabled_;               // Enable/disable adhesion physics
     double cohesion_com_force_strength_;  // Scaling factor for COM cohesion force magnitude
-    double adhesion_strength_;            // Scaling factor for adhesion force magnitude
     double cohesion_bind_force_strength_; // Scaling factor for cohesion bind resistance
     uint32_t com_cohesion_range_;         // Range for COM cohesion neighbors (default 2)
 
@@ -490,6 +453,12 @@ private:
 
     // Pressure calculation
     WorldBPressureCalculator pressure_calculator_;
+
+    // Collision calculation
+    WorldBCollisionCalculator collision_calculator_;
+
+    // Adhesion calculation
+    mutable WorldBAdhesionCalculator adhesion_calculator_;
 
     // UI interface
     std::unique_ptr<SimulatorUI> ui_; // Owned UI (legacy architecture)

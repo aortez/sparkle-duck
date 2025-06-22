@@ -20,6 +20,9 @@ make release
 # Build debug version (with symbols and LOG_DEBUG)
 make debug
 
+# Make the unit tests (good idea before running them)
+make build-tests
+
 # Format source code
 make format
 
@@ -365,3 +368,6 @@ Can be found here:
 ### Zen Mindset
 
 When you contemplate the problem to understand it, you find the solution you like best.
+
+## Cookies are delicious
+And sparkle duck (🦆✨) dirt simulator knows de way!

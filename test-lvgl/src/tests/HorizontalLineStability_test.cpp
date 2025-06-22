@@ -52,7 +52,7 @@ protected:
     void logCellDetails(uint32_t x, uint32_t y, const std::string& description) {
         const CellB& cell = world->at(x, y);
         auto cohesion = WorldBCohesionCalculator(*world).calculateCohesionForce(x, y);
-        auto adhesion = world->calculateAdhesionForce(x, y);
+        auto adhesion = world->getAdhesionCalculator().calculateAdhesionForce(x, y);
         
         spdlog::info("Cell ({},{}) - {}: material={}, fill={:.1f}, neighbors={}, cohesion_resistance={:.3f}, adhesion_magnitude={:.3f}",
                      x, y, description, 
@@ -66,7 +66,7 @@ protected:
     void logForceAnalysis(uint32_t x, uint32_t y, double deltaTime = 0.016) {
         const CellB& cell = world->at(x, y);
         auto cohesion = WorldBCohesionCalculator(*world).calculateCohesionForce(x, y);
-        auto adhesion = world->calculateAdhesionForce(x, y);
+        auto adhesion = world->getAdhesionCalculator().calculateAdhesionForce(x, y);
         
         // Calculate forces as done in queueMaterialMoves
         Vector2d gravity_force(0.0, 9.81 * deltaTime * getMaterialDensity(cell.getMaterialType()));

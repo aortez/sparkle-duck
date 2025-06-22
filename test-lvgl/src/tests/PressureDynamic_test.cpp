@@ -42,35 +42,46 @@ protected:
 };
 
 TEST_F(PressureDynamicTest, BlockedTransferAccumulatesDynamicPressure) {
-    spdlog::info("[TEST] Testing dynamic pressure accumulation from blocked WATER-WATER transfers");
-    
-    // This test expects the following dynamic pressure behavior to be implemented:
-    // 1. When material tries to transfer but the target cell is near capacity, the transfer is partially blocked
-    // 2. The blocked transfer energy (velocity * blocked_amount) accumulates as dynamic pressure
-    // 3. Dynamic pressure creates forces that affect cell velocity
-    // 4. Dynamic pressure decays over time when blockage is removed
-    //
-    // If this test fails, it likely means the blocked transfer detection and pressure
-    // accumulation mechanism needs to be implemented in WorldB. See under_pressure.md.
-    
-    // Scenario: WATER tries to flow into a nearly full WATER cell
-    // This is simpler than mixed materials and focuses on capacity-based blocking
-    world->addMaterialAtCell(0, 1, MaterialType::WATER, 1.0);   // Full WATER source
-    world->addMaterialAtCell(1, 1, MaterialType::WATER, 0.95);  // Nearly full WATER target
-    
-    CellB& sourceCell = world->at(0, 1);
-    CellB& targetCell = world->at(1, 1);
-    
-    // Set COM positions AFTER adding material to override defaults
-    sourceCell.setCOM(Vector2d(0.8, 0.0));       // COM near right boundary for transfer
-    targetCell.setCOM(Vector2d(-0.5, 0.0));      // COM on left side
-    
-    // Set velocities - source pushing right, target stationary
-    sourceCell.setVelocity(Vector2d(5.0, 0.0));  // Strong rightward push
-    targetCell.setVelocity(Vector2d(0.0, 0.0));  // Target starts stationary
-    
-    // Use showInitialStateWithStep to give user choice between Start and Step
-    showInitialStateWithStep(world.get(), "Full WATER → Nearly full WATER: Natural pressure buildup");
+    // Enable restart functionality for this test
+    runRestartableTest([this]() {
+        spdlog::info("[TEST] Testing dynamic pressure accumulation from blocked WATER-WATER transfers");
+        
+        // This test expects the following dynamic pressure behavior to be implemented:
+        // 1. When material tries to transfer but the target cell is near capacity, the transfer is partially blocked
+        // 2. The blocked transfer energy (velocity * blocked_amount) accumulates as dynamic pressure
+        // 3. Dynamic pressure creates forces that affect cell velocity
+        // 4. Dynamic pressure decays over time when blockage is removed
+        //
+        // If this test fails, it likely means the blocked transfer detection and pressure
+        // accumulation mechanism needs to be implemented in WorldB. See under_pressure.md.
+        
+        // Clear the world for restart
+        if (world) {
+            for (uint32_t y = 0; y < world->getHeight(); ++y) {
+                for (uint32_t x = 0; x < world->getWidth(); ++x) {
+                    world->at(x, y).clear();
+                }
+            }
+        }
+        
+        // Scenario: WATER tries to flow into a nearly full WATER cell
+        // This is simpler than mixed materials and focuses on capacity-based blocking
+        world->addMaterialAtCell(0, 1, MaterialType::WATER, 1.0);   // Full WATER source
+        world->addMaterialAtCell(1, 1, MaterialType::WATER, 0.95);  // Nearly full WATER target
+        
+        CellB& sourceCell = world->at(0, 1);
+        CellB& targetCell = world->at(1, 1);
+        
+        // Set COM positions AFTER adding material to override defaults
+        sourceCell.setCOM(Vector2d(0.8, 0.0));       // COM near right boundary for transfer
+        targetCell.setCOM(Vector2d(-0.5, 0.0));      // COM on left side
+        
+        // Set velocities - source pushing right, target stationary
+        sourceCell.setVelocity(Vector2d(5.0, 0.0));  // Strong rightward push
+        targetCell.setVelocity(Vector2d(0.0, 0.0));  // Target starts stationary
+        
+        // Use showInitialStateWithStep to give user choice between Start and Step
+        showInitialStateWithStep(world.get(), "Full WATER → Nearly full WATER: Natural pressure buildup");
     
     // Log initial world state
     logWorldState(world.get(), "Initial Setup");
@@ -111,7 +122,7 @@ TEST_F(PressureDynamicTest, BlockedTransferAccumulatesDynamicPressure) {
         if (pressureDetected) {
             ss << "\n🔥 Pressure building!";
         }
-        updateDisplayOrLog(world.get(), ss.str());
+        updateDisplay(world.get(), ss.str());
         
         logWorldState(world.get(), fmt::format("Before timestep {}", timestep));
         
@@ -286,10 +297,11 @@ TEST_F(PressureDynamicTest, BlockedTransferAccumulatesDynamicPressure) {
         ss << "✓ Pressure affected movement\n";
         ss << (anyPressureRemaining ? "✗ Pressure still present!" : "✓ Pressure fully dissipated");
         updateDisplay(world.get(), ss.str());
-        waitForNext();
+        waitForRestartOrNext();
     }
     
-    spdlog::info("✅ BlockedTransferAccumulatesDynamicPressure test completed successfully");
+        spdlog::info("✅ BlockedTransferAccumulatesDynamicPressure test completed successfully");
+    });  // End of runRestartableTest lambda
 }
 
 TEST_F(PressureDynamicTest, DynamicPressureDrivesHorizontalFlow) {
@@ -382,7 +394,7 @@ TEST_F(PressureDynamicTest, DynamicPressureDrivesHorizontalFlow) {
             ss << "\n🎯 STAGE 3 PASSED: Water reached target!";
         }
         
-        updateDisplayOrLog(world.get(), ss.str());
+        updateDisplay(world.get(), ss.str());
         
         // Check stage progression
         if (!stage1_passed && middleCell.getDynamicPressure() > 0.001) {

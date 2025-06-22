@@ -153,7 +153,7 @@ void SimulatorUI::createWorldTypeColumn()
     // Style the button matrix
     lv_obj_set_style_bg_color(world_type_btnm_, lv_color_hex(0x404040), LV_PART_ITEMS);
     lv_obj_set_style_bg_color(
-        world_type_btnm_, lv_color_hex(0x0080FF), LV_PART_ITEMS | LV_STATE_CHECKED);
+        world_type_btnm_, lv_color_hex(0x0080FF), static_cast<lv_style_selector_t>(static_cast<int>(LV_PART_ITEMS) | static_cast<int>(LV_STATE_CHECKED)));
     lv_obj_set_style_text_color(world_type_btnm_, lv_color_white(), LV_PART_ITEMS);
 
     lv_obj_add_event_cb(

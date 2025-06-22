@@ -14,7 +14,7 @@ JOBS := $(shell nproc 2>/dev/null || echo 4)
 TEST_BINARY := sparkle-duck-tests
 MAIN_BINARY := sparkle-duck
 
-.PHONY: all clean debug release test test-all visual-tests run format help
+.PHONY: all clean debug release build-tests test test-all visual-tests run format help
 
 all: release
 
@@ -33,7 +33,10 @@ debug:
 		-DCMAKE_CXX_FLAGS="-g -O0 -DLOG_DEBUG"
 	@$(MAKE) -C $(BUILD_DIR) -j$(JOBS)
 
-test: debug
+build-tests: debug
+	@echo "Test binary built successfully: $(BUILD_DIR)/$(BIN_DIR)/$(TEST_BINARY)"
+
+test: build-tests
 	@echo "Running tests..."
 	@./$(BUILD_DIR)/$(BIN_DIR)/$(TEST_BINARY) $(ARGS)
 
@@ -72,6 +75,7 @@ help:
 	@echo "  all          - Build release version (default)"
 	@echo "  release      - Build optimized release version with test verification"
 	@echo "  debug        - Build debug version with symbols and LOG_DEBUG"
+	@echo "  build-tests  - Build test binary without running tests"
 	@echo "  test         - Build debug and run unit tests"
 	@echo "  test-all     - Run all tests (unit + visual)"
 	@echo "  visual-tests - Run tests with visual output enabled"

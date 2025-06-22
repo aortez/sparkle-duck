@@ -4,6 +4,7 @@
 #include "Vector2i.h"
 #include "WorldBAirResistanceCalculator.h"
 #include "WorldBCohesionCalculator.h"
+#include "WorldBCollisionCalculator.h"
 #include "WorldInterpolationTool.h"
 #include "spdlog/spdlog.h"
 
@@ -40,9 +41,7 @@ WorldB::WorldB(uint32_t width, uint32_t height, lv_obj_t* draw_area)
       cohesion_bind_force_enabled_(true),
       cohesion_com_force_enabled_(true),
       com_cohesion_mode_(COMCohesionMode::ORIGINAL),
-      adhesion_enabled_(true),
       cohesion_com_force_strength_(150.0),
-      adhesion_strength_(5.0),
       cohesion_bind_force_strength_(1.0),
       com_cohesion_range_(2),
       air_resistance_enabled_(true),
@@ -63,6 +62,8 @@ WorldB::WorldB(uint32_t width, uint32_t height, lv_obj_t* draw_area)
       selected_material_(MaterialType::DIRT),
       support_calculator_(*this),
       pressure_calculator_(*this),
+      collision_calculator_(*this),
+      adhesion_calculator_(*this),
       ui_ref_(nullptr)
 {
     spdlog::info("Creating WorldB: {}x{} grid with pure-material physics", width_, height_);
@@ -397,8 +398,9 @@ void WorldB::updateDrag(int pixelX, int pixelY)
             floating_particle_.setVelocity(Vector2d(dx, dy));
 
             // Check for collisions with the target cell
-            if (checkFloatingParticleCollision(last_drag_cell_x_, last_drag_cell_y_)) {
-                handleFloatingParticleCollision(last_drag_cell_x_, last_drag_cell_y_);
+            if (collision_calculator_.checkFloatingParticleCollision(last_drag_cell_x_, last_drag_cell_y_, floating_particle_)) {
+                CellB& targetCell = at(last_drag_cell_x_, last_drag_cell_y_);
+                collision_calculator_.handleFloatingParticleCollision(last_drag_cell_x_, last_drag_cell_y_, floating_particle_, targetCell);
             }
         }
     }
@@ -739,10 +741,10 @@ void WorldB::applyCohesionForces(double deltaTime)
             }
 
             // Adhesion force accumulation (only if enabled)
-            if (adhesion_enabled_) {
-                AdhesionForce adhesion = calculateAdhesionForce(x, y);
+            if (adhesion_calculator_.isAdhesionEnabled()) {
+                WorldBAdhesionCalculator::AdhesionForce adhesion = adhesion_calculator_.calculateAdhesionForce(x, y);
                 Vector2d adhesion_force = adhesion.force_direction * adhesion.force_magnitude
-                    * deltaTime * adhesion_strength_;
+                    * deltaTime * adhesion_calculator_.getAdhesionStrength();
                 cell.addPendingForce(adhesion_force);
             }
         }
@@ -892,7 +894,7 @@ std::vector<MaterialMove> WorldB::computeMaterialMoves(double deltaTime)
             else {
                 cohesion = { 0.0, 0 }; // No cohesion resistance when disabled
             }
-            AdhesionForce adhesion = calculateAdhesionForce(x, y);
+            WorldBAdhesionCalculator::AdhesionForce adhesion = adhesion_calculator_.calculateAdhesionForce(x, y);
 
             // NEW: Calculate COM-based cohesion force
             WorldBCohesionCalculator::COMCohesionForce com_cohesion;
@@ -910,7 +912,7 @@ std::vector<MaterialMove> WorldB::computeMaterialMoves(double deltaTime)
             // controls)
             double effective_resistance =
                 cohesion.resistance_magnitude * cohesion_bind_force_strength_ * deltaTime * 50;
-            double effective_adhesion_magnitude = adhesion.force_magnitude * adhesion_strength_;
+            double effective_adhesion_magnitude = adhesion.force_magnitude * adhesion_calculator_.getAdhesionStrength();
             double effective_com_cohesion_magnitude =
                 com_cohesion.force_magnitude * cohesion_com_force_strength_;
 
@@ -945,7 +947,7 @@ std::vector<MaterialMove> WorldB::computeMaterialMoves(double deltaTime)
             Vector2d newCOM = cell.getCOM() + cell.getVelocity() * deltaTime;
 
             // Enhanced: Check if COM crosses any boundary [-1,1] for universal collision detection
-            std::vector<Vector2i> crossed_boundaries = getAllBoundaryCrossings(newCOM);
+            std::vector<Vector2i> crossed_boundaries = collision_calculator_.getAllBoundaryCrossings(newCOM);
 
             if (!crossed_boundaries.empty()) {
                 spdlog::debug(
@@ -966,7 +968,7 @@ std::vector<MaterialMove> WorldB::computeMaterialMoves(double deltaTime)
 
                 if (isValidCell(targetPos)) {
                     // Create enhanced MaterialMove with collision physics and COM cohesion data
-                    MaterialMove move = createCollisionAwareMove(
+                    MaterialMove move = collision_calculator_.createCollisionAwareMove(
                         cell,
                         at(targetPos),
                         Vector2i(x, y),
@@ -1002,7 +1004,7 @@ std::vector<MaterialMove> WorldB::computeMaterialMoves(double deltaTime)
                         direction.x,
                         direction.y);
 
-                    applyBoundaryReflection(cell, direction);
+                    collision_calculator_.applyBoundaryReflection(cell, direction);
                     boundary_reflection_applied = true;
                 }
             }
@@ -1070,19 +1072,19 @@ void WorldB::processMaterialMoves()
 
         switch (move.collision_type) {
             case CollisionType::TRANSFER_ONLY:
-                handleTransferMove(fromCell, toCell, move);
+                collision_calculator_.handleTransferMove(fromCell, toCell, move);
                 break;
             case CollisionType::ELASTIC_REFLECTION:
-                handleElasticCollision(fromCell, toCell, move);
+                collision_calculator_.handleElasticCollision(fromCell, toCell, move);
                 break;
             case CollisionType::INELASTIC_COLLISION:
-                handleInelasticCollision(fromCell, toCell, move);
+                collision_calculator_.handleInelasticCollision(fromCell, toCell, move);
                 break;
             case CollisionType::FRAGMENTATION:
-                handleFragmentation(fromCell, toCell, move);
+                collision_calculator_.handleFragmentation(fromCell, toCell, move);
                 break;
             case CollisionType::ABSORPTION:
-                handleAbsorption(fromCell, toCell, move);
+                collision_calculator_.handleAbsorption(fromCell, toCell, move);
                 break;
         }
     }
@@ -1110,165 +1112,6 @@ void WorldB::setupBoundaryWalls()
     spdlog::info("Boundary walls setup complete");
 }
 
-// =================================================================
-// ELASTIC BOUNDARY REFLECTION SYSTEM
-// =================================================================
-
-void WorldB::applyBoundaryReflection(CellB& cell, const Vector2i& direction)
-{
-    Vector2d velocity = cell.getVelocity();
-    Vector2d com = cell.getCOM();
-    double elasticity = getMaterialProperties(cell.getMaterialType()).elasticity;
-
-    spdlog::debug(
-        "Applying boundary reflection: material={} direction=({},{}) elasticity={:.2f} "
-        "velocity=({:.2f},{:.2f})",
-        getMaterialName(cell.getMaterialType()),
-        direction.x,
-        direction.y,
-        elasticity,
-        velocity.x,
-        velocity.y);
-
-    // Apply elastic reflection for the component perpendicular to the boundary
-    if (direction.x != 0) { // Horizontal boundary (left/right walls)
-        velocity.x = -velocity.x * elasticity;
-        // Move COM away from boundary to prevent re-triggering boundary detection
-        com.x = (direction.x > 0) ? 0.99 : -0.99;
-    }
-
-    if (direction.y != 0) { // Vertical boundary (top/bottom walls)
-        velocity.y = -velocity.y * elasticity;
-        // Move COM away from boundary to prevent re-triggering boundary detection
-        com.y = (direction.y > 0) ? 0.99 : -0.99;
-    }
-
-    cell.setVelocity(velocity);
-    cell.setCOM(com);
-
-    spdlog::debug(
-        "Boundary reflection complete: new_velocity=({:.2f},{:.2f}) new_com=({:.2f},{:.2f})",
-        velocity.x,
-        velocity.y,
-        com.x,
-        com.y);
-}
-
-void WorldB::applyCellBoundaryReflection(
-    CellB& cell, const Vector2i& direction, MaterialType material)
-{
-    Vector2d velocity = cell.getVelocity();
-    Vector2d com = cell.getCOM();
-    double elasticity = getMaterialProperties(material).elasticity;
-
-    spdlog::debug(
-        "Applying cell boundary reflection: material={} direction=({},{}) elasticity={:.2f}",
-        getMaterialName(material),
-        direction.x,
-        direction.y,
-        elasticity);
-
-    // Apply elastic reflection when transfer between cells fails
-    if (direction.x != 0) { // Horizontal transfer failed
-        velocity.x = -velocity.x * elasticity;
-        // Move COM away from the boundary that caused the failed transfer
-        com.x = (direction.x > 0) ? 0.99 : -0.99;
-    }
-
-    if (direction.y != 0) { // Vertical transfer failed
-        velocity.y = -velocity.y * elasticity;
-        // Move COM away from the boundary that caused the failed transfer
-        com.y = (direction.y > 0) ? 0.99 : -0.99;
-    }
-
-    cell.setVelocity(velocity);
-    cell.setCOM(com);
-
-    spdlog::debug(
-        "Cell boundary reflection complete: new_velocity=({:.2f},{:.2f}) new_com=({:.2f},{:.2f})",
-        velocity.x,
-        velocity.y,
-        com.x,
-        com.y);
-}
-
-// =================================================================
-// FLOATING PARTICLE COLLISION DETECTION
-// =================================================================
-
-bool WorldB::checkFloatingParticleCollision(int cellX, int cellY)
-{
-    if (!has_floating_particle_ || !isValidCell(cellX, cellY)) {
-        return false;
-    }
-
-    const CellB& targetCell = at(cellX, cellY);
-
-    // Check if there's material to collide with
-    if (!targetCell.isEmpty()) {
-        // Get material properties for collision behavior
-        const MaterialProperties& floatingProps =
-            getMaterialProperties(floating_particle_.getMaterialType());
-        const MaterialProperties& targetProps = getMaterialProperties(targetCell.getMaterialType());
-
-        // For now, simple collision detection - can be enhanced later
-        // Heavy materials (like METAL) can push through lighter materials
-        // Solid materials (like WALL) stop everything
-        if (targetCell.getMaterialType() == MaterialType::WALL) {
-            return true; // Wall stops everything
-        }
-
-        // Check density-based collision
-        if (floatingProps.density <= targetProps.density) {
-            return true; // Can't push through denser material
-        }
-    }
-
-    return false;
-}
-
-void WorldB::handleFloatingParticleCollision(int cellX, int cellY)
-{
-    if (!has_floating_particle_ || !isValidCell(cellX, cellY)) {
-        return;
-    }
-
-    CellB& targetCell = at(cellX, cellY);
-    Vector2d particleVelocity = floating_particle_.getVelocity();
-
-    spdlog::info(
-        "Floating particle {} collided with {} at cell ({},{}) with velocity ({:.2f},{:.2f})",
-        getMaterialName(floating_particle_.getMaterialType()),
-        getMaterialName(targetCell.getMaterialType()),
-        cellX,
-        cellY,
-        particleVelocity.x,
-        particleVelocity.y);
-
-    // TODO: Implement collision response based on material properties
-    // - Elastic collisions for METAL vs METAL
-    // - Splash effects for WATER collisions
-    // - Fragmentation for brittle materials
-    // - Momentum transfer based on mass ratios
-
-    // For now, simple momentum transfer
-    Vector2d currentVelocity = targetCell.getVelocity();
-    double floatingMass = floating_particle_.getMass();
-    double targetMass = targetCell.getMass();
-
-    if (targetMass > MIN_MATTER_THRESHOLD) {
-        // Inelastic collision with momentum conservation
-        Vector2d combinedMomentum = particleVelocity * floatingMass + currentVelocity * targetMass;
-        Vector2d newVelocity = combinedMomentum / (floatingMass + targetMass);
-        targetCell.setVelocity(newVelocity);
-        targetCell.markDirty();
-
-        spdlog::debug(
-            "Applied collision momentum: new velocity ({:.2f},{:.2f})",
-            newVelocity.x,
-            newVelocity.y);
-    }
-}
 
 // =================================================================
 // HELPER METHODS
@@ -1384,7 +1227,7 @@ std::string WorldB::settingsToString() const
        << "\n";
     ss << "Cohesion bind force enabled: " << (isCohesionBindForceEnabled() ? "true" : "false")
        << "\n";
-    ss << "Adhesion enabled: " << (adhesion_enabled_ ? "true" : "false") << "\n";
+    ss << "Adhesion enabled: " << (adhesion_calculator_.isAdhesionEnabled() ? "true" : "false") << "\n";
     ss << "Air resistance enabled: " << (air_resistance_enabled_ ? "true" : "false") << "\n";
     ss << "Air resistance strength: " << air_resistance_strength_ << "\n";
     ss << "Material removal threshold: " << MIN_MATTER_THRESHOLD << "\n";
@@ -1513,554 +1356,8 @@ void WorldB::restoreState(const ::WorldState& state)
     spdlog::info("WorldB state restored: {} total mass", getTotalMass());
 }
 
-// =================================================================
-// ENHANCED COLLISION DETECTION AND PHYSICS
-// =================================================================
-
-std::vector<Vector2i> WorldB::getAllBoundaryCrossings(const Vector2d& newCOM)
-{
-    std::vector<Vector2i> crossings;
-
-    // Check each boundary independently (aligned with original shouldTransfer logic)
-    if (newCOM.x >= 1.0) crossings.push_back(Vector2i(1, 0));   // Right boundary
-    if (newCOM.x <= -1.0) crossings.push_back(Vector2i(-1, 0)); // Left boundary
-    if (newCOM.y >= 1.0) crossings.push_back(Vector2i(0, 1));   // Down boundary
-    if (newCOM.y <= -1.0) crossings.push_back(Vector2i(0, -1)); // Up boundary
-
-    return crossings;
-}
-
-MaterialMove WorldB::createCollisionAwareMove(
-    const CellB& fromCell,
-    const CellB& toCell,
-    const Vector2i& fromPos,
-    const Vector2i& toPos,
-    const Vector2i& direction,
-    double /* deltaTime */,
-    const WorldBCohesionCalculator::COMCohesionForce& com_cohesion)
-{
-    MaterialMove move;
-
-    // Standard move data
-    move.fromX = fromPos.x;
-    move.fromY = fromPos.y;
-    move.toX = toPos.x;
-    move.toY = toPos.y;
-    move.material = fromCell.getMaterialType();
-
-    // Calculate how much wants to transfer vs what can transfer
-    double wants_to_transfer = fromCell.getFillRatio(); // Cell wants to follow its COM
-    double capacity = toCell.getCapacity();
-
-    // Queue only what will actually succeed
-    move.amount = std::min(wants_to_transfer, capacity);
-
-    // Store pressure generation info in the move for later application
-    double excess = wants_to_transfer - move.amount;
-    move.pressure_from_excess = 0.0; // Initialize
-
-    if (excess > MIN_MATTER_THRESHOLD && dynamic_pressure_enabled_) {
-        double blocked_mass = excess * getMaterialDensity(fromCell.getMaterialType());
-        double energy = fromCell.getVelocity().magnitude() * blocked_mass;
-        double pressure_increase = energy * 0.1; // Tune this conversion factor
-
-        // Store pressure to be applied to target cell when processing moves
-        move.pressure_from_excess = pressure_increase;
-
-        spdlog::debug(
-            "Pressure from excess at ({},{}) -> ({},{}): excess={:.3f}, energy={:.3f}, "
-            "pressure_to_add={:.3f}",
-            fromPos.x,
-            fromPos.y,
-            toPos.x,
-            toPos.y,
-            excess,
-            energy,
-            pressure_increase);
-    }
-
-    move.momentum = fromCell.getVelocity();
-    move.boundary_normal = Vector2d(direction.x, direction.y);
-
-    // NEW: Calculate collision physics data
-    move.material_mass = calculateMaterialMass(fromCell);
-    move.target_mass = calculateMaterialMass(toCell);
-    move.collision_energy = calculateCollisionEnergy(move, fromCell, toCell);
-
-    // NEW: Add COM cohesion force data
-    move.com_cohesion_magnitude = com_cohesion.force_magnitude;
-    move.com_cohesion_direction = com_cohesion.force_direction;
-
-    // Determine collision type based on materials and energy
-    move.collision_type = determineCollisionType(
-        fromCell.getMaterialType(), toCell.getMaterialType(), move.collision_energy);
-
-    // Set material-specific restitution coefficient
-    const auto& fromProps = getMaterialProperties(fromCell.getMaterialType());
-    const auto& toProps = getMaterialProperties(toCell.getMaterialType());
-
-    if (move.collision_type == CollisionType::ELASTIC_REFLECTION) {
-        // For elastic collisions, use geometric mean of elasticities
-        move.restitution_coefficient = std::sqrt(fromProps.elasticity * toProps.elasticity);
-    }
-    else if (move.collision_type == CollisionType::INELASTIC_COLLISION) {
-        // For inelastic collisions, reduce restitution significantly
-        move.restitution_coefficient = std::sqrt(fromProps.elasticity * toProps.elasticity) * 0.3;
-    }
-    else if (move.collision_type == CollisionType::FRAGMENTATION) {
-        // Fragmentation has very low restitution
-        move.restitution_coefficient = 0.1;
-    }
-    else {
-        // Transfer and absorption have minimal bounce
-        move.restitution_coefficient = 0.0;
-    }
-
-    return move;
-}
-
-CollisionType WorldB::determineCollisionType(
-    MaterialType from, MaterialType to, double collision_energy)
-{
-    // Get material properties for both materials
-    const auto& fromProps = getMaterialProperties(from);
-    const auto& toProps = getMaterialProperties(to);
-
-    // Empty cells allow transfer
-    if (to == MaterialType::AIR) {
-        return CollisionType::TRANSFER_ONLY;
-    }
-
-    // High-energy impacts on brittle materials cause fragmentation
-    const double FRAGMENTATION_THRESHOLD = 15.0;
-    if (collision_energy > FRAGMENTATION_THRESHOLD
-        && (from == MaterialType::WOOD || from == MaterialType::LEAF)
-        && (to == MaterialType::METAL || to == MaterialType::WALL)) {
-        return CollisionType::FRAGMENTATION;
-    }
-
-    // Material-specific interaction matrix
-
-    // METAL interactions - highly elastic due to high elasticity (0.8)
-    if (from == MaterialType::METAL || to == MaterialType::METAL) {
-        if (to == MaterialType::WALL || from == MaterialType::WALL) {
-            return CollisionType::ELASTIC_REFLECTION; // Metal vs wall
-        }
-        if ((from == MaterialType::METAL && to == MaterialType::METAL)
-            || (from == MaterialType::METAL && isMaterialRigid(to))
-            || (to == MaterialType::METAL && isMaterialRigid(from))) {
-            return CollisionType::ELASTIC_REFLECTION; // Metal vs rigid materials
-        }
-        return CollisionType::INELASTIC_COLLISION; // Metal vs soft materials
-    }
-
-    // WALL interactions - always elastic due to infinite mass
-    if (to == MaterialType::WALL) {
-        return CollisionType::ELASTIC_REFLECTION;
-    }
-
-    // WOOD interactions - moderately elastic (0.6 elasticity)
-    if (from == MaterialType::WOOD && isMaterialRigid(to)) {
-        return CollisionType::ELASTIC_REFLECTION;
-    }
-
-    // AIR interactions - highly elastic (1.0 elasticity) but low mass
-    if (from == MaterialType::AIR) {
-        return CollisionType::ELASTIC_REFLECTION;
-    }
-
-    // Rigid-to-rigid collisions based on elasticity
-    if (isMaterialRigid(from) && isMaterialRigid(to)) {
-        double avg_elasticity = (fromProps.elasticity + toProps.elasticity) / 2.0;
-        return (avg_elasticity > 0.5) ? CollisionType::ELASTIC_REFLECTION
-                                      : CollisionType::INELASTIC_COLLISION;
-    }
-
-    // Fluid absorption behaviors
-    if ((from == MaterialType::WATER && to == MaterialType::DIRT)
-        || (from == MaterialType::DIRT && to == MaterialType::WATER)) {
-        return CollisionType::ABSORPTION;
-    }
-
-    // Dense materials hitting lighter materials
-    if (fromProps.density > toProps.density * 2.0) {
-        return CollisionType::INELASTIC_COLLISION; // Heavy impacts soft
-    }
-
-    // Default: inelastic collision for general material interactions
-    return CollisionType::INELASTIC_COLLISION;
-}
-
-double WorldB::calculateMaterialMass(const CellB& cell)
-{
-    if (cell.isEmpty()) return 0.0;
-
-    // Mass = density × volume
-    // Volume = fill_ratio (since cell volume is normalized to 1.0)
-    double density = getMaterialDensity(cell.getMaterialType());
-    double volume = cell.getFillRatio();
-    return density * volume;
-}
-
-double WorldB::calculateCollisionEnergy(
-    const MaterialMove& move, const CellB& fromCell, const CellB& toCell)
-{
-    // Kinetic energy: KE = 0.5 × m × v²
-    double movingMass = calculateMaterialMass(fromCell) * move.amount;
-    double velocity_magnitude = move.momentum.length();
-
-    // If target cell has material, include reduced mass for collision
-    double targetMass = calculateMaterialMass(toCell);
-    double effective_mass = movingMass;
-
-    if (targetMass > 0.0) {
-        // Reduced mass formula: μ = (m1 × m2) / (m1 + m2)
-        effective_mass = (movingMass * targetMass) / (movingMass + targetMass);
-    }
-
-    return 0.5 * effective_mass * velocity_magnitude * velocity_magnitude;
-}
-
-// =================================================================
-// COLLISION HANDLERS
-// =================================================================
-
-void WorldB::handleTransferMove(CellB& fromCell, CellB& toCell, const MaterialMove& move)
-{
-    // Log pre-transfer state
-    spdlog::debug(
-        "TRANSFER: Before - From({},{}) vel=({:.3f},{:.3f}) fill={:.3f}, To({},{}) "
-        "vel=({:.3f},{:.3f}) fill={:.3f}",
-        move.fromX,
-        move.fromY,
-        fromCell.getVelocity().x,
-        fromCell.getVelocity().y,
-        fromCell.getFillRatio(),
-        move.toX,
-        move.toY,
-        toCell.getVelocity().x,
-        toCell.getVelocity().y,
-        toCell.getFillRatio());
-
-    // Attempt the transfer
-    const double transferred =
-        fromCell.transferToWithPhysics(toCell, move.amount, move.boundary_normal);
-
-    // Log post-transfer state
-    spdlog::debug(
-        "TRANSFER: After  - From({},{}) vel=({:.3f},{:.3f}) fill={:.3f}, To({},{}) "
-        "vel=({:.3f},{:.3f}) fill={:.3f}",
-        move.fromX,
-        move.fromY,
-        fromCell.getVelocity().x,
-        fromCell.getVelocity().y,
-        fromCell.getFillRatio(),
-        move.toX,
-        move.toY,
-        toCell.getVelocity().x,
-        toCell.getVelocity().y,
-        toCell.getFillRatio());
-
-    if (transferred > 0.0) {
-        spdlog::trace(
-            "Transferred {:.3f} {} from ({},{}) to ({},{}) with boundary normal ({:.2f},{:.2f})",
-            transferred,
-            getMaterialName(move.material),
-            move.fromX,
-            move.fromY,
-            move.toX,
-            move.toY,
-            move.boundary_normal.x,
-            move.boundary_normal.y);
-    }
-
-    // Check if transfer was incomplete (target full or couldn't accept all material)
-    const double transfer_deficit = move.amount - transferred;
-    if (transfer_deficit > MIN_MATTER_THRESHOLD) {
-        // Transfer failed partially or completely - apply elastic reflection for remaining material
-        Vector2i direction(move.toX - move.fromX, move.toY - move.fromY);
-
-        spdlog::debug(
-            "Transfer incomplete: requested={:.3f}, transferred={:.3f}, deficit={:.3f} - applying "
-            "reflection",
-            move.amount,
-            transferred,
-            transfer_deficit);
-
-        // Queue blocked transfer for dynamic pressure accumulation
-        if (dynamic_pressure_enabled_) {
-            // Calculate energy with proper mass consideration
-            double material_density = getMaterialDensity(move.material);
-            double blocked_mass = transfer_deficit * material_density;
-            double energy = fromCell.getVelocity().magnitude() * blocked_mass;
-
-            spdlog::debug(
-                "Blocked transfer energy calculation: material={}, density={:.2f}, "
-                "blocked_mass={:.4f}, velocity={:.2f}, energy={:.4f}",
-                getMaterialName(move.material),
-                material_density,
-                blocked_mass,
-                fromCell.getVelocity().magnitude(),
-                energy);
-
-            pressure_calculator_.queueBlockedTransfer({ move.fromX,
-                                                        move.fromY,
-                                                        move.toX,
-                                                        move.toY,
-                                                        transfer_deficit, // transfer_amount
-                                                        fromCell.getVelocity(),
-                                                        energy });
-        }
-
-        applyCellBoundaryReflection(fromCell, direction, move.material);
-    }
-}
-
-void WorldB::handleElasticCollision(CellB& fromCell, CellB& toCell, const MaterialMove& move)
-{
-    Vector2d incident_velocity = move.momentum;
-    Vector2d surface_normal = move.boundary_normal.normalize();
-
-    //    assert(move.target_mass > 0.0 && !toCell.isEmpty());
-
-    if (move.target_mass > 0.0 && !toCell.isEmpty()) {
-        // Proper elastic collision formula for two-body collision
-        Vector2d target_velocity = toCell.getVelocity();
-        double m1 = move.material_mass;
-        double m2 = move.target_mass;
-        Vector2d v1 = incident_velocity;
-        Vector2d v2 = target_velocity;
-
-        // Elastic collision formulas: v1' = ((m1-m2)v1 + 2m2v2)/(m1+m2)
-        //                            v2' = ((m2-m1)v2 + 2m1v1)/(m1+m2)
-        Vector2d new_v1 = ((m1 - m2) * v1 + 2.0 * m2 * v2) / (m1 + m2);
-        Vector2d new_v2 = ((m2 - m1) * v2 + 2.0 * m1 * v1) / (m1 + m2);
-
-        // Apply restitution coefficient for energy loss
-        fromCell.setVelocity(new_v1 * move.restitution_coefficient);
-        toCell.setVelocity(new_v2 * move.restitution_coefficient);
-
-        spdlog::trace(
-            "Elastic collision: {} vs {} at ({},{}) -> ({},{}) - masses: {:.2f}, {:.2f}, "
-            "restitution: {:.2f}",
-            getMaterialName(move.material),
-            getMaterialName(toCell.getMaterialType()),
-            move.fromX,
-            move.fromY,
-            move.toX,
-            move.toY,
-            m1,
-            m2,
-            move.restitution_coefficient);
-    }
-    else {
-        // Empty target or zero mass - just reflect off surface
-        Vector2d reflected_velocity =
-            incident_velocity.reflect(surface_normal) * move.restitution_coefficient;
-        fromCell.setVelocity(reflected_velocity);
-
-        spdlog::warn(
-            "Elastic reflection: {} bounced off surface at ({},{}) with restitution {:.2f}",
-            getMaterialName(move.material),
-            move.fromX,
-            move.fromY,
-            move.restitution_coefficient);
-    }
-
-    // Minimal or no material transfer for elastic collisions
-    // Material stays in original cell with new velocity
-}
-
-void WorldB::handleInelasticCollision(CellB& fromCell, CellB& toCell, const MaterialMove& move)
-{
-    // Physics-correct component-based collision handling.
-    Vector2d incident_velocity = move.momentum;
-    Vector2d surface_normal = move.boundary_normal.normalize();
-
-    // Decompose velocity into normal and tangential components.
-    Vector2d v_normal = surface_normal * incident_velocity.dot(surface_normal);
-    Vector2d v_tangential = incident_velocity - v_normal;
-
-    // Apply restitution only to normal component, preserve tangential.
-    double inelastic_restitution = move.restitution_coefficient * 0.5;
-    Vector2d v_normal_reflected = v_normal * (-inelastic_restitution);
-    Vector2d final_velocity = v_tangential + v_normal_reflected;
-
-    // Apply the corrected velocity to the incident particle.
-    fromCell.setVelocity(final_velocity);
-
-    // Transfer momentum to target cell (Newton's 3rd law).
-    // Even if material transfer fails, momentum must be conserved.
-    if (move.target_mass > 0.0) {
-        Vector2d momentum_transferred =
-            v_normal * (1.0 + inelastic_restitution) * move.material_mass;
-        Vector2d target_velocity_change = momentum_transferred / move.target_mass;
-        toCell.setVelocity(toCell.getVelocity() + target_velocity_change);
-
-        spdlog::debug(
-            "Momentum transfer: normal=({:.3f},{:.3f}) momentum=({:.3f},{:.3f}) "
-            "target_vel_change=({:.3f},{:.3f})",
-            v_normal.x,
-            v_normal.y,
-            momentum_transferred.x,
-            momentum_transferred.y,
-            target_velocity_change.x,
-            target_velocity_change.y);
-    }
-
-    // Allow material transfer based on natural capacity limits.
-    double transfer_amount = move.amount; // Full amount, let capacity decide
-
-    // Attempt direct material transfer and measure actual amount transferred.
-    double actual_transfer =
-        fromCell.transferToWithPhysics(toCell, transfer_amount, move.boundary_normal);
-
-    // Check for blocked transfer and queue for dynamic pressure accumulation.
-    double transfer_deficit = transfer_amount - actual_transfer;
-
-    // Debug logging to understand what's happening.
-    spdlog::debug(
-        "Inelastic collision transfer attempt: requested_amount={:.6f}, "
-        "actual_transfer={:.6f}, deficit={:.6f}",
-        transfer_amount,
-        actual_transfer,
-        transfer_deficit);
-    spdlog::debug(
-        "Dynamic pressure enabled: {}, deficit > threshold: {} (threshold={:.6f})",
-        dynamic_pressure_enabled_,
-        transfer_deficit > MIN_MATTER_THRESHOLD,
-        MIN_MATTER_THRESHOLD);
-
-    if (transfer_deficit > MIN_MATTER_THRESHOLD && dynamic_pressure_enabled_) {
-        spdlog::debug(
-            "🚫 Inelastic collision blocked transfer: requested={:.3f}, transferred={:.3f}, "
-            "deficit={:.3f}",
-            transfer_amount,
-            actual_transfer,
-            transfer_deficit);
-
-        // Queue blocked transfer for dynamic pressure accumulation
-        // Calculate energy with proper mass consideration
-        double material_density = getMaterialDensity(move.material);
-        double blocked_mass = transfer_deficit * material_density;
-        double energy = fromCell.getVelocity().magnitude() * blocked_mass;
-
-        spdlog::debug(
-            "Inelastic collision blocked energy: material={}, density={:.2f}, "
-            "blocked_mass={:.4f}, velocity={:.2f}, energy={:.4f}",
-            getMaterialName(move.material),
-            material_density,
-            blocked_mass,
-            fromCell.getVelocity().magnitude(),
-            energy);
-
-        pressure_calculator_.queueBlockedTransfer({ move.fromX,
-                                                    move.fromY,
-                                                    move.toX,
-                                                    move.toY,
-                                                    transfer_deficit,
-                                                    fromCell.getVelocity(),
-                                                    energy });
-    }
-
-    spdlog::trace(
-        "Inelastic collision: {} at ({},{}) with material transfer {:.3f}, momentum conserved",
-        getMaterialName(move.material),
-        move.fromX,
-        move.fromY,
-        actual_transfer);
-}
-
-void WorldB::handleFragmentation(CellB& fromCell, CellB& toCell, const MaterialMove& move)
-{
-    // TODO: Implement fragmentation mechanics
-    // For now, treat as inelastic collision with complete material transfer
-    spdlog::debug(
-        "Fragmentation collision: {} at ({},{}) - treating as inelastic for now",
-        getMaterialName(move.material),
-        move.fromX,
-        move.fromY);
-
-    handleInelasticCollision(fromCell, toCell, move);
-}
-
-void WorldB::handleAbsorption(CellB& fromCell, CellB& toCell, const MaterialMove& move)
-{
-    // One material absorbs the other - implement absorption logic
-    if (move.material == MaterialType::WATER && toCell.getMaterialType() == MaterialType::DIRT) {
-        // Water absorbed by dirt - transfer all water
-        handleTransferMove(fromCell, toCell, move);
-        spdlog::trace("Absorption: WATER absorbed by DIRT at ({},{})", move.toX, move.toY);
-    }
-    else if (
-        move.material == MaterialType::DIRT && toCell.getMaterialType() == MaterialType::WATER) {
-        // Dirt falls into water - mix materials
-        handleTransferMove(fromCell, toCell, move);
-        spdlog::trace("Absorption: DIRT mixed with WATER at ({},{})", move.toX, move.toY);
-    }
-    else {
-        // Default to regular transfer
-        handleTransferMove(fromCell, toCell, move);
-    }
-}
 
 // =================================================================
 // FORCE CALCULATION METHODS
 // =================================================================
 
-WorldB::AdhesionForce WorldB::calculateAdhesionForce(uint32_t x, uint32_t y)
-{
-    const CellB& cell = at(x, y);
-    if (cell.isEmpty()) {
-        return { { 0.0, 0.0 }, 0.0, MaterialType::AIR, 0 };
-    }
-
-    const MaterialProperties& props = getMaterialProperties(cell.getMaterialType());
-    Vector2d total_force(0.0, 0.0);
-    uint32_t contact_count = 0;
-    MaterialType strongest_attractor = MaterialType::AIR;
-    double max_adhesion = 0.0;
-
-    // Check all 8 neighbors for different materials
-    for (int dx = -1; dx <= 1; dx++) {
-        for (int dy = -1; dy <= 1; dy++) {
-            if (dx == 0 && dy == 0) continue;
-
-            int nx = static_cast<int>(x) + dx;
-            int ny = static_cast<int>(y) + dy;
-
-            if (isValidCell(nx, ny)) {
-                const CellB& neighbor = at(nx, ny);
-
-                if (neighbor.getMaterialType() != cell.getMaterialType()
-                    && neighbor.getFillRatio() > MIN_MATTER_THRESHOLD) {
-
-                    // Calculate mutual adhesion (geometric mean)
-                    const MaterialProperties& neighbor_props =
-                        getMaterialProperties(neighbor.getMaterialType());
-                    double mutual_adhesion = std::sqrt(props.adhesion * neighbor_props.adhesion);
-
-                    // Direction vector toward neighbor (normalized)
-                    Vector2d direction(static_cast<double>(dx), static_cast<double>(dy));
-                    direction.normalize();
-
-                    // Force strength weighted by fill ratios and distance
-                    double distance_weight =
-                        (std::abs(dx) + std::abs(dy) == 1) ? 1.0 : 0.707; // Adjacent vs diagonal
-                    double force_strength = mutual_adhesion * neighbor.getFillRatio()
-                        * cell.getFillRatio() * distance_weight;
-
-                    total_force += direction * force_strength;
-                    contact_count++;
-
-                    if (mutual_adhesion > max_adhesion) {
-                        max_adhesion = mutual_adhesion;
-                        strongest_attractor = neighbor.getMaterialType();
-                    }
-                }
-            }
-        }
-    }
-
-    return { total_force, total_force.mag(), strongest_attractor, contact_count };
-}

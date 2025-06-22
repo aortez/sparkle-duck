@@ -189,7 +189,16 @@ The UI initialization follows this order in `SimulatorUI::initialize()`:
 - Cohesion Bind Strength slider (Y=380-400)
 - Cohesion Force toggle (Y=415)
 - Cohesion Strength slider (Y=470-490)
-- Additional controls continue below...
+- COM Range slider (Y=530-550)
+- Adhesion toggle (Y=590)
+- Adhesion Strength slider (Y=650-670)
+- Left Throw toggle (Y=690)
+- Right Throw toggle (Y=750)
+- Quadrant toggle (Y=810)
+- Screenshot button (Y=815)
+- Print ASCII button (Y=875)
+- COM Cohesion Mode label (Y=930)
+- COM Cohesion Mode radio buttons (Y=950)
 
 ### **Slider Column** (X=1440):
 - Timescale (Y=90-110)

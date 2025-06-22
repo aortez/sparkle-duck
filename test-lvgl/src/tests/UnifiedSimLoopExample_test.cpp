@@ -11,6 +11,7 @@
 #include "../WorldB.h"
 #include "../MaterialType.h"
 #include <spdlog/spdlog.h>
+#include <spdlog/fmt/fmt.h>
 
 /**
  * Example test class demonstrating the unified simulation loop pattern.
@@ -42,24 +43,37 @@ protected:
 };
 
 /**
- * Example 1: Simple state tracking test
+ * Example 1: Simple state tracking test (WITH RESTART - NEW STANDARD)
  * Shows the basic pattern for tracking physics state over time
+ * Now includes restart functionality as the default pattern
  */
 TEST_F(UnifiedSimLoopExampleTest, SimpleFallingWaterTracking) {
-    spdlog::info("[EXAMPLE] Demonstrating unified simulation loop pattern");
+    spdlog::info("[EXAMPLE] Demonstrating unified simulation loop pattern with restart");
     
-    // PATTERN: Setup initial conditions
-    world->addMaterialAtCell(2, 0, MaterialType::WATER, 1.0);
-    
-    // PATTERN: Show initial state to user (works in both modes)
-    showInitialState(world.get(), "Water falling demonstration");
-    
-    // PATTERN: Declare state tracking variables OUTSIDE the loop
-    // These will be captured by the lambda
-    std::vector<double> yPositions;
-    std::vector<double> velocities;
-    double lowestY = 0.0;
-    bool hitBottom = false;
+    // PATTERN: Use runRestartableTest as the standard wrapper
+    runRestartableTest([this]() {
+        // PATTERN: Clear world state at the beginning (for restarts)
+        for (uint32_t y = 0; y < world->getHeight(); ++y) {
+            for (uint32_t x = 0; x < world->getWidth(); ++x) {
+                world->at(x, y).clear();
+            }
+        }
+        
+        // PATTERN: Setup initial conditions
+        world->addMaterialAtCell(2, 0, MaterialType::WATER, 1.0);
+        
+        // PATTERN: Show initial state to user (works in both modes)
+        showInitialState(world.get(), "Water falling demonstration");
+        
+        // PATTERN: Log initial state
+        logWorldState(world.get(), "Initial: Water at top");
+
+        // PATTERN: Declare state tracking variables OUTSIDE the loop
+        // These will be captured by the lambda
+        std::vector<double> yPositions;
+        std::vector<double> velocities;
+        double lowestY = 0.0;
+        bool hitBottom = false;
     
     // ============================================================
     // OLD WAY (DON'T DO THIS):
@@ -101,11 +115,11 @@ TEST_F(UnifiedSimLoopExampleTest, SimpleFallingWaterTracking) {
     //     }
     // }
     
-    // ============================================================
-    // NEW WAY (DO THIS INSTEAD):
-    // ============================================================
-    runSimulationLoop(30,  // max steps
-        [&](int step) {    // lambda captures local variables by reference
+        // ============================================================
+        // NEW WAY (DO THIS INSTEAD):
+        // ============================================================
+        runSimulationLoop(30,  // max steps
+            [&](int step) {    // lambda captures local variables by reference
             // PATTERN: Test logic goes here - runs identically in both modes
             
             // Find water cell (it moves as it falls)
@@ -144,19 +158,29 @@ TEST_F(UnifiedSimLoopExampleTest, SimpleFallingWaterTracking) {
                 }
             }
             
-            // NOTE: Physics advancement is handled by runSimulationLoop!
-            // Don't call world->advanceTime() or stepSimulation() here
-        },
-        "Water falling test",      // Description shown in visual mode
-        [&]() { return hitBottom; } // Optional: early stop condition
-    );
+                // PATTERN: log the world state.
+                logWorldState(world.get(), "Water falling");
+
+                // NOTE: Physics advancement is handled by runSimulationLoop!
+                // Don't call world->advanceTime() or stepSimulation() here
+            },
+            "Water falling test",      // Description shown in visual mode
+            [&]() { return hitBottom; } // Optional: early stop condition
+        );
     
-    // PATTERN: Verify results after the loop
-    // This runs in both visual and non-visual modes
-    EXPECT_TRUE(hitBottom) << "Water should reach the bottom";
-    EXPECT_GT(velocities.back(), 0.0) << "Water should have downward velocity";
-    
-    spdlog::info("✅ Example test completed - water fell from Y=0 to Y={}", lowestY);
+        // PATTERN: Verify results after the loop
+        // This runs in both visual and non-visual modes
+        EXPECT_TRUE(hitBottom) << "Water should reach the bottom";
+        EXPECT_GT(velocities.back(), 0.0) << "Water should have downward velocity";
+        
+        // PATTERN: Use waitForRestartOrNext() for restart capability
+        if (visual_mode_) {
+            updateDisplay(world.get(), "Test complete! Press Start to restart or Next to continue");
+            waitForRestartOrNext();
+        }
+        
+        spdlog::info("✅ Example test completed - water fell from Y=0 to Y={}", lowestY);
+    }); // End of runRestartableTest
 }
 
 /**
@@ -327,40 +351,104 @@ TEST_F(UnifiedSimLoopExampleTest, StageProgressionExample) {
     }
 }
 
+/**
+ * Example 4: Restartable test
+ * Shows how to make a test that can be restarted after completion
+ */
+TEST_F(UnifiedSimLoopExampleTest, RestartableTestExample) {
+    spdlog::info("[EXAMPLE] Demonstrating restartable test pattern");
+    
+    // PATTERN: Use runRestartableTest to enable restart functionality
+    runRestartableTest([this]() {
+        // PATTERN: Clear world state at the beginning of each run
+        // This ensures a clean state for restarts
+        for (uint32_t y = 0; y < world->getHeight(); ++y) {
+            for (uint32_t x = 0; x < world->getWidth(); ++x) {
+                world->at(x, y).clear();
+            }
+        }
+        
+        // Setup initial conditions
+        world->addMaterialAtCell(2, 0, MaterialType::SAND, 1.0);
+        
+        // PATTERN: showInitialState works correctly within runRestartableTest
+        // It won't disable restart when already in a restart loop
+        showInitialState(world.get(), "Sand falling test - restartable");
+        
+        // Run the simulation
+        bool hitBottom = false;
+        runSimulationLoop(30, [&](int step) {
+            // Find sand
+            for (uint32_t y = 0; y < world->getHeight(); ++y) {
+                for (uint32_t x = 0; x < world->getWidth(); ++x) {
+                    if (world->at(x, y).getMaterialType() == MaterialType::SAND &&
+                        world->at(x, y).getFillRatio() > 0.5) {
+                        if (y >= world->getHeight() - 1) {
+                            hitBottom = true;
+                        }
+                        break;
+                    }
+                }
+            }
+            
+            // PATTERN: Log world state every step
+            logWorldState(world.get(), fmt::format("Step {}: Sand falling", step));
+        }, "Sand falling");
+        
+        // PATTERN: Use waitForRestartOrNext() instead of waitForNext()
+        if (visual_mode_) {
+            updateDisplay(world.get(), "Test complete! Press Start to restart or Next to continue");
+            waitForRestartOrNext();
+        }
+        
+        spdlog::info("✅ Restartable test iteration completed");
+    });
+}
+
 // ============================================================
-// SUMMARY OF BEST PRACTICES:
+// SUMMARY OF BEST PRACTICES (UPDATED WITH RESTART AS STANDARD):
 // ============================================================
 // 
-// 1. USE runSimulationLoop() to eliminate visual/non-visual duplication
+// 1. ALWAYS USE runRestartableTest() as the outer wrapper
+//    - This is now the standard pattern for all visual tests
+//    - Enables test restart functionality automatically
+//    - Clear world state at the beginning of the lambda
+// 
+// 2. USE runSimulationLoop() inside runRestartableTest()
+//    - Eliminates visual/non-visual code duplication
 //    - Pass a lambda that captures your state variables
 //    - Physics advancement is handled automatically
 // 
-// 2. DECLARE state tracking variables BEFORE the loop
+// 3. DECLARE state tracking variables BEFORE the simulation loop
 //    - Capture them by reference [&] in the lambda
 //    - They'll be accessible after the loop for assertions
 // 
-// 3. PUT test logic in the lambda that works for BOTH modes
+// 4. PUT test logic in the lambda that works for BOTH modes
 //    - Don't duplicate code for visual vs non-visual
 //    - The framework handles the differences
 // 
-// 4. USE visual_mode_ ONLY for optional visual enhancements
+// 5. USE visual_mode_ ONLY for optional visual enhancements
 //    - Custom status displays
 //    - Additional visual feedback
 //    - Not required - the description parameter often suffices
 // 
-// 5. DON'T call world->advanceTime() or stepSimulation() in the lambda
+// 6. DON'T call world->advanceTime() or stepSimulation() in the lambda
 //    - The framework handles this based on the mode
 // 
-// 6. USE the optional early stop condition when appropriate
+// 7. USE the optional early stop condition when appropriate
 //    - Return true when the test should end early
 //    - Useful for "wait until X happens" tests
 // 
-// 7. VERIFY results after the loop
+// 8. END WITH waitForRestartOrNext() in visual mode
+//    - Use this instead of waitForNext()
+//    - Allows users to restart the test or continue to next
+// 
+// 9. VERIFY results after the loop
 //    - Use EXPECT_* macros as normal
 //    - Log summary information
 // 
-// 8. KEEP the lambda focused on one timestep
-//    - Don't try to do multiple steps inside the lambda
-//    - Let the framework handle the loop
+// 10. KEEP the lambda focused on one timestep
+//     - Don't try to do multiple steps inside the lambda
+//     - Let the framework handle the loop
 // 
 // ============================================================

@@ -68,9 +68,9 @@ Thread synchronization is achieved through:
 
 ### Framework Methods for Visual Tests
 
-**showInitialState(world, description)** - Display initial world state with Start button only
+**showInitialState(world, description)** - Display initial world state with Start button only. Use this only for tests where step-by-step observation is not desired (e.g., simple pass/fail tests or continuous animations).
 
-**showInitialStateWithStep(world, description)** - Display initial state with Start/Step/Step10 buttons
+**showInitialStateWithStep(world, description)** - **RECOMMENDED**: Display initial state with Start/Step/Step10 buttons. This enables frame-by-frame analysis and is particularly valuable for debugging physics interactions, collision detection, and complex material behaviors. Most tests should use this method.
 
 **stepSimulation(world, steps, description)** - Advance simulation with proper Step mode handling
 
@@ -79,6 +79,10 @@ Thread synchronization is achieved through:
 **pauseIfVisual(ms)** - Pause for specified milliseconds in visual mode only
 
 **waitForNext()** - Wait for user to press Next button before proceeding to next test
+
+**waitForRestartOrNext()** - Wait for Start (to restart) or Next button after test completion
+
+**runRestartableTest(lambda)** - Wrap test logic in a restart loop, allowing repeated test execution
 
 ### Test Modes
 
@@ -179,12 +183,12 @@ if (visual_mode_) {
 - Maintenance burden when updating test logic
 - Risk of visual/non-visual modes testing different behavior
 
-### Step Mode Support
+### Step Mode Support (Recommended Default)
 
-For full Step/Start button functionality:
+Step mode should be the default choice for most tests as it provides maximum flexibility for debugging:
 
 ```cpp
-// Use this instead of showInitialState() for Step mode support
+// RECOMMENDED: Use Step mode by default for better observability
 showInitialStateWithStep(world.get(), "Initial state description");
 
 // Use stepSimulation() instead of direct advanceTime() in visual mode
@@ -200,9 +204,9 @@ waitForNext();
 
 ## Writing Visual Tests
 
-### Modern Test Structure (Recommended)
+### Modern Test Structure (Standard Pattern with Restart)
 
-Using the unified simulation loop pattern:
+Using the unified simulation loop pattern with restart functionality as the standard:
 
 ```cpp
 class MyVisualTest : public VisualTestBase {
@@ -225,49 +229,68 @@ protected:
 };
 
 TEST_F(MyVisualTest, WaterFlowsDownhill) {
-    // Setup initial conditions
-    world->addMaterialAtCell(5, 1, MaterialType::WATER, 1.0);
-    
-    // Show initial state
-    showInitialState(world.get(), "Water flows downhill test");
-    
-    // State tracking
-    std::vector<double> waterPositions;
-    bool reachedBottom = false;
-    
-    // Single loop handles both visual and non-visual modes
-    runSimulationLoop(20, [&](int step) {
-        // Find water cell (it moves as it falls)
-        for (uint32_t y = 0; y < world->getHeight(); y++) {
-            for (uint32_t x = 0; x < world->getWidth(); x++) {
-                auto& cell = world->at(x, y);
-                if (cell.getMaterialType() == MaterialType::WATER && 
-                    cell.getFillRatio() > 0.5) {
-                    waterPositions.push_back(y);
-                    
-                    if (y >= world->getHeight() - 2) {
-                        reachedBottom = true;
-                    }
-                    
-                    // Optional custom status for visual mode
-                    if (visual_mode_) {
-                        std::stringstream ss;
-                        ss << "Water at Y=" << y << ", velocity=" 
-                           << cell.getVelocity().y;
-                        updateDisplay(world.get(), ss.str());
-                    }
-                    return; // Found water, done for this step
-                }
+    // STANDARD PATTERN: Use runRestartableTest as the outer wrapper
+    runRestartableTest([this]() {
+        // REQUIRED: Clear world state for clean restarts
+        for (uint32_t y = 0; y < world->getHeight(); ++y) {
+            for (uint32_t x = 0; x < world->getWidth(); ++x) {
+                world->at(x, y).clear();
             }
         }
-    },
-    "Observing water flow",        // Basic description
-    [&]() { return reachedBottom; } // Stop early when water reaches bottom
-    );
-    
-    // Verify results (works in both modes)
-    EXPECT_TRUE(reachedBottom) << "Water should reach bottom";
-    EXPECT_GT(waterPositions.size(), 5) << "Water should move multiple times";
+        
+        // Setup initial conditions
+        world->addMaterialAtCell(5, 1, MaterialType::WATER, 1.0);
+        
+        // Show initial state - use Step mode for better debugging
+        showInitialStateWithStep(world.get(), "Water flows downhill test");
+        
+        // State tracking
+        std::vector<double> waterPositions;
+        bool reachedBottom = false;
+        
+        // Single loop handles both visual and non-visual modes
+        runSimulationLoop(20, [&](int step) {
+            // Find water cell (it moves as it falls)
+            for (uint32_t y = 0; y < world->getHeight(); y++) {
+                for (uint32_t x = 0; x < world->getWidth(); x++) {
+                    auto& cell = world->at(x, y);
+                    if (cell.getMaterialType() == MaterialType::WATER && 
+                        cell.getFillRatio() > 0.5) {
+                        waterPositions.push_back(y);
+                        
+                        if (y >= world->getHeight() - 2) {
+                            reachedBottom = true;
+                        }
+                        
+                        // Optional custom status for visual mode
+                        if (visual_mode_) {
+                            std::stringstream ss;
+                            ss << "Water at Y=" << y << ", velocity=" 
+                               << cell.getVelocity().y;
+                            updateDisplay(world.get(), ss.str());
+                        }
+                        return; // Found water, done for this step
+                    }
+                }
+            }
+            
+            // Log world state each step
+            logWorldState(world.get(), fmt::format("Step {}: Water falling", step));
+        },
+        "Observing water flow",        // Basic description
+        [&]() { return reachedBottom; } // Stop early when water reaches bottom
+        );
+        
+        // Verify results (works in both modes)
+        EXPECT_TRUE(reachedBottom) << "Water should reach bottom";
+        EXPECT_GT(waterPositions.size(), 5) << "Water should move multiple times";
+        
+        // STANDARD: End with waitForRestartOrNext() instead of waitForNext()
+        if (visual_mode_) {
+            updateDisplay(world.get(), "Test complete! Press Start to restart or Next to continue");
+            waitForRestartOrNext();
+        }
+    }); // End of runRestartableTest
 }
 ```
 
@@ -301,25 +324,45 @@ TEST_F(MyVisualTest, LegacyPattern) {
 }
 ```
 
-### Restartable Tests
+### Restartable Tests (Now Standard)
 
-Tests can be made restartable for repeated observation:
+All visual tests should use the `runRestartableTest()` pattern for improved user experience:
 
 ```cpp
-void runTest() override {
-    while (true) {
-        resetWorld();
-        updateDisplay();
-        waitForStart();
-        
-        performTestScenario();
-        
-        if (!waitForRestart()) {
-            break;
+TEST_F(MyTest, RestartableExample) {
+    // This is now the STANDARD pattern for all visual tests
+    runRestartableTest([this]() {
+        // REQUIRED: Clear world state at the beginning
+        for (uint32_t y = 0; y < world->getHeight(); ++y) {
+            for (uint32_t x = 0; x < world->getWidth(); ++x) {
+                world->at(x, y).clear();
+            }
         }
-    }
+        
+        // Setup test scenario
+        world->addMaterialAtCell(2, 2, MaterialType::WATER, 1.0);
+        showInitialState(world.get(), "Water test - restartable");
+        
+        // Run test logic with unified simulation loop
+        runSimulationLoop(30, [&](int step) {
+            // Test logic here
+            logWorldState(world.get(), fmt::format("Step {}", step));
+        }, "Running simulation");
+        
+        // REQUIRED: Use waitForRestartOrNext() instead of waitForNext()
+        if (visual_mode_) {
+            updateDisplay(world.get(), "Test complete! Press Start to restart or Next to continue");
+            waitForRestartOrNext();
+        }
+    });
 }
 ```
+
+**Key benefits of restart functionality:**
+- Users can repeat tests without exiting the test suite
+- Helpful for debugging intermittent issues
+- Allows multiple observations of the same scenario
+- The Start button automatically becomes "Restart" after completion
 
 ## Future Enhancements
 - Custom test scenario scripting
@@ -329,23 +372,28 @@ void runTest() override {
 
 ## Best Practices
 
-### Code Structure
-1. **Use runSimulationLoop()** - Eliminate visual/non-visual duplication with the unified loop pattern
-2. **Override getWorldInterface()** - Required for unified simulation loop to work
-3. **Capture State with Lambdas** - Use `[&]` to capture local variables by reference
-4. **Don't Call Physics Methods in Lambda** - Let the framework handle `advanceTime()` and `stepSimulation()`
+### Code Structure (Updated for Restart as Standard)
+1. **Always Use runRestartableTest()** - This is now the standard outer wrapper for all visual tests
+2. **Clear World State** - Always clear world state at the beginning of the runRestartableTest lambda
+3. **Use runSimulationLoop() Inside** - Eliminate visual/non-visual duplication within runRestartableTest
+4. **Override getWorldInterface()** - Required for unified simulation loop to work
+5. **Capture State with Lambdas** - Use `[&]` to capture local variables by reference
+6. **Don't Call Physics Methods in Lambda** - Let the framework handle `advanceTime()` and `stepSimulation()`
+7. **Default to Step Mode** - Use `showInitialStateWithStep()` unless your test specifically doesn't benefit from step-by-step observation
+8. **End with waitForRestartOrNext()** - Replace `waitForNext()` with `waitForRestartOrNext()` in visual mode
 
 ### Test Design
-5. **Keep Tests Focused** - Each test should validate one specific behavior
-6. **Use Descriptive Names** - Test names should clearly indicate what's being tested
-7. **Minimize Test Duration** - Keep interactive tests short for better developer experience
-8. **Document Expected Results** - Comments should explain what correct behavior looks like
+9. **Keep Tests Focused** - Each test should validate one specific behavior
+10. **Use Descriptive Names** - Test names should clearly indicate what's being tested
+11. **Minimize Test Duration** - Keep interactive tests short for better developer experience
+12. **Document Expected Results** - Comments should explain what correct behavior looks like
+13. **Log World State** - Use `logWorldState()` in simulation loops to aid debugging
 
 ### Visual Interaction
-9. **Provide Visual Context** - Add status messages explaining test progression
-10. **Use Optional Visual Enhancements** - Add `if (visual_mode_)` only for extra visual feedback
-11. **Support Early Termination** - Use early stop conditions for "wait until X happens" tests
-12. **Enable Restart** - Allow repeated observation of interesting behaviors
+14. **Provide Visual Context** - Add status messages explaining test progression
+15. **Use Optional Visual Enhancements** - Add `if (visual_mode_)` only for extra visual feedback
+16. **Support Early Termination** - Use early stop conditions for "wait until X happens" tests
+17. **Restart is Standard** - All tests now support restart functionality by default
 
 ### Reference Implementation
 **See `src/tests/UnifiedSimLoopExample_test.cpp`** for comprehensive examples of:

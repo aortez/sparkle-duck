@@ -75,7 +75,7 @@ TEST_F(ForcePhysicsIntegrationTest, ManualHighVelocityTriggersCrossing) {
     
     // Test force threshold (should pass for isolated water)
     auto cohesion = WorldBCohesionCalculator(*world).calculateCohesionForce(2, 2);
-    auto adhesion = world->calculateAdhesionForce(2, 2);
+    auto adhesion = world->getAdhesionCalculator().calculateAdhesionForce(2, 2);
     Vector2d gravity_force(0.0, 9.81 * deltaTime * 1.0); // gravity * deltaTime * density
     Vector2d net_driving_force = gravity_force + adhesion.force_direction * adhesion.force_magnitude;
     

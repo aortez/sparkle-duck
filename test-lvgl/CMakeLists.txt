@@ -24,7 +24,7 @@ endforeach()
 #set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O0 -ggdb")
 
 set(CMAKE_C_STANDARD 99) # LVGL officially supports C99 and above
-set(CMAKE_CXX_STANDARD 17) #C17
+set(CMAKE_CXX_STANDARD 23) #C++23
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR}/bin)
 
@@ -126,6 +126,8 @@ add_executable(sparkle-duck
     src/WorldBSupportCalculator.cpp
     src/WorldBPressureCalculator.cpp
     src/WorldBAirResistanceCalculator.cpp
+    src/WorldBCollisionCalculator.cpp
+    src/WorldBAdhesionCalculator.cpp
     src/WorldDiagramGeneratorEmoji.cpp
     src/WorldFactory.cpp
     src/MaterialPicker.cpp
@@ -190,6 +192,7 @@ add_executable(sparkle-duck-tests
     src/tests/visual_test_runner.cpp
     src/tests/ResultTest.cpp
     src/tests/TimersTest.cpp
+    src/tests/UnifiedSimLoopExample_test.cpp
     simple_reset_test.cpp
     src/Vector2d.cpp
     src/Vector2i.cpp
@@ -208,6 +211,8 @@ add_executable(sparkle-duck-tests
     src/WorldBSupportCalculator.cpp
     src/WorldBPressureCalculator.cpp
     src/WorldBAirResistanceCalculator.cpp
+    src/WorldBCollisionCalculator.cpp
+    src/WorldBAdhesionCalculator.cpp
     src/WorldDiagramGeneratorEmoji.cpp
     src/WorldFactory.cpp
     src/MaterialPicker.cpp

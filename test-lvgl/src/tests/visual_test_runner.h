@@ -15,6 +15,7 @@
 #include <vector>
 #include <future>
 #include <sstream>
+#include <spdlog/spdlog.h>
 
 #include "../World.h"
 #include "../WorldB.h"
@@ -122,9 +123,7 @@ protected:
     TestAction waitForStep();     // Block until Step, Start (continue), or Next is pressed
     
     // Enhanced visual test helpers
-    void updateDisplay(WorldInterface* world, const std::string& status = "");  // Update display with optional status
-    void updateDisplayNoDelay(WorldInterface* world, const std::string& status = "");  // Update display without built-in delay
-    void updateDisplayOrLog(WorldInterface* world, const std::string& status);  // Update display in visual mode, log in non-visual mode
+    void updateDisplay(WorldInterface* world, const std::string& status = "", bool withDelay = true);  // Update display with logging and optional delay
     void showInitialState(WorldInterface* world, const std::string& description);  // Show initial state and wait for start
     void showInitialStateWithStep(WorldInterface* world, const std::string& description);  // Show initial state with Start/Step choice
     void stepSimulation(WorldInterface* world, int steps, const std::string& stepDescription);  // Enhanced stepping with status
@@ -137,13 +136,35 @@ protected:
     bool shouldRestartTest() const { return restart_requested_; }
     void clearRestartRequest() { restart_requested_ = false; }
     
+    // Test skip functionality
+    bool isTestSkipped() const { return test_skipped_; }
+    void clearTestSkipped() { test_skipped_ = false; }
+    
+    // Helper method to enable restart after test completion
+    void enableRestartAfterCompletion();
+    
+    // Wait for restart or next button after test completion
+    bool waitForRestartOrNext();
+    
     // Helper method for restartable test loops
     template<typename TestLogic>
     void runRestartableTest(TestLogic test_logic) {
         enableTestRestart();
+        bool firstRun = true;
         do {
             clearRestartRequest();
-            waitForStart();
+            
+            // On first run, don't wait for Start - let the test logic handle initial display
+            if (!firstRun) {
+                waitForStart();
+                // Check if test was skipped
+                if (isTestSkipped()) {
+                    spdlog::info("[TEST] Test skipped by user");
+                    break;
+                }
+            }
+            firstRun = false;
+            
             // Always run the test logic when Start is pressed
             test_logic();
         } while (shouldRestartTest() && visual_mode_);
@@ -169,6 +190,7 @@ protected:
     
     // Log current world state including material positions, velocities, and total mass
     void logWorldState(const WorldB* world, const std::string& context = "");
+    void logWorldState(const World* world, const std::string& context = "");
     
     // New unified simulation loop that eliminates visual/non-visual duplication
     // RecorderFunc should be a callable that takes an int timestep parameter
@@ -181,11 +203,24 @@ protected:
                           const std::string& description = "",
                           std::function<bool()> earlyStopCondition = nullptr) {
         for (int step = 0; step < maxSteps; ++step) {
+            // Check if test was skipped
+            if (isTestSkipped()) {
+                spdlog::info("[TEST] Test skipped - exiting simulation loop");
+                break;
+            }
+            
             // Let the recorder capture state/perform test logic
             recorder(step);
             
             // Handle display and stepping based on mode
             if (visual_mode_) {
+                // Check if Next button was pressed during execution
+                if (ui_ && ui_->next_pressed_.load()) {
+                    spdlog::info("[TEST] Next button pressed - skipping simulation loop");
+                    test_skipped_ = true;
+                    break;
+                }
+                
                 // Build status display if description provided
                 if (!description.empty()) {
                     std::stringstream ss;
@@ -225,6 +260,9 @@ protected:
     // Test restart state
     bool restart_enabled_ = false;      // Enable restart functionality
     bool restart_requested_ = false;    // Set when user requests restart
+    
+    // Test skip state
+    bool test_skipped_ = false;         // Set when user skips test with Next button
 };
 
 // Utility functions for tests
