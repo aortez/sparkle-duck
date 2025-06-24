@@ -210,8 +210,8 @@ TEST_F(UnifiedSimLoopExampleTest, PressureTrackingExample) {
     
     // PATTERN: Simple loop when you don't need custom display
     runSimulationLoop(20, [&](int step) {
-        double p1 = cell1.getDynamicPressure();
-        double p2 = cell2.getDynamicPressure();
+        double p1 = cell1.getHydrostaticPressure() + cell1.getDynamicPressure();
+        double p2 = cell2.getHydrostaticPressure() + cell2.getDynamicPressure();
         double currentMax = std::max(p1, p2);
         
         pressureHistory.push_back(currentMax);

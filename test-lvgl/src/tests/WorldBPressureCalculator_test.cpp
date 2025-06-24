@@ -47,7 +47,7 @@ TEST_P(ProcessBlockedTransfersTest, ProcessBlockedTransfers_HandlesTargetMateria
     CellB& targetCell = world->at(targetX, targetY);
     
     // Record initial pressure (should be 0)
-    double initialPressure = targetCell.getDynamicPressure();
+    double initialPressure = targetCell.getHydrostaticPressure();
     EXPECT_EQ(0.0, initialPressure) << "Initial pressure should be zero";
     
     // Create a blocked transfer TO the target cell
@@ -65,7 +65,7 @@ TEST_P(ProcessBlockedTransfersTest, ProcessBlockedTransfers_HandlesTargetMateria
     pressureCalc->processBlockedTransfers();
     
     // Get final pressure
-    double finalPressure = targetCell.getDynamicPressure();
+    double finalPressure = targetCell.getHydrostaticPressure();
     
     // Verify expected behavior based on material type
     if (testCase.expectedPressureChange == 0.0) {
@@ -85,17 +85,11 @@ TEST_P(ProcessBlockedTransfersTest, ProcessBlockedTransfers_HandlesTargetMateria
             << getMaterialName(testCase.targetMaterial);
     }
     
-    // Additional verification for pressure vector (if pressure was added)
+    // Additional verification for pressure (if pressure was added)
     if (finalPressure > 0.0) {
-        Vector2d pressureVector = targetCell.getPressureVector();
-        EXPECT_GT(pressureVector.magnitude(), 0.0) 
-            << "Pressure vector should be set when pressure is added";
-        
-        // Vector should align with blocked transfer velocity direction
-        Vector2d normalizedVelocity = transfer.velocity.normalize();
-        double alignment = pressureVector.dot(normalizedVelocity);
-        EXPECT_GT(alignment, 0.8) 
-            << "Pressure vector should align with blocked velocity direction";
+        // Verify pressure is positive
+        EXPECT_GT(targetCell.getHydrostaticPressure(), 0.0) 
+            << "Pressure should be positive when added";
     }
 }
 

@@ -43,7 +43,7 @@ public:
     // Pressure-specific constants
     static constexpr double SLICE_THICKNESS = 1.0;          // Thickness of pressure slices
     static constexpr double HYDROSTATIC_MULTIPLIER = 0.002; // Hydrostatic force strength
-    static constexpr double DYNAMIC_MULTIPLIER = 1;         // Dynamic force strength
+    static constexpr double DYNAMIC_MULTIPLIER = 0.01;      // Dynamic force strength
     static constexpr double DYNAMIC_DECAY_RATE = 0.02;      // Rate of pressure dissipation
     static constexpr double MIN_PRESSURE_THRESHOLD = 0.01;  // Ignore pressures below this
 
@@ -84,12 +84,6 @@ public:
      */
     void applyDynamicPressureForces(double deltaTime);
 
-    /**
-     * @brief Calculate combined pressure force for a cell
-     * @param cell Cell to calculate force for
-     * @return Combined pressure force vector
-     */
-    Vector2d calculatePressureForce(const CellB& cell) const;
 
     /**
      * @brief Get material-specific hydrostatic pressure sensitivity
@@ -115,6 +109,17 @@ public:
      * with neighboring cells. The gradient points in the direction of decreasing pressure.
      */
     Vector2d calculatePressureGradient(uint32_t x, uint32_t y) const;
+    
+    /**
+     * @brief Calculate expected gravity gradient at a cell position
+     * @param x X coordinate of cell
+     * @param y Y coordinate of cell
+     * @return Gravity gradient vector representing expected equilibrium pressure gradient
+     *
+     * Calculates the expected pressure gradient due to gravity based on material density
+     * differences with neighbors. In equilibrium, this should balance the pressure gradient.
+     */
+    Vector2d calculateGravityGradient(uint32_t x, uint32_t y) const;
 
     /**
      * @brief Calculate pressure-driven material flows

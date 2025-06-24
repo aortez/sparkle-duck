@@ -1,9 +1,12 @@
 #pragma once
 
 #include "MaterialType.h"
+#include "SimulationStats.h"
 #include "WorldInterface.h"
+#include <chrono>
 #include <concepts>
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <variant>
 
@@ -23,6 +26,72 @@
 template <typename T>
 concept HasEventName = requires {
     { T::name() } -> std::convertible_to<const char*>;
+};
+
+// =================================================================
+// PUSH-BASED UI UPDATE SYSTEM
+// =================================================================
+
+/**
+ * @brief Physics parameters for UI display.
+ * Matches SharedSimState::PhysicsParams structure.
+ */
+struct PhysicsParams {
+    double gravity = 9.81;
+    double elasticity = 0.8;
+    double timescale = 1.0;
+    bool debugEnabled = false;
+    bool gravityEnabled = true;
+    bool forceVisualizationEnabled = false;
+    bool cohesionEnabled = true;
+    bool adhesionEnabled = true;
+    bool timeHistoryEnabled = false;
+};
+
+/**
+ * @brief Comprehensive UI update event for push-based updates.
+ *
+ * This event is pushed from the simulation thread at controlled points
+ * and consumed by the UI thread via LVGL timer at ~60fps. It contains
+ * all UI-relevant state in a single, thread-safe snapshot.
+ */
+struct UIUpdateEvent {
+    // Sequence tracking
+    uint64_t sequenceNum = 0; ///< Monotonic sequence number for update ordering.
+
+    // Core simulation data
+    uint32_t fps = 0;       ///< Current frames per second.
+    uint64_t stepCount = 0; ///< Total simulation steps completed.
+    SimulationStats stats;  ///< Comprehensive simulation statistics.
+
+    // Physics parameters
+    PhysicsParams physicsParams; ///< Current physics settings.
+
+    // UI state
+    bool isPaused = false;           ///< Simulation paused state.
+    bool debugEnabled = false;       ///< Debug visualization state.
+    bool forceEnabled = false;       ///< Force visualization state.
+    bool cohesionEnabled = true;     ///< Cohesion physics state.
+    bool adhesionEnabled = true;     ///< Adhesion physics state.
+    bool timeHistoryEnabled = false; ///< Time history tracking state.
+
+    // World state
+    MaterialType selectedMaterial = MaterialType::DIRT; ///< Currently selected material.
+    std::string worldType;                              ///< "WorldA" or "WorldB".
+
+    // Timing
+    std::chrono::steady_clock::time_point timestamp; ///< When update was created.
+
+    // Optimization: dirty flags to indicate what changed
+    struct DirtyFlags {
+        bool fps = false;           ///< FPS value changed.
+        bool stats = false;         ///< Simulation statistics changed.
+        bool physicsParams = false; ///< Physics parameters changed.
+        bool uiState = false;       ///< UI toggles changed.
+        bool worldState = false;    ///< World type or material changed.
+    } dirty;
+
+    static constexpr const char* name() { return "UIUpdateEvent"; }
 };
 
 // =================================================================
@@ -158,6 +227,14 @@ struct SetTimescaleCommand {
 };
 
 /**
+ * @brief Set dynamic pressure strength.
+ */
+struct SetDynamicStrengthCommand {
+    double strength;
+    static constexpr const char* name() { return "SetDynamicStrengthCommand"; }
+};
+
+/**
  * @brief Toggle debug visualization.
  */
 struct ToggleDebugCommand {
@@ -255,6 +332,9 @@ struct InitCompleteEvent {
  * @brief Variant containing all event types needed for UI integration.
  */
 using Event = std::variant<
+    // Push-based UI updates
+    UIUpdateEvent,
+
     // Immediate events
     GetFPSCommand,
     GetSimStatsCommand,
@@ -277,6 +357,7 @@ using Event = std::variant<
     SetGravityCommand,
     SetElasticityCommand,
     SetTimescaleCommand,
+    SetDynamicStrengthCommand,
     ToggleDebugCommand,
     ToggleForceCommand,
     ToggleCohesionCommand,

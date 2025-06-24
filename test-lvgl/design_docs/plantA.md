@@ -47,8 +47,22 @@ transfer correctly.
 #### Material Integration
 
 **New Materials**
-- SEED: Dense material (density 8.0), grows into tree
+- SEED: Dense material, grows into tree
+  - density: 8.0 (sinks in water)
+  - elasticity: 0.2 (low bounce)
+  - cohesion: 0.9 (stays together)
+  - adhesion: 0.3 (moderate)
+  - com_mass_constant: 2.5
+  - is_rigid: true (like WOOD/METAL)
+  - color: 0x8B4513 (saddle brown)
 - ROOT: Underground tree tissue for nutrient extraction
+  - density: 1.2 (denser than WOOD)
+  - elasticity: 0.3 (low bounce)
+  - cohesion: 0.8 (forms networks)
+  - adhesion: 0.6 (grips soil)
+  - com_mass_constant: 4.0
+  - is_rigid: false (can bend/compress)
+  - color: 0x654321 (dark brown)
 
 **Tree Materials**
 - SEED → WOOD (trunk/branches)
@@ -83,46 +97,52 @@ class TreeManager {
 public:
     // Lifecycle
     void update(WorldB& world, double deltaTime);
-    TreeId plantSeed(uint32_t x, uint32_t y);
+    TreeId plantSeed(const WorldB& world, uint32_t x, uint32_t y);
     void removeTree(TreeId id);
     
-    // Resource management
+    // Resource management (Phase 3)
     void updateLightMap(const WorldB& world);
     void processPhotosynthesis();
     void distributeResources();
     
-    // Growth
+    // Growth (Phase 2)
     void attemptGrowth(TreeId id, WorldB& world);
+    
+    // Accessors
+    const std::unordered_map<TreeId, Tree>& getTrees() const { return trees_; }
     
 private:
     std::unordered_map<TreeId, Tree> trees_;
+    std::unordered_map<Vector2i, TreeId> cell_to_tree_;  // Track which cells belong to which tree
     std::vector<std::vector<float>> light_map_;
-    uint32_t next_tree_id_;
+    uint32_t next_tree_id_ = 1;
 };
 ```
 
 ### Tree Structure
 
 ```cpp
+// TreeTypes.h
+using TreeId = uint32_t;
+
 struct TreeCell {
     Vector2i position;
-    MaterialType type;  // WOOD, LEAF, ROOT
-    double energy;
-    double water;
+    MaterialType type;  // SEED, WOOD, LEAF, or ROOT
+    double energy = 0.0;
+    double water = 0.0;
 };
 
 class Tree {
 public:
     TreeId id;
     std::vector<TreeCell> cells;
-    uint32_t age;  // timesteps since planting
-    uint32_t last_growth_timestep;
+    uint32_t age = 0;  // timesteps since planting
     
-    // Growth parameters
-    uint32_t growth_interval;  // Timesteps between growth attempts
-    double growth_energy_threshold;
+    // Growth parameters (for future phases)
+    uint32_t growth_interval = 100;  // Timesteps between growth attempts
+    double growth_energy_threshold = 10.0;
     
-    // Resource pools (distributed across cells)
+    // Resource pools (distributed across cells) - Phase 3
     double totalEnergy() const;
     double totalWater() const;
 };
@@ -135,10 +155,17 @@ class WorldB {
     // Existing members...
     std::unique_ptr<TreeManager> tree_manager_;
     
+    // In constructor:
+    tree_manager_ = std::make_unique<TreeManager>();
+    
     // In advanceTime():
     if (tree_manager_) {
         tree_manager_->update(*this, scaledDeltaTime);
     }
+    
+    // Accessor:
+    TreeManager* getTreeManager() { return tree_manager_.get(); }
+    const TreeManager* getTreeManager() const { return tree_manager_.get(); }
 };
 ```
 
@@ -241,33 +268,59 @@ Environmental Factors:
 
 ## Implementation Plan
 
-### Phase 1: Foundation
-1. Add SEED and ROOT to MaterialType enum
-2. Create basic TreeManager class
-3. Integrate TreeManager into WorldB
-4. Implement seed planting mechanism
-5. Basic germination (SEED → WOOD conversion)
+### Phase 1: Foundation (Focus: Make seeds visible and trackable)
+**Goal**: Plant SEED cells and see them render in the world. Seeds behave as normal materials until germination.
 
-### Phase 2: Growth System
-1. Implement TreeCell and Tree structures
-2. Add growth mechanics with atomic operations
-3. Create growth pattern algorithms
-4. Handle underground ROOT growth
-5. Add organism_id to CellB for tree ownership
+1. **Add SEED and ROOT to MaterialType enum**
+   - Update MaterialType.h to include SEED and ROOT
+   - Define material properties in MaterialType.cpp (see Material Integration section)
+   - Add rendering colors in CellB::drawNormal() and drawDebug()
 
-### Phase 3: Resource Economy
-1. Implement light map calculation
-2. Add photosynthesis energy production
-3. Create water absorption from WATER/AIR
-4. Implement nutrient extraction from DIRT
-5. Add resource distribution through tree network
+2. **Update MaterialPicker UI**
+   - Modify MaterialPicker to include SEED in the 4×2 grid
+   - ROOT won't be in picker (only created by tree growth)
 
-### Phase 4: Advanced Features
-1. Multiple tree tracking and competition
-2. Seed production and dispersal
-3. Tree death and decomposition
-4. Visual differentiation (tree cells slightly different color)
-5. Performance optimization
+3. **Create Tree data structures**
+   - Create TreeTypes.h with TreeId typedef, TreeCell struct, and Tree class
+   - TreeCell tracks position, material type, and resource levels
+   - Tree class holds collection of cells and growth parameters
+
+4. **Create TreeManager class**
+   - Basic lifecycle management: plantSeed(), removeTree(), update()
+   - Track trees and cell-to-tree mapping
+   - Detect when user places SEED material and create Tree entity
+
+5. **Integrate TreeManager into WorldB**
+   - Add tree_manager_ member to WorldB
+   - Initialize in constructor
+   - Call update() in advanceTime()
+   - Add accessor methods
+
+6. **Testing**
+   - Unit test: Verify SEED material properties
+   - Visual test: Plant seeds, verify correct rendering
+   - Physics test: Seeds fall with gravity, interact with other materials
+
+### Phase 2: Growth System (Focus: Seeds can grow into trees)
+1. **SEED → WOOD conversion** (basic germination)
+2. **Add growth mechanics with atomic operations**
+3. **Create growth pattern algorithms**
+4. **Handle underground ROOT growth**
+5. **Add organism_id to CellB for tree ownership**
+
+### Phase 3: Resource Economy (Focus: Trees consume and produce resources)
+1. **Implement light map calculation**
+2. **Add photosynthesis energy production**
+3. **Create water absorption from WATER/AIR**
+4. **Implement nutrient extraction from DIRT**
+5. **Add resource distribution through tree network**
+
+### Phase 4: Advanced Features (Focus: Ecosystem dynamics)
+1. **Multiple tree tracking and competition**
+2. **Seed production and dispersal**
+3. **Tree death and decomposition**
+4. **Visual differentiation (tree cells slightly different color)**
+5. **Performance optimization**
 
 ## Testing Strategy
 

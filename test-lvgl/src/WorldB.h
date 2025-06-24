@@ -256,6 +256,7 @@ public:
 
     // WORLDINTERFACE IMPLEMENTATION - GRID MANAGEMENT
     void resizeGrid(uint32_t newWidth, uint32_t newHeight) override;
+    void markAllCellsDirty() override;
 
     // WORLDINTERFACE IMPLEMENTATION - PERFORMANCE AND DEBUGGING
     void dumpTimerStats() const override { timers_.dumpTimerStats(); }

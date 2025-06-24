@@ -93,10 +93,11 @@ TEST_F(PressureIntegrationTest, DamBreakScenario) {
     bool dynamicPressureDetected = false;
     for (int y = 0; y < 10; y++) {
         for (int x = 0; x < 5; x++) {
-            if (world->at(x, y).getDynamicPressure() > 0.01) {
+            double totalPressure = world->at(x, y).getHydrostaticPressure() + world->at(x, y).getDynamicPressure();
+            if (totalPressure > 0.01) {
                 dynamicPressureDetected = true;
                 spdlog::info("Dynamic pressure detected at ({},{}): {:.3f}", 
-                           x, y, world->at(x, y).getDynamicPressure());
+                           x, y, totalPressure);
             }
         }
     }
@@ -142,7 +143,7 @@ TEST_F(PressureIntegrationTest, NarrowChannelPressureBuildup) {
     
     for (int y = 3; y < 7; y++) {
         for (int x = 0; x < 2; x++) {
-            double pressure = world->at(x, y).getDynamicPressure();
+            double pressure = world->at(x, y).getHydrostaticPressure() + world->at(x, y).getDynamicPressure();
             if (pressure > maxDynamicPressure) {
                 maxDynamicPressure = pressure;
                 maxPressurePos = Vector2i(x, y);

@@ -83,6 +83,13 @@ LVGLEventBuilder::SliderBuilder& LVGLEventBuilder::SliderBuilder::onElasticityCh
     });
 }
 
+LVGLEventBuilder::SliderBuilder& LVGLEventBuilder::SliderBuilder::onDynamicStrengthChange() {
+    return onValueChange([](int32_t value) {
+        double strength = value / 100.0;  // Convert 0-300 to 0.0-3.0
+        return Event{SetDynamicStrengthCommand{strength}};
+    });
+}
+
 // ===== ButtonBuilder Implementation =====
 
 LVGLEventBuilder::ButtonBuilder& LVGLEventBuilder::ButtonBuilder::withEventRouter(EventRouter* router) {

@@ -9,6 +9,8 @@
 class WorldInterface;
 class SimulationManager;
 class EventRouter;
+class UIUpdateConsumer;
+struct UIUpdateEvent;
 enum class WorldType;
 
 class SimulatorUI {
@@ -35,6 +37,7 @@ public:
     void updateMassLabel(double totalMass);
     void updateFPSLabel(uint32_t fps);
     void updateDebugButton();
+    void applyUpdate(const UIUpdateEvent& update);
 
     // Frame limiting control
     bool isFrameLimitingEnabled() const { return frame_limiting_enabled_; }
@@ -90,6 +93,10 @@ private:
 
     // Storage for callback data to keep them alive
     std::vector<std::unique_ptr<CallbackData>> callback_data_storage_;
+
+    // Push-based UI update system
+    std::unique_ptr<UIUpdateConsumer> updateConsumer_;
+    lv_timer_t* updateTimer_ = nullptr;
 
     // Private methods for creating UI elements
     void createDrawArea();
@@ -154,6 +161,9 @@ private:
     static void cohesionBindStrengthSliderEventCb(lv_event_t* e);
     static void comCohesionRangeSliderEventCb(lv_event_t* e);
     static void comCohesionModeRadioEventCb(lv_event_t* e);
+
+    // Push-based UI update timer callback
+    static void uiUpdateTimerCb(lv_timer_t* timer);
 
     // Helper to create callback data
     CallbackData* createCallbackData(lv_obj_t* label = nullptr);

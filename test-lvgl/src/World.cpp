@@ -1980,6 +1980,13 @@ void World::onPreResize(uint32_t /*newWidth*/, uint32_t /*newHeight*/)
     markUserInput();
 }
 
+void World::markAllCellsDirty()
+{
+    for (auto& cell : cells) {
+        cell.markDirty();
+    }
+}
+
 // Time reversal implementation
 void World::saveWorldState()
 {

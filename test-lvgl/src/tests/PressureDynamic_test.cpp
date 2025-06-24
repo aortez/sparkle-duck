@@ -127,8 +127,8 @@ TEST_F(PressureDynamicTest, BlockedTransferAccumulatesDynamicPressure) {
         logWorldState(world.get(), fmt::format("Before timestep {}", timestep));
         
         // Check debug pressure IMMEDIATELY after physics step (before it decays)
-        double immediateSourceDebugPressure = sourceCell.getDebugPressureMagnitude();
-        double immediateTargetDebugPressure = targetCell.getDebugPressureMagnitude();
+        double immediateSourceDebugPressure = sourceCell.getDebugDynamicPressure();
+        double immediateTargetDebugPressure = targetCell.getDebugDynamicPressure();
         
         if (immediateSourceDebugPressure > 0.001 || immediateTargetDebugPressure > 0.001) {
             spdlog::info("DEBUG PRESSURE FOUND immediately after timestep {}: Source={:.6f}, Target={:.6f}",
@@ -142,8 +142,8 @@ TEST_F(PressureDynamicTest, BlockedTransferAccumulatesDynamicPressure) {
         double currentTargetPressure = targetCell.getDynamicPressure();
         
         // Also check debug pressure which shows pressure before it was consumed
-        double sourceDebugPressure = sourceCell.getDebugPressureMagnitude();
-        double targetDebugPressure = targetCell.getDebugPressureMagnitude();
+        double sourceDebugPressure = sourceCell.getDebugDynamicPressure();
+        double targetDebugPressure = targetCell.getDebugDynamicPressure();
         
         // Update maximum pressure seen
         maxSourcePressureSeen = std::max(maxSourcePressureSeen, std::max(currentSourcePressure, sourceDebugPressure));
@@ -219,11 +219,9 @@ TEST_F(PressureDynamicTest, BlockedTransferAccumulatesDynamicPressure) {
     
     if (finalTargetPressure > 0.001) {
         Vector2d velocityBefore = targetCell.getVelocity();
-        Vector2d pressureGradient = targetCell.getPressureGradient();
         
-        spdlog::info("Before pressure forces: vel=({:.3f},{:.3f}), pressure={:.6f}, gradient=({:.3f},{:.3f})",
-                     velocityBefore.x, velocityBefore.y, finalTargetPressure, 
-                     pressureGradient.x, pressureGradient.y);
+        spdlog::info("Before pressure forces: vel=({:.3f},{:.3f}), pressure={:.6f}",
+                     velocityBefore.x, velocityBefore.y, finalTargetPressure);
         
         // Run another timestep to see pressure forces in action
         world->advanceTime(0.016);
@@ -234,18 +232,21 @@ TEST_F(PressureDynamicTest, BlockedTransferAccumulatesDynamicPressure) {
         spdlog::info("After pressure forces: vel=({:.3f},{:.3f}), pressure={:.6f}",
                      velocityAfter.x, velocityAfter.y, pressureAfter);
         
-        // Pressure gradient should affect velocity
+        // Check if pressure affected velocity
         Vector2d velocityChange = velocityAfter - velocityBefore;
-        double pressureForceAlignment = velocityChange.dot(pressureGradient);
         
-        EXPECT_GT(pressureForceAlignment, -0.1) << "Pressure forces should not oppose pressure gradient significantly";
+        // With unified pressure system, we don't track pressure gradients
+        // Just verify that velocity changed when pressure was present
+        if (finalTargetPressure > 0.1) {
+            EXPECT_GT(velocityChange.magnitude(), 0.001) << "Pressure should cause velocity changes";
+        }
         
         if (visual_mode_) {
             std::stringstream ss;
             ss << "Pressure force effects:\n";
             ss << "Velocity change: (" << std::fixed << std::setprecision(3) 
                << velocityChange.x << ", " << velocityChange.y << ")\n";
-            ss << "Force alignment: " << (pressureForceAlignment > 0 ? "✓" : "✗");
+            ss << "Velocity changed: " << (velocityChange.magnitude() > 0.001 ? "✓" : "✗");
             updateDisplay(world.get(), ss.str());
             pauseIfVisual(500);
         }
@@ -267,7 +268,7 @@ TEST_F(PressureDynamicTest, BlockedTransferAccumulatesDynamicPressure) {
         for (uint32_t x = 0; x < world->getWidth(); x++) {
             const CellB& cell = world->at(x, y);
             double dynamicPressure = cell.getDynamicPressure();
-            double debugPressure = cell.getDebugPressureMagnitude();
+            double debugPressure = cell.getDebugDynamicPressure();
             
             if (dynamicPressure > 0.001) {
                 anyPressureRemaining = true;

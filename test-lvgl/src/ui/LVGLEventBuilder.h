@@ -69,6 +69,12 @@ public:
         SliderBuilder& onElasticityChange();
         
         /**
+         * @brief Convenience method for dynamic strength sliders.
+         * Automatically converts slider value (0-300) to strength (0.0-3.0)
+         */
+        SliderBuilder& onDynamicStrengthChange();
+        
+        /**
          * @brief Set the event router for this builder.
          */
         SliderBuilder& withEventRouter(EventRouter* router);

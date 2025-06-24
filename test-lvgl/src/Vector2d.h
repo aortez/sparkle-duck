@@ -43,6 +43,10 @@ public:
     Vector2d& operator*=(double scalar);
     Vector2d operator/(double scalar) const;
     Vector2d& operator/=(double scalar);
+
+    // Unary operators
+    Vector2d operator-() const; // Negation operator
+    Vector2d operator+() const; // Unary plus (for completeness)
 };
 
 // Non-member operator for scalar multiplication from the left side.

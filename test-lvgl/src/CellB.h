@@ -118,32 +118,23 @@ public:
         markDirty();
     }
 
-    // Dual pressure system accessors
-    float getHydrostaticPressure() const { return hydrostatic_pressure_; }
-    void setHydrostaticPressure(float pressure) { hydrostatic_pressure_ = pressure; }
+    // Pressure system - separate components only
+    // Consumers must explicitly choose which pressure component they need
+    
+    // Separate accessors for pressure components
+    double getHydrostaticPressure() const { return hydrostatic_pressure_; }
+    void setHydrostaticPressure(double pressure) { hydrostatic_pressure_ = pressure; }
+    
+    double getDynamicPressure() const { return dynamic_pressure_; }
+    void setDynamicPressure(double pressure) { dynamic_pressure_ = pressure; }
+    void addDynamicPressure(double pressure) { dynamic_pressure_ += pressure; }
 
-    float getDynamicPressure() const { return dynamic_pressure_; }
-    void setDynamicPressure(float pressure) { dynamic_pressure_ = pressure; }
-
-    // Simplified pressure system: direct vector instead of gradient
-    const Vector2d& getPressureVector() const { return pressure_vector_; }
-    void setPressureVector(const Vector2d& vector) { pressure_vector_ = vector; }
-
-    // Legacy gradient interface (deprecated - returns pressure vector)
-    const Vector2d& getPressureGradient() const { return pressure_vector_; }
-    void setPressureGradient(const Vector2d& gradient) { pressure_vector_ = gradient; }
-
-    // Debug visualization setters
-    void setDebugPressure(float magnitude, const Vector2d& vector)
+    // Debug visualization for dynamic pressure events
+    void setDebugDynamicPressure(double magnitude)
     {
-        debug_pressure_magnitude_ = magnitude;
-        debug_pressure_vector_ = vector;
+        debug_dynamic_pressure_ = magnitude;
     }
-    float getDebugPressureMagnitude() const { return debug_pressure_magnitude_; }
-
-    // Legacy pressure interface (for compatibility)
-    double getPressure() const { return hydrostatic_pressure_ + dynamic_pressure_; }
-    void setPressure(double pressure) { hydrostatic_pressure_ = static_cast<float>(pressure); }
+    double getDebugDynamicPressure() const { return debug_dynamic_pressure_; }
 
     // =================================================================
     // CALCULATED PROPERTIES
@@ -259,19 +250,17 @@ private:
     Vector2d com_;               // Center of mass position [-1,1]
     Vector2d velocity_;          // 2D velocity vector
 
-    // Dual pressure system (Phase 1)
-    float hydrostatic_pressure_; // From gravity/weight [0, max_hydrostatic]
-    float dynamic_pressure_;     // From blocked transfers [0, max_dynamic]
-    Vector2d pressure_vector_;   // Direct pressure force vector (not gradient)
+    // Separate pressure components
+    double hydrostatic_pressure_; // Pressure from gravity/weight (stable equilibrium)
+    double dynamic_pressure_;     // Pressure from blocked transfers (drives flow)
 
     // Force accumulation for visualization
     Vector2d accumulated_cohesion_force_;     // Last calculated cohesion force
     Vector2d accumulated_adhesion_force_;     // Last calculated adhesion force
     Vector2d accumulated_com_cohesion_force_; // Last calculated COM cohesion force
 
-    // Debug visualization cache
-    float debug_pressure_magnitude_; // Last pressure magnitude before dissipation
-    Vector2d debug_pressure_vector_; // Last pressure vector before dissipation
+    // Debug visualization
+    double debug_dynamic_pressure_; // Debug value for dynamic pressure events
 
     // Physics force accumulation
     Vector2d pending_force_; // Forces to be applied during resolution phase

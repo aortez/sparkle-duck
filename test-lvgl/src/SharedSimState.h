@@ -1,14 +1,90 @@
 #pragma once
 
+#include "Event.h"
 #include "MaterialType.h"
 #include "SimulationStats.h"
 #include <atomic>
 #include <chrono>
 #include <mutex>
+#include <optional>
 #include <shared_mutex>
 
 // Forward declaration
 class WorldInterface;
+
+/**
+ * @brief Metrics for UI update queue performance monitoring.
+ */
+struct UIUpdateMetrics {
+    uint64_t pushCount; ///< Total updates pushed.
+    uint64_t popCount;  ///< Total updates consumed.
+    uint64_t dropCount; ///< Updates dropped (overwritten).
+};
+
+/**
+ * @brief Thread-safe queue for UI updates with latest-update-wins semantics.
+ *
+ * This queue holds at most one update at a time. When a new update is pushed
+ * while one is already pending, the old update is dropped. This ensures the
+ * UI always gets the most recent state without building up a backlog.
+ */
+class UIUpdateQueue {
+private:
+    mutable std::mutex mutex_;
+    std::optional<UIUpdateEvent> latest_;
+
+    // Metrics
+    std::atomic<uint64_t> pushCount_{ 0 };
+    std::atomic<uint64_t> popCount_{ 0 };
+    std::atomic<uint64_t> dropCount_{ 0 };
+
+public:
+    /**
+     * @brief Push a new UI update (latest-update-wins).
+     * If an update is already pending, it will be replaced.
+     */
+    void push(UIUpdateEvent update)
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (latest_.has_value()) {
+            dropCount_++;
+        }
+        latest_ = std::move(update);
+        pushCount_++;
+    }
+
+    /**
+     * @brief Pop the latest update if available.
+     * @return The latest update or empty optional if none pending.
+     */
+    std::optional<UIUpdateEvent> popLatest()
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        auto result = std::move(latest_);
+        if (result.has_value()) {
+            popCount_++;
+        }
+        latest_.reset();
+        return result;
+    }
+
+    /**
+     * @brief Get performance metrics.
+     */
+    UIUpdateMetrics getMetrics() const
+    {
+        return { pushCount_.load(), popCount_.load(), dropCount_.load() };
+    }
+
+    /**
+     * @brief Check if an update is pending.
+     */
+    bool hasPendingUpdate() const
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return latest_.has_value();
+    }
+};
 
 /**
  * @brief Thread-safe shared state for simulation data.
@@ -123,6 +199,7 @@ public:
         double gravity = 9.81;
         double elasticity = 0.8;
         double timescale = 1.0;
+        double dynamicStrength = 1.0;
         bool debugEnabled = false;
         bool gravityEnabled = true;
         bool forceVisualizationEnabled = false;
@@ -168,6 +245,79 @@ public:
         currentWorld_ = world;
     }
 
+    // =================================================================
+    // PUSH-BASED UI UPDATE SYSTEM
+    // =================================================================
+
+    /**
+     * @brief Check if push-based updates are enabled.
+     */
+    bool isPushUpdatesEnabled() const { return usePushUpdates_.load(std::memory_order_acquire); }
+
+    /**
+     * @brief Enable or disable push-based UI updates.
+     * @param enable true to enable push updates, false to use legacy immediate events.
+     */
+    void enablePushUpdates(bool enable)
+    {
+        usePushUpdates_.store(enable, std::memory_order_release);
+    }
+
+    /**
+     * @brief Get next sequence number for UI updates.
+     * @return Next monotonic sequence number.
+     */
+    uint64_t getNextUpdateSequence()
+    {
+        return updateSequenceNum_.fetch_add(1, std::memory_order_relaxed);
+    }
+
+    /**
+     * @brief Push a UI update from simulation thread.
+     * Only works if push updates are enabled.
+     */
+    void pushUIUpdate(UIUpdateEvent update)
+    {
+        if (isPushUpdatesEnabled()) {
+            uiUpdateQueue_.push(std::move(update));
+        }
+    }
+
+    /**
+     * @brief Pop the latest UI update for consumption by UI thread.
+     * @return Latest update or empty if none pending.
+     */
+    std::optional<UIUpdateEvent> popUIUpdate() { return uiUpdateQueue_.popLatest(); }
+
+    /**
+     * @brief Get UI update queue metrics for performance monitoring.
+     */
+    UIUpdateMetrics getUIUpdateMetrics() const { return uiUpdateQueue_.getMetrics(); }
+
+    /**
+     * @brief Check if a UI update is pending.
+     */
+    bool hasUIUpdatePending() const { return uiUpdateQueue_.hasPendingUpdate(); }
+
+    /**
+     * @brief Get force visualization enabled state.
+     * Thread-safe accessor for UI state.
+     */
+    bool getForceEnabled() const
+    {
+        std::shared_lock lock(paramsMutex_);
+        return physicsParams_.forceVisualizationEnabled;
+    }
+
+    /**
+     * @brief Set force visualization enabled state.
+     */
+    void setForceEnabled(bool enabled)
+    {
+        std::unique_lock lock(paramsMutex_);
+        physicsParams_.forceVisualizationEnabled = enabled;
+    }
+
 private:
     // Atomic variables for lock-free access
     std::atomic<bool> shouldExit_{ false };
@@ -185,4 +335,9 @@ private:
 
     mutable std::shared_mutex worldMutex_;
     WorldInterface* currentWorld_ = nullptr;
+
+    // Push-based UI update system
+    UIUpdateQueue uiUpdateQueue_;
+    std::atomic<bool> usePushUpdates_{ false };    // Feature flag - disabled by default
+    std::atomic<uint64_t> updateSequenceNum_{ 0 }; // Monotonic sequence counter
 };

@@ -156,6 +156,9 @@ public:
     // Resize the world grid based on new cell size
     void resizeGrid(uint32_t newWidth, uint32_t newHeight) override;
 
+    // Mark all cells as dirty (needing redraw)
+    void markAllCellsDirty() override;
+
     // Cursor force interaction
     void setCursorForceEnabled(bool enabled) override { cursorForceEnabled = enabled; }
     void updateCursorForce(int pixelX, int pixelY, bool isActive) override;

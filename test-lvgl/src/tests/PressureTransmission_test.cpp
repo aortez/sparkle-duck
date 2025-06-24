@@ -54,9 +54,8 @@ TEST_F(PressureTransmissionTest, PressureGoesToTargetNotSource) {
     EXPECT_GT(dirt.getDynamicPressure(), 0.1) << "Target cell should accumulate pressure";
     EXPECT_LT(water.getDynamicPressure(), 0.01) << "Source cell should have no pressure";
     
-    // Verify pressure gradient points away from source
-    Vector2d targetGradient = dirt.getPressureGradient();
-    EXPECT_LT(targetGradient.x, -0.5) << "Target pressure should point left (away from source)";
+    // With the unified pressure system, we only track scalar pressure values
+    // Direction information is no longer stored separately
 }
 
 // Test that walls eliminate pressure

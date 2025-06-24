@@ -76,6 +76,12 @@ public:
      */
     SimulationManager* getSimulationManager() { return simulationManager.get(); }
 
+    /**
+     * @brief Build a comprehensive UI update event with current state.
+     * @return UIUpdateEvent containing all UI-relevant state
+     */
+    UIUpdateEvent buildUIUpdate();
+
     // Public members for state access
     std::unique_ptr<WorldInterface> world;
     lv_disp_t* display = nullptr;

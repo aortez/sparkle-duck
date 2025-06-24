@@ -109,6 +109,16 @@ Vector2d& Vector2d::operator/=(double scalar)
     return *this;
 }
 
+Vector2d Vector2d::operator-() const
+{
+    return Vector2d(-x, -y);
+}
+
+Vector2d Vector2d::operator+() const
+{
+    return Vector2d(x, y);
+}
+
 rapidjson::Value Vector2d::toJson(rapidjson::Document::AllocatorType& allocator) const
 {
     rapidjson::Value json(rapidjson::kObjectType);

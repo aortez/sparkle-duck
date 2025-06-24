@@ -2,17 +2,21 @@
 #include "Cell.h"
 #include "EventRouter.h"
 #include "MaterialType.h"
+#include "SharedSimState.h"
 #include "SimulationManager.h"
+#include "UIUpdateConsumer.h"
 #include "WorldB.h"
 #include "WorldFactory.h"
 #include "WorldInterface.h"
 #include "WorldState.h"
 #include "lvgl/lvgl.h"
+#include "lvgl/src/misc/lv_timer.h"
 #include "lvgl/src/others/snapshot/lv_snapshot.h"
 #include "spdlog/spdlog.h"
 #include "ui/LVGLBuilder.h"
 #include "ui/LVGLEventBuilder.h"
 
+#include "Event.h"
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -23,6 +27,7 @@
 #include <limits.h> // For PATH_MAX
 #include <unistd.h> // For readlink on Linux
 #include <vector>
+#include <stdexcept>
 
 using namespace DirtSim;
 
@@ -84,10 +89,44 @@ SimulatorUI::CallbackData* SimulatorUI::createCallbackData(lv_obj_t* label)
     return ptr;
 }
 
-SimulatorUI::~SimulatorUI() = default;
+void SimulatorUI::uiUpdateTimerCb(lv_timer_t* timer)
+{
+    SimulatorUI* ui = static_cast<SimulatorUI*>(lv_timer_get_user_data(timer));
+    if (ui && ui->updateConsumer_) {
+        ui->updateConsumer_->consumeUpdate();
+    }
+}
+
+SimulatorUI::~SimulatorUI()
+{
+    // Clean up LVGL timer
+    if (updateTimer_) {
+        lv_timer_delete(updateTimer_);
+        updateTimer_ = nullptr;
+    }
+}
 
 void SimulatorUI::initialize()
 {
+    // Verify LVGL is initialized
+    if (!lv_is_initialized()) {
+        spdlog::error("SimulatorUI::initialize() - LVGL is not initialized! Call lv_init() first.");
+        throw std::runtime_error("LVGL must be initialized before creating SimulatorUI");
+    }
+    
+    // Verify we have a display
+    if (lv_display_get_default() == nullptr) {
+        spdlog::error("SimulatorUI::initialize() - No LVGL display found! Create a display before initializing UI.");
+        throw std::runtime_error("LVGL requires a display to be created before UI initialization. "
+                               "Use lv_display_create() or one of the display backends.");
+    }
+    
+    // Verify screen is valid
+    if (!screen_) {
+        spdlog::error("SimulatorUI::initialize() - Invalid screen pointer!");
+        throw std::runtime_error("SimulatorUI requires a valid screen object");
+    }
+    
     createDrawArea();
     createLabels();
     createWorldTypeColumn();
@@ -99,6 +138,20 @@ void SimulatorUI::initialize()
     // Set initial button matrix state based on current world type
     if (world_) {
         updateWorldTypeButtonMatrix(world_->getWorldType());
+    }
+
+    // Initialize push-based UI update system if enabled
+    if (event_router_) {
+        SharedSimState& sharedState = event_router_->getSharedSimState();
+        if (sharedState.isPushUpdatesEnabled()) {
+            // Create UIUpdateConsumer
+            updateConsumer_ = std::make_unique<UIUpdateConsumer>(&sharedState, this);
+
+            // Create LVGL timer for 60fps updates (16.67ms)
+            updateTimer_ = lv_timer_create(uiUpdateTimerCb, 16, this);
+
+            spdlog::info("Push-based UI update system initialized with 60fps timer");
+        }
     }
 }
 
@@ -361,7 +414,7 @@ void SimulatorUI::createControlButtons()
             .onCohesionToggle()
             .size(CONTROL_WIDTH, 50)
             .position(MAIN_CONTROLS_X, 325, LV_ALIGN_TOP_LEFT)
-            .text("Cohesion Bind: On")
+            .text("Cohesion Bind: Off")
             .toggle(true)
             .buildOrLog();
     }
@@ -370,7 +423,7 @@ void SimulatorUI::createControlButtons()
         lv_obj_set_size(cohesion_btn, CONTROL_WIDTH, 50);
         lv_obj_align(cohesion_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 325);
         lv_obj_t* cohesion_label = lv_label_create(cohesion_btn);
-        lv_label_set_text(cohesion_label, "Cohesion Bind: On");
+        lv_label_set_text(cohesion_label, "Cohesion Bind: Off");
         lv_obj_center(cohesion_label);
         lv_obj_add_event_cb(
             cohesion_btn, cohesionBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
@@ -404,7 +457,7 @@ void SimulatorUI::createControlButtons()
             .onCohesionToggle() // TODO: Create onCohesionForceToggle() for clarity
             .size(CONTROL_WIDTH, 50)
             .position(MAIN_CONTROLS_X, 415, LV_ALIGN_TOP_LEFT)
-            .text("Cohesion Force: On")
+            .text("Cohesion Force: Off")
             .toggle(true)
             .buildOrLog();
     }
@@ -413,7 +466,7 @@ void SimulatorUI::createControlButtons()
         lv_obj_set_size(cohesion_force_btn, CONTROL_WIDTH, 50);
         lv_obj_align(cohesion_force_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 415);
         lv_obj_t* cohesion_force_label = lv_label_create(cohesion_force_btn);
-        lv_label_set_text(cohesion_force_label, "Cohesion Force: On");
+        lv_label_set_text(cohesion_force_label, "Cohesion Force: Off");
         lv_obj_center(cohesion_force_label);
         lv_obj_add_event_cb(
             cohesion_force_btn, cohesionForceBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
@@ -509,7 +562,7 @@ void SimulatorUI::createControlButtons()
             .onAdhesionToggle()
             .size(CONTROL_WIDTH, 50)
             .position(MAIN_CONTROLS_X, 590, LV_ALIGN_TOP_LEFT)
-            .text("Adhesion: On")
+            .text("Adhesion: Off")
             .toggle(true)
             .buildOrLog();
     }
@@ -518,7 +571,7 @@ void SimulatorUI::createControlButtons()
         lv_obj_set_size(adhesion_btn, CONTROL_WIDTH, 50);
         lv_obj_align(adhesion_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 590);
         lv_obj_t* adhesion_label = lv_label_create(adhesion_btn);
-        lv_label_set_text(adhesion_label, "Adhesion: On");
+        lv_label_set_text(adhesion_label, "Adhesion: Off");
         lv_obj_center(adhesion_label);
         lv_obj_add_event_cb(
             adhesion_btn, adhesionBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
@@ -930,7 +983,7 @@ void SimulatorUI::createSliders()
 
     lv_obj_t* hydrostatic_switch = lv_switch_create(screen_);
     lv_obj_align(hydrostatic_switch, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X + 180, 645);
-    lv_obj_add_state(hydrostatic_switch, LV_STATE_CHECKED); // Default enabled
+    // Default disabled to match WorldB constructor
     lv_obj_add_event_cb(
         hydrostatic_switch,
         hydrostaticPressureToggleEventCb,
@@ -944,7 +997,7 @@ void SimulatorUI::createSliders()
 
     lv_obj_t* dynamic_switch = lv_switch_create(screen_);
     lv_obj_align(dynamic_switch, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X + 180, 675);
-    lv_obj_add_state(dynamic_switch, LV_STATE_CHECKED); // Default enabled
+    // Default disabled to match WorldB constructor
     lv_obj_add_event_cb(
         dynamic_switch, dynamicPressureToggleEventCb, LV_EVENT_VALUE_CHANGED, createCallbackData());
 
@@ -968,25 +1021,39 @@ void SimulatorUI::createSliders()
         LV_EVENT_ALL,
         createCallbackData(hydrostatic_strength_value_label));
 
-    // Dynamic pressure strength slider (WorldB only)
-    lv_obj_t* dynamic_strength_label = lv_label_create(screen_);
-    lv_label_set_text(dynamic_strength_label, "Dynamic Strength");
-    lv_obj_align(dynamic_strength_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 765);
+    // Dynamic pressure strength slider (WorldB only) - migrated to EventRouter
+    if (event_router_) {
+        LVGLEventBuilder::slider(screen_, event_router_)
+            .onDynamicStrengthChange() // Uses new event system
+            .position(SLIDER_COLUMN_X, 785, LV_ALIGN_TOP_LEFT)
+            .size(CONTROL_WIDTH, 10)
+            .range(0, 300) // 0.0 to 3.0 range
+            .value(100)    // Default 1.0 -> 100
+            .label("Dynamic Strength", SLIDER_COLUMN_X, 765)
+            .valueLabel("%.1f", SLIDER_COLUMN_X + 140, 765)
+            .buildOrLog();
+    }
+    else {
+        // Fallback to old callback system
+        lv_obj_t* dynamic_strength_label = lv_label_create(screen_);
+        lv_label_set_text(dynamic_strength_label, "Dynamic Strength");
+        lv_obj_align(dynamic_strength_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 765);
 
-    lv_obj_t* dynamic_strength_value_label = lv_label_create(screen_);
-    lv_label_set_text(dynamic_strength_value_label, "1.0");
-    lv_obj_align(dynamic_strength_value_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X + 140, 765);
+        lv_obj_t* dynamic_strength_value_label = lv_label_create(screen_);
+        lv_label_set_text(dynamic_strength_value_label, "1.0");
+        lv_obj_align(dynamic_strength_value_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X + 140, 765);
 
-    lv_obj_t* dynamic_strength_slider = lv_slider_create(screen_);
-    lv_obj_set_size(dynamic_strength_slider, CONTROL_WIDTH, 10);
-    lv_obj_align(dynamic_strength_slider, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 785);
-    lv_slider_set_range(dynamic_strength_slider, 0, 300);           // 0.0 to 3.0 range
-    lv_slider_set_value(dynamic_strength_slider, 100, LV_ANIM_OFF); // Default 1.0 -> 100
-    lv_obj_add_event_cb(
-        dynamic_strength_slider,
-        dynamicPressureStrengthSliderEventCb,
-        LV_EVENT_ALL,
-        createCallbackData(dynamic_strength_value_label));
+        lv_obj_t* dynamic_strength_slider = lv_slider_create(screen_);
+        lv_obj_set_size(dynamic_strength_slider, CONTROL_WIDTH, 10);
+        lv_obj_align(dynamic_strength_slider, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 785);
+        lv_slider_set_range(dynamic_strength_slider, 0, 300);           // 0.0 to 3.0 range
+        lv_slider_set_value(dynamic_strength_slider, 100, LV_ANIM_OFF); // Default 1.0 -> 100
+        lv_obj_add_event_cb(
+            dynamic_strength_slider,
+            dynamicPressureStrengthSliderEventCb,
+            LV_EVENT_ALL,
+            createCallbackData(dynamic_strength_value_label));
+    }
 
     // Air resistance slider
     lv_obj_t* air_resistance_label = lv_label_create(screen_);
@@ -1039,6 +1106,92 @@ void SimulatorUI::updateDebugButton()
     }
 }
 
+void SimulatorUI::applyUpdate(const UIUpdateEvent& update)
+{
+    // Use dirty flags to update only what has changed for efficiency
+
+    // Update FPS label if FPS changed
+    if (update.dirty.fps) {
+        updateFPSLabel(update.fps);
+    }
+
+    // Update simulation stats if they changed
+    if (update.dirty.stats) {
+        // Update total mass label
+        updateMassLabel(update.stats.totalMass);
+
+        // Note: Other stats like cell counts, pressure, etc. could be displayed
+        // if we had UI elements for them. For now we just update mass.
+    }
+
+    // Update UI state elements if they changed
+    if (update.dirty.uiState) {
+        // Update pause label
+        if (pause_label_) {
+            lv_label_set_text(pause_label_, update.isPaused ? "Paused" : "Running");
+        }
+
+        // Update debug button
+        if (update.debugEnabled != Cell::debugDraw) {
+            Cell::debugDraw = update.debugEnabled;
+            updateDebugButton();
+        }
+
+        // Update other toggle states
+        // Note: These affect the world state directly, so we need to be careful
+        // about thread safety. For now, we'll just track the state.
+        // TODO: Consider if these should be applied to the world or just displayed
+
+        // Force visualization - this would need a force button/label to update
+        // update.forceEnabled
+
+        // Cohesion enabled - this would need a cohesion button/label to update
+        // update.cohesionEnabled
+
+        // Adhesion enabled - this would need an adhesion button/label to update
+        // update.adhesionEnabled
+
+        // Time history enabled - this would need a time history button/label to update
+        // update.timeHistoryEnabled
+    }
+
+    // Update physics parameters if they changed
+    if (update.dirty.physicsParams) {
+        // These parameters affect simulation behavior
+        // For UI display, we might want to update slider positions
+        // if they were changed programmatically
+
+        // update.physicsParams.gravity
+        // update.physicsParams.elasticity
+        // update.physicsParams.timescale
+        // etc.
+    }
+
+    // Update world state if it changed
+    if (update.dirty.worldState) {
+        // Update world type button matrix
+        if (update.worldType == "WorldA") {
+            updateWorldTypeButtonMatrix(WorldType::RulesA);
+        }
+        else if (update.worldType == "WorldB") {
+            updateWorldTypeButtonMatrix(WorldType::RulesB);
+        }
+
+        // Update material picker if selected material changed
+        if (material_picker_ && world_) {
+            // Check if the selected material actually changed
+            MaterialType currentMaterial = world_->getSelectedMaterial();
+            if (currentMaterial != update.selectedMaterial) {
+                // This might need synchronization or deferred update
+                // For now, just log the discrepancy
+                spdlog::trace(
+                    "Selected material mismatch: UI has {}, update has {}",
+                    static_cast<int>(currentMaterial),
+                    static_cast<int>(update.selectedMaterial));
+            }
+        }
+    }
+}
 // Static event callback implementations
 void SimulatorUI::drawAreaEventCb(lv_event_t* e)
 {
@@ -1123,6 +1276,9 @@ void SimulatorUI::drawAreaEventCb(lv_event_t* e)
         // Reset interaction mode and clear cursor force
         data->ui->interaction_mode_ = data->ui->InteractionMode::NONE;
         world_ptr->clearCursorForce();
+
+        // Mark all cells dirty to ensure proper rendering updates
+        world_ptr->markAllCellsDirty();
     }
 }
 
@@ -1179,10 +1335,16 @@ void SimulatorUI::resetBtnEventCb(lv_event_t* e)
 void SimulatorUI::debugBtnEventCb(lv_event_t* e)
 {
     if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
+        CallbackData* data = static_cast<CallbackData*>(lv_event_get_user_data(e));
         Cell::debugDraw = !Cell::debugDraw;
         const lv_obj_t* btn = static_cast<const lv_obj_t*>(lv_event_get_target(e));
         lv_obj_t* label = lv_obj_get_child(btn, 0);
         lv_label_set_text(label, Cell::debugDraw ? "Debug: On" : "Debug: Off");
+
+        // Mark all cells dirty to ensure proper rendering updates
+        if (data && data->world) {
+            data->world->markAllCellsDirty();
+        }
     }
 }
 
@@ -1303,6 +1465,9 @@ void SimulatorUI::adhesionBtnEventCb(lv_event_t* e)
             const lv_obj_t* btn = static_cast<const lv_obj_t*>(lv_event_get_target(e));
             lv_obj_t* label = lv_obj_get_child(btn, 0);
             lv_label_set_text(label, new_state ? "Adhesion: On" : "Adhesion: Off");
+
+            // Mark all cells dirty to ensure proper rendering updates
+            data->world->markAllCellsDirty();
         }
     }
 }
@@ -1396,6 +1561,8 @@ void SimulatorUI::cellSizeSliderEventCb(lv_event_t* e)
         // For cell size changes, preserve time reversal history
         if (data->world) {
             data->world->resizeGrid(new_grid_width, new_grid_height);
+            // Mark all cells dirty to ensure proper rendering after resize
+            data->world->markAllCellsDirty();
         }
 
         // Update the label

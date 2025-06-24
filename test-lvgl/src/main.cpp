@@ -40,6 +40,9 @@ static WorldType selected_world_type = WorldType::RulesB; // Default to RulesB p
 /* flag to use the new event-driven system */
 static bool use_event_system = false;
 
+/* flag to use push-based UI updates */
+static bool use_push_updates = false;
+
 /* Global simulator settings, defined in lv_linux_backend.c */
 extern simulator_settings_t settings;
 
@@ -125,6 +128,11 @@ int main(int argc, char** argv)
         "event-system",
         "Use the new event-driven state machine (experimental)",
         { "event-system" });
+    args::Flag push_updates(
+        parser,
+        "push-updates",
+        "Enable push-based UI updates for thread safety (experimental)",
+        { 'p', "push-updates" });
 
     // Register backends before parsing
     driver_backends_register();
@@ -195,6 +203,16 @@ int main(int argc, char** argv)
         spdlog::info("Event-driven state machine enabled (experimental)");
     }
 
+    if (push_updates) {
+        use_push_updates = true;
+        spdlog::info("Push-based UI updates enabled (experimental)");
+        if (!event_system) {
+            spdlog::warn(
+                "Push-based UI updates require --event-system flag, enabling it automatically");
+            use_event_system = true;
+        }
+    }
+
     /* Initialize LVGL. */
     lv_init();
 
@@ -214,6 +232,12 @@ int main(int argc, char** argv)
 
         // Create the state machine with display.
         auto stateMachine = std::make_unique<DirtSim::DirtSimStateMachine>(lv_disp_get_default());
+
+        // Enable push-based UI updates if requested
+        if (use_push_updates) {
+            stateMachine->getSharedState().enablePushUpdates(true);
+            spdlog::info("Push-based UI updates activated in state machine");
+        }
 
         // Initialize the state machine - transition from Startup -> MainMenu -> SimRunning.
         stateMachine->handleEvent(InitCompleteEvent{});

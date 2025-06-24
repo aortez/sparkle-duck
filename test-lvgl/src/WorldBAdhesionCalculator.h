@@ -40,7 +40,7 @@ public:
 
 private:
     // Configuration parameters
-    bool adhesion_enabled_ = true;
+    bool adhesion_enabled_ = false;
     double adhesion_strength_ = 5.0;
 };
 

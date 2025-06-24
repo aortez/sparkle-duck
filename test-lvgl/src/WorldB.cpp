@@ -29,8 +29,8 @@ WorldB::WorldB(uint32_t width, uint32_t height, lv_obj_t* draw_area)
       pressure_scale_(1.0),
       water_pressure_threshold_(0.0004),
       pressure_system_(PressureSystem::Original),
-      hydrostatic_pressure_enabled_(true),
-      dynamic_pressure_enabled_(true),
+      hydrostatic_pressure_enabled_(false),
+      dynamic_pressure_enabled_(false),
       hydrostatic_pressure_strength_(1.0),
       dynamic_pressure_strength_(1.0),
       add_particles_enabled_(true),
@@ -38,8 +38,8 @@ WorldB::WorldB(uint32_t width, uint32_t height, lv_obj_t* draw_area)
       cursor_force_active_(false),
       cursor_force_x_(0),
       cursor_force_y_(0),
-      cohesion_bind_force_enabled_(true),
-      cohesion_com_force_enabled_(true),
+      cohesion_bind_force_enabled_(false),
+      cohesion_com_force_enabled_(false),
       com_cohesion_mode_(COMCohesionMode::ORIGINAL),
       cohesion_com_force_strength_(150.0),
       cohesion_bind_force_strength_(1.0),
@@ -134,13 +134,16 @@ void WorldB::advanceTime(double deltaTimeSeconds)
         if (dynamic_pressure_enabled_) {
             // Process any blocked transfers that were queued during processMaterialMoves
             pressure_calculator_.processBlockedTransfers();
+        }
 
-            // Calculate pressure-driven material flows
+        // Calculate pressure-driven material flows if ANY pressure system is active
+        // (hydrostatic pressure alone can drive flow, like water from a dam)
+        if (hydrostatic_pressure_enabled_ || dynamic_pressure_enabled_) {
             auto pressure_moves = pressure_calculator_.calculatePressureFlow(scaledDeltaTime);
 
             // Add pressure-driven moves to pending moves
             if (!pressure_moves.empty()) {
-                spdlog::info(
+                spdlog::debug(
                     "Adding {} pressure-driven material transfers to pending moves",
                     pressure_moves.size());
                 pending_moves_.insert(
@@ -563,6 +566,13 @@ void WorldB::onPostResize()
     // Rebuild boundary walls if enabled
     if (areWallsEnabled()) {
         setupBoundaryWalls();
+    }
+}
+
+void WorldB::markAllCellsDirty()
+{
+    for (auto& cell : cells_) {
+        cell.markDirty();
     }
 }
 
@@ -1040,27 +1050,33 @@ void WorldB::processMaterialMoves()
 
         // Apply any pressure from excess that couldn't transfer
         if (move.pressure_from_excess > 0.0) {
-            toCell.setDynamicPressure(toCell.getDynamicPressure() + move.pressure_from_excess);
+            // If target is a wall, pressure reflects back to source
+            if (toCell.getMaterialType() == MaterialType::WALL) {
+                fromCell.setDynamicPressure(
+                    fromCell.getDynamicPressure() + move.pressure_from_excess);
 
-            // Set pressure vector in the direction of the blocked transfer
-            // This represents the direction the pressure wants to push
-            Vector2d pressure_direction = move.boundary_normal;
-            if (pressure_direction.magnitude() > 0.001) {
-                pressure_direction.normalize();
-                toCell.setPressureVector(pressure_direction);
+                // Cache for debug visualization
+                fromCell.setDebugDynamicPressure(fromCell.getDynamicPressure());
 
-                // Also cache for debug visualization since pressure might be cleared before render
-                toCell.setDebugPressure(toCell.getDynamicPressure(), pressure_direction);
+                spdlog::debug(
+                    "Wall blocked transfer: source cell({},{}) pressure increased by {:.3f}",
+                    move.fromX,
+                    move.fromY,
+                    move.pressure_from_excess);
             }
+            else {
+                // Normal materials receive the pressure
+                toCell.setDynamicPressure(toCell.getDynamicPressure() + move.pressure_from_excess);
 
-            spdlog::debug(
-                "Applied pressure from excess: cell({},{}) pressure increased by {:.3f}, vector: "
-                "({:.3f},{:.3f})",
-                move.toX,
-                move.toY,
-                move.pressure_from_excess,
-                pressure_direction.x,
-                pressure_direction.y);
+                // Cache for debug visualization since pressure might be cleared before render
+                toCell.setDebugDynamicPressure(toCell.getDynamicPressure());
+
+                spdlog::debug(
+                    "Applied pressure from excess: cell({},{}) pressure increased by {:.3f}",
+                    move.toX,
+                    move.toY,
+                    move.pressure_from_excess);
+            }
         }
 
         // Handle collision during the move based on collision_type

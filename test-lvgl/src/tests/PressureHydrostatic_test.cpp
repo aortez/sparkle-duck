@@ -55,24 +55,27 @@ TEST_F(PressureHydrostaticTest, ColumnOfWaterCreatesHydrostaticPressure) {
     
     // Initialize all with zero pressure and velocity
     topWater.setVelocity(Vector2d(0.0, 0.0));
+    topWater.setHydrostaticPressure(0.0);
     topWater.setDynamicPressure(0.0);
     
     middleWater.setVelocity(Vector2d(0.0, 0.0));
+    middleWater.setHydrostaticPressure(0.0);
     middleWater.setDynamicPressure(0.0);
     
     bottomWater.setVelocity(Vector2d(0.0, 0.0));
+    bottomWater.setHydrostaticPressure(0.0);
     bottomWater.setDynamicPressure(0.0);
     
     spdlog::info("Initial setup:");
     spdlog::info("  Top water [2,1]: fill={:.2f} vel=({:.2f},{:.2f}) pressure={:.3f}", 
                  topWater.getFillRatio(), topWater.getVelocity().x, topWater.getVelocity().y,
-                 topWater.getDynamicPressure());
+                 topWater.getHydrostaticPressure());
     spdlog::info("  Middle water [2,2]: fill={:.2f} vel=({:.2f},{:.2f}) pressure={:.3f}", 
                  middleWater.getFillRatio(), middleWater.getVelocity().x, middleWater.getVelocity().y,
-                 middleWater.getDynamicPressure());
+                 middleWater.getHydrostaticPressure());
     spdlog::info("  Bottom water [2,3]: fill={:.2f} vel=({:.2f},{:.2f}) pressure={:.3f}", 
                  bottomWater.getFillRatio(), bottomWater.getVelocity().x, bottomWater.getVelocity().y,
-                 bottomWater.getDynamicPressure());
+                 bottomWater.getHydrostaticPressure());
     
     // Log initial test state after setup
     logInitialTestState(world.get(), "Water column ready for hydrostatic pressure testing");
@@ -280,8 +283,11 @@ TEST_F(PressureHydrostaticTest, SliceBasedHydrostaticCalculation) {
     
     // Clear any existing pressure values
     topWater.setHydrostaticPressure(0.0);
+    topWater.setDynamicPressure(0.0);
     middleWater.setHydrostaticPressure(0.0);
+    middleWater.setDynamicPressure(0.0);
     bottomWater.setHydrostaticPressure(0.0);
+    bottomWater.setDynamicPressure(0.0);
     
     spdlog::info("Before pressure calculation:");
     spdlog::info("  Top [2,1]: hydrostatic_pressure={:.3f} effective_density={:.3f}", 
@@ -364,8 +370,11 @@ TEST_F(PressureHydrostaticTest, MixedMaterialHydrostaticPressure) {
     
     // Clear any existing pressure values
     metalCell.setHydrostaticPressure(0.0);
+    metalCell.setDynamicPressure(0.0);
     waterCell.setHydrostaticPressure(0.0);
+    waterCell.setDynamicPressure(0.0);
     dirtCell.setHydrostaticPressure(0.0);
+    dirtCell.setDynamicPressure(0.0);
     
     spdlog::info("Material densities:");
     spdlog::info("  METAL [2,1]: effective_density={:.3f}", metalCell.getEffectiveDensity());
@@ -464,10 +473,13 @@ TEST_F(PressureHydrostaticTest, WaterColumnWithEmptySpace) {
     
     // Initialize with zero velocities and pressures
     topWater.setVelocity(Vector2d(0.0, 0.0));
+    topWater.setHydrostaticPressure(0.0);
     topWater.setDynamicPressure(0.0);
     middleWater.setVelocity(Vector2d(0.0, 0.0));
+    middleWater.setHydrostaticPressure(0.0);
     middleWater.setDynamicPressure(0.0);
     bottomWater.setVelocity(Vector2d(0.0, 0.0));
+    bottomWater.setHydrostaticPressure(0.0);
     bottomWater.setDynamicPressure(0.0);
     
     spdlog::info("Initial setup matching ~F WF, ~F WF, ~F -0:");

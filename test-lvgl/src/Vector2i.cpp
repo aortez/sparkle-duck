@@ -109,3 +109,13 @@ Vector2i& Vector2i::operator/=(int scalar)
     y /= scalar;
     return *this;
 }
+
+Vector2i Vector2i::operator-() const
+{
+    return Vector2i(-x, -y);
+}
+
+Vector2i Vector2i::operator+() const
+{
+    return Vector2i(x, y);
+}

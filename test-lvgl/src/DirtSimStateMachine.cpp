@@ -1,5 +1,6 @@
 #include "DirtSimStateMachine.h"
 #include "EventDispatcher.h"
+#include "WorldFactory.h"
 #include "WorldSetup.h"
 #include <chrono>
 #include <spdlog/spdlog.h>
@@ -118,6 +119,14 @@ void DirtSimStateMachine::transitionTo(State::Any newState)
 
     // Call onEnter for new state
     std::visit([this](auto& state) { callOnEnter(state); }, fsmState);
+
+    // Push UI update on state transitions if push-based system is enabled
+    if (sharedState.isPushUpdatesEnabled()) {
+        // Build update with uiState dirty flag forced on for state changes
+        UIUpdateEvent update = buildUIUpdate();
+        update.dirty.uiState = true; // Always mark UI state dirty on transitions
+        sharedState.pushUIUpdate(std::move(update));
+    }
 }
 
 // Global event handlers
@@ -153,6 +162,64 @@ State::Any DirtSimStateMachine::onEvent(const GetSimStatsCommand& /*cmd*/)
             return T{};
         },
         fsmState);
+}
+
+UIUpdateEvent DirtSimStateMachine::buildUIUpdate()
+{
+    UIUpdateEvent update;
+
+    // Sequence tracking
+    update.sequenceNum = sharedState.getNextUpdateSequence();
+
+    // Core simulation data
+    update.fps = static_cast<uint32_t>(sharedState.getCurrentFPS());
+    update.stepCount = sharedState.getCurrentStep();
+    update.stats = sharedState.getStats();
+
+    // Physics parameters - get from shared state
+    auto params = sharedState.getPhysicsParams();
+    update.physicsParams.gravity = params.gravity;
+    update.physicsParams.elasticity = params.elasticity;
+    update.physicsParams.timescale = params.timescale;
+    update.physicsParams.debugEnabled = params.debugEnabled;
+    update.physicsParams.gravityEnabled = params.gravityEnabled;
+    update.physicsParams.forceVisualizationEnabled = params.forceVisualizationEnabled;
+    update.physicsParams.cohesionEnabled = params.cohesionEnabled;
+    update.physicsParams.adhesionEnabled = params.adhesionEnabled;
+    update.physicsParams.timeHistoryEnabled = params.timeHistoryEnabled;
+
+    // UI state
+    update.isPaused = sharedState.getIsPaused();
+    update.debugEnabled = params.debugEnabled;
+    update.forceEnabled = params.forceVisualizationEnabled;
+    update.cohesionEnabled = params.cohesionEnabled;
+    update.adhesionEnabled = params.adhesionEnabled;
+    update.timeHistoryEnabled = params.timeHistoryEnabled;
+
+    // World state
+    update.selectedMaterial = sharedState.getSelectedMaterial();
+
+    // Get world type string
+    if (simulationManager) {
+        WorldType currentType = simulationManager->getCurrentWorldType();
+        update.worldType = getWorldTypeName(currentType);
+    }
+    else {
+        update.worldType = "None";
+    }
+
+    // Timestamp
+    update.timestamp = std::chrono::steady_clock::now();
+
+    // TODO: Set dirty flags based on tracking previous state
+    // For now, mark everything as dirty
+    update.dirty.fps = true;
+    update.dirty.stats = true;
+    update.dirty.physicsParams = true;
+    update.dirty.uiState = true;
+    update.dirty.worldState = true;
+
+    return update;
 }
 
 } // namespace DirtSim

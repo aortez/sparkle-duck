@@ -319,6 +319,9 @@ public:
     // Resize the simulation grid
     virtual void resizeGrid(uint32_t newWidth, uint32_t newHeight) = 0;
 
+    // Mark all cells as dirty (needing redraw)
+    virtual void markAllCellsDirty() = 0;
+
     // =================================================================
     // PERFORMANCE AND DEBUGGING
     // =================================================================

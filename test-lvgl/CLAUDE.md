@@ -50,6 +50,11 @@ make run ARGS='-b sdl -s 100'
 # otherwise it will not automatically exit.
 ./build/bin/sparkle-duck -b wayland -s 100
 ./build/bin/sparkle-duck -b sdl -s 100
+
+# Enable push-based UI updates (experimental, thread-safe)
+./build/bin/sparkle-duck -b wayland -s 100 --push-updates
+# Or use short form:
+./build/bin/sparkle-duck -b x11 -s 100 -p
 ```
 
 ### Testing
@@ -96,6 +101,7 @@ make test ARGS='--gtest_filter=WorldB*'
 - **SimulatorUI**: LVGL-based interface with real-time physics controls
 - **Interactive Elements**: Smart cell grabber with intelligent material interaction
 - **Visual Controls**: Live sliders for gravity, elasticity, pressure parameters
+- **Push-Based Updates**: Thread-safe UI update system (experimental, use --push-updates flag)
 
 ### Smart Cell Grabber
 The intelligent interaction system provides seamless material manipulation:

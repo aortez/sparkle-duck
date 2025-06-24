@@ -51,6 +51,11 @@ State::Any SimPaused::onEvent(const AdvanceSimulationCommand& /*cmd*/, DirtSimSt
         dsm.getSharedState().setCurrentStep(previousState.stepCount);
         
         spdlog::debug("SimPaused: Advanced one step to {}", previousState.stepCount);
+        
+        // Push UI update if push-based system is enabled
+        if (dsm.getSharedState().isPushUpdatesEnabled()) {
+            dsm.getSharedState().pushUIUpdate(dsm.buildUIUpdate());
+        }
     }
     
     return *this;  // Stay paused
@@ -68,6 +73,135 @@ State::Any SimPaused::onEvent(const MouseDownEvent& evt, DirtSimStateMachine& ds
 
 State::Any SimPaused::onEvent(const SelectMaterialCommand& cmd, DirtSimStateMachine& dsm) {
     dsm.getSharedState().setSelectedMaterial(cmd.material);
+    return *this;
+}
+
+// Handle immediate events routed through push system
+State::Any SimPaused::onEvent(const GetFPSCommand& /*cmd*/, DirtSimStateMachine& dsm) {
+    // FPS is already tracked in shared state and will be in next push update
+    spdlog::debug("SimPaused: GetFPSCommand - FPS will be in next update");
+    
+    // Force a push update with FPS dirty flag
+    if (dsm.getSharedState().isPushUpdatesEnabled()) {
+        UIUpdateEvent update = dsm.buildUIUpdate();
+        update.dirty.fps = true;
+        dsm.getSharedState().pushUIUpdate(std::move(update));
+    }
+    
+    return *this;
+}
+
+State::Any SimPaused::onEvent(const GetSimStatsCommand& /*cmd*/, DirtSimStateMachine& dsm) {
+    // Stats are already tracked and will be in next push update
+    spdlog::debug("SimPaused: GetSimStatsCommand - Stats will be in next update");
+    
+    // Force a push update with stats dirty flag
+    if (dsm.getSharedState().isPushUpdatesEnabled()) {
+        UIUpdateEvent update = dsm.buildUIUpdate();
+        update.dirty.stats = true;
+        dsm.getSharedState().pushUIUpdate(std::move(update));
+    }
+    
+    return *this;
+}
+
+State::Any SimPaused::onEvent(const ToggleDebugCommand& /*cmd*/, DirtSimStateMachine& dsm) {
+    // Toggle debug draw state
+    auto params = dsm.getSharedState().getPhysicsParams();
+    params.debugEnabled = !params.debugEnabled;
+    dsm.getSharedState().updatePhysicsParams(params);
+    spdlog::debug("SimPaused: ToggleDebugCommand - Debug draw now: {}", params.debugEnabled);
+    
+    // Force a push update with uiState dirty flag
+    if (dsm.getSharedState().isPushUpdatesEnabled()) {
+        UIUpdateEvent update = dsm.buildUIUpdate();
+        update.dirty.uiState = true;
+        dsm.getSharedState().pushUIUpdate(std::move(update));
+    }
+    
+    return *this;
+}
+
+State::Any SimPaused::onEvent(const ToggleForceCommand& /*cmd*/, DirtSimStateMachine& dsm) {
+    auto params = dsm.getSharedState().getPhysicsParams();
+    params.forceVisualizationEnabled = !params.forceVisualizationEnabled;
+    dsm.getSharedState().updatePhysicsParams(params);
+    spdlog::debug("SimPaused: ToggleForceCommand - Force viz now: {}", params.forceVisualizationEnabled);
+    
+    // Force a push update with physics params dirty flag
+    if (dsm.getSharedState().isPushUpdatesEnabled()) {
+        UIUpdateEvent update = dsm.buildUIUpdate();
+        update.dirty.physicsParams = true;
+        dsm.getSharedState().pushUIUpdate(std::move(update));
+    }
+    
+    return *this;
+}
+
+State::Any SimPaused::onEvent(const ToggleCohesionCommand& /*cmd*/, DirtSimStateMachine& dsm) {
+    auto params = dsm.getSharedState().getPhysicsParams();
+    params.cohesionEnabled = !params.cohesionEnabled;
+    dsm.getSharedState().updatePhysicsParams(params);
+    spdlog::debug("SimPaused: ToggleCohesionCommand - Cohesion now: {}", params.cohesionEnabled);
+    
+    // Force a push update with physics params dirty flag
+    if (dsm.getSharedState().isPushUpdatesEnabled()) {
+        UIUpdateEvent update = dsm.buildUIUpdate();
+        update.dirty.physicsParams = true;
+        dsm.getSharedState().pushUIUpdate(std::move(update));
+    }
+    
+    return *this;
+}
+
+State::Any SimPaused::onEvent(const ToggleAdhesionCommand& /*cmd*/, DirtSimStateMachine& dsm) {
+    auto params = dsm.getSharedState().getPhysicsParams();
+    params.adhesionEnabled = !params.adhesionEnabled;
+    dsm.getSharedState().updatePhysicsParams(params);
+    
+    // Update world if available
+    if (dsm.simulationManager && dsm.simulationManager->getWorld()) {
+        dsm.simulationManager->getWorld()->setAdhesionEnabled(params.adhesionEnabled);
+    }
+    
+    spdlog::debug("SimPaused: ToggleAdhesionCommand - Adhesion now: {}", params.adhesionEnabled);
+    
+    // Force a push update with physics params dirty flag
+    if (dsm.getSharedState().isPushUpdatesEnabled()) {
+        UIUpdateEvent update = dsm.buildUIUpdate();
+        update.dirty.physicsParams = true;
+        dsm.getSharedState().pushUIUpdate(std::move(update));
+    }
+    
+    return *this;
+}
+
+State::Any SimPaused::onEvent(const ToggleTimeHistoryCommand& /*cmd*/, DirtSimStateMachine& dsm) {
+    auto params = dsm.getSharedState().getPhysicsParams();
+    params.timeHistoryEnabled = !params.timeHistoryEnabled;
+    dsm.getSharedState().updatePhysicsParams(params);
+    spdlog::debug("SimPaused: ToggleTimeHistoryCommand - Time history now: {}", params.timeHistoryEnabled);
+    
+    // Force a push update with physics params dirty flag
+    if (dsm.getSharedState().isPushUpdatesEnabled()) {
+        UIUpdateEvent update = dsm.buildUIUpdate();
+        update.dirty.physicsParams = true;
+        dsm.getSharedState().pushUIUpdate(std::move(update));
+    }
+    
+    return *this;
+}
+
+State::Any SimPaused::onEvent(const PrintAsciiDiagramCommand& /*cmd*/, DirtSimStateMachine& dsm) {
+    // Get the current world and print ASCII diagram
+    if (dsm.simulationManager && dsm.simulationManager->getWorld()) {
+        std::string ascii_diagram = dsm.simulationManager->getWorld()->toAsciiDiagram();
+        spdlog::info("Current world state (ASCII diagram):\n{}", ascii_diagram);
+    }
+    else {
+        spdlog::warn("PrintAsciiDiagramCommand: No world available");
+    }
+    
     return *this;
 }
 

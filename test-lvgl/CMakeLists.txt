@@ -122,6 +122,7 @@ add_executable(sparkle-duck
     src/Timers.cpp
     src/WorldSetup.cpp
     src/SimulatorUI.cpp
+    src/UIUpdateConsumer.cpp
     src/SimulationManager.cpp
     src/UIManager.cpp
     src/MaterialType.cpp
@@ -205,6 +206,7 @@ add_executable(sparkle-duck-tests
     src/tests/PressureIntegration_test.cpp
     src/tests/PressureSimple_test.cpp
     src/tests/PressureTransmission_test.cpp
+    src/tests/PressureClassicFlow_test.cpp
     src/tests/WorldBPressureCalculator_test.cpp
     src/tests/TestUI.cpp
     src/tests/visual_test_runner.cpp
@@ -217,6 +219,14 @@ add_executable(sparkle-duck-tests
     src/tests/DualPathRoutingTests.cpp
     src/tests/IntegrationTests.cpp
     src/tests/StateTransitionTests.cpp
+    src/tests/UIUpdateQueue_test.cpp
+    src/tests/SharedSimState_PushUpdate_test.cpp
+    src/tests/UIUpdateEvent_test.cpp
+    src/tests/SimulationPushUpdate_test.cpp
+    src/tests/UIUpdateConsumer_test.cpp
+    src/tests/SimulatorUI_PushUpdate_test.cpp
+    src/tests/LVGLTimer_test.cpp
+    src/tests/SimulatorUI_test.cpp
     simple_reset_test.cpp
     src/Vector2d.cpp
     src/Vector2i.cpp
@@ -225,6 +235,7 @@ add_executable(sparkle-duck-tests
     src/Timers.cpp
     src/WorldSetup.cpp
     src/SimulatorUI.cpp
+    src/UIUpdateConsumer.cpp
     src/SimulationManager.cpp
     src/UIManager.cpp
     src/MaterialType.cpp

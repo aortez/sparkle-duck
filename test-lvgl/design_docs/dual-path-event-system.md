@@ -613,3 +613,35 @@ With Phase 5 complete, the event system is now fully integrated! The next phases
 - Phase 8: Documentation updates
 
 The foundation is solid and ready for building more complex state-based features!
+
+## Push-Based UI Update Integration (2025-06-22)
+
+The dual-path event system has been enhanced with push-based UI updates to eliminate thread safety issues:
+
+### Key Changes
+
+1. **Dual-Path Routing Enhancement**: EventRouter now supports routing immediate events through the push-based system when enabled
+   - `isPushCompatible()` method identifies migratable events
+   - Feature flag `isPushUpdatesEnabled()` controls routing behavior
+   - All 8 immediate event types can now be routed through state machine
+
+2. **Thread Safety**: Immediate events no longer directly access SharedSimState from UI thread
+   - UI updates flow through thread-safe UIUpdateQueue
+   - Latest-update-wins semantics prevent backlog
+   - 60fps LVGL timer consumes updates on UI thread
+
+3. **Backward Compatibility**: Original immediate processing path remains for gradual migration
+   - CLI flag `--push-updates` enables new system
+   - Runtime toggle via `enablePushUpdates(bool)`
+   - Easy rollback if issues arise
+
+### Testing
+
+Enable push-based updates with:
+```bash
+./build/bin/sparkle-duck --event-system --push-updates -s 100
+# Or just:
+./build/bin/sparkle-duck -p -s 100  # -p auto-enables event system
+```
+
+The dual-path system now provides a migration path from thread-unsafe immediate events to the fully thread-safe push-based architecture.
