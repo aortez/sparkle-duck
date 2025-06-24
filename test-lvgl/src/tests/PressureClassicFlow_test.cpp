@@ -77,9 +77,14 @@ TEST_F(PressureClassicFlowTest, DamBreak) {
         
         int max_x_reached = 0;
         bool dam_broken = false;
+        bool issue_detected = false;
         
         // Combined pressure build-up and flow simulation
-        runSimulationLoop(80, [this, &max_x_reached, &dam_broken](int step) {
+        runSimulationLoop(80, [this, &max_x_reached, &dam_broken, &issue_detected](int step) {
+            // Skip to end if issue already detected
+            if (issue_detected) {
+                return;
+            }
             // First 10 steps: let pressure build up
             if (step < 10) {
                 spdlog::info("Building pressure... [Step {}/10]", step + 1);
@@ -92,13 +97,37 @@ TEST_F(PressureClassicFlowTest, DamBreak) {
                             Vector2d com = cell.getCOM();
                             Vector2d vel = cell.getVelocity();
                             
-                            // COM should remain near center (0,0) of each cell
-                            EXPECT_NEAR(com.x, 0.0, 0.01) << "Water COM x should remain centered at (" << x << "," << y << ") before dam break";
-                            EXPECT_NEAR(com.y, 0.0, 0.01) << "Water COM y should remain centered at (" << x << "," << y << ") before dam break";
+                            // Check COM - should remain near center (0,0) of each cell
+                            if (std::abs(com.x) > 0.01 || std::abs(com.y) > 0.01) {
+                                spdlog::error("OFF-CENTER COM DETECTED at step {} in cell ({},{})", step, x, y);
+                                spdlog::error("  COM: ({:.4f}, {:.4f}), expected near (0, 0)", com.x, com.y);
+                                spdlog::error("  Fill ratio: {:.4f}", cell.getFillRatio());
+                                spdlog::error("  Velocity: ({:.4f}, {:.4f})", vel.x, vel.y);
+                                
+                                // Log full world state using existing functions
+                                logWorldStateAscii(world.get(), "World state at off-center COM detection");
+                                logWorldState(world.get(), "Detailed state at off-center COM");
+                                
+                                spdlog::error("TEST WILL FAIL: Off-center COM at step {} in cell ({},{})", step, x, y);
+                                issue_detected = true;
+                                return;  // Skip to end of test
+                            }
                             
-                            // Velocity should be very small (water is blocked)
-                            EXPECT_LT(std::abs(vel.x), 0.1) << "Water x-velocity should be minimal at (" << x << "," << y << ") before dam break";
-                            EXPECT_LT(std::abs(vel.y), 0.1) << "Water y-velocity should be small at (" << x << "," << y << ") before dam break";
+                            // Check velocity - should be very small (water is blocked)
+                            if (std::abs(vel.x) > 0.1 || std::abs(vel.y) > 0.1) {
+                                spdlog::error("UNEXPECTED VELOCITY DETECTED at step {} in cell ({},{})", step, x, y);
+                                spdlog::error("  Velocity: ({:.4f}, {:.4f}), expected < 0.1", vel.x, vel.y);
+                                spdlog::error("  COM: ({:.4f}, {:.4f})", com.x, com.y);
+                                spdlog::error("  Fill ratio: {:.4f}", cell.getFillRatio());
+                                
+                                // Log full world state using existing functions
+                                logWorldStateAscii(world.get(), "World state at unexpected velocity detection");
+                                logWorldState(world.get(), "Detailed state at unexpected velocity");
+                                
+                                spdlog::error("TEST WILL FAIL: Unexpected velocity at step {} in cell ({},{})", step, x, y);
+                                issue_detected = true;
+                                return;  // Skip to end of test
+                            }
                             
                             if (step == 9) {
                                 // Log final pre-break state
@@ -185,7 +214,7 @@ TEST_F(PressureClassicFlowTest, DamBreak) {
                     spdlog::info("Water reached right edge!");
                 }
             }
-        }, "Dam break flow");
+        }, "Dam break flow", [&issue_detected]() { return issue_detected; });
         
         // Debug final state
         spdlog::info("=== Final water distribution ===");
@@ -205,10 +234,128 @@ TEST_F(PressureClassicFlowTest, DamBreak) {
         }
         spdlog::info("Max x reached: {}", max_x_reached);
         
+        // Check if any issues were detected during the test
+        if (issue_detected) {
+            spdlog::error("Test completed with physics issues detected");
+            if (visual_mode_) {
+                updateDisplay(world.get(), "TEST FAILED: Physics issues detected (see logs)");
+                // Give user time to see the error before failing
+                pauseIfVisual(2000);
+            }
+            FAIL() << "Test failed due to physics issues (off-center COM or unexpected velocity)";
+        }
+        
         EXPECT_GT(max_x_reached, 2) << "Water should flow past dam location";
         
         if (visual_mode_) {
             updateDisplay(world.get(), "Test complete! Press Start to restart or Next to continue");
+            waitForRestartOrNext();
+        }
+    });
+}
+
+TEST_F(PressureClassicFlowTest, pressureEqualsGravity) {
+    // Purpose: Investigate gravity-pressure interaction in a completely blocked water system.
+    // Water blocked by walls should not gain upward velocity from pressure.
+    //
+    // Setup: 3x5 world with WALL on right side, rest filled with water
+    // Expected: COM should not move up, velocity should not point up
+    // Tests: Pressure-gravity equilibrium in static fluid
+    
+    runRestartableTest([this]() {
+        // Define dimensions for clarity
+        const int WIDTH = 3;
+        const int HEIGHT = 5;
+        
+        // Create smaller 3x5 world for this test
+        world = createWorldB(WIDTH, HEIGHT);
+        
+        // Enable both pressure systems and gravity
+        world->setDynamicPressureEnabled(true);
+        world->setHydrostaticPressureEnabled(true);
+        world->setPressureScale(10.0);
+        world->setGravity(9.81);
+        world->setWallsEnabled(false);
+        
+        spdlog::info("[TEST] pressureEqualsGravity - Testing pressure-gravity equilibrium");
+        
+        // Clear world first
+        for (uint32_t y = 0; y < HEIGHT; ++y) {
+            for (uint32_t x = 0; x < WIDTH; ++x) {
+                world->at(x, y).clear();
+            }
+        }
+        
+        // Add WALL along right side
+        for (int y = 0; y < HEIGHT; y++) {
+            world->addMaterialAtCell(WIDTH - 1, y, MaterialType::WALL, 1.0);
+        }
+        
+        // Fill rest with water
+        for (int y = 0; y < HEIGHT; y++) {
+            for (int x = 0; x < WIDTH - 1; x++) {
+                world->addMaterialAtCell(x, y, MaterialType::WATER, 1.0);
+            }
+        }
+        
+        showInitialStateWithStep(world.get(), "Water blocked by wall - testing pressure equilibrium");
+        logWorldStateAscii(world.get(), "Initial: Water fully blocked by wall");
+        
+        bool issue_detected = false;
+        
+        // Run for 10 timesteps and check each one
+        runSimulationLoop(10, [this, &issue_detected](int step) {
+            spdlog::info("=== Timestep {} ===", step);
+            
+            // Log world state after physics update
+            logWorldStateAscii(world.get(), fmt::format("After timestep {}", step));
+            
+            // Check all water cells
+            for (uint32_t y = 0; y < HEIGHT; ++y) {
+                for (uint32_t x = 0; x < WIDTH - 1; ++x) {  // Only check water cells (not the wall)
+                    const auto& cell = world->at(x, y);
+                    if (cell.getMaterialType() == MaterialType::WATER) {
+                        Vector2d com = cell.getCOM();
+                        Vector2d vel = cell.getVelocity();
+                        double hydro = cell.getHydrostaticPressure();
+                        double dynamic = cell.getDynamicPressure();
+                        
+                        spdlog::info("  Cell ({},{}) - COM: ({:.4f},{:.4f}), Vel: ({:.4f},{:.4f}), "
+                                    "Hydrostatic: {:.4f}, Dynamic: {:.4f}",
+                                    x, y, com.x, com.y, vel.x, vel.y, hydro, dynamic);
+                        
+                        // Check if COM moved up (negative y)
+                        if (com.y < -0.01) {
+                            spdlog::error("ERROR: COM moved UP at step {} in cell ({},{})", step, x, y);
+                            spdlog::error("  COM.y = {:.4f} (should be >= -0.01)", com.y);
+                            issue_detected = true;
+                        }
+                        
+                        // Check if velocity points up (negative y)
+                        if (vel.y < -0.01) {
+                            spdlog::error("ERROR: Velocity points UP at step {} in cell ({},{})", step, x, y);
+                            spdlog::error("  Velocity.y = {:.4f} (should be >= -0.01)", vel.y);
+                            issue_detected = true;
+                        }
+                    }
+                }
+            }
+            
+            if (issue_detected) {
+                logWorldState(world.get(), "Detailed state at error");
+                return; // Stop early
+            }
+        }, "Pressure-gravity equilibrium test", [&issue_detected]() { return issue_detected; });
+        
+        if (issue_detected) {
+            spdlog::error("Test failed: Water showed upward movement in blocked system");
+            FAIL() << "Water should not move upward when blocked by walls";
+        }
+        
+        spdlog::info("Test passed: Water remained stable under pressure-gravity equilibrium");
+        
+        if (visual_mode_) {
+            updateDisplay(world.get(), "Test complete! Water remained stable");
             waitForRestartOrNext();
         }
     });
