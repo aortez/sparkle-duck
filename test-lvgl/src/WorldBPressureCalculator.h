@@ -152,7 +152,7 @@ private:
     WorldB& world_ref_; // Non-const reference for modifying cells
 
     // Constants for pressure-driven flow
-    static constexpr double PRESSURE_FLOW_RATE = 10.0;    // Flow rate multiplier
+    static constexpr double PRESSURE_FLOW_RATE = 1.0;    // Flow rate multiplier
     static constexpr double PRESSURE_FORCE_SCALE = 1.0;   // Force scale factor
     static constexpr double BACKGROUND_DECAY_RATE = 0.02; // 2% decay per timestep
 };

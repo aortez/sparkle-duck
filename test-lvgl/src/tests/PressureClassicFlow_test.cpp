@@ -83,6 +83,31 @@ TEST_F(PressureClassicFlowTest, DamBreak) {
             // First 10 steps: let pressure build up
             if (step < 10) {
                 spdlog::info("Building pressure... [Step {}/10]", step + 1);
+                
+                // Verify water cells maintain centered COM and low velocity before dam break
+                for (uint32_t y = 0; y < world->getHeight(); ++y) {
+                    for (uint32_t x = 0; x < 2; ++x) {  // Only check water columns (0,1)
+                        const auto& cell = world->at(x, y);
+                        if (cell.getMaterialType() == MaterialType::WATER && cell.getFillRatio() > 0.9) {
+                            Vector2d com = cell.getCOM();
+                            Vector2d vel = cell.getVelocity();
+                            
+                            // COM should remain near center (0,0) of each cell
+                            EXPECT_NEAR(com.x, 0.0, 0.01) << "Water COM x should remain centered at (" << x << "," << y << ") before dam break";
+                            EXPECT_NEAR(com.y, 0.0, 0.01) << "Water COM y should remain centered at (" << x << "," << y << ") before dam break";
+                            
+                            // Velocity should be very small (water is blocked)
+                            EXPECT_LT(std::abs(vel.x), 0.1) << "Water x-velocity should be minimal at (" << x << "," << y << ") before dam break";
+                            EXPECT_LT(std::abs(vel.y), 0.1) << "Water y-velocity should be small at (" << x << "," << y << ") before dam break";
+                            
+                            if (step == 9) {
+                                // Log final pre-break state
+                                spdlog::debug("Cell ({},{}) before break - COM: ({:.3f},{:.3f}), Vel: ({:.3f},{:.3f})", 
+                                            x, y, com.x, com.y, vel.x, vel.y);
+                            }
+                        }
+                    }
+                }
             }
             // At step 10: break the dam
             else if (step == 10 && !dam_broken) {
