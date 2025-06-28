@@ -21,7 +21,7 @@ WorldBAdhesionCalculator::AdhesionForce WorldBAdhesionCalculator::calculateAdhes
     MaterialType strongest_attractor = MaterialType::AIR;
     double max_adhesion = 0.0;
 
-    // Check all 8 neighbors for different materials
+    // Check all 8 neighbors for different materials.
     for (int dx = -1; dx <= 1; dx++) {
         for (int dy = -1; dy <= 1; dy++) {
             if (dx == 0 && dy == 0) continue;
@@ -44,9 +44,9 @@ WorldBAdhesionCalculator::AdhesionForce WorldBAdhesionCalculator::calculateAdhes
                     Vector2d direction(static_cast<double>(dx), static_cast<double>(dy));
                     direction.normalize();
 
-                    // Force strength weighted by fill ratios and distance
+                    // Force strength weighted by fill ratios and distance.
                     double distance_weight =
-                        (std::abs(dx) + std::abs(dy) == 1) ? 1.0 : 0.707; // Adjacent vs diagonal
+                        (std::abs(dx) + std::abs(dy) == 1) ? 1.0 : 0.707; // Adjacent vs diagonal.
                     double force_strength = mutual_adhesion * neighbor.getFillRatio()
                         * cell.getFillRatio() * distance_weight;
 

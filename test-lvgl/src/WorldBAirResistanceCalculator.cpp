@@ -14,40 +14,40 @@ Vector2d WorldBAirResistanceCalculator::calculateAirResistance(
 {
     const CellB& cell = getCellAt(x, y);
 
-    // No air resistance for empty or wall cells
+    // No air resistance for empty or wall cells.
     if (cell.isEmpty() || cell.isWall()) {
         return Vector2d(0.0, 0.0);
     }
 
-    // Get cell velocity
+    // Get cell velocity.
     Vector2d velocity = cell.getVelocity();
     double velocity_magnitude = velocity.mag();
 
-    // No resistance if not moving
+    // No resistance if not moving.
     if (velocity_magnitude < MIN_MATTER_THRESHOLD) {
         return Vector2d(0.0, 0.0);
     }
 
-    // Get material properties
+    // Get material properties.
     MaterialType material = cell.getMaterialType();
     double density = getMaterialDensity(material);
 
-    // Calculate air resistance force
-    // F = -k * v² * (1/density) * v_hat
+    // Calculate air resistance force.
+    // F = -k * v² * (1/density) * v_hat.
     // Where:
-    // - k is the air resistance scalar
-    // - v² creates non-linear (quadratic) relationship with velocity
-    // - 1/density makes denser materials less affected
+    // - k is the air resistance scalar.
+    // - v² creates non-linear (quadratic) relationship with velocity.
+    // - 1/density makes denser materials less affected.
     // - v_hat is the unit vector in velocity direction (to oppose motion)
 
     Vector2d velocity_direction = velocity.normalize();
-    double density_factor = 1.0 / density; // Inverse relationship with density
+    double density_factor = 1.0 / density; // Inverse relationship with density.
     double force_magnitude = strength * velocity_magnitude * velocity_magnitude * density_factor;
 
     // Force opposes motion (negative of velocity direction)
     Vector2d air_resistance_force = velocity_direction * (-force_magnitude);
 
-    // Debug logging for significant forces
+    // Debug logging for significant forces.
     if (force_magnitude > 0.01) {
         spdlog::trace(
             "Air resistance at ({},{}) {}: velocity=({:.3f},{:.3f}), "

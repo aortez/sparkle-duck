@@ -38,18 +38,18 @@ public:
      * @return Created display handle
      */
     static lv_display_t* createTestDisplay(int width = 100, int height = 100) {
-        // Create display
+        // Create display.
         lv_display_t* disp = lv_display_create(width, height);
         
-        // Create buffer for the display (single buffered, minimal size)
-        // Static to ensure it persists for the lifetime of the display
-        static lv_color_t buf[100 * 10];  // 10 rows buffer
+        // Create buffer for the display (single buffered, minimal size).
+        // Static to ensure it persists for the lifetime of the display.
+        static lv_color_t buf[100 * 10];  // 10 rows buffer.
         lv_display_set_buffers(disp, buf, NULL, sizeof(buf), LV_DISPLAY_RENDER_MODE_PARTIAL);
         
-        // Set a dummy flush callback (required but does nothing in tests)
+        // Set a dummy flush callback (required but does nothing in tests).
         lv_display_set_flush_cb(disp, [](lv_display_t* disp, const lv_area_t* /*area*/, uint8_t* /*px_map*/) {
-            // Mark the flush as complete immediately
-            // In real applications, this would copy pixels to the display
+            // Mark the flush as complete immediately.
+            // In real applications, this would copy pixels to the display.
             lv_display_flush_ready(disp);
         });
         
@@ -58,19 +58,19 @@ public:
 
 protected:
     void SetUp() override {
-        // Initialize LVGL
+        // Initialize LVGL.
         lv_init();
         
-        // Create a minimal display for testing
+        // Create a minimal display for testing.
         display_ = createTestDisplay();
         
-        // Create and load a screen
+        // Create and load a screen.
         screen_ = lv_obj_create(NULL);
         lv_scr_load(screen_);
     }
     
     void TearDown() override {
-        // Clean up in reverse order
+        // Clean up in reverse order.
         if (screen_) {
             lv_obj_del(screen_);
             screen_ = nullptr;
@@ -96,13 +96,13 @@ protected:
      */
     void runLVGL(int duration_ms, int step_ms = 5) {
         for (int elapsed = 0; elapsed < duration_ms; elapsed += step_ms) {
-            // Advance LVGL's internal time
+            // Advance LVGL's internal time.
             lv_tick_inc(step_ms);
             
-            // Process LVGL tasks and timers
+            // Process LVGL tasks and timers.
             lv_timer_handler();
             
-            // Sleep to simulate real time passing
+            // Sleep to simulate real time passing.
             std::this_thread::sleep_for(std::chrono::milliseconds(step_ms));
         }
     }
@@ -129,7 +129,7 @@ protected:
         return false;
     }
     
-    // Protected members accessible to derived test classes
+    // Protected members accessible to derived test classes.
     lv_display_t* display_ = nullptr;
     lv_obj_t* screen_ = nullptr;
 };

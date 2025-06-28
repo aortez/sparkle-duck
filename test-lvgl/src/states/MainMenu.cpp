@@ -7,7 +7,7 @@
 namespace DirtSim {
 namespace State {
 
-// UI components for MainMenu
+// UI components for MainMenu.
 struct MainMenuUI {
     lv_obj_t* container = nullptr;
     lv_obj_t* titleLabel = nullptr;
@@ -38,18 +38,18 @@ void MainMenu::onEnter(DirtSimStateMachine& dsm) {
     menuUI = std::make_unique<MainMenuUI>();
     EventRouter* router = &dsm.getEventRouter();
     
-    // Create main container
+    // Create main container.
     menuUI->container = lv_obj_create(lv_scr_act());
     lv_obj_set_size(menuUI->container, 400, 500);
     lv_obj_center(menuUI->container);
     
-    // Title
+    // Title.
     menuUI->titleLabel = lv_label_create(menuUI->container);
     lv_label_set_text(menuUI->titleLabel, "Dirt Sim");
     lv_obj_set_style_text_font(menuUI->titleLabel, &lv_font_montserrat_24, 0);
     lv_obj_align(menuUI->titleLabel, LV_ALIGN_TOP_MID, 0, 20);
     
-    // Start button
+    // Start button.
     auto startBtnBuilder = LVGLEventBuilder::button(menuUI->container, router);
     startBtnBuilder.text("Start Simulation");
     startBtnBuilder.size(200, 50);
@@ -57,7 +57,7 @@ void MainMenu::onEnter(DirtSimStateMachine& dsm) {
     startBtnBuilder.onClick(Event{StartSimulationCommand{}});
     menuUI->startBtn = startBtnBuilder.buildOrLog();
     
-    // Config button
+    // Config button.
     auto configBtnBuilder = LVGLEventBuilder::button(menuUI->container, router);
     configBtnBuilder.text("Settings");
     configBtnBuilder.size(200, 50);
@@ -65,18 +65,18 @@ void MainMenu::onEnter(DirtSimStateMachine& dsm) {
     configBtnBuilder.onClick(Event{OpenConfigCommand{}});
     menuUI->configBtn = configBtnBuilder.buildOrLog();
     
-    // Demo button
+    // Demo button.
     auto demoBtnBuilder = LVGLEventBuilder::button(menuUI->container, router);
     demoBtnBuilder.text("Demo Mode");
     demoBtnBuilder.size(200, 50);
     demoBtnBuilder.position(0, 60, LV_ALIGN_CENTER);
     demoBtnBuilder.onClick([]() { 
         spdlog::info("Demo mode not yet implemented");
-        return Event{StartSimulationCommand{}}; // For now, just start sim
+        return Event{StartSimulationCommand{}}; // For now, just start sim.
     });
     menuUI->demoBtn = demoBtnBuilder.buildOrLog();
     
-    // Quit button
+    // Quit button.
     auto quitBtnBuilder = LVGLEventBuilder::button(menuUI->container, router);
     quitBtnBuilder.text("Quit");
     quitBtnBuilder.size(200, 50);
@@ -85,19 +85,19 @@ void MainMenu::onEnter(DirtSimStateMachine& dsm) {
     menuUI->quitBtn = quitBtnBuilder.buildOrLog();
 }
 
-void MainMenu::onExit(DirtSimStateMachine& /*dsm*/) {
+void MainMenu::onExit(DirtSimStateMachine& /*dsm. */) {
     spdlog::info("MainMenu: Cleaning up UI");
     menuUI.reset();
 }
 
-State::Any MainMenu::onEvent(const StartSimulationCommand& /*cmd*/, DirtSimStateMachine& /*dsm*/) {
+State::Any MainMenu::onEvent(const StartSimulationCommand& /*cmd*/, DirtSimStateMachine& /*dsm. */) {
     spdlog::info("MainMenu: Starting simulation");
     
-    // UI will be created by SimRunning state
+    // UI will be created by SimRunning state.
     return SimRunning{};
 }
 
-State::Any MainMenu::onEvent(const OpenConfigCommand& /*cmd*/, DirtSimStateMachine& /*dsm*/) {
+State::Any MainMenu::onEvent(const OpenConfigCommand& /*cmd*/, DirtSimStateMachine& /*dsm. */) {
     spdlog::info("MainMenu: Opening configuration");
     return Config{};
 }
@@ -108,5 +108,5 @@ State::Any MainMenu::onEvent(const SelectMaterialCommand& cmd, DirtSimStateMachi
     return *this;
 }
 
-} // namespace State
-} // namespace DirtSim
+} // namespace State.
+} // namespace DirtSim.

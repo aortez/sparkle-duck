@@ -10,7 +10,7 @@ void Shutdown::onEnter(DirtSimStateMachine& dsm) {
     spdlog::info("Shutdown: Performing cleanup");
     
     // UI cleanup happens automatically when states exit (they own their UI)
-    // Just clean up UIManager screens
+    // Just clean up UIManager screens.
     if (dsm.uiManager) {
         dsm.uiManager->clearCurrentContainer();
     }
@@ -22,15 +22,15 @@ void Shutdown::onEnter(DirtSimStateMachine& dsm) {
     
     // Clean up world (if it exists separately from SimulationManager)
     if (dsm.world) {
-        // Could save state here
+        // Could save state here.
         dsm.world.reset();
     }
     
-    // Set exit flag
+    // Set exit flag.
     dsm.getSharedState().setShouldExit(true);
     
     spdlog::info("Shutdown: Cleanup complete");
 }
 
-} // namespace State
-} // namespace DirtSim
+} // namespace State.
+} // namespace DirtSim.

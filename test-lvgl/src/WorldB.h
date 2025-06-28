@@ -34,11 +34,11 @@ public:
     WorldB(uint32_t width, uint32_t height, lv_obj_t* draw_area);
     ~WorldB();
 
-    // WorldB is not copyable due to unique_ptr members
+    // WorldB is not copyable due to unique_ptr members.
     WorldB(const WorldB&) = delete;
     WorldB& operator=(const WorldB&) = delete;
 
-    // Default move constructor and move assignment operator
+    // Default move constructor and move assignment operator.
     WorldB(WorldB&&) = default;
     WorldB& operator=(WorldB&&) = default;
 
@@ -60,7 +60,7 @@ public:
     uint32_t getHeight() const override { return height_; }
     lv_obj_t* getDrawArea() const override { return draw_area_; }
 
-    // WorldInterface cell access through CellInterface
+    // WorldInterface cell access through CellInterface.
     CellInterface& getCellInterface(uint32_t x, uint32_t y) override;
     const CellInterface& getCellInterface(uint32_t x, uint32_t y) const override;
 
@@ -81,15 +81,15 @@ public:
     void addDirtAtPixel(int pixelX, int pixelY) override;
     void addWaterAtPixel(int pixelX, int pixelY) override;
 
-    // Universal material addition (direct support for all 8 material types)
+    // Universal material addition (direct support for all 8 material types).
     void addMaterialAtPixel(
         int pixelX, int pixelY, MaterialType type, double amount = 1.0) override;
 
-    // Material selection state management
+    // Material selection state management.
     void setSelectedMaterial(MaterialType type) override { selected_material_ = type; }
     MaterialType getSelectedMaterial() const override { return selected_material_; }
 
-    // Check if cell at pixel coordinates has material
+    // Check if cell at pixel coordinates has material.
     bool hasMaterialAtPixel(int pixelX, int pixelY) const override;
 
     // =================================================================
@@ -156,18 +156,18 @@ public:
     }
     double getDynamicPressureStrength() const override { return dynamic_pressure_strength_; }
 
-    // Pressure calculator access
+    // Pressure calculator access.
     WorldBPressureCalculator& getPressureCalculator() { return pressure_calculator_; }
     const WorldBPressureCalculator& getPressureCalculator() const { return pressure_calculator_; }
 
-    // Collision calculator access
+    // Collision calculator access.
     WorldBCollisionCalculator& getCollisionCalculator() { return collision_calculator_; }
     const WorldBCollisionCalculator& getCollisionCalculator() const
     {
         return collision_calculator_;
     }
 
-    // Pressure system getters for calculator
+    // Pressure system getters for calculator.
     double getPressureScale() const { return pressure_scale_; }
     Vector2d getGravityVector() const { return Vector2d(0.0, gravity_); }
 
@@ -273,7 +273,7 @@ public:
     void setUIReference(SimulatorUI* ui) override;
     SimulatorUI* getUI() const override { return ui_ref_ ? ui_ref_ : ui_.get(); }
 
-    // World type identification
+    // World type identification.
     const char* getWorldTypeName() const override { return "WorldB (RulesB)"; }
 
     // =================================================================
@@ -334,7 +334,7 @@ public:
 
     // Calculate adhesion force from different-material neighbors
 
-    // Support calculation methods moved to WorldBSupportCalculator
+    // Support calculation methods moved to WorldBSupportCalculator.
     WorldBSupportCalculator& getSupportCalculator() { return support_calculator_; }
     const WorldBSupportCalculator& getSupportCalculator() const { return support_calculator_; }
 
@@ -354,18 +354,15 @@ private:
     // INTERNAL PHYSICS METHODS
     // =================================================================
 
-    // Physics simulation steps
     void applyGravity(double deltaTime);
     void applyAirResistance(double deltaTime);
     void applyCohesionForces(double deltaTime);
-    void resolveForces(double deltaTime); // Apply accumulated forces based on resistance
+    void resolveForces(double deltaTime);
     void updateTransfers(double deltaTime);
     void processVelocityLimiting(double deltaTime);
 
-    // Material transfer system
     void processMaterialMoves();
 
-    // Boundary wall management
     void setupBoundaryWalls();
 
     // Coordinate conversion helpers
@@ -375,9 +372,6 @@ private:
     bool isValidCell(const Vector2i& pos) const;
     size_t coordToIndex(uint32_t x, uint32_t y) const;
     size_t coordToIndex(const Vector2i& pos) const;
-
-    // World position calculation for COM cohesion forces
-    Vector2d getCellWorldPosition(uint32_t x, uint32_t y, const Vector2d& com_offset) const;
 
     // =================================================================
     // MEMBER VARIABLES
@@ -458,22 +452,22 @@ private:
 
     // Dynamic pressure system
 
-    // Performance timing
+    // Performance timing.
     mutable Timers timers_;
 
-    // Support calculation
+    // Support calculation.
     mutable WorldBSupportCalculator support_calculator_;
 
-    // Pressure calculation
+    // Pressure calculation.
     WorldBPressureCalculator pressure_calculator_;
 
-    // Collision calculation
+    // Collision calculation.
     WorldBCollisionCalculator collision_calculator_;
 
-    // Adhesion calculation
+    // Adhesion calculation.
     mutable WorldBAdhesionCalculator adhesion_calculator_;
 
-    // UI interface
+    // UI interface.
     std::unique_ptr<SimulatorUI> ui_; // Owned UI (legacy architecture)
     SimulatorUI* ui_ref_;             // Non-owning reference (SimulationManager architecture)
 };

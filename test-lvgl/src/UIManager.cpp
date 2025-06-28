@@ -10,7 +10,7 @@ UIManager::UIManager(lv_disp_t* display) : display(display)
         return;
     }
 
-    // Initialize with the default screen
+    // Initialize with the default screen.
     currentScreen = lv_disp_get_scr_act(display);
     spdlog::info("UIManager initialized with display");
 }
@@ -19,7 +19,7 @@ UIManager::~UIManager()
 {
     spdlog::info("UIManager cleanup started");
 
-    // Clean up any screens we created (not the default one)
+    // Clean up any screens we created (not the default one).
     if (simulationScreen && simulationScreen != lv_disp_get_scr_act(display)) {
         cleanupScreen(simulationScreen);
     }

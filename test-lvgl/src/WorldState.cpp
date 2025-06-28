@@ -20,7 +20,7 @@ WorldState::CellData WorldState::CellData::fromJson(const rapidjson::Value& json
         throw std::runtime_error("CellData::fromJson: JSON value must be an object");
     }
 
-    // Validate required fields
+    // Validate required fields.
     if (!json.HasMember("material_mass") || !json.HasMember("dominant_material")
         || !json.HasMember("velocity") || !json.HasMember("com")) {
         throw std::runtime_error("CellData::fromJson: Missing required fields");
@@ -43,20 +43,20 @@ rapidjson::Value WorldState::toJson(rapidjson::Document::AllocatorType& allocato
 {
     rapidjson::Value json(rapidjson::kObjectType);
 
-    // Add metadata
+    // Add metadata.
     rapidjson::Value metadata(rapidjson::kObjectType);
     metadata.AddMember("version", "1.0", allocator);
     metadata.AddMember("generator", "SparkluDuck", allocator);
     json.AddMember("metadata", metadata, allocator);
 
-    // Add grid dimensions
+    // Add grid dimensions.
     rapidjson::Value grid(rapidjson::kObjectType);
     grid.AddMember("width", width, allocator);
     grid.AddMember("height", height, allocator);
     grid.AddMember("timestep", timestep, allocator);
     json.AddMember("grid", grid, allocator);
 
-    // Add physics parameters
+    // Add physics parameters.
     rapidjson::Value physics(rapidjson::kObjectType);
     physics.AddMember("gravity", gravity, allocator);
     physics.AddMember("timescale", timescale, allocator);
@@ -66,7 +66,7 @@ rapidjson::Value WorldState::toJson(rapidjson::Document::AllocatorType& allocato
     physics.AddMember("water_pressure_threshold", water_pressure_threshold, allocator);
     json.AddMember("physics", physics, allocator);
 
-    // Add world setup flags
+    // Add world setup flags.
     rapidjson::Value setup(rapidjson::kObjectType);
     setup.AddMember("left_throw_enabled", left_throw_enabled, allocator);
     setup.AddMember("right_throw_enabled", right_throw_enabled, allocator);
@@ -78,12 +78,12 @@ rapidjson::Value WorldState::toJson(rapidjson::Document::AllocatorType& allocato
     setup.AddMember("cursor_force_enabled", cursor_force_enabled, allocator);
     json.AddMember("setup", setup, allocator);
 
-    // Add grid cell data (only non-empty cells for efficiency)
+    // Add grid cell data (only non-empty cells for efficiency).
     rapidjson::Value cells(rapidjson::kArrayType);
     for (uint32_t y = 0; y < height; ++y) {
         for (uint32_t x = 0; x < width; ++x) {
             const CellData& cell = grid_data[y][x];
-            // Only serialize cells with material content
+            // Only serialize cells with material content.
             if (cell.material_mass > 0.0 || cell.dominant_material != MaterialType::AIR) {
                 rapidjson::Value cellJson(rapidjson::kObjectType);
                 cellJson.AddMember("x", x, allocator);
@@ -104,7 +104,7 @@ WorldState WorldState::fromJson(const rapidjson::Value& json)
         throw std::runtime_error("WorldState::fromJson: JSON value must be an object");
     }
 
-    // Validate required top-level fields
+    // Validate required top-level fields.
     if (!json.HasMember("grid") || !json.HasMember("physics") || !json.HasMember("setup")
         || !json.HasMember("cells")) {
         throw std::runtime_error("WorldState::fromJson: Missing required top-level fields");
@@ -115,7 +115,7 @@ WorldState WorldState::fromJson(const rapidjson::Value& json)
     const rapidjson::Value& setup = json["setup"];
     const rapidjson::Value& cells = json["cells"];
 
-    // Validate grid section
+    // Validate grid section.
     if (!grid.IsObject() || !grid.HasMember("width") || !grid.HasMember("height")
         || !grid.HasMember("timestep")) {
         throw std::runtime_error("WorldState::fromJson: Invalid grid section");
@@ -128,11 +128,11 @@ WorldState WorldState::fromJson(const rapidjson::Value& json)
     uint32_t w = grid["width"].GetUint();
     uint32_t h = grid["height"].GetUint();
 
-    // Create WorldState with proper dimensions
+    // Create WorldState with proper dimensions.
     WorldState state(w, h);
     state.timestep = grid["timestep"].GetUint();
 
-    // Load physics parameters
+    // Load physics parameters.
     if (physics.IsObject()) {
         if (physics.HasMember("gravity") && physics["gravity"].IsNumber()) {
             state.gravity = physics["gravity"].GetDouble();
@@ -156,7 +156,7 @@ WorldState WorldState::fromJson(const rapidjson::Value& json)
         }
     }
 
-    // Load setup flags
+    // Load setup flags.
     if (setup.IsObject()) {
         if (setup.HasMember("left_throw_enabled") && setup["left_throw_enabled"].IsBool()) {
             state.left_throw_enabled = setup["left_throw_enabled"].GetBool();
@@ -185,7 +185,7 @@ WorldState WorldState::fromJson(const rapidjson::Value& json)
         }
     }
 
-    // Load cell data
+    // Load cell data.
     if (!cells.IsArray()) {
         throw std::runtime_error("WorldState::fromJson: 'cells' must be an array");
     }

@@ -1,20 +1,24 @@
 #include "visual_test_runner.h"
 #include <future>
 #include <spdlog/spdlog.h>
+#include <spdlog/sinks/stdout_color_sinks.h>
+#include <spdlog/sinks/basic_file_sink.h>
+#include <sstream>
+#include <iomanip>
 #include "../WorldB.h"
 #include "../WorldInterface.h"
 
-// External global settings used by the backend system
+// External global settings used by the backend system.
 extern simulator_settings_t settings;
 
-// VisualTestEnvironment static member definitions
+// VisualTestEnvironment static member definitions.
 bool VisualTestEnvironment::debug_logging_enabled_ = true;
 bool VisualTestEnvironment::adhesion_disabled_by_default_ = true;
 bool VisualTestEnvironment::cohesion_disabled_by_default_ = true;
 bool VisualTestEnvironment::pressure_disabled_by_default_ = true;
 bool VisualTestEnvironment::ascii_logging_enabled_ = true;
 
-// VisualTestCoordinator implementation
+// VisualTestCoordinator implementation.
 VisualTestCoordinator& VisualTestCoordinator::getInstance() {
     static VisualTestCoordinator instance;
     return instance;
@@ -95,13 +99,13 @@ void VisualTestCoordinator::postTaskSync(std::function<void()> task) {
 void VisualTestCoordinator::eventLoopFunction() {
     std::vector<std::function<void()>> local_task_queue;
     while (!should_stop_loop_.load()) {
-        // Process LVGL timer handler (includes input events and drawing)
+        // Process LVGL timer handler (includes input events and drawing).
         bool completed = false;
         if (visual_mode_enabled_) {
             completed = lv_wayland_timer_handler();
         }
 
-        // Process our tasks when LVGL is not rendering
+        // Process our tasks when LVGL is not rendering.
         {
             std::unique_lock<std::mutex> lock(task_queue_mutex_);
             if (task_queue_cv_.wait_for(lock, std::chrono::milliseconds(1), 
@@ -115,13 +119,13 @@ void VisualTestCoordinator::eventLoopFunction() {
         }
         local_task_queue.clear();
 
-        // Use the same timing as main application
+        // Use the same timing as main application.
         if (completed) {
-            // LV_DEF_REFR_PERIOD is typically 16ms (60 FPS)
-            usleep(16000); // Wait for next refresh cycle when LVGL cycle completed
+            // LV_DEF_REFR_PERIOD is typically 16ms (60 FPS).
+            usleep(16000); // Wait for next refresh cycle when LVGL cycle completed.
         } else {
-            // Shorter wait when LVGL is still processing
-            usleep(1000); // 1ms sleep to prevent busy-waiting
+            // Shorter wait when LVGL is still processing.
+            usleep(1000); // 1ms sleep to prevent busy-waiting.
         }
     }
     std::cout << "Event loop thread exiting\n";
@@ -140,19 +144,47 @@ VisualTestCoordinator::~VisualTestCoordinator() {
     finalCleanup();
 }
 
-// VisualTestEnvironment implementation
+// VisualTestEnvironment implementation.
 void VisualTestEnvironment::SetUp() {
-    // Initialize visual mode first
+    // Initialize visual mode first.
     VisualTestCoordinator::getInstance().initializeVisualMode();
     
-    // Configure universal test settings
+    // Configure universal test settings.
     if (debug_logging_enabled_) {
-        spdlog::set_level(spdlog::level::debug);
-        std::cout << "=== Universal Test Configuration ===\n";
-        std::cout << "✓ Debug logging enabled\n";
+        // Set up file and console logging similar to main application.
+        try {
+            // Create console sink with colors.
+            auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
+            console_sink->set_level(spdlog::level::info); // Console at debug level.
+
+            // Create basic file sink for tests (overwrites each run).
+            auto file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(
+                "tests.log", true);                    // true = truncate (overwrite).
+            file_sink->set_level(spdlog::level::trace); // Everything to file.
+
+            // Create logger with both sinks.
+            std::vector<spdlog::sink_ptr> sinks{ console_sink, file_sink };
+            auto logger = std::make_shared<spdlog::logger>("test-runner", sinks.begin(), sinks.end());
+
+            // Set as default logger.
+            spdlog::set_default_logger(logger);
+            spdlog::set_level(spdlog::level::trace); // Global level must be at least as low as any sink.
+            spdlog::flush_every(std::chrono::seconds(1)); // Flush every second.
+            
+            std::cout << "=== Universal Test Configuration ===\n";
+            std::cout << "✓ Debug logging enabled (console: debug, file: trace)\n";
+            std::cout << "✓ Test logs written to: tests.log\n";
+        }
+        catch (const spdlog::spdlog_ex& ex) {
+            std::cerr << "Log initialization failed: " << ex.what() << "\n";
+            // Fall back to simple console logging.
+            spdlog::set_level(spdlog::level::debug);
+            std::cout << "=== Universal Test Configuration ===\n";
+            std::cout << "✓ Debug logging enabled (console only)\n";
+        }
     }
     
-    // Display universal physics defaults
+    // Display universal physics defaults.
     std::cout << "✓ Default physics settings for ALL tests:\n";
     if (adhesion_disabled_by_default_) {
         std::cout << "  - Adhesion: DISABLED by default (tests must enable explicitly)\n";
@@ -171,12 +203,14 @@ void VisualTestEnvironment::SetUp() {
 
 void VisualTestEnvironment::TearDown() {
     VisualTestCoordinator::getInstance().finalCleanup();
+    // Ensure all logs are flushed to file before test exit.
+    spdlog::shutdown();
 }
 
 static ::testing::Environment* const visual_test_env =
     ::testing::AddGlobalTestEnvironment(new VisualTestEnvironment());
 
-// VisualTestBase implementation
+// VisualTestBase implementation.
 void VisualTestBase::SetUp() {
     auto& coordinator = VisualTestCoordinator::getInstance();
     visual_mode_ = coordinator.isVisualModeEnabled();
@@ -184,24 +218,24 @@ void VisualTestBase::SetUp() {
     current_test_name_ = std::string(test_info->test_case_name()) + "." + std::string(test_info->name());
     std::cout << "\n=== Starting Test: " << current_test_name_ << " ===\n";
     
-    // Reset restart state for each test
+    // Reset restart state for each test.
     restart_enabled_ = false;
     restart_requested_ = false;
 
     if (visual_mode_) {
-        // Store original cell size for restoration
+        // Store original cell size for restoration.
         if (original_cell_size_ == -1) {
             original_cell_size_ = Cell::WIDTH;
         }
         
-        // Clear test skip flag for new test
+        // Clear test skip flag for new test.
         test_skipped_ = false;
         
         coordinator.postTaskSync([this, &coordinator] {
             lv_obj_clean(lv_scr_act());
             ui_ = std::make_unique<TestUI>(lv_scr_act(), current_test_name_);
             ui_->initialize();
-            // Ensure UI starts in non-restart mode
+            // Ensure UI starts in non-restart mode.
             ui_->setRestartMode(false);
         });
     }
@@ -210,7 +244,7 @@ void VisualTestBase::SetUp() {
 void VisualTestBase::TearDown() {
     auto& coordinator = VisualTestCoordinator::getInstance();
     
-    // Log final world state if ASCII logging enabled and we have a UI with a world
+    // Log final world state if ASCII logging enabled and we have a UI with a world.
     if (VisualTestEnvironment::isAsciiLoggingEnabled() && ui_ && ui_->getWorld()) {
         if (ui_->getWorld()->getWorldType() == WorldType::RulesB) {
             logWorldStateAscii(static_cast<const WorldB*>(ui_->getWorld()), "Final world state");
@@ -224,7 +258,7 @@ void VisualTestBase::TearDown() {
             ui_.reset();
         });
         
-        // Restore original cell size after test
+        // Restore original cell size after test.
         if (auto_scaling_enabled_ && original_cell_size_ != -1) {
             restoreOriginalCellSize();
         }
@@ -233,7 +267,7 @@ void VisualTestBase::TearDown() {
 }
 
 std::unique_ptr<World> VisualTestBase::createWorld(uint32_t width, uint32_t height) {
-    // Apply auto-scaling before world creation
+    // Apply auto-scaling before world creation.
     if (visual_mode_ && auto_scaling_enabled_) {
         scaleDrawingAreaForWorld(width, height);
     }
@@ -255,7 +289,7 @@ std::unique_ptr<World> VisualTestBase::createWorld(uint32_t width, uint32_t heig
 }
 
 std::unique_ptr<WorldB> VisualTestBase::createWorldB(uint32_t width, uint32_t height) {
-    // Apply auto-scaling before world creation
+    // Apply auto-scaling before world creation.
     if (visual_mode_ && auto_scaling_enabled_) {
         scaleDrawingAreaForWorld(width, height);
     }
@@ -274,7 +308,7 @@ std::unique_ptr<WorldB> VisualTestBase::createWorldB(uint32_t width, uint32_t he
         world = std::make_unique<WorldB>(width, height, nullptr);
     }
     
-    // Apply universal physics defaults
+    // Apply universal physics defaults.
     if (world) {
         applyUniversalPhysicsDefaults(world.get());
     }
@@ -289,7 +323,7 @@ void VisualTestBase::runSimulation(World* world, int steps, const std::string& d
         double deltaTime = 0.016;
         
         for (int i = 0; i < steps; ++i) {
-            // Check if Next button was pressed during simulation
+            // Check if Next button was pressed during simulation.
             if (ui_ && ui_->next_pressed_.load()) {
                 spdlog::info("[TEST] Next button pressed during simulation - skipping");
                 test_skipped_ = true;
@@ -302,20 +336,20 @@ void VisualTestBase::runSimulation(World* world, int steps, const std::string& d
             
             world->advanceTime(deltaTime);
             
-            // Update visuals for every frame to ensure we see all physics behavior
+            // Update visuals for every frame to ensure we see all physics behavior.
             coordinator.postTaskSync([world, this, description, i, steps] {
                 world->draw();
-                // Update label with current progress
+                // Update label with current progress.
                 std::string status = current_test_name_ + " - " + description +
                                      " [" + std::to_string(i + 1) + "/" + std::to_string(steps) + "]";
                 if(ui_) ui_->updateTestLabel(status);
             });
             
-            // Small delay to make the animation visible (approximately 60 FPS)
+            // Small delay to make the animation visible (approximately 60 FPS).
             std::this_thread::sleep_for(std::chrono::milliseconds(16));
         }
         
-        // Enable restart after successful completion
+        // Enable restart after successful completion.
         if (ui_ && !test_skipped_) {
             enableRestartAfterCompletion();
         }
@@ -330,11 +364,11 @@ void VisualTestBase::runSimulation(World* world, int steps, const std::string& d
 void VisualTestBase::waitForStart() {
     if (visual_mode_ && ui_) {
         auto& coordinator = VisualTestCoordinator::getInstance();
-        // Reset button states and update UI on LVGL thread
+        // Reset button states and update UI on LVGL thread.
         coordinator.postTaskSync([this] {
             ui_->start_pressed_.store(false);
             ui_->next_pressed_.store(false);
-            ui_->enableNextButton();  // Enable Next button to allow skipping
+            ui_->enableNextButton();  // Enable Next button to allow skipping.
             
             if (restart_enabled_) {
                 ui_->setRestartMode(true);
@@ -345,7 +379,7 @@ void VisualTestBase::waitForStart() {
             }
         });
         
-        // Wait on the test thread (not LVGL thread) to avoid blocking events
+        // Wait on the test thread (not LVGL thread) to avoid blocking events.
         while (!ui_->start_pressed_.load() && !ui_->next_pressed_.load()) {
             std::this_thread::sleep_for(std::chrono::milliseconds(50));
         }
@@ -354,7 +388,7 @@ void VisualTestBase::waitForStart() {
             spdlog::info("[TEST] Next button pressed - skipping to next test");
             test_skipped_ = true;
             
-            // Disable Next button after skip
+            // Disable Next button after skip.
             coordinator.postTaskSync([this] {
                 ui_->disableNextButton();
                 ui_->updateButtonStatus("Test skipped");
@@ -365,7 +399,7 @@ void VisualTestBase::waitForStart() {
         spdlog::info("[TEST] Start button pressed!");
         test_skipped_ = false;
         
-        // Check if restart was requested after button press
+        // Check if restart was requested after button press.
         if (restart_enabled_) {
             restart_requested_ = ui_->restart_requested_.load();
             spdlog::info("[TEST] Restart requested: {}", restart_requested_);
@@ -382,17 +416,17 @@ void VisualTestBase::waitForStart() {
 VisualTestBase::TestAction VisualTestBase::waitForStartOrStep() {
     if (visual_mode_ && ui_) {
         auto& coordinator = VisualTestCoordinator::getInstance();
-        // Reset button states and update UI on LVGL thread
+        // Reset button states and update UI on LVGL thread.
         coordinator.postTaskSync([this] {
             ui_->start_pressed_.store(false);
             ui_->step_pressed_.store(false);
             ui_->next_pressed_.store(false);
-            ui_->enableStepButton();  // Enable Step button alongside Start
-            ui_->enableNextButton();   // Enable Next button to allow skipping
+            ui_->enableStepButton();  // Enable Step button alongside Start.
+            ui_->enableNextButton();   // Enable Next button to allow skipping.
             ui_->updateButtonStatus("Press Start to run, Step to advance manually, or Next to skip test");
         });
         
-        // Wait on the test thread for any button to be pressed
+        // Wait on the test thread for any button to be pressed.
         while (!ui_->start_pressed_.load() && !ui_->step_pressed_.load() && !ui_->next_pressed_.load()) {
             std::this_thread::sleep_for(std::chrono::milliseconds(50));
         }
@@ -401,7 +435,7 @@ VisualTestBase::TestAction VisualTestBase::waitForStartOrStep() {
             spdlog::info("[TEST] Next button pressed - skipping to next test");
             test_skipped_ = true;
             
-            // Disable buttons after skip
+            // Disable buttons after skip.
             coordinator.postTaskSync([this] {
                 ui_->disableNextButton();
                 ui_->disableStepButton();
@@ -412,7 +446,7 @@ VisualTestBase::TestAction VisualTestBase::waitForStartOrStep() {
             spdlog::info("[TEST] Start button pressed - running continuously");
             test_skipped_ = false;
             
-            // Disable Step button when Start is pressed
+            // Disable Step button when Start is pressed.
             coordinator.postTaskSync([this] {
                 ui_->disableStepButton();
                 ui_->updateButtonStatus("Running test continuously...");
@@ -423,8 +457,8 @@ VisualTestBase::TestAction VisualTestBase::waitForStartOrStep() {
             spdlog::info("[TEST] Step button pressed - entering step mode");
             test_skipped_ = false;
             
-            // Keep Start button enabled for switching to continuous mode
-            // Just enable step mode without disabling Start
+            // Keep Start button enabled for switching to continuous mode.
+            // Just enable step mode without disabling Start.
             coordinator.postTaskSync([this] {
                 ui_->setStepMode(true);
                 ui_->updateButtonStatus("Step mode active - press Step to advance, Start to run continuously");
@@ -442,21 +476,21 @@ VisualTestBase::TestAction VisualTestBase::waitForStartOrStep() {
 void VisualTestBase::waitForNext() {
     if (visual_mode_ && ui_) {
         auto& coordinator = VisualTestCoordinator::getInstance();
-        // Reset button state and enable Next button on LVGL thread
+        // Reset button state and enable Next button on LVGL thread.
         coordinator.postTaskSync([this] {
             ui_->next_pressed_.store(false);
             ui_->enableNextButton();
             ui_->updateButtonStatus("Press Next to continue");
         });
         
-        // Wait on the test thread (not LVGL thread) to avoid blocking events
+        // Wait on the test thread (not LVGL thread) to avoid blocking events.
         while (!ui_->next_pressed_.load()) {
             std::this_thread::sleep_for(std::chrono::milliseconds(50));
         }
         
         spdlog::info("[TEST] Next button pressed");
         
-        // Disable Next button after press
+        // Disable Next button after press.
         coordinator.postTaskSync([this] {
             ui_->disableNextButton();
         });
@@ -473,36 +507,36 @@ void VisualTestBase::enableRestartAfterCompletion() {
     if (visual_mode_ && ui_ && !test_skipped_) {
         auto& coordinator = VisualTestCoordinator::getInstance();
         coordinator.postTaskSync([this] {
-            // Enable restart functionality
+            // Enable restart functionality.
             ui_->setRestartMode(true);
             ui_->enableStartButton();
             ui_->start_pressed_.store(false);
             ui_->updateButtonStatus("Test complete - Press Start to restart or Next to continue");
         });
         
-        // Set restart enabled flag so the test can be rerun
+        // Set restart enabled flag so the test can be rerun.
         restart_enabled_ = true;
     }
 }
 
 bool VisualTestBase::waitForRestartOrNext() {
     if (!visual_mode_ || !ui_) {
-        return false;  // No restart in non-visual mode
+        return false;  // No restart in non-visual mode.
     }
     
-    // First enable restart functionality
+    // First enable restart functionality.
     enableRestartAfterCompletion();
     
     auto& coordinator = VisualTestCoordinator::getInstance();
     
-    // Reset button states
+    // Reset button states.
     coordinator.postTaskSync([this] {
         ui_->start_pressed_.store(false);
         ui_->next_pressed_.store(false);
         ui_->restart_requested_.store(false);
     });
     
-    // Wait for either Start (restart) or Next button
+    // Wait for either Start (restart) or Next button.
     while (!ui_->start_pressed_.load() && !ui_->next_pressed_.load()) {
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
     }
@@ -513,15 +547,15 @@ bool VisualTestBase::waitForRestartOrNext() {
             ui_->disableNextButton();
             ui_->updateButtonStatus("Moving to next test...");
         });
-        return false;  // Don't restart
+        return false;  // Don't restart.
     } else if (ui_->start_pressed_.load()) {
         spdlog::info("[TEST] Start button pressed - restarting test");
         restart_requested_ = true;
         coordinator.postTaskSync([this] {
             ui_->updateButtonStatus("Restarting test...");
-            // Keep Start button enabled for next restart
+            // Keep Start button enabled for next restart.
         });
-        return true;  // Restart the test
+        return true;  // Restart the test.
     }
     
     return false;
@@ -534,18 +568,18 @@ void VisualTestBase::stepSimulation(World* world, int steps) {
         auto& coordinator = VisualTestCoordinator::getInstance();
         
         for (int i = 0; i < steps; ++i) {
-            world->advanceTime(0.016); // ~60 FPS timestep
+            world->advanceTime(0.016); // ~60 FPS timestep.
             
-            // Update visual display for each step
+            // Update visual display for each step.
             coordinator.postTaskSync([world] {
                 world->draw();
             });
             
-            // Small delay to make step visible
+            // Small delay to make step visible.
             std::this_thread::sleep_for(std::chrono::milliseconds(50));
         }
         
-        // Update UI with step information
+        // Update UI with step information.
         if (ui_) {
             std::string status = current_test_name_ + " - Advanced " + std::to_string(steps) + " step(s)";
             coordinator.postTaskSync([this, status] {
@@ -553,7 +587,7 @@ void VisualTestBase::stepSimulation(World* world, int steps) {
             });
         }
     } else {
-        // Non-visual mode: just advance time
+        // Non-visual mode: just advance time.
         double deltaTime = 0.016;
         for (int i = 0; i < steps; ++i) {
             world->advanceTime(deltaTime);
@@ -566,18 +600,18 @@ VisualTestBase::TestAction VisualTestBase::waitForStep() {
         spdlog::info("[TEST] Waiting for Step, Start (continue), or Next button press");
         
         auto& coordinator = VisualTestCoordinator::getInstance();
-        // Reset button flags and ensure buttons are enabled
+        // Reset button flags and ensure buttons are enabled.
         coordinator.postTaskSync([this] {
             ui_->step_pressed_.store(false);
             ui_->start_pressed_.store(false);
             ui_->next_pressed_.store(false);
             ui_->enableStepButton();
-            ui_->enableStartButton();  // Keep Start enabled to allow running to completion
-            ui_->enableNextButton();   // Keep Next enabled to allow skipping
+            ui_->enableStartButton();  // Keep Start enabled to allow running to completion.
+            ui_->enableNextButton();   // Keep Next enabled to allow skipping.
             ui_->updateButtonStatus("Press Step to advance, Start to run continuously, or Next to skip");
         });
         
-        // Wait on the test thread for any button to be pressed
+        // Wait on the test thread for any button to be pressed.
         while (!ui_->step_pressed_.load() && 
                !ui_->start_pressed_.load() && 
                !ui_->next_pressed_.load()) {
@@ -590,9 +624,9 @@ VisualTestBase::TestAction VisualTestBase::waitForStep() {
         } else if (ui_->start_pressed_.load()) {
             spdlog::info("[TEST] Start button pressed - switching to continuous mode");
             
-            // Update UI to reflect continuous mode
+            // Update UI to reflect continuous mode.
             coordinator.postTaskSync([this] {
-                ui_->setStepMode(false);  // Exit step mode
+                ui_->setStepMode(false);  // Exit step mode.
                 ui_->disableStepButton();
                 ui_->updateButtonStatus("Running continuously...");
             });
@@ -602,7 +636,7 @@ VisualTestBase::TestAction VisualTestBase::waitForStep() {
             spdlog::info("[TEST] Next button pressed - skipping test");
             test_skipped_ = true;
             
-            // Disable buttons when skipping
+            // Disable buttons when skipping.
             coordinator.postTaskSync([this] {
                 ui_->disableStepButton();
                 ui_->disableNextButton();
@@ -620,21 +654,21 @@ VisualTestBase::TestAction VisualTestBase::waitForStep() {
 void VisualTestBase::scaleDrawingAreaForWorld(uint32_t world_width, uint32_t world_height) {
     if (!visual_mode_ || !auto_scaling_enabled_) return;
     
-    // Get available drawing area size from TestUI
-    const int draw_area_size = TestUI::DRAW_AREA_SIZE;  // 400 pixels
+    // Get available drawing area size from TestUI.
+    const int draw_area_size = TestUI::DRAW_AREA_SIZE;  // 400 pixels.
     
-    // Calculate optimal cell size to fit the world in the drawing area
-    // Leave some margin by using 90% of available space
+    // Calculate optimal cell size to fit the world in the drawing area.
+    // Leave some margin by using 90% of available space.
     const int usable_area = static_cast<int>(draw_area_size * 0.9);
     
     int optimal_cell_size_x = usable_area / world_width;
     int optimal_cell_size_y = usable_area / world_height;
     int optimal_cell_size = std::min(optimal_cell_size_x, optimal_cell_size_y);
     
-    // Ensure minimum readable cell size (at least 20 pixels)
+    // Ensure minimum readable cell size (at least 20 pixels).
     optimal_cell_size = std::max(optimal_cell_size, 20);
     
-    // Ensure maximum cell size doesn't exceed reasonable bounds (200 pixels)
+    // Ensure maximum cell size doesn't exceed reasonable bounds (200 pixels).
     optimal_cell_size = std::min(optimal_cell_size, 200);
     
     std::cout << "Auto-scaling: World " << world_width << "x" << world_height 
@@ -660,14 +694,14 @@ void VisualTestBase::applyUniversalPhysicsDefaults(WorldB* world) {
     
     spdlog::debug("[TEST] Applying universal physics defaults to WorldB");
     
-    // Apply adhesion defaults
+    // Apply adhesion defaults.
     if (VisualTestEnvironment::isAdhesionDisabledByDefault()) {
         world->setAdhesionEnabled(false);
         world->setAdhesionStrength(0.0);
         spdlog::debug("[TEST] - Adhesion disabled by default");
     }
     
-    // Apply cohesion defaults
+    // Apply cohesion defaults.
     if (VisualTestEnvironment::isCohesionDisabledByDefault()) {
         world->setCohesionBindForceEnabled(false);
         world->setCohesionComForceEnabled(false);
@@ -676,7 +710,7 @@ void VisualTestBase::applyUniversalPhysicsDefaults(WorldB* world) {
         spdlog::debug("[TEST] - All cohesion systems disabled by default");
     }
     
-    // Apply pressure defaults
+    // Apply pressure defaults.
     if (VisualTestEnvironment::isPressureDisabledByDefault()) {
         world->setHydrostaticPressureEnabled(false);
         world->setDynamicPressureEnabled(false);
@@ -718,7 +752,7 @@ void VisualTestBase::logInitialTestState(const World* world, const std::string& 
 void VisualTestBase::logInitialTestState(const WorldInterface* world, const std::string& test_description) {
     if (!world || !VisualTestEnvironment::isAsciiLoggingEnabled()) return;
     
-    // Try to cast to specific implementations to get ASCII diagram
+    // Try to cast to specific implementations to get ASCII diagram.
     if (auto* worldB = dynamic_cast<const WorldB*>(world)) {
         logInitialTestState(worldB, test_description);
     } else if (auto* worldA = dynamic_cast<const World*>(world)) {
@@ -731,34 +765,60 @@ void VisualTestBase::logWorldState(const WorldB* world, const std::string& conte
     
     spdlog::debug("=== World State: {} ===", context);
     double totalMass = 0.0;
-    const double PRESSURE_LOG_THRESHOLD = 0.0001;  // Very small threshold for pressure logging
+    const double PRESSURE_LOG_THRESHOLD = 0.0001;  // Very small threshold for pressure logging.
+    const double VELOCITY_LOG_THRESHOLD = 0.0001;  // Threshold for velocity logging.
     
     for (uint32_t y = 0; y < world->getHeight(); y++) {
         for (uint32_t x = 0; x < world->getWidth(); x++) {
             const CellB& cell = world->at(x, y);
-            if (cell.getFillRatio() > 0.001) {  // Only log cells with meaningful mass
-                // Check if cell has any significant pressure
-                double pressure = cell.getHydrostaticPressure() + cell.getDynamicPressure();
-                double debugPressure = cell.getDebugDynamicPressure();  // Debug pressure visualization
+            if (cell.getFillRatio() > 0.001) {  // Only log cells with meaningful mass.
+                // Build the log message dynamically based on what's present.
+                std::stringstream ss;
+                ss << "  Cell(" << x << "," << y << ") - "
+                   << "Material: " << getMaterialName(cell.getMaterialType())
+                   << ", Fill: " << std::fixed << std::setprecision(6) << cell.getFillRatio();
                 
-                if (pressure > PRESSURE_LOG_THRESHOLD || debugPressure > PRESSURE_LOG_THRESHOLD) {
-                    // Log with pressure information
-                    spdlog::debug("  Cell({},{}) - Material: {}, Fill: {:.6f}, Velocity: ({:.3f},{:.3f}), COM: ({:.3f},{:.3f}), Pressure: {:.6f}, DebugP: {:.6f}",
-                                 x, y, 
-                                 getMaterialName(cell.getMaterialType()),
-                                 cell.getFillRatio(),
-                                 cell.getVelocity().x, cell.getVelocity().y,
-                                 cell.getCOM().x, cell.getCOM().y,
-                                 pressure, debugPressure);
-                } else {
-                    // Log without pressure (original format)
-                    spdlog::debug("  Cell({},{}) - Material: {}, Fill: {:.6f}, Velocity: ({:.3f},{:.3f}), COM: ({:.3f},{:.3f})",
-                                 x, y, 
-                                 getMaterialName(cell.getMaterialType()),
-                                 cell.getFillRatio(),
-                                 cell.getVelocity().x, cell.getVelocity().y,
-                                 cell.getCOM().x, cell.getCOM().y);
+                // Only log velocity if it's non-zero.
+                const Vector2d& velocity = cell.getVelocity();
+                if (std::abs(velocity.x) > VELOCITY_LOG_THRESHOLD || 
+                    std::abs(velocity.y) > VELOCITY_LOG_THRESHOLD) {
+                    ss << ", Velocity: (" << std::fixed << std::setprecision(3) 
+                       << velocity.x << "," << velocity.y << ")";
                 }
+                
+                // Always log COM.
+                ss << ", COM: (" << std::fixed << std::setprecision(3) 
+                   << cell.getCOM().x << "," << cell.getCOM().y << ")";
+                
+                // Check if cell has any significant pressure components.
+                double hydrostaticPressure = cell.getHydrostaticPressure();
+                double dynamicPressure = cell.getDynamicPressure();
+                double debugPressure = cell.getDebugDynamicPressure();
+                const Vector2d& gradient = cell.getPressureGradient();
+                
+                bool hasPressure = (hydrostaticPressure > PRESSURE_LOG_THRESHOLD || 
+                                   dynamicPressure > PRESSURE_LOG_THRESHOLD ||
+                                   debugPressure > PRESSURE_LOG_THRESHOLD ||
+                                   gradient.magnitude() > PRESSURE_LOG_THRESHOLD);
+                
+                if (hasPressure) {
+                    // Log pressure components separately.
+                    if (hydrostaticPressure > PRESSURE_LOG_THRESHOLD) {
+                        ss << ", HydroP: " << std::fixed << std::setprecision(6) << hydrostaticPressure;
+                    }
+                    if (dynamicPressure > PRESSURE_LOG_THRESHOLD) {
+                        ss << ", DynP: " << std::fixed << std::setprecision(6) << dynamicPressure;
+                    }
+                    if (debugPressure > PRESSURE_LOG_THRESHOLD) {
+                        ss << ", DebugP: " << std::fixed << std::setprecision(6) << debugPressure;
+                    }
+                    if (gradient.magnitude() > PRESSURE_LOG_THRESHOLD) {
+                        ss << ", Gradient: (" << std::fixed << std::setprecision(6) 
+                           << gradient.x << "," << gradient.y << ")";
+                    }
+                }
+                
+                spdlog::debug(ss.str());
                 totalMass += cell.getFillRatio();
             }
         }
@@ -771,19 +831,19 @@ void VisualTestBase::logWorldState(const World* world, const std::string& contex
     
     spdlog::debug("=== World State: {} ===", context);
     double totalMass = 0.0;
-    const double PRESSURE_LOG_THRESHOLD = 0.0001;  // Very small threshold for pressure logging
+    const double PRESSURE_LOG_THRESHOLD = 0.0001;  // Very small threshold for pressure logging.
     
     for (uint32_t y = 0; y < world->getHeight(); y++) {
         for (uint32_t x = 0; x < world->getWidth(); x++) {
             const Cell& cell = world->at(x, y);
             double cellMass = cell.percentFull();
-            if (cellMass > 0.001) {  // Only log cells with meaningful mass
-                // Check if cell has any significant pressure
+            if (cellMass > 0.001) {  // Only log cells with meaningful mass.
+                // Check if cell has any significant pressure.
                 Vector2d pressureVector = cell.pressure;
                 double pressureMagnitude = pressureVector.magnitude();
                 
                 if (pressureMagnitude > PRESSURE_LOG_THRESHOLD) {
-                    // Log with pressure information
+                    // Log with pressure information.
                     spdlog::debug("  Cell({},{}) - Dirt: {:.3f}, Water: {:.3f}, Wood: {:.3f}, Leaf: {:.3f}, Metal: {:.3f}, Velocity: ({:.3f},{:.3f}), COM: ({:.3f},{:.3f}), Pressure: ({:.6f},{:.6f})",
                                  x, y, 
                                  cell.dirt, cell.water, cell.wood, cell.leaf, cell.metal,
@@ -791,7 +851,7 @@ void VisualTestBase::logWorldState(const World* world, const std::string& contex
                                  cell.com.x, cell.com.y,
                                  pressureVector.x, pressureVector.y);
                 } else {
-                    // Log without pressure (original format)
+                    // Log without pressure (original format).
                     spdlog::debug("  Cell({},{}) - Dirt: {:.3f}, Water: {:.3f}, Wood: {:.3f}, Leaf: {:.3f}, Metal: {:.3f}, Velocity: ({:.3f},{:.3f}), COM: ({:.3f},{:.3f})",
                                  x, y, 
                                  cell.dirt, cell.water, cell.wood, cell.leaf, cell.metal,
@@ -805,14 +865,14 @@ void VisualTestBase::logWorldState(const World* world, const std::string& contex
     spdlog::debug("  Total mass in world: {:.6f}", totalMass);
 }
 
-// Enhanced visual test helpers implementation
+// Enhanced visual test helpers implementation.
 void VisualTestBase::updateDisplay(WorldInterface* world, const std::string& status, bool withDelay) {
-    // Always log status if provided
+    // Always log status if provided.
     if (!status.empty()) {
         spdlog::info("[STATUS] {}", status);
     }
     
-    // Update visual display if in visual mode
+    // Update visual display if in visual mode.
     if (visual_mode_ && world) {
         auto& coordinator = VisualTestCoordinator::getInstance();
         coordinator.postTaskSync([this, world, status] {
@@ -822,7 +882,7 @@ void VisualTestBase::updateDisplay(WorldInterface* world, const std::string& sta
             }
         });
         
-        // Optional delay to ensure visual update is visible
+        // Optional delay to ensure visual update is visible.
         if (withDelay) {
             pauseIfVisual(50);
         }
@@ -833,23 +893,23 @@ void VisualTestBase::updateDisplay(WorldInterface* world, const std::string& sta
 void VisualTestBase::showInitialState(WorldInterface* world, const std::string& description) {
     if (!world) return;
     
-    // Log initial state with ASCII diagram
+    // Log initial state with ASCII diagram.
     logInitialTestState(world, description);
     
     if (visual_mode_) {
-        // Only disable restart if not already in a restart loop
-        // This preserves restart functionality when called from runRestartableTest
+        // Only disable restart if not already in a restart loop.
+        // This preserves restart functionality when called from runRestartableTest.
         if (!restart_enabled_) {
             disableTestRestart();
         }
         
-        // Update visual display
+        // Update visual display.
         updateDisplay(world, "Initial state: " + description);
         
-        // Wait for user to start
+        // Wait for user to start.
         waitForStart();
         
-        // If test was skipped, don't run it
+        // If test was skipped, don't run it.
         if (isTestSkipped()) {
             spdlog::info("[TEST] Test skipped by user");
             return;
@@ -860,31 +920,31 @@ void VisualTestBase::showInitialState(WorldInterface* world, const std::string& 
 void VisualTestBase::showInitialStateWithStep(WorldInterface* world, const std::string& description) {
     if (!world) return;
     
-    // Log initial state with ASCII diagram
+    // Log initial state with ASCII diagram.
     logInitialTestState(world, description);
     
     if (visual_mode_) {
-        // Only disable restart if not already in a restart loop
-        // This preserves restart functionality when called from runRestartableTest
+        // Only disable restart if not already in a restart loop.
+        // This preserves restart functionality when called from runRestartableTest.
         if (!restart_enabled_) {
             disableTestRestart();
         }
         
-        // Update visual display
+        // Update visual display.
         updateDisplay(world, "Initial state: " + description);
         
-        // Wait for user to choose Start or Step
+        // Wait for user to choose Start or Step.
         TestAction action = waitForStartOrStep();
         
-        // Check if test was skipped
+        // Check if test was skipped.
         if (action == TestAction::NEXT || isTestSkipped()) {
             spdlog::info("[TEST] Test skipped by user");
             return;
         }
         
-        // Store the chosen action for later use in stepSimulation
+        // Store the chosen action for later use in stepSimulation.
         if (action == TestAction::STEP) {
-            // Enable step mode in UI
+            // Enable step mode in UI.
             auto& coordinator = VisualTestCoordinator::getInstance();
             coordinator.postTaskSync([this] {
                 ui_->setStepMode(true);
@@ -900,9 +960,9 @@ void VisualTestBase::stepSimulation(WorldInterface* world, int steps, const std:
         auto& coordinator = VisualTestCoordinator::getInstance();
         
         for (int i = 0; i < steps; ++i) {
-            // In step mode, wait for user input BEFORE advancing
+            // In step mode, wait for user input BEFORE advancing.
             if (ui_ && ui_->isStepModeEnabled()) {
-                // Update status to show what's about to happen
+                // Update status to show what's about to happen.
                 std::string preStepStatus = stepDescription.empty() ? 
                     "Ready for step " + std::to_string(i + 1) + "/" + std::to_string(steps) + " - press Step" :
                     stepDescription + " [" + std::to_string(i + 1) + "/" + std::to_string(steps) + "] - press Step";
@@ -915,14 +975,14 @@ void VisualTestBase::stepSimulation(WorldInterface* world, int steps, const std:
                 
                 TestAction action = waitForStep();
                 
-                // Handle the action
+                // Handle the action.
                 if (action == TestAction::START) {
-                    // User wants to run continuously - exit step mode and run remaining steps
+                    // User wants to run continuously - exit step mode and run remaining steps.
                     spdlog::info("[TEST] Switching from step mode to continuous mode");
                     
-                    // Run remaining steps continuously
+                    // Run remaining steps continuously.
                     for (int j = i; j < steps; ++j) {
-                        // Check if Next button was pressed during continuous run
+                        // Check if Next button was pressed during continuous run.
                         if (ui_ && ui_->next_pressed_.load()) {
                             spdlog::info("[TEST] Next button pressed during continuous run - skipping");
                             test_skipped_ = true;
@@ -949,20 +1009,20 @@ void VisualTestBase::stepSimulation(WorldInterface* world, int steps, const std:
                         pauseIfVisual(100);
                     }
                     
-                    // Exit the outer loop since we've completed all steps
+                    // Exit the outer loop since we've completed all steps.
                     break;
                 } else if (action == TestAction::NEXT) {
-                    // User wants to skip - exit immediately
+                    // User wants to skip - exit immediately.
                     spdlog::info("[TEST] Skipping remaining steps");
                     return;
                 }
-                // Otherwise action == TestAction::STEP, continue stepping
+                // Otherwise action == TestAction::STEP, continue stepping.
             }
             
-            // Advance physics
-            world->advanceTime(0.016); // ~60 FPS timestep
+            // Advance physics.
+            world->advanceTime(0.016); // ~60 FPS timestep.
             
-            // Update display with progress
+            // Update display with progress.
             std::string status = stepDescription.empty() ? 
                 "Step " + std::to_string(i + 1) + "/" + std::to_string(steps) + " completed" :
                 stepDescription + " [" + std::to_string(i + 1) + "/" + std::to_string(steps) + "]";
@@ -974,9 +1034,9 @@ void VisualTestBase::stepSimulation(WorldInterface* world, int steps, const std:
                 }
             });
             
-            // In continuous mode, add small pause to make steps visible
+            // In continuous mode, add small pause to make steps visible.
             if (!ui_ || !ui_->isStepModeEnabled()) {
-                // Check if Next button was pressed during continuous run
+                // Check if Next button was pressed during continuous run.
                 if (ui_ && ui_->next_pressed_.load()) {
                     spdlog::info("[TEST] Next button pressed during continuous run - skipping");
                     test_skipped_ = true;
@@ -990,7 +1050,7 @@ void VisualTestBase::stepSimulation(WorldInterface* world, int steps, const std:
             }
         }
         
-        // Final status update and enable restart
+        // Final status update and enable restart.
         if (ui_ && !test_skipped_) {
             std::string finalStatus = stepDescription.empty() ?
                 "Completed " + std::to_string(steps) + " steps - Press Start to restart" :
@@ -998,16 +1058,16 @@ void VisualTestBase::stepSimulation(WorldInterface* world, int steps, const std:
             
             coordinator.postTaskSync([this, finalStatus] {
                 ui_->updateButtonStatus(finalStatus);
-                // Enable restart functionality
+                // Enable restart functionality.
                 ui_->setRestartMode(true);
                 ui_->enableStartButton();
                 ui_->start_pressed_.store(false);
             });
             
-            // Set restart enabled flag so the test can be rerun
+            // Set restart enabled flag so the test can be rerun.
             restart_enabled_ = true;
         } else if (ui_) {
-            // If test was skipped, just show the final status without restart option
+            // If test was skipped, just show the final status without restart option.
             std::string finalStatus = test_skipped_ ? "Test skipped" : 
                 (stepDescription.empty() ? "Completed " + std::to_string(steps) + " steps" :
                  stepDescription + " - Complete");
@@ -1017,7 +1077,7 @@ void VisualTestBase::stepSimulation(WorldInterface* world, int steps, const std:
             });
         }
     } else {
-        // Non-visual mode: just advance time
+        // Non-visual mode: just advance time.
         double deltaTime = 0.016;
         for (int i = 0; i < steps; ++i) {
             world->advanceTime(deltaTime);
@@ -1029,17 +1089,17 @@ void VisualTestBase::runContinuousSimulation(WorldInterface* world, int steps, c
     if (!world) return;
     
     if (visual_mode_) {
-        // If in step mode, use stepSimulation behavior instead
+        // If in step mode, use stepSimulation behavior instead.
         if (ui_ && ui_->isStepModeEnabled()) {
             stepSimulation(world, steps, description);
             return;
         }
         
         auto& coordinator = VisualTestCoordinator::getInstance();
-        double deltaTime = 0.016; // ~60 FPS
+        double deltaTime = 0.016; // ~60 FPS.
         
         for (int i = 0; i < steps; ++i) {
-            // Check if Next button was pressed during continuous run
+            // Check if Next button was pressed during continuous run.
             if (ui_ && ui_->next_pressed_.load()) {
                 spdlog::info("[TEST] Next button pressed during continuous simulation - skipping");
                 test_skipped_ = true;
@@ -1050,10 +1110,10 @@ void VisualTestBase::runContinuousSimulation(WorldInterface* world, int steps, c
                 return;
             }
             
-            // Advance physics
+            // Advance physics.
             world->advanceTime(deltaTime);
             
-            // Update display immediately without delay
+            // Update display immediately without delay.
             std::string status = description.empty() ? 
                 "Step " + std::to_string(i + 1) + "/" + std::to_string(steps) :
                 description + " [" + std::to_string(i + 1) + "/" + std::to_string(steps) + "]";
@@ -1065,23 +1125,23 @@ void VisualTestBase::runContinuousSimulation(WorldInterface* world, int steps, c
                 }
             });
             
-            // Sleep for consistent frame rate (16ms = ~60 FPS)
+            // Sleep for consistent frame rate (16ms = ~60 FPS).
             std::this_thread::sleep_for(std::chrono::milliseconds(16));
         }
         
-        // Final status update and enable restart
+        // Final status update and enable restart.
         if (ui_ && !test_skipped_) {
-            // Enable restart after successful completion
+            // Enable restart after successful completion.
             enableRestartAfterCompletion();
         } else if (ui_) {
-            // If test was skipped, just show the final status
+            // If test was skipped, just show the final status.
             std::string finalStatus = "Test skipped";
             coordinator.postTaskSync([this, finalStatus] {
                 ui_->updateButtonStatus(finalStatus);
             });
         }
     } else {
-        // Non-visual mode: just advance time
+        // Non-visual mode: just advance time.
         double deltaTime = 0.016;
         for (int i = 0; i < steps; ++i) {
             world->advanceTime(deltaTime);
@@ -1089,7 +1149,7 @@ void VisualTestBase::runContinuousSimulation(WorldInterface* world, int steps, c
     }
 }
 
-// Utility function for backward compatibility
+// Utility function for backward compatibility.
 bool isVisualModeEnabled() {
     return VisualTestCoordinator::getInstance().isVisualModeEnabled();
 } 

@@ -4,7 +4,7 @@
 #include "states/State.h"
 #include <spdlog/spdlog.h>
 
-// Forward declaration
+// Forward declaration.
 namespace DirtSim {
 class DirtSimStateMachine;
 }
@@ -34,13 +34,13 @@ public:
                     [&state, &dsm](auto&& evt) -> State::Any {
                         using EventType = std::decay_t<decltype(evt)>;
 
-                        // Special case for QuitApplicationCommand - always handled globally
+                        // Special case for QuitApplicationCommand - always handled globally.
                         if constexpr (std::is_same_v<EventType, QuitApplicationCommand>) {
                             spdlog::info("Dispatching QuitApplicationCommand to global handler");
                             return dsm.onEvent(evt);
                         }
 
-                        // Try state-specific handler first
+                        // Try state-specific handler first.
                         if constexpr (hasEventHandler<StateType, EventType>()) {
                             spdlog::info(
                                 "Dispatching {} to state handler in {}",
@@ -48,7 +48,7 @@ public:
                                 StateType::name());
                             return state.onEvent(evt, dsm);
                         }
-                        // Try global handler
+                        // Try global handler.
                         else if constexpr (hasGlobalHandler<EventType>()) {
                             spdlog::info(
                                 "Dispatching {} to global handler from {}",
@@ -56,7 +56,7 @@ public:
                                 StateType::name());
                             return dsm.onEvent(evt);
                         }
-                        // No handler found
+                        // No handler found.
                         else {
                             spdlog::info(
                                 "No handler for {} in state {}",
@@ -89,7 +89,7 @@ private:
     static constexpr bool hasGlobalHandler()
     {
         // Check if DirtSimStateMachine has a method onEvent that takes const Event&
-        // and returns State::Any
+        // and returns State::Any.
         if constexpr (requires(DirtSimStateMachine& dsm, const Event& e) {
                           { dsm.onEvent(e) } -> std::same_as<DirtSim::State::Any>;
                       }) {

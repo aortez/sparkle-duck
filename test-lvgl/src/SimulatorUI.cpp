@@ -23,15 +23,15 @@
 #include <cstdlib>
 #include <ctime>
 #include <fstream>
-#include <libgen.h> // For dirname
-#include <limits.h> // For PATH_MAX
-#include <unistd.h> // For readlink on Linux
+#include <libgen.h> // For dirname.
+#include <limits.h> // For PATH_MAX.
+#include <unistd.h> // For readlink on Linux.
 #include <vector>
 #include <stdexcept>
 
 using namespace DirtSim;
 
-// Forward declare lodepng functions to avoid header conflicts
+// Forward declare lodepng functions to avoid header conflicts.
 extern "C" {
 unsigned lodepng_encode24(
     unsigned char** out, size_t* outsize, const unsigned char* image, unsigned w, unsigned h);
@@ -50,7 +50,7 @@ SimulatorUI::SimulatorUI(lv_obj_t* screen, EventRouter* eventRouter)
       world_type_btnm_(nullptr),
       timescale_(1.0),
       is_paused_(false),
-      frame_limiting_enabled_(true), // Default to frame limiting enabled
+      frame_limiting_enabled_(true), // Default to frame limiting enabled.
       interaction_mode_(InteractionMode::NONE),
       paint_material_(MaterialType::DIRT)
 {}
@@ -58,7 +58,7 @@ SimulatorUI::SimulatorUI(lv_obj_t* screen, EventRouter* eventRouter)
 void SimulatorUI::setWorld(WorldInterface* world)
 {
     world_ = world;
-    // Update all existing callback data
+    // Update all existing callback data.
     for (auto& data : callback_data_storage_) {
         data->world = world_;
     }
@@ -67,7 +67,7 @@ void SimulatorUI::setWorld(WorldInterface* world)
 void SimulatorUI::setSimulationManager(SimulationManager* manager)
 {
     manager_ = manager;
-    // Update all existing callback data
+    // Update all existing callback data.
     for (auto& data : callback_data_storage_) {
         data->manager = manager_;
     }
@@ -80,7 +80,7 @@ SimulatorUI::CallbackData* SimulatorUI::createCallbackData(lv_obj_t* label)
     data->world = world_;
     data->manager = manager_;
     data->associated_label = label;
-    // Initialize radio buttons array to nullptr
+    // Initialize radio buttons array to nullptr.
     for (int i = 0; i < 3; i++) {
         data->radio_buttons[i] = nullptr;
     }
@@ -99,7 +99,7 @@ void SimulatorUI::uiUpdateTimerCb(lv_timer_t* timer)
 
 SimulatorUI::~SimulatorUI()
 {
-    // Clean up LVGL timer
+    // Clean up LVGL timer.
     if (updateTimer_) {
         lv_timer_delete(updateTimer_);
         updateTimer_ = nullptr;
@@ -108,20 +108,20 @@ SimulatorUI::~SimulatorUI()
 
 void SimulatorUI::initialize()
 {
-    // Verify LVGL is initialized
+    // Verify LVGL is initialized.
     if (!lv_is_initialized()) {
         spdlog::error("SimulatorUI::initialize() - LVGL is not initialized! Call lv_init() first.");
         throw std::runtime_error("LVGL must be initialized before creating SimulatorUI");
     }
     
-    // Verify we have a display
+    // Verify we have a display.
     if (lv_display_get_default() == nullptr) {
         spdlog::error("SimulatorUI::initialize() - No LVGL display found! Create a display before initializing UI.");
         throw std::runtime_error("LVGL requires a display to be created before UI initialization. "
                                "Use lv_display_create() or one of the display backends.");
     }
     
-    // Verify screen is valid
+    // Verify screen is valid.
     if (!screen_) {
         spdlog::error("SimulatorUI::initialize() - Invalid screen pointer!");
         throw std::runtime_error("SimulatorUI requires a valid screen object");
@@ -135,19 +135,19 @@ void SimulatorUI::initialize()
     createSliders();
     setupDrawAreaEvents();
 
-    // Set initial button matrix state based on current world type
+    // Set initial button matrix state based on current world type.
     if (world_) {
         updateWorldTypeButtonMatrix(world_->getWorldType());
     }
 
-    // Initialize push-based UI update system if enabled
+    // Initialize push-based UI update system if enabled.
     if (event_router_) {
         SharedSimState& sharedState = event_router_->getSharedSimState();
         if (sharedState.isPushUpdatesEnabled()) {
-            // Create UIUpdateConsumer
+            // Create UIUpdateConsumer.
             updateConsumer_ = std::make_unique<UIUpdateConsumer>(&sharedState, this);
 
-            // Create LVGL timer for 60fps updates (16.67ms)
+            // Create LVGL timer for 60fps updates (16.67ms).
             updateTimer_ = lv_timer_create(uiUpdateTimerCb, 16, this);
 
             spdlog::info("Push-based UI update system initialized with 60fps timer");
@@ -161,14 +161,14 @@ void SimulatorUI::createDrawArea()
         draw_area_ = LVGLEventBuilder::drawArea(screen_, event_router_)
                          .size(DRAW_AREA_SIZE, DRAW_AREA_SIZE)
                          .position(0, 0, LV_ALIGN_LEFT_MID)
-                         .onMouseEvents() // This sets up mouse down/move/up events
+                         .onMouseEvents() // This sets up mouse down/move/up events.
                          .buildOrLog();
         if (draw_area_) {
             lv_obj_set_style_pad_all(draw_area_, 0, 0);
         }
     }
     else {
-        // Fallback to old system
+        // Fallback to old system.
         draw_area_ = lv_obj_create(screen_);
         lv_obj_set_size(draw_area_, DRAW_AREA_SIZE, DRAW_AREA_SIZE);
         lv_obj_align(draw_area_, LV_ALIGN_LEFT_MID, 0, 0);
@@ -178,20 +178,20 @@ void SimulatorUI::createDrawArea()
 
 void SimulatorUI::createLabels()
 {
-    // Create mass label
+    // Create mass label.
     mass_label_ = lv_label_create(screen_);
     lv_label_set_text(mass_label_, "Total Mass: 0.00");
     lv_obj_align(mass_label_, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 10);
 
-    // Create FPS label - positioned over the world area
+    // Create FPS label - positioned over the world area.
     fps_label_ = lv_label_create(screen_);
     lv_label_set_text(fps_label_, "FPS: 0");
-    lv_obj_align(fps_label_, LV_ALIGN_TOP_LEFT, 10, 10); // Top-left corner of world area
+    lv_obj_align(fps_label_, LV_ALIGN_TOP_LEFT, 10, 10); // Top-left corner of world area.
 
-    // Create frame limiting toggle button below FPS display
+    // Create frame limiting toggle button below FPS display.
     lv_obj_t* frame_limit_btn = lv_btn_create(screen_);
     lv_obj_set_size(frame_limit_btn, 120, 30);
-    lv_obj_align(frame_limit_btn, LV_ALIGN_TOP_LEFT, 10, 40); // Below FPS label
+    lv_obj_align(frame_limit_btn, LV_ALIGN_TOP_LEFT, 10, 40); // Below FPS label.
     lv_obj_t* frame_limit_label = lv_label_create(frame_limit_btn);
     lv_label_set_text(frame_limit_label, "Limit: On");
     lv_obj_center(frame_limit_label);
@@ -201,12 +201,12 @@ void SimulatorUI::createLabels()
 
 void SimulatorUI::createWorldTypeColumn()
 {
-    // Create world type label
+    // Create world type label.
     lv_obj_t* world_type_label = lv_label_create(screen_);
     lv_label_set_text(world_type_label, "World Type:");
     lv_obj_align(world_type_label, LV_ALIGN_TOP_LEFT, WORLD_TYPE_COLUMN_X, 10);
 
-    // Create world type button matrix with vertical stack
+    // Create world type button matrix with vertical stack.
     static const char* world_btnm_map[] = { "WorldA", "\n", "WorldB", "" };
 
     if (event_router_) {
@@ -218,7 +218,7 @@ void SimulatorUI::createWorldTypeColumn()
                 .oneChecked(true)
                 .buttonCtrl(0, LV_BUTTONMATRIX_CTRL_CHECKABLE)
                 .buttonCtrl(1, LV_BUTTONMATRIX_CTRL_CHECKABLE)
-                .selectedButton(1) // WorldB is default
+                .selectedButton(1) // WorldB is default.
                 .style(
                     LV_PART_ITEMS,
                     [](lv_style_t* style) {
@@ -233,22 +233,22 @@ void SimulatorUI::createWorldTypeColumn()
                 .buildOrLog();
     }
     else {
-        // Fallback to old callback system
+        // Fallback to old callback system.
         world_type_btnm_ = lv_buttonmatrix_create(screen_);
         lv_obj_set_size(
-            world_type_btnm_, WORLD_TYPE_COLUMN_WIDTH, 100); // 100px height for vertical stack
+            world_type_btnm_, WORLD_TYPE_COLUMN_WIDTH, 100); // 100px height for vertical stack.
         lv_obj_align(world_type_btnm_, LV_ALIGN_TOP_LEFT, WORLD_TYPE_COLUMN_X, 30);
         lv_buttonmatrix_set_map(world_type_btnm_, world_btnm_map);
         lv_buttonmatrix_set_one_checked(world_type_btnm_, true);
 
-        // Make buttons checkable
+        // Make buttons checkable.
         lv_buttonmatrix_set_button_ctrl(world_type_btnm_, 0, LV_BUTTONMATRIX_CTRL_CHECKABLE);
         lv_buttonmatrix_set_button_ctrl(world_type_btnm_, 1, LV_BUTTONMATRIX_CTRL_CHECKABLE);
 
-        // Set initial selection to WorldB (default per CLAUDE.md)
+        // Set initial selection to WorldB (default per CLAUDE.md).
         lv_buttonmatrix_set_selected_button(world_type_btnm_, 1);
 
-        // Style the button matrix
+        // Style the button matrix.
         lv_obj_set_style_bg_color(world_type_btnm_, lv_color_hex(0x404040), LV_PART_ITEMS);
         lv_obj_set_style_bg_color(
             world_type_btnm_,
@@ -267,24 +267,24 @@ void SimulatorUI::createWorldTypeColumn()
 
 void SimulatorUI::createMaterialPicker()
 {
-    // Create material picker label
+    // Create material picker label.
     lv_obj_t* material_label = lv_label_create(screen_);
     lv_label_set_text(material_label, "Materials:");
     lv_obj_align(
-        material_label, LV_ALIGN_TOP_LEFT, WORLD_TYPE_COLUMN_X, 140); // Below world type buttons
+        material_label, LV_ALIGN_TOP_LEFT, WORLD_TYPE_COLUMN_X, 140); // Below world type buttons.
 
-    // Create material picker container
+    // Create material picker container.
     lv_obj_t* picker_container = lv_obj_create(screen_);
     lv_obj_set_size(
-        picker_container, WORLD_TYPE_COLUMN_WIDTH, 320); // Give enough space for 4x2 grid
-    lv_obj_align(picker_container, LV_ALIGN_TOP_LEFT, WORLD_TYPE_COLUMN_X, 160); // Below label
+        picker_container, WORLD_TYPE_COLUMN_WIDTH, 320); // Give enough space for 4x2 grid.
+    lv_obj_align(picker_container, LV_ALIGN_TOP_LEFT, WORLD_TYPE_COLUMN_X, 160); // Below label.
     lv_obj_set_style_pad_all(picker_container, 5, 0);
     lv_obj_set_style_border_width(picker_container, 1, 0);
     lv_obj_set_style_border_color(picker_container, lv_color_hex(0x606060), 0);
 
-    // Create MaterialPicker instance
+    // Create MaterialPicker instance.
     material_picker_ = std::make_unique<MaterialPicker>(picker_container);
-    material_picker_->setParentUI(this); // Set up parent UI reference for notifications
+    material_picker_->setParentUI(this); // Set up parent UI reference for notifications.
     material_picker_->createMaterialSelector();
 
     spdlog::info("Material picker created in SimulatorUI");
@@ -294,18 +294,18 @@ void SimulatorUI::onMaterialSelectionChanged(MaterialType newMaterial)
 {
     spdlog::info("Material selection changed to: {}", getMaterialName(newMaterial));
 
-    // Update the world's selected material
+    // Update the world's selected material.
     if (world_) {
         world_->setSelectedMaterial(newMaterial);
     }
 
-    // Update paint material for paint mode
+    // Update paint material for paint mode.
     paint_material_ = newMaterial;
 }
 
 void SimulatorUI::createControlButtons()
 {
-    // Create debug toggle button
+    // Create debug toggle button.
     if (event_router_) {
         debug_btn_ = LVGLEventBuilder::button(screen_, event_router_)
                          .onDebugToggle()
@@ -325,12 +325,12 @@ void SimulatorUI::createControlButtons()
         debug_btn_ = debug_btn;
     }
 
-    // === WorldA Pressure Controls ===
+    // === WorldA Pressure Controls ===.
     lv_obj_t* worldA_pressure_header = lv_label_create(screen_);
     lv_label_set_text(worldA_pressure_header, "=== WorldA Pressure ===");
     lv_obj_align(worldA_pressure_header, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 70);
 
-    // Create pressure system dropdown
+    // Create pressure system dropdown.
     lv_obj_t* pressure_label = lv_label_create(screen_);
     lv_label_set_text(pressure_label, "Pressure System:");
     lv_obj_align(pressure_label, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 95);
@@ -340,14 +340,14 @@ void SimulatorUI::createControlButtons()
     lv_obj_align(pressure_dropdown, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 115);
     lv_dropdown_set_options(
         pressure_dropdown, "Original (COM)\nTop-Down Hydrostatic\nIterative Settling");
-    lv_dropdown_set_selected(pressure_dropdown, 0); // Default to Original
+    lv_dropdown_set_selected(pressure_dropdown, 0); // Default to Original.
     lv_obj_add_event_cb(
         pressure_dropdown,
         pressureSystemDropdownEventCb,
         LV_EVENT_VALUE_CHANGED,
         createCallbackData());
 
-    // Pressure scale slider (WorldA only)
+    // Pressure scale slider (WorldA only).
     lv_obj_t* pressure_scale_label = lv_label_create(screen_);
     lv_label_set_text(pressure_scale_label, "Pressure Scale (WorldA)");
     lv_obj_align(pressure_scale_label, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 165);
@@ -367,7 +367,7 @@ void SimulatorUI::createControlButtons()
         LV_EVENT_ALL,
         createCallbackData(pressure_scale_value_label));
 
-    // Create cursor force toggle button
+    // Create cursor force toggle button.
     if (event_router_) {
         LVGLEventBuilder::button(screen_, event_router_)
             .onForceToggle()
@@ -387,18 +387,18 @@ void SimulatorUI::createControlButtons()
         lv_obj_add_event_cb(force_btn, forceBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
     }
 
-    // Create gravity toggle button
+    // Create gravity toggle button.
     if (event_router_) {
         LVGLEventBuilder::button(screen_, event_router_)
-            .onGravityToggle() // Call event method first
+            .onGravityToggle() // Call event method first.
             .size(CONTROL_WIDTH, 50)
             .position(MAIN_CONTROLS_X, 265, LV_ALIGN_TOP_LEFT)
             .text("Gravity: On")
-            .toggle(true) // Make it a toggle button
+            .toggle(true) // Make it a toggle button.
             .buildOrLog();
     }
     else {
-        // Fallback to old callback system
+        // Fallback to old callback system.
         lv_obj_t* gravity_btn = lv_btn_create(screen_);
         lv_obj_set_size(gravity_btn, CONTROL_WIDTH, 50);
         lv_obj_align(gravity_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 265);
@@ -408,7 +408,7 @@ void SimulatorUI::createControlButtons()
         lv_obj_add_event_cb(gravity_btn, gravityBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
     }
 
-    // Create cohesion toggle button
+    // Create cohesion toggle button.
     if (event_router_) {
         LVGLEventBuilder::button(screen_, event_router_)
             .onCohesionToggle()
@@ -429,7 +429,7 @@ void SimulatorUI::createControlButtons()
             cohesion_btn, cohesionBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
     }
 
-    // Create cohesion bind strength slider below the bind button
+    // Create cohesion bind strength slider below the bind button.
     lv_obj_t* bind_strength_label = lv_label_create(screen_);
     lv_label_set_text(bind_strength_label, "Bind Strength");
     lv_obj_align(bind_strength_label, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 380);
@@ -441,20 +441,20 @@ void SimulatorUI::createControlButtons()
     lv_obj_t* bind_strength_slider = lv_slider_create(screen_);
     lv_obj_set_size(bind_strength_slider, CONTROL_WIDTH, 10);
     lv_obj_align(bind_strength_slider, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 400);
-    lv_slider_set_range(bind_strength_slider, 0, 200);           // 0.0 to 2.0 range
-    lv_slider_set_value(bind_strength_slider, 100, LV_ANIM_OFF); // Default 1.0 -> 100
+    lv_slider_set_range(bind_strength_slider, 0, 200);           // 0.0 to 2.0 range.
+    lv_slider_set_value(bind_strength_slider, 100, LV_ANIM_OFF); // Default 1.0 -> 100.
     lv_obj_add_event_cb(
         bind_strength_slider,
         cohesionBindStrengthSliderEventCb,
         LV_EVENT_ALL,
         createCallbackData(bind_strength_value_label));
 
-    // Create cohesion force toggle button
-    // TODO: This currently uses the same ToggleCohesionCommand as the bind button
-    // May need separate commands for bind vs force cohesion
+    // Create cohesion force toggle button.
+    // TODO: This currently uses the same ToggleCohesionCommand as the bind button.
+    // May need separate commands for bind vs force cohesion.
     if (event_router_) {
         LVGLEventBuilder::button(screen_, event_router_)
-            .onCohesionToggle() // TODO: Create onCohesionForceToggle() for clarity
+            .onCohesionToggle() // TODO: Create onCohesionForceToggle() for clarity.
             .size(CONTROL_WIDTH, 50)
             .position(MAIN_CONTROLS_X, 415, LV_ALIGN_TOP_LEFT)
             .text("Cohesion Force: Off")
@@ -472,7 +472,7 @@ void SimulatorUI::createControlButtons()
             cohesion_force_btn, cohesionForceBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
     }
 
-    // Create COM cohesion strength slider below the force button
+    // Create COM cohesion strength slider below the force button.
     lv_obj_t* com_cohesion_strength_label = lv_label_create(screen_);
     lv_label_set_text(com_cohesion_strength_label, "Cohesion Strength");
     lv_obj_align(com_cohesion_strength_label, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 470);
@@ -484,15 +484,15 @@ void SimulatorUI::createControlButtons()
     lv_obj_t* com_cohesion_strength_slider = lv_slider_create(screen_);
     lv_obj_set_size(com_cohesion_strength_slider, CONTROL_WIDTH, 10);
     lv_obj_align(com_cohesion_strength_slider, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 490);
-    lv_slider_set_range(com_cohesion_strength_slider, 0, 30000);           // 0.0 to 300.0 range
-    lv_slider_set_value(com_cohesion_strength_slider, 15000, LV_ANIM_OFF); // Default 150.0 -> 15000
+    lv_slider_set_range(com_cohesion_strength_slider, 0, 30000);           // 0.0 to 300.0 range.
+    lv_slider_set_value(com_cohesion_strength_slider, 15000, LV_ANIM_OFF); // Default 150.0 -> 15000.
     lv_obj_add_event_cb(
         com_cohesion_strength_slider,
         cohesionForceStrengthSliderEventCb,
         LV_EVENT_ALL,
         createCallbackData(com_cohesion_strength_value_label));
 
-    // Create COM cohesion range slider
+    // Create COM cohesion range slider.
     lv_obj_t* com_range_label = lv_label_create(screen_);
     lv_label_set_text(com_range_label, "COM Range");
     lv_obj_align(com_range_label, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 530);
@@ -504,20 +504,20 @@ void SimulatorUI::createControlButtons()
     lv_obj_t* com_range_slider = lv_slider_create(screen_);
     lv_obj_set_size(com_range_slider, CONTROL_WIDTH, 10);
     lv_obj_align(com_range_slider, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 550);
-    lv_slider_set_range(com_range_slider, 1, 5);           // 1 to 5 cells range
-    lv_slider_set_value(com_range_slider, 2, LV_ANIM_OFF); // Default 2
+    lv_slider_set_range(com_range_slider, 1, 5);           // 1 to 5 cells range.
+    lv_slider_set_value(com_range_slider, 2, LV_ANIM_OFF); // Default 2.
     lv_obj_add_event_cb(
         com_range_slider,
         comCohesionRangeSliderEventCb,
         LV_EVENT_ALL,
         createCallbackData(com_range_value_label));
 
-    // Create COM cohesion mode radio buttons
+    // Create COM cohesion mode radio buttons.
     lv_obj_t* com_mode_label = lv_label_create(screen_);
     lv_label_set_text(com_mode_label, "COM Cohesion Mode:");
     lv_obj_align(com_mode_label, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 930);
 
-    // Create container for radio buttons
+    // Create container for radio buttons.
     lv_obj_t* com_mode_container = lv_obj_create(screen_);
     lv_obj_set_size(com_mode_container, 250, 80);
     lv_obj_align(com_mode_container, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 950);
@@ -525,12 +525,12 @@ void SimulatorUI::createControlButtons()
     lv_obj_set_style_border_width(com_mode_container, 0, 0);
     lv_obj_set_style_pad_all(com_mode_container, 5, 0);
 
-    // Create radio button group
+    // Create radio button group.
     lv_obj_t* radio_original = lv_checkbox_create(com_mode_container);
     lv_checkbox_set_text(radio_original, "Original");
     lv_obj_align(radio_original, LV_ALIGN_TOP_LEFT, 0, 0);
     lv_obj_add_flag(radio_original, LV_OBJ_FLAG_EVENT_BUBBLE);
-    lv_obj_add_state(radio_original, LV_STATE_CHECKED); // Default to original mode
+    lv_obj_add_state(radio_original, LV_STATE_CHECKED); // Default to original mode.
 
     lv_obj_t* radio_centering = lv_checkbox_create(com_mode_container);
     lv_checkbox_set_text(radio_centering, "Centering");
@@ -542,13 +542,13 @@ void SimulatorUI::createControlButtons()
     lv_obj_align(radio_mass_based, LV_ALIGN_TOP_LEFT, 0, 50);
     lv_obj_add_flag(radio_mass_based, LV_OBJ_FLAG_EVENT_BUBBLE);
 
-    // Store radio buttons in callback data for mutual exclusion
+    // Store radio buttons in callback data for mutual exclusion.
     CallbackData* radio_data = createCallbackData();
     radio_data->radio_buttons[0] = radio_original;
     radio_data->radio_buttons[1] = radio_centering;
     radio_data->radio_buttons[2] = radio_mass_based;
 
-    // Add callbacks to all radio buttons
+    // Add callbacks to all radio buttons.
     lv_obj_add_event_cb(
         radio_original, comCohesionModeRadioEventCb, LV_EVENT_VALUE_CHANGED, radio_data);
     lv_obj_add_event_cb(
@@ -556,7 +556,7 @@ void SimulatorUI::createControlButtons()
     lv_obj_add_event_cb(
         radio_mass_based, comCohesionModeRadioEventCb, LV_EVENT_VALUE_CHANGED, radio_data);
 
-    // Create adhesion toggle button
+    // Create adhesion toggle button.
     if (event_router_) {
         LVGLEventBuilder::button(screen_, event_router_)
             .onAdhesionToggle()
@@ -577,7 +577,7 @@ void SimulatorUI::createControlButtons()
             adhesion_btn, adhesionBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
     }
 
-    // Create adhesion strength slider
+    // Create adhesion strength slider.
     lv_obj_t* adhesion_strength_label = lv_label_create(screen_);
     lv_label_set_text(adhesion_strength_label, "Adhesion Strength");
     lv_obj_align(adhesion_strength_label, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 650);
@@ -589,15 +589,15 @@ void SimulatorUI::createControlButtons()
     lv_obj_t* adhesion_strength_slider = lv_slider_create(screen_);
     lv_obj_set_size(adhesion_strength_slider, CONTROL_WIDTH, 10);
     lv_obj_align(adhesion_strength_slider, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 670);
-    lv_slider_set_range(adhesion_strength_slider, 0, 1000);          // 0.0 to 10.0 range
-    lv_slider_set_value(adhesion_strength_slider, 500, LV_ANIM_OFF); // Default 5.0 -> 500
+    lv_slider_set_range(adhesion_strength_slider, 0, 1000);          // 0.0 to 10.0 range.
+    lv_slider_set_value(adhesion_strength_slider, 500, LV_ANIM_OFF); // Default 5.0 -> 500.
     lv_obj_add_event_cb(
         adhesion_strength_slider,
         adhesionStrengthSliderEventCb,
         LV_EVENT_ALL,
         createCallbackData(adhesion_strength_value_label));
 
-    // Create left throw toggle button
+    // Create left throw toggle button.
     lv_obj_t* left_throw_btn = lv_btn_create(screen_);
     lv_obj_set_size(left_throw_btn, CONTROL_WIDTH, 50);
     lv_obj_align(left_throw_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 690);
@@ -607,7 +607,7 @@ void SimulatorUI::createControlButtons()
     lv_obj_add_event_cb(
         left_throw_btn, leftThrowBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
 
-    // Create right throw toggle button
+    // Create right throw toggle button.
     lv_obj_t* right_throw_btn = lv_btn_create(screen_);
     lv_obj_set_size(right_throw_btn, CONTROL_WIDTH, 50);
     lv_obj_align(right_throw_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 750);
@@ -617,7 +617,7 @@ void SimulatorUI::createControlButtons()
     lv_obj_add_event_cb(
         right_throw_btn, rightThrowBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
 
-    // Create quadrant toggle button
+    // Create quadrant toggle button.
     lv_obj_t* quadrant_btn = lv_btn_create(screen_);
     lv_obj_set_size(quadrant_btn, CONTROL_WIDTH, 50);
     lv_obj_align(quadrant_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 810);
@@ -626,17 +626,17 @@ void SimulatorUI::createControlButtons()
     lv_obj_center(quadrant_label);
     lv_obj_add_event_cb(quadrant_btn, quadrantBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
 
-    // Create screenshot button
+    // Create screenshot button.
     if (event_router_) {
         LVGLEventBuilder::button(screen_, event_router_)
-            .onScreenshot() // Call event method first
+            .onScreenshot() // Call event method first.
             .size(CONTROL_WIDTH, 50)
             .position(MAIN_CONTROLS_X, 815, LV_ALIGN_TOP_LEFT)
             .text("Screenshot")
             .buildOrLog();
     }
     else {
-        // Fallback to old callback system
+        // Fallback to old callback system.
         lv_obj_t* screenshot_btn = lv_btn_create(screen_);
         lv_obj_set_size(screenshot_btn, CONTROL_WIDTH, 50);
         lv_obj_align(screenshot_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 815);
@@ -647,7 +647,7 @@ void SimulatorUI::createControlButtons()
             screenshot_btn, screenshotBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
     }
 
-    // Create print ASCII button
+    // Create print ASCII button.
     if (event_router_) {
         LVGLEventBuilder::button(screen_, event_router_)
             .onPrintAscii()
@@ -667,9 +667,9 @@ void SimulatorUI::createControlButtons()
             print_ascii_btn, printAsciiBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
     }
 
-    // Time reversal controls have been moved to slider column
+    // Time reversal controls have been moved to slider column.
 
-    // Create quit button
+    // Create quit button.
     if (event_router_) {
         auto quit_btn = LVGLEventBuilder::button(screen_, event_router_)
                             .onQuit()
@@ -695,13 +695,13 @@ void SimulatorUI::createControlButtons()
 
 void SimulatorUI::createSliders()
 {
-    // Position sliders to the right of the main control buttons
+    // Position sliders to the right of the main control buttons.
     const int SLIDER_COLUMN_X = MAIN_CONTROLS_X + CONTROL_WIDTH + 10;
 
-    // Move Pause/Resume button to top of slider column
+    // Move Pause/Resume button to top of slider column.
     if (event_router_) {
         auto pause_btn = LVGLEventBuilder::button(screen_, event_router_)
-                             .onPauseResume() // Call event method first
+                             .onPauseResume() // Call event method first.
                              .size(CONTROL_WIDTH, 50)
                              .position(SLIDER_COLUMN_X, 10, LV_ALIGN_TOP_LEFT)
                              .buildOrLog();
@@ -712,7 +712,7 @@ void SimulatorUI::createSliders()
         }
     }
     else {
-        // Fallback to old callback system
+        // Fallback to old callback system.
         lv_obj_t* pause_btn = lv_btn_create(screen_);
         lv_obj_set_size(pause_btn, CONTROL_WIDTH, 50);
         lv_obj_align(pause_btn, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 10);
@@ -722,17 +722,17 @@ void SimulatorUI::createSliders()
         lv_obj_add_event_cb(pause_btn, pauseBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
     }
 
-    // Move Reset button below Pause
+    // Move Reset button below Pause.
     if (event_router_) {
         LVGLEventBuilder::button(screen_, event_router_)
-            .onReset() // Call event method first
+            .onReset() // Call event method first.
             .size(CONTROL_WIDTH, 50)
             .position(SLIDER_COLUMN_X, 70, LV_ALIGN_TOP_LEFT)
             .text("Reset")
             .buildOrLog();
     }
     else {
-        // Fallback to old callback system
+        // Fallback to old callback system.
         lv_obj_t* reset_btn = lv_btn_create(screen_);
         lv_obj_set_size(reset_btn, CONTROL_WIDTH, 50);
         lv_obj_align(reset_btn, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 70);
@@ -742,7 +742,7 @@ void SimulatorUI::createSliders()
         lv_obj_add_event_cb(reset_btn, resetBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
     }
 
-    // Move Time History controls below Reset
+    // Move Time History controls below Reset.
     lv_obj_t* time_reversal_btn = lv_btn_create(screen_);
     lv_obj_set_size(time_reversal_btn, CONTROL_WIDTH, 30);
     lv_obj_align(time_reversal_btn, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 130);
@@ -752,7 +752,7 @@ void SimulatorUI::createSliders()
     lv_obj_add_event_cb(
         time_reversal_btn, timeReversalToggleBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
 
-    // Backward and Forward buttons below Time History
+    // Backward and Forward buttons below Time History.
     lv_obj_t* backward_btn = lv_btn_create(screen_);
     lv_obj_set_size(backward_btn, CONTROL_WIDTH / 2 - 5, 30);
     lv_obj_align(backward_btn, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 165);
@@ -769,11 +769,11 @@ void SimulatorUI::createSliders()
     lv_obj_center(forward_label);
     lv_obj_add_event_cb(forward_btn, forwardBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
 
-    // Start sliders below the moved buttons
-    // Timescale slider
+    // Start sliders below the moved buttons.
+    // Timescale slider.
     if (event_router_) {
         LVGLEventBuilder::slider(screen_, event_router_)
-            .onTimescaleChange() // Call event method first
+            .onTimescaleChange() // Call event method first.
             .position(SLIDER_COLUMN_X, 230, LV_ALIGN_TOP_LEFT)
             .size(CONTROL_WIDTH, 10)
             .range(0, 100)
@@ -783,7 +783,7 @@ void SimulatorUI::createSliders()
             .buildOrLog();
     }
     else {
-        // Fallback to old callback system
+        // Fallback to old callback system.
         lv_obj_t* slider_label = lv_label_create(screen_);
         lv_label_set_text(slider_label, "Timescale");
         lv_obj_align(slider_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 210);
@@ -804,10 +804,10 @@ void SimulatorUI::createSliders()
             createCallbackData(timescale_value_label));
     }
 
-    // Elasticity slider - migrated to EventRouter or LVGLBuilder
+    // Elasticity slider - migrated to EventRouter or LVGLBuilder.
     if (event_router_) {
         LVGLEventBuilder::slider(screen_, event_router_)
-            .onElasticityChange() // Call event method first
+            .onElasticityChange() // Call event method first.
             .position(SLIDER_COLUMN_X, 270, LV_ALIGN_TOP_LEFT)
             .size(CONTROL_WIDTH, 10)
             .range(0, 200)
@@ -817,7 +817,7 @@ void SimulatorUI::createSliders()
             .buildOrLog();
     }
     else {
-        // Fallback to LVGLBuilder
+        // Fallback to LVGLBuilder.
         [[maybe_unused]] auto elasticity_slider =
             LVGLBuilder::slider(screen_)
                 .position(SLIDER_COLUMN_X, 270)
@@ -834,7 +834,7 @@ void SimulatorUI::createSliders()
                 .buildOrLog();
     }
 
-    // Dirt fragmentation slider
+    // Dirt fragmentation slider.
     lv_obj_t* fragmentation_label = lv_label_create(screen_);
     lv_label_set_text(fragmentation_label, "Dirt Fragmentation");
     lv_obj_align(fragmentation_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 290);
@@ -854,7 +854,7 @@ void SimulatorUI::createSliders()
         LV_EVENT_ALL,
         createCallbackData(fragmentation_value_label));
 
-    // Cell size slider
+    // Cell size slider.
     lv_obj_t* cell_size_label = lv_label_create(screen_);
     lv_label_set_text(cell_size_label, "Cell Size");
     lv_obj_align(cell_size_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 330);
@@ -874,7 +874,7 @@ void SimulatorUI::createSliders()
         LV_EVENT_ALL,
         createCallbackData(cell_size_value_label));
 
-    // Rain rate slider
+    // Rain rate slider.
     lv_obj_t* rain_label = lv_label_create(screen_);
     lv_label_set_text(rain_label, "Rain Rate");
     lv_obj_align(rain_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 410);
@@ -891,7 +891,7 @@ void SimulatorUI::createSliders()
     lv_obj_add_event_cb(
         rain_slider, rainSliderEventCb, LV_EVENT_ALL, createCallbackData(rain_value_label));
 
-    // Water cohesion slider
+    // Water cohesion slider.
     lv_obj_t* cohesion_label = lv_label_create(screen_);
     lv_label_set_text(cohesion_label, "Water Cohesion");
     lv_obj_align(cohesion_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 450);
@@ -903,15 +903,15 @@ void SimulatorUI::createSliders()
     lv_obj_t* cohesion_slider = lv_slider_create(screen_);
     lv_obj_set_size(cohesion_slider, CONTROL_WIDTH, 10);
     lv_obj_align(cohesion_slider, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 470);
-    lv_slider_set_range(cohesion_slider, 0, 1000);          // 0.0 to 1.0 range
-    lv_slider_set_value(cohesion_slider, 600, LV_ANIM_OFF); // Default 0.6 -> 600
+    lv_slider_set_range(cohesion_slider, 0, 1000);          // 0.0 to 1.0 range.
+    lv_slider_set_value(cohesion_slider, 600, LV_ANIM_OFF); // Default 0.6 -> 600.
     lv_obj_add_event_cb(
         cohesion_slider,
         waterCohesionSliderEventCb,
         LV_EVENT_ALL,
         createCallbackData(cohesion_value_label));
 
-    // Water viscosity slider
+    // Water viscosity slider.
     lv_obj_t* viscosity_label = lv_label_create(screen_);
     lv_label_set_text(viscosity_label, "Water Viscosity");
     lv_obj_align(viscosity_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 490);
@@ -923,15 +923,15 @@ void SimulatorUI::createSliders()
     lv_obj_t* viscosity_slider = lv_slider_create(screen_);
     lv_obj_set_size(viscosity_slider, CONTROL_WIDTH, 10);
     lv_obj_align(viscosity_slider, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 510);
-    lv_slider_set_range(viscosity_slider, 0, 1000);          // 0.0 to 1.0 range
-    lv_slider_set_value(viscosity_slider, 100, LV_ANIM_OFF); // Default 0.1 -> 100
+    lv_slider_set_range(viscosity_slider, 0, 1000);          // 0.0 to 1.0 range.
+    lv_slider_set_value(viscosity_slider, 100, LV_ANIM_OFF); // Default 0.1 -> 100.
     lv_obj_add_event_cb(
         viscosity_slider,
         waterViscositySliderEventCb,
         LV_EVENT_ALL,
         createCallbackData(viscosity_value_label));
 
-    // Water pressure threshold slider
+    // Water pressure threshold slider.
     lv_obj_t* water_pressure_label = lv_label_create(screen_);
     lv_label_set_text(water_pressure_label, "Water Pressure Threshold");
     lv_obj_align(water_pressure_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 530);
@@ -943,15 +943,15 @@ void SimulatorUI::createSliders()
     lv_obj_t* water_pressure_slider = lv_slider_create(screen_);
     lv_obj_set_size(water_pressure_slider, CONTROL_WIDTH, 10);
     lv_obj_align(water_pressure_slider, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 550);
-    lv_slider_set_range(water_pressure_slider, 0, 1000);         // 0.0 to 0.01
-    lv_slider_set_value(water_pressure_slider, 40, LV_ANIM_OFF); // Default 0.0004 -> 40
+    lv_slider_set_range(water_pressure_slider, 0, 1000);         // 0.0 to 0.01.
+    lv_slider_set_value(water_pressure_slider, 40, LV_ANIM_OFF); // Default 0.0004 -> 40.
     lv_obj_add_event_cb(
         water_pressure_slider,
         waterPressureThresholdSliderEventCb,
         LV_EVENT_ALL,
         createCallbackData(water_pressure_value_label));
 
-    // Water buoyancy slider
+    // Water buoyancy slider.
     lv_obj_t* buoyancy_label = lv_label_create(screen_);
     lv_label_set_text(buoyancy_label, "Water Buoyancy");
     lv_obj_align(buoyancy_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 570);
@@ -963,45 +963,45 @@ void SimulatorUI::createSliders()
     lv_obj_t* buoyancy_slider = lv_slider_create(screen_);
     lv_obj_set_size(buoyancy_slider, CONTROL_WIDTH, 10);
     lv_obj_align(buoyancy_slider, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 590);
-    lv_slider_set_range(buoyancy_slider, 0, 1000);          // 0.0 to 1.0 range
-    lv_slider_set_value(buoyancy_slider, 100, LV_ANIM_OFF); // Default 0.1 -> 100
+    lv_slider_set_range(buoyancy_slider, 0, 1000);          // 0.0 to 1.0 range.
+    lv_slider_set_value(buoyancy_slider, 100, LV_ANIM_OFF); // Default 0.1 -> 100.
     lv_obj_add_event_cb(
         buoyancy_slider,
         waterBuoyancySliderEventCb,
         LV_EVENT_ALL,
         createCallbackData(buoyancy_value_label));
 
-    // === WorldB Pressure Controls ===
+    // === WorldB Pressure Controls ===.
     lv_obj_t* worldB_pressure_header = lv_label_create(screen_);
     lv_label_set_text(worldB_pressure_header, "=== WorldB Pressure ===");
     lv_obj_align(worldB_pressure_header, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 620);
 
-    // Hydrostatic pressure toggle
+    // Hydrostatic pressure toggle.
     lv_obj_t* hydrostatic_label = lv_label_create(screen_);
     lv_label_set_text(hydrostatic_label, "Hydrostatic Pressure");
     lv_obj_align(hydrostatic_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 645);
 
     lv_obj_t* hydrostatic_switch = lv_switch_create(screen_);
     lv_obj_align(hydrostatic_switch, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X + 180, 645);
-    // Default disabled to match WorldB constructor
+    // Default disabled to match WorldB constructor.
     lv_obj_add_event_cb(
         hydrostatic_switch,
         hydrostaticPressureToggleEventCb,
         LV_EVENT_VALUE_CHANGED,
         createCallbackData());
 
-    // Dynamic pressure toggle
+    // Dynamic pressure toggle.
     lv_obj_t* dynamic_label = lv_label_create(screen_);
     lv_label_set_text(dynamic_label, "Dynamic Pressure");
     lv_obj_align(dynamic_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 675);
 
     lv_obj_t* dynamic_switch = lv_switch_create(screen_);
     lv_obj_align(dynamic_switch, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X + 180, 675);
-    // Default disabled to match WorldB constructor
+    // Default disabled to match WorldB constructor.
     lv_obj_add_event_cb(
         dynamic_switch, dynamicPressureToggleEventCb, LV_EVENT_VALUE_CHANGED, createCallbackData());
 
-    // Hydrostatic pressure strength slider (WorldB only)
+    // Hydrostatic pressure strength slider (WorldB only).
     lv_obj_t* hydrostatic_strength_label = lv_label_create(screen_);
     lv_label_set_text(hydrostatic_strength_label, "Hydrostatic Strength");
     lv_obj_align(hydrostatic_strength_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 715);
@@ -1013,28 +1013,28 @@ void SimulatorUI::createSliders()
     lv_obj_t* hydrostatic_strength_slider = lv_slider_create(screen_);
     lv_obj_set_size(hydrostatic_strength_slider, CONTROL_WIDTH, 10);
     lv_obj_align(hydrostatic_strength_slider, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 735);
-    lv_slider_set_range(hydrostatic_strength_slider, 0, 300);           // 0.0 to 3.0 range
-    lv_slider_set_value(hydrostatic_strength_slider, 100, LV_ANIM_OFF); // Default 1.0 -> 100
+    lv_slider_set_range(hydrostatic_strength_slider, 0, 300);           // 0.0 to 3.0 range.
+    lv_slider_set_value(hydrostatic_strength_slider, 100, LV_ANIM_OFF); // Default 1.0 -> 100.
     lv_obj_add_event_cb(
         hydrostatic_strength_slider,
         hydrostaticPressureStrengthSliderEventCb,
         LV_EVENT_ALL,
         createCallbackData(hydrostatic_strength_value_label));
 
-    // Dynamic pressure strength slider (WorldB only) - migrated to EventRouter
+    // Dynamic pressure strength slider (WorldB only) - migrated to EventRouter.
     if (event_router_) {
         LVGLEventBuilder::slider(screen_, event_router_)
-            .onDynamicStrengthChange() // Uses new event system
+            .onDynamicStrengthChange() // Uses new event system.
             .position(SLIDER_COLUMN_X, 785, LV_ALIGN_TOP_LEFT)
             .size(CONTROL_WIDTH, 10)
-            .range(0, 300) // 0.0 to 3.0 range
-            .value(100)    // Default 1.0 -> 100
+            .range(0, 300) // 0.0 to 3.0 range.
+            .value(100)    // Default 1.0 -> 100.
             .label("Dynamic Strength", SLIDER_COLUMN_X, 765)
             .valueLabel("%.1f", SLIDER_COLUMN_X + 140, 765)
             .buildOrLog();
     }
     else {
-        // Fallback to old callback system
+        // Fallback to old callback system.
         lv_obj_t* dynamic_strength_label = lv_label_create(screen_);
         lv_label_set_text(dynamic_strength_label, "Dynamic Strength");
         lv_obj_align(dynamic_strength_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 765);
@@ -1046,8 +1046,8 @@ void SimulatorUI::createSliders()
         lv_obj_t* dynamic_strength_slider = lv_slider_create(screen_);
         lv_obj_set_size(dynamic_strength_slider, CONTROL_WIDTH, 10);
         lv_obj_align(dynamic_strength_slider, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 785);
-        lv_slider_set_range(dynamic_strength_slider, 0, 300);           // 0.0 to 3.0 range
-        lv_slider_set_value(dynamic_strength_slider, 100, LV_ANIM_OFF); // Default 1.0 -> 100
+        lv_slider_set_range(dynamic_strength_slider, 0, 300);           // 0.0 to 3.0 range.
+        lv_slider_set_value(dynamic_strength_slider, 100, LV_ANIM_OFF); // Default 1.0 -> 100.
         lv_obj_add_event_cb(
             dynamic_strength_slider,
             dynamicPressureStrengthSliderEventCb,
@@ -1055,7 +1055,7 @@ void SimulatorUI::createSliders()
             createCallbackData(dynamic_strength_value_label));
     }
 
-    // Air resistance slider
+    // Air resistance slider.
     lv_obj_t* air_resistance_label = lv_label_create(screen_);
     lv_label_set_text(air_resistance_label, "Air Resistance");
     lv_obj_align(air_resistance_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 815);
@@ -1067,8 +1067,8 @@ void SimulatorUI::createSliders()
     lv_obj_t* air_resistance_slider = lv_slider_create(screen_);
     lv_obj_set_size(air_resistance_slider, CONTROL_WIDTH, 10);
     lv_obj_align(air_resistance_slider, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 835);
-    lv_slider_set_range(air_resistance_slider, 0, 100);          // 0.0 to 1.0 range
-    lv_slider_set_value(air_resistance_slider, 10, LV_ANIM_OFF); // Default 0.1 -> 10
+    lv_slider_set_range(air_resistance_slider, 0, 100);          // 0.0 to 1.0 range.
+    lv_slider_set_value(air_resistance_slider, 10, LV_ANIM_OFF); // Default 0.1 -> 10.
     lv_obj_add_event_cb(
         air_resistance_slider,
         airResistanceSliderEventCb,
@@ -1078,13 +1078,13 @@ void SimulatorUI::createSliders()
 
 void SimulatorUI::setupDrawAreaEvents()
 {
-    // Only set up old callbacks if not using event router
+    // Only set up old callbacks if not using event router.
     if (!event_router_) {
         lv_obj_add_event_cb(draw_area_, drawAreaEventCb, LV_EVENT_PRESSED, createCallbackData());
         lv_obj_add_event_cb(draw_area_, drawAreaEventCb, LV_EVENT_PRESSING, createCallbackData());
         lv_obj_add_event_cb(draw_area_, drawAreaEventCb, LV_EVENT_RELEASED, createCallbackData());
     }
-    // If using event router, events were already set up in createDrawArea()
+    // If using event router, events were already set up in createDrawArea().
 }
 
 void SimulatorUI::updateMassLabel(double totalMass)
@@ -1108,68 +1108,68 @@ void SimulatorUI::updateDebugButton()
 
 void SimulatorUI::applyUpdate(const UIUpdateEvent& update)
 {
-    // Use dirty flags to update only what has changed for efficiency
+    // Use dirty flags to update only what has changed for efficiency.
 
-    // Update FPS label if FPS changed
+    // Update FPS label if FPS changed.
     if (update.dirty.fps) {
         updateFPSLabel(update.fps);
     }
 
-    // Update simulation stats if they changed
+    // Update simulation stats if they changed.
     if (update.dirty.stats) {
-        // Update total mass label
+        // Update total mass label.
         updateMassLabel(update.stats.totalMass);
 
-        // Note: Other stats like cell counts, pressure, etc. could be displayed
+        // Note: Other stats like cell counts, pressure, etc. could be displayed.
         // if we had UI elements for them. For now we just update mass.
     }
 
-    // Update UI state elements if they changed
+    // Update UI state elements if they changed.
     if (update.dirty.uiState) {
-        // Update pause label
+        // Update pause label.
         if (pause_label_) {
             lv_label_set_text(pause_label_, update.isPaused ? "Paused" : "Running");
         }
 
-        // Update debug button
+        // Update debug button.
         if (update.debugEnabled != Cell::debugDraw) {
             Cell::debugDraw = update.debugEnabled;
             updateDebugButton();
         }
 
-        // Update other toggle states
-        // Note: These affect the world state directly, so we need to be careful
+        // Update other toggle states.
+        // Note: These affect the world state directly, so we need to be careful.
         // about thread safety. For now, we'll just track the state.
-        // TODO: Consider if these should be applied to the world or just displayed
+        // TODO: Consider if these should be applied to the world or just displayed.
 
-        // Force visualization - this would need a force button/label to update
-        // update.forceEnabled
+        // Force visualization - this would need a force button/label to update.
+        // update.forceEnabled.
 
-        // Cohesion enabled - this would need a cohesion button/label to update
-        // update.cohesionEnabled
+        // Cohesion enabled - this would need a cohesion button/label to update.
+        // update.cohesionEnabled.
 
-        // Adhesion enabled - this would need an adhesion button/label to update
-        // update.adhesionEnabled
+        // Adhesion enabled - this would need an adhesion button/label to update.
+        // update.adhesionEnabled.
 
-        // Time history enabled - this would need a time history button/label to update
-        // update.timeHistoryEnabled
+        // Time history enabled - this would need a time history button/label to update.
+        // update.timeHistoryEnabled.
     }
 
-    // Update physics parameters if they changed
+    // Update physics parameters if they changed.
     if (update.dirty.physicsParams) {
-        // These parameters affect simulation behavior
-        // For UI display, we might want to update slider positions
-        // if they were changed programmatically
+        // These parameters affect simulation behavior.
+        // For UI display, we might want to update slider positions.
+        // if they were changed programmatically.
 
-        // update.physicsParams.gravity
-        // update.physicsParams.elasticity
-        // update.physicsParams.timescale
+        // update.physicsParams.gravity.
+        // update.physicsParams.elasticity.
+        // update.physicsParams.timescale.
         // etc.
     }
 
-    // Update world state if it changed
+    // Update world state if it changed.
     if (update.dirty.worldState) {
-        // Update world type button matrix
+        // Update world type button matrix.
         if (update.worldType == "WorldA") {
             updateWorldTypeButtonMatrix(WorldType::RulesA);
         }
@@ -1177,13 +1177,13 @@ void SimulatorUI::applyUpdate(const UIUpdateEvent& update)
             updateWorldTypeButtonMatrix(WorldType::RulesB);
         }
 
-        // Update material picker if selected material changed
+        // Update material picker if selected material changed.
         if (material_picker_ && world_) {
-            // Check if the selected material actually changed
+            // Check if the selected material actually changed.
             MaterialType currentMaterial = world_->getSelectedMaterial();
             if (currentMaterial != update.selectedMaterial) {
-                // This might need synchronization or deferred update
-                // For now, just log the discrepancy
+                // This might need synchronization or deferred update.
+                // For now, just log the discrepancy.
                 spdlog::trace(
                     "Selected material mismatch: UI has {}, update has {}",
                     static_cast<int>(currentMaterial),
@@ -1192,7 +1192,7 @@ void SimulatorUI::applyUpdate(const UIUpdateEvent& update)
         }
     }
 }
-// Static event callback implementations
+// Static event callback implementations.
 void SimulatorUI::drawAreaEventCb(lv_event_t* e)
 {
     lv_event_code_t code = lv_event_get_code(e);
@@ -1219,12 +1219,12 @@ void SimulatorUI::drawAreaEventCb(lv_event_t* e)
     point.y -= area.y1;
 
     if (code == LV_EVENT_PRESSED) {
-        // Mode-based interaction: grab existing material or start painting
+        // Mode-based interaction: grab existing material or start painting.
         bool hasMaterial = world_ptr->hasMaterialAtPixel(point.x, point.y);
         MaterialType selectedMaterial = world_ptr->getSelectedMaterial();
 
         if (hasMaterial) {
-            // Cell has material - enter GRAB_MODE
+            // Cell has material - enter GRAB_MODE.
             data->ui->interaction_mode_ = data->ui->InteractionMode::GRAB_MODE;
             spdlog::info(
                 "Mouse pressed at ({},{}) - GRAB_MODE: starting drag of existing material",
@@ -1233,7 +1233,7 @@ void SimulatorUI::drawAreaEventCb(lv_event_t* e)
             world_ptr->startDragging(point.x, point.y);
         }
         else {
-            // Cell is empty - enter PAINT_MODE
+            // Cell is empty - enter PAINT_MODE.
             data->ui->interaction_mode_ = data->ui->InteractionMode::PAINT_MODE;
             data->ui->paint_material_ = selectedMaterial;
             spdlog::info(
@@ -1246,7 +1246,7 @@ void SimulatorUI::drawAreaEventCb(lv_event_t* e)
         world_ptr->updateCursorForce(point.x, point.y, true);
     }
     else if (code == LV_EVENT_PRESSING) {
-        // Handle both grab and paint modes during drag
+        // Handle both grab and paint modes during drag.
         if (data->ui->interaction_mode_ == data->ui->InteractionMode::GRAB_MODE) {
             spdlog::info("Mouse pressing at ({},{}) - GRAB_MODE: updating drag", point.x, point.y);
             world_ptr->updateDrag(point.x, point.y);
@@ -1262,7 +1262,7 @@ void SimulatorUI::drawAreaEventCb(lv_event_t* e)
         world_ptr->updateCursorForce(point.x, point.y, true);
     }
     else if (code == LV_EVENT_RELEASED) {
-        // Handle both grab and paint modes on release
+        // Handle both grab and paint modes on release.
         if (data->ui->interaction_mode_ == data->ui->InteractionMode::GRAB_MODE) {
             spdlog::info("Mouse released at ({},{}) - GRAB_MODE: ending drag", point.x, point.y);
             world_ptr->endDragging(point.x, point.y);
@@ -1270,14 +1270,14 @@ void SimulatorUI::drawAreaEventCb(lv_event_t* e)
         else if (data->ui->interaction_mode_ == data->ui->InteractionMode::PAINT_MODE) {
             spdlog::info(
                 "Mouse released at ({},{}) - PAINT_MODE: finished painting", point.x, point.y);
-            // No special action needed for paint mode - just stop painting
+            // No special action needed for paint mode - just stop painting.
         }
 
-        // Reset interaction mode and clear cursor force
+        // Reset interaction mode and clear cursor force.
         data->ui->interaction_mode_ = data->ui->InteractionMode::NONE;
         world_ptr->clearCursorForce();
 
-        // Mark all cells dirty to ensure proper rendering updates
+        // Mark all cells dirty to ensure proper rendering updates.
         world_ptr->markAllCellsDirty();
     }
 }
@@ -1341,7 +1341,7 @@ void SimulatorUI::debugBtnEventCb(lv_event_t* e)
         lv_obj_t* label = lv_obj_get_child(btn, 0);
         lv_label_set_text(label, Cell::debugDraw ? "Debug: On" : "Debug: Off");
 
-        // Mark all cells dirty to ensure proper rendering updates
+        // Mark all cells dirty to ensure proper rendering updates.
         if (data && data->world) {
             data->world->markAllCellsDirty();
         }
@@ -1353,7 +1353,7 @@ void SimulatorUI::pressureSystemDropdownEventCb(lv_event_t* e)
     if (lv_event_get_code(e) == LV_EVENT_VALUE_CHANGED) {
         CallbackData* data = static_cast<CallbackData*>(lv_event_get_user_data(e));
         if (data && data->world) {
-            // Only apply pressure system changes to WorldA (RulesA)
+            // Only apply pressure system changes to WorldA (RulesA).
             if (data->world->getWorldType() != WorldType::RulesA) {
                 spdlog::info("Pressure system dropdown only affects WorldA (RulesA) - current "
                              "world is WorldB (RulesB)");
@@ -1363,7 +1363,7 @@ void SimulatorUI::pressureSystemDropdownEventCb(lv_event_t* e)
             lv_obj_t* dropdown = static_cast<lv_obj_t*>(lv_event_get_target(e));
             uint16_t selected = lv_dropdown_get_selected(dropdown);
 
-            // Map dropdown selection to PressureSystem enum
+            // Map dropdown selection to PressureSystem enum.
             WorldInterface::PressureSystem system;
             switch (selected) {
                 case 0:
@@ -1380,10 +1380,10 @@ void SimulatorUI::pressureSystemDropdownEventCb(lv_event_t* e)
                     break;
             }
 
-            // Update the world's pressure system
+            // Update the world's pressure system.
             data->world->setPressureSystem(system);
 
-            // Optional: Print confirmation to console
+            // Optional: Print confirmation to console.
             const char* system_names[] = { "Original (COM)",
                                            "Top-Down Hydrostatic",
                                            "Iterative Settling" };
@@ -1397,7 +1397,7 @@ void SimulatorUI::forceBtnEventCb(lv_event_t* e)
     if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
         CallbackData* data = static_cast<CallbackData*>(lv_event_get_user_data(e));
         if (data && data->world) {
-            // Toggle cursor force
+            // Toggle cursor force.
             static bool force_enabled = false;
             force_enabled = !force_enabled;
             data->world->setCursorForceEnabled(force_enabled);
@@ -1461,12 +1461,12 @@ void SimulatorUI::adhesionBtnEventCb(lv_event_t* e)
             bool current_state = data->world->isAdhesionEnabled();
             bool new_state = !current_state;
             data->world->setAdhesionEnabled(new_state);
-            Cell::adhesionDrawEnabled = new_state; // Also control vector display
+            Cell::adhesionDrawEnabled = new_state; // Also control vector display.
             const lv_obj_t* btn = static_cast<const lv_obj_t*>(lv_event_get_target(e));
             lv_obj_t* label = lv_obj_get_child(btn, 0);
             lv_label_set_text(label, new_state ? "Adhesion: On" : "Adhesion: Off");
 
-            // Mark all cells dirty to ensure proper rendering updates
+            // Mark all cells dirty to ensure proper rendering updates.
             data->world->markAllCellsDirty();
         }
     }
@@ -1526,11 +1526,11 @@ void SimulatorUI::pressureScaleSliderEventCb(lv_event_t* e)
         int32_t value = lv_slider_get_value(slider);
         double pressure_scale = value / 100.0;
         if (data->world) {
-            // Only apply pressure scale changes to WorldA (RulesA)
+            // Only apply pressure scale changes to WorldA (RulesA).
             if (data->world->getWorldType() != WorldType::RulesA) {
                 spdlog::debug("Pressure scale slider only affects WorldA (RulesA) - current world "
                               "is WorldB (RulesB)");
-                // Still update the label to show the value for consistency
+                // Still update the label to show the value for consistency.
                 char buf[16];
                 snprintf(buf, sizeof(buf), "%.1f", pressure_scale);
                 lv_label_set_text(data->associated_label, buf);
@@ -1552,20 +1552,20 @@ void SimulatorUI::cellSizeSliderEventCb(lv_event_t* e)
         int32_t value = lv_slider_get_value(slider);
         Cell::setSize(value);
 
-        // Recalculate grid dimensions based on new cell size
-        // (One fewer than would fit perfectly, same logic as main.cpp)
+        // Recalculate grid dimensions based on new cell size.
+        // (One fewer than would fit perfectly, same logic as main.cpp).
         const int new_grid_width = (DRAW_AREA_SIZE / value) - 1;
         const int new_grid_height = (DRAW_AREA_SIZE / value) - 1;
 
-        // Resize the world grid if we have a valid world
-        // For cell size changes, preserve time reversal history
+        // Resize the world grid if we have a valid world.
+        // For cell size changes, preserve time reversal history.
         if (data->world) {
             data->world->resizeGrid(new_grid_width, new_grid_height);
-            // Mark all cells dirty to ensure proper rendering after resize
+            // Mark all cells dirty to ensure proper rendering after resize.
             data->world->markAllCellsDirty();
         }
 
-        // Update the label
+        // Update the label.
         char buf[16];
         snprintf(buf, sizeof(buf), "%d", value);
         lv_label_set_text(data->associated_label, buf);
@@ -1575,10 +1575,10 @@ void SimulatorUI::cellSizeSliderEventCb(lv_event_t* e)
 void SimulatorUI::quitBtnEventCb(lv_event_t* e)
 {
     if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
-        // Take exit screenshot before quitting
+        // Take exit screenshot before quitting.
         takeExitScreenshot();
 
-        // Exit the application
+        // Exit the application.
         exit(0);
     }
 }
@@ -1634,7 +1634,7 @@ void SimulatorUI::rainSliderEventCb(lv_event_t* e)
     CallbackData* data = static_cast<CallbackData*>(lv_event_get_user_data(e));
     if (lv_event_get_code(e) == LV_EVENT_VALUE_CHANGED && data) {
         int32_t value = lv_slider_get_value(slider);
-        double rain_rate = value * 1.0; // Map 0-100 to 0-100 drops per second
+        double rain_rate = value * 1.0; // Map 0-100 to 0-100 drops per second.
         if (data->world) {
             data->world->setRainRate(rain_rate);
         }
@@ -1650,12 +1650,12 @@ void SimulatorUI::waterCohesionSliderEventCb(lv_event_t* e)
     CallbackData* data = static_cast<CallbackData*>(lv_event_get_user_data(e));
     if (lv_event_get_code(e) == LV_EVENT_VALUE_CHANGED && data) {
         int32_t value = lv_slider_get_value(slider);
-        double cohesion = value / 1000.0; // Map 0-1000 to 0.0-1.0
+        double cohesion = value / 1000.0; // Map 0-1000 to 0.0-1.0.
 
-        // Update WorldA cohesion (legacy system)
+        // Update WorldA cohesion (legacy system).
         Cell::setCohesionStrength(cohesion);
 
-        // Update WorldB water cohesion (pure-material system)
+        // Update WorldB water cohesion (pure-material system).
         setMaterialCohesion(MaterialType::WATER, cohesion);
 
         char buf[16];
@@ -1670,7 +1670,7 @@ void SimulatorUI::waterViscositySliderEventCb(lv_event_t* e)
     CallbackData* data = static_cast<CallbackData*>(lv_event_get_user_data(e));
     if (lv_event_get_code(e) == LV_EVENT_VALUE_CHANGED && data) {
         int32_t value = lv_slider_get_value(slider);
-        double viscosity = value / 1000.0; // Map 0-1000 to 0.0-1.0
+        double viscosity = value / 1000.0; // Map 0-1000 to 0.0-1.0.
         Cell::setViscosityFactor(viscosity);
         char buf[16];
         snprintf(buf, sizeof(buf), "%.3f", viscosity);
@@ -1684,7 +1684,7 @@ void SimulatorUI::waterPressureThresholdSliderEventCb(lv_event_t* e)
     CallbackData* data = static_cast<CallbackData*>(lv_event_get_user_data(e));
     if (lv_event_get_code(e) == LV_EVENT_VALUE_CHANGED && data) {
         int32_t value = lv_slider_get_value(slider);
-        double threshold = value / 100000.0; // Map 0-1000 to 0.0-0.01
+        double threshold = value / 100000.0; // Map 0-1000 to 0.0-0.01.
         if (data->world) {
             data->world->setWaterPressureThreshold(threshold);
         }
@@ -1700,7 +1700,7 @@ void SimulatorUI::waterBuoyancySliderEventCb(lv_event_t* e)
     CallbackData* data = static_cast<CallbackData*>(lv_event_get_user_data(e));
     if (lv_event_get_code(e) == LV_EVENT_VALUE_CHANGED && data) {
         int32_t value = lv_slider_get_value(slider);
-        double buoyancy = value / 1000.0; // Map 0-1000 to 0.0-1.0
+        double buoyancy = value / 1000.0; // Map 0-1000 to 0.0-1.0.
         Cell::setBuoyancyStrength(buoyancy);
         char buf[16];
         snprintf(buf, sizeof(buf), "%.3f", buoyancy);
@@ -1740,7 +1740,7 @@ void SimulatorUI::airResistanceSliderEventCb(lv_event_t* e)
     CallbackData* data = static_cast<CallbackData*>(lv_event_get_user_data(e));
     if (lv_event_get_code(e) == LV_EVENT_VALUE_CHANGED && data) {
         int32_t value = lv_slider_get_value(slider);
-        double air_resistance = value / 100.0; // Map 0-100 to 0.0-1.0
+        double air_resistance = value / 100.0; // Map 0-100 to 0.0-1.0.
         if (data->world) {
             data->world->setAirResistanceStrength(air_resistance);
         }
@@ -1756,9 +1756,9 @@ void SimulatorUI::hydrostaticPressureStrengthSliderEventCb(lv_event_t* e)
     CallbackData* data = static_cast<CallbackData*>(lv_event_get_user_data(e));
     if (lv_event_get_code(e) == LV_EVENT_VALUE_CHANGED && data) {
         int32_t value = lv_slider_get_value(slider);
-        double strength = value / 100.0; // Map 0-300 to 0.0-3.0
+        double strength = value / 100.0; // Map 0-300 to 0.0-3.0.
         if (data->world) {
-            // Only apply to WorldB (RulesB)
+            // Only apply to WorldB (RulesB).
             if (data->world->getWorldType() == WorldType::RulesB) {
                 data->world->setHydrostaticPressureStrength(strength);
                 spdlog::debug("Hydrostatic pressure strength set to {:.2f}", strength);
@@ -1776,9 +1776,9 @@ void SimulatorUI::dynamicPressureStrengthSliderEventCb(lv_event_t* e)
     CallbackData* data = static_cast<CallbackData*>(lv_event_get_user_data(e));
     if (lv_event_get_code(e) == LV_EVENT_VALUE_CHANGED && data) {
         int32_t value = lv_slider_get_value(slider);
-        double strength = value / 100.0; // Map 0-300 to 0.0-3.0
+        double strength = value / 100.0; // Map 0-300 to 0.0-3.0.
         if (data->world) {
-            // Only apply to WorldB (RulesB)
+            // Only apply to WorldB (RulesB).
             if (data->world->getWorldType() == WorldType::RulesB) {
                 data->world->setDynamicPressureStrength(strength);
                 spdlog::debug("Dynamic pressure strength set to {:.2f}", strength);
@@ -1790,38 +1790,38 @@ void SimulatorUI::dynamicPressureStrengthSliderEventCb(lv_event_t* e)
     }
 }
 
-// Get the directory containing the executable
+// Get the directory containing the executable.
 std::string get_executable_directory()
 {
     char path[PATH_MAX];
     ssize_t count = readlink("/proc/self/exe", path, PATH_MAX);
     if (count == -1) {
         printf("Failed to get executable path\n");
-        return "."; // Return current directory as fallback
+        return "."; // Return current directory as fallback.
     }
     path[count] = '\0';
     char* dir = dirname(path);
     return std::string(dir);
 }
 
-// PNG writer using LODEPNG
+// PNG writer using LODEPNG.
 void write_png_file(const char* filename, const uint8_t* rgb_data, uint32_t width, uint32_t height)
 {
-    // Convert BGR to RGB since LVGL might be providing BGR data
+    // Convert BGR to RGB since LVGL might be providing BGR data.
     std::vector<uint8_t> corrected_data(width * height * 3);
     for (uint32_t i = 0; i < width * height; i++) {
         uint32_t src_idx = i * 3;
         uint32_t dst_idx = i * 3;
-        // Swap R and B channels (BGR -> RGB)
-        corrected_data[dst_idx + 0] = rgb_data[src_idx + 2]; // R from B
-        corrected_data[dst_idx + 1] = rgb_data[src_idx + 1]; // G stays G
-        corrected_data[dst_idx + 2] = rgb_data[src_idx + 0]; // B from R
+        // Swap R and B channels (BGR -> RGB).
+        corrected_data[dst_idx + 0] = rgb_data[src_idx + 2]; // R from B.
+        corrected_data[dst_idx + 1] = rgb_data[src_idx + 1]; // G stays G.
+        corrected_data[dst_idx + 2] = rgb_data[src_idx + 0]; // B from R.
     }
 
     unsigned char* png_data;
     size_t png_size;
 
-    // Encode corrected RGB data to PNG
+    // Encode corrected RGB data to PNG.
     unsigned error = lodepng_encode24(&png_data, &png_size, corrected_data.data(), width, height);
 
     if (error) {
@@ -1829,7 +1829,7 @@ void write_png_file(const char* filename, const uint8_t* rgb_data, uint32_t widt
         return;
     }
 
-    // Write PNG data to file
+    // Write PNG data to file.
     std::ofstream file(filename, std::ios::binary);
     if (!file.is_open()) {
         printf("Failed to open file: %s\n", filename);
@@ -1847,13 +1847,13 @@ void write_png_file(const char* filename, const uint8_t* rgb_data, uint32_t widt
 void SimulatorUI::screenshotBtnEventCb(lv_event_t* e)
 {
     if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
-        // Generate ISO8601 timestamp
+        // Generate ISO8601 timestamp.
         time_t now = time(nullptr);
         struct tm* timeinfo = localtime(&now);
         char timestamp[32];
         strftime(timestamp, sizeof(timestamp), "%Y-%m-%dT%H:%M:%S", timeinfo);
 
-        // Get executable directory and create filename
+        // Get executable directory and create filename.
         std::string exe_dir = get_executable_directory();
         char filename[512];
         snprintf(filename, sizeof(filename), "%s/screenshot-%s.png", exe_dir.c_str(), timestamp);
@@ -1864,27 +1864,27 @@ void SimulatorUI::screenshotBtnEventCb(lv_event_t* e)
             return;
         }
 
-        // Take screenshot using LVGL snapshot
+        // Take screenshot using LVGL snapshot.
         lv_draw_buf_t* snapshot = lv_snapshot_take(data->ui->screen_, LV_COLOR_FORMAT_RGB888);
         if (!snapshot) {
             printf("Failed to take LVGL snapshot\n");
             return;
         }
 
-        // Get snapshot dimensions and data
+        // Get snapshot dimensions and data.
         uint32_t width = snapshot->header.w;
         uint32_t height = snapshot->header.h;
         uint8_t* rgb_data = static_cast<uint8_t*>(snapshot->data);
 
         printf("Captured snapshot: %dx%d pixels\n", width, height);
 
-        // Save as PNG file in the same directory as the binary
+        // Save as PNG file in the same directory as the binary.
         write_png_file(filename, rgb_data, width, height);
 
-        // Clean up the snapshot
+        // Clean up the snapshot.
         lv_draw_buf_destroy(snapshot);
 
-        // Print UI layout info for debugging overlap issues
+        // Print UI layout info for debugging overlap issues.
         lv_area_t screen_area;
         lv_obj_get_coords(data->ui->screen_, &screen_area);
         printf(
@@ -1912,42 +1912,42 @@ void SimulatorUI::printAsciiBtnEventCb(lv_event_t* e)
     }
 }
 
-// Static function to take exit screenshot
+// Static function to take exit screenshot.
 void SimulatorUI::takeExitScreenshot()
 {
-    // Get current screen
+    // Get current screen.
     lv_obj_t* screen = lv_scr_act();
     if (!screen) {
         printf("No active screen found for exit screenshot\n");
         return;
     }
 
-    // Take screenshot using LVGL snapshot
+    // Take screenshot using LVGL snapshot.
     lv_draw_buf_t* snapshot = lv_snapshot_take(screen, LV_COLOR_FORMAT_RGB888);
     if (!snapshot) {
         printf("Failed to take exit screenshot\n");
         return;
     }
 
-    // Get executable directory and create filename
+    // Get executable directory and create filename.
     std::string exec_dir = get_executable_directory();
     std::string filename = exec_dir + "/screenshot-last-exit.png";
 
-    // Get buffer data and dimensions
+    // Get buffer data and dimensions.
     const uint8_t* rgb_data = static_cast<const uint8_t*>(snapshot->data);
     uint32_t width = snapshot->header.w;
     uint32_t height = snapshot->header.h;
 
-    // Save PNG file
+    // Save PNG file.
     write_png_file(filename.c_str(), rgb_data, width, height);
 
-    // Clean up
+    // Clean up.
     lv_draw_buf_destroy(snapshot);
 
     printf("Exit screenshot saved as: %s\n", filename.c_str());
 }
 
-// Time reversal callback implementations
+// Time reversal callback implementations.
 void SimulatorUI::timeReversalToggleBtnEventCb(lv_event_t* e)
 {
     if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
@@ -1961,7 +1961,7 @@ void SimulatorUI::timeReversalToggleBtnEventCb(lv_event_t* e)
             lv_label_set_text(label, new_state ? "Time History: On" : "Time History: Off");
 
             if (!new_state) {
-                // Clear history when disabled
+                // Clear history when disabled.
                 data->world->clearHistory();
             }
         }
@@ -2008,14 +2008,14 @@ void SimulatorUI::worldTypeButtonMatrixEventCb(lv_event_t* e)
             lv_obj_t* btnm = static_cast<lv_obj_t*>(lv_event_get_target(e));
             uint32_t selected = lv_buttonmatrix_get_selected_button(btnm);
 
-            // Convert button selection to WorldType
+            // Convert button selection to WorldType.
             WorldType newType = (selected == 0) ? WorldType::RulesA : WorldType::RulesB;
 
             printf(
                 "World type switch requested: %s\n",
                 newType == WorldType::RulesA ? "WorldA (RulesA)" : "WorldB (RulesB)");
 
-            // Request the world switch from the simulation manager
+            // Request the world switch from the simulation manager.
             data->ui->requestWorldTypeSwitch(newType);
         }
     }
@@ -2031,7 +2031,7 @@ void SimulatorUI::requestWorldTypeSwitch(WorldType newType)
     spdlog::info("Requesting world type switch to {}", getWorldTypeName(newType));
 
     if (manager_->switchWorldType(newType)) {
-        // Update UI to reflect the switch
+        // Update UI to reflect the switch.
         updateWorldTypeButtonMatrix(newType);
         spdlog::info("World type switch request completed successfully");
     }
@@ -2054,7 +2054,7 @@ void SimulatorUI::cohesionForceStrengthSliderEventCb(lv_event_t* e)
     CallbackData* data = static_cast<CallbackData*>(lv_event_get_user_data(e));
     if (lv_event_get_code(e) == LV_EVENT_VALUE_CHANGED && data) {
         int32_t value = lv_slider_get_value(slider);
-        double strength = value / 100.0; // Range 0.0 to 20.0
+        double strength = value / 100.0; // Range 0.0 to 20.0.
         if (data->world) {
             data->world->setCohesionComForceStrength(strength);
         }
@@ -2070,7 +2070,7 @@ void SimulatorUI::adhesionStrengthSliderEventCb(lv_event_t* e)
     CallbackData* data = static_cast<CallbackData*>(lv_event_get_user_data(e));
     if (lv_event_get_code(e) == LV_EVENT_VALUE_CHANGED && data) {
         int32_t value = lv_slider_get_value(slider);
-        double strength = value / 100.0; // Range 0.0 to 10.0
+        double strength = value / 100.0; // Range 0.0 to 10.0.
         if (data->world) {
             data->world->setAdhesionStrength(strength);
         }
@@ -2086,7 +2086,7 @@ void SimulatorUI::cohesionBindStrengthSliderEventCb(lv_event_t* e)
     CallbackData* data = static_cast<CallbackData*>(lv_event_get_user_data(e));
     if (lv_event_get_code(e) == LV_EVENT_VALUE_CHANGED && data) {
         int32_t value = lv_slider_get_value(slider);
-        double strength = value / 100.0; // Range 0.0 to 2.0
+        double strength = value / 100.0; // Range 0.0 to 2.0.
         if (data->world) {
             data->world->setCohesionBindForceStrength(strength);
         }
@@ -2102,7 +2102,7 @@ void SimulatorUI::comCohesionRangeSliderEventCb(lv_event_t* e)
     CallbackData* data = static_cast<CallbackData*>(lv_event_get_user_data(e));
     if (lv_event_get_code(e) == LV_EVENT_VALUE_CHANGED && data) {
         int32_t value = lv_slider_get_value(slider);
-        uint32_t range = static_cast<uint32_t>(value); // Range 1 to 5
+        uint32_t range = static_cast<uint32_t>(value); // Range 1 to 5.
         if (data->world) {
             data->world->setCOMCohesionRange(range);
         }
@@ -2119,16 +2119,16 @@ void SimulatorUI::comCohesionModeRadioEventCb(lv_event_t* e)
         if (data && data->world) {
             lv_obj_t* clicked_radio = static_cast<lv_obj_t*>(lv_event_get_target(e));
 
-            // If this radio was clicked and is now checked
+            // If this radio was clicked and is now checked.
             if (lv_obj_has_state(clicked_radio, LV_STATE_CHECKED)) {
-                // Uncheck all other radio buttons
+                // Uncheck all other radio buttons.
                 for (int i = 0; i < 3; i++) {
                     if (data->radio_buttons[i] != clicked_radio) {
                         lv_obj_clear_state(data->radio_buttons[i], LV_STATE_CHECKED);
                     }
                 }
 
-                // Determine which mode was selected
+                // Determine which mode was selected.
                 WorldB::COMCohesionMode mode;
                 const char* mode_name;
                 if (clicked_radio == data->radio_buttons[0]) {
@@ -2144,7 +2144,7 @@ void SimulatorUI::comCohesionModeRadioEventCb(lv_event_t* e)
                     mode_name = "MASS_BASED";
                 }
 
-                // Try to cast to WorldB to access the specific method
+                // Try to cast to WorldB to access the specific method.
                 WorldB* worldB = dynamic_cast<WorldB*>(data->world);
                 if (worldB) {
                     worldB->setCOMCohesionMode(mode);

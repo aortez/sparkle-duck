@@ -9,7 +9,7 @@
 #include <optional>
 #include <shared_mutex>
 
-// Forward declaration
+// Forward declaration.
 class WorldInterface;
 
 /**
@@ -33,7 +33,7 @@ private:
     mutable std::mutex mutex_;
     std::optional<UIUpdateEvent> latest_;
 
-    // Metrics
+    // Metrics.
     std::atomic<uint64_t> pushCount_{ 0 };
     std::atomic<uint64_t> popCount_{ 0 };
     std::atomic<uint64_t> dropCount_{ 0 };
@@ -98,7 +98,7 @@ public:
     SharedSimState() = default;
 
     // =================================================================
-    // ATOMIC STATE (Lock-free access)
+    // ATOMIC STATE (Lock-free access).
     // =================================================================
 
     /**
@@ -158,7 +158,7 @@ public:
     }
 
     // =================================================================
-    // COMPLEX STATE (Mutex-protected)
+    // COMPLEX STATE (Mutex-protected).
     // =================================================================
 
     /**
@@ -206,7 +206,7 @@ public:
         bool cohesionEnabled = true;
         bool adhesionEnabled = true;
         bool timeHistoryEnabled = false;
-        // Add more as needed
+        // Add more as needed.
     };
 
     /**
@@ -246,7 +246,7 @@ public:
     }
 
     // =================================================================
-    // PUSH-BASED UI UPDATE SYSTEM
+    // PUSH-BASED UI UPDATE SYSTEM.
     // =================================================================
 
     /**
@@ -319,14 +319,14 @@ public:
     }
 
 private:
-    // Atomic variables for lock-free access
+    // Atomic variables for lock-free access.
     std::atomic<bool> shouldExit_{ false };
     std::atomic<bool> isPaused_{ false };
     std::atomic<uint32_t> currentStep_{ 0 };
     std::atomic<float> currentFPS_{ 0.0f };
     std::atomic<int> selectedMaterial_{ static_cast<int>(MaterialType::DIRT) };
 
-    // Mutex-protected complex data
+    // Mutex-protected complex data.
     mutable std::shared_mutex statsMutex_;
     SimulationStats currentStats_;
 
@@ -336,8 +336,8 @@ private:
     mutable std::shared_mutex worldMutex_;
     WorldInterface* currentWorld_ = nullptr;
 
-    // Push-based UI update system
+    // Push-based UI update system.
     UIUpdateQueue uiUpdateQueue_;
-    std::atomic<bool> usePushUpdates_{ false };    // Feature flag - disabled by default
-    std::atomic<uint64_t> updateSequenceNum_{ 0 }; // Monotonic sequence counter
+    std::atomic<bool> usePushUpdates_{ false };    // Feature flag - disabled by default.
+    std::atomic<uint64_t> updateSequenceNum_{ 0 }; // Monotonic sequence counter.
 };

@@ -12,10 +12,10 @@ void WorldInterface::setup()
 {
     spdlog::info("Setting up {} with initial materials", getWorldTypeName());
 
-    // First reset to empty state
+    // First reset to empty state.
     reset();
 
-    // Use the world setup strategy to initialize the world
+    // Use the world setup strategy to initialize the world.
     if (worldSetup_) {
         worldSetup_->setup(*this);
     }
@@ -25,7 +25,7 @@ void WorldInterface::setup()
 }
 
 // =================================================================
-// WORLD SETUP CONTROLS - Default implementations
+// WORLD SETUP CONTROLS - Default implementations.
 // =================================================================
 
 void WorldInterface::setLeftThrowEnabled(bool enabled)

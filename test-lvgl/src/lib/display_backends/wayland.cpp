@@ -129,29 +129,29 @@ static void run_loop_wayland(SimulationManager& manager)
     SimulatorLoop::LoopState state;
     SimulatorLoop::initState(state);
     
-    // Set max_steps from global settings
+    // Set max_steps from global settings.
     state.max_steps = settings.max_steps;
 
     bool completed;
 
-    /* Handle LVGL tasks */
+    /* Handle LVGL tasks. */
     while (state.is_running) {
         // Process one frame of simulation.
         SimulatorLoop::processFrame(manager, state, 8);
 
-        // Exit immediately if step limit reached - don't wait for more events
+        // Exit immediately if step limit reached - don't wait for more events.
         if (!state.is_running) {
             std::cout << "Simulation completed (" << state.step_count << " steps), exiting..." << std::endl;
             break;
         }
 
-        // Mass label is now updated automatically by the World through its UI
+        // Mass label is now updated automatically by the World through its UI.
 
         completed = lv_wayland_timer_handler();
 
         if (completed) {
-            /* wait only if the cycle was completed and FPS limiting is enabled */
-            bool frame_limiting_enabled = true; // Default to enabled
+            /* wait only if the cycle was completed and FPS limiting is enabled. */
+            bool frame_limiting_enabled = true; // Default to enabled.
             if (manager.getUI()) {
                 frame_limiting_enabled = manager.getUI()->isFrameLimitingEnabled();
             }
@@ -160,19 +160,19 @@ static void run_loop_wayland(SimulationManager& manager)
             }
         }
 
-        /* Run until the last window closes */
+        /* Run until the last window closes. */
         if (!lv_wayland_window_is_open(NULL)) {
             break;
         }
     }
     
-    // Process any final UI updates before taking screenshot
+    // Process any final UI updates before taking screenshot.
     for (int i = 0; i < 3; ++i) {
         lv_wayland_timer_handler();
-        usleep(10000); // 10ms
+        usleep(10000); // 10ms.
     }
     
     SimulatorUI::takeExitScreenshot();
 }
 
-#endif /*#if LV_USE_WAYLAND*/
+#endif /*#if LV_USE_WAYLAND. */

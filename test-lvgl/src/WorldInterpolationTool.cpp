@@ -11,14 +11,14 @@
 #include <stdexcept>
 
 // =================================================================
-// PUBLIC INTERFACE
+// PUBLIC INTERFACE.
 // =================================================================
 
 bool WorldInterpolationTool::resizeWorldWithBilinearFiltering(
     WorldInterface& world, uint32_t newWidth, uint32_t newHeight)
 {
-    // This method is now deprecated - worlds should call resizeGrid directly
-    // which will use the generateInterpolatedCells* methods
+    // This method is now deprecated - worlds should call resizeGrid directly.
+    // which will use the generateInterpolatedCells* methods.
     spdlog::warn(
         "resizeWorldWithBilinearFiltering is deprecated - use world.resizeGrid() directly");
     world.resizeGrid(newWidth, newHeight);
@@ -39,7 +39,7 @@ std::vector<CellB> WorldInterpolationTool::generateInterpolatedCellsB(
     std::vector<CellB> newCells;
     newCells.reserve(newWidth * newHeight);
 
-    // Calculate scaling factors
+    // Calculate scaling factors.
     double scaleX = static_cast<double>(oldWidth) / static_cast<double>(newWidth);
     double scaleY = static_cast<double>(oldHeight) / static_cast<double>(newHeight);
 
@@ -52,14 +52,14 @@ std::vector<CellB> WorldInterpolationTool::generateInterpolatedCellsB(
         scaleX,
         scaleY);
 
-    // Generate interpolated cells for each position in the new grid
+    // Generate interpolated cells for each position in the new grid.
     for (uint32_t newY = 0; newY < newHeight; ++newY) {
         for (uint32_t newX = 0; newX < newWidth; ++newX) {
-            // Map destination cell to source coordinates
+            // Map destination cell to source coordinates.
             double srcX = (static_cast<double>(newX) + 0.5) * scaleX - 0.5;
             double srcY = (static_cast<double>(newY) + 0.5) * scaleY - 0.5;
 
-            // Get integer source coordinates and fractional parts
+            // Get integer source coordinates and fractional parts.
             int srcX0 = static_cast<int>(std::floor(srcX));
             int srcY0 = static_cast<int>(std::floor(srcY));
             int srcX1 = srcX0 + 1;
@@ -68,17 +68,17 @@ std::vector<CellB> WorldInterpolationTool::generateInterpolatedCellsB(
             double fx = srcX - srcX0;
             double fy = srcY - srcY0;
 
-            // Clamp to valid grid bounds
+            // Clamp to valid grid bounds.
             clampToGrid(srcX0, srcY0, oldWidth, oldHeight);
             clampToGrid(srcX1, srcY1, oldWidth, oldHeight);
 
-            // Get the 4 neighboring cells from old grid
+            // Get the 4 neighboring cells from old grid.
             const CellB& cell00 = oldCells[srcY0 * oldWidth + srcX0];
             const CellB& cell10 = oldCells[srcY0 * oldWidth + srcX1];
             const CellB& cell01 = oldCells[srcY1 * oldWidth + srcX0];
             const CellB& cell11 = oldCells[srcY1 * oldWidth + srcX1];
 
-            // Create interpolated cell and add to new grid
+            // Create interpolated cell and add to new grid.
             newCells.push_back(createInterpolatedCellB(cell00, cell10, cell01, cell11, fx, fy));
         }
     }
@@ -101,7 +101,7 @@ std::vector<Cell> WorldInterpolationTool::generateInterpolatedCellsA(
     std::vector<Cell> newCells;
     newCells.reserve(newWidth * newHeight);
 
-    // Calculate scaling factors
+    // Calculate scaling factors.
     double scaleX = static_cast<double>(oldWidth) / static_cast<double>(newWidth);
     double scaleY = static_cast<double>(oldHeight) / static_cast<double>(newHeight);
 
@@ -114,14 +114,14 @@ std::vector<Cell> WorldInterpolationTool::generateInterpolatedCellsA(
         scaleX,
         scaleY);
 
-    // Generate interpolated cells for each position in the new grid
+    // Generate interpolated cells for each position in the new grid.
     for (uint32_t newY = 0; newY < newHeight; ++newY) {
         for (uint32_t newX = 0; newX < newWidth; ++newX) {
-            // Map destination cell to source coordinates
+            // Map destination cell to source coordinates.
             double srcX = (static_cast<double>(newX) + 0.5) * scaleX - 0.5;
             double srcY = (static_cast<double>(newY) + 0.5) * scaleY - 0.5;
 
-            // Get integer source coordinates and fractional parts
+            // Get integer source coordinates and fractional parts.
             int srcX0 = static_cast<int>(std::floor(srcX));
             int srcY0 = static_cast<int>(std::floor(srcY));
             int srcX1 = srcX0 + 1;
@@ -130,17 +130,17 @@ std::vector<Cell> WorldInterpolationTool::generateInterpolatedCellsA(
             double fx = srcX - srcX0;
             double fy = srcY - srcY0;
 
-            // Clamp to valid grid bounds
+            // Clamp to valid grid bounds.
             clampToGrid(srcX0, srcY0, oldWidth, oldHeight);
             clampToGrid(srcX1, srcY1, oldWidth, oldHeight);
 
-            // Get the 4 neighboring cells from old grid
+            // Get the 4 neighboring cells from old grid.
             const Cell& cell00 = oldCells[srcY0 * oldWidth + srcX0];
             const Cell& cell10 = oldCells[srcY0 * oldWidth + srcX1];
             const Cell& cell01 = oldCells[srcY1 * oldWidth + srcX0];
             const Cell& cell11 = oldCells[srcY1 * oldWidth + srcX1];
 
-            // Create interpolated cell and add to new grid
+            // Create interpolated cell and add to new grid.
             newCells.push_back(createInterpolatedCell(cell00, cell10, cell01, cell11, fx, fy));
         }
     }
@@ -150,13 +150,13 @@ std::vector<Cell> WorldInterpolationTool::generateInterpolatedCellsA(
 }
 
 // =================================================================
-// BILINEAR INTERPOLATION HELPERS
+// BILINEAR INTERPOLATION HELPERS.
 // =================================================================
 
 double WorldInterpolationTool::bilinearInterpolateDouble(
     double val00, double val10, double val01, double val11, double fx, double fy)
 {
-    // Standard bilinear interpolation formula
+    // Standard bilinear interpolation formula.
     return val00 * (1.0 - fx) * (1.0 - fy) + val10 * fx * (1.0 - fy) + val01 * (1.0 - fx) * fy
         + val11 * fx * fy;
 }
@@ -169,14 +169,14 @@ Vector2d WorldInterpolationTool::bilinearInterpolateVector2d(
     double fx,
     double fy)
 {
-    // Interpolate x and y components separately
+    // Interpolate x and y components separately.
     double x = bilinearInterpolateDouble(val00.x, val10.x, val01.x, val11.x, fx, fy);
     double y = bilinearInterpolateDouble(val00.y, val10.y, val01.y, val11.y, fx, fy);
     return Vector2d(x, y);
 }
 
 // =================================================================
-// WORLDB (PURE MATERIALS) INTERPOLATION
+// WORLDB (PURE MATERIALS) INTERPOLATION.
 // =================================================================
 
 MaterialType WorldInterpolationTool::interpolateMaterialType(
@@ -187,36 +187,36 @@ MaterialType WorldInterpolationTool::interpolateMaterialType(
     double fx,
     double fy)
 {
-    // Calculate weighted contributions for each material type
-    // Weight = fill_ratio * interpolation_weight
+    // Calculate weighted contributions for each material type.
+    // Weight = fill_ratio * interpolation_weight.
     double weight00 = cell00.getFillRatio() * (1.0 - fx) * (1.0 - fy);
     double weight10 = cell10.getFillRatio() * fx * (1.0 - fy);
     double weight01 = cell01.getFillRatio() * (1.0 - fx) * fy;
     double weight11 = cell11.getFillRatio() * fx * fy;
 
-    // Find the material with highest weighted contribution
+    // Find the material with highest weighted contribution.
     MaterialType dominantMaterial = MaterialType::AIR;
     double maxWeight = 0.0;
 
-    // Check cell00
+    // Check cell00.
     if (weight00 > maxWeight) {
         maxWeight = weight00;
         dominantMaterial = cell00.getMaterialType();
     }
 
-    // Check cell10
+    // Check cell10.
     if (weight10 > maxWeight) {
         maxWeight = weight10;
         dominantMaterial = cell10.getMaterialType();
     }
 
-    // Check cell01
+    // Check cell01.
     if (weight01 > maxWeight) {
         maxWeight = weight01;
         dominantMaterial = cell01.getMaterialType();
     }
 
-    // Check cell11
+    // Check cell11.
     if (weight11 > maxWeight) {
         maxWeight = weight11;
         dominantMaterial = cell11.getMaterialType();
@@ -233,10 +233,10 @@ CellB WorldInterpolationTool::createInterpolatedCellB(
     double fx,
     double fy)
 {
-    // Interpolate material type (choose dominant)
+    // Interpolate material type (choose dominant).
     MaterialType materialType = interpolateMaterialType(cell00, cell10, cell01, cell11, fx, fy);
 
-    // Interpolate fill ratio
+    // Interpolate fill ratio.
     double fillRatio = bilinearInterpolateDouble(
         cell00.getFillRatio(),
         cell10.getFillRatio(),
@@ -245,11 +245,11 @@ CellB WorldInterpolationTool::createInterpolatedCellB(
         fx,
         fy);
 
-    // Interpolate center of mass
+    // Interpolate center of mass.
     Vector2d com = bilinearInterpolateVector2d(
         cell00.getCOM(), cell10.getCOM(), cell01.getCOM(), cell11.getCOM(), fx, fy);
 
-    // Interpolate velocity
+    // Interpolate velocity.
     Vector2d velocity = bilinearInterpolateVector2d(
         cell00.getVelocity(),
         cell10.getVelocity(),
@@ -258,7 +258,7 @@ CellB WorldInterpolationTool::createInterpolatedCellB(
         fx,
         fy);
 
-    // Create the interpolated cell
+    // Create the interpolated cell.
     CellB result(materialType, std::max(0.0, std::min(1.0, fillRatio)));
     result.setCOM(com);
     result.setVelocity(velocity);
@@ -266,10 +266,10 @@ CellB WorldInterpolationTool::createInterpolatedCellB(
     return result;
 }
 
-// resizeWorldB method removed - use generateInterpolatedCellsB instead
+// resizeWorldB method removed - use generateInterpolatedCellsB instead.
 
 // =================================================================
-// WORLDA (MIXED MATERIALS) INTERPOLATION
+// WORLDA (MIXED MATERIALS) INTERPOLATION.
 // =================================================================
 
 Cell WorldInterpolationTool::createInterpolatedCell(
@@ -282,7 +282,7 @@ Cell WorldInterpolationTool::createInterpolatedCell(
 {
     Cell result;
 
-    // Interpolate each material amount
+    // Interpolate each material amount.
     result.dirt =
         bilinearInterpolateDouble(cell00.dirt, cell10.dirt, cell01.dirt, cell11.dirt, fx, fy);
     result.water =
@@ -301,24 +301,24 @@ Cell WorldInterpolationTool::createInterpolatedCell(
     result.leaf = std::max(0.0, std::min(1.1, result.leaf));
     result.metal = std::max(0.0, std::min(1.1, result.metal));
 
-    // Interpolate center of mass
+    // Interpolate center of mass.
     result.com =
         bilinearInterpolateVector2d(cell00.com, cell10.com, cell01.com, cell11.com, fx, fy);
 
-    // Interpolate velocity
+    // Interpolate velocity.
     result.v = bilinearInterpolateVector2d(cell00.v, cell10.v, cell01.v, cell11.v, fx, fy);
 
-    // Interpolate pressure (Vector2d for WorldA)
+    // Interpolate pressure (Vector2d for WorldA).
     result.pressure = bilinearInterpolateVector2d(
         cell00.pressure, cell10.pressure, cell01.pressure, cell11.pressure, fx, fy);
 
     return result;
 }
 
-// resizeWorldA method removed - use generateInterpolatedCellsA instead
+// resizeWorldA method removed - use generateInterpolatedCellsA instead.
 
 // =================================================================
-// UTILITY HELPERS
+// UTILITY HELPERS.
 // =================================================================
 
 void WorldInterpolationTool::clampToGrid(int& x, int& y, uint32_t width, uint32_t height)

@@ -26,35 +26,35 @@ class WorldB;
 class WorldBPressureCalculator : public WorldBCalculatorBase {
 public:
     /**
-     * @brief Constructor takes a WorldB for accessing and modifying world data
-     * @param world WorldB providing access to grid and cells (non-const for modifications)
+     * @brief Constructor takes a WorldB for accessing and modifying world data.
+     * @param world WorldB providing access to grid and cells (non-const for modifications).
      */
     explicit WorldBPressureCalculator(WorldB& world);
 
-    // Blocked transfer data for dynamic pressure accumulation
+    // Blocked transfer data for dynamic pressure accumulation.
     struct BlockedTransfer {
-        int fromX, fromY;       // Source cell coordinates
-        int toX, toY;           // Target cell coordinates
-        double transfer_amount; // Amount that was blocked
-        Vector2d velocity;      // Velocity at time of blocking
-        double energy;          // Kinetic energy of blocked transfer
+        int fromX, fromY;       // Source cell coordinates.
+        int toX, toY;           // Target cell coordinates.
+        double transfer_amount; // Amount that was blocked.
+        Vector2d velocity;      // Velocity at time of blocking.
+        double energy;          // Kinetic energy of blocked transfer.
     };
 
-    // Pressure-specific constants
-    static constexpr double SLICE_THICKNESS = 1.0;          // Thickness of pressure slices
-    static constexpr double HYDROSTATIC_MULTIPLIER = 0.002; // Hydrostatic force strength
-    static constexpr double DYNAMIC_MULTIPLIER = 0.01;      // Dynamic force strength
-    static constexpr double DYNAMIC_DECAY_RATE = 0.02;      // Rate of pressure dissipation
-    static constexpr double MIN_PRESSURE_THRESHOLD = 0.01;  // Ignore pressures below this
+    // Pressure-specific constants.
+    static constexpr double SLICE_THICKNESS = 1.0;          // Thickness of pressure slices.
+    static constexpr double HYDROSTATIC_MULTIPLIER = 0.002; // Hydrostatic force strength.
+    static constexpr double DYNAMIC_MULTIPLIER = 1;      // Dynamic force strength.
+    static constexpr double DYNAMIC_DECAY_RATE = 0.02;      // Rate of pressure dissipation.
+    static constexpr double MIN_PRESSURE_THRESHOLD = 0.001;  // Ignore pressures below this.
 
     /**
-     * @brief Main pressure application method
-     * @param deltaTime Time step for the current frame
+     * @brief Main pressure application method.
+     * @param deltaTime Time step for the current frame.
      */
     void applyPressure(double deltaTime);
 
     /**
-     * @brief Calculate hydrostatic pressure for all cells
+     * @brief Calculate hydrostatic pressure for all cells.
      *
      * Implements slice-based calculation perpendicular to gravity direction.
      * Pressure accumulates based on material density and gravity magnitude.
@@ -62,22 +62,23 @@ public:
     void calculateHydrostaticPressure();
 
     /**
-     * @brief Queue a blocked transfer for dynamic pressure accumulation
-     * @param transfer BlockedTransfer data including source, target, and energy
+     * @brief Queue a blocked transfer for dynamic pressure accumulation.
+     * @param transfer BlockedTransfer data including source, target, and energy.
      */
     void queueBlockedTransfer(const BlockedTransfer& transfer);
 
     /**
-     * @brief Process blocked transfers and accumulate dynamic pressure
+     * @brief Process blocked transfers and accumulate dynamic pressure.
+     * @param blocked_transfers Vector of blocked transfers to process.
      *
      * Converts blocked kinetic energy into dynamic pressure at source cells.
      * Updates pressure gradients based on blocked transfer directions.
      */
-    void processBlockedTransfers();
+    void processBlockedTransfers(const std::vector<BlockedTransfer>& blocked_transfers);
 
     /**
-     * @brief Apply combined pressure forces to all cells
-     * @param deltaTime Time step for force application
+     * @brief Apply combined pressure forces to all cells.
+     * @param deltaTime Time step for force application.
      *
      * Combines hydrostatic and dynamic pressure forces based on material properties.
      * Updates cell velocities according to pressure gradients.
@@ -86,24 +87,24 @@ public:
 
 
     /**
-     * @brief Get material-specific hydrostatic pressure sensitivity
-     * @param type Material type
-     * @return Weight factor for hydrostatic pressure [0,1]
+     * @brief Get material-specific hydrostatic pressure sensitivity.
+     * @param type Material type.
+     * @return Weight factor for hydrostatic pressure [0,1].
      */
     double getHydrostaticWeight(MaterialType type) const;
 
     /**
-     * @brief Get material-specific dynamic pressure sensitivity
-     * @param type Material type
-     * @return Weight factor for dynamic pressure [0,1]
+     * @brief Get material-specific dynamic pressure sensitivity.
+     * @param type Material type.
+     * @return Weight factor for dynamic pressure [0,1].
      */
     double getDynamicWeight(MaterialType type) const;
 
     /**
-     * @brief Calculate pressure gradient at a cell position
-     * @param x X coordinate of cell
-     * @param y Y coordinate of cell
-     * @return Pressure gradient vector pointing from high to low pressure
+     * @brief Calculate pressure gradient at a cell position.
+     * @param x X coordinate of cell.
+     * @param y Y coordinate of cell.
+     * @return Pressure gradient vector pointing from high to low pressure.
      *
      * Calculates the pressure gradient by comparing total pressure (hydrostatic + dynamic)
      * with neighboring cells. The gradient points in the direction of decreasing pressure.
@@ -111,10 +112,10 @@ public:
     Vector2d calculatePressureGradient(uint32_t x, uint32_t y) const;
     
     /**
-     * @brief Calculate expected gravity gradient at a cell position
-     * @param x X coordinate of cell
-     * @param y Y coordinate of cell
-     * @return Gravity gradient vector representing expected equilibrium pressure gradient
+     * @brief Calculate expected gravity gradient at a cell position.
+     * @param x X coordinate of cell.
+     * @param y Y coordinate of cell.
+     * @return Gravity gradient vector representing expected equilibrium pressure gradient.
      *
      * Calculates the expected pressure gradient due to gravity based on material density
      * differences with neighbors. In equilibrium, this should balance the pressure gradient.
@@ -122,9 +123,9 @@ public:
     Vector2d calculateGravityGradient(uint32_t x, uint32_t y) const;
 
     /**
-     * @brief Calculate pressure-driven material flows
-     * @param deltaTime Time step for the current frame
-     * @return Vector of MaterialMove objects representing pressure-driven flows
+     * @brief Calculate pressure-driven material flows.
+     * @param deltaTime Time step for the current frame.
+     * @return Vector of MaterialMove objects representing pressure-driven flows.
      *
      * Analyzes pressure gradients across the grid and generates material transfers
      * from high pressure to low pressure regions. Material flows down the pressure
@@ -133,8 +134,8 @@ public:
     std::vector<MaterialMove> calculatePressureFlow(double deltaTime);
 
     /**
-     * @brief Apply pressure forces to cell velocities and handle pressure decay
-     * @param deltaTime Time step for the current frame
+     * @brief Apply pressure forces to cell velocities and handle pressure decay.
+     * @param deltaTime Time step for the current frame.
      *
      * Converts dynamic pressure into velocity changes and applies pressure decay.
      * This method handles:
@@ -145,14 +146,25 @@ public:
      */
     void applyPressureForces(double deltaTime);
 
+    /**
+     * @brief Generate virtual gravity transfers for pressure accumulation.
+     * @param deltaTime Time step for the current frame.
+     *
+     * Creates virtual blocked transfers from gravity forces acting on material.
+     * Even when material is at rest, gravity is always trying to pull it down.
+     * If the downward path is blocked, this gravitational force converts to pressure.
+     * This allows dynamic pressure to naturally model hydrostatic-like behavior.
+     */
+    void generateVirtualGravityTransfers(double deltaTime);
+
     // Queue of blocked transfers.
     std::vector<BlockedTransfer> blocked_transfers_;
 
 private:
-    WorldB& world_ref_; // Non-const reference for modifying cells
+    WorldB& world_ref_; // Non-const reference for modifying cells.
 
-    // Constants for pressure-driven flow
-    static constexpr double PRESSURE_FLOW_RATE = 1.0;    // Flow rate multiplier
-    static constexpr double PRESSURE_FORCE_SCALE = 1.0;   // Force scale factor
-    static constexpr double BACKGROUND_DECAY_RATE = 0.02; // 2% decay per timestep
+    // Constants for pressure-driven flow.
+    static constexpr double PRESSURE_FLOW_RATE = 1.0;    // Flow rate multiplier.
+    static constexpr double PRESSURE_FORCE_SCALE = 1.0;   // Force scale factor.
+    static constexpr double BACKGROUND_DECAY_RATE = 0.02; // 2% decay per timestep.
 };

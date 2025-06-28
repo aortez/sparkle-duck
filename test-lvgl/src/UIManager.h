@@ -62,12 +62,12 @@ public:
 private:
     lv_disp_t* display;
 
-    // Screens for different states
+    // Screens for different states.
     lv_obj_t* simulationScreen = nullptr;
     lv_obj_t* mainMenuScreen = nullptr;
     lv_obj_t* configScreen = nullptr;
 
-    // Current active screen
+    // Current active screen.
     lv_obj_t* currentScreen = nullptr;
 
     /**

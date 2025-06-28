@@ -35,7 +35,7 @@ static void print_lvgl_version();
 static std::string selected_backend;
 
 /* contains the selected world type */
-static WorldType selected_world_type = WorldType::RulesB; // Default to RulesB per CLAUDE.md
+static WorldType selected_world_type = WorldType::RulesB; // Default to RulesB per CLAUDE.md.
 
 /* flag to use the new event-driven system */
 static bool use_event_system = false;
@@ -46,13 +46,13 @@ static bool use_push_updates = false;
 /* Global simulator settings, defined in lv_linux_backend.c */
 extern simulator_settings_t settings;
 
-// Global references for the loop
+// Global references for the loop.
 static SimulationManager* manager_ptr = nullptr;
 
-// FPS tracking variables
-uint32_t frame_count = 0;     // Define frame counter
-uint32_t last_fps_update = 0; // Define last FPS update time
-uint32_t fps = 0;             // Define FPS value
+// FPS tracking variables.
+uint32_t frame_count = 0;     // Define frame counter.
+uint32_t last_fps_update = 0; // Define last FPS update time.
+uint32_t fps = 0;             // Define FPS value.
 
 static void print_lvgl_version()
 {
@@ -71,12 +71,12 @@ int main(int argc, char** argv)
     try {
         // Create console sink with colors.
         auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
-        console_sink->set_level(spdlog::level::info); // Only INFO and above to console
+        console_sink->set_level(spdlog::level::info); // Only INFO and above to console.
 
         // Create basic file sink (overwrites each run).
         auto file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(
-            "sparkle-duck.log", true);              // true = truncate (overwrite)
-        file_sink->set_level(spdlog::level::trace); // Everything to file
+            "sparkle-duck.log", true);              // true = truncate (overwrite).
+        file_sink->set_level(spdlog::level::trace); // Everything to file.
 
         // Create logger with both sinks.
         std::vector<spdlog::sink_ptr> sinks{ console_sink, file_sink };
@@ -84,7 +84,6 @@ int main(int argc, char** argv)
 
         // Set as default logger.
         spdlog::set_default_logger(logger);
-        spdlog::set_level(spdlog::level::debug);
         spdlog::flush_every(std::chrono::seconds(1)); // Flush every second.
     }
     catch (const spdlog::spdlog_ex& ex) {
@@ -134,10 +133,10 @@ int main(int argc, char** argv)
         "Enable push-based UI updates for thread safety (experimental)",
         { 'p', "push-updates" });
 
-    // Register backends before parsing
+    // Register backends before parsing.
     driver_backends_register();
 
-    // Default values from environment if set
+    // Default values from environment if set.
     settings.window_width = atoi(getenv("LV_SIM_WINDOW_WIDTH") ?: "1200");
     settings.window_height = atoi(getenv("LV_SIM_WINDOW_HEIGHT") ?: "1200");
     settings.max_steps = 0;
@@ -160,7 +159,7 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    // Process parsed arguments
+    // Process parsed arguments.
     if (version) {
         print_lvgl_version();
         return 0;
@@ -179,11 +178,11 @@ int main(int argc, char** argv)
         }
     }
     else {
-        // No backend specified, use default (empty string will auto-select)
+        // No backend specified, use default (empty string will auto-select).
         selected_backend = "";
     }
 
-    // Apply settings from command line arguments
+    // Apply settings from command line arguments.
     if (window_width) settings.window_width = args::get(window_width);
     if (window_height) settings.window_height = args::get(window_height);
     if (max_steps) settings.max_steps = args::get(max_steps);
@@ -233,7 +232,7 @@ int main(int argc, char** argv)
         // Create the state machine with display.
         auto stateMachine = std::make_unique<DirtSim::DirtSimStateMachine>(lv_disp_get_default());
 
-        // Enable push-based UI updates if requested
+        // Enable push-based UI updates if requested.
         if (use_push_updates) {
             stateMachine->getSharedState().enablePushUpdates(true);
             spdlog::info("Push-based UI updates activated in state machine");
@@ -268,16 +267,16 @@ int main(int argc, char** argv)
             // Enter the run loop with the state machine's SimulationManager.
             driver_backends_run_loop(*simManager);
 
-            // Cleanup
+            // Cleanup.
             CrashDumpHandler::uninstall();
 
-            // State machine will clean up when it goes out of scope
+            // State machine will clean up when it goes out of scope.
             return 0;
         }
     }
 
     if (!use_event_system) {
-        // Traditional path with SimulationManager
+        // Traditional path with SimulationManager.
         auto manager = std::make_unique<SimulationManager>(
             selected_world_type, grid_width, grid_height, lv_scr_act());
         manager_ptr = manager.get();
@@ -288,17 +287,17 @@ int main(int argc, char** argv)
             grid_width,
             grid_height);
 
-        // Install crash dump handler
+        // Install crash dump handler.
         CrashDumpHandler::install(manager_ptr);
         spdlog::info("Crash dump handler installed - assertions will generate JSON dumps");
 
-        // Initialize the simulation
+        // Initialize the simulation.
         manager->initialize();
 
         // Enter the run loop, using the selected backend.
         driver_backends_run_loop(*manager);
 
-        // Cleanup crash dump handler
+        // Cleanup crash dump handler.
         CrashDumpHandler::uninstall();
     }
 

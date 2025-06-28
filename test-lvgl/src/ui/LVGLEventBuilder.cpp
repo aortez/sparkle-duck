@@ -1,5 +1,5 @@
 #include "LVGLEventBuilder.h"
-#include "../World.h"  // For PressureMode enum
+#include "../World.h"  // For PressureMode enum.
 #include <spdlog/spdlog.h>
 
 namespace DirtSim {
@@ -62,7 +62,7 @@ LVGLEventBuilder::SliderBuilder& LVGLEventBuilder::SliderBuilder::onValueChange(
         }
     });
     
-    // Use the base class callback method with our generic callback
+    // Use the base class callback method with our generic callback.
     callback([](lv_event_t* e) { eventCallback(e); }, createCallbackData(callbackFunc));
     events(LV_EVENT_VALUE_CHANGED);
     
@@ -127,7 +127,7 @@ LVGLEventBuilder::ButtonBuilder& LVGLEventBuilder::ButtonBuilder::onToggle(Event
     }
     
     toggleEvents_ = std::make_shared<std::pair<Event, Event>>(checkedEvent, uncheckedEvent);
-    toggle(true);  // Enable toggle mode
+    toggle(true);  // Enable toggle mode.
     
     auto callbackFunc = std::make_shared<std::function<void()>>([this, checkedEvent, uncheckedEvent]() {
         if (auto* btn = getButton()) {
@@ -152,7 +152,7 @@ LVGLEventBuilder::ButtonBuilder& LVGLEventBuilder::ButtonBuilder::onReset() {
 }
 
 LVGLEventBuilder::ButtonBuilder& LVGLEventBuilder::ButtonBuilder::onGravityToggle() {
-    // We need to track gravity state somehow, for now just toggle with true/false
+    // We need to track gravity state somehow, for now just toggle with true/false.
     return onToggle(Event{SetGravityCommand{true}}, Event{SetGravityCommand{false}});
 }
 
@@ -201,20 +201,20 @@ LVGLEventBuilder::ButtonMatrixBuilder& LVGLEventBuilder::ButtonMatrixBuilder::on
         return *this;
     }
     
-    // Store the handler for later use in build()
+    // Store the handler for later use in build().
     eventHandler_ = std::make_shared<std::function<Event(uint32_t)>>(handler);
     return *this;
 }
 
 LVGLEventBuilder::ButtonMatrixBuilder& LVGLEventBuilder::ButtonMatrixBuilder::onWorldTypeSelect() {
     return onSelect([](uint32_t index) {
-        // Map button index to WorldType
+        // Map button index to WorldType.
         ::WorldType type = (index == 0) ? ::WorldType::RulesA : ::WorldType::RulesB;
         return Event{SwitchWorldTypeCommand{type}};
     });
 }
 
-// Builder configuration methods
+// Builder configuration methods.
 LVGLEventBuilder::ButtonMatrixBuilder& LVGLEventBuilder::ButtonMatrixBuilder::map(const char** btnMap) {
     btnMap_ = btnMap;
     return *this;
@@ -260,7 +260,7 @@ Result<lv_obj_t*, std::string> LVGLEventBuilder::ButtonMatrixBuilder::build() {
         return Result<lv_obj_t*, std::string>::error(std::string("Failed to create button matrix"));
     }
     
-    // Apply configurations
+    // Apply configurations.
     if (btnMap_) {
         lv_buttonmatrix_set_map(btnMatrix_, btnMap_);
     }
@@ -285,7 +285,7 @@ Result<lv_obj_t*, std::string> LVGLEventBuilder::ButtonMatrixBuilder::build() {
         lv_buttonmatrix_set_selected_button(btnMatrix_, *selectedButton_);
     }
     
-    // Apply styles
+    // Apply styles.
     for (const auto& [selector, styleFunc] : styles_) {
         lv_style_t* style = new lv_style_t;
         lv_style_init(style);
@@ -293,12 +293,12 @@ Result<lv_obj_t*, std::string> LVGLEventBuilder::ButtonMatrixBuilder::build() {
         lv_obj_add_style(btnMatrix_, style, selector);
     }
     
-    // Set up event handler if configured
+    // Set up event handler if configured.
     if (eventHandler_ && eventRouter_) {
         auto callbackFunc = std::make_shared<std::function<void()>>([this]() {
             if (btnMatrix_) {
                 uint32_t btnIndex = lv_buttonmatrix_get_selected_button(btnMatrix_);
-                // LVGL returns 0xFFFF for no selection
+                // LVGL returns 0xFFFF for no selection.
                 if (btnIndex != 0xFFFF) {
                     Event event = (*eventHandler_)(btnIndex);
                     eventRouter_->routeEvent(event);
@@ -334,8 +334,8 @@ LVGLEventBuilder::DropdownBuilder& LVGLEventBuilder::DropdownBuilder::onValueCha
 }
 
 LVGLEventBuilder::DropdownBuilder& LVGLEventBuilder::DropdownBuilder::onPressureSystemChange() {
-    // TODO: Implement when SetPressureModeCommand is added to the event system
-    // For now, pressure system changes will remain as direct manipulation
+    // TODO: Implement when SetPressureModeCommand is added to the event system.
+    // For now, pressure system changes will remain as direct manipulation.
     spdlog::warn("onPressureSystemChange() not yet implemented - pressure system needs direct manipulation");
     return *this;
 }
@@ -381,11 +381,11 @@ LVGLEventBuilder::DrawAreaBuilder& LVGLEventBuilder::DrawAreaBuilder::onMouseUp(
 }
 
 std::pair<int, int> LVGLEventBuilder::DrawAreaBuilder::getRelativeCoords(lv_obj_t* obj, lv_point_t* point) {
-    // Get object position
+    // Get object position.
     lv_area_t area;
     lv_obj_get_coords(obj, &area);
     
-    // Calculate relative coordinates
+    // Calculate relative coordinates.
     int relX = point->x - area.x1;
     int relY = point->y - area.y1;
     
@@ -398,7 +398,7 @@ void LVGLEventBuilder::DrawAreaBuilder::setupMouseEvents() {
         return;
     }
     
-    // Mouse down
+    // Mouse down.
     if (mouseDownHandler_) {
         auto callbackFunc = std::make_shared<std::function<void()>>([this]() {
             lv_point_t point;
@@ -411,7 +411,7 @@ void LVGLEventBuilder::DrawAreaBuilder::setupMouseEvents() {
         lv_obj_add_event_cb(drawArea_, eventCallback, LV_EVENT_PRESSED, createCallbackData(callbackFunc));
     }
     
-    // Mouse move
+    // Mouse move.
     if (mouseMoveHandler_) {
         auto callbackFunc = std::make_shared<std::function<void()>>([this]() {
             lv_point_t point;
@@ -424,7 +424,7 @@ void LVGLEventBuilder::DrawAreaBuilder::setupMouseEvents() {
         lv_obj_add_event_cb(drawArea_, eventCallback, LV_EVENT_PRESSING, createCallbackData(callbackFunc));
     }
     
-    // Mouse up
+    // Mouse up.
     if (mouseUpHandler_) {
         auto callbackFunc = std::make_shared<std::function<void()>>([this]() {
             lv_point_t point;
@@ -448,14 +448,14 @@ Result<lv_obj_t*, std::string> LVGLEventBuilder::DrawAreaBuilder::build() {
         return Result<lv_obj_t*, std::string>::error(std::string("Failed to create draw area"));
     }
     
-    // Set size and position
+    // Set size and position.
     lv_obj_set_size(drawArea_, size_.width, size_.height);
     lv_obj_align(drawArea_, position_.align, position_.x, position_.y);
     
-    // Make it clickable
+    // Make it clickable.
     lv_obj_add_flag(drawArea_, LV_OBJ_FLAG_CLICKABLE);
     
-    // Set up events
+    // Set up events.
     setupMouseEvents();
     
     return Result<lv_obj_t*, std::string>::okay(drawArea_);
@@ -472,4 +472,4 @@ lv_obj_t* LVGLEventBuilder::DrawAreaBuilder::buildOrLog() {
 
 
 
-} // namespace DirtSim
+} // namespace DirtSim.

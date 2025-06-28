@@ -137,11 +137,10 @@ Pressure is computed as a hydrostatic force.
 
     Stress vs Pressure
 
-    Solids experience stress tensors (normal + shear components)
-    Fluids only have hydrostatic pressure (normal forces only) 2. Material Response For fluids, pressure causes flow. For solids, pressure causes compression. 3. Load Bearing
-        Solids can support shear loads and create arches
-        A pile of dirt doesn't flow like water - it forms stable slopes
-        angle of repose for granular materials
+    Solids experience stress tensors (normal + shear components).
+    Material Response For fluids, pressure causes flow. For solids, pressure causes compression. 
+    Load Bearing Solids can support shear loads and create arches.
+    A pile of dirt doesn't flow like water - it forms stable slopes... angle of repose for granular materials.
 
 For arbitrary gravity direction, slices are perpendicular to gravity vector.
 

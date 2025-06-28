@@ -14,12 +14,12 @@ UIUpdateConsumer::UIUpdateConsumer(SharedSimState* sim_state, SimulatorUI* ui)
 
 bool UIUpdateConsumer::consumeUpdate()
 {
-    // Only consume updates if push updates are enabled
+    // Only consume updates if push updates are enabled.
     if (!isPushUpdatesEnabled()) {
         return false;
     }
 
-    // Try to pop an update from the queue
+    // Try to pop an update from the queue.
     auto update_opt = sim_state_->popUIUpdate();
     if (!update_opt.has_value()) {
         return false;
@@ -27,10 +27,10 @@ bool UIUpdateConsumer::consumeUpdate()
 
     const UIUpdateEvent& update = update_opt.value();
 
-    // Track latency
+    // Track latency.
     updateLatencyMetrics(update);
 
-    // Detect missed updates (dropped due to queue overflow)
+    // Detect missed updates (dropped due to queue overflow).
     if (last_sequence_num_.has_value()) {
         uint64_t expected_next = last_sequence_num_.value() + 1;
         if (update.sequenceNum > expected_next) {
@@ -45,10 +45,10 @@ bool UIUpdateConsumer::consumeUpdate()
     }
     last_sequence_num_ = update.sequenceNum;
 
-    // Apply the update to the UI
+    // Apply the update to the UI.
     applyUpdate(update);
 
-    // Update metrics
+    // Update metrics.
     metrics_.updates_consumed++;
     metrics_.last_update_time = std::chrono::steady_clock::now();
 
@@ -68,7 +68,7 @@ bool UIUpdateConsumer::isPushUpdatesEnabled() const
 
 void UIUpdateConsumer::applyUpdate(const UIUpdateEvent& update)
 {
-    // Apply the update to the UI
+    // Apply the update to the UI.
     ui_->applyUpdate(update);
 
     spdlog::trace(
@@ -86,8 +86,8 @@ void UIUpdateConsumer::updateLatencyMetrics(const UIUpdateEvent& update)
     auto latency = std::chrono::duration_cast<std::chrono::microseconds>(now - update_time);
     double latency_ms = latency.count() / 1000.0;
 
-    // Update rolling average
-    double alpha = 0.1; // Exponential moving average factor
+    // Update rolling average.
+    double alpha = 0.1; // Exponential moving average factor.
     if (metrics_.updates_consumed == 0) {
         metrics_.avg_latency_ms = latency_ms;
     }
@@ -95,7 +95,7 @@ void UIUpdateConsumer::updateLatencyMetrics(const UIUpdateEvent& update)
         metrics_.avg_latency_ms = (1.0 - alpha) * metrics_.avg_latency_ms + alpha * latency_ms;
     }
 
-    // Update min/max
+    // Update min/max.
     metrics_.max_latency_ms = std::max(metrics_.max_latency_ms, latency_ms);
     metrics_.min_latency_ms = std::min(metrics_.min_latency_ms, latency_ms);
 

@@ -9,10 +9,10 @@ TEST(ResultTest, DefaultConstructorCreatesErrorState) {
     Result<int, std::string> result;
     EXPECT_FALSE(result.isValue());
     EXPECT_TRUE(result.isError());
-    // Note: Result uses assert(), so calling value() on error state would terminate program
-    // We'll just test that we can access the error
+    // Note: Result uses assert(), so calling value() on error state would terminate program.
+    // We'll just test that we can access the error.
     std::string error = result.error();
-    EXPECT_EQ(error, std::string()); // Default-constructed error
+    EXPECT_EQ(error, std::string()); // Default-constructed error.
 }
 
 TEST(ResultTest, SuccessWithDefaultValue) {
@@ -21,9 +21,9 @@ TEST(ResultTest, SuccessWithDefaultValue) {
     EXPECT_TRUE(result.isValue());
     EXPECT_FALSE(result.isError());
     int value = result.value();
-    EXPECT_EQ(value, 0); // Default-constructed int
-    // Note: Result uses assert(), so calling error() on success state would terminate program
-    // We'll just test that we can access the value
+    EXPECT_EQ(value, 0); // Default-constructed int.
+    // Note: Result uses assert(), so calling error() on success state would terminate program.
+    // We'll just test that we can access the value.
 }
 
 TEST(ResultTest, SuccessWithSpecificValue) {
@@ -35,7 +35,7 @@ TEST(ResultTest, SuccessWithSpecificValue) {
 
 TEST(ResultTest, ErrorWithDefaultValue) {
     spdlog::info("Starting ResultTest::ErrorWithDefaultValue test");
-    Result<int, std::string> result; // Default constructor creates error state
+    Result<int, std::string> result; // Default constructor creates error state.
     EXPECT_TRUE(result.isError());
     EXPECT_EQ(result.error(), std::string());
 }

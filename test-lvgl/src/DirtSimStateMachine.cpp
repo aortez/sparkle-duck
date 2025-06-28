@@ -15,7 +15,7 @@ DirtSimStateMachine::DirtSimStateMachine(lv_disp_t* display)
       eventRouter(std::make_unique<EventRouter>(*this, sharedState, eventProcessor.getEventQueue()))
 {
 
-    // Initialize UIManager if display is available
+    // Initialize UIManager if display is available.
     if (display) {
         uiManager = std::make_unique<UIManager>(display);
         spdlog::info(
@@ -36,21 +36,21 @@ void DirtSimStateMachine::mainLoopRun()
 {
     spdlog::info("Starting main event loop");
 
-    // Initialize by sending init complete event
+    // Initialize by sending init complete event.
     queueEvent(InitCompleteEvent{});
 
-    // Main event processing loop
+    // Main event processing loop.
     while (!shouldExit()) {
-        // Process events from queue
+        // Process events from queue.
         eventProcessor.processEventsFromQueue(*this);
 
-        // If we're in SimRunning state and not paused, advance simulation
+        // If we're in SimRunning state and not paused, advance simulation.
         if (std::holds_alternative<State::SimRunning>(fsmState) && !sharedState.getIsPaused()) {
             queueEvent(AdvanceSimulationCommand{});
         }
 
-        // Small sleep to prevent busy waiting
-        std::this_thread::sleep_for(std::chrono::milliseconds(16)); // ~60 FPS
+        // Small sleep to prevent busy waiting.
+        std::this_thread::sleep_for(std::chrono::milliseconds(16)); // ~60 FPS.
     }
 
     spdlog::info("Main event loop exiting");
@@ -63,22 +63,22 @@ void DirtSimStateMachine::queueEvent(const Event& event)
 
 void DirtSimStateMachine::processImmediateEvent(const Event& event, SharedSimState& shared)
 {
-    // Immediate events are processed directly without state dispatch
+    // Immediate events are processed directly without state dispatch.
     std::visit(
         [this, &shared](const auto& e) {
             using T = std::decay_t<decltype(e)>;
 
             if constexpr (std::is_same_v<T, GetFPSCommand>) {
-                // Already handled by EventRouter
+                // Already handled by EventRouter.
             }
             else if constexpr (std::is_same_v<T, GetSimStatsCommand>) {
-                // Already handled by EventRouter
+                // Already handled by EventRouter.
             }
             else if constexpr (std::is_same_v<T, PauseCommand>) {
-                // Already handled by EventRouter
+                // Already handled by EventRouter.
             }
             else if constexpr (std::is_same_v<T, ResumeCommand>) {
-                // Already handled by EventRouter
+                // Already handled by EventRouter.
             }
         },
         event);
@@ -86,20 +86,20 @@ void DirtSimStateMachine::processImmediateEvent(const Event& event, SharedSimSta
 
 void DirtSimStateMachine::handleEvent(const Event& event)
 {
-    // Save the current state index before moving
+    // Save the current state index before moving.
     std::size_t oldStateIndex = fsmState.index();
 
-    // Use EventDispatcher to route to current state
-    // Move the current state to dispatch
+    // Use EventDispatcher to route to current state.
+    // Move the current state to dispatch.
     State::Any newState = EventDispatcher::dispatch(std::move(fsmState), event, *this);
 
-    // Check if the state type changed
+    // Check if the state type changed.
     if (newState.index() != oldStateIndex) {
-        // State type changed - use transitionTo to handle lifecycle
+        // State type changed - use transitionTo to handle lifecycle.
         transitionTo(std::move(newState));
     }
     else {
-        // Same state type - just update without lifecycle calls
+        // Same state type - just update without lifecycle calls.
         fsmState = std::move(newState);
     }
 }
@@ -108,41 +108,41 @@ void DirtSimStateMachine::transitionTo(State::Any newState)
 {
     std::string oldStateName = getCurrentStateName();
 
-    // Call onExit for current state
+    // Call onExit for current state.
     std::visit([this](auto& state) { callOnExit(state); }, fsmState);
 
-    // Perform transition
+    // Perform transition.
     fsmState = std::move(newState);
 
     std::string newStateName = getCurrentStateName();
     spdlog::info("STATE_TRANSITION: {} -> {}", oldStateName, newStateName);
 
-    // Call onEnter for new state
+    // Call onEnter for new state.
     std::visit([this](auto& state) { callOnEnter(state); }, fsmState);
 
-    // Push UI update on state transitions if push-based system is enabled
+    // Push UI update on state transitions if push-based system is enabled.
     if (sharedState.isPushUpdatesEnabled()) {
-        // Build update with uiState dirty flag forced on for state changes
+        // Build update with uiState dirty flag forced on for state changes.
         UIUpdateEvent update = buildUIUpdate();
-        update.dirty.uiState = true; // Always mark UI state dirty on transitions
+        update.dirty.uiState = true; // Always mark UI state dirty on transitions.
         sharedState.pushUIUpdate(std::move(update));
     }
 }
 
-// Global event handlers
+// Global event handlers.
 
-State::Any DirtSimStateMachine::onEvent(const QuitApplicationCommand& /*cmd*/)
+State::Any DirtSimStateMachine::onEvent(const QuitApplicationCommand& /*cmd.*/)
 {
     spdlog::info("Global handler: QuitApplicationCommand received");
     sharedState.setShouldExit(true);
     return State::Shutdown{};
 }
 
-State::Any DirtSimStateMachine::onEvent(const GetFPSCommand& /*cmd*/)
+State::Any DirtSimStateMachine::onEvent(const GetFPSCommand& /*cmd.*/)
 {
-    // This is an immediate event, should not reach here
+    // This is an immediate event, should not reach here.
     spdlog::warn("GetFPSCommand reached global handler - should be immediate");
-    // Return a default-constructed state of the same type
+    // Return a default-constructed state of the same type.
     return std::visit(
         [](auto&& state) -> State::Any {
             using T = std::decay_t<decltype(state)>;
@@ -151,11 +151,11 @@ State::Any DirtSimStateMachine::onEvent(const GetFPSCommand& /*cmd*/)
         fsmState);
 }
 
-State::Any DirtSimStateMachine::onEvent(const GetSimStatsCommand& /*cmd*/)
+State::Any DirtSimStateMachine::onEvent(const GetSimStatsCommand& /*cmd.*/)
 {
-    // This is an immediate event, should not reach here
+    // This is an immediate event, should not reach here.
     spdlog::warn("GetSimStatsCommand reached global handler - should be immediate");
-    // Return a default-constructed state of the same type
+    // Return a default-constructed state of the same type.
     return std::visit(
         [](auto&& state) -> State::Any {
             using T = std::decay_t<decltype(state)>;
@@ -168,15 +168,15 @@ UIUpdateEvent DirtSimStateMachine::buildUIUpdate()
 {
     UIUpdateEvent update;
 
-    // Sequence tracking
+    // Sequence tracking.
     update.sequenceNum = sharedState.getNextUpdateSequence();
 
-    // Core simulation data
+    // Core simulation data.
     update.fps = static_cast<uint32_t>(sharedState.getCurrentFPS());
     update.stepCount = sharedState.getCurrentStep();
     update.stats = sharedState.getStats();
 
-    // Physics parameters - get from shared state
+    // Physics parameters - get from shared state.
     auto params = sharedState.getPhysicsParams();
     update.physicsParams.gravity = params.gravity;
     update.physicsParams.elasticity = params.elasticity;
@@ -188,7 +188,7 @@ UIUpdateEvent DirtSimStateMachine::buildUIUpdate()
     update.physicsParams.adhesionEnabled = params.adhesionEnabled;
     update.physicsParams.timeHistoryEnabled = params.timeHistoryEnabled;
 
-    // UI state
+    // UI state.
     update.isPaused = sharedState.getIsPaused();
     update.debugEnabled = params.debugEnabled;
     update.forceEnabled = params.forceVisualizationEnabled;
@@ -196,10 +196,10 @@ UIUpdateEvent DirtSimStateMachine::buildUIUpdate()
     update.adhesionEnabled = params.adhesionEnabled;
     update.timeHistoryEnabled = params.timeHistoryEnabled;
 
-    // World state
+    // World state.
     update.selectedMaterial = sharedState.getSelectedMaterial();
 
-    // Get world type string
+    // Get world type string.
     if (simulationManager) {
         WorldType currentType = simulationManager->getCurrentWorldType();
         update.worldType = getWorldTypeName(currentType);
@@ -208,11 +208,11 @@ UIUpdateEvent DirtSimStateMachine::buildUIUpdate()
         update.worldType = "None";
     }
 
-    // Timestamp
+    // Timestamp.
     update.timestamp = std::chrono::steady_clock::now();
 
-    // TODO: Set dirty flags based on tracking previous state
-    // For now, mark everything as dirty
+    // TODO: Set dirty flags based on tracking previous state.
+    // For now, mark everything as dirty.
     update.dirty.fps = true;
     update.dirty.stats = true;
     update.dirty.physicsParams = true;
@@ -222,4 +222,4 @@ UIUpdateEvent DirtSimStateMachine::buildUIUpdate()
     return update;
 }
 
-} // namespace DirtSim
+} // namespace DirtSim.

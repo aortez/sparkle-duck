@@ -7,7 +7,7 @@ WorldBCalculatorBase::WorldBCalculatorBase(const WorldB& world) : world_(world)
 
 const CellB& WorldBCalculatorBase::getCellAt(uint32_t x, uint32_t y) const
 {
-    // Direct access to CellB through WorldB
+    // Direct access to CellB through WorldB.
     return world_.at(x, y);
 }
 

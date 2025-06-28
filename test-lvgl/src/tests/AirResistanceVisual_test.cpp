@@ -8,10 +8,10 @@ protected:
     void SetUp() override {
         VisualTestBase::SetUp();
         
-        // Create larger world for better visualization
+        // Create larger world for better visualization.
         world = createWorldB(10, 10);
         
-        // Apply test-specific defaults
+        // Apply test-specific defaults.
         world->setAddParticlesEnabled(false);
         world->setWallsEnabled(false);
         world->setCohesionBindForceEnabled(false);
@@ -26,19 +26,19 @@ protected:
 TEST_F(AirResistanceVisualTest, CompareMaterialsWithAndWithoutAirResistance) {
     spdlog::info("Starting AirResistanceVisualTest::CompareMaterialsWithAndWithoutAirResistance");
     
-    // Reset world
+    // Reset world.
     world->reset();
     
-    // Enable air resistance for left side comparison
+    // Enable air resistance for left side comparison.
     world->setAirResistanceEnabled(true);
     
-    // Add different materials at top of screen with horizontal velocity
-    // Left side (with air resistance): WATER, SAND, METAL
+    // Add different materials at top of screen with horizontal velocity.
+    // Left side (with air resistance): WATER, SAND, METAL.
     world->addMaterialAtCell(1, 1, MaterialType::WATER, 1.0);
     world->addMaterialAtCell(2, 1, MaterialType::SAND, 1.0);
     world->addMaterialAtCell(3, 1, MaterialType::METAL, 1.0);
     
-    // Right side (we'll disable air resistance after first group): WATER, SAND, METAL
+    // Right side (we'll disable air resistance after first group): WATER, SAND, METAL.
     world->addMaterialAtCell(6, 1, MaterialType::WATER, 1.0);
     world->addMaterialAtCell(7, 1, MaterialType::SAND, 1.0);
     world->addMaterialAtCell(8, 1, MaterialType::METAL, 1.0);
@@ -46,7 +46,7 @@ TEST_F(AirResistanceVisualTest, CompareMaterialsWithAndWithoutAirResistance) {
     WorldB* worldB = dynamic_cast<WorldB*>(world.get());
     ASSERT_NE(worldB, nullptr);
     
-    // Give all materials the same initial horizontal velocity
+    // Give all materials the same initial horizontal velocity.
     Vector2d initialVelocity(5.0, 0.0);
     worldB->at(1, 1).setVelocity(initialVelocity);
     worldB->at(2, 1).setVelocity(initialVelocity);
@@ -55,7 +55,7 @@ TEST_F(AirResistanceVisualTest, CompareMaterialsWithAndWithoutAirResistance) {
     worldB->at(7, 1).setVelocity(initialVelocity);
     worldB->at(8, 1).setVelocity(initialVelocity);
     
-    // Add a dividing wall to separate the two groups
+    // Add a dividing wall to separate the two groups.
     for (uint32_t y = 0; y < 10; ++y) {
         world->addMaterialAtCell(5, y, MaterialType::WALL, 1.0);
     }
@@ -63,31 +63,31 @@ TEST_F(AirResistanceVisualTest, CompareMaterialsWithAndWithoutAirResistance) {
     spdlog::info("Initial setup: 3 materials on left (WITH air resistance), 3 on right (WITHOUT)");
     spdlog::info("All materials start with velocity (5.0, 0.0)");
     
-    // Use showInitialStateWithStep to give user choice between Start and Step
+    // Use showInitialStateWithStep to give user choice between Start and Step.
     showInitialStateWithStep(world.get(), "Air Resistance Comparison: LEFT with resistance, RIGHT without");
     
-    // Run simulation and track positions
+    // Run simulation and track positions.
     const int maxSteps = 20;
     
     if (visual_mode_) {
-        // Visual mode with step support
+        // Visual mode with step support.
         for (int step = 0; step < maxSteps; ++step) {
-            // After first step, disable air resistance for right side
+            // After first step, disable air resistance for right side.
             if (step == 1) {
-                // Move right side materials to temporary storage
+                // Move right side materials to temporary storage.
                 CellB rightWater = worldB->at(6, 1);
                 CellB rightSand = worldB->at(7, 1);
                 CellB rightMetal = worldB->at(8, 1);
                 
-                // Clear right side
+                // Clear right side.
                 worldB->at(6, 1).clear();
                 worldB->at(7, 1).clear();
                 worldB->at(8, 1).clear();
                 
-                // Disable air resistance
+                // Disable air resistance.
                 world->setAirResistanceEnabled(false);
                 
-                // Restore right side materials
+                // Restore right side materials.
                 worldB->at(6, 1) = rightWater;
                 worldB->at(7, 1) = rightSand;
                 worldB->at(8, 1) = rightMetal;
@@ -96,15 +96,15 @@ TEST_F(AirResistanceVisualTest, CompareMaterialsWithAndWithoutAirResistance) {
                 pauseIfVisual(1000);
             }
             
-            // Create status message for current state
+            // Create status message for current state.
             std::stringstream ss;
             ss << "Step " << step + 1 << " of " << maxSteps << "\n";
             ss << "LEFT: Air resistance ON | RIGHT: Air resistance OFF\n";
             
-            // Find and display material positions
+            // Find and display material positions.
             bool foundMaterials = false;
             
-            // Check left side
+            // Check left side.
             for (uint32_t y = 0; y < 10; ++y) {
                 for (uint32_t x = 0; x < 5; ++x) {
                     CellB& cell = worldB->at(x, y);
@@ -118,7 +118,7 @@ TEST_F(AirResistanceVisualTest, CompareMaterialsWithAndWithoutAirResistance) {
                 }
             }
             
-            // Check right side
+            // Check right side.
             for (uint32_t y = 0; y < 10; ++y) {
                 for (uint32_t x = 6; x < 10; ++x) {
                     CellB& cell = worldB->at(x, y);
@@ -137,13 +137,13 @@ TEST_F(AirResistanceVisualTest, CompareMaterialsWithAndWithoutAirResistance) {
             
             updateDisplay(world.get(), ss.str());
             
-            // Use stepSimulation which handles step mode automatically
+            // Use stepSimulation which handles step mode automatically.
             stepSimulation(world.get(), 1, "Comparing air resistance effects");
             
             if (step % 5 == 0) {
                 spdlog::info("Step {}: Logging material positions and velocities", step);
                 
-                // Find and log left side materials (with air resistance)
+                // Find and log left side materials (with air resistance).
                 for (uint32_t y = 0; y < 10; ++y) {
                     for (uint32_t x = 0; x < 5; ++x) {
                         CellB& cell = worldB->at(x, y);
@@ -155,7 +155,7 @@ TEST_F(AirResistanceVisualTest, CompareMaterialsWithAndWithoutAirResistance) {
                     }
                 }
                 
-                // Find and log right side materials (without air resistance)
+                // Find and log right side materials (without air resistance).
                 for (uint32_t y = 0; y < 10; ++y) {
                     for (uint32_t x = 6; x < 10; ++x) {
                         CellB& cell = worldB->at(x, y);
@@ -169,7 +169,7 @@ TEST_F(AirResistanceVisualTest, CompareMaterialsWithAndWithoutAirResistance) {
             }
         }
         
-        // Final summary
+        // Final summary.
         std::stringstream finalSummary;
         finalSummary << "Test Complete!\n";
         finalSummary << "✓ Left materials (WITH air resistance) slowed down\n";
@@ -179,24 +179,24 @@ TEST_F(AirResistanceVisualTest, CompareMaterialsWithAndWithoutAirResistance) {
         waitForNext();
         
     } else {
-        // Non-visual mode: run all steps at once
+        // Non-visual mode: run all steps at once.
         for (int step = 0; step < maxSteps; ++step) {
-            // After first step, disable air resistance for right side
+            // After first step, disable air resistance for right side.
             if (step == 1) {
-                // Move right side materials to temporary storage
+                // Move right side materials to temporary storage.
                 CellB rightWater = worldB->at(6, 1);
                 CellB rightSand = worldB->at(7, 1);
                 CellB rightMetal = worldB->at(8, 1);
                 
-                // Clear right side
+                // Clear right side.
                 worldB->at(6, 1).clear();
                 worldB->at(7, 1).clear();
                 worldB->at(8, 1).clear();
                 
-                // Disable air resistance
+                // Disable air resistance.
                 world->setAirResistanceEnabled(false);
                 
-                // Restore right side materials
+                // Restore right side materials.
                 worldB->at(6, 1) = rightWater;
                 worldB->at(7, 1) = rightSand;
                 worldB->at(8, 1) = rightMetal;
@@ -207,7 +207,7 @@ TEST_F(AirResistanceVisualTest, CompareMaterialsWithAndWithoutAirResistance) {
             if (step % 5 == 0) {
                 spdlog::info("Step {}: Logging material positions and velocities", step);
                 
-                // Find and log left side materials (with air resistance)
+                // Find and log left side materials (with air resistance).
                 for (uint32_t y = 0; y < 10; ++y) {
                     for (uint32_t x = 0; x < 5; ++x) {
                         CellB& cell = worldB->at(x, y);
@@ -219,7 +219,7 @@ TEST_F(AirResistanceVisualTest, CompareMaterialsWithAndWithoutAirResistance) {
                     }
                 }
                 
-                // Find and log right side materials (without air resistance)
+                // Find and log right side materials (without air resistance).
                 for (uint32_t y = 0; y < 10; ++y) {
                     for (uint32_t x = 6; x < 10; ++x) {
                         CellB& cell = worldB->at(x, y);

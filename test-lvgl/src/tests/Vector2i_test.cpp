@@ -65,7 +65,7 @@ TEST(Vector2iTest, VectorOperations) {
     EXPECT_EQ(v1.dot(v2), 11);
 
     Vector2i normalized = v1.normalize();
-    // Note: Integer normalization is imprecise, so we just verify it's close to unit length
+    // Note: Integer normalization is imprecise, so we just verify it's close to unit length.
     EXPECT_TRUE(normalized.mag() < 2.0 && normalized.mag() > 0.5);
     EXPECT_TRUE(almostEqual(normalized, Vector2i(1, 1)));
 

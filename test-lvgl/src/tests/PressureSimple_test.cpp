@@ -9,15 +9,15 @@ protected:
     void SetUp() override {
         VisualTestBase::SetUp();
         
-        // Create a 3x3 world for simple testing
+        // Create a 3x3 world for simple testing.
         world = createWorldB(3, 3);
         
-        // Enable BOTH pressure systems
+        // Enable BOTH pressure systems.
         world->setDynamicPressureEnabled(true);
         world->setHydrostaticPressureEnabled(true);
-        world->setPressureScale(10.0);  // Increase pressure scale for visible effects
+        world->setPressureScale(10.0);  // Increase pressure scale for visible effects.
         
-        // Standard test settings
+        // Standard test settings.
         world->setWallsEnabled(false);
         world->setAddParticlesEnabled(false);
         world->setGravity(9.81);
@@ -31,16 +31,16 @@ protected:
 TEST_F(PressureSimpleTest, HydrostaticPressureDrivesMovement) {
     spdlog::info("[TEST] Testing if hydrostatic pressure alone can drive water movement");
     
-    // Create a simple 2-cell water column
-    world->addMaterialAtCell(1, 0, MaterialType::WATER, 1.0);  // Top
-    world->addMaterialAtCell(1, 1, MaterialType::WATER, 1.0);  // Bottom
+    // Create a simple 2-cell water column.
+    world->addMaterialAtCell(1, 0, MaterialType::WATER, 1.0);  // Top.
+    world->addMaterialAtCell(1, 1, MaterialType::WATER, 1.0);  // Bottom.
     
     logWorldStateAscii(world.get(), "Initial water column");
     
-    // Run one timestep to calculate hydrostatic pressure
+    // Run one timestep to calculate hydrostatic pressure.
     world->advanceTime(0.016);
     
-    // Check pressures
+    // Check pressures.
     double topPressure = world->at(1, 0).getHydrostaticPressure();
     double bottomPressure = world->at(1, 1).getHydrostaticPressure();
     
@@ -50,37 +50,37 @@ TEST_F(PressureSimpleTest, HydrostaticPressureDrivesMovement) {
     
     EXPECT_LT(topPressure, bottomPressure) << "Bottom cell should have higher pressure";
     
-    // Check if pressure creates forces
+    // Check if pressure creates forces.
     Vector2d topVelocity = world->at(1, 0).getVelocity();
     Vector2d bottomVelocity = world->at(1, 1).getVelocity();
     
     spdlog::info("  Top velocity: ({:.3f}, {:.3f})", topVelocity.x, topVelocity.y);
     spdlog::info("  Bottom velocity: ({:.3f}, {:.3f})", bottomVelocity.x, bottomVelocity.y);
     
-    // With pressure scale of 10, bottom water should have significant downward velocity
+    // With pressure scale of 10, bottom water should have significant downward velocity.
     EXPECT_GT(bottomVelocity.y, 1.0) << "Bottom water should have downward velocity from pressure";
 }
 
 TEST_F(PressureSimpleTest, WaterFlowsToEmptySpace) {
     spdlog::info("[TEST] Testing if water flows to adjacent empty space");
     
-    // Create water next to empty space
-    world->addMaterialAtCell(0, 1, MaterialType::WATER, 0.9);  // Almost full water
-    // Cell (1,1) is empty
+    // Create water next to empty space.
+    world->addMaterialAtCell(0, 1, MaterialType::WATER, 0.9);  // Almost full water.
+    // Cell (1,1) is empty.
     
-    // Give water a small rightward velocity
+    // Give water a small rightward velocity.
     world->at(0, 1).setVelocity(Vector2d(0.5, 0.0));
-    world->at(0, 1).setCOM(Vector2d(0.5, 0.0));  // COM towards right edge
+    world->at(0, 1).setCOM(Vector2d(0.5, 0.0));  // COM towards right edge.
     
     logWorldStateAscii(world.get(), "Water next to empty space");
     
-    // Track initial state
+    // Track initial state.
     double initialWaterLeft = world->at(0, 1).getFillRatio();
     double initialWaterRight = world->at(1, 1).getFillRatio();
     
     spdlog::info("Initial: left={:.3f}, right={:.3f}", initialWaterLeft, initialWaterRight);
     
-    // Run simulation
+    // Run simulation.
     for (int i = 0; i < 10; i++) {
         world->advanceTime(0.016);
         
@@ -94,7 +94,7 @@ TEST_F(PressureSimpleTest, WaterFlowsToEmptySpace) {
         }
     }
     
-    // Check final state
+    // Check final state.
     double finalWaterLeft = world->at(0, 1).getFillRatio();
     double finalWaterRight = world->at(1, 1).getFillRatio();
     
@@ -109,20 +109,20 @@ TEST_F(PressureSimpleTest, WaterFlowsToEmptySpace) {
 TEST_F(PressureSimpleTest, BlockedTransferCreatesDynamicPressure) {
     spdlog::info("[TEST] Testing if blocked transfers create dynamic pressure");
     
-    // Create water trying to move into a wall
+    // Create water trying to move into a wall.
     world->addMaterialAtCell(1, 1, MaterialType::WATER, 0.8);
     world->addMaterialAtCell(2, 1, MaterialType::WALL, 1.0);
     
-    // Give water strong rightward velocity toward wall
+    // Give water strong rightward velocity toward wall.
     world->at(1, 1).setVelocity(Vector2d(5.0, 0.0));
-    world->at(1, 1).setCOM(Vector2d(0.8, 0.0));  // COM near right edge
+    world->at(1, 1).setCOM(Vector2d(0.8, 0.0));  // COM near right edge.
     
     logWorldStateAscii(world.get(), "Water moving toward wall");
     
     double initialPressure = world->at(1, 1).getDynamicPressure();
     spdlog::info("Initial dynamic pressure: {:.3f}", initialPressure);
     
-    // Run simulation - water should hit wall and build pressure
+    // Run simulation - water should hit wall and build pressure.
     for (int i = 0; i < 5; i++) {
         world->advanceTime(0.016);
         
@@ -135,7 +135,7 @@ TEST_F(PressureSimpleTest, BlockedTransferCreatesDynamicPressure) {
     
     logWorldStateAscii(world.get(), "After collision with wall");
     
-    // Check if any water cell has debug pressure (water may have moved)
+    // Check if any water cell has debug pressure (water may have moved).
     bool pressureFound = false;
     double maxPressure = 0.0;
     for (int y = 0; y < 3; y++) {

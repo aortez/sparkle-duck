@@ -2,12 +2,12 @@
 
 #include <cstdint>
 
-// Forward declarations
+// Forward declarations.
 class CellB;
 class WorldB;
 
 /**
- * @brief Base class for WorldB calculator classes
+ * @brief Base class for WorldB calculator classes.
  *
  * This abstract base class provides common functionality for all WorldB
  * calculator classes including:
@@ -21,31 +21,31 @@ class WorldB;
 class WorldBCalculatorBase {
 public:
     /**
-     * @brief Constructor takes a WorldB for accessing world data
+     * @brief Constructor takes a WorldB for accessing world data.
      * @param world WorldB providing access to grid and cells
      */
     explicit WorldBCalculatorBase(const WorldB& world);
 
-    // Disable copy construction and assignment
+    // Disable copy construction and assignment.
     WorldBCalculatorBase(const WorldBCalculatorBase&) = delete;
     WorldBCalculatorBase& operator=(const WorldBCalculatorBase&) = delete;
 
-    // Allow move construction and assignment
+    // Allow move construction and assignment.
     WorldBCalculatorBase(WorldBCalculatorBase&&) = default;
     WorldBCalculatorBase& operator=(WorldBCalculatorBase&&) = default;
 
-    // Virtual destructor for proper cleanup
+    // Virtual destructor for proper cleanup.
     virtual ~WorldBCalculatorBase() = default;
 
-    // Common constants used across calculator classes
-    static constexpr double MIN_MATTER_THRESHOLD = 0.001; // Minimum matter to process
+    // Common constants used across calculator classes.
+    static constexpr double MIN_MATTER_THRESHOLD = 0.001; // Minimum matter to process.
 
 protected:
-    // Reference to the world for accessing grid data
+    // Reference to the world for accessing grid data.
     const WorldB& world_;
 
     /**
-     * @brief Get cell at specific coordinates
+     * @brief Get cell at specific coordinates.
      * @param x Column coordinate
      * @param y Row coordinate
      * @return Reference to cell at (x,y)
@@ -53,7 +53,7 @@ protected:
     const CellB& getCellAt(uint32_t x, uint32_t y) const;
 
     /**
-     * @brief Check if coordinates are valid for the grid
+     * @brief Check if coordinates are valid for the grid.
      * @param x Column coordinate
      * @param y Row coordinate
      * @return true if coordinates are within bounds

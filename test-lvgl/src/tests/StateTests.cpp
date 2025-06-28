@@ -8,7 +8,7 @@
 
 using namespace DirtSim;
 
-// Test fixture that provides a clean state machine for each test
+// Test fixture that provides a clean state machine for each test.
 class StateTests : public ::testing::Test {
 protected:
     std::unique_ptr<DirtSimStateMachine> dsm;
@@ -17,12 +17,12 @@ protected:
         dsm = std::make_unique<DirtSimStateMachine>();
     }
     
-    // Helper to process queued events
+    // Helper to process queued events.
     void processEvents() {
         dsm->eventProcessor.processEventsFromQueue(*dsm);
     }
     
-    // Helper to transition to a specific state
+    // Helper to transition to a specific state.
     void transitionTo(const std::string& targetState) {
         if (targetState == "MainMenu") {
             dsm->queueEvent(InitCompleteEvent{});
@@ -48,23 +48,23 @@ TEST_F(StateTests, StartupState_InitialConditions) {
 }
 
 TEST_F(StateTests, StartupState_SuccessfulInit) {
-    // Send init complete event
+    // Send init complete event.
     dsm->queueEvent(InitCompleteEvent{});
     processEvents();
     
-    // Should transition to MainMenu and create world
+    // Should transition to MainMenu and create world.
     EXPECT_EQ(dsm->getCurrentStateName(), "MainMenu");
     EXPECT_NE(dsm->world, nullptr);
 }
 
 TEST_F(StateTests, StartupState_IgnoresOtherEvents) {
-    // Try sending events that Startup shouldn't handle
+    // Try sending events that Startup shouldn't handle.
     dsm->queueEvent(StartSimulationCommand{});
     dsm->queueEvent(PauseCommand{});
     dsm->queueEvent(MouseDownEvent{100, 100});
     processEvents();
     
-    // Should still be in Startup
+    // Should still be in Startup.
     EXPECT_EQ(dsm->getCurrentStateName(), "Startup");
 }
 
@@ -73,7 +73,7 @@ TEST_F(StateTests, StartupState_IgnoresOtherEvents) {
 TEST_F(StateTests, MainMenuState_StartSimulation) {
     transitionTo("MainMenu");
     
-    // Start simulation
+    // Start simulation.
     dsm->queueEvent(StartSimulationCommand{});
     processEvents();
     
@@ -83,7 +83,7 @@ TEST_F(StateTests, MainMenuState_StartSimulation) {
 TEST_F(StateTests, MainMenuState_OpenConfig) {
     transitionTo("MainMenu");
     
-    // Open config
+    // Open config.
     dsm->queueEvent(OpenConfigCommand{});
     processEvents();
     
@@ -93,12 +93,12 @@ TEST_F(StateTests, MainMenuState_OpenConfig) {
 TEST_F(StateTests, MainMenuState_IgnoresSimulationEvents) {
     transitionTo("MainMenu");
     
-    // Try simulation-specific events
+    // Try simulation-specific events.
     dsm->queueEvent(AdvanceSimulationCommand{});
     dsm->queueEvent(PauseCommand{});
     processEvents();
     
-    // Should remain in MainMenu
+    // Should remain in MainMenu.
     EXPECT_EQ(dsm->getCurrentStateName(), "MainMenu");
 }
 
@@ -107,7 +107,7 @@ TEST_F(StateTests, MainMenuState_IgnoresSimulationEvents) {
 TEST_F(StateTests, SimRunningState_CreatesSimulationManager) {
     transitionTo("SimRunning");
     
-    // SimulationManager should be created
+    // SimulationManager should be created.
     EXPECT_NE(dsm->getSimulationManager(), nullptr);
 }
 
@@ -117,20 +117,20 @@ TEST_F(StateTests, SimRunningState_AdvanceSimulation) {
     auto& sharedState = dsm->getSharedState();
     uint32_t initialStep = sharedState.getCurrentStep();
     
-    // Advance simulation multiple times
+    // Advance simulation multiple times.
     for (int i = 0; i < 5; ++i) {
         dsm->queueEvent(AdvanceSimulationCommand{});
     }
     processEvents();
     
-    // Step count should increase
+    // Step count should increase.
     EXPECT_GT(sharedState.getCurrentStep(), initialStep);
 }
 
 TEST_F(StateTests, SimRunningState_PauseTransition) {
     transitionTo("SimRunning");
     
-    // Pause the simulation - use EventRouter for immediate event
+    // Pause the simulation - use EventRouter for immediate event.
     dsm->queueEvent(PauseCommand{});
     processEvents();
     
@@ -141,7 +141,7 @@ TEST_F(StateTests, SimRunningState_PauseTransition) {
 TEST_F(StateTests, SimRunningState_ResetSimulation) {
     transitionTo("SimRunning");
     
-    // Advance a few steps
+    // Advance a few steps.
     for (int i = 0; i < 3; ++i) {
         dsm->queueEvent(AdvanceSimulationCommand{});
     }
@@ -150,13 +150,13 @@ TEST_F(StateTests, SimRunningState_ResetSimulation) {
     uint32_t stepsBeforeReset = dsm->getSharedState().getCurrentStep();
     EXPECT_GT(stepsBeforeReset, 0);
     
-    // Reset simulation
+    // Reset simulation.
     dsm->queueEvent(ResetSimulationCommand{});
     processEvents();
     
-    // Should still be in SimRunning but with reset state
+    // Should still be in SimRunning but with reset state.
     EXPECT_EQ(dsm->getCurrentStateName(), "SimRunning");
-    // Note: Reset might not reset step counter depending on implementation
+    // Note: Reset might not reset step counter depending on implementation.
 }
 
 TEST_F(StateTests, SimRunningState_MaterialSelection) {
@@ -164,7 +164,7 @@ TEST_F(StateTests, SimRunningState_MaterialSelection) {
     
     auto& sharedState = dsm->getSharedState();
     
-    // Change material selection
+    // Change material selection.
     dsm->queueEvent(SelectMaterialCommand{MaterialType::WATER});
     processEvents();
     EXPECT_EQ(sharedState.getSelectedMaterial(), MaterialType::WATER);
@@ -177,13 +177,13 @@ TEST_F(StateTests, SimRunningState_MaterialSelection) {
 TEST_F(StateTests, SimRunningState_MouseInteraction) {
     transitionTo("SimRunning");
     
-    // Send mouse events
+    // Send mouse events.
     dsm->queueEvent(MouseDownEvent{50, 50});
     dsm->queueEvent(MouseMoveEvent{55, 55});
     dsm->queueEvent(MouseUpEvent{60, 60});
     processEvents();
     
-    // Should remain in SimRunning
+    // Should remain in SimRunning.
     EXPECT_EQ(dsm->getCurrentStateName(), "SimRunning");
 }
 
@@ -192,7 +192,7 @@ TEST_F(StateTests, SimRunningState_MouseInteraction) {
 TEST_F(StateTests, SimPausedState_PreservesSimulation) {
     transitionTo("SimRunning");
     
-    // Advance simulation a bit
+    // Advance simulation a bit.
     for (int i = 0; i < 5; ++i) {
         dsm->queueEvent(AdvanceSimulationCommand{});
     }
@@ -200,17 +200,17 @@ TEST_F(StateTests, SimPausedState_PreservesSimulation) {
     
     uint32_t stepsBeforePause = dsm->getSharedState().getCurrentStep();
     
-    // Pause
+    // Pause.
     dsm->queueEvent(PauseCommand{});
     processEvents();
     EXPECT_EQ(dsm->getCurrentStateName(), "SimPaused");
     
-    // Resume - use EventRouter for immediate event
+    // Resume - use EventRouter for immediate event.
     dsm->queueEvent(ResumeCommand{});
     processEvents();
     EXPECT_EQ(dsm->getCurrentStateName(), "SimRunning");
     
-    // Step count should be preserved
+    // Step count should be preserved.
     EXPECT_EQ(dsm->getSharedState().getCurrentStep(), stepsBeforePause);
 }
 
@@ -219,11 +219,11 @@ TEST_F(StateTests, SimPausedState_SingleStepAdvance) {
     
     uint32_t initialSteps = dsm->getSharedState().getCurrentStep();
     
-    // Single step advance while paused
+    // Single step advance while paused.
     dsm->queueEvent(AdvanceSimulationCommand{});
     processEvents();
     
-    // Should still be paused but with one more step
+    // Should still be paused but with one more step.
     EXPECT_EQ(dsm->getCurrentStateName(), "SimPaused");
     EXPECT_EQ(dsm->getSharedState().getCurrentStep(), initialSteps + 1);
 }
@@ -231,11 +231,11 @@ TEST_F(StateTests, SimPausedState_SingleStepAdvance) {
 TEST_F(StateTests, SimPausedState_ResetWhilePaused) {
     transitionTo("SimPaused");
     
-    // Reset while paused
+    // Reset while paused.
     dsm->queueEvent(ResetSimulationCommand{});
     processEvents();
     
-    // Should go to SimRunning (new instance)
+    // Should go to SimRunning (new instance).
     EXPECT_EQ(dsm->getCurrentStateName(), "SimRunning");
     EXPECT_FALSE(dsm->getSharedState().getIsPaused());
 }
@@ -243,7 +243,7 @@ TEST_F(StateTests, SimPausedState_ResetWhilePaused) {
 TEST_F(StateTests, SimPausedState_MaterialChangeWhilePaused) {
     transitionTo("SimPaused");
     
-    // Change material while paused
+    // Change material while paused.
     dsm->queueEvent(SelectMaterialCommand{MaterialType::METAL});
     processEvents();
     
@@ -256,12 +256,12 @@ TEST_F(StateTests, SimPausedState_MaterialChangeWhilePaused) {
 TEST_F(StateTests, ConfigState_BackToMainMenu) {
     transitionTo("MainMenu");
     
-    // Go to config
+    // Go to config.
     dsm->queueEvent(OpenConfigCommand{});
     processEvents();
     EXPECT_EQ(dsm->getCurrentStateName(), "Config");
     
-    // Use StartSimulationCommand as back (as per implementation hack)
+    // Use StartSimulationCommand as back (as per implementation hack).
     dsm->queueEvent(StartSimulationCommand{});
     processEvents();
     
@@ -273,7 +273,7 @@ TEST_F(StateTests, ConfigState_BackToMainMenu) {
 TEST_F(StateTests, ShutdownState_SetsExitFlag) {
     transitionTo("MainMenu");
     
-    // Send quit command
+    // Send quit command.
     dsm->queueEvent(QuitApplicationCommand{});
     processEvents();
     
@@ -285,11 +285,11 @@ TEST_F(StateTests, ShutdownState_CleansUpResources) {
     transitionTo("SimRunning");
     EXPECT_NE(dsm->getSimulationManager(), nullptr);
     
-    // Quit
+    // Quit.
     dsm->queueEvent(QuitApplicationCommand{});
     processEvents();
     
-    // Resources should be cleaned up
+    // Resources should be cleaned up.
     EXPECT_EQ(dsm->getCurrentStateName(), "Shutdown");
     EXPECT_TRUE(dsm->shouldExit());
 }
@@ -297,34 +297,34 @@ TEST_F(StateTests, ShutdownState_CleansUpResources) {
 // ===== State Lifecycle Tests =====
 
 TEST_F(StateTests, StateLifecycle_OnEnterOnExit) {
-    // Test that state lifecycle methods are called properly
-    // This is implicitly tested by the resource creation/destruction tests above
+    // Test that state lifecycle methods are called properly.
+    // This is implicitly tested by the resource creation/destruction tests above.
     
-    // SimRunning creates SimulationManager on enter
+    // SimRunning creates SimulationManager on enter.
     transitionTo("SimRunning");
     EXPECT_NE(dsm->getSimulationManager(), nullptr);
     
-    // Transitioning away should clean it up
+    // Transitioning away should clean it up.
     dsm->queueEvent(QuitApplicationCommand{});
     processEvents();
     
-    // Shutdown state should have cleared everything
+    // Shutdown state should have cleared everything.
     EXPECT_TRUE(dsm->shouldExit());
 }
 
 // ===== Invalid State Transition Tests =====
 
 TEST_F(StateTests, InvalidTransitions_IgnoredProperly) {
-    // Test that invalid events in states are ignored
+    // Test that invalid events in states are ignored.
     
-    // In Startup, simulation events should be ignored
+    // In Startup, simulation events should be ignored.
     EXPECT_EQ(dsm->getCurrentStateName(), "Startup");
     dsm->queueEvent(AdvanceSimulationCommand{});
     dsm->queueEvent(PauseCommand{});
     processEvents();
     EXPECT_EQ(dsm->getCurrentStateName(), "Startup");
     
-    // In MainMenu, simulation events should be ignored
+    // In MainMenu, simulation events should be ignored.
     transitionTo("MainMenu");
     dsm->queueEvent(AdvanceSimulationCommand{});
     dsm->queueEvent(ResumeCommand{});

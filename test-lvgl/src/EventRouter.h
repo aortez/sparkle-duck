@@ -8,7 +8,7 @@
 #include <chrono>
 #include <thread>
 
-// Forward declaration
+// Forward declaration.
 namespace DirtSim {
 class DirtSimStateMachine;
 }
@@ -48,18 +48,18 @@ public:
                 if constexpr (is_immediate_event_v<T>) {
                     // Check if push updates are enabled and event is compatible
                     if (sharedState_.isPushUpdatesEnabled() && isPushCompatible(e)) {
-                        // Route through state machine for push-based update
+                        // Route through state machine for push-based update.
                         queueEvent(e);
                         spdlog::debug(
                             "Routing {} through push system instead of immediate", e.name());
                     }
                     else {
-                        // Process immediately on current thread (legacy behavior)
+                        // Process immediately on current thread (legacy behavior).
                         processImmediate(e);
                     }
                 }
                 else {
-                    // Queue for simulation thread
+                    // Queue for simulation thread.
                     queueEvent(e);
                 }
             },
@@ -67,14 +67,14 @@ public:
     }
 
     /**
-     * @brief Get reference to SharedSimState
-     * @return Reference to shared simulation state
+     * @brief Get reference to SharedSimState.
+     * @return Reference to shared simulation state.
      */
     SharedSimState& getSharedSimState() { return sharedState_; }
 
     /**
-     * @brief Get pointer to SharedSimState for UIUpdateConsumer
-     * @return Pointer to shared simulation state
+     * @brief Get pointer to SharedSimState for UIUpdateConsumer.
+     * @return Pointer to shared simulation state.
      */
     SharedSimState* getSharedSimStatePtr() { return &sharedState_; }
 
@@ -87,8 +87,8 @@ private:
     template <typename T>
     bool isPushCompatible(const T& /*event*/) const
     {
-        // All current immediate events are push-compatible
-        // They update UI state that can be delivered via push updates
+        // All current immediate events are push-compatible.
+        // They update UI state that can be delivered via push updates.
         return std::is_same_v<T, GetFPSCommand> || std::is_same_v<T, GetSimStatsCommand>
             || std::is_same_v<T, ToggleDebugCommand> || std::is_same_v<T, ToggleForceCommand>
             || std::is_same_v<T, ToggleCohesionCommand> || std::is_same_v<T, ToggleAdhesionCommand>
@@ -110,7 +110,7 @@ private:
 
         auto start = std::chrono::steady_clock::now();
 
-        // Process the event immediately
+        // Process the event immediately.
         processImmediateEvent(event);
 
         auto duration = std::chrono::steady_clock::now() - start;

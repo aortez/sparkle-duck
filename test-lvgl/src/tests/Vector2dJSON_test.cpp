@@ -9,31 +9,31 @@
 class Vector2dJSONTest : public ::testing::Test {
 protected:
     void SetUp() override {
-        // Setup if needed
+        // Setup if needed.
     }
     
     void TearDown() override {
-        // Cleanup if needed
+        // Cleanup if needed.
     }
     
-    // Helper to validate round-trip serialization
+    // Helper to validate round-trip serialization.
     void validateRoundTrip(const Vector2d& original) {
         rapidjson::Document doc;
         auto& allocator = doc.GetAllocator();
         
-        // Serialize to JSON
+        // Serialize to JSON.
         rapidjson::Value json = original.toJson(allocator);
         
-        // Deserialize back
+        // Deserialize back.
         Vector2d restored = Vector2d::fromJson(json);
         
-        // Validate equality
+        // Validate equality.
         EXPECT_DOUBLE_EQ(original.x, restored.x);
         EXPECT_DOUBLE_EQ(original.y, restored.y);
         EXPECT_EQ(original, restored);
     }
     
-    // Helper to convert JSON value to string for debugging
+    // Helper to convert JSON value to string for debugging.
     std::string jsonToString(const rapidjson::Value& json) {
         rapidjson::StringBuffer buffer;
         rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
@@ -79,7 +79,7 @@ TEST_F(Vector2dJSONTest, JSONStructureValidation) {
     
     rapidjson::Value json = vec.toJson(allocator);
     
-    // Validate JSON structure
+    // Validate JSON structure.
     EXPECT_TRUE(json.IsObject());
     EXPECT_TRUE(json.HasMember("x"));
     EXPECT_TRUE(json.HasMember("y"));
@@ -125,24 +125,24 @@ TEST_F(Vector2dJSONTest, FromJsonNonNumericY) {
 }
 
 TEST_F(Vector2dJSONTest, SpecialFloatValues) {
-    // Test infinity (should work with JSON)
+    // Test infinity (should work with JSON).
     Vector2d inf_vec(std::numeric_limits<double>::infinity(), 
                      -std::numeric_limits<double>::infinity());
     
     rapidjson::Document doc;
     auto& allocator = doc.GetAllocator();
     
-    // Serialize to JSON
+    // Serialize to JSON.
     rapidjson::Value json = inf_vec.toJson(allocator);
     
-    // RapidJSON represents infinity as null, so we just verify no crash
+    // RapidJSON represents infinity as null, so we just verify no crash.
     EXPECT_TRUE(json.IsObject());
     EXPECT_TRUE(json.HasMember("x"));
     EXPECT_TRUE(json.HasMember("y"));
 }
 
 TEST_F(Vector2dJSONTest, PrecisionPreservation) {
-    // Test high precision values
+    // Test high precision values.
     Vector2d precise(1.23456789012345, -9.87654321098765);
     
     rapidjson::Document doc;
@@ -151,7 +151,7 @@ TEST_F(Vector2dJSONTest, PrecisionPreservation) {
     rapidjson::Value json = precise.toJson(allocator);
     Vector2d restored = Vector2d::fromJson(json);
     
-    // Should preserve reasonable precision
+    // Should preserve reasonable precision.
     EXPECT_NEAR(precise.x, restored.x, 1e-15);
     EXPECT_NEAR(precise.y, restored.y, 1e-15);
 }

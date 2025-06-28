@@ -14,7 +14,7 @@ SimulationManager::SimulationManager(
 {
     spdlog::info("Creating SimulationManager with {}x{} grid", width, height);
 
-    // Create UI first if screen is provided, but don't get draw_area yet
+    // Create UI first if screen is provided, but don't get draw_area yet.
     if (screen) {
         ui_ = std::make_unique<SimulatorUI>(screen);
         spdlog::info("SimulationManager created with UI");
@@ -23,7 +23,7 @@ SimulationManager::SimulationManager(
         spdlog::info("SimulationManager created in headless mode");
     }
 
-    // Note: We'll create the world during initialize() after UI is set up
+    // Note: We'll create the world during initialize() after UI is set up.
     spdlog::info("SimulationManager construction complete");
 }
 
@@ -31,25 +31,25 @@ void SimulationManager::initialize()
 {
     spdlog::info("Initializing SimulationManager");
 
-    // Initialize UI first if it exists
+    // Initialize UI first if it exists.
     if (ui_) {
         ui_->initialize();
         draw_area_ = ui_->getDrawArea();
         spdlog::info("UI initialized, draw_area obtained");
     }
 
-    // Now create the world with the proper draw_area
+    // Now create the world with the proper draw_area.
     world_ = createWorld(initial_world_type_);
     if (!world_) {
         throw std::runtime_error("Failed to create initial world");
     }
 
-    // Connect UI and world if UI exists
+    // Connect UI and world if UI exists.
     if (ui_) {
         connectUIAndWorld();
     }
 
-    // Setup world with initial materials
+    // Setup world with initial materials.
     world_->setup();
 
     spdlog::info("SimulationManager initialization complete");
@@ -71,7 +71,7 @@ bool SimulationManager::switchWorldType(WorldType newType)
     spdlog::info(
         "Switching from {} to {}", getWorldTypeName(currentType), getWorldTypeName(newType));
 
-    // Step 1: Preserve current world state
+    // Step 1: Preserve current world state.
     WorldState state;
     world_->preserveState(state);
     spdlog::info("State preserved - grid: {}x{}, mass: {:.2f}", state.width, state.height, [&]() {
@@ -84,21 +84,21 @@ bool SimulationManager::switchWorldType(WorldType newType)
         return total;
     }());
 
-    // Step 2: Create new world
+    // Step 2: Create new world.
     auto newWorld = createWorld(newType);
     if (!newWorld) {
         spdlog::error("Failed to create new world of type {}", getWorldTypeName(newType));
         return false;
     }
 
-    // Step 3: Restore state to new world
+    // Step 3: Restore state to new world.
     newWorld->restoreState(state);
     spdlog::info("State restored to new world");
 
-    // Step 4: Replace current world (this automatically cleans up old world)
+    // Step 4: Replace current world (this automatically cleans up old world).
     world_ = std::move(newWorld);
 
-    // Step 5: Reconnect UI to new world
+    // Step 5: Reconnect UI to new world.
     if (ui_) {
         connectUIAndWorld();
         updateUIWorldType();
@@ -170,13 +170,13 @@ void SimulationManager::connectUIAndWorld()
 
     spdlog::info("Connecting UI and world");
 
-    // Set up bidirectional relationship
+    // Set up bidirectional relationship.
     ui_->setWorld(world_.get());
     ui_->setSimulationManager(this);
 
     // Important: The world needs a reference to the UI for mass/FPS updates
     // but in our architecture, the SimulationManager owns both, so the world
-    // gets a raw pointer reference (not ownership)
+    // gets a raw pointer reference (not ownership).
     world_->setUIReference(ui_.get());
 
     spdlog::info("UI and world connected");
@@ -188,7 +188,7 @@ void SimulationManager::updateUIWorldType()
         return;
     }
 
-    // This would update UI elements like button matrix to reflect current world type
-    // For now, we'll rely on the UI's internal update mechanisms
+    // This would update UI elements like button matrix to reflect current world type.
+    // For now, we'll rely on the UI's internal update mechanisms.
     spdlog::debug("UI world type updated");
 }

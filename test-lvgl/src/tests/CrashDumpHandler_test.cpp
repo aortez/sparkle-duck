@@ -12,28 +12,28 @@
 class CrashDumpHandlerTest : public ::testing::Test {
 protected:
     void SetUp() override {
-        // Create a test directory for dumps
+        // Create a test directory for dumps.
         test_dir_ = "./test_dumps/";
         std::filesystem::create_directories(test_dir_);
         
-        // Create a small simulation for testing
+        // Create a small simulation for testing.
         manager_ = std::make_unique<SimulationManager>(WorldType::RulesB, 10, 10, nullptr);
         manager_->initialize();
         
-        // Install crash dump handler
+        // Install crash dump handler.
         CrashDumpHandler::install(manager_.get());
         CrashDumpHandler::setDumpDirectory(test_dir_);
     }
     
     void TearDown() override {
-        // Uninstall handler
+        // Uninstall handler.
         CrashDumpHandler::uninstall();
         
-        // Clean up test dumps
+        // Clean up test dumps.
         try {
             std::filesystem::remove_all(test_dir_);
         } catch (...) {
-            // Ignore cleanup errors
+            // Ignore cleanup errors.
         }
     }
     
@@ -58,7 +58,7 @@ protected:
         file.close();
         
         // Basic JSON validation - should start with { and end with }
-        // and contain expected sections
+        // and contain expected sections.
         return content.find("{") != std::string::npos &&
                content.find("}") != std::string::npos &&
                content.find("crash_info") != std::string::npos &&
@@ -71,11 +71,11 @@ protected:
 };
 
 TEST_F(CrashDumpHandlerTest, ManualDumpGeneration) {
-    // Trigger a manual dump
+    // Trigger a manual dump.
     std::cout << "=== TESTING MANUAL CRASH DUMP ===" << std::endl;
     CrashDumpHandler::dumpWorldState("test_manual_dump");
     
-    // Check that a dump file was created
+    // Check that a dump file was created.
     auto files = getTestDumpFiles();
     std::cout << "Found " << files.size() << " dump files" << std::endl;
     
@@ -86,7 +86,7 @@ TEST_F(CrashDumpHandlerTest, ManualDumpGeneration) {
         EXPECT_TRUE(validateJsonFile(files[0]));
         EXPECT_TRUE(files[0].find("test_manual_dump") != std::string::npos);
         
-        // Let's also copy the dump to the main directory to inspect
+        // Let's also copy the dump to the main directory to inspect.
         std::string src = test_dir_ + files[0];
         std::string dst = "./" + files[0];
         std::filesystem::copy_file(src, dst, std::filesystem::copy_options::overwrite_existing);
@@ -95,13 +95,13 @@ TEST_F(CrashDumpHandlerTest, ManualDumpGeneration) {
 }
 
 TEST_F(CrashDumpHandlerTest, SparkleAssertDumpGeneration) {
-    // This test validates that SPARKLE_ASSERT would generate a dump
-    // We can't actually test the assertion failure without terminating the test
-    // But we can test the crash dump handler directly
+    // This test validates that SPARKLE_ASSERT would generate a dump.
+    // We can't actually test the assertion failure without terminating the test.
+    // But we can test the crash dump handler directly.
     
     CrashDumpHandler::onAssertionFailure("test_condition", "test_file.cpp", 42, "Test assertion message");
     
-    // Check that a dump file was created
+    // Check that a dump file was created.
     auto files = getTestDumpFiles();
     EXPECT_EQ(files.size(), 1);
     
@@ -109,7 +109,7 @@ TEST_F(CrashDumpHandlerTest, SparkleAssertDumpGeneration) {
         EXPECT_TRUE(validateJsonFile(files[0]));
         EXPECT_TRUE(files[0].find("assertion_failure") != std::string::npos);
         
-        // Read the file and check for assertion details
+        // Read the file and check for assertion details.
         std::ifstream file(test_dir_ + files[0]);
         std::string content((std::istreambuf_iterator<char>(file)),
                            std::istreambuf_iterator<char>());
@@ -123,44 +123,44 @@ TEST_F(CrashDumpHandlerTest, SparkleAssertDumpGeneration) {
 }
 
 TEST_F(CrashDumpHandlerTest, MultipleSerialDumps) {
-    // Generate multiple dumps to test naming and file management
+    // Generate multiple dumps to test naming and file management.
     CrashDumpHandler::dumpWorldState("dump1");
-    std::this_thread::sleep_for(std::chrono::milliseconds(10)); // Ensure different timestamps
+    std::this_thread::sleep_for(std::chrono::milliseconds(10)); // Ensure different timestamps.
     CrashDumpHandler::dumpWorldState("dump2");
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
     CrashDumpHandler::dumpWorldState("dump3");
     
-    // Check that all dumps were created
+    // Check that all dumps were created.
     auto files = getTestDumpFiles();
     EXPECT_EQ(files.size(), 3);
     
-    // Validate each file
+    // Validate each file.
     for (const auto& filename : files) {
         EXPECT_TRUE(validateJsonFile(filename));
     }
 }
 
 TEST_F(CrashDumpHandlerTest, DumpContainsWorldState) {
-    // Modify world state before dumping
+    // Modify world state before dumping.
     auto* world = manager_->getWorld();
     ASSERT_NE(world, nullptr);
     
-    // Add some material to make the dump more interesting
+    // Add some material to make the dump more interesting.
     if (world->getWorldType() == WorldType::RulesB) {
-        // Add material at a few locations for RulesB
+        // Add material at a few locations for RulesB.
         world->addMaterialAtPixel(50, 50, MaterialType::DIRT);
         world->addMaterialAtPixel(100, 100, MaterialType::WATER);
     }
     
-    // Advance a few timesteps
+    // Advance a few timesteps.
     for (int i = 0; i < 5; ++i) {
-        world->advanceTime(0.016); // ~60 FPS timestep
+        world->advanceTime(0.016); // ~60 FPS timestep.
     }
     
-    // Generate dump
+    // Generate dump.
     CrashDumpHandler::dumpWorldState("state_test");
     
-    // Validate the dump contains expected world information
+    // Validate the dump contains expected world information.
     auto files = getTestDumpFiles();
     EXPECT_EQ(files.size(), 1);
     
@@ -170,32 +170,32 @@ TEST_F(CrashDumpHandlerTest, DumpContainsWorldState) {
                            std::istreambuf_iterator<char>());
         file.close();
         
-        // Check for world dimensions in world_info section
+        // Check for world dimensions in world_info section.
         EXPECT_TRUE(content.find("\"width\":10") != std::string::npos);
         EXPECT_TRUE(content.find("\"height\":10") != std::string::npos);
         
-        // Check for physics system type
+        // Check for physics system type.
         EXPECT_TRUE(content.find("RulesB") != std::string::npos);
         
-        // Check for timestep advancement (should be 5 after running 5 timesteps)
+        // Check for timestep advancement (should be 5 after running 5 timesteps).
         EXPECT_TRUE(content.find("\"timestep\":5") != std::string::npos);
         
-        // Should contain grid data structure
+        // Should contain grid data structure.
         EXPECT_TRUE(content.find("grid_data") != std::string::npos || 
                    content.find("cells") != std::string::npos);
     }
 }
 
 TEST_F(CrashDumpHandlerTest, HandlerInstallationState) {
-    // Test installation/uninstallation behavior
+    // Test installation/uninstallation behavior.
     CrashDumpHandler::uninstall();
     
-    // Should not create dumps when uninstalled
+    // Should not create dumps when uninstalled.
     CrashDumpHandler::dumpWorldState("should_not_create");
     auto files = getTestDumpFiles();
     EXPECT_EQ(files.size(), 0);
     
-    // Reinstall and test
+    // Reinstall and test.
     CrashDumpHandler::install(manager_.get());
     CrashDumpHandler::setDumpDirectory(test_dir_);
     
@@ -204,6 +204,6 @@ TEST_F(CrashDumpHandlerTest, HandlerInstallationState) {
     EXPECT_EQ(files.size(), 1);
 }
 
-// Note: We cannot easily test actual SPARKLE_ASSERT macro triggering 
+// Note: We cannot easily test actual SPARKLE_ASSERT macro triggering. 
 // because it would terminate the test process. The assertion logic is 
-// tested through direct calls to CrashDumpHandler::onAssertionFailure()
+// tested through direct calls to CrashDumpHandler::onAssertionFailure().

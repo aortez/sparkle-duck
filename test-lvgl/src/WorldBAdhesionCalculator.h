@@ -17,21 +17,21 @@ class WorldB;
  */
 class WorldBAdhesionCalculator : public WorldBCalculatorBase {
 public:
-    // Data structure for adhesion force results
+    // Data structure for adhesion force results.
     struct AdhesionForce {
-        Vector2d force_direction;     // Direction of adhesive pull/resistance
-        double force_magnitude;       // Strength of adhesive force
-        MaterialType target_material; // Strongest interacting material
-        uint32_t contact_points;      // Number of contact interfaces
+        Vector2d force_direction;     // Direction of adhesive pull/resistance.
+        double force_magnitude;       // Strength of adhesive force.
+        MaterialType target_material; // Strongest interacting material.
+        uint32_t contact_points;      // Number of contact interfaces.
     };
 
-    // Constructor
+    // Constructor.
     explicit WorldBAdhesionCalculator(const WorldB& world);
 
-    // Main calculation method
+    // Main calculation method.
     AdhesionForce calculateAdhesionForce(uint32_t x, uint32_t y) const;
 
-    // Adhesion parameters
+    // Adhesion parameters.
     void setAdhesionEnabled(bool enabled) { adhesion_enabled_ = enabled; }
     bool isAdhesionEnabled() const { return adhesion_enabled_; }
 
@@ -39,7 +39,7 @@ public:
     double getAdhesionStrength() const { return adhesion_strength_; }
 
 private:
-    // Configuration parameters
+    // Configuration parameters.
     bool adhesion_enabled_ = false;
     double adhesion_strength_ = 5.0;
 };

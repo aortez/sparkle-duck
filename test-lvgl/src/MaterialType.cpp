@@ -6,35 +6,35 @@
 #include <stdexcept>
 #include <string>
 
-// Material property database
+// Material property database.
 // Format: {density, elasticity, cohesion, adhesion, com_mass_constant, is_fluid, is_rigid}
 static std::array<MaterialProperties, 8> MATERIAL_PROPERTIES = {
-    { // AIR: Nearly massless, high elasticity, no cohesion/adhesion
+    { // AIR: Nearly massless, high elasticity, no cohesion/adhesion.
       { 0.001, 1.0, 0.0, 0.0, 0.0, true, false },
 
-      // DIRT: Medium density granular material
+      // DIRT: Medium density granular material.
       { 1.5, 0.3, 0.3, 0.2, 5.0, false, false },
 
-      // WATER: Fluid with medium density, strong cohesion for droplet formation
+      // WATER: Fluid with medium density, strong cohesion for droplet formation.
       { 1.0, 0.1, 0.6, 0.5, 8.0, true, false },
 
-      // WOOD: Light rigid material with moderate elasticity
+      // WOOD: Light rigid material with moderate elasticity.
       { 0.8, 0.6, 0.7, 0.3, 3.0, false, true },
 
-      // SAND: Dense granular material, settles faster than dirt
+      // SAND: Dense granular material, settles faster than dirt.
       { 1.8, 0.2, 0.2, 0.1, 4.0, false, false },
 
-      // METAL: Very dense rigid material with high elasticity and maximum cohesion
+      // METAL: Very dense rigid material with high elasticity and maximum cohesion.
       { 7.8, 0.8, 1.0, 0.1, 2.0, false, true },
 
-      // LEAF: Very light organic matter
+      // LEAF: Very light organic matter.
       { 0.3, 0.4, 0.3, 0.2, 10.0, false, false },
 
       // WALL: Immobile boundary material (infinite effective density)
       { 1000.0, 0.9, 1.0, 1.0, 0.0, false, true } }
 };
 
-// Material name lookup table
+// Material name lookup table.
 static const std::array<const char*, 8> MATERIAL_NAMES = {
     { "AIR", "DIRT", "WATER", "WOOD", "SAND", "METAL", "LEAF", "WALL" }
 };
@@ -84,7 +84,7 @@ MaterialType materialTypeFromJson(const rapidjson::Value& json)
 
     std::string name = json.GetString();
 
-    // Linear search through material names
+    // Linear search through material names.
     for (size_t i = 0; i < MATERIAL_NAMES.size(); ++i) {
         if (name == MATERIAL_NAMES[i]) {
             return static_cast<MaterialType>(i);

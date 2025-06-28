@@ -56,18 +56,18 @@ struct PhysicsParams {
  * all UI-relevant state in a single, thread-safe snapshot.
  */
 struct UIUpdateEvent {
-    // Sequence tracking
+    // Sequence tracking.
     uint64_t sequenceNum = 0; ///< Monotonic sequence number for update ordering.
 
-    // Core simulation data
+    // Core simulation data.
     uint32_t fps = 0;       ///< Current frames per second.
     uint64_t stepCount = 0; ///< Total simulation steps completed.
     SimulationStats stats;  ///< Comprehensive simulation statistics.
 
-    // Physics parameters
+    // Physics parameters.
     PhysicsParams physicsParams; ///< Current physics settings.
 
-    // UI state
+    // UI state.
     bool isPaused = false;           ///< Simulation paused state.
     bool debugEnabled = false;       ///< Debug visualization state.
     bool forceEnabled = false;       ///< Force visualization state.
@@ -75,14 +75,14 @@ struct UIUpdateEvent {
     bool adhesionEnabled = true;     ///< Adhesion physics state.
     bool timeHistoryEnabled = false; ///< Time history tracking state.
 
-    // World state
+    // World state.
     MaterialType selectedMaterial = MaterialType::DIRT; ///< Currently selected material.
     std::string worldType;                              ///< "WorldA" or "WorldB".
 
-    // Timing
+    // Timing.
     std::chrono::steady_clock::time_point timestamp; ///< When update was created.
 
-    // Optimization: dirty flags to indicate what changed
+    // Optimization: dirty flags to indicate what changed.
     struct DirtyFlags {
         bool fps = false;           ///< FPS value changed.
         bool stats = false;         ///< Simulation statistics changed.

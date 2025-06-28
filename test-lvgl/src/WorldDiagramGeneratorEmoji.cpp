@@ -22,7 +22,7 @@ std::string WorldDiagramGeneratorEmoji::generateEmojiDiagram(const WorldInterfac
     }
     diagram << "✨\n";
 
-    // Each row
+    // Each row.
     for (uint32_t y = 0; y < height; ++y) {
         diagram << "┃";
 
@@ -33,7 +33,7 @@ std::string WorldDiagramGeneratorEmoji::generateEmojiDiagram(const WorldInterfac
                 diagram << "⬜";
             }
             else {
-                // Get material type and fill ratio
+                // Get material type and fill ratio.
                 auto cellB = dynamic_cast<const CellB*>(&cell);
                 if (cellB) {
                     switch (cellB->getMaterialType()) {
@@ -67,7 +67,7 @@ std::string WorldDiagramGeneratorEmoji::generateEmojiDiagram(const WorldInterfac
                     }
                 }
                 else {
-                    // WorldA cells - check dirt/water content
+                    // WorldA cells - check dirt/water content.
                     auto cellA = dynamic_cast<const Cell*>(&cell);
                     if (cellA) {
                         if (cellA->water > cellA->dirt) {
@@ -88,7 +88,7 @@ std::string WorldDiagramGeneratorEmoji::generateEmojiDiagram(const WorldInterfac
         diagram << "┃\n";
     }
 
-    // Bottom border
+    // Bottom border.
     diagram << "✨";
     for (uint32_t x = 0; x < width; ++x) {
         diagram << "━━";
@@ -105,7 +105,7 @@ std::string WorldDiagramGeneratorEmoji::generateMixedDiagram(const WorldInterfac
     uint32_t width = world.getWidth();
     uint32_t height = world.getHeight();
 
-    // Top border
+    // Top border.
     diagram << "🦆✨ Sparkle Duck World ✨🦆\n";
     diagram << "┌";
     for (uint32_t x = 0; x < width; ++x) {
@@ -114,7 +114,7 @@ std::string WorldDiagramGeneratorEmoji::generateMixedDiagram(const WorldInterfac
     }
     diagram << "┐\n";
 
-    // Each row
+    // Each row.
     for (uint32_t y = 0; y < height; ++y) {
         diagram << "│";
 
@@ -125,12 +125,12 @@ std::string WorldDiagramGeneratorEmoji::generateMixedDiagram(const WorldInterfac
                 diagram << "   ";
             }
             else {
-                // Get material type and fill ratio
+                // Get material type and fill ratio.
                 auto cellB = dynamic_cast<const CellB*>(&cell);
                 if (cellB) {
                     float fill = cellB->getFillRatio();
 
-                    // Material emoji
+                    // Material emoji.
                     switch (cellB->getMaterialType()) {
                         case MaterialType::AIR:
                             diagram << " ";
@@ -161,7 +161,7 @@ std::string WorldDiagramGeneratorEmoji::generateMixedDiagram(const WorldInterfac
                             break;
                     }
 
-                    // Fill level indicator
+                    // Fill level indicator.
                     if (fill < 0.25) {
                         diagram << "░";
                     }
@@ -176,7 +176,7 @@ std::string WorldDiagramGeneratorEmoji::generateMixedDiagram(const WorldInterfac
                     }
                 }
                 else {
-                    // WorldA fallback
+                    // WorldA fallback.
                     diagram << "? ";
                 }
             }
@@ -188,7 +188,7 @@ std::string WorldDiagramGeneratorEmoji::generateMixedDiagram(const WorldInterfac
 
         diagram << "│\n";
 
-        // Horizontal divider (except last row)
+        // Horizontal divider (except last row).
         if (y < height - 1) {
             diagram << "├";
             for (uint32_t x = 0; x < width; ++x) {
@@ -201,7 +201,7 @@ std::string WorldDiagramGeneratorEmoji::generateMixedDiagram(const WorldInterfac
         }
     }
 
-    // Bottom border
+    // Bottom border.
     diagram << "└";
     for (uint32_t x = 0; x < width; ++x) {
         diagram << "───";

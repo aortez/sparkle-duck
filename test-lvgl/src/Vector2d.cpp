@@ -49,7 +49,7 @@ std::string Vector2d::toString() const
     return "(" + std::to_string(x) + ", " + std::to_string(y) + ")";
 }
 
-// Operator implementations
+// Operator implementations.
 Vector2d Vector2d::operator+(const Vector2d& other) const
 {
     return add(other);
@@ -144,11 +144,11 @@ Vector2d Vector2d::fromJson(const rapidjson::Value& json)
     return Vector2d(json["x"].GetDouble(), json["y"].GetDouble());
 }
 
-// Collision physics operations
+// Collision physics operations.
 Vector2d Vector2d::reflect(const Vector2d& normal) const
 {
-    // Reflection formula: r = v - 2(v·n)n
-    // where v is incident vector, n is unit normal, r is reflected vector
+    // Reflection formula: r = v - 2(v·n)n.
+    // where v is incident vector, n is unit normal, r is reflected vector.
     Vector2d unitNormal = normal.normalize();
     double dotProduct = dot(unitNormal);
     return *this - unitNormal * (2.0 * dotProduct);
@@ -156,13 +156,13 @@ Vector2d Vector2d::reflect(const Vector2d& normal) const
 
 double Vector2d::angle() const
 {
-    // Returns angle in radians from positive x-axis
+    // Returns angle in radians from positive x-axis.
     return std::atan2(y, x);
 }
 
 double Vector2d::angleTo(const Vector2d& other) const
 {
-    // Returns angle between this vector and other vector
+    // Returns angle between this vector and other vector.
     double thisAngle = angle();
     double otherAngle = other.angle();
     double diff = otherAngle - thisAngle;
@@ -186,6 +186,6 @@ Vector2d Vector2d::rotateBy(double radians) const
 
 Vector2d Vector2d::perpendicular() const
 {
-    // Returns a vector perpendicular to this one (rotated 90° counterclockwise)
+    // Returns a vector perpendicular to this one (rotated 90° counterclockwise).
     return Vector2d(-y, x);
 }

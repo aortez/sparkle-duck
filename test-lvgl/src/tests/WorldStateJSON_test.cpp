@@ -7,25 +7,25 @@
 class WorldStateJSONTest : public ::testing::Test {
 protected:
     void SetUp() override {
-        // Setup if needed
+        // Setup if needed.
     }
     
     void TearDown() override {
-        // Cleanup if needed
+        // Cleanup if needed.
     }
     
-    // Helper to validate round-trip serialization
+    // Helper to validate round-trip serialization.
     void validateRoundTrip(const WorldState& original) {
         rapidjson::Document doc;
         auto& allocator = doc.GetAllocator();
         
-        // Serialize to JSON
+        // Serialize to JSON.
         rapidjson::Value json = original.toJson(allocator);
         
-        // Deserialize back
+        // Deserialize back.
         WorldState restored = WorldState::fromJson(json);
         
-        // Validate core properties
+        // Validate core properties.
         EXPECT_EQ(original.width, restored.width);
         EXPECT_EQ(original.height, restored.height);
         EXPECT_EQ(original.timestep, restored.timestep);
@@ -34,30 +34,30 @@ protected:
         EXPECT_DOUBLE_EQ(original.elasticity_factor, restored.elasticity_factor);
         EXPECT_DOUBLE_EQ(original.pressure_scale, restored.pressure_scale);
         
-        // Validate flags
+        // Validate flags.
         EXPECT_EQ(original.left_throw_enabled, restored.left_throw_enabled);
         EXPECT_EQ(original.walls_enabled, restored.walls_enabled);
         EXPECT_EQ(original.time_reversal_enabled, restored.time_reversal_enabled);
         
-        // Validate grid dimensions match
+        // Validate grid dimensions match.
         EXPECT_EQ(original.grid_data.size(), restored.grid_data.size());
         if (!original.grid_data.empty()) {
             EXPECT_EQ(original.grid_data[0].size(), restored.grid_data[0].size());
         }
     }
     
-    // Helper to validate cell data round trip
+    // Helper to validate cell data round trip.
     void validateCellDataRoundTrip(const WorldState::CellData& original) {
         rapidjson::Document doc;
         auto& allocator = doc.GetAllocator();
         
-        // Serialize to JSON
+        // Serialize to JSON.
         rapidjson::Value json = original.toJson(allocator);
         
-        // Deserialize back
+        // Deserialize back.
         WorldState::CellData restored = WorldState::CellData::fromJson(json);
         
-        // Validate equality
+        // Validate equality.
         EXPECT_DOUBLE_EQ(original.material_mass, restored.material_mass);
         EXPECT_EQ(original.dominant_material, restored.dominant_material);
         EXPECT_DOUBLE_EQ(original.velocity.x, restored.velocity.x);
@@ -66,7 +66,7 @@ protected:
         EXPECT_DOUBLE_EQ(original.com.y, restored.com.y);
     }
     
-    // Helper to convert JSON value to string for debugging
+    // Helper to convert JSON value to string for debugging.
     std::string jsonToString(const rapidjson::Value& json) {
         rapidjson::StringBuffer buffer;
         rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
@@ -76,19 +76,19 @@ protected:
 };
 
 TEST_F(WorldStateJSONTest, CellDataSerialization) {
-    // Test empty cell data
+    // Test empty cell data.
     WorldState::CellData empty;
     validateCellDataRoundTrip(empty);
     
-    // Test cell with dirt
+    // Test cell with dirt.
     WorldState::CellData dirt(0.75, MaterialType::DIRT, Vector2d(0.1, -0.2), Vector2d(0.05, 0.03));
     validateCellDataRoundTrip(dirt);
     
-    // Test cell with water
+    // Test cell with water.
     WorldState::CellData water(0.9, MaterialType::WATER, Vector2d(-0.3, 0.4), Vector2d(-0.1, 0.1));
     validateCellDataRoundTrip(water);
     
-    // Test cell with all material types
+    // Test cell with all material types.
     MaterialType types[] = {
         MaterialType::AIR, MaterialType::DIRT, MaterialType::WATER, MaterialType::WOOD,
         MaterialType::SAND, MaterialType::METAL, MaterialType::LEAF, MaterialType::WALL
@@ -122,20 +122,20 @@ TEST_F(WorldStateJSONTest, WorldStateWithCellData) {
     world.elasticity_factor = 0.7;
     world.timestep = 100;
     
-    // Add some material to specific cells
+    // Add some material to specific cells.
     world.setCellData(1, 1, WorldState::CellData(0.8, MaterialType::DIRT, Vector2d(0.1, 0.0)));
     world.setCellData(2, 2, WorldState::CellData(0.6, MaterialType::WATER, Vector2d(-0.2, 0.3)));
     world.setCellData(3, 1, WorldState::CellData(0.9, MaterialType::SAND, Vector2d(0.0, -0.1)));
     
     validateRoundTrip(world);
     
-    // Validate specific cell content after round-trip
+    // Validate specific cell content after round-trip.
     rapidjson::Document doc;
     auto& allocator = doc.GetAllocator();
     rapidjson::Value json = world.toJson(allocator);
     WorldState restored = WorldState::fromJson(json);
     
-    // Check that non-empty cells are preserved
+    // Check that non-empty cells are preserved.
     const auto& cell11 = restored.getCellData(1, 1);
     EXPECT_DOUBLE_EQ(cell11.material_mass, 0.8);
     EXPECT_EQ(cell11.dominant_material, MaterialType::DIRT);
@@ -144,7 +144,7 @@ TEST_F(WorldStateJSONTest, WorldStateWithCellData) {
     EXPECT_DOUBLE_EQ(cell22.material_mass, 0.6);
     EXPECT_EQ(cell22.dominant_material, MaterialType::WATER);
     
-    // Check that empty cells remain empty (default values)
+    // Check that empty cells remain empty (default values).
     const auto& cell00 = restored.getCellData(0, 0);
     EXPECT_DOUBLE_EQ(cell00.material_mass, 0.0);
     EXPECT_EQ(cell00.dominant_material, MaterialType::AIR);
@@ -160,7 +160,7 @@ TEST_F(WorldStateJSONTest, JSONStructureValidation) {
     auto& allocator = doc.GetAllocator();
     rapidjson::Value json = world.toJson(allocator);
     
-    // Validate top-level structure
+    // Validate top-level structure.
     EXPECT_TRUE(json.IsObject());
     EXPECT_TRUE(json.HasMember("metadata"));
     EXPECT_TRUE(json.HasMember("grid"));
@@ -168,7 +168,7 @@ TEST_F(WorldStateJSONTest, JSONStructureValidation) {
     EXPECT_TRUE(json.HasMember("setup"));
     EXPECT_TRUE(json.HasMember("cells"));
     
-    // Validate grid section
+    // Validate grid section.
     const auto& grid = json["grid"];
     EXPECT_TRUE(grid.IsObject());
     EXPECT_TRUE(grid.HasMember("width"));
@@ -178,16 +178,16 @@ TEST_F(WorldStateJSONTest, JSONStructureValidation) {
     EXPECT_EQ(grid["height"].GetUint(), 3);
     EXPECT_EQ(grid["timestep"].GetUint(), 25);
     
-    // Validate physics section
+    // Validate physics section.
     const auto& physics = json["physics"];
     EXPECT_TRUE(physics.IsObject());
     EXPECT_TRUE(physics.HasMember("gravity"));
     EXPECT_DOUBLE_EQ(physics["gravity"].GetDouble(), 5.0);
     
-    // Validate cells array
+    // Validate cells array.
     const auto& cells = json["cells"];
     EXPECT_TRUE(cells.IsArray());
-    EXPECT_EQ(cells.Size(), 1);  // Only one non-empty cell
+    EXPECT_EQ(cells.Size(), 1);  // Only one non-empty cell.
     
     const auto& cell = cells[0];
     EXPECT_TRUE(cell.HasMember("x"));
@@ -204,18 +204,18 @@ TEST_F(WorldStateJSONTest, CellDataJSONStructure) {
     auto& allocator = doc.GetAllocator();
     rapidjson::Value json = cell.toJson(allocator);
     
-    // Validate CellData JSON structure
+    // Validate CellData JSON structure.
     EXPECT_TRUE(json.IsObject());
     EXPECT_TRUE(json.HasMember("material_mass"));
     EXPECT_TRUE(json.HasMember("dominant_material"));
     EXPECT_TRUE(json.HasMember("velocity"));
     EXPECT_TRUE(json.HasMember("com"));
-    EXPECT_FALSE(json.HasMember("pressure"));  // Should not have pressure field
+    EXPECT_FALSE(json.HasMember("pressure"));  // Should not have pressure field.
     
     EXPECT_DOUBLE_EQ(json["material_mass"].GetDouble(), 0.7);
     EXPECT_STREQ(json["dominant_material"].GetString(), "METAL");
     
-    // Validate nested Vector2d objects
+    // Validate nested Vector2d objects.
     const auto& velocity = json["velocity"];
     EXPECT_TRUE(velocity.IsObject());
     EXPECT_TRUE(velocity.HasMember("x"));
@@ -232,7 +232,7 @@ TEST_F(WorldStateJSONTest, CellDataJSONStructure) {
 TEST_F(WorldStateJSONTest, InvalidJSONHandling) {
     rapidjson::Document doc;
     
-    // Test invalid top-level JSON
+    // Test invalid top-level JSON.
     doc.Parse("\"not an object\"");
     EXPECT_THROW(WorldState::fromJson(doc), std::runtime_error);
     
@@ -242,7 +242,7 @@ TEST_F(WorldStateJSONTest, InvalidJSONHandling) {
     doc.Parse("null");
     EXPECT_THROW(WorldState::fromJson(doc), std::runtime_error);
     
-    // Test missing required fields
+    // Test missing required fields.
     doc.Parse("{}");
     EXPECT_THROW(WorldState::fromJson(doc), std::runtime_error);
     
@@ -253,25 +253,25 @@ TEST_F(WorldStateJSONTest, InvalidJSONHandling) {
 TEST_F(WorldStateJSONTest, InvalidCellDataJSON) {
     rapidjson::Document doc;
     
-    // Test invalid CellData JSON
+    // Test invalid CellData JSON.
     doc.Parse("\"not an object\"");
     EXPECT_THROW(WorldState::CellData::fromJson(doc), std::runtime_error);
     
-    doc.Parse("{}");  // Missing required fields
+    doc.Parse("{}");  // Missing required fields.
     EXPECT_THROW(WorldState::CellData::fromJson(doc), std::runtime_error);
     
-    // Test with some fields but not all
+    // Test with some fields but not all.
     doc.Parse("{\"material_mass\": 0.5}");
     EXPECT_THROW(WorldState::CellData::fromJson(doc), std::runtime_error);
 }
 
 TEST_F(WorldStateJSONTest, LargeGridEfficiency) {
-    // Test with a larger grid to ensure reasonable performance
+    // Test with a larger grid to ensure reasonable performance.
     WorldState large(50, 40);
     large.gravity = 8.5;
     large.timestep = 500;
     
-    // Add some scattered material
+    // Add some scattered material.
     for (int i = 0; i < 100; i += 5) {
         int x = i % large.width;
         int y = (i / large.width) % large.height;
@@ -279,15 +279,15 @@ TEST_F(WorldStateJSONTest, LargeGridEfficiency) {
         large.setCellData(x, y, WorldState::CellData(0.3 + (i % 5) * 0.1, mat));
     }
     
-    // Should complete without issues
+    // Should complete without issues.
     validateRoundTrip(large);
     
-    // Verify only non-empty cells are serialized
+    // Verify only non-empty cells are serialized.
     rapidjson::Document doc;
     auto& allocator = doc.GetAllocator();
     rapidjson::Value json = large.toJson(allocator);
     
     const auto& cells = json["cells"];
     EXPECT_TRUE(cells.IsArray());
-    EXPECT_EQ(cells.Size(), 20);  // 100 cells / 5 = 20 non-empty cells
+    EXPECT_EQ(cells.Size(), 20);  // 100 cells / 5 = 20 non-empty cells.
 }

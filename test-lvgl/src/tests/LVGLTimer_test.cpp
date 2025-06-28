@@ -13,30 +13,30 @@
 
 using namespace DirtSim;
 
-// Test fixture for LVGL timer tests
+// Test fixture for LVGL timer tests.
 class LVGLTimerTest : public LVGLTestBase {
 protected:
     void SetUp() override {
-        // Call base class setup first (handles LVGL init and display creation)
+        // Call base class setup first (handles LVGL init and display creation).
         LVGLTestBase::SetUp();
         
-        // Create state machine and shared state
+        // Create state machine and shared state.
         stateMachine_ = std::make_unique<DirtSimStateMachine>();
         sharedState_ = std::make_unique<SharedSimState>();
         eventQueue_ = std::make_unique<SynchronizedQueue<Event>>();
         
-        // Create event router
+        // Create event router.
         eventRouter_ = std::make_unique<EventRouter>(*stateMachine_, *sharedState_, *eventQueue_);
     }
     
     void TearDown() override {
-        // Clean up our resources first
+        // Clean up our resources first.
         eventRouter_.reset();
         eventQueue_.reset();
         sharedState_.reset();
         stateMachine_.reset();
         
-        // Then call base class teardown (handles LVGL cleanup)
+        // Then call base class teardown (handles LVGL cleanup).
         LVGLTestBase::TearDown();
     }
     
@@ -47,40 +47,40 @@ protected:
 };
 
 TEST_F(LVGLTimerTest, TimerNotCreatedWhenPushUpdatesDisabled) {
-    // Ensure push updates are disabled
+    // Ensure push updates are disabled.
     sharedState_->enablePushUpdates(false);
     
-    // Create UI
+    // Create UI.
     SimulatorUI ui(screen_, eventRouter_.get());
     ui.initialize();
     
-    // Timer should not be created
-    // We can't directly check private members, but we can verify
-    // that no timer callbacks are happening
+    // Timer should not be created.
+    // We can't directly check private members, but we can verify.
+    // that no timer callbacks are happening.
     std::atomic<int> callCount{0};
     
-    // Run LVGL for 100ms
+    // Run LVGL for 100ms.
     runLVGL(100, 10);
     
-    // No updates should have been consumed (no timer)
+    // No updates should have been consumed (no timer).
     EXPECT_EQ(callCount.load(), 0);
 }
 
 TEST_F(LVGLTimerTest, TimerCreatedWhenPushUpdatesEnabled) {
-    // Enable push updates
+    // Enable push updates.
     sharedState_->enablePushUpdates(true);
     
-    // Create UI
+    // Create UI.
     SimulatorUI ui(screen_, eventRouter_.get());
     
-    // Create a simple world and manager for UI
+    // Create a simple world and manager for UI.
     auto world = createWorld(WorldType::RulesA, 10, 10, screen_);
     ui.setWorld(world.get());
     
     ui.initialize();
     
-    // Timer should be created and firing
-    // Push some updates to the queue
+    // Timer should be created and firing.
+    // Push some updates to the queue.
     UIUpdateEvent update;
     update.fps = 60;
     update.dirty.fps = true;
@@ -89,31 +89,31 @@ TEST_F(LVGLTimerTest, TimerCreatedWhenPushUpdatesEnabled) {
         sharedState_->pushUIUpdate(update);
     }
     
-    // Run LVGL for ~100ms
+    // Run LVGL for ~100ms.
     runLVGL(100, 5);
     
-    // Check that updates were consumed (queue should be empty or nearly empty)
+    // Check that updates were consumed (queue should be empty or nearly empty).
     auto metrics = sharedState_->getUIUpdateMetrics();
     EXPECT_GT(metrics.popCount, 0);
 }
 
 TEST_F(LVGLTimerTest, TimerCallbackRateIs60FPS) {
-    // Enable push updates
+    // Enable push updates.
     sharedState_->enablePushUpdates(true);
     
-    // Create UI
+    // Create UI.
     SimulatorUI ui(screen_, eventRouter_.get());
     
-    // Create a simple world and manager for UI
+    // Create a simple world and manager for UI.
     auto world = createWorld(WorldType::RulesA, 10, 10, screen_);
     ui.setWorld(world.get());
     
     ui.initialize();
     
-    // Track timer callbacks over 1 second
+    // Track timer callbacks over 1 second.
     auto start = std::chrono::steady_clock::now();
     
-    // Continuously push updates
+    // Continuously push updates.
     std::thread pusher([this, &start]() {
         while (std::chrono::steady_clock::now() - start < std::chrono::seconds(1)) {
             UIUpdateEvent update;
@@ -124,64 +124,64 @@ TEST_F(LVGLTimerTest, TimerCallbackRateIs60FPS) {
         }
     });
     
-    // Run LVGL for 1 second
+    // Run LVGL for 1 second.
     runLVGL(1000, 1);
     
     pusher.join();
     
-    // Check metrics
+    // Check metrics.
     auto metrics = sharedState_->getUIUpdateMetrics();
     
-    // We expect approximately 60 pops in 1 second (allow 10% variance)
-    EXPECT_GT(metrics.popCount, 54);  // At least 54 updates consumed
-    EXPECT_LT(metrics.popCount, 66);  // At most 66 updates consumed
+    // We expect approximately 60 pops in 1 second (allow 10% variance).
+    EXPECT_GT(metrics.popCount, 54);  // At least 54 updates consumed.
+    EXPECT_LT(metrics.popCount, 66);  // At most 66 updates consumed.
     
-    // Verify latest-update-wins is working (drop count should be > 0)
+    // Verify latest-update-wins is working (drop count should be > 0).
     EXPECT_GT(metrics.dropCount, 0);
 }
 
 TEST_F(LVGLTimerTest, TimerCleanedUpInDestructor) {
-    // Enable push updates
+    // Enable push updates.
     sharedState_->enablePushUpdates(true);
     
     {
-        // Create UI in a scope
+        // Create UI in a scope.
         SimulatorUI ui(screen_, eventRouter_.get());
         ui.initialize();
         
-        // Push an update
+        // Push an update.
         UIUpdateEvent update;
         update.fps = 60;
         sharedState_->pushUIUpdate(update);
         
-        // Run LVGL briefly
+        // Run LVGL briefly.
         runLVGL(16, 16);
         
-        // UI destructor should clean up timer when it goes out of scope
+        // UI destructor should clean up timer when it goes out of scope.
     }
     
-    // After UI is destroyed, run LVGL again
-    // Should not crash (timer was properly deleted)
+    // After UI is destroyed, run LVGL again.
+    // Should not crash (timer was properly deleted).
     runLVGL(50, 10);
     
-    // If we got here without crashing, timer was properly cleaned up
+    // If we got here without crashing, timer was properly cleaned up.
     SUCCEED();
 }
 
 TEST_F(LVGLTimerTest, TimerIntegrationWithUIUpdateConsumer) {
-    // Enable push updates
+    // Enable push updates.
     sharedState_->enablePushUpdates(true);
     
-    // Create UI
+    // Create UI.
     SimulatorUI ui(screen_, eventRouter_.get());
     
-    // Create world for complete setup
+    // Create world for complete setup.
     auto world = createWorld(WorldType::RulesA, 10, 10, screen_);
     ui.setWorld(world.get());
     
     ui.initialize();
     
-    // Push several updates
+    // Push several updates.
     for (int i = 0; i < 10; i++) {
         UIUpdateEvent update;
         update.fps = 60 + i;
@@ -190,11 +190,11 @@ TEST_F(LVGLTimerTest, TimerIntegrationWithUIUpdateConsumer) {
         sharedState_->pushUIUpdate(update);
     }
     
-    // Run LVGL for a bit to process the timer
+    // Run LVGL for a bit to process the timer.
     runLVGL(200, 20);
     
-    // Check that updates were consumed
+    // Check that updates were consumed.
     auto metrics = sharedState_->getUIUpdateMetrics();
     EXPECT_GT(metrics.popCount, 0);
-    EXPECT_GT(metrics.dropCount, 0); // Latest-update-wins should drop some
+    EXPECT_GT(metrics.dropCount, 0); // Latest-update-wins should drop some.
 }

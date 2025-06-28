@@ -2,7 +2,7 @@
 #include "spdlog/spdlog.h"
 #include <cstdio>
 
-// Result utilities
+// Result utilities.
 template<typename T>
 auto Ok(T&& value) {
     return Result<std::decay_t<T>, std::string>::okay(std::forward<T>(value));
@@ -14,7 +14,7 @@ auto Error(const E& error) {
 }
 
 // ============================================================================
-// SliderBuilder Implementation
+// SliderBuilder Implementation.
 // ============================================================================
 
 LVGLBuilder::SliderBuilder::SliderBuilder(lv_obj_t* parent)
@@ -129,13 +129,13 @@ Result<lv_obj_t*, std::string> LVGLBuilder::SliderBuilder::build() {
         return Result<lv_obj_t*, std::string>::error(error);
     }
 
-    // Create slider
+    // Create slider.
     auto result = createSlider();
     if (result.isError()) {
         return result;
     }
 
-    // Create optional labels
+    // Create optional labels.
     if (has_label_) {
         createLabel();
     }
@@ -144,7 +144,7 @@ Result<lv_obj_t*, std::string> LVGLBuilder::SliderBuilder::build() {
         createValueLabel();
     }
 
-    // Setup events
+    // Setup events.
     if (callback_) {
         setupEvents();
     }
@@ -172,16 +172,16 @@ Result<lv_obj_t*, std::string> LVGLBuilder::SliderBuilder::createSlider() {
         return Result<lv_obj_t*, std::string>::error(error);
     }
 
-    // Set size
+    // Set size.
     lv_obj_set_size(slider_, size_.width, size_.height);
     
-    // Set position
+    // Set position.
     lv_obj_align(slider_, position_.align, position_.x, position_.y);
     
-    // Set range
+    // Set range.
     lv_slider_set_range(slider_, min_value_, max_value_);
     
-    // Set initial value (clamp to range)
+    // Set initial value (clamp to range).
     int clamped_value = std::max(min_value_, std::min(max_value_, initial_value_));
     if (clamped_value != initial_value_) {
         spdlog::warn("SliderBuilder: Initial value {} clamped to range [{}, {}], using {}",
@@ -210,12 +210,12 @@ void LVGLBuilder::SliderBuilder::createValueLabel() {
         return;
     }
     
-    // Set initial value text based on slider's current value
+    // Set initial value text based on slider's current value.
     char buf[32];
     int current_value = lv_slider_get_value(slider_);
     
-    // Convert slider integer value to display value based on format
-    // For now, assume 1:1 mapping - can be enhanced later for float mapping
+    // Convert slider integer value to display value based on format.
+    // For now, assume 1:1 mapping - can be enhanced later for float mapping.
     snprintf(buf, sizeof(buf), value_format_.c_str(), static_cast<double>(current_value));
     
     lv_label_set_text(value_label_, buf);
@@ -225,7 +225,7 @@ void LVGLBuilder::SliderBuilder::createValueLabel() {
 void LVGLBuilder::SliderBuilder::setupEvents() {
     void* user_data = user_data_;
     
-    // If using factory, create callback data with value label
+    // If using factory, create callback data with value label.
     if (use_factory_ && callback_data_factory_) {
         user_data = callback_data_factory_(value_label_);
     }
@@ -234,7 +234,7 @@ void LVGLBuilder::SliderBuilder::setupEvents() {
 }
 
 // ============================================================================
-// ButtonBuilder Implementation
+// ButtonBuilder Implementation.
 // ============================================================================
 
 LVGLBuilder::ButtonBuilder::ButtonBuilder(lv_obj_t* parent)
@@ -308,21 +308,21 @@ Result<lv_obj_t*, std::string> LVGLBuilder::ButtonBuilder::build() {
         return Result<lv_obj_t*, std::string>::error(error);
     }
 
-    // Create button
+    // Create button.
     auto result = createButton();
     if (result.isError()) {
         return result;
     }
 
-    // Create label if text provided
+    // Create label if text provided.
     if (!text_.empty()) {
         createLabel();
     }
 
-    // Setup behavior (toggle, checkable)
+    // Setup behavior (toggle, checkable).
     setupBehavior();
 
-    // Setup events
+    // Setup events.
     if (callback_) {
         setupEvents();
     }
@@ -350,10 +350,10 @@ Result<lv_obj_t*, std::string> LVGLBuilder::ButtonBuilder::createButton() {
         return Result<lv_obj_t*, std::string>::error(error);
     }
 
-    // Set size
+    // Set size.
     lv_obj_set_size(button_, size_.width, size_.height);
     
-    // Set position
+    // Set position.
     lv_obj_align(button_, position_.align, position_.x, position_.y);
 
     return Result<lv_obj_t*, std::string>::okay(button_);
@@ -375,8 +375,8 @@ void LVGLBuilder::ButtonBuilder::setupBehavior() {
         lv_obj_add_flag(button_, LV_OBJ_FLAG_CHECKABLE);
     }
     
-    // Note: LVGL doesn't have a specific "toggle" flag - toggle behavior
-    // is typically implemented through checkable flag and event handling
+    // Note: LVGL doesn't have a specific "toggle" flag - toggle behavior.
+    // is typically implemented through checkable flag and event handling.
     if (is_toggle_) {
         lv_obj_add_flag(button_, LV_OBJ_FLAG_CHECKABLE);
     }
@@ -387,7 +387,7 @@ void LVGLBuilder::ButtonBuilder::setupEvents() {
 }
 
 // ============================================================================
-// LabelBuilder Implementation
+// LabelBuilder Implementation.
 // ============================================================================
 
 LVGLBuilder::LabelBuilder::LabelBuilder(lv_obj_t* parent)
@@ -442,7 +442,7 @@ Result<lv_obj_t*, std::string> LVGLBuilder::LabelBuilder::build() {
 }
 
 // ============================================================================
-// DropdownBuilder Implementation
+// DropdownBuilder Implementation.
 // ============================================================================
 
 LVGLBuilder::DropdownBuilder::DropdownBuilder(lv_obj_t* parent)
@@ -491,15 +491,15 @@ Result<lv_obj_t*, std::string> LVGLBuilder::DropdownBuilder::build() {
         return Error<std::string>("DropdownBuilder: failed to create dropdown");
     }
     
-    // Set options
+    // Set options.
     if (!options_.empty()) {
         lv_dropdown_set_options(dropdown, options_.c_str());
     }
     
-    // Set selected index
+    // Set selected index.
     lv_dropdown_set_selected(dropdown, selectedIndex_);
     
-    // Set size and position
+    // Set size and position.
     lv_obj_set_size(dropdown, size_.width, size_.height);
     lv_obj_align(dropdown, position_.align, position_.x, position_.y);
     
@@ -516,7 +516,7 @@ lv_obj_t* LVGLBuilder::DropdownBuilder::buildOrLog() {
 }
 
 // ============================================================================
-// Static Factory Methods
+// Static Factory Methods.
 // ============================================================================
 
 LVGLBuilder::SliderBuilder LVGLBuilder::slider(lv_obj_t* parent) {

@@ -8,14 +8,14 @@
 
 using namespace DirtSim;
 
-// Test fixture for SimulatorUI tests
+// Test fixture for SimulatorUI tests.
 class SimulatorUITest : public LVGLTestBase {
 protected:
     void SetUp() override {
-        // Call base class setup first (handles LVGL init and display creation)
+        // Call base class setup first (handles LVGL init and display creation).
         LVGLTestBase::SetUp();
         
-        // Create dependencies
+        // Create dependencies.
         stateMachine_ = std::make_unique<DirtSimStateMachine>();
         sharedState_ = std::make_unique<SharedSimState>();
         eventQueue_ = std::make_unique<SynchronizedQueue<Event>>();
@@ -23,13 +23,13 @@ protected:
     }
     
     void TearDown() override {
-        // Clean up our resources first
+        // Clean up our resources first.
         eventRouter_.reset();
         eventQueue_.reset();
         sharedState_.reset();
         stateMachine_.reset();
         
-        // Then call base class teardown
+        // Then call base class teardown.
         LVGLTestBase::TearDown();
     }
     
@@ -39,30 +39,30 @@ protected:
     std::unique_ptr<EventRouter> eventRouter_;
 };
 
-// Test that SimulatorUI can be created and initialized with proper LVGL setup
+// Test that SimulatorUI can be created and initialized with proper LVGL setup.
 TEST_F(SimulatorUITest, InitializeWithValidDisplay) {
-    // Create UI with valid display (from base class)
+    // Create UI with valid display (from base class).
     SimulatorUI ui(screen_, eventRouter_.get());
     
-    // Should initialize without throwing
+    // Should initialize without throwing.
     EXPECT_NO_THROW(ui.initialize());
 }
 
-// Test error handling when LVGL is not initialized
+// Test error handling when LVGL is not initialized.
 TEST(SimulatorUIErrorTest, InitializeWithoutLVGL) {
-    // Don't call lv_init() - simulate uninitialized state
+    // Don't call lv_init() - simulate uninitialized state.
     
-    // Create minimal dependencies
+    // Create minimal dependencies.
     DirtSimStateMachine stateMachine;
     SharedSimState sharedState;
     SynchronizedQueue<Event> eventQueue;
     EventRouter eventRouter(stateMachine, sharedState, eventQueue);
     
-    // Try to create UI without LVGL initialized
-    // Note: We can't actually create a screen without lv_init(), so we pass nullptr
+    // Try to create UI without LVGL initialized.
+    // Note: We can't actually create a screen without lv_init(), so we pass nullptr.
     SimulatorUI ui(nullptr, &eventRouter);
     
-    // Should throw with clear error message
+    // Should throw with clear error message.
     EXPECT_THROW({
         try {
             ui.initialize();
@@ -73,53 +73,53 @@ TEST(SimulatorUIErrorTest, InitializeWithoutLVGL) {
     }, std::runtime_error);
 }
 
-// Test error handling when no display exists
+// Test error handling when no display exists.
 TEST(SimulatorUIErrorTest, InitializeWithoutDisplay) {
-    // Initialize LVGL but don't create display
+    // Initialize LVGL but don't create display.
     lv_init();
     
-    // Create minimal dependencies
+    // Create minimal dependencies.
     DirtSimStateMachine stateMachine;
     SharedSimState sharedState;
     SynchronizedQueue<Event> eventQueue;
     EventRouter eventRouter(stateMachine, sharedState, eventQueue);
     
-    // Create UI with a dummy non-null pointer (we'll catch the error before it's used)
+    // Create UI with a dummy non-null pointer (we'll catch the error before it's used).
     lv_obj_t* fake_screen = reinterpret_cast<lv_obj_t*>(0x1234);
     SimulatorUI ui(fake_screen, &eventRouter);
     
-    // Should throw with clear error message about display
+    // Should throw with clear error message about display.
     EXPECT_THROW({
         try {
             ui.initialize();
         } catch (const std::runtime_error& e) {
-            // Check that error message mentions display
+            // Check that error message mentions display.
             std::string error_msg(e.what());
             EXPECT_TRUE(error_msg.find("display") != std::string::npos);
             throw;
         }
     }, std::runtime_error);
     
-    // Clean up
+    // Clean up.
     lv_deinit();
 }
 
-// Test error handling with null screen
+// Test error handling with null screen.
 TEST(SimulatorUIErrorTest, InitializeWithNullScreen) {
-    // Properly set up LVGL with display
+    // Properly set up LVGL with display.
     lv_init();
     lv_display_t* display = LVGLTestBase::createTestDisplay();
     
-    // Create minimal dependencies
+    // Create minimal dependencies.
     DirtSimStateMachine stateMachine;
     SharedSimState sharedState;
     SynchronizedQueue<Event> eventQueue;
     EventRouter eventRouter(stateMachine, sharedState, eventQueue);
     
-    // Create UI with null screen
+    // Create UI with null screen.
     SimulatorUI ui(nullptr, &eventRouter);
     
-    // Should throw with clear error message
+    // Should throw with clear error message.
     EXPECT_THROW({
         try {
             ui.initialize();
@@ -129,7 +129,7 @@ TEST(SimulatorUIErrorTest, InitializeWithNullScreen) {
         }
     }, std::runtime_error);
     
-    // Clean up
+    // Clean up.
     lv_display_delete(display);
     lv_deinit();
 }

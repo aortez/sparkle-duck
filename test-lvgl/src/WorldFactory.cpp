@@ -11,19 +11,19 @@ std::unique_ptr<WorldInterface> createWorld(
 {
     switch (type) {
         case WorldType::RulesA: {
-            // Create original World (mixed materials)
+            // Create original World (mixed materials).
             auto world = std::make_unique<World>(width, height, draw_area);
-            world->setup(); // Ensure clean initial state with proper setup
+            world->setup(); // Ensure clean initial state with proper setup.
             return world;
         }
 
         case WorldType::RulesB: {
-            // Create WorldB (pure materials)
+            // Create WorldB (pure materials).
             auto worldB = std::make_unique<WorldB>(width, height, draw_area);
 
-            // Apply default WorldB configuration
-            worldB->setWallsEnabled(false); // Default to walls disabled to match World behavior
-            worldB->setup();                // Ensure clean initial state
+            // Apply default WorldB configuration.
+            worldB->setWallsEnabled(false); // Default to walls disabled to match World behavior.
+            worldB->setup();                // Ensure clean initial state.
 
             return worldB;
         }
@@ -48,7 +48,7 @@ const char* getWorldTypeName(WorldType type)
 
 WorldType parseWorldType(const std::string& typeStr)
 {
-    // Convert to lowercase for case-insensitive comparison
+    // Convert to lowercase for case-insensitive comparison.
     std::string lowerStr = typeStr;
     std::transform(lowerStr.begin(), lowerStr.end(), lowerStr.begin(), [](unsigned char c) {
         return std::tolower(c);

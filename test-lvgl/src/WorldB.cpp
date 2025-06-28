@@ -1,5 +1,6 @@
 #include "WorldB.h"
 #include "Cell.h"
+#include "ScopeTimer.h"
 #include "SimulatorUI.h"
 #include "Vector2i.h"
 #include "WorldBAirResistanceCalculator.h"
@@ -68,22 +69,22 @@ WorldB::WorldB(uint32_t width, uint32_t height, lv_obj_t* draw_area)
 {
     spdlog::info("Creating WorldB: {}x{} grid with pure-material physics", width_, height_);
 
-    // Initialize cell grid
+    // Initialize cell grid.
     cells_.resize(width_ * height_);
 
-    // Initialize with air
+    // Initialize with air.
     for (auto& cell : cells_) {
         cell = CellB(MaterialType::AIR, 0.0);
     }
 
-    // Set up boundary walls if enabled
+    // Set up boundary walls if enabled.
     if (areWallsEnabled()) {
         setupBoundaryWalls();
     }
 
     timers_.startTimer("total_simulation");
 
-    // Initialize WorldSetup using base class method
+    // Initialize WorldSetup using base class method.
     initializeWorldSetup();
 
     spdlog::info("WorldB initialization complete");
@@ -96,71 +97,68 @@ WorldB::~WorldB()
     timers_.dumpTimerStats();
 }
 
-// =================================================================
-// CORE SIMULATION METHODS
-// =================================================================
+// =================================================================.
+// CORE SIMULATION METHODS.
+// =================================================================.
 
 void WorldB::advanceTime(double deltaTimeSeconds)
 {
-    timers_.startTimer("advance_time");
-
-    spdlog::trace(
-        "WorldB::advanceTime: deltaTime={:.4f}s, timestep={}", deltaTimeSeconds, timestep_);
-
-    // Add particles if enabled
-    if (add_particles_enabled_ && worldSetup_) {
-        timers_.startTimer("add_particles");
-        worldSetup_->addParticles(*this, timestep_, deltaTimeSeconds);
-        timers_.stopTimer("add_particles");
-    }
+    ScopeTimer timer(timers_, "advance_time");
 
     const double scaledDeltaTime = deltaTimeSeconds * timescale_;
-
-    if (scaledDeltaTime > 0.0) {
-        // Main physics steps
-        resolveForces(scaledDeltaTime); // Accumulate and apply all forces based on resistance
-        processVelocityLimiting(scaledDeltaTime);
-        updateTransfers(scaledDeltaTime);
-
-        // Process queued material moves - this detects NEW blocked transfers
-        processMaterialMoves();
-
-        // Calculate hydrostatic pressure if enabled
-        if (hydrostatic_pressure_enabled_) {
-            pressure_calculator_.calculateHydrostaticPressure();
-        }
-
-        // Process dynamic pressure if enabled
-        if (dynamic_pressure_enabled_) {
-            // Process any blocked transfers that were queued during processMaterialMoves
-            pressure_calculator_.processBlockedTransfers();
-        }
-
-        // Calculate pressure-driven material flows if ANY pressure system is active
-        // (hydrostatic pressure alone can drive flow, like water from a dam)
-        if (hydrostatic_pressure_enabled_ || dynamic_pressure_enabled_) {
-            auto pressure_moves = pressure_calculator_.calculatePressureFlow(scaledDeltaTime);
-
-            // Add pressure-driven moves to pending moves
-            if (!pressure_moves.empty()) {
-                spdlog::debug(
-                    "Adding {} pressure-driven material transfers to pending moves",
-                    pressure_moves.size());
-                pending_moves_.insert(
-                    pending_moves_.end(), pressure_moves.begin(), pressure_moves.end());
-
-                // Process these moves immediately since we're already in the pressure phase
-                processMaterialMoves();
-            }
-
-            // Apply pressure forces to velocities and handle decay
-            pressure_calculator_.applyPressureForces(scaledDeltaTime);
-        }
-
-        timestep_++;
+    spdlog::trace("WorldB::advanceTime: deltaTime={:.4f}s, timestep={}", deltaTimeSeconds, timestep_);
+    if (scaledDeltaTime <= 0.0) {
+    	return;
     }
 
-    timers_.stopTimer("advance_time");
+    // Add particles if enabled.
+    if (add_particles_enabled_ && worldSetup_) {
+        ScopeTimer addParticlesTimer(timers_, "add_particles");
+        worldSetup_->addParticles(*this, timestep_, deltaTimeSeconds);
+    }
+
+    // Accumulate and apply all forces based on resistance.
+	resolveForces(scaledDeltaTime);
+
+	processVelocityLimiting(scaledDeltaTime);
+
+	updateTransfers(scaledDeltaTime);
+
+	// Process queued material moves - this detects NEW blocked transfers.
+	processMaterialMoves();
+
+	// Calculate hydrostatic pressure if enabled.
+	if (hydrostatic_pressure_enabled_) {
+		pressure_calculator_.calculateHydrostaticPressure();
+	}
+
+	// Process dynamic pressure if enabled.
+	if (dynamic_pressure_enabled_) {
+		// Process any blocked transfers that were queued during processMaterialMoves.
+		pressure_calculator_.processBlockedTransfers(pressure_calculator_.blocked_transfers_);
+	}
+
+	// Calculate pressure-driven material flows if pressure is active.
+	if (hydrostatic_pressure_enabled_ || dynamic_pressure_enabled_) {
+		auto pressure_moves = pressure_calculator_.calculatePressureFlow(scaledDeltaTime);
+
+		// Add pressure-driven moves to pending moves.
+		if (!pressure_moves.empty()) {
+			spdlog::debug(
+				"Adding {} pressure-driven material transfers to pending moves",
+				pressure_moves.size());
+			pending_moves_.insert(
+				pending_moves_.end(), pressure_moves.begin(), pressure_moves.end());
+
+			// Process these moves immediately since we're already in the pressure phase.
+			processMaterialMoves();
+		}
+
+		// Apply pressure forces to velocities and handle decay.
+		pressure_calculator_.applyPressureForces(scaledDeltaTime);
+	}
+
+	timestep_++;
 }
 
 void WorldB::draw()
@@ -169,7 +167,7 @@ void WorldB::draw()
         return;
     }
 
-    timers_.startTimer("draw");
+    ScopeTimer timer(timers_, "draw");
 
     spdlog::trace("WorldB::draw() - rendering {} cells", cells_.size());
 
@@ -179,11 +177,11 @@ void WorldB::draw()
         }
     }
 
-    // Draw floating particle if dragging
+    // Draw floating particle if dragging.
     if (has_floating_particle_ && last_drag_cell_x_ >= 0 && last_drag_cell_y_ >= 0
         && isValidCell(last_drag_cell_x_, last_drag_cell_y_)) {
-        // Render floating particle at current drag position
-        // This particle can potentially collide with other objects in the world
+        // Render floating particle at current drag position.
+        // This particle can potentially collide with other objects in the world.
         floating_particle_.draw(draw_area_, last_drag_cell_x_, last_drag_cell_y_);
         spdlog::trace(
             "Drew floating particle {} at cell ({},{}) pixel pos ({:.1f},{:.1f})",
@@ -193,8 +191,6 @@ void WorldB::draw()
             floating_particle_pixel_x_,
             floating_particle_pixel_y_);
     }
-
-    timers_.stopTimer("draw");
 }
 
 void WorldB::reset()
@@ -205,7 +201,7 @@ void WorldB::reset()
     removed_mass_ = 0.0;
     pending_moves_.clear();
 
-    // Clear all cells to air
+    // Clear all cells to air.
     for (auto& cell : cells_) {
         cell.clear();
     }
@@ -215,10 +211,10 @@ void WorldB::reset()
 
 void WorldB::setup()
 {
-    // Use the base class implementation for standard setup
+    // Use the base class implementation for standard setup.
     WorldInterface::setup();
 
-    // WorldB-specific: Rebuild boundary walls if enabled
+    // WorldB-specific: Rebuild boundary walls if enabled.
     if (areWallsEnabled()) {
         setupBoundaryWalls();
     }
@@ -227,9 +223,9 @@ void WorldB::setup()
     spdlog::info("DEBUGGING: Total mass after setup = {:.3f}", getTotalMass());
 }
 
-// =================================================================
-// MATERIAL ADDITION METHODS
-// =================================================================
+// =================================================================.
+// MATERIAL ADDITION METHODS.
+// =================================================================.
 
 void WorldB::addDirtAtPixel(int pixelX, int pixelY)
 {
@@ -308,9 +304,9 @@ bool WorldB::hasMaterialAtPixel(int pixelX, int pixelY) const
     return false;
 }
 
-// =================================================================
-// DRAG INTERACTION (SIMPLIFIED)
-// =================================================================
+// =================================================================.
+// DRAG INTERACTION (SIMPLIFIED).
+// =================================================================.
 
 void WorldB::startDragging(int pixelX, int pixelY)
 {
@@ -330,21 +326,21 @@ void WorldB::startDragging(int pixelX, int pixelY)
         dragged_material_ = cell.getMaterialType();
         dragged_amount_ = cell.getFillRatio();
 
-        // Initialize drag position tracking
+        // Initialize drag position tracking.
         last_drag_cell_x_ = -1;
         last_drag_cell_y_ = -1;
 
-        // Initialize velocity tracking
+        // Initialize velocity tracking.
         recent_positions_.clear();
         recent_positions_.push_back({ pixelX, pixelY });
         dragged_velocity_ = Vector2d(0.0, 0.0);
 
-        // Calculate sub-cell COM position
+        // Calculate sub-cell COM position.
         double subCellX = (pixelX % Cell::WIDTH) / static_cast<double>(Cell::WIDTH);
         double subCellY = (pixelY % Cell::HEIGHT) / static_cast<double>(Cell::HEIGHT);
         dragged_com_ = Vector2d(subCellX * 2.0 - 1.0, subCellY * 2.0 - 1.0);
 
-        // Create floating particle for drag interaction
+        // Create floating particle for drag interaction.
         has_floating_particle_ = true;
         floating_particle_.setMaterialType(dragged_material_);
         floating_particle_.setFillRatio(dragged_amount_);
@@ -353,7 +349,7 @@ void WorldB::startDragging(int pixelX, int pixelY)
         floating_particle_pixel_x_ = static_cast<double>(pixelX);
         floating_particle_pixel_y_ = static_cast<double>(pixelY);
 
-        // Remove material from source cell
+        // Remove material from source cell.
         cell.clear();
         cell.markDirty();
 
@@ -373,34 +369,34 @@ void WorldB::updateDrag(int pixelX, int pixelY)
         return;
     }
 
-    // Add position to recent history for velocity tracking
+    // Add position to recent history for velocity tracking.
     recent_positions_.push_back({ pixelX, pixelY });
     if (recent_positions_.size() > 5) {
         recent_positions_.erase(recent_positions_.begin());
     }
 
-    // Update COM based on sub-cell position
+    // Update COM based on sub-cell position.
     double subCellX = (pixelX % Cell::WIDTH) / static_cast<double>(Cell::WIDTH);
     double subCellY = (pixelY % Cell::HEIGHT) / static_cast<double>(Cell::HEIGHT);
     dragged_com_ = Vector2d(subCellX * 2.0 - 1.0, subCellY * 2.0 - 1.0);
 
-    // Update floating particle position and physics properties
+    // Update floating particle position and physics properties.
     pixelToCell(pixelX, pixelY, last_drag_cell_x_, last_drag_cell_y_);
     floating_particle_pixel_x_ = static_cast<double>(pixelX);
     floating_particle_pixel_y_ = static_cast<double>(pixelY);
 
-    // Update floating particle properties for collision detection
+    // Update floating particle properties for collision detection.
     if (has_floating_particle_) {
         floating_particle_.setCOM(dragged_com_);
 
-        // Calculate current velocity for collision physics
+        // Calculate current velocity for collision physics.
         if (recent_positions_.size() >= 2) {
             const auto& prev = recent_positions_[recent_positions_.size() - 2];
             double dx = static_cast<double>(pixelX - prev.first) / Cell::WIDTH;
             double dy = static_cast<double>(pixelY - prev.second) / Cell::HEIGHT;
             floating_particle_.setVelocity(Vector2d(dx, dy));
 
-            // Check for collisions with the target cell
+            // Check for collisions with the target cell.
             if (collision_calculator_.checkFloatingParticleCollision(
                     last_drag_cell_x_, last_drag_cell_y_, floating_particle_)) {
                 CellB& targetCell = at(last_drag_cell_x_, last_drag_cell_y_);
@@ -426,7 +422,7 @@ void WorldB::endDragging(int pixelX, int pixelY)
         return;
     }
 
-    // Calculate velocity from recent positions for "toss" behavior
+    // Calculate velocity from recent positions for "toss" behavior.
     dragged_velocity_ = Vector2d(0.0, 0.0);
     if (recent_positions_.size() >= 2) {
         const auto& first = recent_positions_[0];
@@ -435,7 +431,7 @@ void WorldB::endDragging(int pixelX, int pixelY)
         double dx = static_cast<double>(last.first - first.first);
         double dy = static_cast<double>(last.second - first.second);
 
-        // Scale velocity based on Cell dimensions (similar to WorldA)
+        // Scale velocity based on Cell dimensions (similar to WorldA).
         dragged_velocity_ = Vector2d(dx / (Cell::WIDTH * 2.0), dy / (Cell::HEIGHT * 2.0));
 
         spdlog::debug(
@@ -445,13 +441,13 @@ void WorldB::endDragging(int pixelX, int pixelY)
             recent_positions_.size());
     }
 
-    // No cell restoration needed since preview doesn't modify cells
+    // No cell restoration needed since preview doesn't modify cells.
 
     int cellX, cellY;
     pixelToCell(pixelX, pixelY, cellX, cellY);
 
     if (isValidCell(cellX, cellY)) {
-        // Place the material with calculated velocity and COM
+        // Place the material with calculated velocity and COM.
         CellB& targetCell = at(cellX, cellY);
         targetCell.setMaterialType(dragged_material_);
         targetCell.setFillRatio(dragged_amount_);
@@ -468,13 +464,13 @@ void WorldB::endDragging(int pixelX, int pixelY)
             dragged_velocity_.y);
     }
 
-    // Clear floating particle
+    // Clear floating particle.
     has_floating_particle_ = false;
     floating_particle_.clear();
     floating_particle_pixel_x_ = 0.0;
     floating_particle_pixel_y_ = 0.0;
 
-    // Reset all drag state
+    // Reset all drag state.
     is_dragging_ = false;
     drag_start_x_ = -1;
     drag_start_y_ = -1;
@@ -493,7 +489,7 @@ void WorldB::restoreLastDragCell()
         return;
     }
 
-    // Restore material to the original drag start location
+    // Restore material to the original drag start location.
     if (isValidCell(drag_start_x_, drag_start_y_)) {
         CellB& originCell = at(drag_start_x_, drag_start_y_);
         originCell.setMaterialType(dragged_material_);
@@ -502,13 +498,13 @@ void WorldB::restoreLastDragCell()
         spdlog::debug("Restored dragged material to origin ({},{})", drag_start_x_, drag_start_y_);
     }
 
-    // Clear floating particle
+    // Clear floating particle.
     has_floating_particle_ = false;
     floating_particle_.clear();
     floating_particle_pixel_x_ = 0.0;
     floating_particle_pixel_y_ = 0.0;
 
-    // Reset drag state
+    // Reset drag state.
     is_dragging_ = false;
     drag_start_x_ = -1;
     drag_start_y_ = -1;
@@ -521,9 +517,9 @@ void WorldB::restoreLastDragCell()
     dragged_com_ = Vector2d(0.0, 0.0);
 }
 
-// =================================================================
-// CURSOR FORCE INTERACTION
-// =================================================================
+// =================================================================.
+// CURSOR FORCE INTERACTION.
+// =================================================================.
 
 void WorldB::updateCursorForce(int pixelX, int pixelY, bool isActive)
 {
@@ -535,9 +531,9 @@ void WorldB::updateCursorForce(int pixelX, int pixelY, bool isActive)
     }
 }
 
-// =================================================================
-// GRID MANAGEMENT
-// =================================================================
+// =================================================================.
+// GRID MANAGEMENT.
+// =================================================================.
 
 void WorldB::resizeGrid(uint32_t newWidth, uint32_t newHeight)
 {
@@ -547,11 +543,11 @@ void WorldB::resizeGrid(uint32_t newWidth, uint32_t newHeight)
 
     onPreResize(newWidth, newHeight);
 
-    // Phase 1: Generate interpolated cells using the interpolation tool
+    // Phase 1: Generate interpolated cells using the interpolation tool.
     std::vector<CellB> interpolatedCells = WorldInterpolationTool::generateInterpolatedCellsB(
         cells_, width_, height_, newWidth, newHeight);
 
-    // Phase 2: Update world state with the new interpolated cells
+    // Phase 2: Update world state with the new interpolated cells.
     width_ = newWidth;
     height_ = newHeight;
     cells_ = std::move(interpolatedCells);
@@ -563,7 +559,7 @@ void WorldB::resizeGrid(uint32_t newWidth, uint32_t newHeight)
 
 void WorldB::onPostResize()
 {
-    // Rebuild boundary walls if enabled
+    // Rebuild boundary walls if enabled.
     if (areWallsEnabled()) {
         setupBoundaryWalls();
     }
@@ -576,9 +572,9 @@ void WorldB::markAllCellsDirty()
     }
 }
 
-// =================================================================
-// UI INTEGRATION
-// =================================================================
+// =================================================================.
+// UI INTEGRATION.
+// =================================================================.
 
 void WorldB::setUI(std::unique_ptr<SimulatorUI> ui)
 {
@@ -592,9 +588,9 @@ void WorldB::setUIReference(SimulatorUI* ui)
     spdlog::debug("UI reference set for WorldB");
 }
 
-// =================================================================
-// WORLDB-SPECIFIC METHODS
-// =================================================================
+// =================================================================.
+// WORLDB-SPECIFIC METHODS.
+// =================================================================.
 
 CellB& WorldB::at(uint32_t x, uint32_t y)
 {
@@ -620,12 +616,12 @@ const CellB& WorldB::at(const Vector2i& pos) const
 
 CellInterface& WorldB::getCellInterface(uint32_t x, uint32_t y)
 {
-    return at(x, y); // Call the existing at() method
+    return at(x, y); // Call the existing at() method.
 }
 
 const CellInterface& WorldB::getCellInterface(uint32_t x, uint32_t y) const
 {
-    return at(x, y); // Call the existing at() method
+    return at(x, y); // Call the existing at() method.
 }
 
 double WorldB::getTotalMass() const
@@ -640,7 +636,7 @@ double WorldB::getTotalMass() const
         cellCount++;
         if (cellMass > 0.0) {
             nonEmptyCells++;
-            if (nonEmptyCells <= 5) { // Log first 5 non-empty cells
+            if (nonEmptyCells <= 5) { // Log first 5 non-empty cells.
                 spdlog::info(
                     "DEBUGGING: Cell {} has mass={:.3f} material={} fill_ratio={:.3f}",
                     cellCount - 1,
@@ -659,24 +655,22 @@ double WorldB::getTotalMass() const
     return totalMass;
 }
 
-// =================================================================
-// INTERNAL PHYSICS METHODS
-// =================================================================
+// =================================================================.
+// INTERNAL PHYSICS METHODS.
+// =================================================================.
 
 void WorldB::applyGravity(double deltaTime)
 {
-    timers_.startTimer("apply_gravity");
+    ScopeTimer timer(timers_, "apply_gravity");
 
     const Vector2d gravityForce(0.0, gravity_ * deltaTime);
 
     for (auto& cell : cells_) {
         if (!cell.isEmpty() && !cell.isWall()) {
-            // Accumulate gravity force instead of applying directly
+            // Accumulate gravity force instead of applying directly.
             cell.addPendingForce(gravityForce);
         }
     }
-
-    timers_.stopTimer("apply_gravity");
 }
 
 void WorldB::applyAirResistance(double deltaTime)
@@ -685,7 +679,7 @@ void WorldB::applyAirResistance(double deltaTime)
         return;
     }
 
-    timers_.startTimer("apply_air_resistance");
+    ScopeTimer timer(timers_, "apply_air_resistance");
 
     WorldBAirResistanceCalculator air_resistance_calculator(*this);
 
@@ -694,19 +688,17 @@ void WorldB::applyAirResistance(double deltaTime)
             CellB& cell = at(x, y);
 
             if (!cell.isEmpty() && !cell.isWall()) {
-                // Calculate and accumulate air resistance force
+                // Calculate and accumulate air resistance force.
                 Vector2d air_resistance_force = air_resistance_calculator.calculateAirResistance(
                     x, y, air_resistance_strength_);
 
-                // Scale by deltaTime for frame-independent physics
+                // Scale by deltaTime for frame-independent physics.
                 air_resistance_force = air_resistance_force * deltaTime;
 
                 cell.addPendingForce(air_resistance_force);
             }
         }
     }
-
-    timers_.stopTimer("apply_air_resistance");
 }
 
 void WorldB::applyCohesionForces(double deltaTime)
@@ -715,28 +707,24 @@ void WorldB::applyCohesionForces(double deltaTime)
         return;
     }
 
-    timers_.startTimer("apply_cohesion_forces");
+    ScopeTimer timer(timers_, "apply_cohesion_forces");
 
     for (uint32_t y = 0; y < height_; ++y) {
         for (uint32_t x = 0; x < width_; ++x) {
-            if (!isValidCell(x, y)) {
-                continue;
-            }
-
             CellB& cell = at(x, y);
 
             if (cell.isEmpty() || cell.isWall()) {
                 continue;
             }
 
-            // Calculate COM cohesion force
+            // Calculate COM cohesion force.
             WorldBCohesionCalculator::COMCohesionForce com_cohesion =
                 WorldBCohesionCalculator(*this).calculateCOMCohesionForce(
                     x, y, com_cohesion_range_);
 
-            // Accumulate forces instead of applying directly to velocity
+            // Accumulate forces instead of applying directly to velocity.
 
-            // COM cohesion force accumulation (only if force is active)
+            // COM cohesion force accumulation (only if force is active).
             if (com_cohesion.force_active) {
                 Vector2d com_cohesion_force = com_cohesion.force_direction
                     * com_cohesion.force_magnitude * deltaTime * cohesion_com_force_strength_;
@@ -752,7 +740,7 @@ void WorldB::applyCohesionForces(double deltaTime)
                 }
             }
 
-            // Adhesion force accumulation (only if enabled)
+            // Adhesion force accumulation (only if enabled).
             if (adhesion_calculator_.isAdhesionEnabled()) {
                 WorldBAdhesionCalculator::AdhesionForce adhesion =
                     adhesion_calculator_.calculateAdhesionForce(x, y);
@@ -762,29 +750,27 @@ void WorldB::applyCohesionForces(double deltaTime)
             }
         }
     }
-
-    timers_.stopTimer("apply_cohesion_forces");
 }
 
 void WorldB::resolveForces(double deltaTime)
 {
-    timers_.startTimer("resolve_forces");
+    ScopeTimer timer(timers_, "resolve_forces");
 
-    // Clear pending forces at the start of each physics frame
+    // Clear pending forces at the start of each physics frame.
     for (auto& cell : cells_) {
         cell.clearPendingForce();
     }
 
-    // Apply gravity forces
+    // Apply gravity forces.
     applyGravity(deltaTime);
 
-    // Apply air resistance forces
+    // Apply air resistance forces.
     applyAirResistance(deltaTime);
 
-    // Apply cohesion and adhesion forces
+    // Apply cohesion and adhesion forces.
     applyCohesionForces(deltaTime);
 
-    // Now resolve all accumulated forces against resistance
+    // Now resolve all accumulated forces against resistance.
     for (uint32_t y = 0; y < height_; ++y) {
         for (uint32_t x = 0; x < width_; ++x) {
             CellB& cell = at(x, y);
@@ -793,11 +779,11 @@ void WorldB::resolveForces(double deltaTime)
                 continue;
             }
 
-            // Get the total pending force
+            // Get the total pending force.
             Vector2d pending_force = cell.getPendingForce();
             double driving_magnitude = pending_force.mag();
 
-            // Calculate resistance forces
+            // Calculate resistance forces.
             double effective_resistance = 0.0;
 
             if (cohesion_bind_force_enabled_) {
@@ -807,7 +793,7 @@ void WorldB::resolveForces(double deltaTime)
                     cohesion.resistance_magnitude * cohesion_bind_force_strength_ * deltaTime * 50;
             }
 
-            // Debug logging for force comparison
+            // Debug logging for force comparison.
             if (driving_magnitude > 0.001 || effective_resistance > 0.001) {
                 spdlog::debug(
                     "Cell ({},{}) {} - Pending forces: ({:.3f},{:.3f}), magnitude: {:.3f}, "
@@ -821,11 +807,11 @@ void WorldB::resolveForces(double deltaTime)
                     effective_resistance);
             }
 
-            // Apply forces to velocity only if driving force exceeds resistance
+            // Apply forces to velocity only if driving force exceeds resistance.
             if (driving_magnitude > effective_resistance) {
                 Vector2d velocity = cell.getVelocity();
 
-                // If resistance is significant, reduce the applied force
+                // If resistance is significant, reduce the applied force.
                 if (effective_resistance > 0.001) {
                     double force_reduction_factor =
                         1.0 - (effective_resistance / driving_magnitude);
@@ -852,12 +838,10 @@ void WorldB::resolveForces(double deltaTime)
                     getMaterialName(cell.getMaterialType()));
             }
 
-            // Clear pending forces after resolution
+            // Clear pending forces after resolution.
             cell.clearPendingForce();
         }
     }
-
-    timers_.stopTimer("resolve_forces");
 }
 
 void WorldB::processVelocityLimiting(double deltaTime)
@@ -875,15 +859,13 @@ void WorldB::processVelocityLimiting(double deltaTime)
 
 void WorldB::updateTransfers(double deltaTime)
 {
-    timers_.startTimer("update_transfers");
+    ScopeTimer timer(timers_, "update_transfers");
 
-    // Clear previous moves
+    // Clear previous moves.
     pending_moves_.clear();
 
-    // Compute material moves based on COM positions and velocities
+    // Compute material moves based on COM positions and velocities.
     pending_moves_ = computeMaterialMoves(deltaTime);
-
-    timers_.stopTimer("update_transfers");
 }
 
 std::vector<MaterialMove> WorldB::computeMaterialMoves(double deltaTime)
@@ -898,19 +880,19 @@ std::vector<MaterialMove> WorldB::computeMaterialMoves(double deltaTime)
                 continue;
             }
 
-            // PHASE 2: Force-Based Movement Threshold
-            // Calculate cohesion and adhesion forces before movement decisions
+            // PHASE 2: Force-Based Movement Threshold.
+            // Calculate cohesion and adhesion forces before movement decisions.
             WorldBCohesionCalculator::CohesionForce cohesion;
             if (cohesion_bind_force_enabled_) {
                 cohesion = WorldBCohesionCalculator(*this).calculateCohesionForce(x, y);
             }
             else {
-                cohesion = { 0.0, 0 }; // No cohesion resistance when disabled
+                cohesion = { 0.0, 0 }; // No cohesion resistance when disabled.
             }
             WorldBAdhesionCalculator::AdhesionForce adhesion =
                 adhesion_calculator_.calculateAdhesionForce(x, y);
 
-            // NEW: Calculate COM-based cohesion force
+            // NEW: Calculate COM-based cohesion force.
             WorldBCohesionCalculator::COMCohesionForce com_cohesion;
             if (cohesion_com_force_enabled_) {
                 com_cohesion = WorldBCohesionCalculator(*this).calculateCOMCohesionForce(
@@ -919,11 +901,11 @@ std::vector<MaterialMove> WorldB::computeMaterialMoves(double deltaTime)
             else {
                 com_cohesion = {
                     { 0.0, 0.0 }, 0.0, { 0.0, 0.0 }, 0, 0.0, 0.0, false
-                }; // No COM cohesion when disabled
+                }; // No COM cohesion when disabled.
             }
 
-            // Apply strength multipliers to forces (now with separate adhesion and COM cohesion
-            // controls)
+            // Apply strength multipliers to forces (now with separate adhesion and COM cohesion.
+            // controls).
             double effective_resistance =
                 cohesion.resistance_magnitude * cohesion_bind_force_strength_ * deltaTime * 50;
             double effective_adhesion_magnitude =
@@ -931,18 +913,18 @@ std::vector<MaterialMove> WorldB::computeMaterialMoves(double deltaTime)
             double effective_com_cohesion_magnitude =
                 com_cohesion.force_magnitude * cohesion_com_force_strength_;
 
-            // Store forces in cell for visualization (using effective values)
+            // Store forces in cell for visualization (using effective values).
             cell.setAccumulatedCohesionForce(
-                Vector2d(0, -effective_resistance)); // Resistance shown as upward force
+                Vector2d(0, -effective_resistance)); // Resistance shown as upward force.
             cell.setAccumulatedAdhesionForce(
                 adhesion.force_direction * effective_adhesion_magnitude);
             cell.setAccumulatedCOMCohesionForce(
                 com_cohesion.force_direction * effective_com_cohesion_magnitude);
 
-            // NOTE: Force calculation and resistance checking now handled in resolveForces()
-            // This method only needs to handle material movement based on COM positions
+            // NOTE: Force calculation and resistance checking now handled in resolveForces().
+            // This method only needs to handle material movement based on COM positions.
 
-            // Debug: Check if cell has any velocity or interesting COM
+            // Debug: Check if cell has any velocity or interesting COM.
             Vector2d current_velocity = cell.getVelocity();
             Vector2d oldCOM = cell.getCOM();
             if (current_velocity.length() > 0.01 || std::abs(oldCOM.x) > 0.5
@@ -958,10 +940,10 @@ std::vector<MaterialMove> WorldB::computeMaterialMoves(double deltaTime)
                     oldCOM.y);
             }
 
-            // Update COM based on velocity (with proper deltaTime integration)
+            // Update COM based on velocity (with proper deltaTime integration).
             Vector2d newCOM = cell.getCOM() + cell.getVelocity() * deltaTime;
 
-            // Enhanced: Check if COM crosses any boundary [-1,1] for universal collision detection
+            // Enhanced: Check if COM crosses any boundary [-1,1] for universal collision detection.
             std::vector<Vector2i> crossed_boundaries =
                 collision_calculator_.getAllBoundaryCrossings(newCOM);
 
@@ -983,7 +965,7 @@ std::vector<MaterialMove> WorldB::computeMaterialMoves(double deltaTime)
                 Vector2i targetPos = Vector2i(x, y) + direction;
 
                 if (isValidCell(targetPos)) {
-                    // Create enhanced MaterialMove with collision physics and COM cohesion data
+                    // Create enhanced MaterialMove with collision physics and COM cohesion data.
                     MaterialMove move = collision_calculator_.createCollisionAwareMove(
                         cell,
                         at(targetPos),
@@ -993,7 +975,7 @@ std::vector<MaterialMove> WorldB::computeMaterialMoves(double deltaTime)
                         deltaTime,
                         com_cohesion);
 
-                    // Debug logging for collision detection
+                    // Debug logging for collision detection.
                     if (move.collision_type != CollisionType::TRANSFER_ONLY) {
                         spdlog::debug(
                             "Collision detected: {} vs {} at ({},{}) -> ({},{}) - Type: {}, "
@@ -1011,7 +993,7 @@ std::vector<MaterialMove> WorldB::computeMaterialMoves(double deltaTime)
                     moves.push_back(move);
                 }
                 else {
-                    // Hit world boundary - apply elastic reflection immediately
+                    // Hit world boundary - apply elastic reflection immediately.
                     spdlog::debug(
                         "World boundary hit: {} at ({},{}) direction=({},{}) - applying reflection",
                         getMaterialName(cell.getMaterialType()),
@@ -1025,7 +1007,7 @@ std::vector<MaterialMove> WorldB::computeMaterialMoves(double deltaTime)
                 }
             }
 
-            // Update COM only if no boundary reflections occurred (reflection method handles COM)
+            // Update COM only if no boundary reflections occurred (reflection method handles COM).
             if (!boundary_reflection_applied) {
                 cell.setCOM(newCOM);
             }
@@ -1037,9 +1019,9 @@ std::vector<MaterialMove> WorldB::computeMaterialMoves(double deltaTime)
 
 void WorldB::processMaterialMoves()
 {
-    timers_.startTimer("process_moves");
+    ScopeTimer timer(timers_, "process_moves");
 
-    // Shuffle moves to handle conflicts randomly
+    // Shuffle moves to handle conflicts randomly.
     static std::random_device rd;
     static std::mt19937 gen(rd());
     std::shuffle(pending_moves_.begin(), pending_moves_.end(), gen);
@@ -1048,14 +1030,14 @@ void WorldB::processMaterialMoves()
         CellB& fromCell = at(move.fromX, move.fromY);
         CellB& toCell = at(move.toX, move.toY);
 
-        // Apply any pressure from excess that couldn't transfer
+        // Apply any pressure from excess that couldn't transfer.
         if (move.pressure_from_excess > 0.0) {
-            // If target is a wall, pressure reflects back to source
+            // If target is a wall, pressure reflects back to source.
             if (toCell.getMaterialType() == MaterialType::WALL) {
                 fromCell.setDynamicPressure(
                     fromCell.getDynamicPressure() + move.pressure_from_excess);
 
-                // Cache for debug visualization
+                // Cache for debug visualization.
                 fromCell.setDebugDynamicPressure(fromCell.getDynamicPressure());
 
                 spdlog::debug(
@@ -1065,10 +1047,10 @@ void WorldB::processMaterialMoves()
                     move.pressure_from_excess);
             }
             else {
-                // Normal materials receive the pressure
+                // Normal materials receive the pressure.
                 toCell.setDynamicPressure(toCell.getDynamicPressure() + move.pressure_from_excess);
 
-                // Cache for debug visualization since pressure might be cleared before render
+                // Cache for debug visualization since pressure might be cleared before render.
                 toCell.setDebugDynamicPressure(toCell.getDynamicPressure());
 
                 spdlog::debug(
@@ -1079,7 +1061,7 @@ void WorldB::processMaterialMoves()
             }
         }
 
-        // Handle collision during the move based on collision_type
+        // Handle collision during the move based on collision_type.
         if (move.collision_type != CollisionType::TRANSFER_ONLY) {
             spdlog::debug(
                 "Processing collision: {} vs {} at ({},{}) -> ({},{}) - Type: {}",
@@ -1112,20 +1094,19 @@ void WorldB::processMaterialMoves()
     }
 
     pending_moves_.clear();
-    timers_.stopTimer("process_moves");
 }
 
 void WorldB::setupBoundaryWalls()
 {
     spdlog::info("Setting up boundary walls for WorldB");
 
-    // Top and bottom walls
+    // Top and bottom walls.
     for (uint32_t x = 0; x < width_; ++x) {
         at(x, 0).replaceMaterial(MaterialType::WALL, 1.0);
         at(x, height_ - 1).replaceMaterial(MaterialType::WALL, 1.0);
     }
 
-    // Left and right walls
+    // Left and right walls.
     for (uint32_t y = 0; y < height_; ++y) {
         at(0, y).replaceMaterial(MaterialType::WALL, 1.0);
         at(width_ - 1, y).replaceMaterial(MaterialType::WALL, 1.0);
@@ -1134,14 +1115,14 @@ void WorldB::setupBoundaryWalls()
     spdlog::info("Boundary walls setup complete");
 }
 
-// =================================================================
-// HELPER METHODS
-// =================================================================
+// =================================================================.
+// HELPER METHODS.
+// =================================================================.
 
 void WorldB::pixelToCell(int pixelX, int pixelY, int& cellX, int& cellY) const
 {
-    // Convert pixel coordinates to cell coordinates
-    // Each cell is Cell::WIDTH x Cell::HEIGHT pixels
+    // Convert pixel coordinates to cell coordinates.
+    // Each cell is Cell::WIDTH x Cell::HEIGHT pixels.
     cellX = pixelX / Cell::WIDTH;
     cellY = pixelY / Cell::HEIGHT;
 }
@@ -1172,14 +1153,9 @@ size_t WorldB::coordToIndex(const Vector2i& pos) const
     return coordToIndex(static_cast<uint32_t>(pos.x), static_cast<uint32_t>(pos.y));
 }
 
-Vector2d WorldB::getCellWorldPosition(uint32_t x, uint32_t y, const Vector2d& com_offset) const
-{
-    return Vector2d(static_cast<double>(x) + com_offset.x, static_cast<double>(y) + com_offset.y);
-}
-
-// =================================================================
-// WORLD SETUP CONTROL METHODS
-// =================================================================
+// =================================================================.
+// WORLD SETUP CONTROL METHODS.
+// =================================================================.
 
 void WorldB::setWallsEnabled(bool enabled)
 {
@@ -1188,19 +1164,19 @@ void WorldB::setWallsEnabled(bool enabled)
         configSetup->setWallsEnabled(enabled);
     }
 
-    // Rebuild walls if needed
+    // Rebuild walls if needed.
     if (enabled) {
         setupBoundaryWalls();
     }
     else {
-        // Clear existing walls by resetting boundary cells to air
+        // Clear existing walls by resetting boundary cells to air.
         for (uint32_t x = 0; x < width_; ++x) {
-            at(x, 0).clear();           // Top wall
-            at(x, height_ - 1).clear(); // Bottom wall
+            at(x, 0).clear();           // Top wall.
+            at(x, height_ - 1).clear(); // Bottom wall.
         }
         for (uint32_t y = 0; y < height_; ++y) {
-            at(0, y).clear();          // Left wall
-            at(width_ - 1, y).clear(); // Right wall
+            at(0, y).clear();          // Left wall.
+            at(width_ - 1, y).clear(); // Right wall.
         }
     }
 }
@@ -1256,7 +1232,7 @@ std::string WorldB::settingsToString() const
     return ss.str();
 }
 
-// World type management implementation
+// World type management implementation.
 WorldType WorldB::getWorldType() const
 {
     return WorldType::RulesB;
@@ -1264,38 +1240,38 @@ WorldType WorldB::getWorldType() const
 
 void WorldB::preserveState(::WorldState& state) const
 {
-    // Initialize state with current world properties
+    // Initialize state with current world properties.
     state.initializeGrid(width_, height_);
     state.timescale = timescale_;
     state.timestep = timestep_;
 
-    // Copy physics parameters
+    // Copy physics parameters.
     state.gravity = gravity_;
     state.elasticity_factor = elasticity_factor_;
     state.pressure_scale = pressure_scale_;
-    state.dirt_fragmentation_factor = 1.0; // WorldB doesn't use fragmentation
-    state.water_pressure_threshold = 0.0;  // WorldB uses simplified pressure
+    state.dirt_fragmentation_factor = 1.0; // WorldB doesn't use fragmentation.
+    state.water_pressure_threshold = 0.0;  // WorldB uses simplified pressure.
 
-    // Copy world setup flags
+    // Copy world setup flags.
     state.left_throw_enabled = isLeftThrowEnabled();
     state.right_throw_enabled = isRightThrowEnabled();
     state.lower_right_quadrant_enabled = isLowerRightQuadrantEnabled();
     state.walls_enabled = areWallsEnabled();
     state.rain_rate = getRainRate();
 
-    // Copy time reversal state (WorldB doesn't support time reversal)
+    // Copy time reversal state (WorldB doesn't support time reversal).
     state.time_reversal_enabled = false;
 
-    // Copy control flags
+    // Copy control flags.
     state.add_particles_enabled = add_particles_enabled_;
     state.cursor_force_enabled = cursor_force_enabled_;
 
-    // Convert CellB data to WorldState::CellData
+    // Convert CellB data to WorldState::CellData.
     for (uint32_t y = 0; y < height_; ++y) {
         for (uint32_t x = 0; x < width_; ++x) {
             const CellB& cell = at(x, y);
 
-            // Calculate total mass based on fill ratio and material density
+            // Calculate total mass based on fill ratio and material density.
             double totalMass = 0.0;
             MaterialType cellMaterial = cell.getMaterialType();
 
@@ -1304,7 +1280,7 @@ void WorldB::preserveState(::WorldState& state) const
                 totalMass = cell.getFillRatio() * props.density;
             }
 
-            // Create CellData with CellB information
+            // Create CellData with CellB information.
             ::WorldState::CellData cellData(
                 totalMass, cellMaterial, cell.getVelocity(), cell.getCOM());
 
@@ -1320,54 +1296,54 @@ void WorldB::restoreState(const ::WorldState& state)
 {
     spdlog::info("Restoring WorldB state from {}x{} grid", state.width, state.height);
 
-    // Resize grid if necessary
+    // Resize grid if necessary.
     if (state.width != width_ || state.height != height_) {
         resizeGrid(state.width, state.height);
     }
 
-    // Restore physics parameters
+    // Restore physics parameters.
     timescale_ = state.timescale;
     timestep_ = state.timestep;
     gravity_ = state.gravity;
     elasticity_factor_ = state.elasticity_factor;
     pressure_scale_ = state.pressure_scale;
-    // Note: WorldB doesn't use dirt_fragmentation_factor or water_pressure_threshold
+    // Note: WorldB doesn't use dirt_fragmentation_factor or water_pressure_threshold.
 
-    // Restore world setup flags
+    // Restore world setup flags.
     setLeftThrowEnabled(state.left_throw_enabled);
     setRightThrowEnabled(state.right_throw_enabled);
     setLowerRightQuadrantEnabled(state.lower_right_quadrant_enabled);
     setWallsEnabled(state.walls_enabled);
     setRainRate(state.rain_rate);
 
-    // Restore control flags
+    // Restore control flags.
     add_particles_enabled_ = state.add_particles_enabled;
     cursor_force_enabled_ = state.cursor_force_enabled;
 
-    // Convert WorldState::CellData back to CellB data
+    // Convert WorldState::CellData back to CellB data.
     for (uint32_t y = 0; y < height_; ++y) {
         for (uint32_t x = 0; x < width_; ++x) {
             const ::WorldState::CellData& cellData = state.getCellData(x, y);
             CellB& cell = at(x, y);
 
-            // Convert from mixed material data to pure CellB format
+            // Convert from mixed material data to pure CellB format.
             if (cellData.material_mass > MIN_MATTER_THRESHOLD
                 && cellData.dominant_material != MaterialType::AIR) {
 
-                // Calculate fill ratio from mass and material density
+                // Calculate fill ratio from mass and material density.
                 const MaterialProperties& props = getMaterialProperties(cellData.dominant_material);
                 double fillRatio = props.density > 0.0
                     ? std::min(1.0, cellData.material_mass / props.density)
                     : cellData.material_mass;
 
-                // Update cell with pure material
+                // Update cell with pure material.
                 cell.setMaterialType(cellData.dominant_material);
                 cell.setFillRatio(fillRatio);
                 cell.setVelocity(cellData.velocity);
                 cell.setCOM(cellData.com);
             }
             else {
-                // Empty cell
+                // Empty cell.
                 cell.clear();
             }
 
@@ -1378,6 +1354,6 @@ void WorldB::restoreState(const ::WorldState& state)
     spdlog::info("WorldB state restored: {} total mass", getTotalMass());
 }
 
-// =================================================================
-// FORCE CALCULATION METHODS
-// =================================================================
+// =================================================================.
+// FORCE CALCULATION METHODS.
+// =================================================================.

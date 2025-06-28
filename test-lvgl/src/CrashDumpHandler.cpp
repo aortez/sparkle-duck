@@ -14,7 +14,7 @@
 #include <iomanip>
 #include <sstream>
 
-// Static member initialization
+// Static member initialization.
 SimulationManager* CrashDumpHandler::manager_ = nullptr;
 std::string CrashDumpHandler::dump_directory_ = "./";
 bool CrashDumpHandler::installed_ = false;
@@ -93,7 +93,7 @@ void CrashDumpHandler::onAssertionFailure(
 
 std::string CrashDumpHandler::generateDumpFilename(const char* reason)
 {
-    // Generate timestamp
+    // Generate timestamp.
     auto now = std::chrono::system_clock::now();
     auto time_t = std::chrono::system_clock::to_time_t(now);
     auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()) % 1000;
@@ -122,23 +122,23 @@ void CrashDumpHandler::writeWorldStateToFile(
             return;
         }
 
-        // Create JSON document
+        // Create JSON document.
         rapidjson::Document doc;
         doc.SetObject();
         auto& allocator = doc.GetAllocator();
 
-        // Add crash information
+        // Add crash information.
         rapidjson::Value crashInfo(rapidjson::kObjectType);
         crashInfo.AddMember("reason", rapidjson::Value(reason, allocator), allocator);
 
-        // Add timestamp
+        // Add timestamp.
         auto now = std::chrono::system_clock::now();
         auto time_t = std::chrono::system_clock::to_time_t(now);
         char timestamp[64];
         std::strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", std::localtime(&time_t));
         crashInfo.AddMember("timestamp", rapidjson::Value(timestamp, allocator), allocator);
 
-        // Add assertion details if available
+        // Add assertion details if available.
         if (condition) {
             crashInfo.AddMember(
                 "assertion_condition", rapidjson::Value(condition, allocator), allocator);
@@ -156,7 +156,7 @@ void CrashDumpHandler::writeWorldStateToFile(
 
         doc.AddMember("crash_info", crashInfo, allocator);
 
-        // Add basic world information
+        // Add basic world information.
         rapidjson::Value worldInfo(rapidjson::kObjectType);
         worldInfo.AddMember("width", world->getWidth(), allocator);
         worldInfo.AddMember("height", world->getHeight(), allocator);
@@ -164,7 +164,7 @@ void CrashDumpHandler::writeWorldStateToFile(
         worldInfo.AddMember("total_mass", world->getTotalMass(), allocator);
         worldInfo.AddMember("removed_mass", world->getRemovedMass(), allocator);
 
-        // Add world type information
+        // Add world type information.
         const char* worldTypeName = "";
         switch (world->getWorldType()) {
             case WorldType::RulesA:
@@ -178,19 +178,19 @@ void CrashDumpHandler::writeWorldStateToFile(
 
         doc.AddMember("world_info", worldInfo, allocator);
 
-        // Preserve complete world state
+        // Preserve complete world state.
         WorldState state;
         world->preserveState(state);
         doc.AddMember("world_state", state.toJson(allocator), allocator);
 
-        // Write to file
+        // Write to file.
         std::ofstream file_stream(filename);
         if (!file_stream.is_open()) {
             spdlog::error("Failed to open crash dump file: {}", filename);
             return;
         }
 
-        // Use writer for JSON output
+        // Use writer for JSON output.
         rapidjson::StringBuffer buffer;
         rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
         doc.Accept(writer);

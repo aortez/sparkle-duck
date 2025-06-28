@@ -31,7 +31,7 @@ protected:
 TEST_F(UIUpdateEventTest, DefaultConstruction) {
     UIUpdateEvent event;
     
-    // Verify dirty flags default to false
+    // Verify dirty flags default to false.
     EXPECT_FALSE(event.dirty.fps);
     EXPECT_FALSE(event.dirty.stats);
     EXPECT_FALSE(event.dirty.physicsParams);
@@ -40,14 +40,14 @@ TEST_F(UIUpdateEventTest, DefaultConstruction) {
 }
 
 TEST_F(UIUpdateEventTest, EventName) {
-    // Verify the event has the correct name
+    // Verify the event has the correct name.
     EXPECT_STREQ(UIUpdateEvent::name(), "UIUpdateEvent");
 }
 
 TEST_F(UIUpdateEventTest, SimulationStatsIntegration) {
     UIUpdateEvent event = createDefaultEvent();
     
-    // Set some stats
+    // Set some stats.
     event.stats.totalCells = 10000;
     event.stats.activeCells = 5000;
     event.stats.emptyCells = 5000;
@@ -63,14 +63,14 @@ TEST_F(UIUpdateEventTest, SimulationStatsIntegration) {
 TEST_F(UIUpdateEventTest, PhysicsParamsIntegration) {
     UIUpdateEvent event = createDefaultEvent();
     
-    // Verify default physics params
+    // Verify default physics params.
     EXPECT_DOUBLE_EQ(event.physicsParams.gravity, 9.81);
     EXPECT_DOUBLE_EQ(event.physicsParams.elasticity, 0.8);
     EXPECT_DOUBLE_EQ(event.physicsParams.timescale, 1.0);
     EXPECT_FALSE(event.physicsParams.debugEnabled);
     EXPECT_TRUE(event.physicsParams.gravityEnabled);
     
-    // Modify params
+    // Modify params.
     event.physicsParams.gravity = 19.62;
     event.physicsParams.debugEnabled = true;
     event.physicsParams.forceVisualizationEnabled = true;
@@ -83,7 +83,7 @@ TEST_F(UIUpdateEventTest, PhysicsParamsIntegration) {
 TEST_F(UIUpdateEventTest, DirtyFlagsUsage) {
     UIUpdateEvent event = createDefaultEvent();
     
-    // Simulate marking different components as dirty
+    // Simulate marking different components as dirty.
     event.dirty.fps = true;
     event.dirty.uiState = true;
     
@@ -97,21 +97,21 @@ TEST_F(UIUpdateEventTest, DirtyFlagsUsage) {
 TEST_F(UIUpdateEventTest, TimestampLatency) {
     UIUpdateEvent event = createDefaultEvent();
     
-    // Simulate some processing delay
+    // Simulate some processing delay.
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
     
     auto now = std::chrono::steady_clock::now();
     auto latency = std::chrono::duration_cast<std::chrono::milliseconds>(
         now - event.timestamp);
     
-    // Latency should be at least 10ms
+    // Latency should be at least 10ms.
     EXPECT_GE(latency.count(), 10);
 }
 
 TEST_F(UIUpdateEventTest, MaterialTypeIntegration) {
     UIUpdateEvent event = createDefaultEvent();
     
-    // Test all material types
+    // Test all material types.
     std::vector<MaterialType> materials = {
         MaterialType::AIR,
         MaterialType::DIRT,
@@ -132,7 +132,7 @@ TEST_F(UIUpdateEventTest, MaterialTypeIntegration) {
 TEST_F(UIUpdateEventTest, WorldTypeString) {
     UIUpdateEvent event = createDefaultEvent();
     
-    // Test different world type strings
+    // Test different world type strings.
     event.worldType = "WorldA";
     EXPECT_EQ(event.worldType, "WorldA");
     
@@ -146,7 +146,7 @@ TEST_F(UIUpdateEventTest, WorldTypeString) {
 TEST_F(UIUpdateEventTest, ComprehensiveStateCapture) {
     UIUpdateEvent event;
     
-    // Set all fields to non-default values
+    // Set all fields to non-default values.
     event.fps = 144;
     event.stepCount = 999999;
     
@@ -182,7 +182,7 @@ TEST_F(UIUpdateEventTest, ComprehensiveStateCapture) {
     event.dirty.uiState = true;
     event.dirty.worldState = true;
     
-    // Verify all values
+    // Verify all values.
     EXPECT_EQ(event.fps, 144);
     EXPECT_EQ(event.stepCount, 999999);
     EXPECT_EQ(event.stats.totalCells, 40000);
@@ -203,13 +203,13 @@ TEST_F(UIUpdateEventTest, CopySemantics) {
     original.worldType = "TestWorld";
     original.dirty.fps = true;
     
-    // Copy construction
+    // Copy construction.
     UIUpdateEvent copy(original);
     EXPECT_EQ(copy.fps, 120);
     EXPECT_EQ(copy.worldType, "TestWorld");
     EXPECT_TRUE(copy.dirty.fps);
     
-    // Copy assignment
+    // Copy assignment.
     UIUpdateEvent assigned;
     assigned = original;
     EXPECT_EQ(assigned.fps, 120);
@@ -223,13 +223,13 @@ TEST_F(UIUpdateEventTest, MoveSemantics) {
     original.worldType = "MovedWorld";
     original.stats.totalMass = 9999.9;
     
-    // Move construction
+    // Move construction.
     UIUpdateEvent moved(std::move(original));
     EXPECT_EQ(moved.fps, 240);
     EXPECT_EQ(moved.worldType, "MovedWorld");
     EXPECT_DOUBLE_EQ(moved.stats.totalMass, 9999.9);
     
-    // Move assignment
+    // Move assignment.
     UIUpdateEvent assigned;
     UIUpdateEvent temp = createDefaultEvent();
     temp.fps = 360;

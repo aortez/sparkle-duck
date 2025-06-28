@@ -25,37 +25,37 @@ protected:
 };
 
 TEST_F(DualPathTest, ImmediateEventProcessedImmediatelyWhenPushDisabled) {
-    // Ensure push updates are disabled
+    // Ensure push updates are disabled.
     sharedState->enablePushUpdates(false);
     
-    // Send GetFPSCommand
+    // Send GetFPSCommand.
     GetFPSCommand cmd;
     router->routeEvent(cmd);
     
-    // Event should have been processed immediately
-    // Check that it doesn't go to the queue
+    // Event should have been processed immediately.
+    // Check that it doesn't go to the queue.
     EXPECT_EQ(stateMachine->eventProcessor.getEventQueue().size(), 0);
 }
 
 TEST_F(DualPathTest, ImmediateEventQueuedWhenPushEnabled) {
-    // Enable push updates
+    // Enable push updates.
     sharedState->enablePushUpdates(true);
     
-    // Send GetFPSCommand
+    // Send GetFPSCommand.
     GetFPSCommand cmd;
     router->routeEvent(cmd);
     
-    // Give a moment for event to be queued
+    // Give a moment for event to be queued.
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
     
-    // Event should have been queued instead of processed immediately
+    // Event should have been queued instead of processed immediately.
     EXPECT_GT(stateMachine->eventProcessor.getEventQueue().size(), 0);
 }
 
 TEST_F(DualPathTest, AllToggleCommandsRoutedThroughPushWhenEnabled) {
     sharedState->enablePushUpdates(true);
     
-    // Test all toggle commands
+    // Test all toggle commands.
     std::vector<Event> toggleEvents = {
         ToggleDebugCommand{},
         ToggleForceCommand{},
@@ -70,10 +70,10 @@ TEST_F(DualPathTest, AllToggleCommandsRoutedThroughPushWhenEnabled) {
         router->routeEvent(event);
     }
     
-    // Give a moment for events to be queued
+    // Give a moment for events to be queued.
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
     
-    // All events should be queued
+    // All events should be queued.
     EXPECT_EQ(stateMachine->eventProcessor.getEventQueue().size(), 
               initialQueueSize + toggleEvents.size());
 }
@@ -92,10 +92,10 @@ TEST_F(DualPathTest, GetCommandsRoutedThroughPushWhenEnabled) {
         router->routeEvent(event);
     }
     
-    // Give a moment for events to be queued
+    // Give a moment for events to be queued.
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
     
-    // All events should be queued
+    // All events should be queued.
     EXPECT_EQ(stateMachine->eventProcessor.getEventQueue().size(), 
               initialQueueSize + getCommands.size());
 }
@@ -106,109 +106,109 @@ TEST_F(DualPathTest, PrintAsciiDiagramCommandRoutedThroughPush) {
     PrintAsciiDiagramCommand cmd;
     router->routeEvent(cmd);
     
-    // Give a moment for event to be queued
+    // Give a moment for event to be queued.
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
     
-    // Event should be queued
+    // Event should be queued.
     EXPECT_GT(stateMachine->eventProcessor.getEventQueue().size(), 0);
 }
 
 TEST_F(DualPathTest, NonImmediateEventsAlwaysQueued) {
-    // Test with push disabled
+    // Test with push disabled.
     sharedState->enablePushUpdates(false);
     
     PauseCommand pauseCmd;
     router->routeEvent(pauseCmd);
     
-    // Should be queued regardless of push state
+    // Should be queued regardless of push state.
     EXPECT_GT(stateMachine->eventProcessor.getEventQueue().size(), 0);
     
-    // Clear queue
+    // Clear queue.
     while (!stateMachine->eventProcessor.getEventQueue().empty()) {
         stateMachine->eventProcessor.getEventQueue().pop();
     }
     
-    // Test with push enabled
+    // Test with push enabled.
     sharedState->enablePushUpdates(true);
     
     ResumeCommand resumeCmd;
     router->routeEvent(resumeCmd);
     
-    // Should still be queued
+    // Should still be queued.
     EXPECT_GT(stateMachine->eventProcessor.getEventQueue().size(), 0);
 }
 
 TEST_F(DualPathTest, ToggleDebugCommandUpdatesDebugFlag) {
-    // Enable push updates to route through state machine
+    // Enable push updates to route through state machine.
     sharedState->enablePushUpdates(true);
     
-    // Transition to SimRunning state
+    // Transition to SimRunning state.
     stateMachine->handleEvent(InitCompleteEvent{});
     stateMachine->handleEvent(StartSimulationCommand{});
     
-    // Check initial state
+    // Check initial state.
     auto initialParams = sharedState->getPhysicsParams();
     bool initialDebugState = initialParams.debugEnabled;
     
-    // Send toggle command
+    // Send toggle command.
     router->routeEvent(ToggleDebugCommand{});
     
-    // Process the queued event
+    // Process the queued event.
     stateMachine->eventProcessor.processEventsFromQueue(*stateMachine);
     
-    // Debug flag should be toggled
+    // Debug flag should be toggled.
     auto updatedParams = sharedState->getPhysicsParams();
     EXPECT_NE(updatedParams.debugEnabled, initialDebugState);
 }
 
 TEST_F(DualPathTest, ToggleCommandsGeneratePushUpdates) {
-    // Enable push updates
+    // Enable push updates.
     sharedState->enablePushUpdates(true);
     
-    // Transition to SimRunning state
+    // Transition to SimRunning state.
     stateMachine->handleEvent(InitCompleteEvent{});
     stateMachine->handleEvent(StartSimulationCommand{});
     
-    // Clear any existing updates
+    // Clear any existing updates.
     while (sharedState->hasUIUpdatePending()) {
         sharedState->popUIUpdate();
     }
     
-    // Send toggle command
+    // Send toggle command.
     router->routeEvent(ToggleForceCommand{});
     
-    // Process the queued event
+    // Process the queued event.
     stateMachine->eventProcessor.processEventsFromQueue(*stateMachine);
     
-    // Should have generated a push update
+    // Should have generated a push update.
     EXPECT_TRUE(sharedState->hasUIUpdatePending());
     
-    // Pop the update and check dirty flags
+    // Pop the update and check dirty flags.
     auto update = sharedState->popUIUpdate();
     EXPECT_TRUE(update.has_value());
     EXPECT_TRUE(update->dirty.physicsParams);
 }
 
 TEST_F(DualPathTest, GetFPSCommandGeneratesFPSDirtyFlag) {
-    // Enable push updates
+    // Enable push updates.
     sharedState->enablePushUpdates(true);
     
-    // Transition to SimRunning state
+    // Transition to SimRunning state.
     stateMachine->handleEvent(InitCompleteEvent{});
     stateMachine->handleEvent(StartSimulationCommand{});
     
-    // Clear any existing updates
+    // Clear any existing updates.
     while (sharedState->hasUIUpdatePending()) {
         sharedState->popUIUpdate();
     }
     
-    // Send GetFPS command
+    // Send GetFPS command.
     router->routeEvent(GetFPSCommand{});
     
-    // Process the queued event
+    // Process the queued event.
     stateMachine->eventProcessor.processEventsFromQueue(*stateMachine);
     
-    // Should have generated a push update with FPS dirty flag
+    // Should have generated a push update with FPS dirty flag.
     EXPECT_TRUE(sharedState->hasUIUpdatePending());
     
     auto update = sharedState->popUIUpdate();
@@ -217,25 +217,25 @@ TEST_F(DualPathTest, GetFPSCommandGeneratesFPSDirtyFlag) {
 }
 
 TEST_F(DualPathTest, GetSimStatsCommandGeneratesStatsDirtyFlags) {
-    // Enable push updates
+    // Enable push updates.
     sharedState->enablePushUpdates(true);
     
-    // Transition to SimRunning state
+    // Transition to SimRunning state.
     stateMachine->handleEvent(InitCompleteEvent{});
     stateMachine->handleEvent(StartSimulationCommand{});
     
-    // Clear any existing updates
+    // Clear any existing updates.
     while (sharedState->hasUIUpdatePending()) {
         sharedState->popUIUpdate();
     }
     
-    // Send GetSimStats command
+    // Send GetSimStats command.
     router->routeEvent(GetSimStatsCommand{});
     
-    // Process the queued event
+    // Process the queued event.
     stateMachine->eventProcessor.processEventsFromQueue(*stateMachine);
     
-    // Should have generated a push update with stats dirty flags
+    // Should have generated a push update with stats dirty flags.
     EXPECT_TRUE(sharedState->hasUIUpdatePending());
     
     auto update = sharedState->popUIUpdate();
@@ -243,4 +243,4 @@ TEST_F(DualPathTest, GetSimStatsCommandGeneratesStatsDirtyFlags) {
     EXPECT_TRUE(update->dirty.stats);
 }
 
-} // namespace
+} // namespace.

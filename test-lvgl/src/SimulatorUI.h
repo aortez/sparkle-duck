@@ -15,49 +15,49 @@ enum class WorldType;
 
 class SimulatorUI {
 public:
-    // Callback struct to pass UI, World, and Manager pointers
+    // Callback struct to pass UI, World, and Manager pointers.
     struct CallbackData {
         SimulatorUI* ui;
         WorldInterface* world;
         SimulationManager* manager;
-        lv_obj_t* associated_label; // For sliders that need to update labels
-        lv_obj_t* radio_buttons[3]; // For radio button groups (mutual exclusion)
+        lv_obj_t* associated_label; // For sliders that need to update labels.
+        lv_obj_t* radio_buttons[3]; // For radio button groups (mutual exclusion).
     };
 
     SimulatorUI(lv_obj_t* screen, EventRouter* eventRouter = nullptr);
     ~SimulatorUI();
 
-    // Set the world and manager after UI creation
+    // Set the world and manager after UI creation.
     void setWorld(WorldInterface* world);
     void setSimulationManager(SimulationManager* manager);
     WorldInterface* getWorld() const { return world_; }
     SimulationManager* getSimulationManager() const { return manager_; }
 
-    // UI update methods
+    // UI update methods.
     void updateMassLabel(double totalMass);
     void updateFPSLabel(uint32_t fps);
     void updateDebugButton();
     void applyUpdate(const UIUpdateEvent& update);
 
-    // Frame limiting control
+    // Frame limiting control.
     bool isFrameLimitingEnabled() const { return frame_limiting_enabled_; }
 
-    // Getters for UI elements that main might need
+    // Getters for UI elements that main might need.
     lv_obj_t* getDrawArea() const { return draw_area_; }
 
-    // Initialize the UI after world is fully constructed
+    // Initialize the UI after world is fully constructed.
     void initialize();
 
-    // Material selection handling
+    // Material selection handling.
     void onMaterialSelectionChanged(MaterialType newMaterial);
 
-    // Static function to take exit screenshot
+    // Static function to take exit screenshot.
     static void takeExitScreenshot();
 
 private:
     WorldInterface* world_;
-    SimulationManager* manager_; // Manager handles world switching
-    EventRouter* event_router_;  // Event routing system
+    SimulationManager* manager_; // Manager handles world switching.
+    EventRouter* event_router_;  // Event routing system.
     lv_obj_t* screen_;
     lv_obj_t* draw_area_;
     lv_obj_t* mass_label_;
@@ -66,39 +66,39 @@ private:
     lv_obj_t* world_type_btnm_;
     lv_obj_t* debug_btn_ = nullptr;
 
-    // Material picker UI
+    // Material picker UI.
     std::unique_ptr<MaterialPicker> material_picker_;
 
-    // UI state
+    // UI state.
     double timescale_;
     bool is_paused_;
-    bool frame_limiting_enabled_; // Control frame rate limiting
+    bool frame_limiting_enabled_; // Control frame rate limiting.
 
-    // Mouse interaction mode tracking
+    // Mouse interaction mode tracking.
     enum class InteractionMode {
-        NONE,      // No active interaction
-        GRAB_MODE, // Dragging existing material (current behavior)
-        PAINT_MODE // Painting new material along path
+        NONE,      // No active interaction.
+        GRAB_MODE, // Dragging existing material (current behavior).
+        PAINT_MODE // Painting new material along path.
     };
     InteractionMode interaction_mode_;
-    MaterialType paint_material_; // Material type for paint mode
+    MaterialType paint_material_; // Material type for paint mode.
 
-    // Layout dimensions
+    // Layout dimensions.
     static constexpr int CONTROL_WIDTH = 200;
     static constexpr int DRAW_AREA_SIZE = 850;
     static constexpr int WORLD_TYPE_COLUMN_WIDTH = 150;
-    static constexpr int WORLD_TYPE_COLUMN_X = DRAW_AREA_SIZE + 10; // 10px margin from draw area
+    static constexpr int WORLD_TYPE_COLUMN_X = DRAW_AREA_SIZE + 10; // 10px margin from draw area.
     static constexpr int MAIN_CONTROLS_X =
-        WORLD_TYPE_COLUMN_X + WORLD_TYPE_COLUMN_WIDTH + 10; // 10px margin from world type column
+        WORLD_TYPE_COLUMN_X + WORLD_TYPE_COLUMN_WIDTH + 10; // 10px margin from world type column.
 
-    // Storage for callback data to keep them alive
+    // Storage for callback data to keep them alive.
     std::vector<std::unique_ptr<CallbackData>> callback_data_storage_;
 
-    // Push-based UI update system
+    // Push-based UI update system.
     std::unique_ptr<UIUpdateConsumer> updateConsumer_;
     lv_timer_t* updateTimer_ = nullptr;
 
-    // Private methods for creating UI elements
+    // Private methods for creating UI elements.
     void createDrawArea();
     void createLabels();
     void createWorldTypeColumn();
@@ -107,7 +107,7 @@ private:
     void createSliders();
     void setupDrawAreaEvents();
 
-    // Static event callback methods
+    // Static event callback methods.
     static void drawAreaEventCb(lv_event_t* e);
     static void pauseBtnEventCb(lv_event_t* e);
     static void timescaleSliderEventCb(lv_event_t* e);
@@ -127,22 +127,22 @@ private:
     static void quitBtnEventCb(lv_event_t* e);
     static void frameLimitBtnEventCb(lv_event_t* e);
 
-    // Water physics sliders
+    // Water physics sliders.
     static void waterCohesionSliderEventCb(lv_event_t* e);
     static void waterViscositySliderEventCb(lv_event_t* e);
     static void waterPressureThresholdSliderEventCb(lv_event_t* e);
     static void waterBuoyancySliderEventCb(lv_event_t* e);
 
-    // Pressure system toggles
+    // Pressure system toggles.
     static void hydrostaticPressureToggleEventCb(lv_event_t* e);
     static void dynamicPressureToggleEventCb(lv_event_t* e);
     static void airResistanceSliderEventCb(lv_event_t* e);
 
-    // WorldB pressure strength sliders
+    // WorldB pressure strength sliders.
     static void hydrostaticPressureStrengthSliderEventCb(lv_event_t* e);
     static void dynamicPressureStrengthSliderEventCb(lv_event_t* e);
 
-    // WorldSetup control buttons
+    // WorldSetup control buttons.
     static void leftThrowBtnEventCb(lv_event_t* e);
     static void rightThrowBtnEventCb(lv_event_t* e);
     static void quadrantBtnEventCb(lv_event_t* e);
@@ -150,25 +150,25 @@ private:
     static void screenshotBtnEventCb(lv_event_t* e);
     static void printAsciiBtnEventCb(lv_event_t* e);
 
-    // Time reversal control buttons
+    // Time reversal control buttons.
     static void backwardBtnEventCb(lv_event_t* e);
     static void forwardBtnEventCb(lv_event_t* e);
     static void timeReversalToggleBtnEventCb(lv_event_t* e);
 
-    // Cohesion strength sliders
+    // Cohesion strength sliders.
     static void cohesionForceStrengthSliderEventCb(lv_event_t* e);
     static void adhesionStrengthSliderEventCb(lv_event_t* e);
     static void cohesionBindStrengthSliderEventCb(lv_event_t* e);
     static void comCohesionRangeSliderEventCb(lv_event_t* e);
     static void comCohesionModeRadioEventCb(lv_event_t* e);
 
-    // Push-based UI update timer callback
+    // Push-based UI update timer callback.
     static void uiUpdateTimerCb(lv_timer_t* timer);
 
-    // Helper to create callback data
+    // Helper to create callback data.
     CallbackData* createCallbackData(lv_obj_t* label = nullptr);
 
-    // World type switching methods (delegates to manager)
+    // World type switching methods (delegates to manager).
     void requestWorldTypeSwitch(WorldType newType);
     void updateWorldTypeButtonMatrix(WorldType currentType);
 };

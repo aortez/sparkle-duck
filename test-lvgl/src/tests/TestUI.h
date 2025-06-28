@@ -12,40 +12,40 @@ public:
     TestUI(lv_obj_t* screen, const std::string& test_name);
     ~TestUI();
 
-    // Set the world after UI creation
+    // Set the world after UI creation.
     void setWorld(WorldInterface* world);
     WorldInterface* getWorld() const { return world_; }
 
-    // UI update methods
+    // UI update methods.
     void updateTestLabel(const std::string& status);
 
-    // Getters for UI elements
+    // Getters for UI elements.
     lv_obj_t* getDrawArea() const { return draw_area_; }
 
-    // Initialize the UI after world is fully constructed
+    // Initialize the UI after world is fully constructed.
     void initialize();
 
-    // Test control methods
-    void enableStartButton();     // Enable the Start button
-    void enableNextButton();      // Enable the Next button
-    void enableStepButton();      // Enable the Step button
-    void disableNextButton();     // Disable the Next button
-    void disableStepButton();     // Disable the Step button
-    void updateButtonStatus(const std::string& status); // Update button area with status
+    // Test control methods.
+    void enableStartButton();     // Enable the Start button.
+    void enableNextButton();      // Enable the Next button.
+    void enableStepButton();      // Enable the Step button.
+    void disableNextButton();     // Disable the Next button.
+    void disableStepButton();     // Disable the Step button.
+    void updateButtonStatus(const std::string& status); // Update button area with status.
     
-    // Enhanced functionality
+    // Enhanced functionality.
     void setStepMode(bool enabled) { step_mode_enabled_ = enabled; }
     bool isStepModeEnabled() const { return step_mode_enabled_; }
     void setRestartMode(bool enabled) { restart_mode_enabled_ = enabled; }
     bool isRestartModeEnabled() const { return restart_mode_enabled_; }
     
-    // Button state access for external synchronization
+    // Button state access for external synchronization.
     std::atomic<bool> start_pressed_{false};
     std::atomic<bool> next_pressed_{false};
     std::atomic<bool> step_pressed_{false};
     std::atomic<bool> restart_requested_{false};
     
-    // Friend class for button access
+    // Friend class for button access.
     friend class VisualTestBase;
 
 private:
@@ -60,25 +60,25 @@ private:
     lv_obj_t* button_status_label_;
     std::string test_name_;
 
-    // Button state tracking moved to public section for external access
+    // Button state tracking moved to public section for external access.
     
-    // Enhanced UI modes
-    bool step_mode_enabled_ = false;     // Step button advances simulation
-    bool restart_mode_enabled_ = false;  // Start button acts as restart
+    // Enhanced UI modes.
+    bool step_mode_enabled_ = false;     // Step button advances simulation.
+    bool restart_mode_enabled_ = false;  // Start button acts as restart.
 
 public:
-    // Control column dimensions
+    // Control column dimensions.
     static constexpr int CONTROL_WIDTH = 200;
-    static constexpr int DRAW_AREA_SIZE = 400; // Smaller for test UI
+    static constexpr int DRAW_AREA_SIZE = 400; // Smaller for test UI.
 
 private:
 
-    // Private methods for creating UI elements
+    // Private methods for creating UI elements.
     void createDrawArea();
     void createLabels();
     void createButtons();
 
-    // Button event handlers
+    // Button event handlers.
     static void startButtonEventHandler(lv_event_t* e);
     static void nextButtonEventHandler(lv_event_t* e);
     static void stepButtonEventHandler(lv_event_t* e);

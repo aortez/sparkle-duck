@@ -7,25 +7,25 @@
 #include <thread>
 #include <atomic>
 
-// Note: Event types may not be in DirtSim namespace
-// Remove if compilation fails
+// Note: Event types may not be in DirtSim namespace.
+// Remove if compilation fails.
 
 class EventClassificationTest : public ::testing::Test {
 protected:
     void SetUp() override {
-        // Reset any global state if needed
+        // Reset any global state if needed.
     }
 };
 
 // ===== Static Type Tests =====
 
-// Test that immediate events are correctly classified at compile time
+// Test that immediate events are correctly classified at compile time.
 TEST_F(EventClassificationTest, ImmediateEventTraits) {
-    // These should be immediate
+    // These should be immediate.
     EXPECT_TRUE(IsImmediateEvent<GetFPSCommand>::value);
     EXPECT_TRUE(IsImmediateEvent<GetSimStatsCommand>::value);
     
-    // These should NOT be immediate
+    // These should NOT be immediate.
     EXPECT_FALSE(IsImmediateEvent<StartSimulationCommand>::value);
     EXPECT_FALSE(IsImmediateEvent<ResetSimulationCommand>::value);
     EXPECT_FALSE(IsImmediateEvent<MouseDownEvent>::value);
@@ -34,13 +34,13 @@ TEST_F(EventClassificationTest, ImmediateEventTraits) {
     EXPECT_FALSE(IsImmediateEvent<ResumeCommand>::value);
 }
 
-// Test the runtime helper function
+// Test the runtime helper function.
 TEST_F(EventClassificationTest, RuntimeEventClassification) {
-    // Test immediate events
+    // Test immediate events.
     EXPECT_TRUE(isImmediateEvent(Event{GetFPSCommand{}}));
     EXPECT_TRUE(isImmediateEvent(Event{GetSimStatsCommand{}}));
     
-    // Test queued events
+    // Test queued events.
     EXPECT_FALSE(isImmediateEvent(Event{StartSimulationCommand{}}));
     EXPECT_FALSE(isImmediateEvent(Event{AdvanceSimulationCommand{}}));
     EXPECT_FALSE(isImmediateEvent(Event{MouseDownEvent{100, 200}}));
@@ -52,13 +52,13 @@ TEST_F(EventClassificationTest, RuntimeEventClassification) {
 // ===== Event Name Tests =====
 
 TEST_F(EventClassificationTest, EventNames) {
-    // Test that events have proper names
+    // Test that events have proper names.
     EXPECT_STREQ(GetFPSCommand::name(), "GetFPSCommand");
     EXPECT_STREQ(PauseCommand::name(), "PauseCommand");
     EXPECT_STREQ(MouseDownEvent::name(), "MouseDownEvent");
     EXPECT_STREQ(SetTimescaleCommand::name(), "SetTimescaleCommand");
     
-    // Test getEventName helper
+    // Test getEventName helper.
     EXPECT_EQ(getEventName(Event{GetFPSCommand{}}), "GetFPSCommand");
     EXPECT_EQ(getEventName(Event{StartSimulationCommand{}}), "StartSimulationCommand");
 }
@@ -66,7 +66,7 @@ TEST_F(EventClassificationTest, EventNames) {
 // ===== Event Routing Logic Tests =====
 
 TEST_F(EventClassificationTest, EventRoutingLogic) {
-    // Test the routing logic without needing full EventRouter
+    // Test the routing logic without needing full EventRouter.
     std::vector<std::string> immediateEvents;
     std::vector<std::string> queuedEvents;
     
@@ -82,7 +82,7 @@ TEST_F(EventClassificationTest, EventRoutingLogic) {
         }, event);
     };
     
-    // Route various events
+    // Route various events.
     routeEvent(Event{GetFPSCommand{}});
     routeEvent(Event{PauseCommand{}});
     routeEvent(Event{StartSimulationCommand{}});
@@ -90,11 +90,11 @@ TEST_F(EventClassificationTest, EventRoutingLogic) {
     routeEvent(Event{ResumeCommand{}});
     routeEvent(Event{SetTimescaleCommand{0.5}});
     
-    // Check routing results
+    // Check routing results.
     EXPECT_EQ(immediateEvents.size(), 1);
     EXPECT_EQ(queuedEvents.size(), 5);
     
-    // Verify correct classification
+    // Verify correct classification.
     EXPECT_EQ(immediateEvents[0], "GetFPSCommand");
     
     EXPECT_EQ(queuedEvents[0], "PauseCommand");
@@ -107,7 +107,7 @@ TEST_F(EventClassificationTest, EventRoutingLogic) {
 // ===== Event Data Tests =====
 
 TEST_F(EventClassificationTest, EventDataIntegrity) {
-    // Test that event data is preserved
+    // Test that event data is preserved.
     MouseDownEvent mouseEvent{123, 456};
     Event wrappedEvent{mouseEvent};
     
@@ -116,7 +116,7 @@ TEST_F(EventClassificationTest, EventDataIntegrity) {
     EXPECT_EQ(extracted->pixelX, 123);
     EXPECT_EQ(extracted->pixelY, 456);
     
-    // Test material command
+    // Test material command.
     SelectMaterialCommand matCmd{MaterialType::SAND};
     Event wrappedMatCmd{matCmd};
     
@@ -130,7 +130,7 @@ TEST_F(EventClassificationTest, EventDataIntegrity) {
 TEST_F(EventClassificationTest, SharedStateAccess) {
     SharedSimState state;
     
-    // Test atomic operations
+    // Test atomic operations.
     EXPECT_FALSE(state.getShouldExit());
     state.setShouldExit(true);
     EXPECT_TRUE(state.getShouldExit());
@@ -139,11 +139,11 @@ TEST_F(EventClassificationTest, SharedStateAccess) {
     state.setIsPaused(true);
     EXPECT_TRUE(state.getIsPaused());
     
-    // Test material selection
+    // Test material selection.
     state.setSelectedMaterial(MaterialType::WATER);
     EXPECT_EQ(state.getSelectedMaterial(), MaterialType::WATER);
     
-    // Test physics params
+    // Test physics params.
     auto params = state.getPhysicsParams();
     params.gravityEnabled = true;
     params.elasticity = 0.75;
@@ -160,7 +160,7 @@ TEST_F(EventClassificationTest, EventQueueThreadSafety) {
     SynchronizedQueue<Event> queue;
     const int numEvents = 1000;
     
-    // Producer thread
+    // Producer thread.
     std::thread producer([&queue, numEvents]() {
         for (int i = 0; i < numEvents; ++i) {
             if (i % 2 == 0) {
@@ -171,7 +171,7 @@ TEST_F(EventClassificationTest, EventQueueThreadSafety) {
         }
     });
     
-    // Consumer thread
+    // Consumer thread.
     std::atomic<int> consumed{0};
     std::thread consumer([&queue, &consumed, numEvents]() {
         while (consumed < numEvents) {
@@ -192,9 +192,9 @@ TEST_F(EventClassificationTest, EventQueueThreadSafety) {
 // ===== Event Variant Tests =====
 
 TEST_F(EventClassificationTest, EventVariantSize) {
-    // Ensure Event variant isn't too large
+    // Ensure Event variant isn't too large.
     constexpr size_t eventSize = sizeof(Event);
-    constexpr size_t maxAcceptableSize = 64; // Reasonable cache line size
+    constexpr size_t maxAcceptableSize = 64; // Reasonable cache line size.
     
     EXPECT_LE(eventSize, maxAcceptableSize) 
         << "Event variant is too large: " << eventSize << " bytes";
@@ -213,7 +213,7 @@ TEST_F(EventClassificationTest, EventVisitor) {
         }
     };
     
-    // Visit various events
+    // Visit various events.
     std::visit(visitor, Event{GetFPSCommand{}});
     std::visit(visitor, Event{PauseCommand{}});
     std::visit(visitor, Event{StartSimulationCommand{}});

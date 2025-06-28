@@ -22,7 +22,7 @@ void EventProcessor::processEventsFromQueue(DirtSim::DirtSimStateMachine& dsm)
     while (auto eventOpt = eventQueue.tryPop()) {
         processEvent(*eventOpt, dsm);
 
-        // Check if we should exit after processing this event
+        // Check if we should exit after processing this event.
         if (dsm.shouldExit()) {
             spdlog::info("EventProcessor: Exiting due to shouldExit flag.");
             break;
@@ -38,7 +38,7 @@ void EventProcessor::processEvent(const Event& event, DirtSim::DirtSimStateMachi
         "Processing event: {} in state: {}", getEventName(event), dsm.getCurrentStateName());
 
     try {
-        // Dispatch event to state machine
+        // Dispatch event to state machine.
         dsm.handleEvent(event);
 
         auto duration = std::chrono::steady_clock::now() - startTime;
@@ -48,6 +48,6 @@ void EventProcessor::processEvent(const Event& event, DirtSim::DirtSimStateMachi
     }
     catch (const std::exception& e) {
         spdlog::error("Exception processing event {}: {}", getEventName(event), e.what());
-        // Note: Following the design doc, we log and continue rather than exit
+        // Note: Following the design doc, we log and continue rather than exit.
     }
 }
