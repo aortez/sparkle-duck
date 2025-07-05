@@ -184,6 +184,10 @@ public:
     virtual void setDynamicPressureStrength(double strength) = 0;
     virtual double getDynamicPressureStrength() const = 0;
 
+    // Enable/disable pressure diffusion.
+    virtual void setPressureDiffusionEnabled(bool enabled) = 0;
+    virtual bool isPressureDiffusionEnabled() const = 0;
+
     // =================================================================
     // TIME REVERSAL FUNCTIONALITY
     // =================================================================

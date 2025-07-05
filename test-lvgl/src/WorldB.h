@@ -107,8 +107,10 @@ public:
 
     void setGravity(double g) override { gravity_ = g; }
     double getGravity() const { return gravity_; }
+    Vector2d getGravityVector() const { return Vector2d(0.0, gravity_); }
     void setElasticityFactor(double e) override { elasticity_factor_ = e; }
     void setPressureScale(double scale) override { pressure_scale_ = scale; }
+    double getPressureScale() const { return pressure_scale_; }
     void setDirtFragmentationFactor(double /* factor */) override { /* no-op for WorldB */ }
 
     // =================================================================
@@ -132,29 +134,20 @@ public:
     // WORLDINTERFACE IMPLEMENTATION - DUAL PRESSURE SYSTEM
     // =================================================================
 
-    void setHydrostaticPressureEnabled(bool enabled) override
-    {
-        hydrostatic_pressure_enabled_ = enabled;
-    }
+    void setHydrostaticPressureEnabled(bool enabled) override;
     bool isHydrostaticPressureEnabled() const override { return hydrostatic_pressure_enabled_; }
 
-    void setDynamicPressureEnabled(bool enabled) override { dynamic_pressure_enabled_ = enabled; }
+    void setDynamicPressureEnabled(bool enabled) override;
     bool isDynamicPressureEnabled() const override { return dynamic_pressure_enabled_; }
 
-    void setHydrostaticPressureStrength(double strength) override
-    {
-        hydrostatic_pressure_strength_ = strength;
-    }
-    double getHydrostaticPressureStrength() const override
-    {
-        return hydrostatic_pressure_strength_;
-    }
+    void setPressureDiffusionEnabled(bool enabled) override { pressure_diffusion_enabled_ = enabled; }
+    bool isPressureDiffusionEnabled() const override { return pressure_diffusion_enabled_; }
 
-    void setDynamicPressureStrength(double strength) override
-    {
-        dynamic_pressure_strength_ = strength;
-    }
-    double getDynamicPressureStrength() const override { return dynamic_pressure_strength_; }
+    void setHydrostaticPressureStrength(double strength) override;
+    double getHydrostaticPressureStrength() const override;
+
+    void setDynamicPressureStrength(double strength) override;
+    double getDynamicPressureStrength() const override;
 
     // Pressure calculator access.
     WorldBPressureCalculator& getPressureCalculator() { return pressure_calculator_; }
@@ -166,10 +159,6 @@ public:
     {
         return collision_calculator_;
     }
-
-    // Pressure system getters for calculator.
-    double getPressureScale() const { return pressure_scale_; }
-    Vector2d getGravityVector() const { return Vector2d(0.0, gravity_); }
 
     // =================================================================
     // WORLDINTERFACE IMPLEMENTATION - TIME REVERSAL (NO-OP)
@@ -357,6 +346,7 @@ private:
     void applyGravity(double deltaTime);
     void applyAirResistance(double deltaTime);
     void applyCohesionForces(double deltaTime);
+    void applyPressureForces(double deltaTime);
     void resolveForces(double deltaTime);
     void updateTransfers(double deltaTime);
     void processVelocityLimiting(double deltaTime);
@@ -398,6 +388,7 @@ private:
     // Dual pressure system controls
     bool hydrostatic_pressure_enabled_;
     bool dynamic_pressure_enabled_;
+    bool pressure_diffusion_enabled_;
     double hydrostatic_pressure_strength_;
     double dynamic_pressure_strength_;
 

@@ -141,7 +141,7 @@ TEST_F(PressureSimpleTest, BlockedTransferCreatesDynamicPressure) {
     for (int y = 0; y < 3; y++) {
         for (int x = 0; x < 3; x++) {
             if (world->at(x, y).getMaterialType() == MaterialType::WATER) {
-                double debugPressure = world->at(x, y).getDebugDynamicPressure();
+                double debugPressure = world->at(x, y).getDynamicPressure();
                 maxPressure = std::max(maxPressure, debugPressure);
                 if (debugPressure > 0.0) {
                     pressureFound = true;

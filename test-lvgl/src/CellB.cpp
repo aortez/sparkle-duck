@@ -18,7 +18,6 @@ CellB::CellB()
       velocity_(0.0, 0.0),
       hydrostatic_pressure_(0.0),
       dynamic_pressure_(0.0),
-      debug_dynamic_pressure_(0.0),
       pressure_gradient_(0.0, 0.0),
       accumulated_cohesion_force_(0.0, 0.0),
       accumulated_adhesion_force_(0.0, 0.0),
@@ -35,7 +34,6 @@ CellB::CellB(MaterialType type, double fill)
       velocity_(0.0, 0.0),
       hydrostatic_pressure_(0.0),
       dynamic_pressure_(0.0),
-      debug_dynamic_pressure_(0.0),
       pressure_gradient_(0.0, 0.0),
       accumulated_cohesion_force_(0.0, 0.0),
       accumulated_adhesion_force_(0.0, 0.0),
@@ -62,7 +60,6 @@ CellB::CellB(const CellB& other)
       velocity_(other.velocity_),
       hydrostatic_pressure_(other.hydrostatic_pressure_),
       dynamic_pressure_(other.dynamic_pressure_),
-      debug_dynamic_pressure_(other.debug_dynamic_pressure_),
       pressure_gradient_(other.pressure_gradient_),
       accumulated_cohesion_force_(other.accumulated_cohesion_force_),
       accumulated_adhesion_force_(other.accumulated_adhesion_force_),
@@ -96,7 +93,6 @@ CellB& CellB::operator=(const CellB& other)
         accumulated_cohesion_force_ = other.accumulated_cohesion_force_;
         accumulated_adhesion_force_ = other.accumulated_adhesion_force_;
         accumulated_com_cohesion_force_ = other.accumulated_com_cohesion_force_;
-        debug_dynamic_pressure_ = other.debug_dynamic_pressure_;
         pending_force_ = other.pending_force_;
 
         // Resize buffer if needed but don't copy contents.
@@ -119,6 +115,11 @@ void CellB::setFillRatio(double ratio)
         fill_ratio_ = 0.0;
         velocity_ = Vector2d(0.0, 0.0);
         com_ = Vector2d(0.0, 0.0);
+        
+        // Clear all pressure values when cell becomes empty.
+        hydrostatic_pressure_ = 0.0;
+        dynamic_pressure_ = 0.0;
+        pressure_gradient_ = Vector2d(0.0, 0.0);
     }
 
     markDirty();
@@ -310,6 +311,12 @@ void CellB::clear()
     fill_ratio_ = 0.0;
     velocity_ = Vector2d(0.0, 0.0);
     com_ = Vector2d(0.0, 0.0);
+    
+    // Clear all pressure values when cell becomes empty.
+    hydrostatic_pressure_ = 0.0;
+    dynamic_pressure_ = 0.0;
+    pressure_gradient_ = Vector2d(0.0, 0.0);
+    
     markDirty();
 }
 
@@ -844,14 +851,14 @@ void CellB::drawDebug(lv_obj_t* parent, uint32_t x, uint32_t y)
         }
 
         // Draw pressure visualization as colored overlay.
-        // Show total pressure as color intensity, with dynamic pressure debug as extra indicator.
+        // Show total pressure as color intensity.
         double total_pressure = hydrostatic_pressure_ + dynamic_pressure_;
-        if (total_pressure > 0.01 || debug_dynamic_pressure_ > 0.01) {
+        if (total_pressure > 0.01) {
             // Draw pressure as semi-transparent overlay.
-            double dynamic_indicator = debug_dynamic_pressure_;
+            double dynamic_indicator = dynamic_pressure_;
             
             spdlog::trace(
-                "[RENDER DEBUG] Cell total_pressure={}, debug_dynamic_pressure_={}",
+                "[RENDER DEBUG] Cell total_pressure={}, dynamic_pressure_={}",
                 total_pressure,
                 dynamic_indicator);
 
@@ -899,9 +906,9 @@ void CellB::drawDebug(lv_obj_t* parent, uint32_t x, uint32_t y)
             // Scale factor for visualization.
             const double GRADIENT_SCALE = 30.0;
             
-            // Calculate end point of gradient vector.
-            int end_x = center_x + static_cast<int>(pressure_gradient_.x * GRADIENT_SCALE);
-            int end_y = center_y + static_cast<int>(pressure_gradient_.y * GRADIENT_SCALE);
+            // Calculate end point of gradient vector (reversed to show flow direction).
+            int end_x = center_x - static_cast<int>(pressure_gradient_.x * GRADIENT_SCALE);
+            int end_y = center_y - static_cast<int>(pressure_gradient_.y * GRADIENT_SCALE);
             
             // Draw gradient line.
             lv_draw_line_dsc_t gradient_line_dsc;
@@ -917,7 +924,7 @@ void CellB::drawDebug(lv_obj_t* parent, uint32_t x, uint32_t y)
             
             // Add arrowhead for gradient direction.
             if (pressure_gradient_.magnitude() > 0.01) {
-                double angle = atan2(pressure_gradient_.y, pressure_gradient_.x);
+                double angle = atan2(-pressure_gradient_.y, -pressure_gradient_.x);
                 int arrow_len = 6;
                 
                 lv_draw_line_dsc_t arrow_dsc = gradient_line_dsc;

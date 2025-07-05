@@ -11,38 +11,6 @@ WorldBPressureCalculator::WorldBPressureCalculator(WorldB& world)
     : WorldBCalculatorBase(world), world_ref_(world)
 {}
 
-void WorldBPressureCalculator::applyPressure(double deltaTime)
-{
-    if (world_ref_.getPressureScale() <= 0.0) {
-        return;
-    }
-
-    // Apply pressure decay at start of timestep.
-    for (uint32_t y = 0; y < world_ref_.getHeight(); ++y) {
-        for (uint32_t x = 0; x < world_ref_.getWidth(); ++x) {
-            CellB& cell = world_ref_.at(x, y);
-            cell.setDynamicPressure(cell.getDynamicPressure() * 0.9);
-        }
-    }
-
-    // Hydrostatic pressure will be added on top of any remaining pressure.
-    if (world_ref_.isHydrostaticPressureEnabled()) {
-        calculateHydrostaticPressure();
-    }
-
-    if (world_ref_.isDynamicPressureEnabled()) {
-        // Generate virtual gravity transfers if hydrostatic is disabled.
-        if (!world_ref_.isHydrostaticPressureEnabled()) {
-            generateVirtualGravityTransfers(deltaTime);
-        }
-        
-        processBlockedTransfers(blocked_transfers_);
-        blocked_transfers_.clear();
-        applyDynamicPressureForces(deltaTime);
-    } else {
-        blocked_transfers_.clear();
-    }
-}
 
 void WorldBPressureCalculator::calculateHydrostaticPressure()
 {
@@ -105,15 +73,21 @@ void WorldBPressureCalculator::processBlockedTransfers(const std::vector<Blocked
                     
                     // Get material-specific dynamic weight for source.
                     double material_weight = getDynamicWeight(source_cell.getMaterialType());
-                    double reflected_energy = transfer.energy * material_weight * 0.8; // 80% reflection coefficient.
+                    double dynamic_strength = world_ref_.getDynamicPressureStrength();
+                    
+                    // Calculate material-based reflection coefficient.
+                    double reflection_coefficient = calculateReflectionCoefficient(
+                        source_cell.getMaterialType(), transfer.energy);
+                    
+                    double reflected_energy = transfer.energy * material_weight * dynamic_strength * reflection_coefficient;
                     
                     double current_pressure = source_cell.getDynamicPressure();
                     double new_pressure = current_pressure + reflected_energy;
                     
                     spdlog::debug(
                         "Blocked transfer from ({},{}) to WALL at ({},{}): amount={:.3f}, energy={:.3f}, "
-                        "reflecting to SOURCE cell with material={}, weight={:.2f}, current_pressure={:.6f}, "
-                        "new_pressure={:.6f}",
+                        "reflecting to SOURCE cell with material={}, weight={:.2f}, reflection_coeff={:.2f}, "
+                        "current_pressure={:.6f}, new_pressure={:.6f}",
                         transfer.fromX,
                         transfer.fromY,
                         transfer.toX,
@@ -122,13 +96,11 @@ void WorldBPressureCalculator::processBlockedTransfers(const std::vector<Blocked
                         transfer.energy,
                         getMaterialName(source_cell.getMaterialType()),
                         material_weight,
+                        reflection_coefficient,
                         current_pressure,
                         new_pressure);
                     
                     source_cell.setDynamicPressure(new_pressure);
-                    
-                    // Set debug dynamic pressure for visualization.
-                    source_cell.setDebugDynamicPressure(source_cell.getDebugDynamicPressure() + reflected_energy);
                 }
                 continue;
             }
@@ -157,7 +129,8 @@ void WorldBPressureCalculator::processBlockedTransfers(const std::vector<Blocked
 
             // Get material-specific dynamic weight.
             double material_weight = getDynamicWeight(target_cell.getMaterialType());
-            double weighted_energy = blocked_energy * material_weight;
+            double dynamic_strength = world_ref_.getDynamicPressureStrength();
+            double weighted_energy = blocked_energy * material_weight * dynamic_strength;
 
             double current_pressure = target_cell.getDynamicPressure();
             double new_pressure = current_pressure + weighted_energy;
@@ -178,83 +151,10 @@ void WorldBPressureCalculator::processBlockedTransfers(const std::vector<Blocked
                 new_pressure);
 
             target_cell.setDynamicPressure(new_pressure);
-            
-            // Set debug dynamic pressure for visualization.
-            target_cell.setDebugDynamicPressure(target_cell.getDebugDynamicPressure() + weighted_energy);
         }
     }
 }
 
-void WorldBPressureCalculator::applyDynamicPressureForces(double deltaTime)
-{
-    // Apply pressure forces and decay.
-    for (uint32_t y = 0; y < world_ref_.getHeight(); ++y) {
-        for (uint32_t x = 0; x < world_ref_.getWidth(); ++x) {
-            CellB& cell = world_ref_.at(x, y);
-
-            // Skip empty cells.
-            if (cell.getFillRatio() < MIN_MATTER_THRESHOLD) {
-                cell.setPressureGradient(Vector2d(0.0, 0.0));
-                continue;
-            }
-
-            // Get total pressure for force calculation.
-            double total_pressure = cell.getHydrostaticPressure() + cell.getDynamicPressure();
-            if (total_pressure < MIN_PRESSURE_THRESHOLD) {
-                cell.setPressureGradient(Vector2d(0.0, 0.0));
-                continue;
-            }
-
-            // Calculate pressure gradient to determine force direction.
-            Vector2d gradient = calculatePressureGradient(x, y);
-            
-            // Store gradient in cell for debug visualization.
-            cell.setPressureGradient(gradient);
-            
-            // Force points DOWN the gradient (from high to low pressure)
-            // For net gradient calculation in flow, we use gradient directly.
-            // But for force application, we need to consider if this is equilibrium or not.
-            Vector2d gravity_gradient = calculateGravityGradient(x, y);
-            Vector2d net_gradient = gradient - gravity_gradient;
-            
-            // Apply force based on net gradient (deviation from equilibrium)
-            Vector2d pressure_force = net_gradient * -1.0 * world_ref_.getPressureScale() 
-                * DYNAMIC_MULTIPLIER * deltaTime;
-
-            // Apply force to velocity.
-            if (pressure_force.magnitude() > 0.0001) {
-                Vector2d velocity_before = cell.getVelocity();
-                Vector2d velocity_after = velocity_before + pressure_force;
-                cell.setVelocity(velocity_after);
-
-                spdlog::debug(
-                    "Cell ({},{}) pressure force applied: pressure={:.4f}, "
-                    "gradient=({:.4f},{:.4f}), force=({:.4f},{:.4f})",
-                    x,
-                    y,
-                    total_pressure,
-                    gradient.x,
-                    gradient.y,
-                    pressure_force.x,
-                    pressure_force.y);
-            }
-
-            // Apply dynamic pressure decay (hydrostatic pressure doesn't decay)
-            double dynamic_pressure = cell.getDynamicPressure();
-            double new_dynamic_pressure = dynamic_pressure * (1.0 - DYNAMIC_DECAY_RATE * deltaTime);
-            cell.setDynamicPressure(new_dynamic_pressure);
-            
-            // Decay debug dynamic pressure.
-            double debug_dyn = cell.getDebugDynamicPressure();
-            if (debug_dyn > 0.0001) {
-                cell.setDebugDynamicPressure(debug_dyn * (1.0 - DYNAMIC_DECAY_RATE * deltaTime));
-            }
-        }
-    }
-}
-
-// This method is no longer needed - pressure forces are calculated from gradients.
-// in applyDynamicPressureForces.
 
 double WorldBPressureCalculator::getHydrostaticWeight(MaterialType type) const
 {
@@ -433,144 +333,37 @@ Vector2d WorldBPressureCalculator::calculateGravityGradient(uint32_t x, uint32_t
     return gravity_gradient;
 }
 
-std::vector<MaterialMove> WorldBPressureCalculator::calculatePressureFlow(double deltaTime)
-{
-    std::vector<MaterialMove> pressure_moves;
 
-    // Iterate through all cells to find pressure-driven flows.
-    for (uint32_t y = 0; y < world_ref_.getHeight(); y++) {
-        for (uint32_t x = 0; x < world_ref_.getWidth(); x++) {
+
+void WorldBPressureCalculator::applyPressureDecay(double deltaTime)
+{
+    // Apply decay to dynamic pressure values.
+    for (uint32_t y = 0; y < world_ref_.getHeight(); ++y) {
+        for (uint32_t x = 0; x < world_ref_.getWidth(); ++x) {
             CellB& cell = world_ref_.at(x, y);
 
-            // Check if this cell has significant pressure that could drive flow.
-            double total_pressure = cell.getHydrostaticPressure() + cell.getDynamicPressure();
-            spdlog::trace(
-                "Cell ({},{}) checking pressure flow: total_pressure={:.6f}, threshold={:.6f}",
-                x,
-                y,
-                total_pressure,
-                MIN_PRESSURE_THRESHOLD);
-
-            if (total_pressure > MIN_PRESSURE_THRESHOLD
-                && cell.getFillRatio() > MIN_MATTER_THRESHOLD
-                && !cell.isWall()) {  // WALL materials should never flow.
-                // Calculate pressure gradient.
-                Vector2d pressure_gradient = calculatePressureGradient(x, y);
-                
-                // Calculate expected gravity gradient (equilibrium pressure gradient)
-                Vector2d gravity_gradient = calculateGravityGradient(x, y);
-                
-                // Net gradient is pressure gradient minus gravity gradient.
-                // This represents the actual disequilibrium driving flow.
-                Vector2d net_gradient = pressure_gradient - gravity_gradient;
-
-                spdlog::info(
-                    "Cell ({},{}) pressure gradient: ({:.6f},{:.6f}), gravity gradient: ({:.6f},{:.6f}), net: ({:.6f},{:.6f})",
-                    x,
-                    y,
-                    pressure_gradient.x,
-                    pressure_gradient.y,
-                    gravity_gradient.x,
-                    gravity_gradient.y,
-                    net_gradient.x,
-                    net_gradient.y);
-
-                // Only proceed if net gradient is significant (system out of equilibrium)
-                if (net_gradient.magnitude() > 0.001) {
-                    // Material flows DOWN the net gradient (from high to low pressure)
-                    Vector2d flow_direction = net_gradient * -1.0;
-                    flow_direction.normalize();
-
-                    spdlog::info(
-                        "Flow direction at ({},{}): ({:.3f},{:.3f})",
-                        x,
-                        y,
-                        flow_direction.x,
-                        flow_direction.y);
-
-                    // Determine which neighboring cell to flow towards.
-                    // Use dominant component to pick cardinal direction.
-                    Vector2i target_direction(0, 0);
-                    if (std::abs(flow_direction.x) >= std::abs(flow_direction.y)) {
-                        target_direction.x = (flow_direction.x > 0) ? 1 : -1;
-                    }
-                    else {
-                        target_direction.y = (flow_direction.y > 0) ? 1 : -1;
-                    }
-
-                    Vector2i targetPos = Vector2i(x, y) + target_direction;
-
-                    spdlog::debug(
-                        "Target direction: ({},{}), target pos: ({},{})",
-                        target_direction.x,
-                        target_direction.y,
-                        targetPos.x,
-                        targetPos.y);
-
-                    // Check if target is valid and can receive material.
-                    if (isValidCell(targetPos.x, targetPos.y)) {
-                        CellB& targetCell = world_ref_.at(targetPos);
-
-                        // Don't flow into walls or full cells.
-                        if (!targetCell.isWall()
-                            && targetCell.getCapacity() > MIN_MATTER_THRESHOLD) {
-                            // Calculate flow amount based on net gradient magnitude.
-                            // Higher net gradient = more flow.
-                            double flow_amount = std::min(
-                                cell.getFillRatio() * PRESSURE_FLOW_RATE * net_gradient.magnitude()
-                                    * deltaTime,
-                                std::min(cell.getFillRatio(), targetCell.getCapacity()));
-
-                            if (flow_amount > MIN_MATTER_THRESHOLD) {
-                                // Create pressure-driven move.
-                                MaterialMove pressure_move;
-                                pressure_move.fromX = x;
-                                pressure_move.fromY = y;
-                                pressure_move.toX = targetPos.x;
-                                pressure_move.toY = targetPos.y;
-                                pressure_move.amount = flow_amount;
-                                pressure_move.material = cell.getMaterialType();
-                                pressure_move.momentum = flow_direction
-                                    * net_gradient.magnitude(); // Pressure-driven momentum.
-                                pressure_move.boundary_normal =
-                                    Vector2d(target_direction.x, target_direction.y);
-                                pressure_move.collision_type = CollisionType::TRANSFER_ONLY;
-
-                                pressure_moves.push_back(pressure_move);
-
-                                spdlog::debug(
-                                    "Pressure-driven flow: {} at ({},{}) -> ({},{}) - amount: "
-                                    "{:.3f}, "
-                                    "gradient: ({:.3f},{:.3f}), pressure: {:.3f}",
-                                    getMaterialName(cell.getMaterialType()),
-                                    x,
-                                    y,
-                                    targetPos.x,
-                                    targetPos.y,
-                                    flow_amount,
-                                    net_gradient.x,
-                                    net_gradient.y,
-                                    total_pressure);
-                            }
-                        }
-                    }
+            // Apply dynamic pressure decay (hydrostatic pressure doesn't decay).
+            double dynamic_pressure = cell.getDynamicPressure();
+            if (dynamic_pressure > MIN_PRESSURE_THRESHOLD) {
+                double new_dynamic_pressure = dynamic_pressure * (1.0 - DYNAMIC_DECAY_RATE * deltaTime);
+                cell.setDynamicPressure(new_dynamic_pressure);
+            }
+            
+            // Update pressure gradient for visualization.
+            // This allows us to see pressure forces at the beginning of the next frame.
+            if (cell.getFillRatio() >= MIN_MATTER_THRESHOLD && !cell.isWall()) {
+                double total_pressure = cell.getHydrostaticPressure() + cell.getDynamicPressure();
+                if (total_pressure >= MIN_PRESSURE_THRESHOLD) {
+                    Vector2d gradient = calculatePressureGradient(x, y);
+                    cell.setPressureGradient(gradient);
+                } else {
+                    cell.setPressureGradient(Vector2d(0.0, 0.0));
                 }
+            } else {
+                cell.setPressureGradient(Vector2d(0.0, 0.0));
             }
         }
     }
-
-    if (!pressure_moves.empty()) {
-        spdlog::debug("Calculated {} pressure-driven material transfers", pressure_moves.size());
-    }
-
-    return pressure_moves;
-}
-
-void WorldBPressureCalculator::applyPressureForces(double deltaTime)
-{
-    // This is now handled by applyDynamicPressureForces.
-    // The unified pressure system applies forces based on gradients.
-    applyDynamicPressureForces(deltaTime);
 }
 
 void WorldBPressureCalculator::generateVirtualGravityTransfers(double deltaTime)
@@ -637,6 +430,136 @@ void WorldBPressureCalculator::generateVirtualGravityTransfers(double deltaTime)
                     virtual_energy,
                     cell.getEffectiveDensity());
             }
+        }
+    }
+}
+
+double WorldBPressureCalculator::calculateReflectionCoefficient(
+    MaterialType materialType, double impactEnergy) const
+{
+    // Get material elasticity from properties.
+    const MaterialProperties& material_props = getMaterialProperties(materialType);
+    double material_elasticity = material_props.elasticity;
+    
+    // Wall elasticity is fixed at 0.9 (from MaterialType.cpp).
+    const double wall_elasticity = 0.9;
+    
+    // Calculate coefficient of restitution using geometric mean.
+    // This models the interaction between two materials.
+    double base_restitution = std::sqrt(material_elasticity * wall_elasticity);
+    
+    // Apply energy-dependent damping for more realistic behavior.
+    // Higher energy impacts lose more energy due to deformation, heat, sound, etc.
+    // Normalize energy to a reasonable scale (10.0 is a high-energy impact).
+    double energy_damping_factor = 1.0 - (0.1 * std::min(1.0, impactEnergy / 10.0));
+    
+    // Final reflection coefficient combines material properties and energy damping.
+    double reflection_coefficient = base_restitution * energy_damping_factor;
+    
+    spdlog::trace(
+        "Reflection coefficient for {} hitting wall: elasticity={:.2f}, base_restitution={:.2f}, "
+        "energy={:.3f}, energy_damping={:.2f}, final_coefficient={:.2f}",
+        getMaterialName(materialType),
+        material_elasticity,
+        base_restitution,
+        impactEnergy,
+        energy_damping_factor,
+        reflection_coefficient);
+    
+    return reflection_coefficient;
+}
+
+void WorldBPressureCalculator::applyPressureDiffusion(double deltaTime)
+{
+    // Create a temporary copy of pressure values to avoid order-dependent updates.
+    const uint32_t width = world_ref_.getWidth();
+    const uint32_t height = world_ref_.getHeight();
+    std::vector<double> new_dynamic_pressure(width * height);
+    
+    // Copy current pressure values.
+    for (uint32_t y = 0; y < height; ++y) {
+        for (uint32_t x = 0; x < width; ++x) {
+            size_t idx = y * width + x;
+            const CellB& cell = world_ref_.at(x, y);
+            new_dynamic_pressure[idx] = cell.getDynamicPressure();
+        }
+    }
+    
+    // Apply 4-neighbor diffusion.
+    for (uint32_t y = 0; y < height; ++y) {
+        for (uint32_t x = 0; x < width; ++x) {
+            size_t idx = y * width + x;
+            const CellB& cell = world_ref_.at(x, y);
+            
+            // Skip empty cells and walls.
+            if (cell.isEmpty() || cell.getMaterialType() == MaterialType::WALL) {
+                continue;
+            }
+            
+            // Get material diffusion coefficient.
+            const MaterialProperties& props = getMaterialProperties(cell.getMaterialType());
+            double diffusion_rate = props.pressure_diffusion;
+            
+            // Calculate pressure flux with 4 neighbors.
+            double pressure_flux = 0.0;
+            const double current_pressure = cell.getDynamicPressure();
+            
+            // Check each neighbor (N, S, E, W).
+            const int dx[] = {0, 0, 1, -1};
+            const int dy[] = {-1, 1, 0, 0};
+            
+            for (int i = 0; i < 4; ++i) {
+                int nx = static_cast<int>(x) + dx[i];
+                int ny = static_cast<int>(y) + dy[i];
+                
+                // Skip out-of-bounds.
+                if (nx < 0 || nx >= static_cast<int>(width) || 
+                    ny < 0 || ny >= static_cast<int>(height)) {
+                    continue;
+                }
+                
+                const CellB& neighbor = world_ref_.at(nx, ny);
+                
+                // Walls block pressure diffusion.
+                if (neighbor.getMaterialType() == MaterialType::WALL) {
+                    continue;
+                }
+                
+                // Empty cells act as pressure sinks.
+                double neighbor_pressure = neighbor.isEmpty() ? 0.0 : neighbor.getDynamicPressure();
+                
+                // Pressure flows from high to low.
+                double pressure_diff = neighbor_pressure - current_pressure;
+                
+                // Use harmonic mean of diffusion coefficients for interface.
+                double neighbor_diffusion = neighbor.isEmpty() ? 
+                    1.0 : getMaterialProperties(neighbor.getMaterialType()).pressure_diffusion;
+                
+                // Harmonic mean handles material boundaries correctly.
+                double interface_diffusion = 2.0 * diffusion_rate * neighbor_diffusion / 
+                    (diffusion_rate + neighbor_diffusion + 1e-10);
+                
+                // Accumulate flux.
+                pressure_flux += interface_diffusion * pressure_diff;
+            }
+            
+            // Update pressure with diffusion flux.
+            // Scale by deltaTime for frame-rate independence.
+            new_dynamic_pressure[idx] = current_pressure + pressure_flux * deltaTime;
+            
+            // Ensure pressure doesn't go negative.
+            if (new_dynamic_pressure[idx] < 0.0) {
+                new_dynamic_pressure[idx] = 0.0;
+            }
+        }
+    }
+    
+    // Apply the new pressure values.
+    for (uint32_t y = 0; y < height; ++y) {
+        for (uint32_t x = 0; x < width; ++x) {
+            size_t idx = y * width + x;
+            CellB& cell = world_ref_.at(x, y);
+            cell.setDynamicPressure(new_dynamic_pressure[idx]);
         }
     }
 }

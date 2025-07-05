@@ -26,7 +26,7 @@ namespace {
 // Drawing constants.
 constexpr double COM_VISUALIZATION_RADIUS = 3.0;  // Larger for 100px cells.
 constexpr int VELOCITY_VISUALIZATION_SCALE = 5;   // Better visibility.
-constexpr int PRESSURE_VISUALIZATION_SCALE = 800; // Adjusted for larger cells.
+constexpr int FLOW_VISUALIZATION_SCALE = 800;     // Scale for flow vector display.
 constexpr int DENSITY_GRID_SIZE = 10;             // Grid for density visualization.
 } // namespace.
 
@@ -230,32 +230,6 @@ void Cell::drawDebug(lv_obj_t* /* parent */, uint32_t /* x */, uint32_t /* y */)
     lv_area_t bg_coords = { 0, 0, static_cast<int32_t>(WIDTH), static_cast<int32_t>(HEIGHT) };
     lv_draw_rect(&layer, &bg_rect_dsc, &bg_coords);
 
-    // // Draw density variation background using a gradient effect.
-    // double totalDensity = percentFull();.
-    // if (totalDensity > 0.01) {.
-    //     // Create density-based color variations.
-    //     for (int dy = 0; dy < DENSITY_GRID_SIZE; dy++) {.
-    //         for (int dx = 0; dx < DENSITY_GRID_SIZE; dx++) {.
-    //             // Simulate density variation within the cell.
-    //             double localDensity = totalDensity * (0.8 + 0.4 * sin(dx * 0.5) * cos(dy * 0.5));.
-    //             lv_opa_t localOpacity = static_cast<lv_opa_t>(localDensity * LV_OPA_COVER);.
-
-    //             lv_draw_rect_dsc_t rect_dsc;.
-    //             lv_draw_rect_dsc_init(&rect_dsc);.
-    //             rect_dsc.bg_color = (water > dirt) ? lv_color_hex(0x0066FF) : brown;.
-    //             rect_dsc.bg_opa = localOpacity;.
-    //             rect_dsc.border_width = 0;.
-
-    //             lv_area_t coords = {.
-    //                 dx * WIDTH / DENSITY_GRID_SIZE,.
-    //                 dy * HEIGHT / DENSITY_GRID_SIZE,.
-    //                 (dx + 1) * WIDTH / DENSITY_GRID_SIZE - 1,.
-    //                 (dy + 1) * HEIGHT / DENSITY_GRID_SIZE - 1.
-    //             };.
-    //             lv_draw_rect(&layer, &rect_dsc, &coords);.
-    //         }.
-    //     }.
-    // }.
 
     // Draw dirt background with enhanced border.
     lv_draw_rect_dsc_t rect_dsc;
@@ -333,20 +307,42 @@ void Cell::drawDebug(lv_obj_t* /* parent */, uint32_t /* x */, uint32_t /* y */)
         lv_draw_line(&layer, &arrow_dsc);
     }
 
-    // Draw pressure vector with enhanced visualization.
+    // Draw flow vector (shows expected material flow direction).
     if (pressure.mag() > 0.001) {
-        lv_draw_line_dsc_t pressure_line_dsc;
-        lv_draw_line_dsc_init(&pressure_line_dsc);
-        pressure_line_dsc.color = lv_color_hex(0xFF0080); // Magenta for pressure.
-        pressure_line_dsc.width = 3;
-        pressure_line_dsc.opa = LV_OPA_COVER;
-        pressure_line_dsc.p1.x = WIDTH / 2;
-        pressure_line_dsc.p1.y = HEIGHT / 2;
-        pressure_line_dsc.p2.x =
-            WIDTH / 2 + static_cast<int>(pressure.x * PRESSURE_VISUALIZATION_SCALE);
-        pressure_line_dsc.p2.y =
-            HEIGHT / 2 + static_cast<int>(pressure.y * PRESSURE_VISUALIZATION_SCALE);
-        lv_draw_line(&layer, &pressure_line_dsc);
+        lv_draw_line_dsc_t flow_line_dsc;
+        lv_draw_line_dsc_init(&flow_line_dsc);
+        flow_line_dsc.color = lv_color_hex(0xFF0080); // Magenta for flow vector.
+        flow_line_dsc.width = 3;
+        flow_line_dsc.opa = LV_OPA_COVER;
+        flow_line_dsc.p1.x = WIDTH / 2;
+        flow_line_dsc.p1.y = HEIGHT / 2;
+        // Show pressure direction (material is pushed in this direction).
+        flow_line_dsc.p2.x =
+            WIDTH / 2 + static_cast<int>(pressure.x * FLOW_VISUALIZATION_SCALE);
+        flow_line_dsc.p2.y =
+            HEIGHT / 2 + static_cast<int>(pressure.y * FLOW_VISUALIZATION_SCALE);
+        lv_draw_line(&layer, &flow_line_dsc);
+
+        // Add arrowhead for flow direction.
+        int arrow_x = flow_line_dsc.p2.x;
+        int arrow_y = flow_line_dsc.p2.y;
+        double angle = atan2(pressure.y, pressure.x); // Direction of pressure push.
+        int arrow_len = 8;
+
+        lv_draw_line_dsc_t arrow_dsc = flow_line_dsc;
+        arrow_dsc.width = 2;
+
+        // Left arrowhead line.
+        arrow_dsc.p1.x = arrow_x;
+        arrow_dsc.p1.y = arrow_y;
+        arrow_dsc.p2.x = arrow_x - arrow_len * cos(angle - M_PI / 6);
+        arrow_dsc.p2.y = arrow_y - arrow_len * sin(angle - M_PI / 6);
+        lv_draw_line(&layer, &arrow_dsc);
+
+        // Right arrowhead line.
+        arrow_dsc.p2.x = arrow_x - arrow_len * cos(angle + M_PI / 6);
+        arrow_dsc.p2.y = arrow_y - arrow_len * sin(angle + M_PI / 6);
+        lv_draw_line(&layer, &arrow_dsc);
     }
 
     lv_canvas_finish_layer(canvas, &layer);

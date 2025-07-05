@@ -119,10 +119,8 @@ void VisualTestCoordinator::eventLoopFunction() {
         }
         local_task_queue.clear();
 
-        // Use the same timing as main application.
         if (completed) {
-            // LV_DEF_REFR_PERIOD is typically 16ms (60 FPS).
-            usleep(16000); // Wait for next refresh cycle when LVGL cycle completed.
+        	// Don't wait.
         } else {
             // Shorter wait when LVGL is still processing.
             usleep(1000); // 1ms sleep to prevent busy-waiting.
@@ -159,7 +157,7 @@ void VisualTestEnvironment::SetUp() {
 
             // Create basic file sink for tests (overwrites each run).
             auto file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(
-                "tests.log", true);                    // true = truncate (overwrite).
+                "test.log", true);                    // true = truncate (overwrite).
             file_sink->set_level(spdlog::level::trace); // Everything to file.
 
             // Create logger with both sinks.
@@ -173,7 +171,7 @@ void VisualTestEnvironment::SetUp() {
             
             std::cout << "=== Universal Test Configuration ===\n";
             std::cout << "✓ Debug logging enabled (console: debug, file: trace)\n";
-            std::cout << "✓ Test logs written to: tests.log\n";
+            std::cout << "✓ Test logs written to: test.log\n";
         }
         catch (const spdlog::spdlog_ex& ex) {
             std::cerr << "Log initialization failed: " << ex.what() << "\n";
@@ -793,7 +791,7 @@ void VisualTestBase::logWorldState(const WorldB* world, const std::string& conte
                 // Check if cell has any significant pressure components.
                 double hydrostaticPressure = cell.getHydrostaticPressure();
                 double dynamicPressure = cell.getDynamicPressure();
-                double debugPressure = cell.getDebugDynamicPressure();
+                double debugPressure = cell.getDynamicPressure();
                 const Vector2d& gradient = cell.getPressureGradient();
                 
                 bool hasPressure = (hydrostaticPressure > PRESSURE_LOG_THRESHOLD || 
@@ -865,14 +863,11 @@ void VisualTestBase::logWorldState(const World* world, const std::string& contex
     spdlog::debug("  Total mass in world: {:.6f}", totalMass);
 }
 
-// Enhanced visual test helpers implementation.
-void VisualTestBase::updateDisplay(WorldInterface* world, const std::string& status, bool withDelay) {
-    // Always log status if provided.
+void VisualTestBase::updateDisplay(WorldInterface* world, const std::string& status) {
     if (!status.empty()) {
         spdlog::info("[STATUS] {}", status);
     }
     
-    // Update visual display if in visual mode.
     if (visual_mode_ && world) {
         auto& coordinator = VisualTestCoordinator::getInstance();
         coordinator.postTaskSync([this, world, status] {
@@ -881,11 +876,6 @@ void VisualTestBase::updateDisplay(WorldInterface* world, const std::string& sta
                 ui_->updateButtonStatus(status);
             }
         });
-        
-        // Optional delay to ensure visual update is visible.
-        if (withDelay) {
-            pauseIfVisual(50);
-        }
     }
 }
 
@@ -1046,7 +1036,6 @@ void VisualTestBase::stepSimulation(WorldInterface* world, int steps, const std:
                     });
                     return;
                 }
-                pauseIfVisual(100);
             }
         }
         

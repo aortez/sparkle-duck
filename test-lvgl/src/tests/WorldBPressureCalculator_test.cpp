@@ -47,7 +47,7 @@ TEST_P(ProcessBlockedTransfersTest, ProcessBlockedTransfers_HandlesTargetMateria
     CellB& targetCell = world->at(targetX, targetY);
     
     // Record initial pressure (should be 0).
-    double initialPressure = targetCell.getHydrostaticPressure();
+    double initialPressure = targetCell.getDynamicPressure();
     EXPECT_EQ(0.0, initialPressure) << "Initial pressure should be zero";
     
     // Create a blocked transfer TO the target cell.
@@ -65,7 +65,7 @@ TEST_P(ProcessBlockedTransfersTest, ProcessBlockedTransfers_HandlesTargetMateria
     pressureCalc->processBlockedTransfers(pressureCalc->blocked_transfers_);
     
     // Get final pressure.
-    double finalPressure = targetCell.getHydrostaticPressure();
+    double finalPressure = targetCell.getDynamicPressure();
     
     // Verify expected behavior based on material type.
     if (testCase.expectedPressureChange == 0.0) {

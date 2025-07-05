@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance when working with code in this repository.
 
 ## Project Overview
 
@@ -203,7 +203,8 @@ The application uses spdlog for structured logging with dual output:
 - **TRACE**: High-frequency per-frame events (pressure systems, physics details)
 
 ### Log Files
-- **File**: `sparkle-duck.log` (overwrites on each run)
+- **File**: `sparkle-duck.log` main application
+- **File**: `sparkle-duck.log` unit tests
 - **Location**: Same directory as executable
 - **Behavior**: File is truncated at startup for fresh logs each session
 
@@ -217,8 +218,7 @@ https://docs.lvgl.io/master/details/widgets/index.html
 ### Design docs
 
 Can be found here:
-- design_docs/GridMechanics.md            #<-- For the WorldB system foundations.
-- design_docs/WorldB-Development-Plan.md  #<-- Complete WorldB development roadmap.
+- @design_docs/GridMechanics.md           #<-- For the WorldB system foundations.
 - design_docs/MaterialPicker-UI-Design.md #<-- Material picker UI design (IN DEVELOPMENT)
 - design_docs/ui_overview.md              #<-- UI architecture and widget layout
 - design_docs/WebRTC-test-driver.md       #<-- P2P API for test framework purposes.
@@ -337,8 +337,7 @@ Can be found here:
 - First pass at Cohesion and adhesion.
 
 ** Up Next:
-- **1**: Refined Pressure - refer to under_pressure.md.  Verify pressure works.  Fix tests.
-- **2**: Add Tree organism to simulation.
+- **1**: Add Tree organism to simulation.
 
 ### Architecture Status
 - **WorldA (RulesA)**: Mixed dirt/water materials, complex physics, time reversal ✅  
@@ -381,3 +380,66 @@ And sparkle duck (🦆✨) dirt simulator knows de way!
 
 ## Everyone loves HOWTOs!
 And they also Love README.md too!
+
+
+And here's where we left off:
+● Now I have a complete picture! Here's my analysis:
+
+  The Root Cause
+
+  You're absolutely right to be concerned. The issue is that dynamic pressure strength is NOT 
+  being applied consistently. Here's what's happening:
+
+  1. Input Side (Pressure Creation) - MISSING STRENGTH SCALAR
+
+  In WorldBCollisionCalculator::createCollisionAwareMove():
+  if (excess > MIN_MATTER_THRESHOLD && world_.isDynamicPressureEnabled()) {
+      double blocked_mass = excess * getMaterialDensity(fromCell.getMaterialType());
+      double energy = fromCell.getVelocity().magnitude() * blocked_mass;
+      double pressure_increase = energy * 0.1; // Tune this conversion factor.
+
+      // MISSING: Should multiply by dynamic_pressure_strength here!
+      move.pressure_from_excess = pressure_increase;
+  }
+
+  This creates pressure WITHOUT considering the dynamic pressure strength!
+
+  2. Processing Side (Blocked Transfers) - CORRECTLY USES STRENGTH
+
+  In WorldBPressureCalculator::processBlockedTransfers():
+  double dynamic_strength = world_ref_.getDynamicPressureStrength();
+  double weighted_energy = blocked_energy * material_weight * dynamic_strength;
+
+  This correctly multiplies by dynamic_pressure_strength.
+
+  3. Output Side (Force Application) - NO STRENGTH SCALING
+
+  In WorldB::applyPressureForces():
+  double total_pressure = cell.getHydrostaticPressure() + cell.getDynamicPressure();
+  // No multiplication by strength here - just uses the raw pressure values
+
+  The Problem Summary
+
+  There are THREE different pathways creating dynamic pressure, and they're inconsistent:
+
+  1. Material Move Excess (in collision calculator) - NOT scaled by strength
+  2. Blocked Transfers (in pressure calculator) - IS scaled by strength
+  3. Virtual Gravity Transfers - Would be scaled, but is never called!
+
+  When dynamic pressure strength is 0, you still see effects because:
+  - The collision calculator creates pressure_from_excess without checking strength
+  - This pressure is applied directly in processMaterialMoves() without scaling
+  - The pressure forces then use these unscaled pressure values
+
+  You're Right About Multiple Scalars
+
+  Your intuition about needing more than one scalar is spot-on. The system is conflating
+  different types of pressure:
+
+  1. Collision/Impact Pressure - From material moves hitting obstacles
+  2. Static/Gravity Pressure - From weight of material (virtual gravity transfers)
+  3. Diffusion/Wave Pressure - From pressure spreading between cells
+
+  Currently, dynamic_pressure_strength is only applied to blocked transfers but not to the
+  initial pressure creation from excess material. This creates the inconsistency you're
+  observing.

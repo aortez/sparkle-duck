@@ -174,7 +174,7 @@ State::Any SimRunning::onEvent(const SetDynamicStrengthCommand& cmd, DirtSimStat
         }
     }
     
-    spdlog::debug("SimRunning: Set dynamic strength to {}", cmd.strength);
+    spdlog::info("Dynamic Strength slider changed to: {:.1f}", cmd.strength);
     return *this;
 }
 

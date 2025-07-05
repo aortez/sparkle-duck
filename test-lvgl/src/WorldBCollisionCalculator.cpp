@@ -62,20 +62,22 @@ MaterialMove WorldBCollisionCalculator::createCollisionAwareMove(
     if (excess > MIN_MATTER_THRESHOLD && world_.isDynamicPressureEnabled()) {
         double blocked_mass = excess * getMaterialDensity(fromCell.getMaterialType());
         double energy = fromCell.getVelocity().magnitude() * blocked_mass;
-        double pressure_increase = energy * 0.1; // Tune this conversion factor.
+        double dynamic_strength = world_.getDynamicPressureStrength();
+        double pressure_increase = energy * 0.1 * dynamic_strength; // Apply dynamic pressure strength.
 
         // Store pressure to be applied to target cell when processing moves.
         move.pressure_from_excess = pressure_increase;
 
         spdlog::debug(
             "Pressure from excess at ({},{}) -> ({},{}): excess={:.3f}, energy={:.3f}, "
-            "pressure_to_add={:.3f}",
+            "dynamic_strength={:.3f}, pressure_to_add={:.3f}",
             fromPos.x,
             fromPos.y,
             toPos.x,
             toPos.y,
             excess,
             energy,
+            dynamic_strength,
             pressure_increase);
     }
 

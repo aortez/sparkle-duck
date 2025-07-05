@@ -129,12 +129,6 @@ public:
     void setDynamicPressure(double pressure) { dynamic_pressure_ = pressure; }
     void addDynamicPressure(double pressure) { dynamic_pressure_ += pressure; }
 
-    // Debug visualization for dynamic pressure events.
-    void setDebugDynamicPressure(double magnitude)
-    {
-        debug_dynamic_pressure_ = magnitude;
-    }
-    double getDebugDynamicPressure() const { return debug_dynamic_pressure_; }
 
     // Pressure gradient for debug visualization.
     void setPressureGradient(const Vector2d& gradient)
@@ -259,7 +253,6 @@ private:
 
     double hydrostatic_pressure_; // Pressure from gravity/weight (stable equilibrium).
     double dynamic_pressure_;     // Pressure from blocked transfers (drives flow).
-    double debug_dynamic_pressure_; // Debug value for dynamic pressure events.
 
     Vector2d pressure_gradient_;  // Pressure gradient for debug visualization.
 

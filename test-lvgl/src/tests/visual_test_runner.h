@@ -122,13 +122,20 @@ protected:
     void stepSimulation(World* world, int steps = 1);  // Advance N simulation steps.
     TestAction waitForStep();     // Block until Step, Start (continue), or Next is pressed.
     
-    // Enhanced visual test helpers.
-    void updateDisplay(WorldInterface* world, const std::string& status = "", bool withDelay = true);  // Update display with logging and optional delay.
-    void showInitialState(WorldInterface* world, const std::string& description);  // Show initial state and wait for start.
-    void showInitialStateWithStep(WorldInterface* world, const std::string& description);  // Show initial state with Start/Step choice.
-    void stepSimulation(WorldInterface* world, int steps, const std::string& stepDescription);  // Enhanced stepping with status.
-    void runContinuousSimulation(WorldInterface* world, int steps, const std::string& description);  // Run with rendering every frame.
+    void updateDisplay(WorldInterface* world, const std::string& status = "");
     
+    // Show initial state and wait for start.
+    void showInitialState(WorldInterface* world, const std::string& description);
+
+    // Show initial state with Start/Step choice.
+    void showInitialStateWithStep(WorldInterface* world, const std::string& description);
+
+    // Enhanced stepping with status.
+    void stepSimulation(WorldInterface* world, int steps, const std::string& stepDescription);
+
+    // Run with rendering every frame.
+    void runContinuousSimulation(WorldInterface* world, int steps, const std::string& description);
+
     // Test restart functionality.
     void enableTestRestart() { restart_enabled_ = true; }
     void disableTestRestart() { restart_enabled_ = false; }

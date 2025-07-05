@@ -1001,18 +1001,29 @@ void SimulatorUI::createSliders()
     lv_obj_add_event_cb(
         dynamic_switch, dynamicPressureToggleEventCb, LV_EVENT_VALUE_CHANGED, createCallbackData());
 
+    // Pressure diffusion toggle.
+    lv_obj_t* diffusion_label = lv_label_create(screen_);
+    lv_label_set_text(diffusion_label, "Pressure Diffusion");
+    lv_obj_align(diffusion_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 705);
+
+    lv_obj_t* diffusion_switch = lv_switch_create(screen_);
+    lv_obj_align(diffusion_switch, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X + 180, 705);
+    // Default disabled to match WorldB constructor.
+    lv_obj_add_event_cb(
+        diffusion_switch, pressureDiffusionToggleEventCb, LV_EVENT_VALUE_CHANGED, createCallbackData());
+
     // Hydrostatic pressure strength slider (WorldB only).
     lv_obj_t* hydrostatic_strength_label = lv_label_create(screen_);
     lv_label_set_text(hydrostatic_strength_label, "Hydrostatic Strength");
-    lv_obj_align(hydrostatic_strength_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 715);
+    lv_obj_align(hydrostatic_strength_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 745);
 
     lv_obj_t* hydrostatic_strength_value_label = lv_label_create(screen_);
     lv_label_set_text(hydrostatic_strength_value_label, "1.0");
-    lv_obj_align(hydrostatic_strength_value_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X + 140, 715);
+    lv_obj_align(hydrostatic_strength_value_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X + 140, 745);
 
     lv_obj_t* hydrostatic_strength_slider = lv_slider_create(screen_);
     lv_obj_set_size(hydrostatic_strength_slider, CONTROL_WIDTH, 10);
-    lv_obj_align(hydrostatic_strength_slider, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 735);
+    lv_obj_align(hydrostatic_strength_slider, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 765);
     lv_slider_set_range(hydrostatic_strength_slider, 0, 300);           // 0.0 to 3.0 range.
     lv_slider_set_value(hydrostatic_strength_slider, 100, LV_ANIM_OFF); // Default 1.0 -> 100.
     lv_obj_add_event_cb(
@@ -1025,27 +1036,27 @@ void SimulatorUI::createSliders()
     if (event_router_) {
         LVGLEventBuilder::slider(screen_, event_router_)
             .onDynamicStrengthChange() // Uses new event system.
-            .position(SLIDER_COLUMN_X, 785, LV_ALIGN_TOP_LEFT)
+            .position(SLIDER_COLUMN_X, 815, LV_ALIGN_TOP_LEFT)
             .size(CONTROL_WIDTH, 10)
             .range(0, 300) // 0.0 to 3.0 range.
             .value(100)    // Default 1.0 -> 100.
-            .label("Dynamic Strength", SLIDER_COLUMN_X, 765)
-            .valueLabel("%.1f", SLIDER_COLUMN_X + 140, 765)
+            .label("Dynamic Strength", SLIDER_COLUMN_X, 795)
+            .valueLabel("%.1f", SLIDER_COLUMN_X + 140, 795)
             .buildOrLog();
     }
     else {
         // Fallback to old callback system.
         lv_obj_t* dynamic_strength_label = lv_label_create(screen_);
         lv_label_set_text(dynamic_strength_label, "Dynamic Strength");
-        lv_obj_align(dynamic_strength_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 765);
+        lv_obj_align(dynamic_strength_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 795);
 
         lv_obj_t* dynamic_strength_value_label = lv_label_create(screen_);
         lv_label_set_text(dynamic_strength_value_label, "1.0");
-        lv_obj_align(dynamic_strength_value_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X + 140, 765);
+        lv_obj_align(dynamic_strength_value_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X + 140, 795);
 
         lv_obj_t* dynamic_strength_slider = lv_slider_create(screen_);
         lv_obj_set_size(dynamic_strength_slider, CONTROL_WIDTH, 10);
-        lv_obj_align(dynamic_strength_slider, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 785);
+        lv_obj_align(dynamic_strength_slider, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 815);
         lv_slider_set_range(dynamic_strength_slider, 0, 300);           // 0.0 to 3.0 range.
         lv_slider_set_value(dynamic_strength_slider, 100, LV_ANIM_OFF); // Default 1.0 -> 100.
         lv_obj_add_event_cb(
@@ -1058,15 +1069,15 @@ void SimulatorUI::createSliders()
     // Air resistance slider.
     lv_obj_t* air_resistance_label = lv_label_create(screen_);
     lv_label_set_text(air_resistance_label, "Air Resistance");
-    lv_obj_align(air_resistance_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 815);
+    lv_obj_align(air_resistance_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 845);
 
     lv_obj_t* air_resistance_value_label = lv_label_create(screen_);
     lv_label_set_text(air_resistance_value_label, "0.10");
-    lv_obj_align(air_resistance_value_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X + 120, 815);
+    lv_obj_align(air_resistance_value_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X + 120, 845);
 
     lv_obj_t* air_resistance_slider = lv_slider_create(screen_);
     lv_obj_set_size(air_resistance_slider, CONTROL_WIDTH, 10);
-    lv_obj_align(air_resistance_slider, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 835);
+    lv_obj_align(air_resistance_slider, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 865);
     lv_slider_set_range(air_resistance_slider, 0, 100);          // 0.0 to 1.0 range.
     lv_slider_set_value(air_resistance_slider, 10, LV_ANIM_OFF); // Default 0.1 -> 10.
     lv_obj_add_event_cb(
@@ -1734,6 +1745,19 @@ void SimulatorUI::dynamicPressureToggleEventCb(lv_event_t* e)
     }
 }
 
+void SimulatorUI::pressureDiffusionToggleEventCb(lv_event_t* e)
+{
+    if (lv_event_get_code(e) == LV_EVENT_VALUE_CHANGED) {
+        CallbackData* data = static_cast<CallbackData*>(lv_event_get_user_data(e));
+        if (data && data->world) {
+            lv_obj_t* switch_obj = static_cast<lv_obj_t*>(lv_event_get_target(e));
+            bool enabled = lv_obj_has_state(switch_obj, LV_STATE_CHECKED);
+            data->world->setPressureDiffusionEnabled(enabled);
+            spdlog::info("Pressure diffusion {}", enabled ? "enabled" : "disabled");
+        }
+    }
+}
+
 void SimulatorUI::airResistanceSliderEventCb(lv_event_t* e)
 {
     lv_obj_t* slider = static_cast<lv_obj_t*>(lv_event_get_target(e));
@@ -1781,7 +1805,7 @@ void SimulatorUI::dynamicPressureStrengthSliderEventCb(lv_event_t* e)
             // Only apply to WorldB (RulesB).
             if (data->world->getWorldType() == WorldType::RulesB) {
                 data->world->setDynamicPressureStrength(strength);
-                spdlog::debug("Dynamic pressure strength set to {:.2f}", strength);
+                spdlog::info("Dynamic Strength slider changed to: {:.1f} (via old callback)", strength);
             }
         }
         char buf[16];

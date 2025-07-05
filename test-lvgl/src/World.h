@@ -249,6 +249,10 @@ public:
     void setDynamicPressureStrength(double /* strength */) override { /* no-op */ }
     double getDynamicPressureStrength() const override { return 1.0; }
 
+    // Pressure diffusion controls (no-op for World - only WorldB supports these)
+    void setPressureDiffusionEnabled(bool /* enabled */) override { /* no-op */ }
+    bool isPressureDiffusionEnabled() const override { return false; }
+
     double timescale = 1.0;
 
     // Mark that user input has occurred (for triggering saves)

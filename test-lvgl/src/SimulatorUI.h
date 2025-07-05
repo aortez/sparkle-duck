@@ -136,6 +136,7 @@ private:
     // Pressure system toggles.
     static void hydrostaticPressureToggleEventCb(lv_event_t* e);
     static void dynamicPressureToggleEventCb(lv_event_t* e);
+    static void pressureDiffusionToggleEventCb(lv_event_t* e);
     static void airResistanceSliderEventCb(lv_event_t* e);
 
     // WorldB pressure strength sliders.

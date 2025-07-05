@@ -4,7 +4,8 @@
 #include "MaterialType.h"
 #include "Vector2d.h"
 #include "WorldBCalculatorBase.h"
-#include "WorldInterface.h" // For PressureSystem enum
+#include "WorldInterface.h"
+
 #include <cstdint>
 #include <vector>
 
@@ -12,16 +13,10 @@ class CellB;
 class WorldB;
 
 /**
- * @brief Calculates pressure forces for WorldB physics
+ * @brief Calculates pressure forces for WorldB physics.
  *
- * This class encapsulates all pressure-related calculations including:
- * - Hydrostatic pressure (gravity-based weight distribution)
- * - Dynamic pressure (accumulated from blocked transfers)
- * - Combined pressure force application
+ * See GridMechanics.md for more info.
  *
- * The pressure system implements dual physics following under_pressure.md:
- * 1. Hydrostatic: Slice-based calculation perpendicular to gravity
- * 2. Dynamic: Energy accumulation from blocked material transfers
  */
 class WorldBPressureCalculator : public WorldBCalculatorBase {
 public:
@@ -47,11 +42,6 @@ public:
     static constexpr double DYNAMIC_DECAY_RATE = 0.02;      // Rate of pressure dissipation.
     static constexpr double MIN_PRESSURE_THRESHOLD = 0.001;  // Ignore pressures below this.
 
-    /**
-     * @brief Main pressure application method.
-     * @param deltaTime Time step for the current frame.
-     */
-    void applyPressure(double deltaTime);
 
     /**
      * @brief Calculate hydrostatic pressure for all cells.
@@ -76,14 +66,6 @@ public:
      */
     void processBlockedTransfers(const std::vector<BlockedTransfer>& blocked_transfers);
 
-    /**
-     * @brief Apply combined pressure forces to all cells.
-     * @param deltaTime Time step for force application.
-     *
-     * Combines hydrostatic and dynamic pressure forces based on material properties.
-     * Updates cell velocities according to pressure gradients.
-     */
-    void applyDynamicPressureForces(double deltaTime);
 
 
     /**
@@ -122,29 +104,7 @@ public:
      */
     Vector2d calculateGravityGradient(uint32_t x, uint32_t y) const;
 
-    /**
-     * @brief Calculate pressure-driven material flows.
-     * @param deltaTime Time step for the current frame.
-     * @return Vector of MaterialMove objects representing pressure-driven flows.
-     *
-     * Analyzes pressure gradients across the grid and generates material transfers
-     * from high pressure to low pressure regions. Material flows down the pressure
-     * gradient (from high to low).
-     */
-    std::vector<MaterialMove> calculatePressureFlow(double deltaTime);
 
-    /**
-     * @brief Apply pressure forces to cell velocities and handle pressure decay.
-     * @param deltaTime Time step for the current frame.
-     *
-     * Converts dynamic pressure into velocity changes and applies pressure decay.
-     * This method handles:
-     * - Converting pressure to forces based on pressure gradients
-     * - Applying forces to cell velocities
-     * - Decaying dynamic pressure over time
-     * - Managing debug visualization state
-     */
-    void applyPressureForces(double deltaTime);
 
     /**
      * @brief Generate virtual gravity transfers for pressure accumulation.
@@ -156,6 +116,36 @@ public:
      * This allows dynamic pressure to naturally model hydrostatic-like behavior.
      */
     void generateVirtualGravityTransfers(double deltaTime);
+
+    /**
+     * @brief Apply pressure decay to dynamic pressure values.
+     * @param deltaTime Time step for the current frame.
+     *
+     * Decays dynamic pressure over time. Hydrostatic pressure does not decay.
+     * This should be called after material moves are complete.
+     */
+    void applyPressureDecay(double deltaTime);
+
+    /**
+     * @brief Apply pressure diffusion between neighboring cells.
+     * @param deltaTime Time step for the current frame.
+     *
+     * Implements material-specific pressure propagation using 4-neighbor diffusion.
+     * Pressure spreads from high to low pressure regions based on material
+     * diffusion coefficients. Walls act as barriers with zero flux.
+     */
+    void applyPressureDiffusion(double deltaTime);
+
+    /**
+     * @brief Calculate material-based reflection coefficient.
+     * @param materialType Type of material hitting the wall.
+     * @param impactEnergy Kinetic energy of the impact.
+     * @return Reflection coefficient [0,1] based on material elasticity and impact energy.
+     *
+     * Calculates how much energy is reflected when material hits a wall.
+     * Takes into account material elasticity and applies energy-dependent damping.
+     */
+    double calculateReflectionCoefficient(MaterialType materialType, double impactEnergy) const;
 
     // Queue of blocked transfers.
     std::vector<BlockedTransfer> blocked_transfers_;

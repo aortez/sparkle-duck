@@ -119,8 +119,9 @@ The UI is organized into several distinct columns from left to right:
 #### WorldB Pressure Controls Section
 - **Section Header**: "=== WorldB Pressure ==="
 - **Hydrostatic Pressure Toggle**: Enable/disable hydrostatic pressure
-- **Hydrostatic Strength Slider**: Strength of hydrostatic pressure (0.0-3.0, default 1.0)
 - **Dynamic Pressure Toggle**: Enable/disable dynamic pressure accumulation
+- **Pressure Diffusion Toggle**: Enable/disable pressure diffusion
+- **Hydrostatic Strength Slider**: Strength of hydrostatic pressure (0.0-3.0, default 1.0)
 - **Dynamic Strength Slider**: Strength of dynamic pressure (0.0-3.0, default 1.0)
 - **Air Resistance Slider**: Air resistance strength (0.0-1.0, default 0.10)
 
@@ -213,9 +214,10 @@ The UI initialization follows this order in `SimulatorUI::initialize()`:
 - **WorldB Pressure Header** (Y=620)
 - Hydrostatic Pressure toggle (Y=645)
 - Dynamic Pressure toggle (Y=675)
-- Hydrostatic Strength slider (Y=715-735)
-- Dynamic Strength slider (Y=765-785)
-- Air Resistance slider (Y=815-835)
+- Pressure Diffusion toggle (Y=705)
+- Hydrostatic Strength slider (Y=745-765)
+- Dynamic Strength slider (Y=795-815)
+- Air Resistance slider (Y=845-865)
 
 ### **Special Elements**:
 - Quit button: Bottom-right corner with red background
