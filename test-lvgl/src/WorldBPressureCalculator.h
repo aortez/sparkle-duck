@@ -39,7 +39,7 @@ public:
     static constexpr double SLICE_THICKNESS = 1.0;          // Thickness of pressure slices.
     static constexpr double HYDROSTATIC_MULTIPLIER = 0.002; // Hydrostatic force strength.
     static constexpr double DYNAMIC_MULTIPLIER = 1;      // Dynamic force strength.
-    static constexpr double DYNAMIC_DECAY_RATE = 0.02;      // Rate of pressure dissipation.
+    static constexpr double DYNAMIC_DECAY_RATE = 0.2;      // Rate of pressure dissipation.
     static constexpr double MIN_PRESSURE_THRESHOLD = 0.001;  // Ignore pressures below this.
 
 

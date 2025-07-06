@@ -850,51 +850,68 @@ void CellB::drawDebug(lv_obj_t* parent, uint32_t x, uint32_t y)
             lv_draw_line(&layer, &com_cohesion_line_dsc);
         }
 
-        // Draw pressure visualization as colored overlay.
-        // Show total pressure as color intensity.
-        double total_pressure = hydrostatic_pressure_ + dynamic_pressure_;
-        if (total_pressure > 0.01) {
-            // Draw pressure as semi-transparent overlay.
-            double dynamic_indicator = dynamic_pressure_;
+        // Draw pressure visualization as dual-layer border.
+        // Inner border: hydrostatic pressure (red).
+        // Outer border: dynamic pressure (magenta).
+        
+        // Calculate border widths based on pressure values.
+        // Use log scale for better visualization of pressure ranges.
+        const double MAX_BORDER_WIDTH = 8.0; // Maximum border width in pixels.
+        
+        int hydrostatic_border_width = 0;
+        int dynamic_border_width = 0;
+        
+        if (hydrostatic_pressure_ > 0.01) {
+            // Map hydrostatic pressure to border width (1-8 pixels).
+            hydrostatic_border_width = static_cast<int>(
+                std::min(MAX_BORDER_WIDTH, 1.0 + std::log1p(hydrostatic_pressure_ * 10) * 2.0));
+        }
+        
+        if (dynamic_pressure_ > 0.01) {
+            // Map dynamic pressure to border width (1-8 pixels).
+            dynamic_border_width = static_cast<int>(
+                std::min(MAX_BORDER_WIDTH, 1.0 + std::log1p(dynamic_pressure_ * 10) * 2.0));
+        }
+        
+        spdlog::trace(
+            "[RENDER DEBUG] Cell hydrostatic_pressure_={}, dynamic_pressure_={}, "
+            "hydrostatic_border_width={}, dynamic_border_width={}",
+            hydrostatic_pressure_,
+            dynamic_pressure_,
+            hydrostatic_border_width,
+            dynamic_border_width);
+        
+        // Draw outer border first (dynamic pressure - magenta).
+        if (dynamic_border_width > 0) {
+            lv_draw_rect_dsc_t dynamic_border_dsc;
+            lv_draw_rect_dsc_init(&dynamic_border_dsc);
+            dynamic_border_dsc.bg_opa = LV_OPA_TRANSP; // Transparent background.
+            dynamic_border_dsc.border_color = lv_color_hex(0xFF00FF); // Magenta.
+            dynamic_border_dsc.border_opa = LV_OPA_COVER;
+            dynamic_border_dsc.border_width = dynamic_border_width;
+            dynamic_border_dsc.radius = 0;
             
-            spdlog::trace(
-                "[RENDER DEBUG] Cell total_pressure={}, dynamic_pressure_={}",
-                total_pressure,
-                dynamic_indicator);
-
-            // Map pressure to color intensity (0-255).
-            // Use log scale for better visualization of pressure ranges.
-            int pressure_intensity = static_cast<int>(
-                std::min(255.0, std::log1p(total_pressure * 10) * 50));
+            lv_area_t dynamic_border_area = coords; // Full cell area.
+            lv_draw_rect(&layer, &dynamic_border_dsc, &dynamic_border_area);
+        }
+        
+        // Draw inner border (hydrostatic pressure - red).
+        if (hydrostatic_border_width > 0) {
+            lv_draw_rect_dsc_t hydrostatic_border_dsc;
+            lv_draw_rect_dsc_init(&hydrostatic_border_dsc);
+            hydrostatic_border_dsc.bg_opa = LV_OPA_TRANSP; // Transparent background.
+            hydrostatic_border_dsc.border_color = lv_color_hex(0xFF0000); // Red.
+            hydrostatic_border_dsc.border_opa = LV_OPA_COVER;
+            hydrostatic_border_dsc.border_width = hydrostatic_border_width;
+            hydrostatic_border_dsc.radius = 0;
             
-            // Draw pressure overlay - red for total pressure.
-            lv_draw_rect_dsc_t pressure_rect_dsc;
-            lv_draw_rect_dsc_init(&pressure_rect_dsc);
-            pressure_rect_dsc.bg_color = lv_color_hex(0xFF0000); // Red.
-            pressure_rect_dsc.bg_opa = pressure_intensity / 2; // Semi-transparent.
-            pressure_rect_dsc.radius = 0;
-            pressure_rect_dsc.border_width = 0;
-            
-            lv_area_t pressure_area;
-            pressure_area.x1 = 2;
-            pressure_area.y1 = 2;
-            pressure_area.x2 = Cell::WIDTH - 3;
-            pressure_area.y2 = Cell::HEIGHT - 3;
-            lv_draw_rect(&layer, &pressure_rect_dsc, &pressure_area);
-            
-            // Draw dynamic pressure indicator as small circle if present.
-            if (dynamic_indicator > 0.01) {
-                lv_draw_arc_dsc_t dyn_arc_dsc;
-                lv_draw_arc_dsc_init(&dyn_arc_dsc);
-                dyn_arc_dsc.color = lv_color_hex(0xFF00FF); // Magenta for dynamic.
-                dyn_arc_dsc.width = 3;
-                dyn_arc_dsc.start_angle = 0;
-                dyn_arc_dsc.end_angle = 360;
-                dyn_arc_dsc.center.x = Cell::WIDTH / 2;
-                dyn_arc_dsc.center.y = Cell::HEIGHT / 2;
-                dyn_arc_dsc.radius = 5;
-                lv_draw_arc(&layer, &dyn_arc_dsc);
-            }
+            // Inset the hydrostatic border by the dynamic border width.
+            lv_area_t hydrostatic_border_area;
+            hydrostatic_border_area.x1 = dynamic_border_width;
+            hydrostatic_border_area.y1 = dynamic_border_width;
+            hydrostatic_border_area.x2 = Cell::WIDTH - 1 - dynamic_border_width;
+            hydrostatic_border_area.y2 = Cell::HEIGHT - 1 - dynamic_border_width;
+            lv_draw_rect(&layer, &hydrostatic_border_dsc, &hydrostatic_border_area);
         }
         
         // Draw pressure gradient vector as magenta line.

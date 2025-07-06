@@ -142,7 +142,7 @@ void WorldB::advanceTime(double deltaTimeSeconds)
 	}
 
 	// Apply pressure diffusion before decay.
-	if (dynamic_pressure_enabled_ && pressure_diffusion_enabled_) {
+	if (dynamic_pressure_enabled_ || pressure_diffusion_enabled_) {
 		pressure_calculator_.applyPressureDiffusion(scaledDeltaTime);
 	}
 
@@ -772,12 +772,7 @@ void WorldB::applyPressureForces(double deltaTime)
             // Calculate pressure gradient to determine force direction.
             Vector2d gradient = pressure_calculator_.calculatePressureGradient(x, y);
             
-            // Calculate expected gravity gradient (equilibrium pressure gradient).
-            // Scale by hydrostatic strength to allow control over gravity-based pressure.
-            Vector2d gravity_gradient = pressure_calculator_.calculateGravityGradient(x, y);
-            gravity_gradient = gravity_gradient * hydrostatic_pressure_strength_;
-            
-            // Net gradient is pressure gradient minus gravity gradient.
+            // Net gradient is pressure gradient.
             Vector2d net_gradient = gradient;
             
             // Only apply force if system is out of equilibrium.

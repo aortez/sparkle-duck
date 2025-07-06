@@ -12,6 +12,8 @@ It is filled with matter, of one of the following types: dirt, water, wood, sand
 The matter is modeled by a single particle within each cell.
 This is the cell's COM, or Center of Mass. The COM ranges from [-1, 1] in x and y.
 
+-1 is the top or left. +1 is the bottom or right.
+
 The boundries of the world are composed of wall blocks.
 Wall blocks are a special, immobile kind of block that other blocks reflect off of.
 
@@ -55,7 +57,7 @@ When matter is transferred to the target cell, the matter is added with realisti
 - Velocity is preserved through the transfer
 
 **For non-empty target cells:**
-- Enhanced momentum conservation: `new_COM = (m1*COM1 + m2*COM2) / (m1 + m2)`
+- Momentum conservation: `new_COM = (m1*COM1 + m2*COM2) / (m1 + m2)`
 - Incoming material COM calculated from boundary crossing trajectory (same as empty cell logic)
 - Velocity momentum conservation: `new_velocity = (m1*v1 + m2*v2) / (m1 + m2)`
 

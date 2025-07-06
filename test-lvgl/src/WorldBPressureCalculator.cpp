@@ -27,6 +27,9 @@ void WorldBPressureCalculator::calculateHydrostaticPressure()
         return; // No gravity, no hydrostatic pressure.
     }
 
+    // Get hydrostatic pressure strength multiplier.
+    const double hydrostatic_strength = world_ref_.getHydrostaticPressureStrength();
+
     // Process slices perpendicular to gravity direction.
     for (uint32_t x = 0; x < world_ref_.getWidth(); ++x) {
         double accumulated_pressure = 0.0;
@@ -43,7 +46,7 @@ void WorldBPressureCalculator::calculateHydrostaticPressure()
             double effective_density = cell.getEffectiveDensity();
             if (effective_density > MIN_MATTER_THRESHOLD && !cell.isEmpty()) {
                 double hydrostatic_weight = getHydrostaticWeight(cell.getMaterialType());
-                accumulated_pressure += effective_density * hydrostatic_weight * gravity_magnitude * SLICE_THICKNESS;
+                accumulated_pressure += effective_density * hydrostatic_weight * gravity_magnitude * SLICE_THICKNESS * hydrostatic_strength;
             }
         }
     }
