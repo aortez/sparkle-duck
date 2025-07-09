@@ -24,16 +24,17 @@ enum class MaterialType : uint8_t {
  * Material properties that define physical behavior.
  */
 struct MaterialProperties {
-    double density;           // Mass per unit volume (affects gravity response).
-    double elasticity;        // Bounce factor for collisions [0.0-1.0].
-    double cohesion;          // Internal binding strength (affects flow).
-    double adhesion;          // Binding strength to other materials.
-    double com_mass_constant; // Material-specific constant for mass-based COM cohesion.
+    double density;            // Mass per unit volume (affects gravity response).
+    double elasticity;         // Bounce factor for collisions [0.0-1.0].
+    double cohesion;           // Internal binding strength (affects flow).
+    double adhesion;           // Binding strength to other materials.
+    double com_mass_constant;  // Material-specific constant for mass-based COM cohesion.
     double pressure_diffusion; // Pressure propagation rate [0.0-1.0].
-    bool is_fluid;            // True for materials that flow freely.
-    bool is_rigid;            // True for materials that only compress, don't flow.
+    bool is_fluid;             // True for materials that flow freely.
+    bool is_rigid;             // True for materials that only compress, don't flow.
 
-    MaterialProperties(double d, double e, double c, double a, double cmc, double pd, bool fluid, bool rigid)
+    MaterialProperties(
+        double d, double e, double c, double a, double cmc, double pd, bool fluid, bool rigid)
         : density(d),
           elasticity(e),
           cohesion(c),

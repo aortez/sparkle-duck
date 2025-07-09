@@ -48,6 +48,9 @@ public:
     // Initialize the UI after world is fully constructed.
     void initialize();
 
+    // Populate UI controls with values from the World.
+    void populateFromWorld();
+
     // Material selection handling.
     void onMaterialSelectionChanged(MaterialType newMaterial);
 
@@ -65,6 +68,14 @@ private:
     lv_obj_t* pause_label_;
     lv_obj_t* world_type_btnm_;
     lv_obj_t* debug_btn_ = nullptr;
+    lv_obj_t* scenario_dropdown_ = nullptr;
+    lv_obj_t* left_throw_label_ = nullptr;
+    lv_obj_t* right_throw_label_ = nullptr;
+
+    // Pressure control switches.
+    lv_obj_t* hydrostatic_switch_ = nullptr;
+    lv_obj_t* dynamic_switch_ = nullptr;
+    lv_obj_t* diffusion_switch_ = nullptr;
 
     // Material picker UI.
     std::unique_ptr<MaterialPicker> material_picker_;
@@ -172,4 +183,11 @@ private:
     // World type switching methods (delegates to manager).
     void requestWorldTypeSwitch(WorldType newType);
     void updateWorldTypeButtonMatrix(WorldType currentType);
+
+    // Scenario dropdown methods.
+    void updateScenarioDropdown();
+    static void onScenarioChanged(lv_event_t* e);
+
+    // Update UI controls from world state.
+    void updatePressureControlsFromWorld();
 };

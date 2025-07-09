@@ -115,6 +115,11 @@ LVGLBuilder::SliderBuilder& LVGLBuilder::SliderBuilder::events(lv_event_code_t e
     return *this;
 }
 
+LVGLBuilder::SliderBuilder& LVGLBuilder::SliderBuilder::valueTransform(std::function<double(int32_t)> transform) {
+    value_transform_ = transform;
+    return *this;
+}
+
 Result<lv_obj_t*, std::string> LVGLBuilder::SliderBuilder::build() {
     if (!parent_) {
         std::string error = "SliderBuilder: parent cannot be null";
@@ -212,13 +217,19 @@ void LVGLBuilder::SliderBuilder::createValueLabel() {
     
     // Set initial value text based on slider's current value.
     char buf[32];
-    int current_value = lv_slider_get_value(slider_);
+    int32_t current_value = lv_slider_get_value(slider_);
     
-    // Convert slider integer value to display value based on format.
-    // For now, assume 1:1 mapping - can be enhanced later for float mapping.
-    snprintf(buf, sizeof(buf), value_format_.c_str(), static_cast<double>(current_value));
+    // Apply transform if provided, otherwise use raw value.
+    double display_value;
+    if (value_transform_) {
+        display_value = value_transform_(current_value);
+    } else {
+        display_value = static_cast<double>(current_value);
+    }
     
+    snprintf(buf, sizeof(buf), value_format_.c_str(), display_value);
     lv_label_set_text(value_label_, buf);
+    
     lv_obj_align(value_label_, value_label_position_.align, value_label_position_.x, value_label_position_.y);
 }
 
@@ -230,7 +241,56 @@ void LVGLBuilder::SliderBuilder::setupEvents() {
         user_data = callback_data_factory_(value_label_);
     }
     
-    lv_obj_add_event_cb(slider_, callback_, event_code_, user_data);
+    // Add user's callback.
+    if (callback_) {
+        lv_obj_add_event_cb(slider_, callback_, event_code_, user_data);
+    }
+    
+    // Add auto-update callback for value label if we have one.
+    if (value_label_ && has_value_label_) {
+        // Create persistent data for the value label callback.
+        ValueLabelData* data = new ValueLabelData{
+            value_label_,
+            value_format_,
+            value_transform_
+        };
+        
+        // Add the value update callback with the persistent data.
+        lv_obj_add_event_cb(slider_, valueUpdateCallback, LV_EVENT_VALUE_CHANGED, data);
+        
+        // Add a delete callback to clean up the allocated data.
+        lv_obj_add_event_cb(slider_, sliderDeleteCallback, LV_EVENT_DELETE, data);
+    }
+}
+
+
+void LVGLBuilder::SliderBuilder::valueUpdateCallback(lv_event_t* e) {
+    if (lv_event_get_code(e) == LV_EVENT_VALUE_CHANGED) {
+        ValueLabelData* data = static_cast<ValueLabelData*>(lv_event_get_user_data(e));
+        if (data && data->value_label) {
+            lv_obj_t* slider = static_cast<lv_obj_t*>(lv_event_get_target(e));
+            char buf[32];
+            int32_t current_value = lv_slider_get_value(slider);
+            
+            // Apply transform if provided, otherwise use raw value.
+            double display_value;
+            if (data->transform) {
+                display_value = data->transform(current_value);
+            } else {
+                display_value = static_cast<double>(current_value);
+            }
+            
+            snprintf(buf, sizeof(buf), data->format.c_str(), display_value);
+            lv_label_set_text(data->value_label, buf);
+        }
+    }
+}
+
+void LVGLBuilder::SliderBuilder::sliderDeleteCallback(lv_event_t* e) {
+    if (lv_event_get_code(e) == LV_EVENT_DELETE) {
+        ValueLabelData* data = static_cast<ValueLabelData*>(lv_event_get_user_data(e));
+        delete data;
+    }
 }
 
 // ============================================================================

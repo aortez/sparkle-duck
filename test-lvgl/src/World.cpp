@@ -2185,6 +2185,20 @@ WorldType World::getWorldType() const
     return WorldType::RulesA;
 }
 
+void World::setWorldSetup(std::unique_ptr<WorldSetup> newSetup)
+{
+    worldSetup_ = std::move(newSetup);
+    // Reset and apply the new setup.
+    if (worldSetup_) {
+        this->setup();
+    }
+}
+
+WorldSetup* World::getWorldSetup() const
+{
+    return worldSetup_.get();
+}
+
 void World::preserveState(::WorldState& state) const
 {
     // Initialize state with current world properties.
@@ -2327,7 +2341,8 @@ void World::restoreState(const ::WorldState& state)
             // Update cell with converted data.
             cell.update(dirtAmount, cellData.com, cellData.velocity);
             cell.water = waterAmount;
-            cell.pressure = Vector2d(0.0, 0.0); // Reset pressure since CellData no longer stores it.
+            cell.pressure =
+                Vector2d(0.0, 0.0); // Reset pressure since CellData no longer stores it.
             cell.markDirty();
         }
     }

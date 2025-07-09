@@ -27,7 +27,7 @@ enum class WorldType {
  * @throws std::runtime_error if unknown world type is requested
  */
 std::unique_ptr<WorldInterface> createWorld(
-    WorldType type, uint32_t width, uint32_t height, lv_obj_t* draw_area);
+    WorldType type, uint32_t width, uint32_t height, lv_obj_t* draw_area = nullptr);
 
 /**
  * Get string name for WorldType (useful for logging/debugging)

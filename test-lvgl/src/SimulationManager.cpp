@@ -1,6 +1,9 @@
 #include "SimulationManager.h"
 #include "SimulatorUI.h"
+#include "SparkleAssert.h"
 #include "WorldSetup.h"
+#include "scenarios/Scenario.h"
+#include "scenarios/ScenarioRegistry.h"
 #include "spdlog/spdlog.h"
 
 SimulationManager::SimulationManager(
@@ -10,11 +13,20 @@ SimulationManager::SimulationManager(
       draw_area_(nullptr),
       width_(width),
       height_(height),
+      default_width_(width),
+      default_height_(height),
       initial_world_type_(initialType)
 {
     spdlog::info("Creating SimulationManager with {}x{} grid", width, height);
 
-    // Create UI first if screen is provided, but don't get draw_area yet.
+    // Create the world first (without draw_area).
+    world_ = createWorld(initial_world_type_);
+    if (!world_) {
+        throw std::runtime_error("Failed to create initial world");
+    }
+    spdlog::info("Created {} physics system", getWorldTypeName(initial_world_type_));
+
+    // Create UI if screen is provided.
     if (screen) {
         ui_ = std::make_unique<SimulatorUI>(screen);
         spdlog::info("SimulationManager created with UI");
@@ -23,7 +35,6 @@ SimulationManager::SimulationManager(
         spdlog::info("SimulationManager created in headless mode");
     }
 
-    // Note: We'll create the world during initialize() after UI is set up.
     spdlog::info("SimulationManager construction complete");
 }
 
@@ -36,21 +47,33 @@ void SimulationManager::initialize()
         ui_->initialize();
         draw_area_ = ui_->getDrawArea();
         spdlog::info("UI initialized, draw_area obtained");
-    }
 
-    // Now create the world with the proper draw_area.
-    world_ = createWorld(initial_world_type_);
-    if (!world_) {
-        throw std::runtime_error("Failed to create initial world");
+        // Set the draw area on the world now that UI is initialized.
+        world_->setDrawArea(draw_area_);
+        spdlog::info("Draw area set on world");
     }
 
     // Connect UI and world if UI exists.
     if (ui_) {
         connectUIAndWorld();
+
+        // Populate UI controls with values from the world.
+        ui_->populateFromWorld();
     }
 
-    // Setup world with initial materials.
-    world_->setup();
+    // Apply the default Sandbox scenario if available
+    auto& registry = ScenarioRegistry::getInstance();
+    auto* sandboxScenario = registry.getScenario("sandbox");
+
+    if (sandboxScenario) {
+        spdlog::info("Applying default Sandbox scenario");
+        auto setup = sandboxScenario->createWorldSetup();
+        world_->setWorldSetup(std::move(setup));
+    }
+    else {
+        spdlog::warn("Sandbox scenario not found in registry - using default world setup");
+        // World will use its default setup from the constructor
+    }
 
     spdlog::info("SimulationManager initialization complete");
 }
@@ -108,6 +131,55 @@ bool SimulationManager::switchWorldType(WorldType newType)
     return true;
 }
 
+bool SimulationManager::resizeWorldIfNeeded(uint32_t requiredWidth, uint32_t requiredHeight)
+{
+    // If no specific dimensions required, restore default dimensions
+    if (requiredWidth == 0 || requiredHeight == 0) {
+        requiredWidth = default_width_;
+        requiredHeight = default_height_;
+    }
+
+    // Check if current dimensions match
+    if (width_ == requiredWidth && height_ == requiredHeight) {
+        return false;
+    }
+
+    spdlog::info(
+        "Resizing world from {}x{} to {}x{} for scenario",
+        width_,
+        height_,
+        requiredWidth,
+        requiredHeight);
+
+    // Preserve current world type and any necessary state
+    WorldType currentType = world_ ? world_->getWorldType() : initial_world_type_;
+
+    // Update dimensions
+    width_ = requiredWidth;
+    height_ = requiredHeight;
+
+    // Create new world with new dimensions
+    world_ = createWorld(currentType);
+    if (!world_) {
+        spdlog::error("Failed to create resized world");
+        return false;
+    }
+
+    // Set draw area if UI exists
+    if (ui_ && draw_area_) {
+        world_->setDrawArea(draw_area_);
+    }
+
+    // Reconnect UI if it exists
+    if (ui_) {
+        connectUIAndWorld();
+        updateUIWorldType();
+    }
+
+    spdlog::info("World resized successfully to {}x{}", requiredWidth, requiredHeight);
+    return true;
+}
+
 void SimulationManager::reset()
 {
     if (world_) {
@@ -159,7 +231,7 @@ void SimulationManager::dumpTimerStats() const
 std::unique_ptr<WorldInterface> SimulationManager::createWorld(WorldType type)
 {
     spdlog::info("Creating world of type {}", getWorldTypeName(type));
-    return ::createWorld(type, width_, height_, draw_area_);
+    return ::createWorld(type, width_, height_); // No draw_area parameter needed anymore.
 }
 
 void SimulationManager::connectUIAndWorld()

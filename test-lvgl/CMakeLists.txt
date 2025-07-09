@@ -153,6 +153,14 @@ add_executable(sparkle-duck
     src/states/SimPaused.cpp
     src/states/Config.cpp
     src/states/Shutdown.cpp
+    src/scenarios/ScenarioWorldSetup.cpp
+    src/scenarios/ScenarioRegistry.cpp
+    src/scenarios/scenarios/EmptyScenario.cpp
+    src/scenarios/scenarios/SandboxScenario.cpp
+    src/scenarios/scenarios/RainingScenario.cpp
+    src/scenarios/scenarios/DamBreakScenario.cpp
+    src/scenarios/scenarios/WaterEqualizationScenario.cpp
+    src/scenarios/scenarios/FallingDirtScenario.cpp
     ${LV_LINUX_SRC} 
     ${LV_LINUX_BACKEND_SRC})
 target_link_libraries(sparkle-duck lvgl_linux lvgl lvgl::thorvg spdlog::spdlog m pthread ${PKG_CONFIG_LIB} ${SDL2_LIBRARIES} ${SDL2_IMAGE_LIBRARIES})
@@ -185,6 +193,8 @@ add_executable(sparkle-duck-tests
     src/tests/Vector2i_test.cpp
     src/tests/WorldVisual_test.cpp
     src/tests/WorldBVisual_test.cpp
+    src/tests/ScenarioSystem_test.cpp
+    src/tests/ScenarioSwitching_test.cpp
     src/tests/AirResistance_test.cpp
     src/tests/AirResistanceVisual_test.cpp
     src/tests/InterfaceCompatibility_test.cpp
@@ -266,6 +276,14 @@ add_executable(sparkle-duck-tests
     src/states/SimPaused.cpp
     src/states/Config.cpp
     src/states/Shutdown.cpp
+    src/scenarios/ScenarioWorldSetup.cpp
+    src/scenarios/ScenarioRegistry.cpp
+    src/scenarios/scenarios/EmptyScenario.cpp
+    src/scenarios/scenarios/SandboxScenario.cpp
+    src/scenarios/scenarios/RainingScenario.cpp
+    src/scenarios/scenarios/DamBreakScenario.cpp
+    src/scenarios/scenarios/WaterEqualizationScenario.cpp
+    src/scenarios/scenarios/FallingDirtScenario.cpp
     ${LV_LINUX_SRC} 
     ${LV_LINUX_BACKEND_SRC}
 )

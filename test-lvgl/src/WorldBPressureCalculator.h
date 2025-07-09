@@ -38,10 +38,9 @@ public:
     // Pressure-specific constants.
     static constexpr double SLICE_THICKNESS = 1.0;          // Thickness of pressure slices.
     static constexpr double HYDROSTATIC_MULTIPLIER = 0.002; // Hydrostatic force strength.
-    static constexpr double DYNAMIC_MULTIPLIER = 1;      // Dynamic force strength.
-    static constexpr double DYNAMIC_DECAY_RATE = 0.2;      // Rate of pressure dissipation.
-    static constexpr double MIN_PRESSURE_THRESHOLD = 0.001;  // Ignore pressures below this.
-
+    static constexpr double DYNAMIC_MULTIPLIER = 1;         // Dynamic force strength.
+    static constexpr double DYNAMIC_DECAY_RATE = 0.2;       // Rate of pressure dissipation.
+    static constexpr double MIN_PRESSURE_THRESHOLD = 0.001; // Ignore pressures below this.
 
     /**
      * @brief Calculate hydrostatic pressure for all cells.
@@ -65,8 +64,6 @@ public:
      * Updates pressure gradients based on blocked transfer directions.
      */
     void processBlockedTransfers(const std::vector<BlockedTransfer>& blocked_transfers);
-
-
 
     /**
      * @brief Get material-specific hydrostatic pressure sensitivity.
@@ -92,7 +89,7 @@ public:
      * with neighboring cells. The gradient points in the direction of decreasing pressure.
      */
     Vector2d calculatePressureGradient(uint32_t x, uint32_t y) const;
-    
+
     /**
      * @brief Calculate expected gravity gradient at a cell position.
      * @param x X coordinate of cell.
@@ -103,8 +100,6 @@ public:
      * differences with neighbors. In equilibrium, this should balance the pressure gradient.
      */
     Vector2d calculateGravityGradient(uint32_t x, uint32_t y) const;
-
-
 
     /**
      * @brief Generate virtual gravity transfers for pressure accumulation.
@@ -154,7 +149,7 @@ private:
     WorldB& world_ref_; // Non-const reference for modifying cells.
 
     // Constants for pressure-driven flow.
-    static constexpr double PRESSURE_FLOW_RATE = 1.0;    // Flow rate multiplier.
+    static constexpr double PRESSURE_FLOW_RATE = 1.0;     // Flow rate multiplier.
     static constexpr double PRESSURE_FORCE_SCALE = 1.0;   // Force scale factor.
     static constexpr double BACKGROUND_DECAY_RATE = 0.02; // 2% decay per timestep.
 };

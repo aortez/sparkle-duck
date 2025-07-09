@@ -38,7 +38,7 @@ struct DirtMove {
 
 class World : public WorldInterface {
 public:
-    World(uint32_t width, uint32_t height, lv_obj_t* draw_area);
+    World(uint32_t width, uint32_t height, lv_obj_t* draw_area = nullptr);
     ~World();
 
     // World is not copyable due to unique_ptr members.
@@ -69,6 +69,7 @@ public:
     uint32_t getWidth() const override;
     uint32_t getHeight() const override;
     lv_obj_t* getDrawArea() const override { return draw_area; }
+    void setDrawArea(lv_obj_t* drawArea) override { draw_area = drawArea; }
 
     void setTimescale(double scale) override { timescale = scale; }
     double getTimescale() const override { return timescale; }
@@ -266,6 +267,10 @@ public:
     void preserveState(::WorldState& state) const override;
     void restoreState(const ::WorldState& state) override;
 
+    // World setup management
+    void setWorldSetup(std::unique_ptr<WorldSetup> setup) override;
+    WorldSetup* getWorldSetup() const override;
+
 protected:
     Timers timers;
 
@@ -415,9 +420,6 @@ private:
     // Helper to convert pixel coordinates to cell coordinates
     void pixelToCell(int pixelX, int pixelY, int& cellX, int& cellY) const;
     Vector2i pixelToCell(int pixelX, int pixelY) const;
-
-    // Helper to get world setup for resize operations
-    const WorldSetup* getWorldSetup() const { return worldSetup_.get(); }
 
     // Helper method to restore state with potential grid size changes
     void restoreWorldState(const WorldState& state);

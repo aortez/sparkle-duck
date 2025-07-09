@@ -31,7 +31,7 @@ class SimulatorUI;
 
 class WorldB : public WorldInterface {
 public:
-    WorldB(uint32_t width, uint32_t height, lv_obj_t* draw_area);
+    WorldB(uint32_t width, uint32_t height, lv_obj_t* draw_area = nullptr);
     ~WorldB();
 
     // WorldB is not copyable due to unique_ptr members.
@@ -59,6 +59,7 @@ public:
     uint32_t getWidth() const override { return width_; }
     uint32_t getHeight() const override { return height_; }
     lv_obj_t* getDrawArea() const override { return draw_area_; }
+    void setDrawArea(lv_obj_t* drawArea) override { draw_area_ = drawArea; }
 
     // WorldInterface cell access through CellInterface.
     CellInterface& getCellInterface(uint32_t x, uint32_t y) override;
@@ -140,7 +141,10 @@ public:
     void setDynamicPressureEnabled(bool enabled) override;
     bool isDynamicPressureEnabled() const override { return dynamic_pressure_enabled_; }
 
-    void setPressureDiffusionEnabled(bool enabled) override { pressure_diffusion_enabled_ = enabled; }
+    void setPressureDiffusionEnabled(bool enabled) override
+    {
+        pressure_diffusion_enabled_ = enabled;
+    }
     bool isPressureDiffusionEnabled() const override { return pressure_diffusion_enabled_; }
 
     void setHydrostaticPressureStrength(double strength) override;
@@ -256,6 +260,10 @@ public:
     WorldType getWorldType() const override;
     void preserveState(::WorldState& state) const override;
     void restoreState(const ::WorldState& state) override;
+
+    // World setup management
+    void setWorldSetup(std::unique_ptr<WorldSetup> setup) override;
+    WorldSetup* getWorldSetup() const override;
 
     // WORLDINTERFACE IMPLEMENTATION - UI INTEGRATION
     void setUI(std::unique_ptr<SimulatorUI> ui) override;

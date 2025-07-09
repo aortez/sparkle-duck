@@ -46,6 +46,14 @@ public:
     bool switchWorldType(WorldType newType);
 
     /**
+     * @brief Resize the world if necessary for a scenario.
+     * @param requiredWidth The required width (0 = no requirement)
+     * @param requiredHeight The required height (0 = no requirement)
+     * @return true if resize was needed and successful, false if no resize needed
+     */
+    bool resizeWorldIfNeeded(uint32_t requiredWidth, uint32_t requiredHeight);
+
+    /**
      * @brief Reset the current world to initial state.
      */
     void reset();
@@ -132,6 +140,8 @@ private:
 
     uint32_t width_;               ///< Grid width in cells.
     uint32_t height_;              ///< Grid height in cells.
+    uint32_t default_width_;       ///< Default grid width in cells.
+    uint32_t default_height_;      ///< Default grid height in cells.
     WorldType initial_world_type_; ///< Initial world type to create.
 
     // =================================================================

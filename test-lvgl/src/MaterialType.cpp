@@ -7,7 +7,8 @@
 #include <string>
 
 // Material property database.
-// Format: {density, elasticity, cohesion, adhesion, com_mass_constant, pressure_diffusion, is_fluid, is_rigid}
+// Format: {density, elasticity, cohesion, adhesion, com_mass_constant, pressure_diffusion,
+// is_fluid, is_rigid}
 static std::array<MaterialProperties, 8> MATERIAL_PROPERTIES = {
     { // AIR: Nearly massless, high elasticity, no cohesion/adhesion, very high pressure diffusion.
       { 0.001, 1.0, 0.0, 0.0, 0.0, 1.0, true, false },
@@ -15,7 +16,8 @@ static std::array<MaterialProperties, 8> MATERIAL_PROPERTIES = {
       // DIRT: Medium density granular material, medium pressure diffusion.
       { 1.5, 0.3, 0.3, 0.2, 5.0, 0.4, false, false },
 
-      // WATER: Fluid with medium density, strong cohesion for droplet formation, high pressure diffusion.
+      // WATER: Fluid with medium density, strong cohesion for droplet formation, high pressure
+      // diffusion.
       { 1.0, 0.1, 0.6, 0.5, 8.0, 0.9, true, false },
 
       // WOOD: Light rigid material with moderate elasticity, low directional diffusion.

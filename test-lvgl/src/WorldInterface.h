@@ -56,6 +56,9 @@ public:
     // Get the LVGL drawing area object.
     virtual lv_obj_t* getDrawArea() const = 0;
 
+    // Set the LVGL drawing area object (for delayed initialization).
+    virtual void setDrawArea(lv_obj_t* drawArea) = 0;
+
     // Access cells through CellInterface for material operations.
     virtual CellInterface& getCellInterface(uint32_t x, uint32_t y) = 0;
     virtual const CellInterface& getCellInterface(uint32_t x, uint32_t y) const = 0;
@@ -373,6 +376,17 @@ public:
 
     // Restore world state from cross-world switching.
     virtual void restoreState(const WorldState& state) = 0;
+
+    // =================================================================
+    // WORLD SETUP MANAGEMENT
+    // =================================================================
+
+    // Set a new WorldSetup strategy (takes ownership).
+    // Note: This will reset the world and apply the new setup.
+    virtual void setWorldSetup(std::unique_ptr<WorldSetup> setup) = 0;
+
+    // Get the current WorldSetup strategy (non-owning pointer).
+    virtual WorldSetup* getWorldSetup() const = 0;
 
 protected:
     // Shared WorldSetup instance for all world implementations.

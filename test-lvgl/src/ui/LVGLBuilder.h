@@ -2,8 +2,9 @@
 
 #include "lvgl/lvgl.h"
 #include "../core/Result.h"
-#include <string>
+#include <cmath>
 #include <functional>
+#include <string>
 
 /**
  * LVGLBuilder provides a fluent interface for creating LVGL UI elements
@@ -57,6 +58,9 @@ public:
         SliderBuilder& label(const char* text, int offset_x = 0, int offset_y = -20);
         SliderBuilder& valueLabel(const char* format = "%.1f", int offset_x = 110, int offset_y = -20);
         
+        // Value transformation for display.
+        SliderBuilder& valueTransform(std::function<double(int32_t)> transform);
+        
         // Event handling.
         SliderBuilder& callback(lv_event_cb_t cb, void* user_data = nullptr);
         SliderBuilder& callback(lv_event_cb_t cb, std::function<void*(lv_obj_t*)> callback_data_factory);
@@ -98,11 +102,23 @@ public:
         std::string value_format_;
         Position value_label_position_;
         bool has_value_label_;
+        std::function<double(int32_t)> value_transform_;
+        
+        // Structure to hold value label update data.
+        struct ValueLabelData {
+            lv_obj_t* value_label;
+            std::string format;
+            std::function<double(int32_t)> transform;
+        };
         
         Result<lv_obj_t*, std::string> createSlider();
         void createLabel();
         void createValueLabel();
         void setupEvents();
+        
+        // Static callbacks.
+        static void valueUpdateCallback(lv_event_t* e);
+        static void sliderDeleteCallback(lv_event_t* e);
     };
 
     /**
@@ -212,6 +228,31 @@ public:
     static ButtonBuilder button(lv_obj_t* parent);
     static LabelBuilder label(lv_obj_t* parent);
     static DropdownBuilder dropdown(lv_obj_t* parent);
+    
+    // Common value transform functions for sliders.
+    struct Transforms {
+        // Linear scaling: value * scale
+        static std::function<double(int32_t)> Linear(double scale) {
+            return [scale](int32_t value) { return value * scale; };
+        }
+        
+        // Exponential scaling: base^(value * scale + offset)
+        static std::function<double(int32_t)> Exponential(double base, double scale, double offset = 0) {
+            return [base, scale, offset](int32_t value) { 
+                return std::pow(base, value * scale + offset); 
+            };
+        }
+        
+        // Percentage: value as-is (for 0-100 ranges)
+        static std::function<double(int32_t)> Percentage() {
+            return [](int32_t value) { return static_cast<double>(value); };
+        }
+        
+        // Logarithmic: log(1 + value * scale)
+        static std::function<double(int32_t)> Logarithmic(double scale = 1.0) {
+            return [scale](int32_t value) { return std::log1p(value * scale); };
+        }
+    };
     
     // Utility methods for common positioning patterns.
     static Position topLeft(int x, int y) { return Position(x, y, LV_ALIGN_TOP_LEFT); }

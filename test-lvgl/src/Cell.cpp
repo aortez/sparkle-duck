@@ -24,10 +24,10 @@
 
 namespace {
 // Drawing constants.
-constexpr double COM_VISUALIZATION_RADIUS = 3.0;  // Larger for 100px cells.
-constexpr int VELOCITY_VISUALIZATION_SCALE = 5;   // Better visibility.
-constexpr int FLOW_VISUALIZATION_SCALE = 800;     // Scale for flow vector display.
-constexpr int DENSITY_GRID_SIZE = 10;             // Grid for density visualization.
+constexpr double COM_VISUALIZATION_RADIUS = 3.0; // Larger for 100px cells.
+constexpr int VELOCITY_VISUALIZATION_SCALE = 5;  // Better visibility.
+constexpr int FLOW_VISUALIZATION_SCALE = 800;    // Scale for flow vector display.
+constexpr int DENSITY_GRID_SIZE = 10;            // Grid for density visualization.
 } // namespace.
 
 bool Cell::debugDraw = true;
@@ -230,7 +230,6 @@ void Cell::drawDebug(lv_obj_t* /* parent */, uint32_t /* x */, uint32_t /* y */)
     lv_area_t bg_coords = { 0, 0, static_cast<int32_t>(WIDTH), static_cast<int32_t>(HEIGHT) };
     lv_draw_rect(&layer, &bg_rect_dsc, &bg_coords);
 
-
     // Draw dirt background with enhanced border.
     lv_draw_rect_dsc_t rect_dsc;
     lv_draw_rect_dsc_init(&rect_dsc);
@@ -317,10 +316,8 @@ void Cell::drawDebug(lv_obj_t* /* parent */, uint32_t /* x */, uint32_t /* y */)
         flow_line_dsc.p1.x = WIDTH / 2;
         flow_line_dsc.p1.y = HEIGHT / 2;
         // Show pressure direction (material is pushed in this direction).
-        flow_line_dsc.p2.x =
-            WIDTH / 2 + static_cast<int>(pressure.x * FLOW_VISUALIZATION_SCALE);
-        flow_line_dsc.p2.y =
-            HEIGHT / 2 + static_cast<int>(pressure.y * FLOW_VISUALIZATION_SCALE);
+        flow_line_dsc.p2.x = WIDTH / 2 + static_cast<int>(pressure.x * FLOW_VISUALIZATION_SCALE);
+        flow_line_dsc.p2.y = HEIGHT / 2 + static_cast<int>(pressure.y * FLOW_VISUALIZATION_SCALE);
         lv_draw_line(&layer, &flow_line_dsc);
 
         // Add arrowhead for flow direction.

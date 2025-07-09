@@ -63,7 +63,8 @@ MaterialMove WorldBCollisionCalculator::createCollisionAwareMove(
         double blocked_mass = excess * getMaterialDensity(fromCell.getMaterialType());
         double energy = fromCell.getVelocity().magnitude() * blocked_mass;
         double dynamic_strength = world_.getDynamicPressureStrength();
-        double pressure_increase = energy * 0.1 * dynamic_strength; // Apply dynamic pressure strength.
+        double pressure_increase =
+            energy * 0.1 * dynamic_strength; // Apply dynamic pressure strength.
 
         // Store pressure to be applied to target cell when processing moves.
         move.pressure_from_excess = pressure_increase;
@@ -311,7 +312,8 @@ void WorldBCollisionCalculator::handleTransferMove(
     // Check if transfer was incomplete (target full or couldn't accept all material)
     const double transfer_deficit = move.amount - transferred;
     if (transfer_deficit > MIN_MATTER_THRESHOLD) {
-        // Transfer failed partially or completely - apply elastic reflection for remaining material.
+        // Transfer failed partially or completely - apply elastic reflection for remaining
+        // material.
         Vector2i direction(move.toX - move.fromX, move.toY - move.fromY);
 
         spdlog::debug(

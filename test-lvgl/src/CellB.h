@@ -120,21 +120,17 @@ public:
 
     // Pressure system - separate components only.
     // Consumers must explicitly choose which pressure component they need.
-    
+
     // Separate accessors for pressure components
     double getHydrostaticPressure() const { return hydrostatic_pressure_; }
     void setHydrostaticPressure(double pressure) { hydrostatic_pressure_ = pressure; }
-    
+
     double getDynamicPressure() const { return dynamic_pressure_; }
     void setDynamicPressure(double pressure) { dynamic_pressure_ = pressure; }
     void addDynamicPressure(double pressure) { dynamic_pressure_ += pressure; }
 
-
     // Pressure gradient for debug visualization.
-    void setPressureGradient(const Vector2d& gradient)
-    {
-        pressure_gradient_ = gradient;
-    }
+    void setPressureGradient(const Vector2d& gradient) { pressure_gradient_ = gradient; }
     const Vector2d& getPressureGradient() const { return pressure_gradient_; }
 
     // =================================================================
@@ -254,7 +250,7 @@ private:
     double hydrostatic_pressure_; // Pressure from gravity/weight (stable equilibrium).
     double dynamic_pressure_;     // Pressure from blocked transfers (drives flow).
 
-    Vector2d pressure_gradient_;  // Pressure gradient for debug visualization.
+    Vector2d pressure_gradient_; // Pressure gradient for debug visualization.
 
     // Force accumulation for visualization.
     Vector2d accumulated_cohesion_force_;     // Last calculated cohesion force.

@@ -107,9 +107,10 @@ void WorldB::advanceTime(double deltaTimeSeconds)
     ScopeTimer timer(timers_, "advance_time");
 
     const double scaledDeltaTime = deltaTimeSeconds * timescale_;
-    spdlog::trace("WorldB::advanceTime: deltaTime={:.4f}s, timestep={}", deltaTimeSeconds, timestep_);
+    spdlog::trace(
+        "WorldB::advanceTime: deltaTime={:.4f}s, timestep={}", deltaTimeSeconds, timestep_);
     if (scaledDeltaTime <= 0.0) {
-    	return;
+        return;
     }
 
     // Add particles if enabled.
@@ -120,38 +121,38 @@ void WorldB::advanceTime(double deltaTimeSeconds)
 
     // Accumulate and apply all forces based on resistance.
     // This now includes pressure forces from the previous frame.
-	resolveForces(scaledDeltaTime);
+    resolveForces(scaledDeltaTime);
 
-	processVelocityLimiting(scaledDeltaTime);
+    processVelocityLimiting(scaledDeltaTime);
 
-	updateTransfers(scaledDeltaTime);
+    updateTransfers(scaledDeltaTime);
 
-	// Process queued material moves - this detects NEW blocked transfers.
-	processMaterialMoves();
+    // Process queued material moves - this detects NEW blocked transfers.
+    processMaterialMoves();
 
-	// Calculate pressures for NEXT frame after moves are complete.
-	// This follows the two-frame model where pressure calculated in frame N
-	// affects velocities in frame N+1.
-	if (hydrostatic_pressure_enabled_) {
-		pressure_calculator_.calculateHydrostaticPressure();
-	}
+    // Calculate pressures for NEXT frame after moves are complete.
+    // This follows the two-frame model where pressure calculated in frame N
+    // affects velocities in frame N+1.
+    if (hydrostatic_pressure_enabled_) {
+        pressure_calculator_.calculateHydrostaticPressure();
+    }
 
-	// Process any blocked transfers that were queued during processMaterialMoves.
-	if (dynamic_pressure_enabled_) {
-		pressure_calculator_.processBlockedTransfers(pressure_calculator_.blocked_transfers_);
-	}
+    // Process any blocked transfers that were queued during processMaterialMoves.
+    if (dynamic_pressure_enabled_) {
+        pressure_calculator_.processBlockedTransfers(pressure_calculator_.blocked_transfers_);
+    }
 
-	// Apply pressure diffusion before decay.
-	if (dynamic_pressure_enabled_ || pressure_diffusion_enabled_) {
-		pressure_calculator_.applyPressureDiffusion(scaledDeltaTime);
-	}
+    // Apply pressure diffusion before decay.
+    if (dynamic_pressure_enabled_ || pressure_diffusion_enabled_) {
+        pressure_calculator_.applyPressureDiffusion(scaledDeltaTime);
+    }
 
-	// Apply pressure decay after material moves.
-	if (hydrostatic_pressure_enabled_ || dynamic_pressure_enabled_) {
-		pressure_calculator_.applyPressureDecay(scaledDeltaTime);
-	}
+    // Apply pressure decay after material moves.
+    if (hydrostatic_pressure_enabled_ || dynamic_pressure_enabled_) {
+        pressure_calculator_.applyPressureDecay(scaledDeltaTime);
+    }
 
-	timestep_++;
+    timestep_++;
 }
 
 void WorldB::draw()
@@ -771,18 +772,18 @@ void WorldB::applyPressureForces(double deltaTime)
 
             // Calculate pressure gradient to determine force direction.
             Vector2d gradient = pressure_calculator_.calculatePressureGradient(x, y);
-            
+
             // Net gradient is pressure gradient.
             Vector2d net_gradient = gradient;
-            
+
             // Only apply force if system is out of equilibrium.
             if (net_gradient.magnitude() > 0.001) {
-                // Force points DOWN the gradient (from high to low pressure).
-                Vector2d pressure_force = net_gradient * -1.0 * pressure_scale_ * deltaTime;
-                
+                // Force points in the direction of the gradient (from high to low pressure).
+                Vector2d pressure_force = net_gradient * pressure_scale_ * deltaTime;
+
                 // Add to pending forces instead of directly modifying velocity.
                 cell.addPendingForce(pressure_force);
-                
+
                 spdlog::debug(
                     "Cell ({},{}) pressure force: total_pressure={:.4f}, "
                     "gradient=({:.4f},{:.4f}), force=({:.4f},{:.4f})",
@@ -1061,20 +1062,21 @@ std::vector<MaterialMove> WorldB::computeMaterialMoves(double deltaTime)
             if (!boundary_reflection_applied) {
                 // No reflections, update entire COM.
                 cell.setCOM(newCOM);
-            } else {
+            }
+            else {
                 // Reflections occurred. Update non-reflected components.
                 Vector2d currentCOM = cell.getCOM();
                 Vector2d updatedCOM = currentCOM;
-                
+
                 // Check which boundaries were NOT crossed and update those components.
                 bool x_reflected = false;
                 bool y_reflected = false;
-                
+
                 for (const Vector2i& dir : crossed_boundaries) {
                     if (dir.x != 0) x_reflected = true;
                     if (dir.y != 0) y_reflected = true;
                 }
-                
+
                 // Update components that didn't cross boundaries.
                 if (!x_reflected && std::abs(newCOM.x) < 1.0) {
                     updatedCOM.x = newCOM.x;
@@ -1082,7 +1084,7 @@ std::vector<MaterialMove> WorldB::computeMaterialMoves(double deltaTime)
                 if (!y_reflected && std::abs(newCOM.y) < 1.0) {
                     updatedCOM.y = newCOM.y;
                 }
-                
+
                 cell.setCOM(updatedCOM);
             }
         }
@@ -1253,13 +1255,13 @@ bool WorldB::areWallsEnabled() const
 {
     const ConfigurableWorldSetup* configSetup =
         dynamic_cast<const ConfigurableWorldSetup*>(worldSetup_.get());
-    return configSetup ? configSetup->areWallsEnabled() : true;
+    return configSetup ? configSetup->areWallsEnabled() : false;
 }
 
 void WorldB::setHydrostaticPressureEnabled(bool enabled)
 {
     hydrostatic_pressure_enabled_ = enabled;
-    
+
     spdlog::info("Clearing all pressure values");
     for (auto& cell : cells_) {
         cell.setHydrostaticPressure(0.0);
@@ -1272,7 +1274,7 @@ void WorldB::setHydrostaticPressureEnabled(bool enabled)
 void WorldB::setDynamicPressureEnabled(bool enabled)
 {
     dynamic_pressure_enabled_ = enabled;
-    
+
     spdlog::info("Clearing all pressure values");
     for (auto& cell : cells_) {
         cell.setDynamicPressure(0.0);
@@ -1280,7 +1282,7 @@ void WorldB::setDynamicPressureEnabled(bool enabled)
             cell.setPressureGradient(Vector2d(0.0, 0.0));
         }
     }
-    
+
     // Clear any pending blocked transfers.
     pressure_calculator_.blocked_transfers_.clear();
 }
@@ -1355,6 +1357,20 @@ std::string WorldB::settingsToString() const
 WorldType WorldB::getWorldType() const
 {
     return WorldType::RulesB;
+}
+
+void WorldB::setWorldSetup(std::unique_ptr<WorldSetup> newSetup)
+{
+    worldSetup_ = std::move(newSetup);
+    // Reset and apply the new setup.
+    if (worldSetup_) {
+        this->setup();
+    }
+}
+
+WorldSetup* WorldB::getWorldSetup() const
+{
+    return worldSetup_.get();
 }
 
 void WorldB::preserveState(::WorldState& state) const

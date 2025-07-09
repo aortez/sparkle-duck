@@ -104,7 +104,8 @@ void DefaultWorldSetup::addParticles(
     if (!eventState.topDropDone && simTime >= eventState.nextTopDrop) {
         spdlog::info("Adding top drop at time {:.3f}s", simTime);
         uint32_t centerX = world.getWidth() / 2;
-        CellInterface& cell = world.getCellInterface(centerX, 1); // 1 to be just below the top wall.
+        CellInterface& cell =
+            world.getCellInterface(centerX, 1); // 1 to be just below the top wall.
         cell.addDirt(1.0);
         eventState.topDropDone = true;
     }
@@ -296,7 +297,8 @@ void ConfigurableWorldSetup::addParticles(
     if (topDropEnabled && !eventState.topDropDone && simTime >= eventState.nextTopDrop) {
         spdlog::info("Adding top drop at time {:.3f}s", simTime);
         uint32_t centerX = world.getWidth() / 2;
-        CellInterface& cell = world.getCellInterface(centerX, 1); // 1 to be just below the top wall.
+        CellInterface& cell =
+            world.getCellInterface(centerX, 1); // 1 to be just below the top wall.
         cell.addDirt(1.0);
         eventState.topDropDone = true;
     }
@@ -333,7 +335,8 @@ void ConfigurableWorldSetup::addParticles(
         int32_t centerYSigned = static_cast<int32_t>(world.getHeight()) / 2 - 2;
         if (rightX < world.getWidth() && centerYSigned >= 0) {
             uint32_t centerY = static_cast<uint32_t>(centerYSigned);
-            CellInterface& cell = world.getCellInterface(rightX, centerY); // Against the right wall.
+            CellInterface& cell =
+                world.getCellInterface(rightX, centerY); // Against the right wall.
             cell.addDirtWithVelocity(1.0, Vector2d(-10, -10));
         }
         // Schedule next throw.
