@@ -350,9 +350,9 @@ TEST_F(PressureClassicFlowTest, WaterEqualization) {
         world = createWorldB(WIDTH, HEIGHT);
         
         // Enable pressure systems with same settings as DamBreak.
-        world->setDynamicPressureEnabled(false);
-        world->setHydrostaticPressureEnabled(true);
-        world->setPressureScale(10.0);
+        world->setDynamicPressureEnabled(true);
+        world->setHydrostaticPressureEnabled(false);
+        world->setPressureScale(1.0);
         world->setPressureDiffusionEnabled(true);
         world->setWallsEnabled(false);
         world->setAddParticlesEnabled(false);

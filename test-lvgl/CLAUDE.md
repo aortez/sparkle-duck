@@ -14,13 +14,13 @@ The project features **dual physics systems**:
 
 ### Building
 ```bash
-# Build release version (optimized)
+# Build release version
 make release
 
-# Build debug version (with symbols and LOG_DEBUG)
+# Build debug version (since we're usually doing development, generally prefer this over the release version)
 make debug
 
-# Make the unit tests (good idea before running them)
+# Make the unit tests
 make build-tests
 
 # Format source code

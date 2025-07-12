@@ -118,16 +118,38 @@ public:
         markDirty();
     }
 
-    // Pressure system - separate components only.
-    // Consumers must explicitly choose which pressure component they need.
+    // Unified pressure system with component tracking for debugging.
+    // Primary interface - use these for physics calculations.
+    double getPressure() const { return pressure_; }
+    void setPressure(double pressure) { pressure_ = pressure; }
+    void addPressure(double pressure) { pressure_ += pressure; }
 
-    // Separate accessors for pressure components
-    double getHydrostaticPressure() const { return hydrostatic_pressure_; }
-    void setHydrostaticPressure(double pressure) { hydrostatic_pressure_ = pressure; }
+    // Legacy interface - now uses components directly.
+    // Maintained for backward compatibility.
+    double getHydrostaticPressure() const { return hydrostatic_component_; }
+    void setHydrostaticPressure(double pressure) { 
+        hydrostatic_component_ = pressure;
+        updateUnifiedPressure();
+    }
 
-    double getDynamicPressure() const { return dynamic_pressure_; }
-    void setDynamicPressure(double pressure) { dynamic_pressure_ = pressure; }
-    void addDynamicPressure(double pressure) { dynamic_pressure_ += pressure; }
+    double getDynamicPressure() const { return dynamic_component_; }
+    void setDynamicPressure(double pressure) { 
+        dynamic_component_ = pressure;
+        updateUnifiedPressure();
+    }
+    void addDynamicPressure(double pressure) { 
+        dynamic_component_ += pressure;
+        updateUnifiedPressure();
+    }
+
+    // Debug/visualization interface - for understanding pressure sources.
+    double getHydrostaticComponent() const { return hydrostatic_component_; }
+    double getDynamicComponent() const { return dynamic_component_; }
+    void setComponents(double hydrostatic, double dynamic) {
+        hydrostatic_component_ = hydrostatic;
+        dynamic_component_ = dynamic;
+        // Note: This doesn't update the unified pressure - use for visualization only.
+    }
 
     // Pressure gradient for debug visualization.
     void setPressureGradient(const Vector2d& gradient) { pressure_gradient_ = gradient; }
@@ -247,8 +269,10 @@ private:
     Vector2d com_;               // Center of mass position [-1,1].
     Vector2d velocity_;          // 2D velocity vector.
 
-    double hydrostatic_pressure_; // Pressure from gravity/weight (stable equilibrium).
-    double dynamic_pressure_;     // Pressure from blocked transfers (drives flow).
+    // Unified pressure system.
+    double pressure_;                 // Total pressure for physics calculations.
+    double hydrostatic_component_;    // Hydrostatic contribution (for debugging/visualization).
+    double dynamic_component_;        // Dynamic contribution (for debugging/visualization).
 
     Vector2d pressure_gradient_; // Pressure gradient for debug visualization.
 
@@ -274,4 +298,9 @@ private:
         const Vector2d& source_com,
         const Vector2d& velocity,
         const Vector2d& boundary_normal) const;
+
+    // Helper to update unified pressure from components.
+    void updateUnifiedPressure() {
+        pressure_ = hydrostatic_component_ + dynamic_component_;
+    }
 };

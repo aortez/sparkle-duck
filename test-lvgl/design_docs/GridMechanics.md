@@ -217,6 +217,46 @@ Dynamic Pressure methods:
   - Pressure creates forces → Forces modify velocity → Velocity creates material moves
   - This indirect approach allows pressure to interact naturally with other forces (gravity, cohesion, etc.)
   - Material only moves when COM crosses cell boundaries due to accumulated velocity
+
+### Pressure Diffusion
+
+  The system implements material-specific pressure propagation to model how pressure spreads through different materials:
+
+  **Diffusion Algorithm**:
+  1. **Neighbor Analysis**: Checks 4 or 8 neighbors (configurable) for pressure differences
+  2. **Pressure Flow**: Pressure flows from high to low pressure regions
+  3. **Material Interface**: Uses harmonic mean of diffusion coefficients at material boundaries
+  4. **Distance Scaling**: Diagonal neighbors weighted by 1/√2 for accurate distance modeling
+
+  **Material Diffusion Properties** (from MaterialType.cpp):
+  - WATER: 0.8 (high diffusion - pressure spreads quickly)
+  - SAND: 0.3 (moderate diffusion)
+  - DIRT: 0.2 (low diffusion - pressure spreads slowly)
+  - WOOD: 0.1 (very low diffusion)
+  - METAL: 0.05 (minimal diffusion)
+  - LEAF: 0.4 (moderate diffusion)
+  - WALL: 0.0 (no diffusion - acts as barrier)
+  - AIR: 1.0 (maximum diffusion - no resistance)
+
+  **Implementation Details**:
+  ```cpp
+  // Harmonic mean for material interfaces
+  double interface_diffusion = 2.0 * diffusion_rate * neighbor_diffusion 
+                              / (diffusion_rate + neighbor_diffusion + 1e-10);
+  
+  // Pressure flux calculation
+  pressure_flux += interface_diffusion * pressure_diff;
+  
+  // Update pressure with time scaling
+  new_pressure = current_pressure + pressure_flux * deltaTime * scale_factor;
+  ```
+
+  **Key Behaviors**:
+  - Empty cells act as pressure sinks (pressure = 0)
+  - Walls block pressure diffusion completely
+  - Different materials create natural pressure gradients
+  - Diffusion rate affects how quickly pressure equalizes
+  - Works with unified pressure system (hydrostatic + dynamic)
   
 
 ## Force Combination Logic & Threshold System

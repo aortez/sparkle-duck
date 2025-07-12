@@ -380,19 +380,21 @@ void SimulatorUI::createControlButtons()
         createCallbackData());
 
     // Pressure scale slider (WorldA only) - migrated to LVGLBuilder with value transform.
-    [[maybe_unused]] auto pressure_scale_slider =
-        LVGLBuilder::slider(screen_)
+    auto pressure_scale_builder = LVGLBuilder::slider(screen_)
             .position(MAIN_CONTROLS_X, 185)
             .size(CONTROL_WIDTH, 10)
             .range(0, 1000)
             .value(100)
-            .label("Pressure Scale (WorldA)", MAIN_CONTROLS_X, 165)
-            .valueLabel("%.1f", MAIN_CONTROLS_X + 135, 165)
+            .label("Pressure Scale (WorldA)", 0, -20)
+            .valueLabel("%.1f", 135, -20)
             .valueTransform(LVGLBuilder::Transforms::Linear(0.01)) // Convert 0-1000 to 0.0-10.0
             .callback(
                 pressureScaleSliderEventCb,
-                [this](lv_obj_t* value_label) -> void* { return createCallbackData(value_label); })
-            .buildOrLog();
+                [this](lv_obj_t* value_label) -> void* { 
+                    pressure_scale_label_ = value_label;
+                    return createCallbackData(value_label); 
+                });
+    pressure_scale_slider_ = pressure_scale_builder.buildOrLog();
 
     // Create cursor force toggle button.
     if (event_router_) {
@@ -416,23 +418,26 @@ void SimulatorUI::createControlButtons()
 
     // Create gravity toggle button.
     if (event_router_) {
-        LVGLEventBuilder::button(screen_, event_router_)
+        gravity_button_ = LVGLEventBuilder::button(screen_, event_router_)
             .onGravityToggle() // Call event method first.
             .size(CONTROL_WIDTH, 50)
             .position(MAIN_CONTROLS_X, 265, LV_ALIGN_TOP_LEFT)
             .text("Gravity: On")
             .toggle(true) // Make it a toggle button.
             .buildOrLog();
+        if (gravity_button_) {
+            gravity_label_ = lv_obj_get_child(gravity_button_, 0);
+        }
     }
     else {
         // Fallback to old callback system.
-        lv_obj_t* gravity_btn = lv_btn_create(screen_);
-        lv_obj_set_size(gravity_btn, CONTROL_WIDTH, 50);
-        lv_obj_align(gravity_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 265);
-        lv_obj_t* gravity_label = lv_label_create(gravity_btn);
-        lv_label_set_text(gravity_label, "Gravity: On");
-        lv_obj_center(gravity_label);
-        lv_obj_add_event_cb(gravity_btn, gravityBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
+        gravity_button_ = lv_btn_create(screen_);
+        lv_obj_set_size(gravity_button_, CONTROL_WIDTH, 50);
+        lv_obj_align(gravity_button_, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 265);
+        gravity_label_ = lv_label_create(gravity_button_);
+        lv_label_set_text(gravity_label_, "Gravity: On");
+        lv_obj_center(gravity_label_);
+        lv_obj_add_event_cb(gravity_button_, gravityBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
     }
 
     // Create cohesion toggle button.
@@ -463,8 +468,8 @@ void SimulatorUI::createControlButtons()
             .size(CONTROL_WIDTH, 10)
             .range(0, 200) // 0.0 to 2.0 range
             .value(100)    // Default 1.0
-            .label("Bind Strength", MAIN_CONTROLS_X, 380)
-            .valueLabel("%.1f", MAIN_CONTROLS_X + 120, 380)
+            .label("Bind Strength", 0, -20)
+            .valueLabel("%.1f", 120, -20)
             .valueTransform(LVGLBuilder::Transforms::Linear(0.01)) // Convert 0-200 to 0.0-2.0
             .callback(
                 cohesionBindStrengthSliderEventCb,
@@ -495,39 +500,36 @@ void SimulatorUI::createControlButtons()
     }
 
     // Create COM cohesion strength slider below the force button - migrated to LVGLBuilder.
-    [[maybe_unused]] auto com_cohesion_strength_slider =
-        LVGLBuilder::slider(screen_)
+    auto cohesion_builder = LVGLBuilder::slider(screen_)
             .position(MAIN_CONTROLS_X, 490)
             .size(CONTROL_WIDTH, 10)
             .range(0, 30000) // 0.0 to 300.0 range
             .value(15000)    // Default 150.0
-            .label("Cohesion Strength", MAIN_CONTROLS_X, 470)
-            .valueLabel("%.1f", MAIN_CONTROLS_X + 165, 470)
+            .label("Cohesion Strength", 0, -20)
+            .valueLabel("%.1f", 165, -20)
             .valueTransform(LVGLBuilder::Transforms::Linear(0.01)) // Convert 0-30000 to 0.0-300.0
             .callback(
                 cohesionForceStrengthSliderEventCb,
-                [this](lv_obj_t* value_label) -> void* { return createCallbackData(value_label); })
-            .buildOrLog();
+                [this](lv_obj_t* value_label) -> void* { 
+                    cohesion_force_label_ = value_label;
+                    return createCallbackData(value_label); 
+                });
+    cohesion_force_slider_ = cohesion_builder.buildOrLog();
 
     // Create COM cohesion range slider.
-    lv_obj_t* com_range_label = lv_label_create(screen_);
-    lv_label_set_text(com_range_label, "COM Range");
-    lv_obj_align(com_range_label, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 530);
-
-    lv_obj_t* com_range_value_label = lv_label_create(screen_);
-    lv_label_set_text(com_range_value_label, "2");
-    lv_obj_align(com_range_value_label, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X + 120, 530);
-
-    lv_obj_t* com_range_slider = lv_slider_create(screen_);
-    lv_obj_set_size(com_range_slider, CONTROL_WIDTH, 10);
-    lv_obj_align(com_range_slider, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 550);
-    lv_slider_set_range(com_range_slider, 1, 5);           // 1 to 5 cells range.
-    lv_slider_set_value(com_range_slider, 2, LV_ANIM_OFF); // Default 2.
-    lv_obj_add_event_cb(
-        com_range_slider,
-        comCohesionRangeSliderEventCb,
-        LV_EVENT_ALL,
-        createCallbackData(com_range_value_label));
+    auto com_range_builder = LVGLBuilder::slider(screen_)
+            .position(MAIN_CONTROLS_X, 550)
+            .size(CONTROL_WIDTH, 10)
+            .range(1, 5)
+            .value(2)
+            .label("Cohesion Range", 0, -20)
+            .valueLabel("%d", 120, -20)
+            .callback(
+                comCohesionRangeSliderEventCb,
+                [this](lv_obj_t* value_label) -> void* { 
+                    return createCallbackData(value_label); 
+                });
+    com_range_builder.buildOrLog();
 
     // Create COM cohesion mode radio buttons.
     lv_obj_t* com_mode_label = lv_label_create(screen_);
@@ -601,8 +603,8 @@ void SimulatorUI::createControlButtons()
             .size(CONTROL_WIDTH, 10)
             .range(0, 1000) // 0.0 to 10.0 range
             .value(500)     // Default 5.0
-            .label("Adhesion Strength", MAIN_CONTROLS_X, 650)
-            .valueLabel("%.1f", MAIN_CONTROLS_X + 140, 650)
+            .label("Adhesion Strength", 0, -20)
+            .valueLabel("%.1f", 140, -20)
             .valueTransform(LVGLBuilder::Transforms::Linear(0.01)) // Convert 0-1000 to 0.0-10.0
             .callback(
                 adhesionStrengthSliderEventCb,
@@ -784,54 +786,54 @@ void SimulatorUI::createSliders()
     // Start sliders below the moved buttons.
     // Timescale slider.
     if (event_router_) {
-        LVGLEventBuilder::slider(screen_, event_router_)
+        auto timescale_slider = LVGLEventBuilder::slider(screen_, event_router_)
             .onTimescaleChange() // Call event method first.
             .position(SLIDER_COLUMN_X, 230, LV_ALIGN_TOP_LEFT)
             .size(CONTROL_WIDTH, 10)
             .range(0, 100)
             .value(50)
-            .label("Timescale", SLIDER_COLUMN_X, 210)
-            .valueLabel("%.1fx", SLIDER_COLUMN_X + 110, 210)
-            .buildOrLog();
+            .label("Timescale", 0, -20)
+            .valueLabel("%.1fx", 110, -20);
+        timescale_slider.buildOrLog();
+        // Store the value label reference
+        timescale_label_ = timescale_slider.getValueLabel();
     }
     else {
-        // Fallback to old callback system.
-        lv_obj_t* slider_label = lv_label_create(screen_);
-        lv_label_set_text(slider_label, "Timescale");
-        lv_obj_align(slider_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 210);
-
-        lv_obj_t* timescale_value_label = lv_label_create(screen_);
-        lv_label_set_text(timescale_value_label, "1.0x");
-        lv_obj_align(timescale_value_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X + 110, 210);
-
-        lv_obj_t* slider = lv_slider_create(screen_);
-        lv_obj_set_size(slider, CONTROL_WIDTH, 10);
-        lv_obj_align(slider, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 230);
-        lv_slider_set_range(slider, 0, 100);
-        lv_slider_set_value(slider, 50, LV_ANIM_OFF);
-        lv_obj_add_event_cb(
-            slider,
-            timescaleSliderEventCb,
-            LV_EVENT_ALL,
-            createCallbackData(timescale_value_label));
+        // Fallback to LVGLBuilder.
+        auto timescale_builder = LVGLBuilder::slider(screen_)
+                .position(SLIDER_COLUMN_X, 230)
+                .size(CONTROL_WIDTH, 10)
+                .range(0, 100)
+                .value(50)
+                .label("Timescale", 0, -20)
+                .valueLabel("1.0x", 110, -20)
+                .callback(
+                    timescaleSliderEventCb,
+                    [this](lv_obj_t* value_label) -> void* {
+                        // Store the value label reference
+                        timescale_label_ = value_label;
+                        return createCallbackData(value_label);
+                    });
+        timescale_builder.buildOrLog();
     }
 
     // Elasticity slider - migrated to EventRouter or LVGLBuilder.
     if (event_router_) {
-        LVGLEventBuilder::slider(screen_, event_router_)
+        auto elasticity_slider = LVGLEventBuilder::slider(screen_, event_router_)
             .onElasticityChange() // Call event method first.
             .position(SLIDER_COLUMN_X, 270, LV_ALIGN_TOP_LEFT)
             .size(CONTROL_WIDTH, 10)
             .range(0, 200)
             .value(80)
             .label("Elasticity")
-            .valueLabel("%.1f")
-            .buildOrLog();
+            .valueLabel("%.1f");
+        elasticity_slider.buildOrLog();
+        // Store the value label reference
+        elasticity_label_ = elasticity_slider.getValueLabel();
     }
     else {
         // Fallback to LVGLBuilder.
-        [[maybe_unused]] auto elasticity_slider =
-            LVGLBuilder::slider(screen_)
+        auto elasticity_builder = LVGLBuilder::slider(screen_)
                 .position(SLIDER_COLUMN_X, 270)
                 .size(CONTROL_WIDTH, 10)
                 .range(0, 200)
@@ -841,9 +843,11 @@ void SimulatorUI::createSliders()
                 .callback(
                     elasticitySliderEventCb,
                     [this](lv_obj_t* value_label) -> void* {
+                        // Store the value label reference
+                        elasticity_label_ = value_label;
                         return createCallbackData(value_label);
-                    })
-                .buildOrLog();
+                    });
+        elasticity_slider_ = elasticity_builder.buildOrLog();
     }
 
     // Dirt fragmentation slider - migrated to LVGLBuilder with value transform.
@@ -853,8 +857,8 @@ void SimulatorUI::createSliders()
             .size(CONTROL_WIDTH, 10)
             .range(0, 100)
             .value(0)
-            .label("Dirt Fragmentation", SLIDER_COLUMN_X, 290)
-            .valueLabel("%.2f", SLIDER_COLUMN_X + 155, 290)
+            .label("Dirt Fragmentation", 0, -20)
+            .valueLabel("%.2f", 155, -20)
             .valueTransform(LVGLBuilder::Transforms::Linear(0.01)) // Convert 0-100 to 0.0-1.0
             .callback(
                 fragmentationSliderEventCb,
@@ -862,41 +866,34 @@ void SimulatorUI::createSliders()
             .buildOrLog();
 
     // Cell size slider.
-    lv_obj_t* cell_size_label = lv_label_create(screen_);
-    lv_label_set_text(cell_size_label, "Cell Size");
-    lv_obj_align(cell_size_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 330);
-
-    lv_obj_t* cell_size_value_label = lv_label_create(screen_);
-    lv_label_set_text(cell_size_value_label, "50");
-    lv_obj_align(cell_size_value_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X + 110, 330);
-
-    lv_obj_t* cell_size_slider = lv_slider_create(screen_);
-    lv_obj_set_size(cell_size_slider, CONTROL_WIDTH, 10);
-    lv_obj_align(cell_size_slider, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 350);
-    lv_slider_set_range(cell_size_slider, 10, 100);
-    lv_slider_set_value(cell_size_slider, 100, LV_ANIM_OFF);
-    lv_obj_add_event_cb(
-        cell_size_slider,
-        cellSizeSliderEventCb,
-        LV_EVENT_ALL,
-        createCallbackData(cell_size_value_label));
+    auto cell_size_builder = LVGLBuilder::slider(screen_)
+            .position(SLIDER_COLUMN_X, 350)
+            .size(CONTROL_WIDTH, 10)
+            .range(10, 100)
+            .value(100)
+            .label("Cell Size", 0, -20)
+            .valueLabel("%d", 110, -20)
+            .callback(
+                cellSizeSliderEventCb,
+                [this](lv_obj_t* value_label) -> void* {
+                    return createCallbackData(value_label);
+                });
+    cell_size_builder.buildOrLog();
 
     // Rain rate slider.
-    lv_obj_t* rain_label = lv_label_create(screen_);
-    lv_label_set_text(rain_label, "Rain Rate");
-    lv_obj_align(rain_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 410);
-
-    lv_obj_t* rain_value_label = lv_label_create(screen_);
-    lv_label_set_text(rain_value_label, "0/s");
-    lv_obj_align(rain_value_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X + 110, 410);
-
-    lv_obj_t* rain_slider = lv_slider_create(screen_);
-    lv_obj_set_size(rain_slider, CONTROL_WIDTH, 10);
-    lv_obj_align(rain_slider, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 430);
-    lv_slider_set_range(rain_slider, 0, 100);
-    lv_slider_set_value(rain_slider, 0, LV_ANIM_OFF);
-    lv_obj_add_event_cb(
-        rain_slider, rainSliderEventCb, LV_EVENT_ALL, createCallbackData(rain_value_label));
+    auto rain_builder = LVGLBuilder::slider(screen_)
+            .position(SLIDER_COLUMN_X, 430)
+            .size(CONTROL_WIDTH, 10)
+            .range(0, 100)
+            .value(0)
+            .label("Rain Rate", 0, -20)
+            .valueLabel("%d/s", 110, -20)
+            .callback(
+                rainSliderEventCb,
+                [this](lv_obj_t* value_label) -> void* {
+                    return createCallbackData(value_label);
+                });
+    rain_builder.buildOrLog();
 
     // Water cohesion slider - migrated to LVGLBuilder with value transform.
     [[maybe_unused]] auto water_cohesion_slider =
@@ -905,8 +902,8 @@ void SimulatorUI::createSliders()
             .size(CONTROL_WIDTH, 10)
             .range(0, 1000) // 0.0 to 1.0 range
             .value(600)     // Default 0.6
-            .label("Water Cohesion", SLIDER_COLUMN_X, 450)
-            .valueLabel("%.3f", SLIDER_COLUMN_X + 150, 450)
+            .label("Water Cohesion", 0, -20)
+            .valueLabel("%.3f", 150, -20)
             .valueTransform(LVGLBuilder::Transforms::Linear(0.001)) // Convert 0-1000 to 0.0-1.0
             .callback(
                 waterCohesionSliderEventCb,
@@ -920,8 +917,8 @@ void SimulatorUI::createSliders()
             .size(CONTROL_WIDTH, 10)
             .range(0, 1000) // 0.0 to 1.0 range
             .value(100)     // Default 0.1
-            .label("Water Viscosity", SLIDER_COLUMN_X, 490)
-            .valueLabel("%.3f", SLIDER_COLUMN_X + 150, 490)
+            .label("Water Viscosity", 0, -20)
+            .valueLabel("%.3f", 150, -20)
             .valueTransform(LVGLBuilder::Transforms::Linear(0.001)) // Convert 0-1000 to 0.0-1.0
             .callback(
                 waterViscositySliderEventCb,
@@ -929,44 +926,36 @@ void SimulatorUI::createSliders()
             .buildOrLog();
 
     // Water pressure threshold slider.
-    lv_obj_t* water_pressure_label = lv_label_create(screen_);
-    lv_label_set_text(water_pressure_label, "Water Pressure Threshold");
-    lv_obj_align(water_pressure_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 530);
-
-    lv_obj_t* water_pressure_value_label = lv_label_create(screen_);
-    lv_label_set_text(water_pressure_value_label, "0.0004");
-    lv_obj_align(water_pressure_value_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X + 190, 530);
-
-    lv_obj_t* water_pressure_slider = lv_slider_create(screen_);
-    lv_obj_set_size(water_pressure_slider, CONTROL_WIDTH, 10);
-    lv_obj_align(water_pressure_slider, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 550);
-    lv_slider_set_range(water_pressure_slider, 0, 1000);         // 0.0 to 0.01.
-    lv_slider_set_value(water_pressure_slider, 40, LV_ANIM_OFF); // Default 0.0004 -> 40.
-    lv_obj_add_event_cb(
-        water_pressure_slider,
-        waterPressureThresholdSliderEventCb,
-        LV_EVENT_ALL,
-        createCallbackData(water_pressure_value_label));
+    auto water_pressure_builder = LVGLBuilder::slider(screen_)
+            .position(SLIDER_COLUMN_X, 550)
+            .size(CONTROL_WIDTH, 10)
+            .range(0, 1000)
+            .value(40)
+            .label("Water Pressure Threshold", 0, -20)
+            .valueLabel("%.4f", 190, -20)
+            .valueTransform(LVGLBuilder::Transforms::Linear(0.00001)) // Convert 0-1000 to 0.0-0.01
+            .callback(
+                waterPressureThresholdSliderEventCb,
+                [this](lv_obj_t* value_label) -> void* {
+                    return createCallbackData(value_label);
+                });
+    water_pressure_builder.buildOrLog();
 
     // Water buoyancy slider.
-    lv_obj_t* buoyancy_label = lv_label_create(screen_);
-    lv_label_set_text(buoyancy_label, "Water Buoyancy");
-    lv_obj_align(buoyancy_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 570);
-
-    lv_obj_t* buoyancy_value_label = lv_label_create(screen_);
-    lv_label_set_text(buoyancy_value_label, "0.100");
-    lv_obj_align(buoyancy_value_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X + 150, 570);
-
-    lv_obj_t* buoyancy_slider = lv_slider_create(screen_);
-    lv_obj_set_size(buoyancy_slider, CONTROL_WIDTH, 10);
-    lv_obj_align(buoyancy_slider, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 590);
-    lv_slider_set_range(buoyancy_slider, 0, 1000);          // 0.0 to 1.0 range.
-    lv_slider_set_value(buoyancy_slider, 100, LV_ANIM_OFF); // Default 0.1 -> 100.
-    lv_obj_add_event_cb(
-        buoyancy_slider,
-        waterBuoyancySliderEventCb,
-        LV_EVENT_ALL,
-        createCallbackData(buoyancy_value_label));
+    auto buoyancy_builder = LVGLBuilder::slider(screen_)
+            .position(SLIDER_COLUMN_X, 590)
+            .size(CONTROL_WIDTH, 10)
+            .range(0, 1000)
+            .value(100)
+            .label("Water Buoyancy", 0, -20)
+            .valueLabel("%.3f", 150, -20)
+            .valueTransform(LVGLBuilder::Transforms::Linear(0.001)) // Convert 0-1000 to 0.0-1.0
+            .callback(
+                waterBuoyancySliderEventCb,
+                [this](lv_obj_t* value_label) -> void* {
+                    return createCallbackData(value_label);
+                });
+    buoyancy_builder.buildOrLog();
 
     // === WorldB Pressure Controls ===.
     lv_obj_t* worldB_pressure_header = lv_label_create(screen_);
@@ -1016,19 +1005,21 @@ void SimulatorUI::createSliders()
         createCallbackData());
 
     // Hydrostatic pressure strength slider (WorldB only) - migrated to LVGLBuilder.
-    [[maybe_unused]] auto hydrostatic_strength_slider =
-        LVGLBuilder::slider(screen_)
+    auto hydrostatic_builder = LVGLBuilder::slider(screen_)
             .position(SLIDER_COLUMN_X, 765)
             .size(CONTROL_WIDTH, 10)
             .range(0, 300) // 0.0 to 3.0 range
             .value(100)    // Default 1.0
-            .label("Hydrostatic Strength", SLIDER_COLUMN_X, 745)
-            .valueLabel("%.1f", SLIDER_COLUMN_X + 140, 745)
+            .label("Hydrostatic Strength", 0, -20)
+            .valueLabel("%.1f", 140, -20)
             .valueTransform(LVGLBuilder::Transforms::Linear(0.01)) // Convert 0-300 to 0.0-3.0
             .callback(
                 hydrostaticPressureStrengthSliderEventCb,
-                [this](lv_obj_t* value_label) -> void* { return createCallbackData(value_label); })
-            .buildOrLog();
+                [this](lv_obj_t* value_label) -> void* { 
+                    hydrostatic_strength_label_ = value_label;
+                    return createCallbackData(value_label); 
+                });
+    hydrostatic_strength_slider_ = hydrostatic_builder.buildOrLog();
 
     // Dynamic pressure strength slider (WorldB only) - migrated to EventRouter.
     if (event_router_) {
@@ -1038,46 +1029,62 @@ void SimulatorUI::createSliders()
             .size(CONTROL_WIDTH, 10)
             .range(0, 300) // 0.0 to 3.0 range.
             .value(100)    // Default 1.0 -> 100.
-            .label("Dynamic Strength", SLIDER_COLUMN_X, 795)
-            .valueLabel("%.1f", SLIDER_COLUMN_X + 140, 795)
+            .label("Dynamic Strength", 0, -20)
+            .valueLabel("%.1f", 140, -20)
             .buildOrLog();
     }
     else {
         // Fallback to old callback system.
-        lv_obj_t* dynamic_strength_label = lv_label_create(screen_);
-        lv_label_set_text(dynamic_strength_label, "Dynamic Strength");
-        lv_obj_align(dynamic_strength_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 795);
-
-        lv_obj_t* dynamic_strength_value_label = lv_label_create(screen_);
-        lv_label_set_text(dynamic_strength_value_label, "1.0");
-        lv_obj_align(dynamic_strength_value_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X + 140, 795);
-
-        lv_obj_t* dynamic_strength_slider = lv_slider_create(screen_);
-        lv_obj_set_size(dynamic_strength_slider, CONTROL_WIDTH, 10);
-        lv_obj_align(dynamic_strength_slider, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 815);
-        lv_slider_set_range(dynamic_strength_slider, 0, 300);           // 0.0 to 3.0 range.
-        lv_slider_set_value(dynamic_strength_slider, 100, LV_ANIM_OFF); // Default 1.0 -> 100.
-        lv_obj_add_event_cb(
-            dynamic_strength_slider,
-            dynamicPressureStrengthSliderEventCb,
-            LV_EVENT_ALL,
-            createCallbackData(dynamic_strength_value_label));
+        auto dynamic_strength_builder = LVGLBuilder::slider(screen_)
+                .position(SLIDER_COLUMN_X, 815)
+                .size(CONTROL_WIDTH, 10)
+                .range(0, 300)
+                .value(100)
+                .label("Dynamic Strength", 0, -20)
+                .valueLabel("%.1f", 140, -20)
+                .valueTransform(LVGLBuilder::Transforms::Linear(0.01)) // Convert 0-300 to 0.0-3.0
+                .callback(
+                    dynamicPressureStrengthSliderEventCb,
+                    [this](lv_obj_t* value_label) -> void* {
+                        dynamic_strength_label_ = value_label;
+                        return createCallbackData(value_label);
+                    });
+        dynamic_strength_slider_ = dynamic_strength_builder.buildOrLog();
     }
 
     // Air resistance slider - migrated to LVGLBuilder with value transform.
-    [[maybe_unused]] auto air_resistance_slider =
-        LVGLBuilder::slider(screen_)
+    auto air_resistance_builder = LVGLBuilder::slider(screen_)
             .position(SLIDER_COLUMN_X, 865)
             .size(CONTROL_WIDTH, 10)
             .range(0, 100) // 0.0 to 1.0 range
             .value(10)     // Default 0.1
-            .label("Air Resistance", SLIDER_COLUMN_X, 845)
-            .valueLabel("%.2f", SLIDER_COLUMN_X + 120, 845)
+            .label("Air Resistance", 0, -20)
+            .valueLabel("%.2f", 120, -20)
             .valueTransform(LVGLBuilder::Transforms::Linear(0.01)) // Convert 0-100 to 0.0-1.0
             .callback(
                 airResistanceSliderEventCb,
-                [this](lv_obj_t* value_label) -> void* { return createCallbackData(value_label); })
-            .buildOrLog();
+                [this](lv_obj_t* value_label) -> void* { 
+                    air_resistance_label_ = value_label;
+                    return createCallbackData(value_label); 
+                });
+    air_resistance_slider_ = air_resistance_builder.buildOrLog();
+
+    // Pressure scale slider for WorldB.
+    auto pressure_scale_worldb_builder = LVGLBuilder::slider(screen_)
+            .position(SLIDER_COLUMN_X, 915)
+            .size(CONTROL_WIDTH, 10)
+            .range(0, 200) // 0.0 to 2.0 range
+            .value(100)    // Default 1.0
+            .label("Pressure Scale", 0, -20)
+            .valueLabel("%.1f", 120, -20)
+            .valueTransform(LVGLBuilder::Transforms::Linear(0.01)) // Convert 0-200 to 0.0-2.0
+            .callback(
+                pressureScaleWorldBSliderEventCb,
+                [this](lv_obj_t* value_label) -> void* { 
+                    pressure_scale_worldb_label_ = value_label;
+                    return createCallbackData(value_label); 
+                });
+    pressure_scale_worldb_slider_ = pressure_scale_worldb_builder.buildOrLog();
 }
 
 void SimulatorUI::setupDrawAreaEvents()
@@ -1120,10 +1127,105 @@ void SimulatorUI::populateFromWorld()
         material_picker_->setSelectedMaterial(world_->getSelectedMaterial());
     }
 
-    // TODO: Update slider values based on world properties
-    // This would require storing references to sliders or finding them by traversing the UI tree
-    // For now, the sliders use their default values which may differ from the world's initial
-    // values
+    // Update pressure control switches (merged from updatePressureControlsFromWorld)
+    if (hydrostatic_switch_) {
+        bool enabled = world_->isHydrostaticPressureEnabled();
+        if (enabled) {
+            lv_obj_add_state(hydrostatic_switch_, LV_STATE_CHECKED);
+        }
+        else {
+            lv_obj_clear_state(hydrostatic_switch_, LV_STATE_CHECKED);
+        }
+    }
+
+    if (dynamic_switch_) {
+        bool enabled = world_->isDynamicPressureEnabled();
+        if (enabled) {
+            lv_obj_add_state(dynamic_switch_, LV_STATE_CHECKED);
+        }
+        else {
+            lv_obj_clear_state(dynamic_switch_, LV_STATE_CHECKED);
+        }
+    }
+
+    if (diffusion_switch_) {
+        bool enabled = world_->isPressureDiffusionEnabled();
+        if (enabled) {
+            lv_obj_add_state(diffusion_switch_, LV_STATE_CHECKED);
+        }
+        else {
+            lv_obj_clear_state(diffusion_switch_, LV_STATE_CHECKED);
+        }
+    }
+
+    // Update sliders based on world properties
+    WorldType worldType = world_->getWorldType();
+    
+    // Update pressure scale slider (WorldA only)
+    // Note: WorldInterface doesn't expose getPressureScale(), so we can't update this
+    // The pressure scale is specific to WorldA implementation
+
+    // Update gravity button state
+    // Note: WorldInterface doesn't expose getGravity(), so we can't update this
+
+    // Update pressure strength sliders (WorldB only)
+    if (worldType == WorldType::RulesB) {
+        if (hydrostatic_strength_slider_) {
+            float strength = world_->getHydrostaticPressureStrength();
+            int slider_value = static_cast<int>(strength * 100.0f); // Convert 0.0-3.0 to 0-300
+            lv_slider_set_value(hydrostatic_strength_slider_, slider_value, LV_ANIM_OFF);
+            
+            // Update label if we have it
+            if (hydrostatic_strength_label_) {
+                char buf[16];
+                snprintf(buf, sizeof(buf), "%.1f", strength);
+                lv_label_set_text(hydrostatic_strength_label_, buf);
+            }
+        }
+
+        if (dynamic_strength_slider_) {
+            float strength = world_->getDynamicPressureStrength();
+            int slider_value = static_cast<int>(strength * 100.0f); // Convert 0.0-3.0 to 0-300
+            lv_slider_set_value(dynamic_strength_slider_, slider_value, LV_ANIM_OFF);
+            
+            // Update label if we have it
+            if (dynamic_strength_label_) {
+                char buf[16];
+                snprintf(buf, sizeof(buf), "%.1f", strength);
+                lv_label_set_text(dynamic_strength_label_, buf);
+            }
+        }
+    }
+
+    // Update elasticity slider
+    // Note: WorldInterface doesn't expose getElasticity(), so we can't update this
+    // TODO: Fix this.
+
+    // Update air resistance slider
+    if (air_resistance_slider_) {
+        float resistance = world_->getAirResistanceStrength();
+        int slider_value = static_cast<int>(resistance * 100.0f); // Convert 0.0-1.0 to 0-100
+        lv_slider_set_value(air_resistance_slider_, slider_value, LV_ANIM_OFF);
+        
+        if (air_resistance_label_) {
+            char buf[16];
+            snprintf(buf, sizeof(buf), "%.2f", resistance);
+            lv_label_set_text(air_resistance_label_, buf);
+        }
+    }
+
+    // Update cohesion force slider
+    if (cohesion_force_slider_) {
+        float strength = world_->getCohesionComForceStrength();
+        int slider_value = static_cast<int>(strength * 100.0f); // Assuming 0.0-300.0 range becomes 0-30000
+        lv_slider_set_value(cohesion_force_slider_, slider_value, LV_ANIM_OFF);
+        
+        if (cohesion_force_label_) {
+            char buf[16];
+            snprintf(buf, sizeof(buf), "%.1f", strength);
+            lv_label_set_text(cohesion_force_label_, buf);
+        }
+    }
 
     spdlog::info("UI population from world complete");
 }
@@ -1135,6 +1237,24 @@ void SimulatorUI::updateDebugButton()
         if (label) {
             lv_label_set_text(label, Cell::debugDraw ? "Debug: On" : "Debug: Off");
         }
+    }
+}
+
+void SimulatorUI::updateTimescaleSlider(double timescale)
+{
+    if (timescale_label_) {
+        char buf[16];
+        snprintf(buf, sizeof(buf), "%.2fx", timescale);
+        lv_label_set_text(timescale_label_, buf);
+    }
+}
+
+void SimulatorUI::updateElasticitySlider(double elasticity)
+{
+    if (elasticity_label_) {
+        char buf[16];
+        snprintf(buf, sizeof(buf), "%.2f", elasticity);
+        lv_label_set_text(elasticity_label_, buf);
     }
 }
 
@@ -1189,14 +1309,12 @@ void SimulatorUI::applyUpdate(const UIUpdateEvent& update)
 
     // Update physics parameters if they changed.
     if (update.dirty.physicsParams) {
-        // These parameters affect simulation behavior.
-        // For UI display, we might want to update slider positions.
-        // if they were changed programmatically.
-
-        // update.physicsParams.gravity.
-        // update.physicsParams.elasticity.
-        // update.physicsParams.timescale.
-        // etc.
+        // Update slider value labels to reflect current physics parameters.
+        updateTimescaleSlider(update.physicsParams.timescale);
+        updateElasticitySlider(update.physicsParams.elasticity);
+        
+        // Note: We could also update the actual slider positions here if needed,
+        // but for now we just update the labels to show the current values.
     }
 
     // Update world state if it changed.
@@ -1357,6 +1475,12 @@ void SimulatorUI::resetBtnEventCb(lv_event_t* e)
             spdlog::info("Calling reset on simulation manager {}", (void*)data->manager);
             data->manager->reset();
             spdlog::info("Reset completed");
+            
+            // Update UI controls to reflect the new world state after reset.
+            // This is important because scenarios can change physics parameters.
+            if (data->ui) {
+                data->ui->populateFromWorld();
+            }
         }
         else {
             spdlog::error("Reset button clicked but data or manager is null!");
@@ -1600,6 +1724,33 @@ void SimulatorUI::cellSizeSliderEventCb(lv_event_t* e)
         // Update the label.
         char buf[16];
         snprintf(buf, sizeof(buf), "%d", value);
+        lv_label_set_text(data->associated_label, buf);
+    }
+}
+
+void SimulatorUI::pressureScaleWorldBSliderEventCb(lv_event_t* e)
+{
+    lv_obj_t* slider = static_cast<lv_obj_t*>(lv_event_get_target(e));
+    CallbackData* data = static_cast<CallbackData*>(lv_event_get_user_data(e));
+    if (lv_event_get_code(e) == LV_EVENT_VALUE_CHANGED && data) {
+        int32_t value = lv_slider_get_value(slider);
+        double pressure_scale = value / 100.0;
+        if (data->world) {
+            // Only apply pressure scale changes to WorldB (RulesB).
+            if (data->world->getWorldType() != WorldType::RulesB) {
+                spdlog::debug("Pressure scale slider (WorldB) only affects WorldB (RulesB) - current world "
+                              "is WorldA (RulesA)");
+                // Still update the label to show the value for consistency.
+                char buf[16];
+                snprintf(buf, sizeof(buf), "%.1f", pressure_scale);
+                lv_label_set_text(data->associated_label, buf);
+                return;
+            }
+            data->world->setPressureScale(pressure_scale);
+            spdlog::info("Pressure scale (WorldB) slider changed to: {:.1f}", pressure_scale);
+        }
+        char buf[16];
+        snprintf(buf, sizeof(buf), "%.1f", pressure_scale);
         lv_label_set_text(data->associated_label, buf);
     }
 }
@@ -2214,7 +2365,7 @@ void SimulatorUI::onScenarioChanged(lv_event_t* e)
             }
 
             // Update UI controls to reflect the new world state.
-            ui->updatePressureControlsFromWorld();
+            ui->populateFromWorld();
 
             // Resume if it was running before
             if (wasRunning) {
@@ -2346,42 +2497,3 @@ void SimulatorUI::updateFPSLabel(uint32_t fps)
     }
 }
 
-void SimulatorUI::updatePressureControlsFromWorld()
-{
-    if (!world_) {
-        return;
-    }
-
-    // Update hydrostatic pressure switch.
-    if (hydrostatic_switch_) {
-        bool enabled = world_->isHydrostaticPressureEnabled();
-        if (enabled) {
-            lv_obj_add_state(hydrostatic_switch_, LV_STATE_CHECKED);
-        }
-        else {
-            lv_obj_clear_state(hydrostatic_switch_, LV_STATE_CHECKED);
-        }
-    }
-
-    // Update dynamic pressure switch.
-    if (dynamic_switch_) {
-        bool enabled = world_->isDynamicPressureEnabled();
-        if (enabled) {
-            lv_obj_add_state(dynamic_switch_, LV_STATE_CHECKED);
-        }
-        else {
-            lv_obj_clear_state(dynamic_switch_, LV_STATE_CHECKED);
-        }
-    }
-
-    // Update pressure diffusion switch.
-    if (diffusion_switch_) {
-        bool enabled = world_->isPressureDiffusionEnabled();
-        if (enabled) {
-            lv_obj_add_state(diffusion_switch_, LV_STATE_CHECKED);
-        }
-        else {
-            lv_obj_clear_state(diffusion_switch_, LV_STATE_CHECKED);
-        }
-    }
-}

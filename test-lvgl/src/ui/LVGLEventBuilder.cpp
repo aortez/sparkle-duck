@@ -1,6 +1,7 @@
 #include "LVGLEventBuilder.h"
 #include "../World.h"  // For PressureMode enum.
 #include <spdlog/spdlog.h>
+#include <cmath>  // For pow()
 
 namespace DirtSim {
 
@@ -71,7 +72,8 @@ LVGLEventBuilder::SliderBuilder& LVGLEventBuilder::SliderBuilder::onValueChange(
 
 LVGLEventBuilder::SliderBuilder& LVGLEventBuilder::SliderBuilder::onTimescaleChange() {
     return onValueChange([](int32_t value) {
-        double timescale = value / 100.0;  // Convert 0-100 to 0.0-1.0
+        // Convert 0-100 to logarithmic scale: 0.1x to 10x with 1.0x at center (50)
+        double timescale = pow(10.0, (value - 50) / 50.0);
         return Event{SetTimescaleCommand{timescale}};
     });
 }

@@ -27,7 +27,7 @@ void WorldBPressureCalculator::calculateHydrostaticPressure()
     }
 
     // Get hydrostatic pressure strength multiplier.
-    const double hydrostatic_strength = world_ref_.getHydrostaticPressureStrength();
+    const double hydrostatic_strength = world_ref_.getHydrostaticPressureStrength() * 0.1;
 
     // Process slices perpendicular to gravity direction.
     for (uint32_t x = 0; x < world_ref_.getWidth(); ++x) {
@@ -209,7 +209,7 @@ Vector2d WorldBPressureCalculator::calculatePressureGradient(uint32_t x, uint32_
 {
     // Get center cell total pressure.
     const CellB& center = world_ref_.at(x, y);
-    double center_pressure = center.getHydrostaticPressure() + center.getDynamicPressure();
+    double center_pressure = center.getPressure();
 
     // Skip if no significant pressure.
     if (center_pressure < MIN_PRESSURE_THRESHOLD) {
@@ -242,14 +242,13 @@ Vector2d WorldBPressureCalculator::calculatePressureGradient(uint32_t x, uint32_
                 continue;
             }
 
-            double neighbor_pressure =
-                neighbor.getHydrostaticPressure() + neighbor.getDynamicPressure();
+            double neighbor_pressure = neighbor.getPressure();
 
             double pressure_diff = center_pressure - neighbor_pressure;
 
             // Accumulate gradient components.
             gradient.x += pressure_diff * dx;
-            gradient.y -= pressure_diff * dy;
+            gradient.y += pressure_diff * dy;
             valid_neighbors++;
 
             spdlog::trace(
@@ -341,23 +340,29 @@ Vector2d WorldBPressureCalculator::calculateGravityGradient(uint32_t x, uint32_t
 
 void WorldBPressureCalculator::applyPressureDecay(double deltaTime)
 {
-    // Apply decay to dynamic pressure values.
+    // Apply decay to unified pressure values.
     for (uint32_t y = 0; y < world_ref_.getHeight(); ++y) {
         for (uint32_t x = 0; x < world_ref_.getWidth(); ++x) {
             CellB& cell = world_ref_.at(x, y);
 
-            // Apply dynamic pressure decay (hydrostatic pressure doesn't decay).
-            double dynamic_pressure = cell.getDynamicPressure();
-            if (dynamic_pressure > MIN_PRESSURE_THRESHOLD) {
-                double new_dynamic_pressure =
-                    dynamic_pressure * (1.0 - DYNAMIC_DECAY_RATE * deltaTime);
-                cell.setDynamicPressure(new_dynamic_pressure);
+            // Apply pressure decay to the unified pressure.
+            double pressure = cell.getPressure();
+            if (pressure > MIN_PRESSURE_THRESHOLD) {
+                double new_pressure = pressure * (1.0 - DYNAMIC_DECAY_RATE * deltaTime);
+                cell.setPressure(new_pressure);
+                
+                // Update components proportionally for visualization.
+                double decay_factor = new_pressure / pressure;
+                cell.setComponents(
+                    cell.getHydrostaticComponent() * decay_factor,
+                    cell.getDynamicComponent() * decay_factor
+                );
             }
 
             // Update pressure gradient for visualization.
             // This allows us to see pressure forces at the beginning of the next frame.
             if (cell.getFillRatio() >= MIN_MATTER_THRESHOLD && !cell.isWall()) {
-                double total_pressure = cell.getHydrostaticPressure() + cell.getDynamicPressure();
+                double total_pressure = cell.getPressure();
                 if (total_pressure >= MIN_PRESSURE_THRESHOLD) {
                     Vector2d gradient = calculatePressureGradient(x, y);
                     cell.setPressureGradient(gradient);
@@ -483,18 +488,23 @@ void WorldBPressureCalculator::applyPressureDiffusion(double deltaTime)
     // Create a temporary copy of pressure values to avoid order-dependent updates.
     const uint32_t width = world_ref_.getWidth();
     const uint32_t height = world_ref_.getHeight();
-    std::vector<double> new_dynamic_pressure(width * height);
+    std::vector<double> new_pressure(width * height);
 
     // Copy current pressure values.
     for (uint32_t y = 0; y < height; ++y) {
         for (uint32_t x = 0; x < width; ++x) {
             size_t idx = y * width + x;
             const CellB& cell = world_ref_.at(x, y);
-            new_dynamic_pressure[idx] = cell.getDynamicPressure();
+            new_pressure[idx] = cell.getPressure();
         }
     }
 
-    // Apply 4-neighbor diffusion.
+    // Compile-time switch for 4 vs 8 neighbor diffusion.
+    // 8-neighbor diffusion includes diagonal neighbors for smoother pressure propagation.
+    // 4-neighbor diffusion is faster but may show more grid artifacts.
+    constexpr bool USE_8_NEIGHBORS = true;  // Set to false for 4-neighbor diffusion.
+
+    // Apply neighbor diffusion.
     for (uint32_t y = 0; y < height; ++y) {
         for (uint32_t x = 0; x < width; ++x) {
             size_t idx = y * width + x;
@@ -509,57 +519,106 @@ void WorldBPressureCalculator::applyPressureDiffusion(double deltaTime)
             const MaterialProperties& props = getMaterialProperties(cell.getMaterialType());
             double diffusion_rate = props.pressure_diffusion;
 
-            // Calculate pressure flux with 4 neighbors.
+            // Calculate pressure flux with neighbors.
             double pressure_flux = 0.0;
-            const double current_pressure = cell.getDynamicPressure();
+            const double current_pressure = cell.getPressure();
 
-            // Check each neighbor (N, S, E, W).
-            const int dx[] = { 0, 0, 1, -1 };
-            const int dy[] = { -1, 1, 0, 0 };
+            if constexpr (USE_8_NEIGHBORS) {
+                // Check all 8 neighbors (including diagonals).
+                const int dx[] = { -1, 0, 1, -1, 1, -1, 0, 1 };
+                const int dy[] = { -1, -1, -1, 0, 0, 1, 1, 1 };
+                constexpr int num_neighbors = 8;
 
-            for (int i = 0; i < 4; ++i) {
-                int nx = static_cast<int>(x) + dx[i];
-                int ny = static_cast<int>(y) + dy[i];
+                for (int i = 0; i < num_neighbors; ++i) {
+                    int nx = static_cast<int>(x) + dx[i];
+                    int ny = static_cast<int>(y) + dy[i];
 
-                // Skip out-of-bounds.
-                if (nx < 0 || nx >= static_cast<int>(width) || ny < 0
-                    || ny >= static_cast<int>(height)) {
-                    continue;
+                    // Skip out-of-bounds.
+                    if (nx < 0 || nx >= static_cast<int>(width) || ny < 0
+                        || ny >= static_cast<int>(height)) {
+                        continue;
+                    }
+
+                    const CellB& neighbor = world_ref_.at(nx, ny);
+
+                    // Walls block pressure diffusion.
+                    if (neighbor.getMaterialType() == MaterialType::WALL) {
+                        continue;
+                    }
+
+                    // Empty cells act as pressure sinks.
+                    double neighbor_pressure = neighbor.isEmpty() ? 0.0 : neighbor.getPressure();
+
+                    // Pressure flows from high to low.
+                    double pressure_diff = neighbor_pressure - current_pressure;
+
+                    // Use harmonic mean of diffusion coefficients for interface.
+                    double neighbor_diffusion = neighbor.isEmpty()
+                        ? 1.0
+                        : getMaterialProperties(neighbor.getMaterialType()).pressure_diffusion;
+
+                    // Harmonic mean handles material boundaries correctly.
+                    double interface_diffusion = 2.0 * diffusion_rate * neighbor_diffusion
+                        / (diffusion_rate + neighbor_diffusion + 1e-10);
+
+                    // For diagonal neighbors, scale by 1/sqrt(2) to account for distance.
+                    if (dx[i] != 0 && dy[i] != 0) {
+                        interface_diffusion *= 0.707107;  // 1/sqrt(2)
+                    }
+
+                    // Accumulate flux.
+                    pressure_flux += interface_diffusion * pressure_diff;
                 }
+            } else {
+                // Check 4 cardinal neighbors only (N, S, E, W).
+                const int dx[] = { 0, 0, 1, -1 };
+                const int dy[] = { -1, 1, 0, 0 };
+                constexpr int num_neighbors = 4;
 
-                const CellB& neighbor = world_ref_.at(nx, ny);
+                for (int i = 0; i < num_neighbors; ++i) {
+                    int nx = static_cast<int>(x) + dx[i];
+                    int ny = static_cast<int>(y) + dy[i];
 
-                // Walls block pressure diffusion.
-                if (neighbor.getMaterialType() == MaterialType::WALL) {
-                    continue;
+                    // Skip out-of-bounds.
+                    if (nx < 0 || nx >= static_cast<int>(width) || ny < 0
+                        || ny >= static_cast<int>(height)) {
+                        continue;
+                    }
+
+                    const CellB& neighbor = world_ref_.at(nx, ny);
+
+                    // Walls block pressure diffusion.
+                    if (neighbor.getMaterialType() == MaterialType::WALL) {
+                        continue;
+                    }
+
+                    // Empty cells act as pressure sinks.
+                    double neighbor_pressure = neighbor.isEmpty() ? 0.0 : neighbor.getPressure();
+
+                    // Pressure flows from high to low.
+                    double pressure_diff = -neighbor_pressure + current_pressure;
+
+                    // Use harmonic mean of diffusion coefficients for interface.
+                    double neighbor_diffusion = neighbor.isEmpty()
+                        ? 1.0
+                        : getMaterialProperties(neighbor.getMaterialType()).pressure_diffusion;
+
+                    // Harmonic mean handles material boundaries correctly.
+                    double interface_diffusion = 2.0 * diffusion_rate * neighbor_diffusion
+                        / (diffusion_rate + neighbor_diffusion + 1e-10);
+
+                    // Accumulate flux.
+                    pressure_flux += interface_diffusion * pressure_diff;
                 }
-
-                // Empty cells act as pressure sinks.
-                double neighbor_pressure = neighbor.isEmpty() ? 0.0 : neighbor.getDynamicPressure();
-
-                // Pressure flows from high to low.
-                double pressure_diff = neighbor_pressure - current_pressure;
-
-                // Use harmonic mean of diffusion coefficients for interface.
-                double neighbor_diffusion = neighbor.isEmpty()
-                    ? 1.0
-                    : getMaterialProperties(neighbor.getMaterialType()).pressure_diffusion;
-
-                // Harmonic mean handles material boundaries correctly.
-                double interface_diffusion = 2.0 * diffusion_rate * neighbor_diffusion
-                    / (diffusion_rate + neighbor_diffusion + 1e-10);
-
-                // Accumulate flux.
-                pressure_flux += interface_diffusion * pressure_diff;
             }
 
             // Update pressure with diffusion flux.
             // Scale by deltaTime for frame-rate independence.
-            new_dynamic_pressure[idx] = current_pressure + pressure_flux * deltaTime;
+            new_pressure[idx] = current_pressure + pressure_flux * deltaTime;
 
             // Ensure pressure doesn't go negative.
-            if (new_dynamic_pressure[idx] < 0.0) {
-                new_dynamic_pressure[idx] = 0.0;
+            if (new_pressure[idx] < 0.0) {
+                new_pressure[idx] = 0.0;
             }
         }
     }
@@ -569,7 +628,18 @@ void WorldBPressureCalculator::applyPressureDiffusion(double deltaTime)
         for (uint32_t x = 0; x < width; ++x) {
             size_t idx = y * width + x;
             CellB& cell = world_ref_.at(x, y);
-            cell.setDynamicPressure(new_dynamic_pressure[idx]);
+            double old_pressure = cell.getPressure();
+            double new_unified_pressure = new_pressure[idx];
+            cell.setPressure(new_unified_pressure);
+            
+            // Update components proportionally based on diffusion.
+            if (old_pressure > 0.0) {
+                double ratio = new_unified_pressure / old_pressure;
+                cell.setComponents(
+                    cell.getHydrostaticComponent() * ratio,
+                    cell.getDynamicComponent() * ratio
+                );
+            }
         }
     }
 }

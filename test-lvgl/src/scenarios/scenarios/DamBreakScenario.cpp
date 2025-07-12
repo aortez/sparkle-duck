@@ -26,7 +26,7 @@ public:
         world.setDynamicPressureEnabled(true);
         world.setHydrostaticPressureEnabled(false);
         world.setPressureDiffusionEnabled(true);
-        world.setPressureScale(10.0); // Strong pressure for visible effects
+        world.setPressureScale(1.0);
         
         // Disable extra features for clean demo
         world.setWallsEnabled(false);

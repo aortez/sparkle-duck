@@ -21,14 +21,12 @@ public:
         // Reset state
         wallOpened = false;
         
-        // Configure physics for hydrostatic pressure
         world.setGravity(9.81);
         world.setDynamicPressureEnabled(false);
         world.setHydrostaticPressureEnabled(true);
         world.setPressureDiffusionEnabled(true);
-        world.setPressureScale(10.0); // Strong pressure for visible flow
+        world.setPressureScale(1.0);
         
-        // Disable extra features for clean demo
         world.setWallsEnabled(false);
         world.setLeftThrowEnabled(false);
         world.setRightThrowEnabled(false);

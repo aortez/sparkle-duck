@@ -150,6 +150,5 @@ private:
 
     // Constants for pressure-driven flow.
     static constexpr double PRESSURE_FLOW_RATE = 1.0;     // Flow rate multiplier.
-    static constexpr double PRESSURE_FORCE_SCALE = 1.0;   // Force scale factor.
     static constexpr double BACKGROUND_DECAY_RATE = 0.02; // 2% decay per timestep.
 };

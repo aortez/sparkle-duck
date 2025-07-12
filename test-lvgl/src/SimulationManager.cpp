@@ -56,9 +56,6 @@ void SimulationManager::initialize()
     // Connect UI and world if UI exists.
     if (ui_) {
         connectUIAndWorld();
-
-        // Populate UI controls with values from the world.
-        ui_->populateFromWorld();
     }
 
     // Apply the default Sandbox scenario if available
@@ -252,6 +249,9 @@ void SimulationManager::connectUIAndWorld()
     world_->setUIReference(ui_.get());
 
     spdlog::info("UI and world connected");
+
+    // Populate UI controls with values from the world.
+    ui_->populateFromWorld();
 }
 
 void SimulationManager::updateUIWorldType()

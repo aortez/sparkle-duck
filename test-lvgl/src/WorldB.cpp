@@ -143,14 +143,12 @@ void WorldB::advanceTime(double deltaTimeSeconds)
     }
 
     // Apply pressure diffusion before decay.
-    if (dynamic_pressure_enabled_ || pressure_diffusion_enabled_) {
+    if (pressure_diffusion_enabled_) {
         pressure_calculator_.applyPressureDiffusion(scaledDeltaTime);
     }
 
     // Apply pressure decay after material moves.
-    if (hydrostatic_pressure_enabled_ || dynamic_pressure_enabled_) {
-        pressure_calculator_.applyPressureDecay(scaledDeltaTime);
-    }
+	pressure_calculator_.applyPressureDecay(scaledDeltaTime);
 
     timestep_++;
 }
@@ -765,7 +763,7 @@ void WorldB::applyPressureForces(double deltaTime)
             }
 
             // Get total pressure for this cell.
-            double total_pressure = cell.getHydrostaticPressure() + cell.getDynamicPressure();
+            double total_pressure = cell.getPressure();
             if (total_pressure < MIN_MATTER_THRESHOLD) {
                 continue;
             }

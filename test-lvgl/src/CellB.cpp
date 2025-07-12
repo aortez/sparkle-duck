@@ -16,8 +16,9 @@ CellB::CellB()
       fill_ratio_(0.0),
       com_(0.0, 0.0),
       velocity_(0.0, 0.0),
-      hydrostatic_pressure_(0.0),
-      dynamic_pressure_(0.0),
+      pressure_(0.0),
+      hydrostatic_component_(0.0),
+      dynamic_component_(0.0),
       pressure_gradient_(0.0, 0.0),
       accumulated_cohesion_force_(0.0, 0.0),
       accumulated_adhesion_force_(0.0, 0.0),
@@ -32,8 +33,9 @@ CellB::CellB(MaterialType type, double fill)
       fill_ratio_(std::clamp(fill, 0.0, 1.0)),
       com_(0.0, 0.0),
       velocity_(0.0, 0.0),
-      hydrostatic_pressure_(0.0),
-      dynamic_pressure_(0.0),
+      pressure_(0.0),
+      hydrostatic_component_(0.0),
+      dynamic_component_(0.0),
       pressure_gradient_(0.0, 0.0),
       accumulated_cohesion_force_(0.0, 0.0),
       accumulated_adhesion_force_(0.0, 0.0),
@@ -58,8 +60,9 @@ CellB::CellB(const CellB& other)
       fill_ratio_(other.fill_ratio_),
       com_(other.com_),
       velocity_(other.velocity_),
-      hydrostatic_pressure_(other.hydrostatic_pressure_),
-      dynamic_pressure_(other.dynamic_pressure_),
+      pressure_(other.pressure_),
+      hydrostatic_component_(other.hydrostatic_component_),
+      dynamic_component_(other.dynamic_component_),
       pressure_gradient_(other.pressure_gradient_),
       accumulated_cohesion_force_(other.accumulated_cohesion_force_),
       accumulated_adhesion_force_(other.accumulated_adhesion_force_),
@@ -87,8 +90,9 @@ CellB& CellB::operator=(const CellB& other)
         fill_ratio_ = other.fill_ratio_;
         com_ = other.com_;
         velocity_ = other.velocity_;
-        hydrostatic_pressure_ = other.hydrostatic_pressure_;
-        dynamic_pressure_ = other.dynamic_pressure_;
+        pressure_ = other.pressure_;
+        hydrostatic_component_ = other.hydrostatic_component_;
+        dynamic_component_ = other.dynamic_component_;
         pressure_gradient_ = other.pressure_gradient_;
         accumulated_cohesion_force_ = other.accumulated_cohesion_force_;
         accumulated_adhesion_force_ = other.accumulated_adhesion_force_;
@@ -117,8 +121,9 @@ void CellB::setFillRatio(double ratio)
         com_ = Vector2d(0.0, 0.0);
 
         // Clear all pressure values when cell becomes empty.
-        hydrostatic_pressure_ = 0.0;
-        dynamic_pressure_ = 0.0;
+        pressure_ = 0.0;
+        hydrostatic_component_ = 0.0;
+        dynamic_component_ = 0.0;
         pressure_gradient_ = Vector2d(0.0, 0.0);
     }
 
@@ -313,8 +318,9 @@ void CellB::clear()
     com_ = Vector2d(0.0, 0.0);
 
     // Clear all pressure values when cell becomes empty.
-    hydrostatic_pressure_ = 0.0;
-    dynamic_pressure_ = 0.0;
+    pressure_ = 0.0;
+    hydrostatic_component_ = 0.0;
+    dynamic_component_ = 0.0;
     pressure_gradient_ = Vector2d(0.0, 0.0);
 
     markDirty();
@@ -547,8 +553,8 @@ void CellB::draw(lv_obj_t* parent, uint32_t x, uint32_t y)
         x,
         y,
         Cell::debugDraw,
-        hydrostatic_pressure_,
-        dynamic_pressure_);
+        hydrostatic_component_,
+        dynamic_component_);
     if (Cell::debugDraw) {
         spdlog::trace("[RENDER] Entering drawDebug() mode");
         drawDebug(parent, x, y);
@@ -862,23 +868,23 @@ void CellB::drawDebug(lv_obj_t* parent, uint32_t x, uint32_t y)
         int hydrostatic_border_width = 0;
         int dynamic_border_width = 0;
 
-        if (hydrostatic_pressure_ > 0.01) {
+        if (hydrostatic_component_ > 0.01) {
             // Map hydrostatic pressure to border width (1-8 pixels).
             hydrostatic_border_width = static_cast<int>(
-                std::min(MAX_BORDER_WIDTH, 1.0 + std::log1p(hydrostatic_pressure_ * 10) * 2.0));
+                std::min(MAX_BORDER_WIDTH, 1.0 + std::log1p(hydrostatic_component_ * 10) * 2.0));
         }
 
-        if (dynamic_pressure_ > 0.01) {
+        if (dynamic_component_ > 0.01) {
             // Map dynamic pressure to border width (1-8 pixels).
             dynamic_border_width = static_cast<int>(
-                std::min(MAX_BORDER_WIDTH, 1.0 + std::log1p(dynamic_pressure_ * 10) * 2.0));
+                std::min(MAX_BORDER_WIDTH, 1.0 + std::log1p(dynamic_component_ * 10) * 2.0));
         }
 
         spdlog::trace(
-            "[RENDER DEBUG] Cell hydrostatic_pressure_={}, dynamic_pressure_={}, "
+            "[RENDER DEBUG] Cell hydrostatic_component_={}, dynamic_component_={}, "
             "hydrostatic_border_width={}, dynamic_border_width={}",
-            hydrostatic_pressure_,
-            dynamic_pressure_,
+            hydrostatic_component_,
+            dynamic_component_,
             hydrostatic_border_width,
             dynamic_border_width);
 

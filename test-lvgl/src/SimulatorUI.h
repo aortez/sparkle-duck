@@ -37,6 +37,8 @@ public:
     void updateMassLabel(double totalMass);
     void updateFPSLabel(uint32_t fps);
     void updateDebugButton();
+    void updateTimescaleSlider(double timescale);
+    void updateElasticitySlider(double elasticity);
     void applyUpdate(const UIUpdateEvent& update);
 
     // Frame limiting control.
@@ -76,6 +78,25 @@ private:
     lv_obj_t* hydrostatic_switch_ = nullptr;
     lv_obj_t* dynamic_switch_ = nullptr;
     lv_obj_t* diffusion_switch_ = nullptr;
+    
+    // Slider references for UI sync after scenario changes.
+    lv_obj_t* pressure_scale_slider_ = nullptr;
+    lv_obj_t* pressure_scale_label_ = nullptr;
+    lv_obj_t* pressure_scale_worldb_slider_ = nullptr;
+    lv_obj_t* pressure_scale_worldb_label_ = nullptr;
+    lv_obj_t* hydrostatic_strength_slider_ = nullptr;
+    lv_obj_t* hydrostatic_strength_label_ = nullptr;
+    lv_obj_t* dynamic_strength_slider_ = nullptr;
+    lv_obj_t* dynamic_strength_label_ = nullptr;
+    lv_obj_t* gravity_button_ = nullptr;  // Gravity is a toggle button
+    lv_obj_t* gravity_label_ = nullptr;
+    lv_obj_t* timescale_label_ = nullptr;  // Value label for timescale slider
+    lv_obj_t* elasticity_slider_ = nullptr;
+    lv_obj_t* elasticity_label_ = nullptr;
+    lv_obj_t* air_resistance_slider_ = nullptr;
+    lv_obj_t* air_resistance_label_ = nullptr;
+    lv_obj_t* cohesion_force_slider_ = nullptr;
+    lv_obj_t* cohesion_force_label_ = nullptr;
 
     // Material picker UI.
     std::unique_ptr<MaterialPicker> material_picker_;
@@ -135,6 +156,7 @@ private:
     static void elasticitySliderEventCb(lv_event_t* e);
     static void fragmentationSliderEventCb(lv_event_t* e);
     static void pressureScaleSliderEventCb(lv_event_t* e);
+    static void pressureScaleWorldBSliderEventCb(lv_event_t* e);
     static void quitBtnEventCb(lv_event_t* e);
     static void frameLimitBtnEventCb(lv_event_t* e);
 
@@ -188,6 +210,4 @@ private:
     void updateScenarioDropdown();
     static void onScenarioChanged(lv_event_t* e);
 
-    // Update UI controls from world state.
-    void updatePressureControlsFromWorld();
 };
