@@ -127,25 +127,17 @@ public:
     // Legacy interface - now uses components directly.
     // Maintained for backward compatibility.
     double getHydrostaticPressure() const { return hydrostatic_component_; }
-    void setHydrostaticPressure(double pressure) { 
-        hydrostatic_component_ = pressure;
-        updateUnifiedPressure();
-    }
+    void setHydrostaticPressure(double pressure) { hydrostatic_component_ = pressure; }
 
     double getDynamicPressure() const { return dynamic_component_; }
-    void setDynamicPressure(double pressure) { 
-        dynamic_component_ = pressure;
-        updateUnifiedPressure();
-    }
-    void addDynamicPressure(double pressure) { 
-        dynamic_component_ += pressure;
-        updateUnifiedPressure();
-    }
+    void setDynamicPressure(double pressure) { dynamic_component_ = pressure; }
+    void addDynamicPressure(double pressure) { dynamic_component_ += pressure; }
 
     // Debug/visualization interface - for understanding pressure sources.
     double getHydrostaticComponent() const { return hydrostatic_component_; }
     double getDynamicComponent() const { return dynamic_component_; }
-    void setComponents(double hydrostatic, double dynamic) {
+    void setComponents(double hydrostatic, double dynamic)
+    {
         hydrostatic_component_ = hydrostatic;
         dynamic_component_ = dynamic;
         // Note: This doesn't update the unified pressure - use for visualization only.
@@ -270,9 +262,9 @@ private:
     Vector2d velocity_;          // 2D velocity vector.
 
     // Unified pressure system.
-    double pressure_;                 // Total pressure for physics calculations.
-    double hydrostatic_component_;    // Hydrostatic contribution (for debugging/visualization).
-    double dynamic_component_;        // Dynamic contribution (for debugging/visualization).
+    double pressure_;              // Total pressure for physics calculations.
+    double hydrostatic_component_; // Hydrostatic contribution (for debugging/visualization).
+    double dynamic_component_;     // Dynamic contribution (for debugging/visualization).
 
     Vector2d pressure_gradient_; // Pressure gradient for debug visualization.
 
@@ -300,7 +292,5 @@ private:
         const Vector2d& boundary_normal) const;
 
     // Helper to update unified pressure from components.
-    void updateUnifiedPressure() {
-        pressure_ = hydrostatic_component_ + dynamic_component_;
-    }
+    void updateUnifiedPressure() { pressure_ = hydrostatic_component_ + dynamic_component_; }
 };

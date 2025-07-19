@@ -21,6 +21,10 @@ class WorldB;
 class WorldBPressureCalculator : public WorldBCalculatorBase {
 public:
     /**
+     * @brief Enum for pressure gradient calculation directions.
+     */
+    enum class PressureGradientDirections { Four, Eight };
+    /**
      * @brief Constructor takes a WorldB for accessing and modifying world data.
      * @param world WorldB providing access to grid and cells (non-const for modifications).
      */
@@ -37,9 +41,9 @@ public:
 
     // Pressure-specific constants.
     static constexpr double SLICE_THICKNESS = 1.0;          // Thickness of pressure slices.
-    static constexpr double HYDROSTATIC_MULTIPLIER = 0.002; // Hydrostatic force strength.
+    static constexpr double HYDROSTATIC_MULTIPLIER = 0.02;  // Hydrostatic force strength.
     static constexpr double DYNAMIC_MULTIPLIER = 1;         // Dynamic force strength.
-    static constexpr double DYNAMIC_DECAY_RATE = 0.2;       // Rate of pressure dissipation.
+    static constexpr double DYNAMIC_DECAY_RATE = 0.3;       // Rate of pressure dissipation.
     static constexpr double MIN_PRESSURE_THRESHOLD = 0.001; // Ignore pressures below this.
 
     /**
@@ -148,7 +152,17 @@ public:
 private:
     WorldB& world_ref_; // Non-const reference for modifying cells.
 
+    // Configuration for pressure gradient calculation.
+    PressureGradientDirections gradient_directions_ = PressureGradientDirections::Eight;
+
     // Constants for pressure-driven flow.
     static constexpr double PRESSURE_FLOW_RATE = 1.0;     // Flow rate multiplier.
     static constexpr double BACKGROUND_DECAY_RATE = 0.02; // 2% decay per timestep.
+
+    /**
+     * @brief Check if a material type provides rigid structural support.
+     * @param type Material type to check.
+     * @return True if material can support weight above it.
+     */
+    bool isRigidSupport(MaterialType type) const;
 };

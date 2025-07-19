@@ -149,35 +149,27 @@ bool WorldBSupportCalculator::hasHorizontalSupport(uint32_t x, uint32_t y) const
 
 bool WorldBSupportCalculator::hasStructuralSupport(uint32_t x, uint32_t y) const
 {
-    if (!isValidCell(static_cast<int>(x), static_cast<int>(y))) {
-        spdlog::trace("hasStructuralSupport({},{}) = false (invalid cell)", x, y);
-        return false;
-    }
+    //    if (!isValidCell(static_cast<int>(x), static_cast<int>(y))) {
+    //        spdlog::error("hasStructuralSupport({},{}) = false (invalid cell)", x, y);
+    //        return false;
+    //    }
 
     const CellB& cell = getCellAt(x, y);
 
     // Empty cells provide no support.
     if (cell.isEmpty()) {
-        spdlog::trace("hasStructuralSupport({},{}) = false (empty cell)", x, y);
         return false;
     }
 
     // Support conditions (in order of priority):
 
-    // 1. WALL material is always considered structural support.
+    // 1. WALL material is always considered structurally supported.
     if (cell.getMaterialType() == MaterialType::WALL) {
-        spdlog::trace("hasStructuralSupport({},{}) = true (WALL material)", x, y);
         return true;
     }
 
     // 2. Bottom edge of world (ground) provides support.
     if (y == world_.getHeight() - 1) {
-        spdlog::trace(
-            "hasStructuralSupport({},{}) = true (ground level, y={}, height={})",
-            x,
-            y,
-            y,
-            world_.getHeight());
         return true;
     }
 
@@ -185,8 +177,6 @@ bool WorldBSupportCalculator::hasStructuralSupport(uint32_t x, uint32_t y) const
     // METAL has density 7.8, so it acts as structural anchor.
     const MaterialProperties& props = getMaterialProperties(cell.getMaterialType());
     if (props.density > 5.0) {
-        spdlog::trace(
-            "hasStructuralSupport({},{}) = true (high density {:.1f})", x, y, props.density);
         return true;
     }
 
@@ -230,13 +220,6 @@ bool WorldBSupportCalculator::hasStructuralSupport(uint32_t x, uint32_t y) const
                 // Check for immediate structural support.
                 if (neighbor.getMaterialType() == MaterialType::WALL
                     || ny == static_cast<int>(world_.getHeight()) - 1) { // Ground level.
-
-                    spdlog::trace(
-                        "hasStructuralSupport({},{}) = true (found {} at distance {})",
-                        x,
-                        y,
-                        neighbor.getMaterialType() == MaterialType::WALL ? "WALL" : "GROUND",
-                        distance + 1);
                     return true;
                 }
 

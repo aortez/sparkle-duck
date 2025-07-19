@@ -78,7 +78,7 @@ private:
     lv_obj_t* hydrostatic_switch_ = nullptr;
     lv_obj_t* dynamic_switch_ = nullptr;
     lv_obj_t* diffusion_switch_ = nullptr;
-    
+
     // Slider references for UI sync after scenario changes.
     lv_obj_t* pressure_scale_slider_ = nullptr;
     lv_obj_t* pressure_scale_label_ = nullptr;
@@ -88,9 +88,9 @@ private:
     lv_obj_t* hydrostatic_strength_label_ = nullptr;
     lv_obj_t* dynamic_strength_slider_ = nullptr;
     lv_obj_t* dynamic_strength_label_ = nullptr;
-    lv_obj_t* gravity_button_ = nullptr;  // Gravity is a toggle button
+    lv_obj_t* gravity_button_ = nullptr; // Gravity is a toggle button
     lv_obj_t* gravity_label_ = nullptr;
-    lv_obj_t* timescale_label_ = nullptr;  // Value label for timescale slider
+    lv_obj_t* timescale_label_ = nullptr; // Value label for timescale slider
     lv_obj_t* elasticity_slider_ = nullptr;
     lv_obj_t* elasticity_label_ = nullptr;
     lv_obj_t* air_resistance_slider_ = nullptr;
@@ -209,5 +209,4 @@ private:
     // Scenario dropdown methods.
     void updateScenarioDropdown();
     static void onScenarioChanged(lv_event_t* e);
-
 };

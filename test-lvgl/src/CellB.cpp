@@ -750,33 +750,6 @@ void CellB::drawDebug(lv_obj_t* parent, uint32_t x, uint32_t y)
             lv_draw_rect(&layer, &rect_dsc, &coords);
         }
 
-        // Draw Center of Mass as yellow square.
-        if (com_.x != 0.0 || com_.y != 0.0) {
-            // Calculate center of mass pixel position.
-            int pixel_x = static_cast<int>((com_.x + 1.0) * (Cell::WIDTH - 1) / 2.0);
-            int pixel_y = static_cast<int>((com_.y + 1.0) * (Cell::HEIGHT - 1) / 2.0);
-
-            // Draw small square centered at COM position.
-            const int square_size = 6; // Size of the COM indicator square.
-            const int half_size = square_size / 2;
-
-            lv_draw_rect_dsc_t com_rect_dsc;
-            lv_draw_rect_dsc_init(&com_rect_dsc);
-            com_rect_dsc.bg_color = lv_color_hex(0xFFFF00); // Bright yellow.
-            com_rect_dsc.bg_opa = LV_OPA_COVER;
-            com_rect_dsc.border_color = lv_color_hex(0xCC9900); // Darker yellow border.
-            com_rect_dsc.border_opa = LV_OPA_COVER;
-            com_rect_dsc.border_width = 1;
-            com_rect_dsc.radius = 0; // Sharp corners for square.
-
-            lv_area_t com_coords = { pixel_x - half_size,
-                                     pixel_y - half_size,
-                                     pixel_x + half_size - 1,
-                                     pixel_y + half_size - 1 };
-
-            lv_draw_rect(&layer, &com_rect_dsc, &com_coords);
-        }
-
         // Draw velocity vector as green line starting from COM position.
         if (velocity_.mag() > 0.01) {
             // Calculate COM pixel position (same as COM indicator calculation).
@@ -923,24 +896,18 @@ void CellB::drawDebug(lv_obj_t* parent, uint32_t x, uint32_t y)
 
         // Draw pressure gradient vector as magenta line.
         if (pressure_gradient_.magnitude() > 0.001) {
-            // Calculate center position.
             int center_x = Cell::WIDTH / 2;
             int center_y = Cell::HEIGHT / 2;
 
-            // Scale factor for visualization.
             const double GRADIENT_SCALE = 30.0;
 
-            // Calculate end point of gradient vector (reversed to show flow direction).
             int end_x = center_x + static_cast<int>(pressure_gradient_.x * GRADIENT_SCALE);
             int end_y = center_y + static_cast<int>(pressure_gradient_.y * GRADIENT_SCALE);
-            //            int end_x = center_x - static_cast<int>(pressure_gradient_.x *
-            //            GRADIENT_SCALE); int end_y = center_y -
-            //            static_cast<int>(pressure_gradient_.y * GRADIENT_SCALE);
 
             // Draw gradient line.
             lv_draw_line_dsc_t gradient_line_dsc;
             lv_draw_line_dsc_init(&gradient_line_dsc);
-            gradient_line_dsc.color = lv_color_hex(0xFF0080); // Magenta for pressure gradient.
+            gradient_line_dsc.color = lv_color_hex(0xFF0080); // Magenta.
             gradient_line_dsc.width = 3;
             gradient_line_dsc.opa = LV_OPA_COVER;
             gradient_line_dsc.p1.x = center_x;
@@ -948,27 +915,33 @@ void CellB::drawDebug(lv_obj_t* parent, uint32_t x, uint32_t y)
             gradient_line_dsc.p2.x = end_x;
             gradient_line_dsc.p2.y = end_y;
             lv_draw_line(&layer, &gradient_line_dsc);
+        }
 
-            // Add arrowhead for gradient direction.
-            if (pressure_gradient_.magnitude() > 0.01) {
-                double angle = atan2(-pressure_gradient_.y, -pressure_gradient_.x);
-                int arrow_len = 6;
+        // Draw Center of Mass as yellow square.
+        {
+            // Calculate center of mass pixel position.
+            int pixel_x = static_cast<int>((com_.x + 1.0) * (Cell::WIDTH - 1) / 2.0);
+            int pixel_y = static_cast<int>((com_.y + 1.0) * (Cell::HEIGHT - 1) / 2.0);
 
-                lv_draw_line_dsc_t arrow_dsc = gradient_line_dsc;
-                arrow_dsc.width = 2;
+            // Draw small square centered at COM position.
+            const int square_size = 6; // Size of the COM indicator square.
+            const int half_size = square_size / 2;
 
-                // Left arrowhead line.
-                arrow_dsc.p1.x = end_x;
-                arrow_dsc.p1.y = end_y;
-                arrow_dsc.p2.x = end_x + arrow_len * cos(angle - M_PI / 6);
-                arrow_dsc.p2.y = end_y + arrow_len * sin(angle - M_PI / 6);
-                lv_draw_line(&layer, &arrow_dsc);
+            lv_draw_rect_dsc_t com_rect_dsc;
+            lv_draw_rect_dsc_init(&com_rect_dsc);
+            com_rect_dsc.bg_color = lv_color_hex(0xFFFF00); // Bright yellow.
+            com_rect_dsc.bg_opa = LV_OPA_COVER;
+            com_rect_dsc.border_color = lv_color_hex(0xCC9900); // Darker yellow border.
+            com_rect_dsc.border_opa = LV_OPA_COVER;
+            com_rect_dsc.border_width = 1;
+            com_rect_dsc.radius = 0; // Sharp corners for square.
 
-                // Right arrowhead line.
-                arrow_dsc.p2.x = end_x + arrow_len * cos(angle + M_PI / 6);
-                arrow_dsc.p2.y = end_y + arrow_len * sin(angle + M_PI / 6);
-                lv_draw_line(&layer, &arrow_dsc);
-            }
+            lv_area_t com_coords = { pixel_x - half_size,
+                                     pixel_y - half_size,
+                                     pixel_x + half_size - 1,
+                                     pixel_y + half_size - 1 };
+
+            lv_draw_rect(&layer, &com_rect_dsc, &com_coords);
         }
     }
 

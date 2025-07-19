@@ -4,9 +4,65 @@
 #include "../MaterialType.h"
 #include "../Cell.h"
 #include <spdlog/spdlog.h>
+#include <spdlog/fmt/fmt.h>
+#include <sstream>
 
 class PressureClassicFlowTest : public VisualTestBase {
 protected:
+    // Store world state snapshots for debugging.
+    std::vector<std::string> worldStateHistory;
+    
+    // Capture current world state to a string.
+    std::string captureWorldState(int timestep) {
+        if (!world) return "";
+        
+        std::stringstream ss;
+        ss << "=== Timestep " << timestep << " ===\n";
+        
+        // Add ASCII representation.
+        ss << world->toAsciiDiagram() << "\n";
+        
+        // Add detailed cell information.
+        ss << "Detailed Cell Information:\n";
+        for (uint32_t y = 0; y < world->getHeight(); y++) {
+            for (uint32_t x = 0; x < world->getWidth(); x++) {
+                const CellB& cell = world->at(x, y);
+                if (cell.getFillRatio() > 0.001) {  // Only log cells with meaningful content.
+                    // Log walls more concisely.
+                    if (cell.getMaterialType() == MaterialType::WALL) {
+                        ss << fmt::format("  Cell({},{}) - WALL\n", x, y);
+                    } else {
+                        Vector2d gradient = cell.getPressureGradient();
+                        ss << fmt::format("  Cell({},{}) - Material: {}, Fill: {:.6f}, "
+                                         "Velocity: ({:.3f},{:.3f}), COM: ({:.3f},{:.3f}), "
+                                         "HydroP: {:.6f}, DynP: {:.6f}, PGrad: ({:.6f},{:.6f})\n",
+                                         x, y, 
+                                         getMaterialName(cell.getMaterialType()),
+                                         cell.getFillRatio(),
+                                         cell.getVelocity().x, cell.getVelocity().y,
+                                         cell.getCOM().x, cell.getCOM().y,
+                                         cell.getHydrostaticPressure(),
+                                         cell.getDynamicPressure(),
+                                         gradient.x, gradient.y);
+                    }
+                }
+            }
+        }
+        return ss.str();
+    }
+    
+    // Helper function to log world state on test failure.
+    void logFailureState(const std::string& failure_reason) {
+        spdlog::error("TEST FAILURE: {}", failure_reason);
+        spdlog::info("=== WORLD STATE HISTORY AT TEST FAILURE ===");
+        
+        // Log the last 3 timesteps (or fewer if less are available).
+        size_t startIdx = worldStateHistory.size() > 3 ? worldStateHistory.size() - 3 : 0;
+        for (size_t i = startIdx; i < worldStateHistory.size(); i++) {
+            spdlog::info("{}", worldStateHistory[i]);
+        }
+    }
+    
     void SetUp() override {
         VisualTestBase::SetUp();
         
@@ -42,6 +98,148 @@ protected:
     std::unique_ptr<WorldB> world;
 };
 
+TEST_F(PressureClassicFlowTest, GradientDirectionHorizontal) {
+    runRestartableTest([this]() {
+
+    	const int WIDTH = 2;
+        const int HEIGHT = 1;
+        world = createWorldB(WIDTH, HEIGHT);
+
+        world->setDynamicPressureEnabled(false);
+        world->setHydrostaticPressureEnabled(true);
+        world->setPressureScale(1.0);
+        world->setPressureDiffusionEnabled(true);
+        world->setWallsEnabled(false);
+        world->setAddParticlesEnabled(false);
+        world->setGravity(9.81);
+
+        const std::string testTitle = "Gradient direction - 2x1 world, pressure on left cell";
+        spdlog::info("[TEST] " + testTitle);
+
+        // Setup world: left cell filled with water, right cell empty.
+        world->addMaterialAtCell(0, 0, MaterialType::WATER, 1.0);
+        spdlog::info("Setup: Left cell (0,0) filled with water, right cell (1,0) empty");
+
+        showInitialStateWithStep(world.get(), testTitle);
+
+        // Apply pressure to the left cell.
+        world->at(0, 0).setPressure(100.0);
+        spdlog::info("Applied pressure of 100.0 to left cell (0,0)");
+
+        runSimulationLoop(2, [this](int step) {
+            logWorldStateAscii(world.get(), "Step: " + std::to_string(step));
+            logWorldState(world.get(), "Step: " + std::to_string(step));
+
+            // Verify forces and examine pressure gradient.
+            const auto& leftCell = world->at(0, 0);
+            const auto& rightCell = world->at(1, 0);
+            
+            spdlog::info("Pressure values - Left cell: {:.2f}, Right cell: {:.2f}", 
+                        leftCell.getPressure(), rightCell.getPressure());
+            
+            // Calculate pressure gradient (positive x direction).
+            double pressure_gradient_x = rightCell.getPressure() - leftCell.getPressure();
+            spdlog::info("Pressure gradient (left to right): {:.2f}", pressure_gradient_x);
+            
+            // Get forces on each cell.
+            Vector2d leftForce = leftCell.getPendingForce();
+            Vector2d rightForce = rightCell.getPendingForce();
+            
+            spdlog::info("Forces - Left cell: ({:.4f}, {:.4f}), Right cell: ({:.4f}, {:.4f})",
+                        leftForce.x, leftForce.y, rightForce.x, rightForce.y);
+            
+            // Expected: negative gradient (high to low pressure) should create positive force on left cell.
+            spdlog::info("Analysis: Pressure gradient is {}, expecting force on water to point {}",
+                        pressure_gradient_x < 0 ? "negative (high to low)" : "positive (low to high)",
+                        pressure_gradient_x < 0 ? "right (+x)" : "left (-x)");
+
+        }, "Pressure gradient examination");
+
+        // Final verification of pressure gradient behavior.
+        // After physics updates, verify the water has gained rightward velocity from pressure.
+        const auto& waterCell = world->at(0, 0);
+        Vector2d velocity = waterCell.getVelocity();
+        
+        // Verify velocity is positive (rightward) and reasonable.
+        EXPECT_GT(velocity.x, 0.5) << "Water should have significant rightward velocity from pressure gradient";
+        EXPECT_LT(velocity.x, 5.0) << "Velocity should be reasonable, not extreme";
+        
+        // Y velocity should be small (mainly from gravity).
+        EXPECT_GT(velocity.y, 0) << "Y velocity should be small";
+        EXPECT_LT(velocity.y, 0.5) << "Y velocity should be small";
+        
+        // Verify pressure has decreased due to diffusion.
+        double finalPressure = waterCell.getPressure();
+        EXPECT_LT(finalPressure, 100.0) << "Pressure should decrease due to diffusion";
+        EXPECT_GT(finalPressure, 90.0) << "Pressure shouldn't drop too drastically in 2 steps";
+        
+        spdlog::info("Verification passed - Water velocity: ({:.3f}, {:.3f}), Final pressure: {:.2f}", 
+                    velocity.x, velocity.y, finalPressure);
+
+        if (visual_mode_) {
+            updateDisplay(world.get(), "Test complete! Press Start to restart or Next to continue");
+            waitForRestartOrNext();
+        }
+    });
+}
+
+TEST_F(PressureClassicFlowTest, GradientWithWallBoundary) {
+    runRestartableTest([this]() {
+        
+        // Create a 2x2 world to observe wall-pressure interactions.
+        const int WIDTH = 2;
+        const int HEIGHT = 2;
+        world = createWorldB(WIDTH, HEIGHT);
+        
+        world->setDynamicPressureEnabled(false);
+        world->setHydrostaticPressureEnabled(true);
+        world->setPressureScale(1.0);
+        world->setPressureDiffusionEnabled(true);
+        world->setWallsEnabled(false);
+        world->setAddParticlesEnabled(false);
+        world->setGravity(9.81);
+        
+        const std::string testTitle = "Gradient with wall boundary - 2x2 world";
+        spdlog::info("[TEST] " + testTitle);
+        
+        // Setup: Top left is wall, bottom two cells are water, top right is empty.
+        world->addMaterialAtCell(0, 0, MaterialType::WALL, 1.0);   // Top left.
+        world->addMaterialAtCell(0, 1, MaterialType::WATER, 1.0);  // Bottom left.
+        world->addMaterialAtCell(1, 1, MaterialType::WATER, 1.0);  // Bottom right.
+        // Cell (1,0) remains empty (top right).
+        
+        spdlog::info("Setup: Top-left=WALL, Bottom-left=WATER, Bottom-right=WATER, Top-right=empty");
+        
+        showInitialStateWithStep(world.get(), testTitle);
+        
+        // Apply pressure to bottom left water cell.
+        world->at(0, 1).setPressure(100.0);
+        spdlog::info("Applied pressure of 100.0 to bottom left water cell (0,1)");
+        
+        // Run for 3 timesteps to observe behavior.
+        runSimulationLoop(3, [this](int step) {
+            logWorldStateAscii(world.get(), "Step: " + std::to_string(step));
+            
+            // Log pressure values for all cells.
+            spdlog::info("Step {} pressure values:", step);
+            for (int y = 0; y < 2; y++) {
+                for (int x = 0; x < 2; x++) {
+                    const auto& cell = world->at(x, y);
+                    spdlog::info("  Cell({},{}) [{}]: pressure={:.2f}", 
+                                x, y, 
+                                getMaterialName(cell.getMaterialType()),
+                                cell.getPressure());
+                }
+            }
+            
+        }, "Observing pressure gradient with wall boundary");
+        
+        if (visual_mode_) {
+            updateDisplay(world.get(), "Test complete! Press Start to restart or Next to continue");
+            waitForRestartOrNext();
+        }
+    });
+}
 
 TEST_F(PressureClassicFlowTest, DamBreak) {
     // Purpose: Classic fluid dynamics scenario testing horizontal pressure-driven flow.
@@ -56,6 +254,9 @@ TEST_F(PressureClassicFlowTest, DamBreak) {
     
     runRestartableTest([this]() {
         spdlog::info("[TEST] Dam Break - Classic fluid dynamics scenario");
+        
+        // Clear world state history for this test.
+        worldStateHistory.clear();
         
         // Create water column on left side - full height.
         for (int y = 0; y < 6; y++) {
@@ -80,6 +281,9 @@ TEST_F(PressureClassicFlowTest, DamBreak) {
             if (issue_detected) {
                 return;
             }
+            
+            // Capture world state for debugging.
+            worldStateHistory.push_back(captureWorldState(step));
 
             // Log full world state using existing functions.
             logWorldStateAscii(world.get(), "Step: " + std::to_string(step));
@@ -104,8 +308,6 @@ TEST_F(PressureClassicFlowTest, DamBreak) {
                                 spdlog::error("  COM: ({:.4f}, {:.4f}), expected near (0, 0)", com.x, com.y);
                                 spdlog::error("  Fill ratio: {:.4f}", cell.getFillRatio());
                                 spdlog::error("  Velocity: ({:.4f}, {:.4f})", vel.x, vel.y);
-                                
-                                spdlog::error("TEST WILL FAIL: Off-center COM at step {} in cell ({},{})", step, x, y);
                                 issue_detected = true;
                                 return;  // Skip to end of test.
                             }
@@ -116,8 +318,6 @@ TEST_F(PressureClassicFlowTest, DamBreak) {
                                 spdlog::error("  Velocity: ({:.4f}, {:.4f}), expected < 0.1", vel.x, vel.y);
                                 spdlog::error("  COM: ({:.4f}, {:.4f})", com.x, com.y);
                                 spdlog::error("  Fill ratio: {:.4f}", cell.getFillRatio());
-                                
-                                spdlog::error("TEST WILL FAIL: Unexpected velocity at step {} in cell ({},{})", step, x, y);
                                 issue_detected = true;
                                 return;  // Skip to end of test.
                             }
@@ -211,7 +411,8 @@ TEST_F(PressureClassicFlowTest, DamBreak) {
         
         // Check if any issues were detected during the test.
         if (issue_detected) {
-            spdlog::error("Test completed with physics issues detected");
+            logFailureState("Physics issues detected (off-center COM or unexpected velocity)");
+            
             if (visual_mode_) {
                 updateDisplay(world.get(), "TEST FAILED: Physics issues detected (see logs)");
                 // Give user time to see the error before failing.
@@ -238,6 +439,8 @@ TEST_F(PressureClassicFlowTest, pressureEqualsGravity) {
     // Tests: Pressure-gravity equilibrium in static fluid.
     
     runRestartableTest([this]() {
+        // Clear world state history for this test.
+        worldStateHistory.clear();
         
         // Create smaller 3x5 world for this test.
 		const int WIDTH = 3;
@@ -278,8 +481,11 @@ TEST_F(PressureClassicFlowTest, pressureEqualsGravity) {
         bool issue_detected = false;
         
         // Run for 10 timesteps and check each one.
-        runSimulationLoop(10, [this, &issue_detected](int step) {
+        runSimulationLoop(10, [this, &issue_detected, WIDTH, HEIGHT](int step) {
             spdlog::info("=== Timestep {} ===", step);
+            
+            // Capture world state for debugging.
+            worldStateHistory.push_back(captureWorldState(step));
             
             // Log world state after physics update.
             logWorldStateAscii(world.get(), fmt::format("After timestep {}", step));
@@ -322,7 +528,7 @@ TEST_F(PressureClassicFlowTest, pressureEqualsGravity) {
         }, "Pressure-gravity equilibrium test", [&issue_detected]() { return issue_detected; });
         
         if (issue_detected) {
-            spdlog::error("Test failed: Water showed upward movement in blocked system");
+            logFailureState("Water showed upward movement in blocked system");
             FAIL() << "Water should not move upward when blocked by walls";
         }
         
@@ -344,14 +550,17 @@ TEST_F(PressureClassicFlowTest, WaterEqualization) {
     // Tests: Pressure-driven flow and hydrostatic equalization in simple geometry.
     
     runRestartableTest([this]() {
+        // Clear world state history for this test.
+        worldStateHistory.clear();
+        
         // Create 3x6 world for this test.
         const int WIDTH = 3;
         const int HEIGHT = 6;
         world = createWorldB(WIDTH, HEIGHT);
         
         // Enable pressure systems with same settings as DamBreak.
-        world->setDynamicPressureEnabled(true);
-        world->setHydrostaticPressureEnabled(false);
+        world->setDynamicPressureEnabled(false);
+        world->setHydrostaticPressureEnabled(true);
         world->setPressureScale(1.0);
         world->setPressureDiffusionEnabled(true);
         world->setWallsEnabled(false);
@@ -386,7 +595,9 @@ TEST_F(PressureClassicFlowTest, WaterEqualization) {
         int final_right_height = 0;
         
         // Run simulation with similar structure to DamBreak.
-        runSimulationLoop(300, [this, &dam_broken, &final_left_height, &final_right_height, WIDTH, HEIGHT](int step) {
+        runSimulationLoop(200, [this, &dam_broken, &final_left_height, &final_right_height, WIDTH, HEIGHT](int step) {
+            // Capture world state for debugging.
+            worldStateHistory.push_back(captureWorldState(step));
             
             // Log world state.
             logWorldStateAscii(world.get(), "Step: " + std::to_string(step));
@@ -511,9 +722,17 @@ TEST_F(PressureClassicFlowTest, WaterEqualization) {
         }
         
         // Verify water flowed to right side.
+        if (final_right_height <= 0) {
+            logFailureState("Water did not flow to right column");
+        }
         EXPECT_GT(final_right_height, 0) << "Water should flow to right column";
         
         // Check if heights are somewhat equalized (within 2 cells).
+        if (std::abs(final_left_height - final_right_height) > 2) {
+            logFailureState(fmt::format("Water heights not equalized - Left: {}, Right: {}, Difference: {}", 
+                                       final_left_height, final_right_height, 
+                                       std::abs(final_left_height - final_right_height)));
+        }
         EXPECT_LE(std::abs(final_left_height - final_right_height), 2) 
             << "Water heights should be approximately equal";
         
@@ -523,6 +742,76 @@ TEST_F(PressureClassicFlowTest, WaterEqualization) {
         }
     });
 }
+
+TEST_F(PressureClassicFlowTest, WaterEqualization2) {
+    runRestartableTest([this]() {
+
+        const int WIDTH = 3;
+        const int HEIGHT = 6;
+        world = createWorldB(WIDTH, HEIGHT);
+
+        world->setDynamicPressureEnabled(false);
+        world->setHydrostaticPressureEnabled(true);
+        world->setPressureScale(1.0);
+        world->setPressureDiffusionEnabled(true);
+        world->setWallsEnabled(false);
+        world->setAddParticlesEnabled(false);
+        world->setGravity(9.81);
+
+        spdlog::info("[TEST] Water Equalization - 3x6 world with center wall");
+
+        // A floating column of water
+        for (int y = 1; y < HEIGHT - 1; y++) {
+            world->addMaterialAtCell(0, y, MaterialType::WATER, 1.0);
+        }
+
+        world->addMaterialAtCell(0, 5, MaterialType::AIR, 0.0);
+
+        // Create wall in center column (x=1).
+        for (int y = 0; y < HEIGHT; y++) {
+            world->addMaterialAtCell(1, y, MaterialType::WALL, 1.0);
+        }
+
+        // Rightmost column remains empty (air).
+
+        showInitialStateWithStep(world.get(), "Water equalization test - water held by center wall");
+
+        bool dam_broken = false;
+        int final_left_height = 0;
+        int final_right_height = 0;
+
+        runSimulationLoop(5, [this, &dam_broken, &final_left_height, &final_right_height, WIDTH, HEIGHT](int step) {
+
+            // Log world state.
+            logWorldStateAscii(world.get(), "Step: " + std::to_string(step));
+            logWorldState(world.get(), "Step: " + std::to_string(step));
+
+        }, "Water equalization");
+
+        // Debug final state.
+        spdlog::info("=== Final water distribution ===");
+        for (int y = 0; y < HEIGHT; y++) {
+            std::string row_info = "";
+            for (int x = 0; x < WIDTH; x++) {
+                if (world->at(x, y).getMaterialType() == MaterialType::WATER &&
+                    world->at(x, y).getFillRatio() > 0.01) {
+                    row_info += "W ";
+                } else if (world->at(x, y).getMaterialType() == MaterialType::WALL) {
+                    row_info += "# ";
+                } else {
+                    row_info += ". ";
+                }
+            }
+            spdlog::info("Row {}: {}", y, row_info);
+        }
+
+        if (visual_mode_) {
+            updateDisplay(world.get(), "Test complete! Press Start to restart or Next to continue");
+            waitForRestartOrNext();
+        }
+    });
+}
+
 
 TEST_F(PressureClassicFlowTest, VenturiConstriction) {
     // Purpose: Tests pressure behavior at flow constrictions. In real fluids, velocity increases.

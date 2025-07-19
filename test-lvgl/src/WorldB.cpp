@@ -140,6 +140,7 @@ void WorldB::advanceTime(double deltaTimeSeconds)
     // Process any blocked transfers that were queued during processMaterialMoves.
     if (dynamic_pressure_enabled_) {
         pressure_calculator_.processBlockedTransfers(pressure_calculator_.blocked_transfers_);
+        pressure_calculator_.blocked_transfers_.clear();
     }
 
     // Apply pressure diffusion before decay.
@@ -148,7 +149,7 @@ void WorldB::advanceTime(double deltaTimeSeconds)
     }
 
     // Apply pressure decay after material moves.
-	pressure_calculator_.applyPressureDecay(scaledDeltaTime);
+    pressure_calculator_.applyPressureDecay(scaledDeltaTime);
 
     timestep_++;
 }
@@ -769,15 +770,13 @@ void WorldB::applyPressureForces(double deltaTime)
             }
 
             // Calculate pressure gradient to determine force direction.
+            // The gradient is calculated as (center_pressure - neighbor_pressure) * direction,
+            // which points AWAY from high pressure regions (toward increasing pressure).
             Vector2d gradient = pressure_calculator_.calculatePressureGradient(x, y);
 
-            // Net gradient is pressure gradient.
-            Vector2d net_gradient = gradient;
-
             // Only apply force if system is out of equilibrium.
-            if (net_gradient.magnitude() > 0.001) {
-                // Force points in the direction of the gradient (from high to low pressure).
-                Vector2d pressure_force = net_gradient * pressure_scale_ * deltaTime;
+            if (gradient.magnitude() > 0.001) {
+                Vector2d pressure_force = gradient * pressure_scale_ * deltaTime;
 
                 // Add to pending forces instead of directly modifying velocity.
                 cell.addPendingForce(pressure_force);
