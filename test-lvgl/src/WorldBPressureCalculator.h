@@ -153,7 +153,7 @@ private:
     WorldB& world_ref_; // Non-const reference for modifying cells.
 
     // Configuration for pressure gradient calculation.
-    PressureGradientDirections gradient_directions_ = PressureGradientDirections::Eight;
+    PressureGradientDirections gradient_directions_ = PressureGradientDirections::Four;
 
     // Constants for pressure-driven flow.
     static constexpr double PRESSURE_FLOW_RATE = 1.0;     // Flow rate multiplier.

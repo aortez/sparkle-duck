@@ -275,34 +275,42 @@ Vector2d WorldBPressureCalculator::calculatePressureGradient(uint32_t x, uint32_
             int nx = static_cast<int>(x) + dx;
             int ny = static_cast<int>(y) + dy;
 
+            double neighbor_pressure;
             if (isValidCell(nx, ny)) {
                 const CellB& neighbor = world_ref_.at(nx, ny);
 
-                // Skip walls - they block pressure gradient flow.
+                // Handle walls as reflecting boundaries.
                 if (neighbor.isWall()) {
-                    continue;
+                    // Wall cells reflect pressure - use same pressure as center.
+                    neighbor_pressure = center_pressure;
+                } else if (neighbor.isEmpty()) {
+                    // Empty cells act as pressure sinks.
+                    neighbor_pressure = 0.0;
+                } else {
+                    // Normal cells use their actual pressure.
+                    neighbor_pressure = neighbor.getPressure();
                 }
-
-                // Empty cells act as pressure sinks.
-                double neighbor_pressure = neighbor.isEmpty() ? 0.0 : neighbor.getPressure();
-
-                double pressure_diff = center_pressure - neighbor_pressure;
-
-                // Accumulate gradient components.
-                gradient.x += pressure_diff * dx;
-                gradient.y += pressure_diff * dy;
-                valid_neighbors++;
-
-                spdlog::trace(
-                    "  Neighbor ({},{}) - pressure={:.6f}, diff={:.6f}, "
-                    "contribution=({:.6f},{:.6f})",
-                    nx,
-                    ny,
-                    neighbor_pressure,
-                    pressure_diff,
-                    pressure_diff * dx,
-                    pressure_diff * dy);
+            } else {
+                // Out-of-bounds: treat as reflecting boundary (like walls).
+                neighbor_pressure = center_pressure;
             }
+
+            double pressure_diff = center_pressure - neighbor_pressure;
+
+            // Accumulate gradient components.
+            gradient.x += pressure_diff * dx;
+            gradient.y += pressure_diff * dy;
+            valid_neighbors++;
+
+            spdlog::trace(
+                "  Neighbor ({},{}) - pressure={:.6f}, diff={:.6f}, "
+                "contribution=({:.6f},{:.6f})",
+                nx,
+                ny,
+                neighbor_pressure,
+                pressure_diff,
+                pressure_diff * dx,
+                pressure_diff * dy);
         }
     }
     else { // PressureGradientDirections::Eight
@@ -315,40 +323,48 @@ Vector2d WorldBPressureCalculator::calculatePressureGradient(uint32_t x, uint32_
             int nx = static_cast<int>(x) + dx[i];
             int ny = static_cast<int>(y) + dy[i];
 
+            double neighbor_pressure;
             if (isValidCell(nx, ny)) {
                 const CellB& neighbor = world_ref_.at(nx, ny);
 
-                // Skip walls - they block pressure gradient flow.
+                // Handle walls as reflecting boundaries.
                 if (neighbor.isWall()) {
-                    continue;
+                    // Wall cells reflect pressure - use same pressure as center.
+                    neighbor_pressure = center_pressure;
+                } else if (neighbor.isEmpty()) {
+                    // Empty cells act as pressure sinks.
+                    neighbor_pressure = 0.0;
+                } else {
+                    // Normal cells use their actual pressure.
+                    neighbor_pressure = neighbor.getPressure();
                 }
-
-                // Empty cells act as pressure sinks.
-                double neighbor_pressure = neighbor.isEmpty() ? 0.0 : neighbor.getPressure();
-
-                double pressure_diff = center_pressure - neighbor_pressure;
-
-                // For diagonal neighbors, scale contribution by 1/sqrt(2).
-                double scale = 1.0;
-                if (dx[i] != 0 && dy[i] != 0) {
-                    scale = 0.707107; // 1/sqrt(2)
-                }
-
-                // Accumulate gradient components.
-                gradient.x += pressure_diff * dx[i] * scale;
-                gradient.y += pressure_diff * dy[i] * scale;
-                valid_neighbors++;
-
-                spdlog::trace(
-                    "  Neighbor ({},{}) - pressure={:.6f}, diff={:.6f}, "
-                    "contribution=({:.6f},{:.6f})",
-                    nx,
-                    ny,
-                    neighbor_pressure,
-                    pressure_diff,
-                    pressure_diff * dx[i] * scale,
-                    pressure_diff * dy[i] * scale);
+            } else {
+                // Out-of-bounds: treat as reflecting boundary (like walls).
+                neighbor_pressure = center_pressure;
             }
+
+            double pressure_diff = center_pressure - neighbor_pressure;
+
+            // For diagonal neighbors, scale contribution by 1/sqrt(2).
+            double scale = 1.0;
+            if (dx[i] != 0 && dy[i] != 0) {
+                scale = 0.707107; // 1/sqrt(2)
+            }
+
+            // Accumulate gradient components.
+            gradient.x += pressure_diff * dx[i] * scale;
+            gradient.y += pressure_diff * dy[i] * scale;
+            valid_neighbors++;
+
+            spdlog::trace(
+                "  Neighbor ({},{}) - pressure={:.6f}, diff={:.6f}, "
+                "contribution=({:.6f},{:.6f})",
+                nx,
+                ny,
+                neighbor_pressure,
+                pressure_diff,
+                pressure_diff * dx[i] * scale,
+                pressure_diff * dy[i] * scale);
         }
     }
 
@@ -640,29 +656,32 @@ void WorldBPressureCalculator::applyPressureDiffusion(double deltaTime)
                     int nx = static_cast<int>(x) + dx[i];
                     int ny = static_cast<int>(y) + dy[i];
 
-                    // Skip out-of-bounds.
+                    double neighbor_pressure;
+                    double neighbor_diffusion;
+
+                    // Handle out-of-bounds with ghost cell method.
                     if (nx < 0 || nx >= static_cast<int>(width) || ny < 0
                         || ny >= static_cast<int>(height)) {
-                        continue;
+                        // Ghost cell: same pressure as current cell (no-flux boundary).
+                        neighbor_pressure = current_pressure;
+                        neighbor_diffusion = diffusion_rate;  // Same material properties.
+                    } else {
+                        const CellB& neighbor = world_ref_.at(nx, ny);
+
+                        // Walls block pressure diffusion.
+                        if (neighbor.getMaterialType() == MaterialType::WALL) {
+                            continue;
+                        }
+
+                        // Empty cells act as pressure sinks.
+                        neighbor_pressure = neighbor.isEmpty() ? 0.0 : neighbor.getPressure();
+                        neighbor_diffusion = neighbor.isEmpty()
+                            ? 1.0
+                            : getMaterialProperties(neighbor.getMaterialType()).pressure_diffusion;
                     }
-
-                    const CellB& neighbor = world_ref_.at(nx, ny);
-
-                    // Walls block pressure diffusion.
-                    if (neighbor.getMaterialType() == MaterialType::WALL) {
-                        continue;
-                    }
-
-                    // Empty cells act as pressure sinks.
-                    double neighbor_pressure = neighbor.isEmpty() ? 0.0 : neighbor.getPressure();
 
                     // Pressure flows from high to low.
                     double pressure_diff = neighbor_pressure - current_pressure;
-
-                    // Use harmonic mean of diffusion coefficients for interface.
-                    double neighbor_diffusion = neighbor.isEmpty()
-                        ? 1.0
-                        : getMaterialProperties(neighbor.getMaterialType()).pressure_diffusion;
 
                     // Harmonic mean handles material boundaries correctly.
                     double interface_diffusion = 2.0 * diffusion_rate * neighbor_diffusion
@@ -687,28 +706,31 @@ void WorldBPressureCalculator::applyPressureDiffusion(double deltaTime)
                     int nx = static_cast<int>(x) + dx[i];
                     int ny = static_cast<int>(y) + dy[i];
 
-                    // Skip out-of-bounds.
+                    double neighbor_pressure;
+                    double neighbor_diffusion;
+
+                    // Handle out-of-bounds with ghost cell method.
                     if (nx < 0 || nx >= static_cast<int>(width) || ny < 0
                         || ny >= static_cast<int>(height)) {
-                        continue;
+                        // Ghost cell: same pressure as current cell (no-flux boundary).
+                        neighbor_pressure = current_pressure;
+                        neighbor_diffusion = diffusion_rate;  // Same material properties.
+                    } else {
+                        const CellB& neighbor = world_ref_.at(nx, ny);
+
+                        // Walls block pressure diffusion.
+                        if (neighbor.getMaterialType() == MaterialType::WALL) {
+                            continue;
+                        }
+
+                        // Empty cells act as pressure sinks.
+                        neighbor_pressure = neighbor.isEmpty() ? 0.0 : neighbor.getPressure();
+                        neighbor_diffusion = neighbor.isEmpty()
+                            ? 1.0
+                            : getMaterialProperties(neighbor.getMaterialType()).pressure_diffusion;
                     }
-
-                    const CellB& neighbor = world_ref_.at(nx, ny);
-
-                    // Walls block pressure diffusion.
-                    if (neighbor.getMaterialType() == MaterialType::WALL) {
-                        continue;
-                    }
-
-                    // Empty cells act as pressure sinks.
-                    double neighbor_pressure = neighbor.isEmpty() ? 0.0 : neighbor.getPressure();
 
                     double pressure_diff = neighbor_pressure - current_pressure;
-
-                    // Use harmonic mean of diffusion coefficients for interface.
-                    double neighbor_diffusion = neighbor.isEmpty()
-                        ? 1.0
-                        : getMaterialProperties(neighbor.getMaterialType()).pressure_diffusion;
 
                     // Harmonic mean handles material boundaries correctly.
                     double interface_diffusion = 2.0 * diffusion_rate * neighbor_diffusion
