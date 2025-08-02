@@ -635,7 +635,7 @@ void WorldBPressureCalculator::generateVirtualGravityTransfers(double deltaTime)
                 virtual_transfer.fromY = y;
                 virtual_transfer.toX = below_x;
                 virtual_transfer.toY = below_y;
-                virtual_transfer.transfer_amount = cell.getFillRatio(); // Small virtual amount.
+                virtual_transfer.transfer_amount = cell.getFillRatio();
                 virtual_transfer.velocity = gravity_velocity;
                 virtual_transfer.energy = virtual_energy;
 

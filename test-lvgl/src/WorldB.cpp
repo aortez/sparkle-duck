@@ -139,6 +139,10 @@ void WorldB::advanceTime(double deltaTimeSeconds)
 
     // Process any blocked transfers that were queued during processMaterialMoves.
     if (dynamic_pressure_enabled_) {
+        // Generate virtual gravity transfers to create pressure from gravity forces.
+        // This allows dynamic pressure to model hydrostatic-like behavior.
+        pressure_calculator_.generateVirtualGravityTransfers(scaledDeltaTime);
+
         pressure_calculator_.processBlockedTransfers(pressure_calculator_.blocked_transfers_);
         pressure_calculator_.blocked_transfers_.clear();
     }
