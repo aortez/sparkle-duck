@@ -862,14 +862,15 @@ void SimulatorUI::createSliders()
             .buildOrLog();
 
     // Cell size slider.
+    spdlog::info("Creating cell size slider - Cell::getSize() returns: {}", Cell::getSize());
     auto cell_size_builder =
         LVGLBuilder::slider(screen_)
             .position(SLIDER_COLUMN_X, 350)
             .size(CONTROL_WIDTH, 10)
             .range(10, 100)
-            .value(100)
+            .value(Cell::getSize()) // Use actual cell size instead of hardcoded 100.
             .label("Cell Size", 0, -20)
-            .valueLabel("%d", 110, -20)
+            .valueLabel("%.0f", 110, -20) // Use %.0f for double with no decimal places.
             .callback(cellSizeSliderEventCb, [this](lv_obj_t* value_label) -> void* {
                 return createCallbackData(value_label);
             });
@@ -1696,6 +1697,7 @@ void SimulatorUI::cellSizeSliderEventCb(lv_event_t* e)
     CallbackData* data = static_cast<CallbackData*>(lv_event_get_user_data(e));
     if (lv_event_get_code(e) == LV_EVENT_VALUE_CHANGED && data) {
         int32_t value = lv_slider_get_value(slider);
+        spdlog::info("Setting cell size to {}", value);
         Cell::setSize(value);
 
         // Recalculate grid dimensions based on new cell size.
@@ -1713,7 +1715,7 @@ void SimulatorUI::cellSizeSliderEventCb(lv_event_t* e)
 
         // Update the label.
         char buf[16];
-        snprintf(buf, sizeof(buf), "%d", value);
+        snprintf(buf, sizeof(buf), "%.0f", static_cast<double>(value));
         lv_label_set_text(data->associated_label, buf);
     }
 }
