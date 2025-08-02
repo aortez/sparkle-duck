@@ -257,7 +257,113 @@ Dynamic Pressure methods:
   - Different materials create natural pressure gradients
   - Diffusion rate affects how quickly pressure equalizes
   - Works with unified pressure system (hydrostatic + dynamic)
-  
+
+### Pressure Wave Reflection
+
+The pressure system implements proper wave reflection at rigid boundaries (walls) to model realistic pressure dynamics.
+
+**Problem**: Without reflection, pressure waves that reach walls simply dissipate, which is unphysical. In reality, pressure waves bounce off rigid boundaries.
+
+**Solution**: Track pressure flux attempting to flow into walls during diffusion, then reflect it back based on material properties.
+
+#### Reflection Mechanism
+
+When pressure diffuses through the grid, it naturally flows from high to low pressure regions. At wall boundaries:
+
+1. **No-Flux Boundary**: Walls are treated as having equal pressure to prevent artificial drainage
+2. **Potential Flux Tracking**: Calculate the pressure that "wants" to flow but can't due to the rigid boundary
+3. **Reflection Application**: This blocked flux is reflected back into the source cell
+
+```cpp
+// During pressure diffusion:
+if (neighbor.isWall()) {
+    // Walls as perfect reflectors - no gradient exists
+    // But calculate what flux WOULD flow based on diffusion rate
+    double potential_flux = current_pressure * interface_diffusion;
+    
+    // Track this blocked flux for reflection
+    wall_reflections[y][x].blocked_flux += potential_flux;
+    continue;  // Skip normal diffusion
+}
+
+// After diffusion, apply reflections:
+for (each cell with blocked flux) {
+    // Material-specific reflection coefficient
+    double reflection_coeff = calculateReflectionCoefficient(material_type);
+    
+    // Add reflected pressure back
+    new_pressure[cell] += blocked_flux * reflection_coeff * deltaTime;
+}
+```
+
+#### Physics Rationale
+
+This approach models walls as **pressure mirrors**:
+- Pressure waves hitting walls bounce back with intensity based on material elasticity
+- Energy is conserved (reflected pressure ≤ incident pressure)
+- Different materials reflect differently (water reflects more than sand)
+
+The reflection coefficient depends on:
+- **Material elasticity**: More elastic materials reflect more pressure
+- **Material density**: Lighter materials reflect pressure more readily
+- **Flux magnitude**: Very small pressure differences are damped to prevent noise
+
+This creates realistic behaviors like:
+- Pressure waves bouncing in confined spaces
+- Standing wave patterns in closed containers
+- Proper pressure buildup against rigid boundaries
+
+### Pressure Gradient Calculation at Boundaries
+
+The pressure gradient calculation determines the direction and magnitude of pressure-driven forces. Special handling is required at wall boundaries to create realistic flow patterns.
+
+#### Flow Redistribution Method
+
+When calculating pressure gradients near walls, the system uses a flow redistribution approach:
+
+1. **First Pass - Pressure Assessment**:
+   - Calculate pressure differences to all neighbors (including walls)
+   - Identify which directions are blocked by walls
+   - Track total pressure that would flow toward blocked directions
+
+2. **Second Pass - Redistribution**:
+   - For open directions: Apply direct pressure gradient
+   - Redistribute blocked pressure to available directions
+   - Weight redistribution by distance (diagonal directions use 1/√2)
+
+```cpp
+// Example: Cell with wall to the right
+// First pass identifies:
+//   - Left: open, pressure_diff = 0.2
+//   - Right: WALL, pressure_diff = 0.5 (blocked)
+//   - Up: open, pressure_diff = 0.1
+//   - Down: open, pressure_diff = 0.1
+//
+// Second pass redistributes:
+//   - Total blocked pressure = 0.5
+//   - Open directions = 3
+//   - Each open direction gets: 0.5 / 3 = 0.167 additional
+//
+// Final gradients:
+//   - Left: 0.2 + 0.167 = 0.367
+//   - Up: 0.1 + 0.167 = 0.267
+//   - Down: 0.1 + 0.167 = 0.267
+```
+
+#### Physical Rationale
+
+This approach models how fluid pressure naturally redistributes when encountering obstacles:
+- Pressure that cannot flow through walls increases flow in available directions
+- Creates realistic routing around obstacles
+- Prevents artificial pressure buildup at boundaries
+- Enables complex flow patterns through gaps and constrictions
+
+#### Implementation Notes
+
+- Uses 8-directional gradient calculation by default for smoother flow
+- Normalizes final gradient by total number of directions (not just open ones)
+- Prevents excessive forces by distributing blocked pressure evenly
+- Works with both hydrostatic and dynamic pressure components
 
 ## Force Combination Logic & Threshold System
 

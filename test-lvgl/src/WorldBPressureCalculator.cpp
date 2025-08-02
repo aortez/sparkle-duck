@@ -262,8 +262,11 @@ Vector2d WorldBPressureCalculator::calculatePressureGradient(uint32_t x, uint32_
         return Vector2d(0, 0);
     }
 
+    // First pass: Identify blocked and open directions.
     Vector2d gradient(0, 0);
-    int valid_neighbors = 0;
+    double total_blocked_pressure = 0.0;
+    int open_directions = 0;
+    int wall_directions = 0;
 
     if (gradient_directions_ == PressureGradientDirections::Four) {
         // Check all 4 cardinal neighbors.
@@ -271,46 +274,87 @@ Vector2d WorldBPressureCalculator::calculatePressureGradient(uint32_t x, uint32_
             { { -1, 0 }, { 1, 0 }, { 0, -1 }, { 0, 1 } }
         };
 
-        for (const auto& [dx, dy] : directions) {
+        // First pass: Calculate pressure differences and identify blocked directions.
+        std::array<double, 4> pressure_diffs = { 0, 0, 0, 0 };
+        std::array<bool, 4> is_blocked = { false, false, false, false };
+
+        for (size_t i = 0; i < directions.size(); ++i) {
+            const auto& [dx, dy] = directions[i];
             int nx = static_cast<int>(x) + dx;
             int ny = static_cast<int>(y) + dy;
 
             double neighbor_pressure;
+            bool is_wall = false;
+
             if (isValidCell(nx, ny)) {
                 const CellB& neighbor = world_ref_.at(nx, ny);
 
-                // Handle walls as reflecting boundaries.
                 if (neighbor.isWall()) {
-                    // Wall cells reflect pressure - use same pressure as center.
-                    neighbor_pressure = center_pressure;
-                } else if (neighbor.isEmpty()) {
+                    is_wall = true;
+                    wall_directions++;
+                    // Calculate pressure difference as if wall wasn't there.
+                    neighbor_pressure = 0.0;
+                }
+                else if (neighbor.isEmpty()) {
                     // Empty cells act as pressure sinks.
                     neighbor_pressure = 0.0;
-                } else {
+                    open_directions++;
+                }
+                else {
                     // Normal cells use their actual pressure.
                     neighbor_pressure = neighbor.getPressure();
+                    open_directions++;
                 }
-            } else {
-                // Out-of-bounds: treat as reflecting boundary (like walls).
-                neighbor_pressure = center_pressure;
+            }
+            else {
+                // Out-of-bounds: treat as wall.
+                is_wall = true;
+                wall_directions++;
+                neighbor_pressure = 0.0;
             }
 
-            double pressure_diff = center_pressure - neighbor_pressure;
+            pressure_diffs[i] = center_pressure - neighbor_pressure;
+            is_blocked[i] = is_wall;
 
-            // Accumulate gradient components.
-            gradient.x += pressure_diff * dx;
-            gradient.y += pressure_diff * dy;
-            valid_neighbors++;
+            if (is_wall) {
+                // Track blocked pressure that needs redistribution.
+                total_blocked_pressure += pressure_diffs[i];
+            }
 
             spdlog::trace(
-                "  Neighbor ({},{}) - pressure={:.6f}, diff={:.6f}, "
-                "contribution=({:.6f},{:.6f})",
+                "  Direction ({},{}) - neighbor at ({},{}) - pressure={:.6f}, diff={:.6f}, "
+                "blocked={}",
+                dx,
+                dy,
                 nx,
                 ny,
                 neighbor_pressure,
-                pressure_diff,
-                pressure_diff * dx,
-                pressure_diff * dy);
+                pressure_diffs[i],
+                is_wall ? "YES" : "NO");
+        }
+
+        // Second pass: Calculate gradient with redistribution.
+        for (size_t i = 0; i < directions.size(); ++i) {
+            const auto& [dx, dy] = directions[i];
+
+            if (!is_blocked[i]) {
+                // Add direct pressure contribution.
+                gradient.x += pressure_diffs[i] * dx;
+                gradient.y += pressure_diffs[i] * dy;
+
+                // Add redistributed pressure from blocked directions.
+                if (open_directions > 0 && total_blocked_pressure > 0) {
+                    double redistribution = total_blocked_pressure / open_directions;
+                    gradient.x += redistribution * dx;
+                    gradient.y += redistribution * dy;
+
+                    spdlog::trace(
+                        "  Redistributing {:.6f} pressure to direction ({},{})",
+                        redistribution,
+                        dx,
+                        dy);
+                }
+            }
         }
     }
     else { // PressureGradientDirections::Eight
@@ -319,69 +363,124 @@ Vector2d WorldBPressureCalculator::calculatePressureGradient(uint32_t x, uint32_
         const int dy[] = { -1, -1, -1, 0, 0, 1, 1, 1 };
         constexpr int num_neighbors = 8;
 
+        // First pass: Calculate pressure differences and identify blocked directions.
+        std::array<double, 8> pressure_diffs = { 0, 0, 0, 0, 0, 0, 0, 0 };
+        std::array<bool, 8> is_blocked = { false, false, false, false, false, false, false, false };
+        std::array<double, 8> direction_weights = { 1, 1, 1, 1, 1, 1, 1, 1 };
+
+        // Calculate weights for diagonal directions.
+        for (int i = 0; i < num_neighbors; ++i) {
+            if (dx[i] != 0 && dy[i] != 0) {
+                direction_weights[i] = 0.707107; // 1/sqrt(2)
+            }
+        }
+
         for (int i = 0; i < num_neighbors; ++i) {
             int nx = static_cast<int>(x) + dx[i];
             int ny = static_cast<int>(y) + dy[i];
 
             double neighbor_pressure;
+            bool is_wall = false;
+
             if (isValidCell(nx, ny)) {
                 const CellB& neighbor = world_ref_.at(nx, ny);
 
-                // Handle walls as reflecting boundaries.
                 if (neighbor.isWall()) {
-                    // Wall cells reflect pressure - use same pressure as center.
-                    neighbor_pressure = center_pressure;
-                } else if (neighbor.isEmpty()) {
+                    is_wall = true;
+                    wall_directions++;
+                    // Calculate pressure difference as if wall wasn't there.
+                    neighbor_pressure = 0.0;
+                }
+                else if (neighbor.isEmpty()) {
                     // Empty cells act as pressure sinks.
                     neighbor_pressure = 0.0;
-                } else {
+                    open_directions++;
+                }
+                else {
                     // Normal cells use their actual pressure.
                     neighbor_pressure = neighbor.getPressure();
+                    open_directions++;
                 }
-            } else {
-                // Out-of-bounds: treat as reflecting boundary (like walls).
-                neighbor_pressure = center_pressure;
+            }
+            else {
+                // Out-of-bounds: treat as wall.
+                is_wall = true;
+                wall_directions++;
+                neighbor_pressure = 0.0;
             }
 
-            double pressure_diff = center_pressure - neighbor_pressure;
+            pressure_diffs[i] = center_pressure - neighbor_pressure;
+            is_blocked[i] = is_wall;
 
-            // For diagonal neighbors, scale contribution by 1/sqrt(2).
-            double scale = 1.0;
-            if (dx[i] != 0 && dy[i] != 0) {
-                scale = 0.707107; // 1/sqrt(2)
+            if (is_wall) {
+                // Track blocked pressure that needs redistribution.
+                total_blocked_pressure += pressure_diffs[i] * direction_weights[i];
             }
-
-            // Accumulate gradient components.
-            gradient.x += pressure_diff * dx[i] * scale;
-            gradient.y += pressure_diff * dy[i] * scale;
-            valid_neighbors++;
 
             spdlog::trace(
-                "  Neighbor ({},{}) - pressure={:.6f}, diff={:.6f}, "
-                "contribution=({:.6f},{:.6f})",
+                "  Direction ({},{}) - neighbor at ({},{}) - pressure={:.6f}, diff={:.6f}, "
+                "weight={:.3f}, blocked={}",
+                dx[i],
+                dy[i],
                 nx,
                 ny,
                 neighbor_pressure,
-                pressure_diff,
-                pressure_diff * dx[i] * scale,
-                pressure_diff * dy[i] * scale);
+                pressure_diffs[i],
+                direction_weights[i],
+                is_wall ? "YES" : "NO");
+        }
+
+        // Second pass: Calculate gradient with redistribution.
+        double total_open_weight = 0.0;
+        for (int i = 0; i < num_neighbors; ++i) {
+            if (!is_blocked[i]) {
+                total_open_weight += direction_weights[i];
+            }
+        }
+
+        for (int i = 0; i < num_neighbors; ++i) {
+            if (!is_blocked[i]) {
+                // Add direct pressure contribution.
+                gradient.x += pressure_diffs[i] * dx[i] * direction_weights[i];
+                gradient.y += pressure_diffs[i] * dy[i] * direction_weights[i];
+
+                // Add redistributed pressure from blocked directions.
+                if (total_open_weight > 0 && total_blocked_pressure > 0) {
+                    double redistribution =
+                        (total_blocked_pressure / total_open_weight) * direction_weights[i];
+                    gradient.x += redistribution * dx[i];
+                    gradient.y += redistribution * dy[i];
+
+                    spdlog::trace(
+                        "  Redistributing {:.6f} pressure to direction ({},{})",
+                        redistribution,
+                        dx[i],
+                        dy[i]);
+                }
+            }
         }
     }
 
-    // Average the gradient if we had valid neighbors.
-    if (valid_neighbors > 0) {
-        gradient = gradient / static_cast<double>(valid_neighbors);
+    // Normalize by number of directions checked (not just open directions).
+    if (gradient_directions_ == PressureGradientDirections::Four) {
+        gradient = gradient / 4.0;
+    }
+    else {
+        gradient = gradient / 8.0;
     }
 
     spdlog::trace(
-        "Pressure gradient at ({},{}) - center_pressure={:.6f}, gradient=({:.6f},{:.6f}), "
-        "valid_neighbors={} (mode: {})",
+        "Pressure gradient at ({},{}) - center_pressure={:.6f}, "
+        "gradient=({:.6f},{:.6f}), open_dirs={}, wall_dirs={}, "
+        "blocked_pressure={:.6f} (mode: {})",
         x,
         y,
         center_pressure,
         gradient.x,
         gradient.y,
-        valid_neighbors,
+        open_directions,
+        wall_directions,
+        total_blocked_pressure,
         gradient_directions_ == PressureGradientDirections::Four ? "4-dir" : "8-dir");
 
     return gradient;
@@ -589,6 +688,36 @@ double WorldBPressureCalculator::calculateReflectionCoefficient(
     return reflection_coefficient;
 }
 
+double WorldBPressureCalculator::calculateDiffusionReflectionCoefficient(
+    MaterialType material, double blocked_flux) const
+{
+    // Base reflection depends on material properties.
+    const MaterialProperties& props = getMaterialProperties(material);
+
+    // Materials with higher elasticity reflect more pressure.
+    // Materials with lower density (like air) reflect less.
+    double base_reflection = 0.7 * props.elasticity + 0.3 * (1.0 - props.density / 10.0);
+
+    // Reduce reflection for very small pressure differences (damping).
+    // This prevents numerical noise from building up.
+    double flux_damping = 1.0 - std::exp(-blocked_flux * 10.0);
+
+    double reflection_coefficient = base_reflection * flux_damping;
+
+    spdlog::trace(
+        "Diffusion reflection coefficient for {}: elasticity={:.2f}, density={:.1f}, "
+        "base_reflection={:.3f}, flux={:.6f}, damping={:.3f}, final={:.3f}",
+        getMaterialName(material),
+        props.elasticity,
+        props.density,
+        base_reflection,
+        blocked_flux,
+        flux_damping,
+        reflection_coefficient);
+
+    return reflection_coefficient;
+}
+
 bool WorldBPressureCalculator::isRigidSupport(MaterialType type) const
 {
     // Materials that can support weight above them.
@@ -612,6 +741,10 @@ void WorldBPressureCalculator::applyPressureDiffusion(double deltaTime)
     const uint32_t width = world_ref_.getWidth();
     const uint32_t height = world_ref_.getHeight();
     std::vector<double> new_pressure(width * height);
+
+    // Initialize wall reflection tracking.
+    wall_reflections_.clear();
+    wall_reflections_.resize(height, std::vector<WallReflection>(width));
 
     // Copy current pressure values.
     for (uint32_t y = 0; y < height; ++y) {
@@ -664,12 +797,31 @@ void WorldBPressureCalculator::applyPressureDiffusion(double deltaTime)
                         || ny >= static_cast<int>(height)) {
                         // Ghost cell: same pressure as current cell (no-flux boundary).
                         neighbor_pressure = current_pressure;
-                        neighbor_diffusion = diffusion_rate;  // Same material properties.
-                    } else {
+                        neighbor_diffusion = diffusion_rate; // Same material properties.
+                    }
+                    else {
                         const CellB& neighbor = world_ref_.at(nx, ny);
 
-                        // Walls block pressure diffusion.
+                        // Walls reflect pressure back.
                         if (neighbor.getMaterialType() == MaterialType::WALL) {
+                            // Skip harmonic mean for walls, use cell's diffusion rate directly.
+                            double interface_diffusion_wall =
+                                diffusion_rate * WALL_INTERFACE_FACTOR;
+
+                            // For diagonal neighbors, scale by 1/sqrt(2) to account for distance.
+                            if (dx[i] != 0 && dy[i] != 0) {
+                                interface_diffusion_wall *= 0.707107; // 1/sqrt(2)
+                            }
+
+                            // Calculate potential flux based on pressure difference.
+                            // Assume wall would have half the current pressure if it wasn't solid.
+                            double assumed_wall_pressure = current_pressure * 0;
+                            double pressure_diff = current_pressure - assumed_wall_pressure;
+                            double potential_flux = interface_diffusion_wall * pressure_diff;
+
+                            // Track this blocked flux for reflection.
+                            wall_reflections_[y][x].blocked_flux += potential_flux;
+                            wall_reflections_[y][x].reflection_count++;
                             continue;
                         }
 
@@ -714,12 +866,28 @@ void WorldBPressureCalculator::applyPressureDiffusion(double deltaTime)
                         || ny >= static_cast<int>(height)) {
                         // Ghost cell: same pressure as current cell (no-flux boundary).
                         neighbor_pressure = current_pressure;
-                        neighbor_diffusion = diffusion_rate;  // Same material properties.
-                    } else {
+                        neighbor_diffusion = diffusion_rate; // Same material properties.
+                    }
+                    else {
                         const CellB& neighbor = world_ref_.at(nx, ny);
 
-                        // Walls block pressure diffusion.
+                        // Walls reflect pressure back.
                         if (neighbor.getMaterialType() == MaterialType::WALL) {
+                            // Skip harmonic mean for walls, use cell's diffusion rate directly.
+                            double interface_diffusion_wall =
+                                diffusion_rate * WALL_INTERFACE_FACTOR;
+
+                            // No diagonal scaling needed in 4-neighbor case.
+
+                            // Calculate potential flux based on pressure difference.
+                            // Assume wall would have half the current pressure if it wasn't solid.
+                            double assumed_wall_pressure = current_pressure * 0.5;
+                            double pressure_diff = current_pressure - assumed_wall_pressure;
+                            double potential_flux = interface_diffusion_wall * pressure_diff;
+
+                            // Track this blocked flux for reflection.
+                            wall_reflections_[y][x].blocked_flux += potential_flux;
+                            wall_reflections_[y][x].reflection_count++;
                             continue;
                         }
 
@@ -749,6 +917,42 @@ void WorldBPressureCalculator::applyPressureDiffusion(double deltaTime)
             if (new_pressure[idx] < 0.0) {
                 new_pressure[idx] = 0.0;
             }
+        }
+    }
+
+    // Apply wall reflections before finalizing pressure values.
+    for (uint32_t y = 0; y < height; ++y) {
+        for (uint32_t x = 0; x < width; ++x) {
+            // Skip cells with no blocked flux.
+            if (wall_reflections_[y][x].blocked_flux <= 0.0) {
+                continue;
+            }
+
+            size_t idx = y * width + x;
+            const CellB& cell = world_ref_.at(x, y);
+
+            // Calculate reflection coefficient based on material.
+            double reflection_coeff = calculateDiffusionReflectionCoefficient(
+                cell.getMaterialType(), wall_reflections_[y][x].blocked_flux);
+
+            // Apply reflected pressure.
+            double reflected_pressure = wall_reflections_[y][x].blocked_flux * reflection_coeff;
+            new_pressure[idx] += reflected_pressure * deltaTime;
+
+            // Ensure pressure stays positive.
+            if (new_pressure[idx] < 0.0) {
+                new_pressure[idx] = 0.0;
+            }
+
+            spdlog::trace(
+                "Pressure reflection at ({},{}) - material={}, blocked_flux={:.6f}, "
+                "reflection_coeff={:.3f}, added_pressure={:.6f}",
+                x,
+                y,
+                getMaterialName(cell.getMaterialType()),
+                wall_reflections_[y][x].blocked_flux,
+                reflection_coeff,
+                reflected_pressure * deltaTime);
         }
     }
 
