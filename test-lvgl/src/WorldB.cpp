@@ -141,7 +141,7 @@ void WorldB::advanceTime(double deltaTimeSeconds)
     if (dynamic_pressure_enabled_) {
         // Generate virtual gravity transfers to create pressure from gravity forces.
         // This allows dynamic pressure to model hydrostatic-like behavior.
-        pressure_calculator_.generateVirtualGravityTransfers(scaledDeltaTime);
+//        pressure_calculator_.generateVirtualGravityTransfers(scaledDeltaTime);
 
         pressure_calculator_.processBlockedTransfers(pressure_calculator_.blocked_transfers_);
         pressure_calculator_.blocked_transfers_.clear();
@@ -858,35 +858,69 @@ void WorldB::resolveForces(double deltaTime)
                     effective_resistance);
             }
 
-            // Apply forces to velocity only if driving force exceeds resistance.
-            if (driving_magnitude > effective_resistance) {
+            // Apply forces to velocity based on selected resistance model.
+            static const bool USE_CONTINUOUS_RESISTANCE = false; // Set to true for continuous damping.
+            if (USE_CONTINUOUS_RESISTANCE) {
+                // Continuous damping model: Forces are always applied but damped by resistance.
                 Vector2d velocity = cell.getVelocity();
-
-                // If resistance is significant, reduce the applied force.
-                if (effective_resistance > 0.001) {
-                    double force_reduction_factor =
-                        1.0 - (effective_resistance / driving_magnitude);
-                    force_reduction_factor = std::max(0.0, force_reduction_factor);
-                    pending_force = pending_force * force_reduction_factor;
-                }
-
-                velocity = velocity + pending_force;
+                
+                // Calculate damping factor: 1.0 + (cohesion_resistance * motion_state_multiplier).
+                // For now, we don't have motion states implemented, so using 1.0 multiplier.
+                double motion_state_multiplier = 1.0; // TODO: Get from motion state system.
+                double damping_factor = 1.0 + (effective_resistance * motion_state_multiplier);
+                
+                // Apply damped force: velocity += force / damping_factor.
+                Vector2d damped_force = pending_force / damping_factor;
+                velocity = velocity + damped_force;
                 cell.setVelocity(velocity);
-
-                spdlog::debug(
-                    "Cell ({},{}) {} - Forces applied! New velocity: ({:.3f},{:.3f})",
-                    x,
-                    y,
-                    getMaterialName(cell.getMaterialType()),
-                    velocity.x,
-                    velocity.y);
+                
+                if (driving_magnitude > 0.001 || effective_resistance > 0.001) {
+                    spdlog::debug(
+                        "Cell ({},{}) {} - Continuous resistance: force=({:.3f},{:.3f}), "
+                        "damping={:.3f}, damped_force=({:.3f},{:.3f}), new_vel=({:.3f},{:.3f})",
+                        x,
+                        y,
+                        getMaterialName(cell.getMaterialType()),
+                        pending_force.x,
+                        pending_force.y,
+                        damping_factor,
+                        damped_force.x,
+                        damped_force.y,
+                        velocity.x,
+                        velocity.y);
+                }
             }
-            else if (driving_magnitude > 0.001) {
-                spdlog::debug(
-                    "Cell ({},{}) {} - Forces blocked by resistance! Velocity unchanged.",
-                    x,
-                    y,
-                    getMaterialName(cell.getMaterialType()));
+            else {
+                // Binary threshold model: Original behavior.
+                if (driving_magnitude > effective_resistance) {
+                    Vector2d velocity = cell.getVelocity();
+
+                    // If resistance is significant, reduce the applied force.
+                    if (effective_resistance > 0.001) {
+                        double force_reduction_factor =
+                            1.0 - (effective_resistance / driving_magnitude);
+                        force_reduction_factor = std::max(0.0, force_reduction_factor);
+                        pending_force = pending_force * force_reduction_factor;
+                    }
+
+                    velocity = velocity + pending_force;
+                    cell.setVelocity(velocity);
+
+                    spdlog::debug(
+                        "Cell ({},{}) {} - Forces applied! New velocity: ({:.3f},{:.3f})",
+                        x,
+                        y,
+                        getMaterialName(cell.getMaterialType()),
+                        velocity.x,
+                        velocity.y);
+                }
+                else if (driving_magnitude > 0.001) {
+                    spdlog::debug(
+                        "Cell ({},{}) {} - Forces blocked by resistance! Velocity unchanged.",
+                        x,
+                        y,
+                        getMaterialName(cell.getMaterialType()));
+                }
             }
 
             // Clear pending forces after resolution.

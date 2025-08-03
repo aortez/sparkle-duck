@@ -139,13 +139,17 @@ COM (Center-of-Mass) Cohesion - Attractive Forces.
 - Range: Configurable neighbor detection range (typically 2 cells).
 - Applied in: applyCohesionForces() - modifies velocity vectors each timestep.
 
-### Continuous Resistance Model
+### Continuous Resistance Model (WIP - PROTOTYPE)
+**Status: Work in Progress - Experimental prototype implementation available**
+
 Instead of binary threshold checks, cohesion provides velocity damping:
 ```
 damping_factor = 1.0 + (cohesion_resistance * motion_state_multiplier)
 velocity += net_force / damping_factor * deltaTime
 ```
 This allows gradual deformation and smooth transitions between static and flowing states.
+
+**Implementation Note**: A prototype is implemented in `WorldB::resolveForces()` with a static toggle `USE_CONTINUOUS_RESISTANCE` (currently set to `false`). Set to `true` to enable continuous damping behavior. Motion state multipliers are not yet integrated.
 
 ## Adhesion
 
