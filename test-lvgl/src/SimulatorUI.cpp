@@ -548,16 +548,19 @@ void SimulatorUI::createControlButtons()
     lv_obj_align(radio_original, LV_ALIGN_TOP_LEFT, 0, 0);
     lv_obj_add_flag(radio_original, LV_OBJ_FLAG_EVENT_BUBBLE);
     lv_obj_add_state(radio_original, LV_STATE_CHECKED); // Default to original mode.
+    lv_obj_set_style_text_color(radio_original, lv_color_white(), LV_PART_MAIN);
 
     lv_obj_t* radio_centering = lv_checkbox_create(com_mode_container);
     lv_checkbox_set_text(radio_centering, "Centering");
     lv_obj_align(radio_centering, LV_ALIGN_TOP_LEFT, 0, 25);
     lv_obj_add_flag(radio_centering, LV_OBJ_FLAG_EVENT_BUBBLE);
+    lv_obj_set_style_text_color(radio_centering, lv_color_white(), LV_PART_MAIN);
 
     lv_obj_t* radio_mass_based = lv_checkbox_create(com_mode_container);
     lv_checkbox_set_text(radio_mass_based, "Mass-Based");
     lv_obj_align(radio_mass_based, LV_ALIGN_TOP_LEFT, 0, 50);
     lv_obj_add_flag(radio_mass_based, LV_OBJ_FLAG_EVENT_BUBBLE);
+    lv_obj_set_style_text_color(radio_mass_based, lv_color_white(), LV_PART_MAIN);
 
     // Store radio buttons in callback data for mutual exclusion.
     CallbackData* radio_data = createCallbackData();

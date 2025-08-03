@@ -492,58 +492,6 @@ TEST_F(COMCohesionForceTest, COMCohesionIncreasesWithMoreNeighbors) {
     EXPECT_GT(cohesion_3_neighbors.force_magnitude, cohesion_2_neighbors.force_magnitude);
 }
 
-TEST_F(COMCohesionForceTest, COMCohesionClusterFormation) {
-    // Enable restart functionality for interactive clustering test.
-    spdlog::info("[TEST] Enabling restart functionality for COM cohesion cluster formation test");
-    enableTestRestart();
-    
-    int iteration = 0;
-    do {
-        ++iteration;
-        spdlog::info("[TEST] Starting COM cohesion cluster formation test iteration {}", iteration);
-        
-        clearRestartRequest();
-        
-        spdlog::info("[TEST] Setting up test scenario: Scattered DIRT particles for clustering");
-        
-        // Create scattered DIRT particles that should form a cluster via COM cohesion.
-        world->addMaterialAtCell(1, 1, MaterialType::DIRT, 1.0); // Top-left.
-        world->addMaterialAtCell(5, 1, MaterialType::DIRT, 1.0); // Top-right.
-        world->addMaterialAtCell(1, 5, MaterialType::DIRT, 1.0); // Bottom-left.
-        world->addMaterialAtCell(5, 5, MaterialType::DIRT, 1.0); // Bottom-right.
-        world->addMaterialAtCell(3, 3, MaterialType::DIRT, 1.0); // Center.
-        
-        // Enable COM cohesion forces.
-        world->setCohesionComForceEnabled(true);
-        
-        // Show initial scattered setup.
-        updateVisualDisplay();
-        waitForStart();
-        
-        spdlog::info("[TEST] Particles should be pulled toward the cluster center over time");
-        
-        // Run extended simulation to observe clustering behavior.
-        automaticCOMCohesionSteps(world.get(), 20, "Scattered DIRT particles clustering");
-        
-        // Clear the world for next restart.
-        if (visual_mode_ && shouldRestartTest()) {
-            spdlog::info("[TEST] Restart requested - clearing world for next iteration");
-            world.reset();
-            world = std::make_unique<WorldB>(7, 7, ui_ ? ui_->getDrawArea() : nullptr);
-            world->setWallsEnabled(false);
-            world->setAddParticlesEnabled(false);
-            if (ui_) {
-                auto& coordinator = VisualTestCoordinator::getInstance();
-                coordinator.postTaskSync([this] {
-                    ui_->setWorld(world.get());
-                });
-            }
-        }
-        
-    } while (shouldRestartTest() && visual_mode_);
-    
-    disableTestRestart();
-}
 
 TEST_F(COMCohesionForceTest, COMCohesionRangeConfiguration) {
     spdlog::info("[TEST] Testing COM cohesion range configuration functionality");
@@ -579,54 +527,6 @@ TEST_F(COMCohesionForceTest, COMCohesionRangeConfiguration) {
                  force_r1.active_connections, force_r2.active_connections, force_r3.active_connections);
 }
 
-TEST_F(COMCohesionForceTest, COMCohesionToggleButton) {
-    // Enable restart functionality for interactive toggle testing.
-    spdlog::info("[TEST] Enabling restart functionality for COM cohesion toggle test");
-    enableTestRestart();
-    
-    int iteration = 0;
-    do {
-        ++iteration;
-        spdlog::info("[TEST] Starting COM cohesion toggle test iteration {}", iteration);
-        
-        clearRestartRequest();
-        
-        spdlog::info("[TEST] Setting up test scenario: Test the Cohesion Force toggle button");
-        
-        // Create a simple setup with two adjacent particles.
-        world->addMaterialAtCell(2, 3, MaterialType::METAL, 1.0);
-        world->addMaterialAtCell(3, 3, MaterialType::METAL, 1.0);
-        
-        // Show initial setup.
-        updateVisualDisplay();
-        waitForStart();
-        
-        spdlog::info("[TEST] This test demonstrates COM cohesion force behavior");
-        spdlog::info("[TEST] COM cohesion should pull particles toward each other");
-        spdlog::info("[TEST] Note: Cohesion Force toggle is available in main app, not test UI");
-        
-        // Run automatic simulation to demonstrate COM cohesion.
-        automaticCOMCohesionSteps(world.get(), 15, "COM cohesion forces demonstration");
-        
-        // Clear the world for next restart.
-        if (visual_mode_ && shouldRestartTest()) {
-            spdlog::info("[TEST] Restart requested - clearing world for next iteration");
-            world.reset();
-            world = std::make_unique<WorldB>(7, 7, ui_ ? ui_->getDrawArea() : nullptr);
-            world->setWallsEnabled(false);
-            world->setAddParticlesEnabled(false);
-            if (ui_) {
-                auto& coordinator = VisualTestCoordinator::getInstance();
-                coordinator.postTaskSync([this] {
-                    ui_->setWorld(world.get());
-                });
-            }
-        }
-        
-    } while (shouldRestartTest() && visual_mode_);
-    
-    disableTestRestart();
-}
 
 TEST_F(COMCohesionForceTest, VelocityConservationAfterHorizontalCollision) {
     spdlog::info("[TEST] Testing Y-velocity conservation after horizontal dirt-dirt collision");

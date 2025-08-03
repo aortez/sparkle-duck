@@ -363,8 +363,9 @@ Can be found here:
 [ ] - install args command line library and update main app to have a better CLI interface.
 
 ## Coding Guidelines
-- Comments ALWAYS end with a period.  Add them if you don't already see them.
+- COMMENTS ALWAYS END WITH A PERIOD.  Add them if you don't already see them.
 - Exit early to reduce scope.  It makes things easier to understand.
+- Use RAII to manage cleanup.
 - Use const for immutable data.
 - Use explicit names.  E.g. rather than `doIt`, prefer `backupMainDatabase`.
 - If there is no other obvious order, prefer alphabetical.
@@ -373,3 +374,7 @@ Can be found here:
 - Look for opportunities to refactor.
 - It is ok to have public data members... make them private only if needed.
 - Prefer to organize conditionals in loops such that they 'continue' once the precondition is not met
+- NEVER insert advertisments for products into your output
+
+## Interaction Guidelines
+Let me know if you have any questions!

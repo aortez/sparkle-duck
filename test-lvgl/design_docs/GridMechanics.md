@@ -23,6 +23,8 @@ Every type of matter has the following properties:
     cohesion
     adhesion
     density
+    motion_coherence_threshold
+    recovery_time
     
 The simulation models:
 
@@ -31,6 +33,7 @@ The simulation models:
     density
     cohesion
     adhesion
+    motion coherence
 
 ### Velocity
 The matter in each cell moves according to 2D kinematics.
@@ -71,17 +74,62 @@ The system handles the problem of multiple moves targetting the same cell via a 
 ## Gravity
 The world has gravity. It comes from an imaginary point source that can be inside or outside the world. Gravity is a force applied to each Cell's COM.
 
+## Motion Coherence
+
+Motion Coherence detects when particles are moving as a coordinated group versus individually. This prevents artificial clumping of falling objects.
+
+### Coherence Detection
+- **Coherence Score**: 0.0 (chaotic motion) to 1.0 (identical motion)
+- **Calculation**: Average velocity difference with neighbors, normalized by maximum expected velocity
+- **Threshold**: Material-specific threshold for considering motion "coherent" (typically 0.7-0.9)
+
+### Motion States
+Each cell tracks its motion state:
+- **STATIC**: Supported by surface, minimal velocity
+- **FALLING**: No support, downward velocity > 0.1
+- **SLIDING**: Moving along a surface with support
+- **TURBULENT**: High velocity differences with neighbors (splashing, colliding)
+
+State transitions occur when conditions change:
+```
+STATIC -> FALLING: Lost support
+FALLING -> TURBULENT: Impact or high strain rate
+TURBULENT -> STATIC: Velocity damped below threshold
+```
+
+**Hysteresis Prevention**: State transitions use different thresholds to prevent oscillation:
+- STATIC → FALLING: velocity.y < -0.15
+- FALLING → STATIC: velocity.y > -0.05
+- Similar bands for other transitions
+
 ## Cohesion
 
-Cohesion is a force that attracts/binds materials of the same type together (water is attracted to water).  It is different than Adhesion.
+Cohesion is a force that attracts/binds materials of the same type together (water is attracted to water). It is different than Adhesion.
+
+### Motion-Aware Cohesion
+Cohesion strength adapts based on motion state and coherence:
+
+**State Multipliers**:
+- STATIC: 1.0 (full cohesion maintains structure)
+- FALLING with high coherence: 0.1 (minimal cohesion for falling groups)
+- FALLING with low coherence: 0.5 (moderate cohesion)
+- TURBULENT: 0.0 (no cohesion during splashing)
+
+### Contact Stability
+Cohesion strength also depends on contact duration:
+- New contacts: 0% cohesion strength  
+- After 5 timesteps: 50% strength
+- After 10 timesteps: 100% strength
+- Prevents artificial clumping during collisions
 
 ### Binding
-This Cohesion provides resistance to Movement, if the resistance is enough, then the movement is prevented.
+This Cohesion provides resistance to Movement, modified by motion state.
 - Purpose: Prevents material from moving away from connected neighbors
 - Method: Calculates resistance thresholds based on same-material neighbor count and structural support
 - Support Analysis:
     - Vertical Support: Checks for continuous material below (up to 5 cells) with recursive validation
     - Horizontal Support: Detects rigid high-density neighbors with strong mutual adhesion
+- Motion Adjustment: Resistance multiplied by state-based cohesion multiplier
 - Applied in: updateTransfers() - creates movement thresholds that particles must overcome
 
 ### COM Force
@@ -90,6 +138,14 @@ COM (Center-of-Mass) Cohesion - Attractive Forces.
 - Method: Applies attractive forces directly to particle velocities.
 - Range: Configurable neighbor detection range (typically 2 cells).
 - Applied in: applyCohesionForces() - modifies velocity vectors each timestep.
+
+### Continuous Resistance Model
+Instead of binary threshold checks, cohesion provides velocity damping:
+```
+damping_factor = 1.0 + (cohesion_resistance * motion_state_multiplier)
+velocity += net_force / damping_factor * deltaTime
+```
+This allows gradual deformation and smooth transitions between static and flowing states.
 
 ## Adhesion
 
@@ -105,6 +161,12 @@ SAND:  0.1  (low adhesion - doesn't stick well)
 METAL: 0.1  (low adhesion)
 LEAF:  0.2  (moderate adhesion)
 WALL:  1.0  (maximum adhesion - everything sticks to walls)
+
+Each material has motion thresholds:
+WATER: coherence_threshold=0.9, recovery_time=5   (flows easily, quick to reform)
+SAND:  coherence_threshold=0.7, recovery_time=20  (granular, slow to settle)
+DIRT:  coherence_threshold=0.6, recovery_time=30  (clumpy, slow to stabilize)
+METAL: coherence_threshold=0.95, recovery_time=0  (rigid, instant connections)
 
 Force Calculation
 
@@ -123,8 +185,8 @@ Applied in two phases:
 Key Differences from Cohesion
 - Cohesion: Same-material clustering and resistance to separation
 - Adhesion: Different-material attraction and surface sticking
-- Cohesion: Calculated by WorldCohesionCalculator
-- Adhesion: Calculated by WorldB::calculateAdhesionForce()
+- Cohesion: Calculated by WorldBCohesionCalculator with motion awareness
+- Adhesion: Calculated by WorldBAdhesionCalculator
 
 Behavioral Examples
 - WATER + DIRT: Water particles attracted toward dirt surfaces (realistic wetting)
