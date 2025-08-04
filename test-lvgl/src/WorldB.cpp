@@ -45,7 +45,7 @@ WorldB::WorldB(uint32_t width, uint32_t height, lv_obj_t* draw_area)
       com_cohesion_mode_(COMCohesionMode::ORIGINAL),
       cohesion_com_force_strength_(150.0),
       cohesion_bind_force_strength_(1.0),
-      com_cohesion_range_(2),
+      com_cohesion_range_(1),
       air_resistance_enabled_(true),
       air_resistance_strength_(0.1),
       is_dragging_(false),

@@ -502,8 +502,8 @@ TEST_F(COMCohesionForceTest, COMCohesionRangeConfiguration) {
     world->addMaterialAtCell(3, 1, MaterialType::DIRT, 1.0); // Distance 2 (vertical).
     world->addMaterialAtCell(6, 3, MaterialType::DIRT, 1.0); // Distance 3 (horizontal).
     
-    // Test default range (should be 2).
-    EXPECT_EQ(world->getCOMCohesionRange(), 2);
+    // Test default range (should be 1).
+    EXPECT_EQ(world->getCOMCohesionRange(), 1);
     
     // Test range 1 (should only see adjacent neighbors - none in this case).
     world->setCOMCohesionRange(1);

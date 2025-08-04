@@ -521,9 +521,9 @@ void SimulatorUI::createControlButtons()
             .position(MAIN_CONTROLS_X, 550)
             .size(CONTROL_WIDTH, 10)
             .range(1, 5)
-            .value(2)
+            .value(1)
             .label("Cohesion Range", 0, -20)
-            .valueLabel("%d", 120, -20)
+            .valueLabel("%.0f", 120, -20)
             .callback(comCohesionRangeSliderEventCb, [this](lv_obj_t* value_label) -> void* {
                 return createCallbackData(value_label);
             });
