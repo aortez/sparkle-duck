@@ -25,6 +25,10 @@ Every type of matter has the following properties:
     density
     motion_coherence_threshold
     recovery_time
+    static_friction_coefficient
+    kinetic_friction_coefficient
+    stick_velocity
+    friction_transition_width
     
 The simulation models:
 
@@ -34,6 +38,7 @@ The simulation models:
     cohesion
     adhesion
     motion coherence
+    static and kinetic friction
 
 ### Velocity
 The matter in each cell moves according to 2D kinematics.
@@ -154,6 +159,81 @@ The actual viscosity multiplier is interpolated based on motion_sensitivity:
 `effective_multiplier = 1.0 - sensitivity * (1.0 - state_multiplier)`
 
 This allows rigid materials like METAL to maintain high viscosity even when falling, while fluids like WATER flow freely in all motion states.
+
+## Friction (Static and Kinetic)
+
+Friction provides velocity-dependent resistance that simulates the difference between static friction (resistance to start moving) and kinetic friction (resistance while moving). This creates realistic "stick-slip" behavior where materials resist initial movement but flow more freely once in motion.
+
+### Friction Properties
+
+Each material has four friction parameters:
+- **static_friction_coefficient**: Resistance multiplier when at rest (typically 1.0-1.5)
+- **kinetic_friction_coefficient**: Resistance multiplier when moving (typically 0.4-1.0)
+- **stick_velocity**: Velocity below which full static friction applies (0.0-0.05)
+- **friction_transition_width**: How quickly friction transitions from static to kinetic (0.02-0.1)
+
+### Friction Calculation
+
+The friction system uses a smooth transition function to avoid discontinuities:
+
+```
+friction_coefficient = getFrictionTransition(velocity_magnitude, material_params)
+
+// Smooth transition from static to kinetic
+if (velocity < stick_velocity) {
+    return static_coefficient;
+}
+t = clamp((velocity - stick_velocity) / transition_width, 0, 1)
+smooth_t = t * t * (3.0 - 2.0 * t)  // Smooth cubic interpolation
+return lerp(static_coefficient, kinetic_coefficient, smooth_t)
+```
+
+### Material Friction Values
+
+- **METAL**: stick=0.01, width=0.02, static=1.5, kinetic=1.0 (very sticky, sharp breakaway)
+- **WOOD**: stick=0.02, width=0.03, static=1.3, kinetic=0.9 (sticky, moderate breakaway)
+- **DIRT**: stick=0.05, width=0.10, static=1.0, kinetic=0.5 (resists flow, avalanches when moving)
+- **SAND**: stick=0.04, width=0.08, static=0.6, kinetic=0.4 (light resistance, flows when disturbed)
+- **LEAF**: stick=0.03, width=0.06, static=0.5, kinetic=0.3 (light materials, easy to move)
+- **WATER**: stick=0.00, width=0.01, static=1.0, kinetic=1.0 (no static friction)
+- **AIR**: stick=0.00, width=0.01, static=1.0, kinetic=1.0 (no friction)
+- **WALL**: N/A (immobile)
+
+### Integration with Forces
+
+Friction combines with viscosity and support to create total resistance:
+
+```
+// Calculate velocity-dependent friction
+velocity_magnitude = cell.velocity.magnitude()
+friction_coefficient = getFrictionTransition(velocity_magnitude, material)
+
+// Combine with viscosity and support
+effective_viscosity = base_viscosity * friction_coefficient
+total_damping = 1.0 + (effective_viscosity * fill_ratio * support_factor)
+
+// Apply to forces
+cell.velocity += net_driving_force / total_damping * deltaTime
+```
+
+### Physical Behaviors
+
+The friction system creates several realistic behaviors:
+
+1. **Static Equilibrium**: Materials at rest require sufficient force to overcome static friction
+2. **Breakaway Motion**: Once moving, resistance drops to kinetic friction level
+3. **Avalanche Effects**: Dirt/sand piles hold their shape until disturbed, then flow
+4. **Stick-Slip**: Materials alternate between sticking and slipping on surfaces
+5. **Support Dependency**: Friction only applies when material has structural support
+
+### Pressure Interaction (Future Enhancement)
+
+High pressure can reduce the effective stick velocity, making materials more likely to flow under compression:
+```
+effective_stick_velocity = base_stick_velocity * (1.0 - pressure_factor)
+```
+
+This creates realistic behavior where compressed materials flow more easily than uncompressed ones.
 
 ## Cohesion (Attractive Forces Only)
 
@@ -461,6 +541,7 @@ This approach models how fluid pressure naturally redistributes when encounterin
   
   2. Damping Forces (resist movement)
     - Viscosity: Continuous flow resistance based on material properties
+    - Friction: Velocity-dependent resistance (static vs kinetic)
     - Support Factor: Modifies damping based on structural support
 
   Continuous Force Integration
@@ -468,8 +549,15 @@ This approach models how fluid pressure naturally redistributes when encounterin
   // Force combination at each timestep
   Vector2d net_driving_force = gravity_force + adhesion_force + cohesion_force + pressure_force + external_forces;
   
-  // Continuous viscosity damping (no thresholds)
-  double damping_factor = 1.0 + (material.viscosity * fill_ratio * support_factor);
+  // Calculate velocity-dependent friction
+  double velocity_magnitude = cell.velocity.magnitude();
+  double friction_coefficient = getFrictionTransition(velocity_magnitude, material);
+  
+  // Combine viscosity with friction
+  double effective_viscosity = material.viscosity * friction_coefficient;
+  
+  // Continuous damping with friction (no thresholds)
+  double damping_factor = 1.0 + (effective_viscosity * fill_ratio * support_factor);
   cell.velocity += net_driving_force / damping_factor * deltaTime;
   
   // Velocity always responds to forces - no binary "stuck" state
@@ -489,4 +577,61 @@ This approach models how fluid pressure naturally redistributes when encounterin
   3. Natural Damping: Viscosity prevents oscillations and unrealistic acceleration
   4. Smooth Transitions: No artificial thresholds or discontinuities
 
-  This creates realistic material differentiation through viscosity alone - WATER flows freely, METAL maintains rigid structures, and granular materials form stable piles with natural angles of repose.
+  This creates realistic material differentiation through viscosity and friction - WATER flows freely, METAL maintains rigid structures until sufficient force is applied, and granular materials form stable piles with natural angles of repose that avalanche when disturbed.
+
+---
+
+## Implementation Status
+
+### Current State (As of pressure branch)
+
+The system currently implements all features described above **except** for the static/kinetic friction system. The current implementation uses only viscosity-based damping without velocity-dependent friction coefficients.
+
+**What's implemented:**
+- Full viscosity system with material-specific values
+- Motion states and motion sensitivity
+- Support-based damping modulation
+- All other physics systems (cohesion, adhesion, pressure, etc.)
+
+**What's missing:**
+- Static/kinetic friction coefficients in MaterialType
+- Velocity-dependent friction calculation
+- getFrictionTransition() function
+- Integration of friction with viscosity in force resolution
+
+### Implementation Plan
+
+1. **Update MaterialType.h/cpp**
+   - Add friction properties to MaterialProperties struct:
+     ```cpp
+     double static_friction_coefficient;
+     double kinetic_friction_coefficient; 
+     double stick_velocity;
+     double friction_transition_width;
+     ```
+   - Update material definitions with friction values
+
+2. **Create Friction Calculator**
+   - Add method to MaterialType or create utility function:
+     ```cpp
+     double getFrictionCoefficient(double velocity_magnitude) const;
+     ```
+   - Implement smooth cubic transition function
+
+3. **Modify WorldB::resolveForces()**
+   - Calculate velocity magnitude for each cell
+   - Get friction coefficient from material
+   - Multiply base viscosity by friction coefficient
+   - Use combined value in damping calculation
+
+4. **Testing**
+   - Create visual test with slope at various angles
+   - Verify static materials stay in place
+   - Test breakaway behavior when force exceeds static friction
+   - Validate avalanche effects for granular materials
+   - Ensure WATER/AIR maintain no friction behavior
+
+5. **Future Enhancement**
+   - Add pressure-based stick velocity modification
+   - Consider temperature effects on friction
+   - Add surface-specific friction modifiers
