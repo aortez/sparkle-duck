@@ -102,35 +102,62 @@ TURBULENT -> STATIC: Velocity damped below threshold
 - FALLING → STATIC: velocity.y > -0.05
 - Similar bands for other transitions
 
-## Cohesion
+## Viscosity
 
-Cohesion is a force that attracts/binds materials of the same type together (water is attracted to water). It is different than Adhesion.
+Viscosity represents a material's resistance to flow and deformation. Unlike the deprecated cohesion binding system, viscosity provides continuous damping rather than binary thresholds.
 
-### Motion-Aware Cohesion
-Cohesion strength adapts based on motion state and coherence:
+### Material Viscosity Values (0.0 - 1.0)
+- **AIR**: 0.001 (negligible resistance)
+- **WATER**: 0.01 (flows easily)
+- **SAND**: 0.3 (granular flow resistance)
+- **DIRT**: 0.5 (cohesive, resists flow)
+- **LEAF**: 0.2 (light, some resistance)
+- **WOOD**: 0.9 (essentially solid)
+- **METAL**: 0.95 (rigid body)
+- **WALL**: 1.0 (infinite - never flows)
 
-**State Multipliers**:
-- STATIC: 1.0 (full cohesion maintains structure)
-- FALLING with high coherence: 0.1 (minimal cohesion for falling groups)
-- FALLING with low coherence: 0.5 (moderate cohesion)
-- TURBULENT: 0.0 (no cohesion during splashing)
+### Physics Implementation
+Viscosity creates continuous velocity damping:
+```
+damping_factor = 1.0 + (viscosity * fill_ratio * support_factor)
+velocity += net_driving_force / damping_factor * deltaTime
+```
 
-### Contact Stability
-Cohesion strength also depends on contact duration:
-- New contacts: 0% cohesion strength  
-- After 5 timesteps: 50% strength
-- After 10 timesteps: 100% strength
-- Prevents artificial clumping during collisions
+Key behaviors:
+- No binary thresholds - all forces create some movement
+- Higher viscosity = more resistance to flow
+- Natural pressure equilibration without oscillations
+- Smooth transitions between static and flowing states
 
-### Binding
-This Cohesion provides resistance to Movement, modified by motion state.
-- Purpose: Prevents material from moving away from connected neighbors
-- Method: Calculates resistance thresholds based on same-material neighbor count and structural support
-- Support Analysis:
-    - Vertical Support: Checks for continuous material below (up to 5 cells) with recursive validation
-    - Horizontal Support: Detects rigid high-density neighbors with strong mutual adhesion
-- Motion Adjustment: Resistance multiplied by state-based cohesion multiplier
-- Applied in: updateTransfers() - creates movement thresholds that particles must overcome
+### Motion State Integration
+
+Materials have a motion_sensitivity property (0.0-1.0) that determines how their viscosity is affected by motion state:
+
+**Motion Sensitivity Values**:
+- AIR: 0.0 (unaffected by motion)
+- WATER: 1.0 (fully affected by motion state)
+- SAND: 0.5 (moderately affected)
+- DIRT: 0.7 (significantly affected)
+- LEAF: 0.8 (highly affected)
+- WOOD: 0.2 (slightly affected)
+- METAL: 0.1 (barely affected)
+- WALL: 0.0 (unaffected)
+
+**Motion State Effects**:
+When in different motion states, materials experience reduced viscosity:
+- STATIC: 100% of base viscosity (no reduction)
+- SLIDING: 50% of base viscosity
+- FALLING: 30% of base viscosity
+- TURBULENT: 10% of base viscosity
+
+The actual viscosity multiplier is interpolated based on motion_sensitivity:
+`effective_multiplier = 1.0 - sensitivity * (1.0 - state_multiplier)`
+
+This allows rigid materials like METAL to maintain high viscosity even when falling, while fluids like WATER flow freely in all motion states.
+
+## Cohesion (Attractive Forces Only)
+
+Cohesion now refers only to attractive forces between same-material particles.
 
 ### COM Force
 COM (Center-of-Mass) Cohesion - Attractive Forces.
@@ -138,18 +165,6 @@ COM (Center-of-Mass) Cohesion - Attractive Forces.
 - Method: Applies attractive forces directly to particle velocities.
 - Range: Configurable neighbor detection range (typically 2 cells).
 - Applied in: applyCohesionForces() - modifies velocity vectors each timestep.
-
-### Continuous Resistance Model (WIP - PROTOTYPE)
-**Status: Work in Progress - Experimental prototype implementation available**
-
-Instead of binary threshold checks, cohesion provides velocity damping:
-```
-damping_factor = 1.0 + (cohesion_resistance * motion_state_multiplier)
-velocity += net_force / damping_factor * deltaTime
-```
-This allows gradual deformation and smooth transitions between static and flowing states.
-
-**Implementation Note**: A prototype is implemented in `WorldB::resolveForces()` with a static toggle `USE_CONTINUOUS_RESISTANCE` (currently set to `false`). Set to `true` to enable continuous damping behavior. Motion state multipliers are not yet integrated.
 
 ## Adhesion
 
@@ -431,52 +446,47 @@ This approach models how fluid pressure naturally redistributes when encounterin
 - Prevents excessive forces by distributing blocked pressure evenly
 - Works with both hydrostatic and dynamic pressure components
 
-## Force Combination Logic & Threshold System
+## Force Combination Logic
 
-  The WorldB physics system uses a hierarchical force model where multiple forces combine to determine whether and how materials move:
+  The WorldB physics system uses continuous force integration with viscosity-based damping:
 
   Force Hierarchy
 
   1. Driving Forces (cause movement)
     - Gravity: gravity_vector * material_density * fill_ratio * deltaTime
     - Adhesion: Vector sum of attractions to different adjacent materials
-    - External Forces: User interactions, pressure gradients
-  2. Resistance Forces (oppose movement)
-    - Cohesion: Static threshold based on same-material neighbor count
-    - Friction: Material-specific resistance to sliding
+    - Cohesion: Attractive forces toward same-material neighbors
+    - Pressure: Gradient-based forces from pressure differences
+    - External Forces: User interactions
+  
+  2. Damping Forces (resist movement)
+    - Viscosity: Continuous flow resistance based on material properties
+    - Support Factor: Modifies damping based on structural support
 
-  Threshold Decision Logic
+  Continuous Force Integration
 
   // Force combination at each timestep
-  Vector2d net_driving_force = gravity_force + adhesion_force + external_forces;
-  double total_resistance = cohesion_resistance + friction_resistance;
-
-  // Binary threshold check
-  if (net_driving_force.magnitude() > total_resistance) {
-      // Material can move - proceed with boundary crossing detection
-      Vector2d movement_direction = net_driving_force.normalized();
-      double excess_energy = net_driving_force.magnitude() - total_resistance;
-
-      // Scale velocity by excess energy for realistic physics
-      cell.velocity += movement_direction * excess_energy;
-  } else {
-      // Material is "stuck" - zero velocity and skip movement
-      cell.velocity = Vector2d(0, 0);
-  }
+  Vector2d net_driving_force = gravity_force + adhesion_force + cohesion_force + pressure_force + external_forces;
+  
+  // Continuous viscosity damping (no thresholds)
+  double damping_factor = 1.0 + (material.viscosity * fill_ratio * support_factor);
+  cell.velocity += net_driving_force / damping_factor * deltaTime;
+  
+  // Velocity always responds to forces - no binary "stuck" state
 
   Material-Specific Behaviors
 
-  - WATER: Low cohesion (0.1) → flows easily under gravity alone
-  - DIRT: Medium cohesion (0.4) → requires moderate force to separate
-  - METAL: High cohesion (0.9) → strong resistance, stays connected
-  - WOOD: High cohesion (0.7) + medium adhesion → structural integrity
+  - WATER: Low viscosity (0.01) → flows easily, quick pressure equilibration
+  - SAND: Moderate viscosity (0.3) → granular flow, forms natural slopes
+  - DIRT: Higher viscosity (0.5) → cohesive clumps, slower flow
+  - METAL: Very high viscosity (0.95) → essentially rigid, minimal flow
+  - WOOD: High viscosity (0.9) → maintains structure, deforms only under extreme force
 
   Key Design Principles
 
-  1. Contact-Only Physics: Forces only act between adjacent cells (no action at distance)
-  2. Static Thresholds: Cohesion acts like static friction - materials either move or don't
-  3. Vector Addition: Multiple adhesion forces naturally cancel when balanced
-  4. Energy Conservation: Excess force above threshold becomes kinetic energy
+  1. Contact-Only Physics: Forces only act between adjacent cells
+  2. Continuous Response: All forces create proportional velocity changes
+  3. Natural Damping: Viscosity prevents oscillations and unrealistic acceleration
+  4. Smooth Transitions: No artificial thresholds or discontinuities
 
-  This creates realistic material differentiation where WATER pools naturally, METAL clumps stick together, and DIRT forms stable piles - all from the same
-  underlying force calculation system.
+  This creates realistic material differentiation through viscosity alone - WATER flows freely, METAL maintains rigid structures, and granular materials form stable piles with natural angles of repose.

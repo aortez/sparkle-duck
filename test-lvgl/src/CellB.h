@@ -57,6 +57,7 @@ public:
     // =================================================================
 
     // Get accumulated forces from last physics calculation.
+    // Note: Cohesion force repurposed to store viscosity damping info (X=motion_mult, Y=damping).
     const Vector2d& getAccumulatedCohesionForce() const { return accumulated_cohesion_force_; }
     const Vector2d& getAccumulatedAdhesionForce() const { return accumulated_adhesion_force_; }
     const Vector2d& getAccumulatedCOMCohesionForce() const
@@ -65,6 +66,7 @@ public:
     }
 
     // Set accumulated forces (called during physics calculation).
+    // Note: Cohesion force repurposed to store viscosity damping info (X=motion_mult, Y=damping).
     void setAccumulatedCohesionForce(const Vector2d& force) { accumulated_cohesion_force_ = force; }
     void setAccumulatedAdhesionForce(const Vector2d& force) { accumulated_adhesion_force_ = force; }
     void setAccumulatedCOMCohesionForce(const Vector2d& force)
@@ -269,7 +271,7 @@ private:
     Vector2d pressure_gradient_; // Pressure gradient for debug visualization.
 
     // Force accumulation for visualization.
-    Vector2d accumulated_cohesion_force_;     // Last calculated cohesion force.
+    Vector2d accumulated_cohesion_force_;     // Repurposed: X=motion_multiplier, Y=damping_factor.
     Vector2d accumulated_adhesion_force_;     // Last calculated adhesion force.
     Vector2d accumulated_com_cohesion_force_; // Last calculated COM cohesion force.
 

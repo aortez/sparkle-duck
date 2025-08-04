@@ -31,6 +31,15 @@ class SimulatorUI;
 
 class WorldB : public WorldInterface {
 public:
+    // Motion states for viscosity calculations.
+    enum class MotionState {
+        STATIC,   // Supported by surface, minimal velocity.
+        FALLING,  // No support, downward velocity.
+        SLIDING,  // Moving along a surface with support.
+        TURBULENT // High velocity differences with neighbors.
+    };
+
+public:
     WorldB(uint32_t width, uint32_t height, lv_obj_t* draw_area = nullptr);
     ~WorldB();
 
@@ -228,6 +237,10 @@ public:
     }
     double getCohesionBindForceStrength() const override { return cohesion_bind_force_strength_; }
 
+    // Viscosity control.
+    void setViscosityStrength(double strength) override { viscosity_strength_ = strength; }
+    double getViscosityStrength() const override { return viscosity_strength_; }
+
     void setCOMCohesionRange(uint32_t range) override { com_cohesion_range_ = range; }
     uint32_t getCOMCohesionRange() const override { return com_cohesion_range_; }
 
@@ -348,6 +361,9 @@ private:
     void applyCohesionForces(double deltaTime);
     void applyPressureForces(double deltaTime);
     void resolveForces(double deltaTime);
+
+    // Helper method for viscosity calculations.
+    double getMotionStateMultiplier(MotionState state, double sensitivity) const;
     void updateTransfers(double deltaTime);
     void processVelocityLimiting(double deltaTime);
 
@@ -405,9 +421,13 @@ private:
     bool cohesion_bind_force_enabled_; // Enable/disable cohesion bind force (resistance)
     bool cohesion_com_force_enabled_;  // Enable/disable cohesion COM force (attraction)
 
-    double cohesion_com_force_strength_;  // Scaling factor for COM cohesion force magnitude
-    double cohesion_bind_force_strength_; // Scaling factor for cohesion bind resistance
-    uint32_t com_cohesion_range_;         // Range for COM cohesion neighbors (default 2)
+    double cohesion_com_force_strength_; // Scaling factor for COM cohesion force magnitude
+    double
+        cohesion_bind_force_strength_; // Scaling factor for cohesion bind resistance - DEPRECATED
+    uint32_t com_cohesion_range_;      // Range for COM cohesion neighbors (default 2)
+
+    // Viscosity control
+    double viscosity_strength_; // Global multiplier for material viscosity (0.0-2.0)
 
     // Air resistance control
     bool air_resistance_enabled_;    // Enable/disable air resistance forces

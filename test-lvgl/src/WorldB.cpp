@@ -6,6 +6,7 @@
 #include "WorldBAirResistanceCalculator.h"
 #include "WorldBCohesionCalculator.h"
 #include "WorldBCollisionCalculator.h"
+#include "WorldBSupportCalculator.h"
 #include "WorldInterpolationTool.h"
 #include "spdlog/spdlog.h"
 
@@ -46,6 +47,7 @@ WorldB::WorldB(uint32_t width, uint32_t height, lv_obj_t* draw_area)
       cohesion_com_force_strength_(150.0),
       cohesion_bind_force_strength_(1.0),
       com_cohesion_range_(1),
+      viscosity_strength_(1.0),
       air_resistance_enabled_(true),
       air_resistance_strength_(0.1),
       is_dragging_(false),
@@ -791,6 +793,28 @@ void WorldB::applyPressureForces(double deltaTime)
     }
 }
 
+double WorldB::getMotionStateMultiplier(MotionState state, double sensitivity) const
+{
+    double base_multiplier;
+    switch (state) {
+        case MotionState::STATIC:
+            base_multiplier = 1.0;
+            break;
+        case MotionState::FALLING:
+            base_multiplier = 0.3;
+            break;
+        case MotionState::TURBULENT:
+            base_multiplier = 0.1;
+            break;
+        case MotionState::SLIDING:
+            base_multiplier = 0.5;
+            break;
+    }
+
+    // Interpolate based on sensitivity.
+    return 1.0 - sensitivity * (1.0 - base_multiplier);
+}
+
 void WorldB::resolveForces(double deltaTime)
 {
     ScopeTimer timer(timers_, "resolve_forces");
@@ -812,7 +836,9 @@ void WorldB::resolveForces(double deltaTime)
     // Apply cohesion and adhesion forces.
     applyCohesionForces(deltaTime);
 
-    // Now resolve all accumulated forces against resistance.
+    // Now resolve all accumulated forces using viscosity model.
+    WorldBSupportCalculator support_calc(*this);
+
     for (uint32_t y = 0; y < height_; ++y) {
         for (uint32_t x = 0; x < width_; ++x) {
             CellB& cell = at(x, y);
@@ -821,102 +847,66 @@ void WorldB::resolveForces(double deltaTime)
                 continue;
             }
 
-            // Get the total pending force.
-            Vector2d pending_force = cell.getPendingForce();
-            double driving_magnitude = pending_force.mag();
+            // Get the total pending force (net driving force).
+            Vector2d net_driving_force = cell.getPendingForce();
 
-            // Calculate resistance forces.
-            double effective_resistance = 0.0;
+            // Get material properties.
+            const MaterialProperties& props = getMaterialProperties(cell.getMaterialType());
 
-            if (cohesion_bind_force_enabled_) {
-                WorldBCohesionCalculator::CohesionForce cohesion =
-                    WorldBCohesionCalculator(*this).calculateCohesionForce(x, y);
-                effective_resistance =
-                    cohesion.resistance_magnitude * cohesion_bind_force_strength_ * deltaTime * 50;
+            // Calculate support factor (1.0 if supported, 0.0 if not).
+            double support_factor = support_calc.hasStructuralSupport(x, y) ? 1.0 : 0.0;
+
+            // For now, assume STATIC motion state when supported, FALLING otherwise.
+            // TODO: Implement proper motion state detection.
+            MotionState motion_state =
+                support_factor > 0.5 ? MotionState::STATIC : MotionState::FALLING;
+
+            // Calculate motion state multiplier.
+            double motion_multiplier =
+                getMotionStateMultiplier(motion_state, props.motion_sensitivity);
+
+            // Apply viscosity damping only to velocity changes (forces), not existing velocity.
+            double damping_factor = 1.0
+                + (props.viscosity * viscosity_strength_ * cell.getFillRatio() * support_factor
+                   * motion_multiplier);
+
+            // Store damping info for visualization (X=motion_multiplier, Y=damping_factor).
+            // Only store if viscosity is actually enabled and having an effect.
+            if (viscosity_strength_ > 0.0 && props.viscosity > 0.0) {
+                cell.setAccumulatedCohesionForce(Vector2d(motion_multiplier, damping_factor));
+            }
+            else {
+                cell.setAccumulatedCohesionForce(
+                    Vector2d(0.0, 0.0)); // Clear when viscosity is off.
             }
 
-            // Debug logging for force comparison.
-            if (driving_magnitude > 0.001 || effective_resistance > 0.001) {
+            // Calculate velocity change from forces.
+            Vector2d velocity_change = net_driving_force / damping_factor * deltaTime;
+
+            // Update velocity.
+            Vector2d new_velocity = cell.getVelocity() + velocity_change;
+            cell.setVelocity(new_velocity);
+
+            // Debug logging.
+            if (net_driving_force.mag() > 0.001) {
                 spdlog::debug(
-                    "Cell ({},{}) {} - Pending forces: ({:.3f},{:.3f}), magnitude: {:.3f}, "
-                    "resistance: {:.3f}",
+                    "Cell ({},{}) {} - Force: ({:.3f},{:.3f}), viscosity: {:.3f}, "
+                    "support: {:.1f}, motion_mult: {:.3f}, damping: {:.3f}, "
+                    "vel_change: ({:.3f},{:.3f}), new_vel: ({:.3f},{:.3f})",
                     x,
                     y,
                     getMaterialName(cell.getMaterialType()),
-                    pending_force.x,
-                    pending_force.y,
-                    driving_magnitude,
-                    effective_resistance);
+                    net_driving_force.x,
+                    net_driving_force.y,
+                    props.viscosity,
+                    support_factor,
+                    motion_multiplier,
+                    damping_factor,
+                    velocity_change.x,
+                    velocity_change.y,
+                    new_velocity.x,
+                    new_velocity.y);
             }
-
-            // Apply forces to velocity based on selected resistance model.
-            static const bool USE_CONTINUOUS_RESISTANCE =
-                true; // Set to true for continuous damping.
-            if (USE_CONTINUOUS_RESISTANCE) {
-                // Continuous damping model: Forces are always applied but damped by resistance.
-                Vector2d velocity = cell.getVelocity();
-
-                // Calculate damping factor: 1.0 + (cohesion_resistance * motion_state_multiplier).
-                // For now, we don't have motion states implemented, so using 1.0 multiplier.
-                double motion_state_multiplier = 1.0; // TODO: Get from motion state system.
-                double damping_factor = 1.0 + (effective_resistance * motion_state_multiplier);
-
-                // Apply damped force: velocity += force / damping_factor.
-                Vector2d damped_force = pending_force / damping_factor;
-                velocity = velocity + damped_force;
-                cell.setVelocity(velocity);
-
-                if (driving_magnitude > 0.001 || effective_resistance > 0.001) {
-                    spdlog::debug(
-                        "Cell ({},{}) {} - Continuous resistance: force=({:.3f},{:.3f}), "
-                        "damping={:.3f}, damped_force=({:.3f},{:.3f}), new_vel=({:.3f},{:.3f})",
-                        x,
-                        y,
-                        getMaterialName(cell.getMaterialType()),
-                        pending_force.x,
-                        pending_force.y,
-                        damping_factor,
-                        damped_force.x,
-                        damped_force.y,
-                        velocity.x,
-                        velocity.y);
-                }
-            }
-            else {
-                // Binary threshold model: Original behavior.
-                if (driving_magnitude > effective_resistance) {
-                    Vector2d velocity = cell.getVelocity();
-
-                    // If resistance is significant, reduce the applied force.
-                    if (effective_resistance > 0.001) {
-                        double force_reduction_factor =
-                            1.0 - (effective_resistance / driving_magnitude);
-                        force_reduction_factor = std::max(0.0, force_reduction_factor);
-                        pending_force = pending_force * force_reduction_factor;
-                    }
-
-                    velocity = velocity + pending_force;
-                    cell.setVelocity(velocity);
-
-                    spdlog::debug(
-                        "Cell ({},{}) {} - Forces applied! New velocity: ({:.3f},{:.3f})",
-                        x,
-                        y,
-                        getMaterialName(cell.getMaterialType()),
-                        velocity.x,
-                        velocity.y);
-                }
-                else if (driving_magnitude > 0.001) {
-                    spdlog::debug(
-                        "Cell ({},{}) {} - Forces blocked by resistance! Velocity unchanged.",
-                        x,
-                        y,
-                        getMaterialName(cell.getMaterialType()));
-                }
-            }
-
-            // Clear pending forces after resolution.
-            cell.clearPendingForce();
         }
     }
 }
@@ -981,18 +971,14 @@ std::vector<MaterialMove> WorldB::computeMaterialMoves(double deltaTime)
                 }; // No COM cohesion when disabled.
             }
 
-            // Apply strength multipliers to forces (now with separate adhesion and COM cohesion.
-            // controls).
-            double effective_resistance =
-                cohesion.resistance_magnitude * cohesion_bind_force_strength_ * deltaTime * 50;
+            // Apply strength multipliers to forces.
             double effective_adhesion_magnitude =
                 adhesion.force_magnitude * adhesion_calculator_.getAdhesionStrength();
             double effective_com_cohesion_magnitude =
                 com_cohesion.force_magnitude * cohesion_com_force_strength_;
 
-            // Store forces in cell for visualization (using effective values).
-            cell.setAccumulatedCohesionForce(
-                Vector2d(0, -effective_resistance)); // Resistance shown as upward force.
+            // Store forces in cell for visualization.
+            // Note: Cohesion force field is now repurposed in resolveForces() for damping info.
             cell.setAccumulatedAdhesionForce(
                 adhesion.force_direction * effective_adhesion_magnitude);
             cell.setAccumulatedCOMCohesionForce(

@@ -89,7 +89,8 @@ private:
     lv_obj_t* dynamic_strength_label_ = nullptr;
     lv_obj_t* gravity_button_ = nullptr; // Gravity is a toggle button
     lv_obj_t* gravity_label_ = nullptr;
-    lv_obj_t* timescale_label_ = nullptr; // Value label for timescale slider
+    lv_obj_t* timescale_slider_ = nullptr; // Timescale slider object
+    lv_obj_t* timescale_label_ = nullptr;  // Value label for timescale slider
     lv_obj_t* elasticity_slider_ = nullptr;
     lv_obj_t* elasticity_label_ = nullptr;
     lv_obj_t* air_resistance_slider_ = nullptr;
@@ -191,7 +192,7 @@ private:
     // Cohesion strength sliders.
     static void cohesionForceStrengthSliderEventCb(lv_event_t* e);
     static void adhesionStrengthSliderEventCb(lv_event_t* e);
-    static void cohesionBindStrengthSliderEventCb(lv_event_t* e);
+    static void viscosityStrengthSliderEventCb(lv_event_t* e);
     static void comCohesionRangeSliderEventCb(lv_event_t* e);
 
     // Push-based UI update timer callback.

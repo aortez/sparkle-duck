@@ -299,6 +299,10 @@ public:
     virtual void setCohesionBindForceStrength(double strength) = 0;
     virtual double getCohesionBindForceStrength() const = 0;
 
+    // Viscosity control methods.
+    virtual void setViscosityStrength(double strength) = 0;
+    virtual double getViscosityStrength() const = 0;
+
     // COM cohesion range control.
     virtual void setCOMCohesionRange(uint32_t range) = 0;
     virtual uint32_t getCOMCohesionRange() const = 0;

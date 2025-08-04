@@ -191,6 +191,10 @@ public:
     { /* no-op for WorldA */ }
     double getCohesionBindForceStrength() const override { return 1.0; }
 
+    // Viscosity control (not implemented in RulesA).
+    void setViscosityStrength([[maybe_unused]] double strength) override { /* no-op for WorldA */ }
+    double getViscosityStrength() const override { return 1.0; }
+
     // COM cohesion range control (no-op for WorldA)
     void setCOMCohesionRange([[maybe_unused]] uint32_t range) override { /* no-op for WorldA */ }
     uint32_t getCOMCohesionRange() const override { return 1; }

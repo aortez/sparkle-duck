@@ -71,6 +71,12 @@ LVGLEventBuilder::SliderBuilder& LVGLEventBuilder::SliderBuilder::onValueChange(
 }
 
 LVGLEventBuilder::SliderBuilder& LVGLEventBuilder::SliderBuilder::onTimescaleChange() {
+    // Set up value transform for the label to show timescale instead of slider value
+    valueTransform([](int32_t value) {
+        // Convert 0-100 to logarithmic scale: 0.1x to 10x with 1.0x at center (50)
+        return pow(10.0, (value - 50) / 50.0);
+    });
+    
     return onValueChange([](int32_t value) {
         // Convert 0-100 to logarithmic scale: 0.1x to 10x with 1.0x at center (50)
         double timescale = pow(10.0, (value - 50) / 50.0);

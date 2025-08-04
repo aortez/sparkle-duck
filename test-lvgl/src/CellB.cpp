@@ -779,21 +779,42 @@ void CellB::drawDebug(lv_obj_t* parent, uint32_t x, uint32_t y)
         int com_pixel_x = static_cast<int>((com_.x + 1.0) * (Cell::WIDTH - 1) / 2.0);
         int com_pixel_y = static_cast<int>((com_.y + 1.0) * (Cell::HEIGHT - 1) / 2.0);
 
-        // Draw cohesion force (resistance) as red upward line.
-        if (accumulated_cohesion_force_.mag() > 0.01) {
-            double scale = 15.0;
-            int end_x = com_pixel_x + static_cast<int>(accumulated_cohesion_force_.x * scale);
-            int end_y = com_pixel_y + static_cast<int>(accumulated_cohesion_force_.y * scale);
+        // Draw viscosity damping effect as a colored circle.
+        // accumulated_cohesion_force_.x = motion_multiplier (0-1)
+        // accumulated_cohesion_force_.y = damping_factor (1+)
+        if (accumulated_cohesion_force_.y > 1.01) { // Only show if significant damping.
+            double damping_factor = accumulated_cohesion_force_.y;
+            double motion_multiplier = accumulated_cohesion_force_.x;
 
-            lv_draw_line_dsc_t cohesion_line_dsc;
-            lv_draw_line_dsc_init(&cohesion_line_dsc);
-            cohesion_line_dsc.color = lv_color_hex(0xFF0000); // Red for cohesion resistance.
-            cohesion_line_dsc.width = 2;
-            cohesion_line_dsc.p1.x = com_pixel_x;
-            cohesion_line_dsc.p1.y = com_pixel_y;
-            cohesion_line_dsc.p2.x = end_x;
-            cohesion_line_dsc.p2.y = end_y;
-            lv_draw_line(&layer, &cohesion_line_dsc);
+            // Circle radius based on damping strength (1.0 = no damping, higher = more).
+            int radius = static_cast<int>((damping_factor - 1.0) * 20.0);     // Scale factor of 20.
+            radius = std::min(radius, static_cast<int>(Cell::WIDTH / 2 - 2)); // Limit to cell size.
+
+            if (radius > 1) {
+                // Color based on motion state (red=static, yellow=sliding, green=falling).
+                lv_color_t color;
+                if (motion_multiplier > 0.9) {
+                    color = lv_color_hex(0xFF0000); // Red for static (high damping).
+                }
+                else if (motion_multiplier > 0.4) {
+                    color = lv_color_hex(0xFFFF00); // Yellow for sliding.
+                }
+                else {
+                    color = lv_color_hex(0x00FF00); // Green for falling/turbulent.
+                }
+
+                lv_draw_arc_dsc_t arc_dsc;
+                lv_draw_arc_dsc_init(&arc_dsc);
+                arc_dsc.color = color;
+                arc_dsc.width = 2;
+                arc_dsc.start_angle = 0;
+                arc_dsc.end_angle = 360;
+                arc_dsc.center.x = com_pixel_x;
+                arc_dsc.center.y = com_pixel_y;
+                arc_dsc.radius = radius;
+
+                lv_draw_arc(&layer, &arc_dsc);
+            }
         }
 
         // Draw adhesion force as orange line (only if adhesion drawing is enabled).

@@ -8,32 +8,32 @@
 
 // Material property database.
 // Format: {density, elasticity, cohesion, adhesion, com_mass_constant, pressure_diffusion,
-// is_fluid, is_rigid}
+// viscosity, motion_sensitivity, is_fluid, is_rigid}
 static std::array<MaterialProperties, 8> MATERIAL_PROPERTIES = {
     { // AIR: Nearly massless, high elasticity, no cohesion/adhesion, very high pressure diffusion.
-      { 0.001, 1.0, 0.0, 0.0, 0.0, 1.0, true, false },
+      { 0.001, 1.0, 0.0, 0.0, 0.0, 1.0, 0.001, 0.0, true, false },
 
       // DIRT: Medium density granular material, medium pressure diffusion.
-      { 1.5, 0.3, 0.3, 0.2, 5.0, 0.4, false, false },
+      { 1.5, 0.3, 0.3, 0.2, 5.0, 0.4, 0.5, 0.99, false, false },
 
       // WATER: Fluid with medium density, strong cohesion for droplet formation, high pressure
       // diffusion.
-      { 1.0, 0.1, 0.6, 0.5, 8.0, 0.9, true, false },
+      { 1.0, 0.1, 0.6, 0.5, 8.0, 0.9, 0.01, 1.0, true, false },
 
       // WOOD: Light rigid material with moderate elasticity, low directional diffusion.
-      { 0.8, 0.6, 0.7, 0.3, 3.0, 0.15, false, true },
+      { 0.8, 0.6, 0.7, 0.3, 3.0, 0.15, 0.9, 0.2, false, true },
 
       // SAND: Dense granular material, settles faster than dirt, medium pressure diffusion.
-      { 1.8, 0.2, 0.2, 0.1, 4.0, 0.3, false, false },
+      { 1.8, 0.2, 0.2, 0.1, 4.0, 0.3, 0.3, 0.5, false, false },
 
       // METAL: Very dense rigid material with high elasticity and maximum cohesion, low diffusion.
-      { 7.8, 0.8, 1.0, 0.1, 2.0, 0.1, false, true },
+      { 7.8, 0.8, 1.0, 0.1, 2.0, 0.1, 0.95, 0.1, false, true },
 
       // LEAF: Very light organic matter, medium-high diffusion due to porous structure.
-      { 0.3, 0.4, 0.3, 0.2, 10.0, 0.6, false, false },
+      { 0.3, 0.4, 0.3, 0.2, 10.0, 0.6, 0.2, 0.8, false, false },
 
       // WALL: Immobile boundary material (infinite effective density), zero pressure diffusion.
-      { 1000.0, 0.9, 1.0, 1.0, 0.0, 0.0, false, true } }
+      { 1000.0, 0.9, 1.0, 1.0, 0.0, 0.0, 1.0, 0.0, false, true } }
 };
 
 // Material name lookup table.
