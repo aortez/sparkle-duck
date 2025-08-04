@@ -87,10 +87,6 @@ SimulatorUI::CallbackData* SimulatorUI::createCallbackData(lv_obj_t* label)
     data->world = world_;
     data->manager = manager_;
     data->associated_label = label;
-    // Initialize radio buttons array to nullptr.
-    for (int i = 0; i < 3; i++) {
-        data->radio_buttons[i] = nullptr;
-    }
 
     // Reserve capacity to prevent reallocation if we're getting close
     if (callback_data_storage_.size() >= callback_data_storage_.capacity() - 10) {
@@ -528,53 +524,6 @@ void SimulatorUI::createControlButtons()
                 return createCallbackData(value_label);
             });
     com_range_builder.buildOrLog();
-
-    // Create COM cohesion mode radio buttons.
-    lv_obj_t* com_mode_label = lv_label_create(screen_);
-    lv_label_set_text(com_mode_label, "COM Cohesion Mode:");
-    lv_obj_align(com_mode_label, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 930);
-
-    // Create container for radio buttons.
-    lv_obj_t* com_mode_container = lv_obj_create(screen_);
-    lv_obj_set_size(com_mode_container, 250, 80);
-    lv_obj_align(com_mode_container, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 950);
-    lv_obj_set_style_bg_color(com_mode_container, lv_color_make(40, 40, 40), 0);
-    lv_obj_set_style_border_width(com_mode_container, 0, 0);
-    lv_obj_set_style_pad_all(com_mode_container, 5, 0);
-
-    // Create radio button group.
-    lv_obj_t* radio_original = lv_checkbox_create(com_mode_container);
-    lv_checkbox_set_text(radio_original, "Original");
-    lv_obj_align(radio_original, LV_ALIGN_TOP_LEFT, 0, 0);
-    lv_obj_add_flag(radio_original, LV_OBJ_FLAG_EVENT_BUBBLE);
-    lv_obj_add_state(radio_original, LV_STATE_CHECKED); // Default to original mode.
-    lv_obj_set_style_text_color(radio_original, lv_color_white(), LV_PART_MAIN);
-
-    lv_obj_t* radio_centering = lv_checkbox_create(com_mode_container);
-    lv_checkbox_set_text(radio_centering, "Centering");
-    lv_obj_align(radio_centering, LV_ALIGN_TOP_LEFT, 0, 25);
-    lv_obj_add_flag(radio_centering, LV_OBJ_FLAG_EVENT_BUBBLE);
-    lv_obj_set_style_text_color(radio_centering, lv_color_white(), LV_PART_MAIN);
-
-    lv_obj_t* radio_mass_based = lv_checkbox_create(com_mode_container);
-    lv_checkbox_set_text(radio_mass_based, "Mass-Based");
-    lv_obj_align(radio_mass_based, LV_ALIGN_TOP_LEFT, 0, 50);
-    lv_obj_add_flag(radio_mass_based, LV_OBJ_FLAG_EVENT_BUBBLE);
-    lv_obj_set_style_text_color(radio_mass_based, lv_color_white(), LV_PART_MAIN);
-
-    // Store radio buttons in callback data for mutual exclusion.
-    CallbackData* radio_data = createCallbackData();
-    radio_data->radio_buttons[0] = radio_original;
-    radio_data->radio_buttons[1] = radio_centering;
-    radio_data->radio_buttons[2] = radio_mass_based;
-
-    // Add callbacks to all radio buttons.
-    lv_obj_add_event_cb(
-        radio_original, comCohesionModeRadioEventCb, LV_EVENT_VALUE_CHANGED, radio_data);
-    lv_obj_add_event_cb(
-        radio_centering, comCohesionModeRadioEventCb, LV_EVENT_VALUE_CHANGED, radio_data);
-    lv_obj_add_event_cb(
-        radio_mass_based, comCohesionModeRadioEventCb, LV_EVENT_VALUE_CHANGED, radio_data);
 
     // Create adhesion toggle button.
     if (event_router_) {
@@ -2435,52 +2384,6 @@ void SimulatorUI::comCohesionRangeSliderEventCb(lv_event_t* e)
         char buf[16];
         snprintf(buf, sizeof(buf), "%u", range);
         lv_label_set_text(data->associated_label, buf);
-    }
-}
-
-void SimulatorUI::comCohesionModeRadioEventCb(lv_event_t* e)
-{
-    if (lv_event_get_code(e) == LV_EVENT_VALUE_CHANGED) {
-        CallbackData* data = static_cast<CallbackData*>(lv_event_get_user_data(e));
-        if (data && data->world) {
-            lv_obj_t* clicked_radio = static_cast<lv_obj_t*>(lv_event_get_target(e));
-
-            // If this radio was clicked and is now checked.
-            if (lv_obj_has_state(clicked_radio, LV_STATE_CHECKED)) {
-                // Uncheck all other radio buttons.
-                for (int i = 0; i < 3; i++) {
-                    if (data->radio_buttons[i] != clicked_radio) {
-                        lv_obj_clear_state(data->radio_buttons[i], LV_STATE_CHECKED);
-                    }
-                }
-
-                // Determine which mode was selected.
-                WorldB::COMCohesionMode mode;
-                const char* mode_name;
-                if (clicked_radio == data->radio_buttons[0]) {
-                    mode = WorldB::COMCohesionMode::ORIGINAL;
-                    mode_name = "ORIGINAL";
-                }
-                else if (clicked_radio == data->radio_buttons[1]) {
-                    mode = WorldB::COMCohesionMode::CENTERING;
-                    mode_name = "CENTERING";
-                }
-                else {
-                    mode = WorldB::COMCohesionMode::MASS_BASED;
-                    mode_name = "MASS_BASED";
-                }
-
-                // Try to cast to WorldB to access the specific method.
-                WorldB* worldB = dynamic_cast<WorldB*>(data->world);
-                if (worldB) {
-                    worldB->setCOMCohesionMode(mode);
-                    spdlog::info("COM cohesion mode set to: {}", mode_name);
-                }
-                else {
-                    spdlog::warn("COM cohesion mode selection only works with WorldB");
-                }
-            }
-        }
     }
 }
 

@@ -42,7 +42,7 @@ WorldB::WorldB(uint32_t width, uint32_t height, lv_obj_t* draw_area)
       cursor_force_y_(0),
       cohesion_bind_force_enabled_(false),
       cohesion_com_force_enabled_(false),
-      com_cohesion_mode_(COMCohesionMode::ORIGINAL),
+
       cohesion_com_force_strength_(150.0),
       cohesion_bind_force_strength_(1.0),
       com_cohesion_range_(1),
@@ -141,7 +141,7 @@ void WorldB::advanceTime(double deltaTimeSeconds)
     if (dynamic_pressure_enabled_) {
         // Generate virtual gravity transfers to create pressure from gravity forces.
         // This allows dynamic pressure to model hydrostatic-like behavior.
-//        pressure_calculator_.generateVirtualGravityTransfers(scaledDeltaTime);
+        //        pressure_calculator_.generateVirtualGravityTransfers(scaledDeltaTime);
 
         pressure_calculator_.processBlockedTransfers(pressure_calculator_.blocked_transfers_);
         pressure_calculator_.blocked_transfers_.clear();
@@ -726,15 +726,6 @@ void WorldB::applyCohesionForces(double deltaTime)
                 Vector2d com_cohesion_force = com_cohesion.force_direction
                     * com_cohesion.force_magnitude * deltaTime * cohesion_com_force_strength_;
                 cell.addPendingForce(com_cohesion_force);
-
-                if (com_cohesion_mode_ == COMCohesionMode::MASS_BASED) {
-                    spdlog::trace(
-                        "Applied mass-based COM cohesion: {} at ({},{}) force={:.3f}",
-                        getMaterialName(cell.getMaterialType()),
-                        x,
-                        y,
-                        com_cohesion.force_magnitude);
-                }
             }
 
             // Adhesion force accumulation (only if enabled).
@@ -859,21 +850,22 @@ void WorldB::resolveForces(double deltaTime)
             }
 
             // Apply forces to velocity based on selected resistance model.
-            static const bool USE_CONTINUOUS_RESISTANCE = false; // Set to true for continuous damping.
+            static const bool USE_CONTINUOUS_RESISTANCE =
+                true; // Set to true for continuous damping.
             if (USE_CONTINUOUS_RESISTANCE) {
                 // Continuous damping model: Forces are always applied but damped by resistance.
                 Vector2d velocity = cell.getVelocity();
-                
+
                 // Calculate damping factor: 1.0 + (cohesion_resistance * motion_state_multiplier).
                 // For now, we don't have motion states implemented, so using 1.0 multiplier.
                 double motion_state_multiplier = 1.0; // TODO: Get from motion state system.
                 double damping_factor = 1.0 + (effective_resistance * motion_state_multiplier);
-                
+
                 // Apply damped force: velocity += force / damping_factor.
                 Vector2d damped_force = pending_force / damping_factor;
                 velocity = velocity + damped_force;
                 cell.setVelocity(velocity);
-                
+
                 if (driving_magnitude > 0.001 || effective_resistance > 0.001) {
                     spdlog::debug(
                         "Cell ({},{}) {} - Continuous resistance: force=({:.3f},{:.3f}), "

@@ -21,7 +21,6 @@ public:
         WorldInterface* world;
         SimulationManager* manager;
         lv_obj_t* associated_label; // For sliders that need to update labels.
-        lv_obj_t* radio_buttons[3]; // For radio button groups (mutual exclusion).
     };
 
     SimulatorUI(lv_obj_t* screen, EventRouter* eventRouter = nullptr);
@@ -194,7 +193,6 @@ private:
     static void adhesionStrengthSliderEventCb(lv_event_t* e);
     static void cohesionBindStrengthSliderEventCb(lv_event_t* e);
     static void comCohesionRangeSliderEventCb(lv_event_t* e);
-    static void comCohesionModeRadioEventCb(lv_event_t* e);
 
     // Push-based UI update timer callback.
     static void uiUpdateTimerCb(lv_timer_t* timer);

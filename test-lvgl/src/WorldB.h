@@ -237,15 +237,7 @@ public:
     void setAirResistanceStrength(double strength) override { air_resistance_strength_ = strength; }
     double getAirResistanceStrength() const override { return air_resistance_strength_; }
 
-    // COM cohesion mode control
-    enum class COMCohesionMode {
-        ORIGINAL,  // Current implementation
-        CENTERING, // Force toward cell center (0,0)
-        MASS_BASED // New mass-based with cutoff
-    };
-
-    void setCOMCohesionMode(COMCohesionMode mode) { com_cohesion_mode_ = mode; }
-    COMCohesionMode getCOMCohesionMode() const { return com_cohesion_mode_; }
+    // COM cohesion mode removed - always uses ORIGINAL implementation
 
     // WORLDINTERFACE IMPLEMENTATION - GRID MANAGEMENT
     void resizeGrid(uint32_t newWidth, uint32_t newHeight) override;
@@ -410,9 +402,9 @@ private:
     int cursor_force_y_;
 
     // Cohesion physics control
-    bool cohesion_bind_force_enabled_;    // Enable/disable cohesion bind force (resistance)
-    bool cohesion_com_force_enabled_;     // Enable/disable cohesion COM force (attraction)
-    COMCohesionMode com_cohesion_mode_;   // COM cohesion calculation mode
+    bool cohesion_bind_force_enabled_; // Enable/disable cohesion bind force (resistance)
+    bool cohesion_com_force_enabled_;  // Enable/disable cohesion COM force (attraction)
+
     double cohesion_com_force_strength_;  // Scaling factor for COM cohesion force magnitude
     double cohesion_bind_force_strength_; // Scaling factor for cohesion bind resistance
     uint32_t com_cohesion_range_;         // Range for COM cohesion neighbors (default 2)
