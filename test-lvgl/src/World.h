@@ -182,7 +182,9 @@ public:
     double getCohesionComForceStrength() const override { return 1.0; }
 
     void setAdhesionStrength([[maybe_unused]] double strength) override { /* no-op for WorldA */ }
+    void setFrictionStrength([[maybe_unused]] double strength) override { /* no-op for WorldA */ }
     double getAdhesionStrength() const override { return 1.0; }
+    double getFrictionStrength() const override { return 1.0; }
 
     void setAdhesionEnabled([[maybe_unused]] bool enabled) override { /* no-op for WorldA */ }
     bool isAdhesionEnabled() const override { return false; }

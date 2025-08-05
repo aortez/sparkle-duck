@@ -24,6 +24,7 @@ CellB::CellB()
       accumulated_adhesion_force_(0.0, 0.0),
       accumulated_com_cohesion_force_(0.0, 0.0),
       pending_force_(0.0, 0.0),
+      cached_friction_coefficient_(1.0),
       canvas_(nullptr),
       needs_redraw_(true)
 {}
@@ -41,6 +42,7 @@ CellB::CellB(MaterialType type, double fill)
       accumulated_adhesion_force_(0.0, 0.0),
       accumulated_com_cohesion_force_(0.0, 0.0),
       pending_force_(0.0, 0.0),
+      cached_friction_coefficient_(1.0),
       canvas_(nullptr),
       needs_redraw_(true)
 {}
@@ -68,6 +70,7 @@ CellB::CellB(const CellB& other)
       accumulated_adhesion_force_(other.accumulated_adhesion_force_),
       accumulated_com_cohesion_force_(other.accumulated_com_cohesion_force_),
       pending_force_(other.pending_force_),
+      cached_friction_coefficient_(other.cached_friction_coefficient_),
       buffer_(other.buffer_.size()), // Create new buffer with same size.
       canvas_(nullptr),              // Don't copy LVGL object.
       needs_redraw_(true)            // New copy needs redraw.
@@ -98,6 +101,7 @@ CellB& CellB::operator=(const CellB& other)
         accumulated_adhesion_force_ = other.accumulated_adhesion_force_;
         accumulated_com_cohesion_force_ = other.accumulated_com_cohesion_force_;
         pending_force_ = other.pending_force_;
+        cached_friction_coefficient_ = other.cached_friction_coefficient_;
 
         // Resize buffer if needed but don't copy contents.
         buffer_.resize(other.buffer_.size());
@@ -147,11 +151,6 @@ double CellB::getMass() const
 double CellB::getEffectiveDensity() const
 {
     return fill_ratio_ * getMaterialDensity(material_type_);
-}
-
-const MaterialProperties& CellB::getMaterialProperties() const
-{
-    return ::getMaterialProperties(material_type_);
 }
 
 double CellB::addMaterial(MaterialType type, double amount)
@@ -223,7 +222,7 @@ double CellB::addMaterialWithPhysics(
     if (added > 0.0) {
         // Enhanced momentum conservation: new_COM = (m1*COM1 + m2*COM2)/(m1+m2).
         const double existing_mass = getMass();
-        const double added_mass = added * getMaterialProperties().density;
+        const double added_mass = added * getMaterialProperties(material_type_).density;
         const double total_mass = existing_mass + added_mass;
 
         // Calculate incoming material's COM in target cell space.
@@ -936,6 +935,55 @@ void CellB::drawDebug(lv_obj_t* parent, uint32_t x, uint32_t y)
             gradient_line_dsc.p2.x = end_x;
             gradient_line_dsc.p2.y = end_y;
             lv_draw_line(&layer, &gradient_line_dsc);
+        }
+
+        // Draw friction state as inner square.
+        if (!isMaterialFluid(material_type_) && material_type_ != MaterialType::WALL) {
+            const MaterialProperties& props = getMaterialProperties(material_type_);
+
+            // Determine friction state color based on cached coefficient.
+            lv_color_t friction_color;
+
+            // Calculate how far we are from static to kinetic friction.
+            double friction_range =
+                props.static_friction_coefficient - props.kinetic_friction_coefficient;
+            double normalized_friction = 1.0;
+            if (friction_range > 0.001) {
+                normalized_friction =
+                    (cached_friction_coefficient_ - props.kinetic_friction_coefficient)
+                    / friction_range;
+                normalized_friction = std::min(1.0, std::max(0.0, normalized_friction));
+            }
+
+            if (normalized_friction > 0.8) {
+                // Static friction - green.
+                friction_color = lv_color_hex(0x00FF00);
+            }
+            else if (normalized_friction > 0.2) {
+                // Transitioning - yellow.
+                friction_color = lv_color_hex(0xFFFF00);
+            }
+            else {
+                // Kinetic friction - red.
+                friction_color = lv_color_hex(0xFF0000);
+            }
+
+            // Draw friction indicator as inner square.
+            const int margin = 8; // Margin from cell edges.
+            lv_draw_rect_dsc_t friction_rect_dsc;
+            lv_draw_rect_dsc_init(&friction_rect_dsc);
+            friction_rect_dsc.bg_color = friction_color;
+            friction_rect_dsc.bg_opa =
+                static_cast<lv_opa_t>(0.5 * static_cast<double>(LV_OPA_COVER)); // Semi-transparent.
+            friction_rect_dsc.border_width = 0;
+            friction_rect_dsc.radius = 1;
+
+            lv_area_t friction_coords = { margin,
+                                          margin,
+                                          static_cast<int32_t>(Cell::WIDTH - 1 - margin),
+                                          static_cast<int32_t>(Cell::HEIGHT - 1 - margin) };
+
+            lv_draw_rect(&layer, &friction_rect_dsc, &friction_coords);
         }
 
         // Draw Center of Mass as yellow square.

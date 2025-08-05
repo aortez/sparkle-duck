@@ -290,7 +290,9 @@ public:
     virtual double getCohesionComForceStrength() const = 0;
 
     virtual void setAdhesionStrength(double strength) = 0;
+    virtual void setFrictionStrength(double strength) = 0;
     virtual double getAdhesionStrength() const = 0;
+    virtual double getFrictionStrength() const = 0;
 
     // Adhesion enable/disable controls.
     virtual void setAdhesionEnabled(bool enabled) = 0;
