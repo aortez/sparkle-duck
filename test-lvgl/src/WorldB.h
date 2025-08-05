@@ -241,6 +241,10 @@ public:
     void setViscosityStrength(double strength) override { viscosity_strength_ = strength; }
     double getViscosityStrength() const override { return viscosity_strength_; }
 
+    // Friction control.
+    void setFrictionStrength(double strength) { friction_strength_ = strength; }
+    double getFrictionStrength() const { return friction_strength_; }
+
     void setCOMCohesionRange(uint32_t range) override { com_cohesion_range_ = range; }
     uint32_t getCOMCohesionRange() const override { return com_cohesion_range_; }
 
@@ -428,6 +432,9 @@ private:
 
     // Viscosity control
     double viscosity_strength_; // Global multiplier for material viscosity (0.0-2.0)
+
+    // Friction control
+    double friction_strength_; // Global multiplier for friction coefficients (0.0-2.0)
 
     // Air resistance control
     bool air_resistance_enabled_;    // Enable/disable air resistance forces

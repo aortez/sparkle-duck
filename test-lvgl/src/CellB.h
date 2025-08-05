@@ -82,6 +82,10 @@ public:
         accumulated_com_cohesion_force_ = Vector2d(0, 0);
     }
 
+    // Get/set cached friction coefficient for visualization.
+    double getCachedFrictionCoefficient() const { return cached_friction_coefficient_; }
+    void setCachedFrictionCoefficient(double coeff) { cached_friction_coefficient_ = coeff; }
+
     // =================================================================
     // PHYSICS FORCE ACCUMULATION
     // =================================================================
@@ -161,9 +165,6 @@ public:
 
     // Effective density
     double getEffectiveDensity() const;
-
-    // Material properties.
-    const MaterialProperties& getMaterialProperties() const;
 
     // =================================================================
     // MATERIAL OPERATIONS
@@ -277,6 +278,9 @@ private:
 
     // Physics force accumulation.
     Vector2d pending_force_; // Forces to be applied during resolution phase.
+
+    // Cached physics values for visualization.
+    double cached_friction_coefficient_; // Current friction coefficient for rendering.
 
     // Rendering state.
     std::vector<uint8_t> buffer_; // Buffer for LVGL canvas pixel data.

@@ -48,6 +48,7 @@ WorldB::WorldB(uint32_t width, uint32_t height, lv_obj_t* draw_area)
       cohesion_bind_force_strength_(1.0),
       com_cohesion_range_(1),
       viscosity_strength_(1.0),
+      friction_strength_(1.0),
       air_resistance_enabled_(true),
       air_resistance_strength_(0.1),
       is_dragging_(false),
@@ -865,15 +866,34 @@ void WorldB::resolveForces(double deltaTime)
             double motion_multiplier =
                 getMotionStateMultiplier(motion_state, props.motion_sensitivity);
 
-            // Apply viscosity damping only to velocity changes (forces), not existing velocity.
-            double damping_factor = 1.0
-                + (props.viscosity * viscosity_strength_ * cell.getFillRatio() * support_factor
-                   * motion_multiplier);
+            // Calculate velocity-dependent friction coefficient.
+            double velocity_magnitude = cell.getVelocity().magnitude();
+            double friction_coefficient = getFrictionCoefficient(velocity_magnitude, props);
 
-            // Store damping info for visualization (X=motion_multiplier, Y=damping_factor).
+            // Apply global friction strength multiplier.
+            friction_coefficient = 1.0 + (friction_coefficient - 1.0) * friction_strength_;
+
+            // Cache the friction coefficient for visualization.
+            cell.setCachedFrictionCoefficient(friction_coefficient);
+
+            // Combine viscosity with friction and motion state.
+            double effective_viscosity =
+                props.viscosity * friction_coefficient * motion_multiplier * 1000;
+
+            // Apply continuous damping with friction (no thresholds).
+            double damping_factor = 1.0
+                + (effective_viscosity * viscosity_strength_ * cell.getFillRatio()
+                   * support_factor);
+
+            // Ensure damping factor is never zero or negative to prevent division by zero.
+            if (damping_factor <= 0.0) {
+                damping_factor = 0.001; // Minimal damping to prevent division by zero.
+            }
+
+            // Store damping info for visualization (X=friction_coefficient, Y=damping_factor).
             // Only store if viscosity is actually enabled and having an effect.
             if (viscosity_strength_ > 0.0 && props.viscosity > 0.0) {
-                cell.setAccumulatedCohesionForce(Vector2d(motion_multiplier, damping_factor));
+                cell.setAccumulatedCohesionForce(Vector2d(friction_coefficient, damping_factor));
             }
             else {
                 cell.setAccumulatedCohesionForce(
@@ -891,7 +911,7 @@ void WorldB::resolveForces(double deltaTime)
             if (net_driving_force.mag() > 0.001) {
                 spdlog::debug(
                     "Cell ({},{}) {} - Force: ({:.3f},{:.3f}), viscosity: {:.3f}, "
-                    "support: {:.1f}, motion_mult: {:.3f}, damping: {:.3f}, "
+                    "friction: {:.3f}, support: {:.1f}, motion_mult: {:.3f}, damping: {:.3f}, "
                     "vel_change: ({:.3f},{:.3f}), new_vel: ({:.3f},{:.3f})",
                     x,
                     y,
@@ -899,6 +919,7 @@ void WorldB::resolveForces(double deltaTime)
                     net_driving_force.x,
                     net_driving_force.y,
                     props.viscosity,
+                    friction_coefficient,
                     support_factor,
                     motion_multiplier,
                     damping_factor,

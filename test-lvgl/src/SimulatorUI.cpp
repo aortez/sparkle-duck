@@ -493,7 +493,7 @@ void SimulatorUI::createControlButtons()
     // Create COM cohesion range slider.
     auto com_range_builder =
         LVGLBuilder::slider(screen_)
-            .position(MAIN_CONTROLS_X, 520)
+            .position(MAIN_CONTROLS_X, 510)
             .size(CONTROL_WIDTH, 10)
             .range(1, 5)
             .value(1)
@@ -503,6 +503,20 @@ void SimulatorUI::createControlButtons()
                 return createCallbackData(value_label);
             });
     com_range_builder.buildOrLog();
+
+    // Create friction strength slider.
+    auto friction_builder =
+        LVGLBuilder::slider(screen_)
+            .position(MAIN_CONTROLS_X, 540)
+            .size(CONTROL_WIDTH, 10)
+            .range(0, 10)
+            .value(1)
+            .label("Friction Strength", 0, -20)
+            .valueLabel("%.1f", 120, -20)
+            .callback(frictionStrengthSliderEventCb, [this](lv_obj_t* value_label) -> void* {
+                return createCallbackData(value_label);
+            });
+    friction_strength_slider_ = friction_builder.buildOrLog();
 
     // Create adhesion toggle button.
     if (event_router_) {
@@ -2379,6 +2393,23 @@ void SimulatorUI::comCohesionRangeSliderEventCb(lv_event_t* e)
         }
         char buf[16];
         snprintf(buf, sizeof(buf), "%u", range);
+        lv_label_set_text(data->associated_label, buf);
+    }
+}
+
+void SimulatorUI::frictionStrengthSliderEventCb(lv_event_t* e)
+{
+    lv_obj_t* slider = static_cast<lv_obj_t*>(lv_event_get_target(e));
+    CallbackData* data = static_cast<CallbackData*>(lv_event_get_user_data(e));
+    if (lv_event_get_code(e) == LV_EVENT_VALUE_CHANGED && data) {
+        int32_t value = lv_slider_get_value(slider);
+        double strength = value / 1.0; // Range 0 to 10.
+        spdlog::info("Friction strength changed to {:.1f}", strength);
+        if (data->world) {
+            data->world->setFrictionStrength(strength);
+        }
+        char buf[16];
+        snprintf(buf, sizeof(buf), "%.1f", strength);
         lv_label_set_text(data->associated_label, buf);
     }
 }

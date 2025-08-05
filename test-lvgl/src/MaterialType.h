@@ -24,16 +24,21 @@ enum class MaterialType : uint8_t {
  * Material properties that define physical behavior.
  */
 struct MaterialProperties {
-    double density;            // Mass per unit volume (affects gravity response).
-    double elasticity;         // Bounce factor for collisions [0.0-1.0].
-    double cohesion;           // Internal binding strength (affects flow).
-    double adhesion;           // Binding strength to other materials.
-    double com_mass_constant;  // Material-specific constant for mass-based COM cohesion.
-    double pressure_diffusion; // Pressure propagation rate [0.0-1.0].
-    double viscosity;          // Flow resistance [0.0-1.0].
-    double motion_sensitivity; // How much motion state affects viscosity [0.0-1.0].
-    bool is_fluid;             // True for materials that flow freely.
-    bool is_rigid;             // True for materials that only compress, don't flow.
+    double density;                      // Mass per unit volume (affects gravity response).
+    double elasticity;                   // Bounce factor for collisions [0.0-1.0].
+    double cohesion;                     // Internal binding strength (affects flow).
+    double adhesion;                     // Binding strength to other materials.
+    double com_mass_constant;            // Material-specific constant for mass-based COM cohesion.
+    double pressure_diffusion;           // Pressure propagation rate [0.0-1.0].
+    double viscosity;                    // Flow resistance [0.0-1.0].
+    double motion_sensitivity;           // How much motion state affects viscosity [0.0-1.0].
+    double static_friction_coefficient;  // Resistance multiplier when at rest (typically 1.0-1.5).
+    double kinetic_friction_coefficient; // Resistance multiplier when moving (typically 0.4-1.0).
+    double stick_velocity; // Velocity below which full static friction applies (0.0-0.05).
+    double friction_transition_width; // How quickly friction transitions from static to kinetic
+                                      // (0.02-0.1).
+    bool is_fluid;                    // True for materials that flow freely.
+    bool is_rigid;                    // True for materials that only compress, don't flow.
 
     MaterialProperties(
         double d,
@@ -44,6 +49,10 @@ struct MaterialProperties {
         double pd,
         double v,
         double ms,
+        double sfc,
+        double kfc,
+        double sv,
+        double ftw,
         bool fluid,
         bool rigid)
         : density(d),
@@ -54,6 +63,10 @@ struct MaterialProperties {
           pressure_diffusion(pd),
           viscosity(v),
           motion_sensitivity(ms),
+          static_friction_coefficient(sfc),
+          kinetic_friction_coefficient(kfc),
+          stick_velocity(sv),
+          friction_transition_width(ftw),
           is_fluid(fluid),
           is_rigid(rigid)
     {}
@@ -89,6 +102,12 @@ const char* getMaterialName(MaterialType type);
  * This allows dynamic modification of material properties.
  */
 void setMaterialCohesion(MaterialType type, double cohesion);
+
+/**
+ * Calculate velocity-dependent friction coefficient with smooth transition.
+ * Returns a value between kinetic and static friction coefficients based on velocity.
+ */
+double getFrictionCoefficient(double velocity_magnitude, const MaterialProperties& props);
 
 /**
  * JSON serialization support for MaterialType.

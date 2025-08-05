@@ -96,6 +96,7 @@ private:
     lv_obj_t* air_resistance_slider_ = nullptr;
     lv_obj_t* air_resistance_label_ = nullptr;
     lv_obj_t* cohesion_force_slider_ = nullptr;
+    lv_obj_t* friction_strength_slider_ = nullptr;
     lv_obj_t* cohesion_force_label_ = nullptr;
 
     // Material picker UI.
@@ -194,6 +195,7 @@ private:
     static void adhesionStrengthSliderEventCb(lv_event_t* e);
     static void viscosityStrengthSliderEventCb(lv_event_t* e);
     static void comCohesionRangeSliderEventCb(lv_event_t* e);
+    static void frictionStrengthSliderEventCb(lv_event_t* e);
 
     // Push-based UI update timer callback.
     static void uiUpdateTimerCb(lv_timer_t* timer);
