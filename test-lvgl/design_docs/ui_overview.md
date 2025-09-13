@@ -41,26 +41,129 @@ This document provides a comprehensive overview of the user interface architectu
 - **Runtime Selection**: Choose display backend via command line (`-b` option)
 - **Event Loop**: Each backend provides its own event loop integration
 
-## Screen Layout (1200x1200 window)
+## Layout Overview
 
-The UI uses a **three-column layout**:
+The UI is organized into several distinct columns from left to right:
 
-### **Column 1: Draw Area (Left) - 850x850px**
-- **Position**: `LV_ALIGN_LEFT_MID` at (0, 0)
-- **Purpose**: Physics simulation rendering area
-- **Interactive**: Mouse/touch events for adding particles and dragging
+1. **Simulation Area** (left): Interactive physics grid - the "World"
+2. **World Type & Material Picker Column**: World selection and material controls
+3. **Physics Controls Column**: Physics parameter toggles and settings
+4. **Simulation Controls & Sliders Column**: Playback controls and parameter sliders
 
-### **Column 2: World Type Selection (Middle) - 150px wide**
-- **Position**: X = 860 (DRAW_AREA_SIZE + 10px margin)
-- **Contents**:
-  - "World Type:" label at Y=10
-  - Button matrix (WorldA/WorldB) at Y=30, height=100px
-  - Vertical stack layout with checkable buttons
+## Detailed Layout
 
-### **Column 3: Main Controls (Right) - 200px wide**
-- **Position**: X = 1020 (860 + 150 + 10px margin)
-- **Y-coordinates define vertical stacking**
+### Simulation Area (Left)
+- **Draw Area**: 850x850px interactive physics simulation grid
+- **Mass Label**: "Total Mass: X.XX" (top-left of screen)
+- **FPS Label**: "FPS: XX" (below mass label)
 
+### World Type & Material Picker Column (Position: 860px from left)
+- **World Type Label**: "World Type:"
+- **World Type Buttons**: Vertical button matrix
+  - WorldA (RulesA system)
+  - WorldB (RulesB system - default)
+- **Materials Label**: "Materials:"
+- **Material Grid**: 4x2 grid of material buttons
+  - Row 1: DIRT, WATER, WOOD, SAND
+  - Row 2: METAL, LEAF, WALL, AIR
+
+### Physics Controls Column (Position: 1230px from left)
+- **Debug Toggle**: "Debug: Off/On"
+
+#### WorldA Pressure Controls Section
+- **Section Header**: "=== WorldA Pressure ==="
+- **Pressure System Label**: "Pressure System:"
+- **Pressure System Dropdown**: System selection (WorldA only)
+  - Original (COM)
+  - Top-Down Hydrostatic
+  - Iterative Settling
+- **Pressure Scale Slider**: Pressure strength for WorldA (0.0-10.0)
+
+#### General Physics Controls
+- **Force Toggle**: "Force: Off/On"
+- **Gravity Toggle**: "Gravity: On/Off"
+- **Cohesion Toggle**: "Cohesion: On/Off"
+- **Cohesion Bind Strength Slider**: Bind strength (0.0-2.0)
+- **Cohesion Force Toggle**: "Cohesion Force: On/Off"
+- **Cohesion Strength Slider**: COM cohesion strength (0.0-300.0)
+- **Left Throw Toggle**: "Left Throw: On/Off"
+- **Right Throw Toggle**: "Right Throw: On/Off"
+- **Quadrant Toggle**: "Quadrant: On/Off"
+- **Screenshot Button**: Captures simulation image
+- **Print ASCII Button**: Outputs world state to console
+- **COM Cohesion Mode Label**: "COM Cohesion Mode:"
+- **COM Cohesion Mode Radio Buttons**: Mode selection
+  - Original (default)
+  - Centering
+  - Mass-Based
+
+### Simulation Controls & Sliders Column (Position: 1440px from left)
+
+#### Simulation Controls (Top Section)
+- **Pause/Resume Button**: Toggles simulation pause/resume
+- **Reset Button**: Resets simulation to initial state
+- **Time History Toggle**: "Time History: On/Off"
+- **Backward/Forward Buttons**: Time navigation controls (side-by-side)
+
+#### Physics Parameter Sliders (Below Controls)
+- **Timescale Slider**: Simulation speed control (1.0x default)
+- **Elasticity Slider**: Material elasticity (0.8 default)
+- **Dirt Fragmentation Slider**: Fragmentation factor (0.00 default)
+- **Cell Size Slider**: Grid cell size (50 default)
+- **Rain Rate Slider**: Rain generation rate (0/s default)
+- **Water Cohesion Slider**: Water cohesion strength (0.500 default)
+- **Water Viscosity Slider**: Water viscosity factor (0.100 default)
+- **Water Pressure Threshold Slider**: Pressure threshold (0.0004 default)
+- **Water Buoyancy Slider**: Buoyancy strength (0.100 default)
+
+#### WorldB Pressure Controls Section
+- **Section Header**: "=== WorldB Pressure ==="
+- **Hydrostatic Pressure Toggle**: Enable/disable hydrostatic pressure
+- **Dynamic Pressure Toggle**: Enable/disable dynamic pressure accumulation
+- **Pressure Diffusion Toggle**: Enable/disable pressure diffusion
+- **Hydrostatic Strength Slider**: Strength of hydrostatic pressure (0.0-3.0, default 1.0)
+- **Dynamic Strength Slider**: Strength of dynamic pressure (0.0-3.0, default 1.0)
+- **Air Resistance Slider**: Air resistance strength (0.0-1.0, default 0.10)
+
+### Bottom Right
+- **Quit Button**: Red button to exit application
+
+## Layout Constants
+
+- `DRAW_AREA_SIZE`: 850px
+- `CONTROL_WIDTH`: 200px
+- `WORLD_TYPE_COLUMN_WIDTH`: 150px
+- `WORLD_TYPE_COLUMN_X`: 860px
+- `MAIN_CONTROLS_X`: 1230px
+- `SLIDER_COLUMN_X`: 1440px
+
+## Design Rationale
+
+The layout follows a logical left-to-right flow:
+1. **Simulation** (primary focus)
+2. **Setup Controls** (world type and material selection)
+3. **Physics Toggles** (runtime physics parameter switches)
+4. **Simulation & Parameter Controls** (playback controls and precise parameter adjustment)
+
+This organization groups related functionality and provides clear visual separation between different types of controls. Simulation controls (pause/reset) are positioned in the rightmost column for easy access during operation. Physics parameter toggles are separated from continuous parameter sliders to distinguish between discrete on/off settings and graduated adjustments.
+
+### Pressure System Organization
+
+The pressure controls are explicitly separated by world type to prevent confusion:
+
+#### **WorldA Pressure Controls**
+- Located in the main controls column (X=1230)
+- Grouped under "=== WorldA Pressure ===" header
+- Includes pressure system algorithm selection and unified pressure scale
+- Only affects WorldA (RulesA) physics system
+
+#### **WorldB Pressure Controls**  
+- Located in the slider column (X=1440)
+- Grouped under "=== WorldB Pressure ===" header
+- Individual toggles and strength controls for hydrostatic and dynamic pressure
+- Only affects WorldB (RulesB) physics system
+
+This separation ensures users understand which controls affect which physics system, preventing confusion when switching between WorldA and WorldB.
 ## Widget Organization in Code
 
 The UI initialization follows this order in `SimulatorUI::initialize()`:
@@ -77,26 +180,44 @@ The UI initialization follows this order in `SimulatorUI::initialize()`:
 - Mass: "Total Mass: 0.00" at Y=10
 - FPS: "FPS: 0" at Y=40
 
-### **Action Buttons** (Y=10-635, 50px height each):
+### **Main Controls Column** (X=1230):
 - Reset (Y=10), Pause (Y=70), Debug (Y=130)
-- Pressure System dropdown (Y=190-210)
-- Force toggle (Y=260), Gravity toggle (Y=310)
-- Left/Right Throw toggles (Y=370, Y=430)
-- Quadrant toggle (Y=490), Screenshot (Y=550)
-- Time History toggle (Y=600)
-- Backward/Forward buttons (Y=635, split width)
+- **WorldA Pressure Header** (Y=70)
+- Pressure System dropdown (Y=115-155) - WorldA only
+- Pressure Scale slider (Y=165-185) - WorldA only
+- Force toggle (Y=205), Gravity toggle (Y=265)
+- Cohesion Bind toggle (Y=325)
+- Cohesion Bind Strength slider (Y=380-400)
+- Cohesion Force toggle (Y=415)
+- Cohesion Strength slider (Y=470-490)
+- COM Range slider (Y=530-550)
+- Adhesion toggle (Y=590)
+- Adhesion Strength slider (Y=650-670)
+- Left Throw toggle (Y=690)
+- Right Throw toggle (Y=750)
+- Quadrant toggle (Y=810)
+- Screenshot button (Y=815)
+- Print ASCII button (Y=875)
+- COM Cohesion Mode label (Y=930)
+- COM Cohesion Mode radio buttons (Y=950)
 
-### **Parameter Sliders** (Y=670-1050, 40px spacing):
-- Timescale (Y=670-690)
-- Elasticity (Y=710-730)
-- Dirt Fragmentation (Y=750-770)
-- Cell Size (Y=790-810)
-- Pressure Scale (Y=830-850)
-- Rain Rate (Y=870-890)
-- Water Cohesion (Y=910-930)
-- Water Viscosity (Y=950-970)
-- Water Pressure Threshold (Y=990-1010)
-- Water Buoyancy (Y=1030-1050)
+### **Slider Column** (X=1440):
+- Timescale (Y=90-110)
+- Elasticity (Y=130-150)
+- Dirt Fragmentation (Y=170-190)
+- Cell Size (Y=210-230)
+- Rain Rate (Y=250-270)
+- Water Cohesion (Y=290-310)
+- Water Viscosity (Y=330-350)
+- Water Pressure Threshold (Y=370-390)
+- Water Buoyancy (Y=410-430)
+- **WorldB Pressure Header** (Y=620)
+- Hydrostatic Pressure toggle (Y=645)
+- Dynamic Pressure toggle (Y=675)
+- Pressure Diffusion toggle (Y=705)
+- Hydrostatic Strength slider (Y=745-765)
+- Dynamic Strength slider (Y=795-815)
+- Air Resistance slider (Y=845-865)
 
 ### **Special Elements**:
 - Quit button: Bottom-right corner with red background
@@ -134,8 +255,8 @@ The UI initialization follows this order in `SimulatorUI::initialize()`:
 - Screenshot capture functionality
 
 **Physics Parameter Sliders:**
-- Timescale (0.1x to 10x)
-- Elasticity (0.0 to 2.0)
+- Timescale
+- Elasticity
 - Dirt fragmentation
 - Cell size (affects grid resolution)
 - Pressure scale
@@ -159,6 +280,78 @@ The UI initialization follows this order in `SimulatorUI::initialize()`:
 - **Real-time Updates**: Mouse position tracked for particle addition and cursor force
 - **Coordinate Translation**: Pixel coordinates converted to grid coordinates
 
+#### LVGLEventBuilder Pattern
+The LVGLEventBuilder extends the existing LVGLBuilder pattern to integrate with the event-driven state machine architecture:
+
+**Key Features:**
+- **Type-Safe Event Generation**: UI widgets emit strongly-typed events into the event system
+- **Builder Pattern Integration**: Extends existing builders with event handling methods
+- **Lambda-Based Callbacks**: Clean syntax using lambdas to generate events from UI interactions
+
+**Example Usage:**
+```cpp
+// Create UI elements that emit events
+auto pauseBtn = LVGLEventBuilder::button(parent, eventRouter)
+    .text("Pause")
+    .size(100, 40)
+    .onPauseResume()  // Emits PauseCommand/ResumeCommand
+    .buildOrLog();
+
+auto slider = LVGLEventBuilder::slider(parent, eventRouter)
+    .label("Speed")
+    .range(0, 100)
+    .onTimescaleChange()  // Emits SetTimescaleCommand
+    .buildOrLog();
+```
+
+**Benefits:**
+- **Clean State Code**: UI creation and event routing in one fluent interface
+- **No Manual Callbacks**: Eliminates boilerplate callback code and user_data casting
+- **Reusable Patterns**: Common UI patterns (pause/resume, sliders) have convenience methods
+- **Event System Integration**: Automatic routing to immediate or queued processing based on event type
+
+This pattern bridges LVGL's C-style callbacks with our type-safe event system, making UI code more maintainable and testable.
+
+### UI Lifecycle Management Strategy
+
+#### Current Lifecycle Model
+The current UI lifecycle is tightly coupled to the application lifecycle:
+1. **Creation**: UI is created once at application startup by SimulationManager
+2. **Lifetime**: UI persists for the entire application lifetime
+3. **Destruction**: UI is destroyed only at application shutdown
+4. **World Switching**: When switching physics systems, the UI updates its world pointer but isn't recreated
+
+#### Proposed State-Based Lifecycle
+In the new event-driven architecture, UI components will have dynamic lifecycles tied to state transitions:
+
+**State-Specific UI Components:**
+- **MainMenu State**: Creates `MainMenuUI` with start/config/exit buttons
+- **SimRunning State**: Creates `SimulatorUI` with full simulation controls
+- **SimPaused State**: Keeps existing `SimulatorUI` but may disable certain controls
+- **Config State**: Creates `ConfigUI` for settings management
+- **Loading/Saving States**: Creates progress dialogs or file browsers
+
+**Lifecycle Hooks:**
+```cpp
+// States can optionally define these methods
+void onEnter(DirtSimStateMachine& dsm);  // Create UI components
+void onExit(DirtSimStateMachine& dsm);   // Destroy UI components
+```
+
+**Benefits:**
+1. **Memory Efficiency**: Only UI components for current state are in memory
+2. **Clean Separation**: Each state manages its own UI requirements
+3. **Flexibility**: Easy to add new UI states without affecting others
+4. **Testability**: UI components can be tested in isolation per state
+
+**UI Persistence Strategy:**
+For smooth transitions, some UI state needs to persist:
+- **Material Selection**: Currently selected material type
+- **Physics Parameters**: Slider values and toggle states
+- **Camera/View State**: Zoom level, pan position (if implemented)
+
+This data will be stored in `SharedSimState` and restored when recreating UI components.
+
 ### Integration with Physics Systems
 
 #### Dual Physics Support
@@ -171,28 +364,6 @@ The UI initialization follows this order in `SimulatorUI::initialize()`:
 - **Click to Add**: Mouse clicks add water/dirt to simulation
 - **Drag System**: Click and drag to move materials
 - **Force Application**: Optional cursor force for particle manipulation
-
-## File Organization
-
-```
-src/
-├── SimulatorUI.h/.cpp        # Main UI implementation
-├── SimulationManager.h/.cpp  # UI/World coordinator
-├── WorldInterface.h          # Physics/UI abstraction
-├── main.cpp                  # Application entry point
-├── lib/
-│   ├── driver_backends.h/.cpp    # Display backend abstraction
-│   ├── backends.h                # Backend interface definitions
-│   ├── simulator_loop.h          # Event loop utilities
-│   └── display_backends/         # Platform-specific backends
-│       ├── wayland.cpp
-│       ├── x11.cpp
-│       ├── sdl.cpp
-│       └── fbdev.cpp
-└── tests/
-    ├── TestUI.h/.cpp         # Testing interface
-    └── visual_test_runner.h/.cpp  # Visual test framework
-```
 
 ## Notable Features
 
@@ -211,4 +382,4 @@ src/
 - **Environment Variables**: `LV_SIM_WINDOW_WIDTH`, `LV_SIM_WINDOW_HEIGHT`
 - **Responsive Layout**: UI adapts to different window sizes
 
-The UI architecture demonstrates a well-structured separation of concerns with the SimulationManager coordinating between physics and presentation layers, enabling both interactive use and automated testing while supporting multiple physics systems and display platforms.
+The UI architecture is intended to be a well-structured separation of concerns with the SimulationManager coordinating between physics and presentation layers, enabling both interactive use and automated testing while supporting multiple physics systems and display platforms.

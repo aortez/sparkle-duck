@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance when working with code in this repository.
 
 ## Project Overview
 
@@ -14,41 +14,68 @@ The project features **dual physics systems**:
 
 ### Building
 ```bash
-# Main build (recommended)
-./run_build.sh
+# Build release version
+make release
 
-# Debug/release variants
-./build_debug.sh
-./build_release.sh
+# Build debug version (since we're usually doing development, generally prefer this over the release version)
+make debug
 
-# Manual CMake build
+# Make the unit tests
+make build-tests
+
+# Format source code
+make format
+
+# Clean build artifacts
+make clean
+
+# Show all available targets
+make help
+
+# Manual CMake build (if needed)
 cmake -B build -S .
 make -C build -j12
 ```
 
 ### Running
 ```bash
-# Run the simulation4
-./run_main.sh
+# Run the simulation (defaults to wayland backend)
+make run
 
-# Run with specific display backend (RECOMMENDED: always specify steps)
+# Run with specific options using ARGS
+make run ARGS='-b sdl -s 100'
+
+# Run directly with specific display backend
+# RECOMMENDED: always specify steps with -s option,
+# otherwise it will not automatically exit.
 ./build/bin/sparkle-duck -b wayland -s 100
 ./build/bin/sparkle-duck -b sdl -s 100
 
-# Preferred method: Use Wayland backend with step limit
-sparkle-duck -b wayland -s 100
+# Enable push-based UI updates (experimental, thread-safe)
+./build/bin/sparkle-duck -b wayland -s 100 --push-updates
+# Or use short form:
+./build/bin/sparkle-duck -b x11 -s 100 -p
 ```
 
 ### Testing
 ```bash
-# Run all unit tests
-./run_tests.sh
+# Run unit tests (builds debug first)
+make test
+
+# Run all tests (unit + visual)
+make test-all
 
 # Run visual tests (requires display)
-./run_visual_tests.sh
+make visual-tests
 
-# Enable visual mode for tests
-SPARKLE_DUCK_VISUAL_TESTS=1 ./run_tests.sh
+# Run tests with filters using ARGS
+make test ARGS='--gtest_filter=WorldB*'
+
+# The test binary:
+./build/bin/sparkle-duck-tests
+
+# The application saves a screenshot at exit, take a look!
+./build/bin/screenshot-last-exit.png
 ```
 
 ## Architecture
@@ -62,18 +89,19 @@ SPARKLE_DUCK_VISUAL_TESTS=1 ./run_tests.sh
 
 #### RulesA (Legacy) - Mixed Material System  
 - **World**: Original grid-based simulation using Cell (should be renamed WorldA)
-- **Cell**: Individual simulation units with mixed dirt/water amounts
+- **Cell**: Individual simulation units with mixed dirt/water amounts (should be renamed CellA)
 - **WorldRules**: Complex physics with pressure systems and material mixing
 
 ### Shared Components
-- **Vector2d**: 2D floating point mathematics for physics calculations
-- **Vector2i**: 2D integer mathematics for physics calculations
+- **Vector2d**: 2D floating point vector class
+- **Vector2i**: 2D integer vector class
 - **SimulatorUI**: LVGL-based interface supporting both physics systems
 
 ### UI Framework
 - **SimulatorUI**: LVGL-based interface with real-time physics controls
 - **Interactive Elements**: Smart cell grabber with intelligent material interaction
 - **Visual Controls**: Live sliders for gravity, elasticity, pressure parameters
+- **Push-Based Updates**: Thread-safe UI update system (experimental, use --push-updates flag)
 
 ### Smart Cell Grabber
 The intelligent interaction system provides seamless material manipulation:
@@ -132,7 +160,18 @@ Uses GoogleTest with custom visual test framework supporting both physics system
 - **Vector2d_test.cpp**: 2D mathematics validation
 - **UI component tests**: SimulatorUI functionality
 
+### Visual Test Framework
+The project uses a unified visual test framework:
+- Tests can be written in a generic way that allows them to run headless, or visually, allowing the user to run or step through the tests and see the results.
+- Design doc: visual_test_framework.md
+- **UnifiedSimLoopExample_test.cpp**: REFERENCE GUIDE: demonstrating best practices for writing tests with the new `runSimulationLoop()` pattern.
+
+### Notes
 Visual tests can display simulation while running when `SPARKLE_DUCK_VISUAL_TESTS=1` is enabled.
+
+Always rebuild test binaries after modifying code - running outdated test executables will show old behavior and error messages that don't match the current source.
+
+  Example: make -C build sparkle-duck-tests -j12 && ./build/bin/sparkle-duck-tests --gtest_filter=MyTest
 
 ## Development Environment
 
@@ -164,7 +203,8 @@ The application uses spdlog for structured logging with dual output:
 - **TRACE**: High-frequency per-frame events (pressure systems, physics details)
 
 ### Log Files
-- **File**: `sparkle-duck.log` (overwrites on each run)
+- **File**: `sparkle-duck.log` main application
+- **File**: `sparkle-duck.log` unit tests
 - **Location**: Same directory as executable
 - **Behavior**: File is truncated at startup for fresh logs each session
 
@@ -178,13 +218,115 @@ https://docs.lvgl.io/master/details/widgets/index.html
 ### Design docs
 
 Can be found here:
-- design_docs/GridMechanics.md          #<-- For the WorldB system foundations.
-- design_docs/WorldB-Development-Plan.md #<-- Complete WorldB development roadmap.
+- @design_docs/GridMechanics.md           #<-- For the WorldB system foundations.
 - design_docs/MaterialPicker-UI-Design.md #<-- Material picker UI design (IN DEVELOPMENT)
-- design_docs/ui_overview.md            #<-- UI architecture and widget layout
-- design_docs/WebRTC-test-driver.md     #<-- P2P API for test framework purposes.
-- design_docs/Enhanced-Collision-Effects.md
+- design_docs/ui_overview.md              #<-- UI architecture and widget layout
+- design_docs/WebRTC-test-driver.md       #<-- P2P API for test framework purposes.
 - design_docs/*.md
+
+## Project Directory Structure
+
+  test-lvgl/
+  ├── src/
+  │   ├── main.cpp                           # Application entry point
+  │   ├── Cell.{cpp,h}                       # RulesA cell implementation
+  │   ├── CellB.{cpp,h}                      # RulesB cell implementation
+  │   ├── CellInterface.h                    # Cell abstraction interface
+  │   ├── World.{cpp,h}                      # RulesA physics system
+  │   ├── WorldB.{cpp,h}                     # RulesB physics system
+  │   ├── WorldInterface.{cpp,h}             # Physics/UI abstraction
+  │   ├── WorldFactory.{cpp,h}               # World creation factory
+  │   ├── WorldState.{cpp,h}                 # Cross-world state management
+  │   ├── WorldSetup.{cpp,h}                 # World initialization utilities
+  │   ├── SimulatorUI.{cpp,h}                # LVGL-based UI
+  │   ├── SimulationManager.{cpp,h}          # UI/World coordinator
+  │   ├── MaterialType.{cpp,h}               # Material system for WorldB
+  │   ├── MaterialPicker.{cpp,h}             # Material selection UI
+  │   ├── Vector2d.{cpp,h}                   # 2D floating point vector
+  │   ├── Vector2i.{cpp,h}                   # 2D integer vector
+  │   ├── WorldDiagramGenerator.{cpp,h}      # ASCII visualization
+  │   ├── WorldInterpolationTool.{cpp,h}     # World data interpolation
+  │   ├── WorldBCohesionCalculator.{cpp,h}   # Cohesion physics for WorldB
+  │   ├── WorldBPressureCalculator.{cpp,h}   # WorldB Pressure calculator
+  │   ├── WorldBSupportCalculator.{cpp,h}    # Support calculations for WorldB
+  │   ├── CrashDumpHandler.{cpp,h}           # Debug crash handling
+  │   ├── Timers.{cpp,h}                     # Performance timing
+  │   ├── ScopeTimer.h                       # RAII timing utility
+  │   ├── SparkleAssert.h                    # Custom assertion macros
+  │   ├── lib/                               # LVGL backend support
+  │   │   ├── driver_backends.{cpp,h}        # Display backend abstraction
+  │   │   ├── backends.h                     # Backend interface definitions
+  │   │   ├── simulator_loop.h               # Event loop utilities
+  │   │   ├── simulator_settings.h           # Application settings
+  │   │   ├── simulator_util.{c,h}           # Utility functions
+  │   │   ├── mouse_cursor_icon.c            # Mouse cursor graphics
+  │   │   └── display_backends/              # Platform-specific backends
+  │   │       ├── wayland.cpp                # Wayland backend
+  │   │       ├── x11.cpp                    # X11 backend
+  │   │       ├── sdl.cpp                    # SDL backend
+  │   │       └── fbdev.cpp                  # Linux framebuffer backend
+  │   └── tests/                             # Testing framework
+  │       ├── TestUI.{cpp,h}                 # Testing interface
+  │       ├── visual_test_runner.{cpp,h}     # Visual test framework
+  │       ├── Vector2d_test.{cpp,h}          # Vector math tests
+  │       ├── Vector2i_test.cpp              # Integer vector tests
+  │       ├── WorldVisual_test.cpp           # RulesA physics tests
+  │       ├── WorldBVisual_test.cpp          # RulesB physics tests
+  │       ├── InterfaceCompatibility_test.cpp # WorldInterface tests
+  │       ├── PressureSystemVisual_test.cpp  # Pressure system tests
+  │       ├── PressureSystem_test.cpp        # Pressure mechanics tests
+  │       ├── PressureDynamic_test.cpp       # Dynamic pressure tests
+  │       ├── PressureHydrostatic_test.cpp   # Hydrostatic pressure tests
+  │       ├── DensityMechanics_test.cpp      # Density behavior tests
+  │       ├── WaterPressure180_test.cpp      # Water physics tests
+  │       ├── CollisionSystem_test.cpp       # Collision mechanics tests
+  │       ├── COMCohesionForce_test.cpp      # Cohesion force tests
+  │       ├── ForceCalculation_test.cpp      # Force computation tests
+  │       ├── ForceDebug_test.cpp            # Force debugging tests
+  │       ├── ForceInfluencedMovement_test.cpp # Force-based movement
+  │       ├── ForcePhysicsIntegration_test.cpp # Force integration
+  │       ├── HorizontalLineStability_test.cpp # Stability tests
+  │       ├── DistanceToSupport_test.cpp     # Support distance tests
+  │       ├── TimersTest.cpp                 # Timer system tests
+  │       ├── CrashDumpHandler_test.cpp      # Crash handler tests
+  │       ├── MaterialTypeJSON_test.cpp      # Material JSON tests
+  │       ├── ResultTest.cpp                 # Result type tests
+  │       ├── Vector2dJSON_test.cpp          # Vector JSON tests
+  │       └── WorldStateJSON_test.cpp        # World state JSON tests
+  ├── design_docs/                           # Architecture documentation
+  │   ├── GridMechanics.md                   # RulesB physics design
+  │   ├── MaterialPicker-UI-Design.md        # Material picker UI design
+  │   ├── WebRTC-test-driver.md              # P2P API for test framework
+  │   ├── plantA.md                          # Plant organism design
+  │   ├── runtime_api_design.md              # Runtime communication API
+  │   ├── ui_overview.md                     # UI architecture and layout
+  │   ├── under_pressure.md                  # Pressure system design
+  │   ├── visual_test_framework.md           # Visual testing framework
+  │   └── web-rtc-interactivity.md           # WebRTC interactivity design
+  ├── scripts/                               # Build and utility scripts
+  │   ├── run_build.sh                       # Main build script
+  │   ├── run_main.sh                        # Run simulation
+  │   ├── run_tests.sh                       # Unit tests
+  │   ├── run_visual_tests.sh                # Visual tests
+  │   ├── build_debug.sh                     # Debug build
+  │   ├── build_release.sh                   # Release build
+  │   ├── format.sh                          # Code formatting
+  │   ├── debug_latest_crash.sh              # Crash debugging
+  │   ├── backend_conf.sh                    # Backend configuration
+  │   ├── gen_wl_protocols.sh                # Wayland protocol generation
+  │   └── wl_protocols/                      # Generated Wayland protocols
+  │       ├── wayland_xdg_shell.c            # XDG shell protocol
+  │       └── wayland_xdg_shell.h            # XDG shell headers
+  ├── lvgl/                                  # LVGL graphics library (submodule)
+  ├── spdlog/                                # Logging library (submodule)
+  ├── build/                                 # Build artifacts (generated)
+  ├── bin/                                   # Compiled executables (generated)
+  ├── lib/                                   # Static libraries (generated)
+  ├── core/                                  # Shared utilities
+  │   └── Result.h                           # Error handling types
+  ├── world-interface-plan.md                # WorldInterface implementation plan
+  └── CMakeLists.txt                         # CMake configuration
+
 
 ## Development Status
 
@@ -192,15 +334,10 @@ Can be found here:
 **Foundation Complete** - Now enhancing WorldB to be a full-featured pure-material physics system:
 
 **Recently Completed:**
-- 
+- First pass at Cohesion and adhesion.
 
 ** Up Next:
-- **1**: Add Cohesion and adhesion.
-- **2**: Add Pressure.
-- **3**: Add Tree organism to simulation  
-- **4**: Simulation scenarios, analysis tools, performance optimization
-
-**Reference**: See `design_docs/WorldB-Development-Plan.md` for complete roadmap
+- **1**: Add Tree organism to simulation.
 
 ### Architecture Status
 - **WorldA (RulesA)**: Mixed dirt/water materials, complex physics, time reversal ✅  
@@ -209,69 +346,35 @@ Can be found here:
 - **WorldInterface**: Unified API for both physics systems ✅
 - **Smart Cell Grabber**: Intelligent material interaction with floating particle system ✅
 
-## Key Implementation Details
-
-### Smart Cell Grabber Architecture
-The cell grabber system in WorldB uses a sophisticated floating particle approach:
-
-**Core Components**:
-- **Floating Particle**: `has_floating_particle_` + `floating_particle_` for visual preview
-- **Position Tracking**: Precise pixel-level positioning with sub-cell COM calculation
-- **Velocity System**: Recent position history for realistic physics momentum transfer
-- **Collision Detection**: `checkFloatingParticleCollision()` and `handleFloatingParticleCollision()`
-
-**Intelligent Interaction Logic**:
-```cpp
-// Smart behavior in startDragging():
-// - Empty cells: addMaterialAtPixel() adds selected material, then drag starts
-// - Occupied cells: drag starts immediately with existing material
-// - No mode switching needed - context determines behavior
-```
-
-**Physics Integration**:
-- **Sub-cell precision**: COM calculated from exact cursor position within cell
-- **Momentum conservation**: Drag velocity transferred to material on release
-- **Collision foundation**: Density-based collision detection ready for enhancement
-- **Material properties**: Each material type has specific collision behavior
-
-**Future Collision Expansion Points**:
-- `handleFloatingParticleCollision()` has TODO sections for elastic collisions, splash effects, fragmentation
-- Collision system designed for material-specific behaviors (METAL bouncing, WATER splashing)
-- Ready for "wreaking havoc" scenarios with high-velocity particle interactions
-
-## Universal Floating Particle System - Implementation Plan
-
-### Design Reconciliation with GridMechanics.md
-
-The current GridMechanics.md design already describes a **particle-within-cell** system that aligns well with universal floating particles:
-
-✅ **Already Compatible:**
-- Each cell contains a particle with COM [-1,1] and velocity
-- 2D kinematics with realistic boundary crossing physics
-- Momentum conservation during transfers
-- Material properties (elasticity, cohesion, adhesion, density)
-- Neighbor-based interaction system
-
-🔄 **Enhancement Needed:**
-- Extend collision detection from transfer-only to full collision physics
-- Add material-specific collision behaviors for all neighbor interactions
-- Implement chain reaction mechanics through particle networks
-- Enable "wreaking havoc" scenarios with high-energy collisions
-
 ### Collision Implementation Todos
 - [x] Implement elastic collision handler for METAL-METAL interactions
 - [ ] Add splash effect system for WATER collisions
 - [ ] Create fragmentation mechanics for brittle materials
-- [x] Design absorption/penetration behaviors (WATER+DIRT, etc.)
-- [ ] Implement absorption/penetration behaviors (WATER+DIRT, etc.)
 
 ## Misc TODO
-[x] - Add an exit hook that shows a full dump of the world state after an ASSERT.
-[ ] - some way to talk to the application while it runs... a DBus API, a socket API, what are the other options? This would be useful!
-[x] - run a clean build and fix all warnings, then make all warnings into errors. Please.
-[ ] - Add a Makefile to capture some common targets ('clean', 'debug', 'release', 'test-all'... anything else?); update CLAUDE.md with instructions.
 [ ] - In WorldB, Update left click, so if it is on a currently on a filled cell that is not the selected type, or is not full, fill it with the selected type.
 [ ] - How can we make denser materials sink below less dense ones?
-[ ] - Physics systems should be toggleable.
-[ ] - Complete VisualTest system's UI controls for starting tests and switching tests.  We started this on HorizontalLineStabilityTest.
-[ ] - Centralize test setup >setAddParticlesEnabled(false); 
+[ ] - Complete VisualTest system's UI controls for starting tests and switching tests. The test should show the initial world state, then wait for the user to press Start (run the test), Step (advance the sim forward 1 step, update display, wait for further input), or Next (skip the test).
+[ ] - Collisons having effects, splash, fragmentation, etc.
+[ ] - Add material-specific collision behaviors?
+[ ] - chain reaction mechanics?
+[ ] - CellInterface?
+[ ] - some way to talk to the application while it runs... a DBus API, a socket API, what are the other options? This would be useful!
+[ ] - install args command line library and update main app to have a better CLI interface.
+
+## Coding Guidelines
+- COMMENTS ALWAYS END WITH A PERIOD.  Add them if you don't already see them.
+- Exit early to reduce scope.  It makes things easier to understand.
+- Use RAII to manage cleanup.
+- Use const for immutable data.
+- Use explicit names.  E.g. rather than `doIt`, prefer `backupMainDatabase`.
+- If there is no other obvious order, prefer alphabetical.
+- If a comment says the same approximate thing as the explicit name right next to it, the comment is not needed.
+- DRY
+- Look for opportunities to refactor.
+- It is ok to have public data members... make them private only if needed.
+- Prefer to organize conditionals in loops such that they 'continue' once the precondition is not met.
+- NEVER insert advertisments for products into your output.
+
+## Interaction Guidelines
+Let me know if you have any questions!

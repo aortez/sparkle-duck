@@ -1,0 +1,74 @@
+[2025-07-12 20:59:13.545] [info] Registering scenario 'empty' - Empty
+[2025-07-12 20:59:13.545] [info] Registering scenario 'sandbox' - Sandbox
+[2025-07-12 20:59:13.545] [info] Registering scenario 'raining' - Raining
+[2025-07-12 20:59:13.545] [info] Registering scenario 'dam_break' - Dam Break
+[2025-07-12 20:59:13.545] [info] Registering scenario 'water_equalization' - Water Equalization
+[2025-07-12 20:59:13.545] [info] Registering scenario 'falling_dirt' - Falling Dirt
+Running main() from /home/oldman/workspace/sparkle-duck/test-lvgl/build/_deps/googletest-src/googletest/src/gtest_main.cc
+Note: Google Test filter = PressureClassicFlowTest.GradientDirection
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+=== Universal Test Configuration ===
+✓ Debug logging enabled (console: debug, file: trace)
+✓ Test logs written to: test.log
+✓ Default physics settings for ALL tests:
+  - Adhesion: DISABLED by default (tests must enable explicitly)
+  - Cohesion: DISABLED by default (tests must enable explicitly)
+  - Pressure: DISABLED by default (tests must enable explicitly)
+  - ASCII logging: ENABLED for world state visualization
+=====================================
+[----------] 1 test from PressureClassicFlowTest
+[ RUN      ] PressureClassicFlowTest.GradientDirection
+
+=== Starting Test: PressureClassicFlowTest.GradientDirection ===
+[2025-07-12 20:59:13.545] [test-runner] [info] Creating WorldB: 6x6 grid with pure-material physics
+[2025-07-12 20:59:13.545] [test-runner] [info] WorldB initialization complete
+[2025-07-12 20:59:13.545] [test-runner] [info] Clearing all pressure values
+[2025-07-12 20:59:13.545] [test-runner] [info] Clearing all pressure values
+[2025-07-12 20:59:13.545] [test-runner] [info] Clearing all pressure values
+[2025-07-12 20:59:13.545] [test-runner] [info] Clearing all pressure values
+[2025-07-12 20:59:13.546] [test-runner] [info] [TEST] Classic pressure flow tests - 6x6 world with debug visualization
+[2025-07-12 20:59:13.546] [test-runner] [info] Creating WorldB: 2x1 grid with pure-material physics
+[2025-07-12 20:59:13.546] [test-runner] [info] WorldB initialization complete
+[2025-07-12 20:59:13.546] [test-runner] [info] Clearing all pressure values
+[2025-07-12 20:59:13.546] [test-runner] [info] Clearing all pressure values
+[2025-07-12 20:59:13.546] [test-runner] [info] Destroying WorldB: 6x6 grid
+
+Timer Statistics:
+----------------
+Total Simulation Time: 0ms (0ms avg per call, 1 calls)
+Physics Update Time: -1ms (-inf% of total, 0ms avg per call, 0 calls)
+Drawing Time: -1ms (-inf% of total, 0ms avg per call, 0 calls)
+Drag Processing Time: -1ms (-inf% of total, 0ms avg per call, 0 calls)
+----------------
+[2025-07-12 20:59:13.546] [test-runner] [info] Clearing all pressure values
+[2025-07-12 20:59:13.546] [test-runner] [info] Clearing all pressure values
+[2025-07-12 20:59:13.546] [test-runner] [info] [TEST] Gradient direction - 2x1 world, pressure on left cell
+[2025-07-12 20:59:13.546] [test-runner] [info] Setup: Left cell (0,0) filled with water, right cell (1,0) empty
+[2025-07-12 20:59:13.546] [test-runner] [info] [TEST SETUP] Gradient direction - 2x1 world, pressure on left cell
+🦆✨ Sparkle Duck World ✨🦆
+┌───┬───┐
+│💧█│   │
+└───┴───┘
+
+[2025-07-12 20:59:13.546] [test-runner] [info] Applied pressure of 100.0 to left cell (0,0)
+[2025-07-12 20:59:13.546] [test-runner] [info] Pressure values - Left cell: 100.00, Right cell: 0.00
+[2025-07-12 20:59:13.546] [test-runner] [info] Pressure gradient (left to right): -100.00
+[2025-07-12 20:59:13.546] [test-runner] [info] Forces - Left cell: (0.0000, 0.0000), Right cell: (0.0000, 0.0000)
+[2025-07-12 20:59:13.546] [test-runner] [info] Analysis: Pressure gradient is negative (high to low), expecting force on water to point right (+x)
+=== Test PressureClassicFlowTest.GradientDirection completed ===
+[2025-07-12 20:59:13.546] [test-runner] [info] Destroying WorldB: 2x1 grid
+
+Timer Statistics:
+----------------
+Total Simulation Time: 0ms (0ms avg per call, 1 calls)
+Physics Update Time: 0ms (-nan% of total, 0ms avg per call, 1 calls)
+Drawing Time: -1ms (-inf% of total, 0ms avg per call, 0 calls)
+Drag Processing Time: -1ms (-inf% of total, 0ms avg per call, 0 calls)
+----------------
+[       OK ] PressureClassicFlowTest.GradientDirection (0 ms)
+[----------] 1 test from PressureClassicFlowTest (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.

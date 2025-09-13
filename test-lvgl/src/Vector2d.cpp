@@ -49,7 +49,7 @@ std::string Vector2d::toString() const
     return "(" + std::to_string(x) + ", " + std::to_string(y) + ")";
 }
 
-// Operator implementations
+// Operator implementations.
 Vector2d Vector2d::operator+(const Vector2d& other) const
 {
     return add(other);
@@ -109,6 +109,16 @@ Vector2d& Vector2d::operator/=(double scalar)
     return *this;
 }
 
+Vector2d Vector2d::operator-() const
+{
+    return Vector2d(-x, -y);
+}
+
+Vector2d Vector2d::operator+() const
+{
+    return Vector2d(x, y);
+}
+
 rapidjson::Value Vector2d::toJson(rapidjson::Document::AllocatorType& allocator) const
 {
     rapidjson::Value json(rapidjson::kObjectType);
@@ -122,23 +132,23 @@ Vector2d Vector2d::fromJson(const rapidjson::Value& json)
     if (!json.IsObject()) {
         throw std::runtime_error("Vector2d::fromJson: JSON value must be an object");
     }
-    
+
     if (!json.HasMember("x") || !json.HasMember("y")) {
         throw std::runtime_error("Vector2d::fromJson: JSON object must have 'x' and 'y' members");
     }
-    
+
     if (!json["x"].IsNumber() || !json["y"].IsNumber()) {
         throw std::runtime_error("Vector2d::fromJson: 'x' and 'y' members must be numbers");
     }
-    
+
     return Vector2d(json["x"].GetDouble(), json["y"].GetDouble());
 }
 
-// Collision physics operations
+// Collision physics operations.
 Vector2d Vector2d::reflect(const Vector2d& normal) const
 {
-    // Reflection formula: r = v - 2(v·n)n
-    // where v is incident vector, n is unit normal, r is reflected vector
+    // Reflection formula: r = v - 2(v·n)n.
+    // where v is incident vector, n is unit normal, r is reflected vector.
     Vector2d unitNormal = normal.normalize();
     double dotProduct = dot(unitNormal);
     return *this - unitNormal * (2.0 * dotProduct);
@@ -146,21 +156,23 @@ Vector2d Vector2d::reflect(const Vector2d& normal) const
 
 double Vector2d::angle() const
 {
-    // Returns angle in radians from positive x-axis
+    // Returns angle in radians from positive x-axis.
     return std::atan2(y, x);
 }
 
 double Vector2d::angleTo(const Vector2d& other) const
 {
-    // Returns angle between this vector and other vector
+    // Returns angle between this vector and other vector.
     double thisAngle = angle();
     double otherAngle = other.angle();
     double diff = otherAngle - thisAngle;
-    
+
     // Normalize to [-π, π]
-    while (diff > M_PI) diff -= 2.0 * M_PI;
-    while (diff < -M_PI) diff += 2.0 * M_PI;
-    
+    while (diff > M_PI)
+        diff -= 2.0 * M_PI;
+    while (diff < -M_PI)
+        diff += 2.0 * M_PI;
+
     return diff;
 }
 
@@ -168,15 +180,12 @@ Vector2d Vector2d::rotateBy(double radians) const
 {
     double cosAngle = std::cos(radians);
     double sinAngle = std::sin(radians);
-    
-    return Vector2d(
-        x * cosAngle - y * sinAngle,
-        x * sinAngle + y * cosAngle
-    );
+
+    return Vector2d(x * cosAngle - y * sinAngle, x * sinAngle + y * cosAngle);
 }
 
 Vector2d Vector2d::perpendicular() const
 {
-    // Returns a vector perpendicular to this one (rotated 90° counterclockwise)
+    // Returns a vector perpendicular to this one (rotated 90° counterclockwise).
     return Vector2d(-y, x);
 }

@@ -1,7 +1,7 @@
 /**
  * @file backends.h
  *
- * Interface for abstration layer of a device backend
+ * Interface for abstration layer of a device backend.
  *
  * Copyright (c) 2025 EDGEMTech Ltd.
  *
@@ -22,9 +22,9 @@ typedef void (*run_loop_t)(SimulationManager& manager);
 /* Represents a display driver handle */
 typedef struct {
   display_init_t
-      init_display;      /* The display creation/initialization function */
-  run_loop_t run_loop;   /* The run loop of the driver handle */
-  lv_display_t *display; /* The LVGL display that was created */
+      init_display;      /* The display creation/initialization function. */
+  run_loop_t run_loop;   /* The run loop of the driver handle. */
+  lv_display_t *display; /* The LVGL display that was created. */
 } display_backend_t;
 
 /* Prototype for the initialization of an indev driver backend */

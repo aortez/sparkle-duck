@@ -13,10 +13,10 @@
 #include "Cell.h"
 #include "Timers.h"
 #include "Vector2i.h"
+#include "WorldFactory.h"
 #include "WorldInterface.h"
 #include "WorldSetup.h"
 #include "WorldState.h"
-#include "WorldFactory.h"
 
 #include <cstdint>
 #include <memory>
@@ -38,7 +38,7 @@ struct DirtMove {
 
 class World : public WorldInterface {
 public:
-    World(uint32_t width, uint32_t height, lv_obj_t* draw_area);
+    World(uint32_t width, uint32_t height, lv_obj_t* draw_area = nullptr);
     ~World();
 
     // World is not copyable due to unique_ptr members.
@@ -56,14 +56,12 @@ public:
     void draw() override;
 
     void reset() override;
-    
-    void setup() override;
 
     Cell& at(uint32_t x, uint32_t y);
     const Cell& at(uint32_t x, uint32_t y) const;
     Cell& at(const Vector2i& pos);
     const Cell& at(const Vector2i& pos) const;
-    
+
     // WorldInterface cell access through CellInterface
     CellInterface& getCellInterface(uint32_t x, uint32_t y) override;
     const CellInterface& getCellInterface(uint32_t x, uint32_t y) const override;
@@ -71,6 +69,7 @@ public:
     uint32_t getWidth() const override;
     uint32_t getHeight() const override;
     lv_obj_t* getDrawArea() const override { return draw_area; }
+    void setDrawArea(lv_obj_t* drawArea) override { draw_area = drawArea; }
 
     void setTimescale(double scale) override { timescale = scale; }
     double getTimescale() const override { return timescale; }
@@ -80,6 +79,8 @@ public:
     void setUIReference(SimulatorUI* ui) override;
     SimulatorUI* getUI() const override { return ui_ref_ ? ui_ref_ : ui_.get(); }
 
+    // World type identification
+    const char* getWorldTypeName() const override { return "World (RulesA)"; }
 
     // Get the total mass of dirt in the world.
     double getTotalMass() const override;
@@ -93,14 +94,18 @@ public:
     // Add dirt at a specific pixel coordinate
     void addDirtAtPixel(int pixelX, int pixelY) override;
     void addWaterAtPixel(int pixelX, int pixelY) override;
-    
+
     // Universal material addition (mapped to dirt/water for WorldA compatibility)
-    void addMaterialAtPixel(int pixelX, int pixelY, MaterialType type, double amount = 1.0) override;
-    
+    void addMaterialAtPixel(
+        int pixelX, int pixelY, MaterialType type, double amount = 1.0) override;
+
+    // Add material at cell coordinates (useful for testing)
+    void addMaterialAtCell(uint32_t x, uint32_t y, MaterialType type, double amount = 1.0) override;
+
     // Material selection state management
     void setSelectedMaterial(MaterialType type) override { selected_material_ = type; }
     MaterialType getSelectedMaterial() const override { return selected_material_; }
-    
+
     // Check if cell at pixel coordinates has material
     bool hasMaterialAtPixel(int pixelX, int pixelY) const override;
 
@@ -143,47 +148,68 @@ public:
     void setPressureScale(double scale) override { pressureScale = scale; }
 
     // Water physics configuration
-    void setWaterPressureThreshold(double threshold) override { waterPressureThreshold = threshold; }
+    void setWaterPressureThreshold(double threshold) override
+    {
+        waterPressureThreshold = threshold;
+    }
     double getWaterPressureThreshold() const override { return waterPressureThreshold; }
 
     // Resize the world grid based on new cell size
     void resizeGrid(uint32_t newWidth, uint32_t newHeight) override;
 
+    // Mark all cells as dirty (needing redraw)
+    void markAllCellsDirty() override;
+
     // Cursor force interaction
     void setCursorForceEnabled(bool enabled) override { cursorForceEnabled = enabled; }
     void updateCursorForce(int pixelX, int pixelY, bool isActive) override;
     void clearCursorForce() override { cursorForceActive = false; }
-    
-    // Cohesion physics control (no-op for WorldA)
-    void setCohesionEnabled([[maybe_unused]] bool enabled) override { /* no-op for WorldA */ }
-    bool isCohesionEnabled() const override { return false; }
-    
-    // Cohesion force physics control (no-op for WorldA)
-    void setCohesionForceEnabled([[maybe_unused]] bool enabled) override { /* no-op for WorldA */ }
-    bool isCohesionForceEnabled() const override { return false; }
-    
+
+    // Cohesion bind force control (no-op for WorldA)
+    void setCohesionBindForceEnabled([[maybe_unused]] bool enabled) override
+    { /* no-op for WorldA */ }
+
+    bool isCohesionBindForceEnabled() const override { return false; }
+
+    // Cohesion COM force control (no-op for WorldA)
+    void setCohesionComForceEnabled([[maybe_unused]] bool enabled) override { /* no-op for WorldA */
+    }
+    bool isCohesionComForceEnabled() const override { return false; }
+
     // Cohesion strength parameters (no-op for WorldA)
-    void setCohesionForceStrength([[maybe_unused]] double strength) override { /* no-op for WorldA */ }
-    double getCohesionForceStrength() const override { return 1.0; }
-    
+    void setCohesionComForceStrength([[maybe_unused]] double strength) override
+    { /* no-op for WorldA */ }
+    double getCohesionComForceStrength() const override { return 1.0; }
+
     void setAdhesionStrength([[maybe_unused]] double strength) override { /* no-op for WorldA */ }
+    void setFrictionStrength([[maybe_unused]] double strength) override { /* no-op for WorldA */ }
     double getAdhesionStrength() const override { return 1.0; }
-    
+    double getFrictionStrength() const override { return 1.0; }
+
     void setAdhesionEnabled([[maybe_unused]] bool enabled) override { /* no-op for WorldA */ }
     bool isAdhesionEnabled() const override { return false; }
-    
-    void setCohesionBindStrength([[maybe_unused]] double strength) override { /* no-op for WorldA */ }
-    double getCohesionBindStrength() const override { return 1.0; }
-    
+
+    void setCohesionBindForceStrength([[maybe_unused]] double strength) override
+    { /* no-op for WorldA */ }
+    double getCohesionBindForceStrength() const override { return 1.0; }
+
+    // Viscosity control (not implemented in RulesA).
+    void setViscosityStrength([[maybe_unused]] double strength) override { /* no-op for WorldA */ }
+    double getViscosityStrength() const override { return 1.0; }
+
     // COM cohesion range control (no-op for WorldA)
     void setCOMCohesionRange([[maybe_unused]] uint32_t range) override { /* no-op for WorldA */ }
-    uint32_t getCOMCohesionRange() const override { return 2; }
+    uint32_t getCOMCohesionRange() const override { return 1; }
+
+    // Air resistance control (no-op for WorldA)
+    void setAirResistanceEnabled([[maybe_unused]] bool enabled) override { /* no-op for WorldA */ }
+    bool isAirResistanceEnabled() const override { return false; }
+    void setAirResistanceStrength([[maybe_unused]] double strength) override
+    { /* no-op for WorldA */ }
+    double getAirResistanceStrength() const override { return 0.0; }
 
     // Dump timer statistics
     void dumpTimerStats() const override { timers.dumpTimerStats(); }
-    
-    // ASCII visualization
-    std::string toAsciiDiagram() const override;
 
     // Minimum amount of matter that we should bother processing.
     static constexpr double MIN_MATTER_THRESHOLD = 0.001;
@@ -216,36 +242,46 @@ public:
     void setPressureSystem(PressureSystem system) override { pressureSystem = system; }
     PressureSystem getPressureSystem() const override { return pressureSystem; }
 
-    // Set the world setup strategy
-    void setWorldSetup(std::unique_ptr<WorldSetup> setup) { worldSetup = std::move(setup); }
+    // Dual pressure system controls (no-op for World - only WorldB supports these)
+    void setHydrostaticPressureEnabled(bool /* enabled */) override { /* no-op */ }
+    bool isHydrostaticPressureEnabled() const override { return false; }
 
-    // Get the current world setup strategy
-    std::unique_ptr<WorldSetup> getWorldSetup() { return std::move(worldSetup); }
+    void setDynamicPressureEnabled(bool /* enabled */) override { /* no-op */ }
+    bool isDynamicPressureEnabled() const override { return false; }
 
-    // ConfigurableWorldSetup control methods
-    void setLeftThrowEnabled(bool enabled) override;
-    void setRightThrowEnabled(bool enabled) override;
-    void setLowerRightQuadrantEnabled(bool enabled) override;
-    void setWallsEnabled(bool enabled) override;
-    void setRainRate(double rate) override;
-    bool isLeftThrowEnabled() const override;
-    bool isRightThrowEnabled() const override;
-    bool isLowerRightQuadrantEnabled() const override;
-    bool areWallsEnabled() const override;
-    double getRainRate() const override;
+    // Dual pressure strength controls (no-op for World - only WorldB supports these)
+    void setHydrostaticPressureStrength(double /* strength */) override { /* no-op */ }
+    double getHydrostaticPressureStrength() const override { return 1.0; }
+
+    void setDynamicPressureStrength(double /* strength */) override { /* no-op */ }
+    double getDynamicPressureStrength() const override { return 1.0; }
+
+    // Pressure diffusion controls (no-op for World - only WorldB supports these)
+    void setPressureDiffusionEnabled(bool /* enabled */) override { /* no-op */ }
+    bool isPressureDiffusionEnabled() const override { return false; }
 
     double timescale = 1.0;
 
     // Mark that user input has occurred (for triggering saves)
     void markUserInput() override { hasUserInputSinceLastSave = true; }
-    
+
+    // Get a string representation of all world settings
+    std::string settingsToString() const override;
+
     // World type management
     WorldType getWorldType() const override;
     void preserveState(::WorldState& state) const override;
     void restoreState(const ::WorldState& state) override;
 
+    // World setup management
+    void setWorldSetup(std::unique_ptr<WorldSetup> setup) override;
+    WorldSetup* getWorldSetup() const override;
+
 protected:
     Timers timers;
+
+    // WorldInterface hook implementations
+    void onPreResize(uint32_t /*newWidth*/, uint32_t /*newHeight*/) override;
 
 private:
     // Physics simulation methods (broken down from advanceTime)
@@ -343,17 +379,13 @@ private:
         Vector2d com;
     };
     PendingDragEnd pendingDragEnd;
-    
+
     // Material selection state (for UI coordination)
     MaterialType selected_material_;
 
-    // World setup strategy
-    std::unique_ptr<WorldSetup> worldSetup;
-
     // UI interface
-    std::unique_ptr<SimulatorUI> ui_;                    // Owned UI (legacy architecture)
-    SimulatorUI* ui_ref_;                                // Non-owning reference (SimulationManager architecture)
-
+    std::unique_ptr<SimulatorUI> ui_; // Owned UI (legacy architecture)
+    SimulatorUI* ui_ref_;             // Non-owning reference (SimulationManager architecture)
 
     std::vector<DirtMove> moves;
 
@@ -394,9 +426,6 @@ private:
     // Helper to convert pixel coordinates to cell coordinates
     void pixelToCell(int pixelX, int pixelY, int& cellX, int& cellY) const;
     Vector2i pixelToCell(int pixelX, int pixelY) const;
-
-    // Helper to get world setup for resize operations
-    const WorldSetup* getWorldSetup() const { return worldSetup.get(); }
 
     // Helper method to restore state with potential grid size changes
     void restoreWorldState(const WorldState& state);

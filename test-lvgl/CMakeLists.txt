@@ -24,7 +24,7 @@ endforeach()
 #set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O0 -ggdb")
 
 set(CMAKE_C_STANDARD 99) # LVGL officially supports C99 and above
-set(CMAKE_CXX_STANDARD 17) #C17
+set(CMAKE_CXX_STANDARD 23) #C++23
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR}/bin)
 
@@ -97,10 +97,19 @@ string(APPEND LVGL_PKG_CONFIG_LIB "-llvgl_linux")
 file(GLOB LV_LINUX_SRC src/lib/*.c src/lib/*.cpp)
 set(LV_LINUX_INC src/lib)
 
+set(CONFIG_LV_BUILD_DEMOS OFF CACHE BOOL "" FORCE)
+set(CONFIG_LV_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+
 add_subdirectory(./lvgl ${CMAKE_BINARY_DIR}/lvgl)
 target_include_directories(lvgl PUBLIC ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/src/lib ${PKG_CONFIG_INC})
 
 add_subdirectory(./spdlog ${CMAKE_BINARY_DIR}/spdlog)
+
+# Add args header-only library
+set(ARGS_BUILD_EXAMPLE OFF CACHE BOOL "Build examples" FORCE)
+set(ARGS_BUILD_UNITTESTS OFF CACHE BOOL "Build unit tests" FORCE)
+add_subdirectory(./external/args ${CMAKE_BINARY_DIR}/args)
+
 add_library(lvgl_linux STATIC ${LV_LINUX_SRC} ${LV_LINUX_BACKEND_SRC})
 target_include_directories(lvgl_linux PRIVATE ${LV_LINUX_INC} ${PROJECT_SOURCE_DIR})
 
@@ -113,19 +122,49 @@ add_executable(sparkle-duck
     src/Timers.cpp
     src/WorldSetup.cpp
     src/SimulatorUI.cpp
+    src/UIUpdateConsumer.cpp
     src/SimulationManager.cpp
+    src/UIManager.cpp
     src/MaterialType.cpp
     src/CellB.cpp
     src/WorldB.cpp
+    src/WorldInterface.cpp
+    src/WorldBCalculatorBase.cpp
+    src/WorldBCohesionCalculator.cpp
+    src/WorldBSupportCalculator.cpp
+    src/WorldBPressureCalculator.cpp
+    src/WorldBAirResistanceCalculator.cpp
+    src/WorldBCollisionCalculator.cpp
+    src/WorldBAdhesionCalculator.cpp
+    src/WorldDiagramGeneratorEmoji.cpp
     src/WorldFactory.cpp
     src/MaterialPicker.cpp
     src/WorldState.cpp
     src/CrashDumpHandler.cpp
     src/WorldInterpolationTool.cpp
+    src/ui/LVGLBuilder.cpp
+    src/ui/LVGLEventBuilder.cpp
+    src/EventProcessor.cpp
+    src/EventRouter.cpp
+    src/DirtSimStateMachine.cpp
+    src/states/Startup.cpp
+    src/states/MainMenu.cpp
+    src/states/SimRunning.cpp
+    src/states/SimPaused.cpp
+    src/states/Config.cpp
+    src/states/Shutdown.cpp
+    src/scenarios/ScenarioWorldSetup.cpp
+    src/scenarios/ScenarioRegistry.cpp
+    src/scenarios/scenarios/EmptyScenario.cpp
+    src/scenarios/scenarios/SandboxScenario.cpp
+    src/scenarios/scenarios/RainingScenario.cpp
+    src/scenarios/scenarios/DamBreakScenario.cpp
+    src/scenarios/scenarios/WaterEqualizationScenario.cpp
+    src/scenarios/scenarios/FallingDirtScenario.cpp
     ${LV_LINUX_SRC} 
     ${LV_LINUX_BACKEND_SRC})
-target_link_libraries(sparkle-duck lvgl_linux lvgl lvgl::examples lvgl::demos lvgl::thorvg spdlog::spdlog m pthread ${PKG_CONFIG_LIB} ${SDL2_LIBRARIES} ${SDL2_IMAGE_LIBRARIES})
-target_include_directories(sparkle-duck PRIVATE ${SDL2_INCLUDE_DIRS} ${SDL2_IMAGE_INCLUDE_DIRS})
+target_link_libraries(sparkle-duck lvgl_linux lvgl lvgl::thorvg spdlog::spdlog m pthread ${PKG_CONFIG_LIB} ${SDL2_LIBRARIES} ${SDL2_IMAGE_LIBRARIES})
+target_include_directories(sparkle-duck PRIVATE ${SDL2_INCLUDE_DIRS} ${SDL2_IMAGE_INCLUDE_DIRS} ${CMAKE_SOURCE_DIR}/external/args)
 
 # Enable warnings and treat them as errors for main executable
 target_compile_options(sparkle-duck PRIVATE -Wall -Wextra -Werror)
@@ -147,13 +186,17 @@ add_custom_target (run COMMAND ${EXECUTABLE_OUTPUT_PATH}/sparkle-duck DEPENDS sp
 # Add test executable
 add_executable(sparkle-duck-tests
     src/tests/Vector2d_test.cpp
-    tests/Vector2dJSON_test.cpp
-    tests/MaterialTypeJSON_test.cpp
-    tests/WorldStateJSON_test.cpp
-    tests/CrashDumpHandler_test.cpp
+    src/tests/Vector2dJSON_test.cpp
+    src/tests/MaterialTypeJSON_test.cpp
+    src/tests/WorldStateJSON_test.cpp
+    src/tests/CrashDumpHandler_test.cpp
     src/tests/Vector2i_test.cpp
     src/tests/WorldVisual_test.cpp
     src/tests/WorldBVisual_test.cpp
+    src/tests/ScenarioSystem_test.cpp
+    src/tests/ScenarioSwitching_test.cpp
+    src/tests/AirResistance_test.cpp
+    src/tests/AirResistanceVisual_test.cpp
     src/tests/InterfaceCompatibility_test.cpp
     src/tests/WaterPressure180_test.cpp
     src/tests/PressureSystemVisual_test.cpp
@@ -167,11 +210,32 @@ add_executable(sparkle-duck-tests
     src/tests/HorizontalLineStability_test.cpp
     src/tests/DistanceToSupport_test.cpp
     src/tests/COMCohesionForce_test.cpp
-    src/tests/AsciiDiagram_test.cpp
+    src/tests/PressureDynamic_test.cpp
+    src/tests/PressureHydrostatic_test.cpp
+    src/tests/PressureIntegration_test.cpp
+    src/tests/PressureSimple_test.cpp
+    src/tests/PressureTransmission_test.cpp
+    src/tests/PressureClassicFlow_test.cpp
+    src/tests/WorldBPressureCalculator_test.cpp
     src/tests/TestUI.cpp
     src/tests/visual_test_runner.cpp
-    tests/ResultTest.cpp
-    test/TimersTest.cpp
+    src/tests/ResultTest.cpp
+    src/tests/TimersTest.cpp
+    src/tests/UnifiedSimLoopExample_test.cpp
+    src/tests/EventClassification_test.cpp
+    src/tests/DirtSimStateMachine_test.cpp
+    src/tests/StateTests.cpp
+    src/tests/DualPathRoutingTests.cpp
+    src/tests/IntegrationTests.cpp
+    src/tests/StateTransitionTests.cpp
+    src/tests/UIUpdateQueue_test.cpp
+    src/tests/SharedSimState_PushUpdate_test.cpp
+    src/tests/UIUpdateEvent_test.cpp
+    src/tests/SimulationPushUpdate_test.cpp
+    src/tests/UIUpdateConsumer_test.cpp
+    src/tests/SimulatorUI_PushUpdate_test.cpp
+    src/tests/LVGLTimer_test.cpp
+    src/tests/SimulatorUI_test.cpp
     simple_reset_test.cpp
     src/Vector2d.cpp
     src/Vector2i.cpp
@@ -180,15 +244,45 @@ add_executable(sparkle-duck-tests
     src/Timers.cpp
     src/WorldSetup.cpp
     src/SimulatorUI.cpp
+    src/UIUpdateConsumer.cpp
     src/SimulationManager.cpp
+    src/UIManager.cpp
     src/MaterialType.cpp
     src/CellB.cpp
     src/WorldB.cpp
+    src/WorldInterface.cpp
+    src/WorldBCalculatorBase.cpp
+    src/WorldBCohesionCalculator.cpp
+    src/WorldBSupportCalculator.cpp
+    src/WorldBPressureCalculator.cpp
+    src/WorldBAirResistanceCalculator.cpp
+    src/WorldBCollisionCalculator.cpp
+    src/WorldBAdhesionCalculator.cpp
+    src/WorldDiagramGeneratorEmoji.cpp
     src/WorldFactory.cpp
     src/MaterialPicker.cpp
     src/WorldState.cpp
     src/CrashDumpHandler.cpp
     src/WorldInterpolationTool.cpp
+    src/ui/LVGLBuilder.cpp
+    src/ui/LVGLEventBuilder.cpp
+    src/EventProcessor.cpp
+    src/EventRouter.cpp
+    src/DirtSimStateMachine.cpp
+    src/states/Startup.cpp
+    src/states/MainMenu.cpp
+    src/states/SimRunning.cpp
+    src/states/SimPaused.cpp
+    src/states/Config.cpp
+    src/states/Shutdown.cpp
+    src/scenarios/ScenarioWorldSetup.cpp
+    src/scenarios/ScenarioRegistry.cpp
+    src/scenarios/scenarios/EmptyScenario.cpp
+    src/scenarios/scenarios/SandboxScenario.cpp
+    src/scenarios/scenarios/RainingScenario.cpp
+    src/scenarios/scenarios/DamBreakScenario.cpp
+    src/scenarios/scenarios/WaterEqualizationScenario.cpp
+    src/scenarios/scenarios/FallingDirtScenario.cpp
     ${LV_LINUX_SRC} 
     ${LV_LINUX_BACKEND_SRC}
 )
@@ -212,3 +306,4 @@ target_compile_options(sparkle-duck-tests PRIVATE -Wall -Wextra -Werror)
 # Enable testing
 enable_testing()
 add_test(NAME sparkle-duck-tests COMMAND sparkle-duck-tests)
+

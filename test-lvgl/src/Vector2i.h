@@ -28,6 +28,10 @@ public:
     Vector2i& operator*=(int scalar);
     Vector2i operator/(int scalar) const;
     Vector2i& operator/=(int scalar);
+
+    // Unary operators
+    Vector2i operator-() const; // Negation operator
+    Vector2i operator+() const; // Unary plus (for completeness)
 };
 
 inline Vector2i operator*(int scalar, const Vector2i& v)

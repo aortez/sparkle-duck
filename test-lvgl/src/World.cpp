@@ -2,9 +2,9 @@
 #include "Cell.h"
 #include "SimulatorUI.h"
 #include "Timers.h"
-#include "WorldSetup.h"
 #include "Vector2i.h"
 #include "WorldInterpolationTool.h"
+#include "WorldSetup.h"
 #include "spdlog/spdlog.h"
 
 #include <algorithm>
@@ -19,47 +19,51 @@
 #define M_PI 3.14159265358979323846
 #endif
 
-// Define ASSERT macro if not already defined
+// Define ASSERT macro if not already defined.
 #ifndef ASSERT
 #define ASSERT(cond, msg, ...) assert(cond)
 #endif
 
 namespace {
-// Track the next expected time for each event
+// Track the next expected time for each event.
 struct EventState {
-    double nextTopDrop = 0.33;       // First top drop at 0.33s
-    double nextInitialThrow = 0.17;  // First throw at 0.17s
-    double nextPeriodicThrow = 0.83; // First periodic throw at 0.83s
-    double nextRightThrow = 1.0;     // First right throw at 1.0s
-    double sweepTime = 0.0;          // Time tracking for sweep
-    double beatTime = 0.0;           // Time tracking for beats
-    bool initialThrowDone = false;   // Track if initial throw has happened
-    bool topDropDone = false;        // Track if top drop has happened
+    double nextTopDrop = 0.33;       // First top drop at 0.33s.
+    double nextInitialThrow = 0.17;  // First throw at 0.17s.
+    double nextPeriodicThrow = 0.83; // First periodic throw at 0.83s.
+    double nextRightThrow = 1.0;     // First right throw at 1.0s.
+    double sweepTime = 0.0;          // Time tracking for sweep.
+    double beatTime = 0.0;           // Time tracking for beats.
+    bool initialThrowDone = false;   // Track if initial throw has happened.
+    bool topDropDone = false;        // Track if top drop has happened.
 };
-} // namespace
+} // namespace.
 
-// Initialize static member variables
-double World::ELASTICITY_FACTOR = 0.8;         // Energy preserved in reflections (0.0 to 1.0)
-double World::DIRT_FRAGMENTATION_FACTOR = 0.0; // Default dirt fragmentation factor
+// Initialize static member variables.
+double World::ELASTICITY_FACTOR = 0.8;         // Energy preserved in reflections (0.0 to 1.0).
+double World::DIRT_FRAGMENTATION_FACTOR = 0.0; // Default dirt fragmentation factor.
 
 World::World(uint32_t width, uint32_t height, lv_obj_t* draw_area)
-    : draw_area(draw_area), width(width), height(height), cells(width * height), selected_material_(MaterialType::DIRT), ui_ref_(nullptr)
+    : draw_area(draw_area),
+      width(width),
+      height(height),
+      cells(width * height),
+      selected_material_(MaterialType::DIRT),
+      ui_ref_(nullptr)
 {
     spdlog::info("Creating World: {}x{} grid ({} total cells)", width, height, cells.size());
 
-    // Initialize timers
+    // Initialize timers.
     timers.startTimer("total_simulation");
 
-    // Create configurable world setup
-    worldSetup = std::make_unique<ConfigurableWorldSetup>();
-
+    // Initialize WorldSetup using base class method.
+    initializeWorldSetup();
 }
 
 World::~World()
 {
     spdlog::info("Destroying World: {}x{} grid", width, height);
 
-    // Stop the total simulation timer and dump stats
+    // Stop the total simulation timer and dump stats.
     timers.stopTimer("total_simulation");
     timers.dumpTimerStats();
 }
@@ -71,19 +75,19 @@ void World::advanceTime(double deltaTimeSeconds)
     spdlog::trace(
         "advanceTime: deltaTime={:.4f}s, simulationTime={:.3f}s", deltaTimeSeconds, simulationTime);
 
-    // Update simulation time
+    // Update simulation time.
     simulationTime += deltaTimeSeconds;
 
-    // Save state if time reversal is enabled and conditions are met
+    // Save state if time reversal is enabled and conditions are met.
     if (timeReversalEnabled) {
         bool shouldSave = false;
 
-        // Save on user input
+        // Save on user input.
         if (hasUserInputSinceLastSave) {
             shouldSave = true;
         }
 
-        // Save every 500ms (periodic fallback)
+        // Save every 500ms (periodic fallback).
         if (simulationTime - lastSaveTime >= PERIODIC_SAVE_INTERVAL) {
             shouldSave = true;
         }
@@ -99,14 +103,14 @@ void World::advanceTime(double deltaTimeSeconds)
 
     processDragEnd();
 
-    // Use the physics rules to update pressures and apply forces
+    // Use the physics rules to update pressures and apply forces.
     spdlog::trace("Running physics rules: RulesA");
     updateAllPressures(deltaTimeSeconds);
     applyPressure(deltaTimeSeconds);
 
     processTransfers(deltaTimeSeconds);
 
-    applyMoves(); // Apply the pressure moves
+    applyMoves(); // Apply the pressure moves.
 
     // Update UI with the new total mass, calculated on the fly.
     if (ui_) {
@@ -120,7 +124,7 @@ void World::processParticleAddition(double deltaTimeSeconds)
 {
     if (addParticlesEnabled) {
         timers.startTimer("add_particles");
-        worldSetup->addParticles(*this, timestep++, deltaTimeSeconds);
+        worldSetup_->addParticles(*this, timestep++, deltaTimeSeconds);
         timers.stopTimer("add_particles");
     }
     else {
@@ -156,47 +160,40 @@ void World::processTransfers(double deltaTimeSeconds)
 {
     spdlog::trace("processTransfers: processing {}x{} cells", width, height);
 
-    // Collect potential moves
+    // Collect potential moves.
     for (uint32_t y = 0; y < height; y++) {
         for (uint32_t x = 0; x < width; x++) {
-            // Skip the cell being dragged
+            // Skip the cell being dragged.
             if (isDragging && static_cast<int>(x) == lastDragCellX
                 && static_cast<int>(y) == lastDragCellY) {
                 continue;
             }
             Cell& cell = at(x, y);
 
-            // Skip truly empty cells only (removed aggressive mass removal)
+            // Skip truly empty cells only (removed aggressive mass removal).
             if (cell.percentFull() <= 0.0) {
                 continue;
             }
 
-            // Apply physics using the current rules
+            // Apply physics using the current rules.
             applyPhysicsToCell(cell, x, y, deltaTimeSeconds);
 
-            // Calculate predicted COM position after this timestep
+            // Calculate predicted COM position after this timestep.
             Vector2d predictedCom = cell.com + cell.v * deltaTimeSeconds;
 
-            // CRITICAL: Bound the predicted COM to prevent unbounded growth
-            // COM should stay within reasonable limits even with high velocities
+            // CRITICAL: Bound the predicted COM to prevent unbounded growth.
+            // COM should stay within reasonable limits even with high velocities.
             const double MAX_COM_BOUND =
-                2.0; // Allow some overshoot beyond threshold for proper transfer detection
+                2.0; // Allow some overshoot beyond threshold for proper transfer detection.
             predictedCom.x = std::max(-MAX_COM_BOUND, std::min(MAX_COM_BOUND, predictedCom.x));
             predictedCom.y = std::max(-MAX_COM_BOUND, std::min(MAX_COM_BOUND, predictedCom.y));
 
-            // Check for transfers based on COM deflection
+            // Check for transfers based on COM deflection.
             bool shouldTransferX, shouldTransferY;
             int targetX, targetY;
             Vector2d comOffset;
             calculateTransferDirection(
-                cell,
-                shouldTransferX,
-                shouldTransferY,
-                targetX,
-                targetY,
-                comOffset,
-                x,
-                y);
+                cell, shouldTransferX, shouldTransferY, targetX, targetY, comOffset, x, y);
 
             bool transferOccurred = false;
             bool attemptedTransfer = shouldTransferX || shouldTransferY;
@@ -205,62 +202,62 @@ void World::processTransfers(double deltaTimeSeconds)
                 const double totalMass = cell.dirt + cell.water;
                 bool isTargetInBounds = isWithinBounds(targetX, targetY);
 
-                // Try diagonal transfer first if both X and Y are needed and target is valid
+                // Try diagonal transfer first if both X and Y are needed and target is valid.
                 if (shouldTransferX && shouldTransferY && isTargetInBounds) {
                     transferOccurred =
                         attemptTransfer(cell, x, y, targetX, targetY, comOffset, totalMass);
                 }
 
-                // If no diagonal transfer, or it wasn't attempted, try cardinal directions
+                // If no diagonal transfer, or it wasn't attempted, try cardinal directions.
                 if (!transferOccurred) {
-                    // GRAVITY PRIORITY: For dirt particles, prioritize downward movement over
-                    // horizontal This prevents dirt from getting "stuck" horizontally when it
-                    // should be falling
+                    // GRAVITY PRIORITY: For dirt particles, prioritize downward movement over.
+                    // horizontal This prevents dirt from getting "stuck" horizontally when it.
+                    // should be falling.
                     bool isDirtCell = cell.dirt > MIN_MATTER_THRESHOLD;
                     bool isDownwardTransfer = shouldTransferY && targetY > static_cast<int>(y);
 
                     if (isDirtCell && isDownwardTransfer) {
-                        // Prioritize downward transfer for dirt (gravity wins)
+                        // Prioritize downward transfer for dirt (gravity wins).
                         if (isWithinBounds(x, targetY)) {
                             Vector2d yComOffset = comOffset;
-                            yComOffset.x = cell.com.x; // Keep original X component
+                            yComOffset.x = cell.com.x; // Keep original X component.
                             transferOccurred =
                                 attemptTransfer(cell, x, y, x, targetY, yComOffset, totalMass);
                         }
-                        // Try horizontal only if downward failed
+                        // Try horizontal only if downward failed.
                         if (!transferOccurred && shouldTransferX && isWithinBounds(targetX, y)) {
                             Vector2d xComOffset = comOffset;
-                            xComOffset.y = cell.com.y; // Keep original Y component
+                            xComOffset.y = cell.com.y; // Keep original Y component.
                             transferOccurred =
                                 attemptTransfer(cell, x, y, targetX, y, xComOffset, totalMass);
                         }
                     }
                     else {
-                        // For water or upward movement, use original priority (horizontal first)
+                        // For water or upward movement, use original priority (horizontal first).
                         if (shouldTransferX && isWithinBounds(targetX, y)) {
                             Vector2d xComOffset = comOffset;
-                            xComOffset.y = cell.com.y; // Keep original Y component
+                            xComOffset.y = cell.com.y; // Keep original Y component.
                             transferOccurred =
                                 attemptTransfer(cell, x, y, targetX, y, xComOffset, totalMass);
                         }
-                        // Try Y transfer if X transfer didn't occur or wasn't needed
+                        // Try Y transfer if X transfer didn't occur or wasn't needed.
                         if (!transferOccurred && shouldTransferY && isWithinBounds(x, targetY)) {
                             Vector2d yComOffset = comOffset;
-                            yComOffset.x = cell.com.x; // Keep original X component
+                            yComOffset.x = cell.com.x; // Keep original X component.
                             transferOccurred =
                                 attemptTransfer(cell, x, y, x, targetY, yComOffset, totalMass);
                         }
                     }
                 }
 
-                // If a transfer was attempted but failed, handle the collision/blockage
+                // If a transfer was attempted but failed, handle the collision/blockage.
                 if (!transferOccurred) {
                     handleTransferFailure(
                         cell, x, y, targetX, targetY, shouldTransferX, shouldTransferY);
                 }
             }
 
-            // If no transfer was attempted, update COM internally
+            // If no transfer was attempted, update COM internally.
             if (!attemptedTransfer) {
                 cell.update(cell.dirt, predictedCom, cell.v);
                 checkExcessiveDeflectionReflection(cell);
@@ -271,7 +268,7 @@ void World::processTransfers(double deltaTimeSeconds)
 
 void World::applyPhysicsToCell(Cell& cell, uint32_t x, uint32_t y, double deltaTimeSeconds)
 {
-    // Debug: Log initial state
+    // Debug: Log initial state.
     if (cell.v.x != 0.0 || cell.v.y != 0.0) {
         spdlog::trace(
             "Cell ({},{}) initial state: v=({},{}), com=({},{})",
@@ -283,36 +280,36 @@ void World::applyPhysicsToCell(Cell& cell, uint32_t x, uint32_t y, double deltaT
             cell.com.y);
     }
 
-    // Apply gravity
+    // Apply gravity.
     cell.v.y += gravity * deltaTimeSeconds;
 
-    // Apply water physics (cohesion, viscosity) and buoyancy
+    // Apply water physics (cohesion, viscosity) and buoyancy.
     for (int dy = -1; dy <= 1; dy++) {
         for (int dx = -1; dx <= 1; dx++) {
             if (dx == 0 && dy == 0) continue;
-            
+
             Vector2i offset(dx, dy);
             Vector2i neighborPos(x, y);
             neighborPos += offset;
-            
+
             if (isWithinBounds(neighborPos.x, neighborPos.y)) {
                 Cell& neighbor = at(neighborPos.x, neighborPos.y);
 
-                // Apply water cohesion and viscosity if this is a water cell
+                // Apply water cohesion and viscosity if this is a water cell.
                 if (cell.water >= MIN_MATTER_THRESHOLD) {
                     Vector2d cohesion = cell.calculateWaterCohesion(cell, neighbor, this, x, y);
                     cell.v += cohesion * deltaTimeSeconds;
                     cell.applyViscosity(neighbor);
                 }
 
-                // Apply buoyancy forces (works on any cell with dirt or water)
+                // Apply buoyancy forces (works on any cell with dirt or water).
                 Vector2d buoyancy = cell.calculateBuoyancy(cell, neighbor, offset);
                 cell.v += buoyancy * deltaTimeSeconds;
             }
         }
     }
 
-    // Apply cursor force if active
+    // Apply cursor force if active.
     if (cursorForceEnabled && cursorForceActive) {
         double dx = cursorForceX - static_cast<int>(x);
         double dy = cursorForceY - static_cast<int>(y);
@@ -344,7 +341,7 @@ void World::calculateTransferDirection(
     targetY = y;
     comOffset = Vector2d(0.0, 0.0);
 
-    // Check horizontal transfer based on COM deflection
+    // Check horizontal transfer based on COM deflection.
     if (cell.com.x > Cell::COM_DEFLECTION_THRESHOLD) {
         shouldTransferX = true;
         targetX = x + 1;
@@ -358,7 +355,7 @@ void World::calculateTransferDirection(
         spdlog::trace("  Transfer left: com.x={}, target_com.x={}", cell.com.x, comOffset.x);
     }
 
-    // Check vertical transfer based on COM deflection
+    // Check vertical transfer based on COM deflection.
     if (cell.com.y > Cell::COM_DEFLECTION_THRESHOLD) {
         shouldTransferY = true;
         targetY = y + 1;
@@ -392,13 +389,13 @@ bool World::attemptTransfer(
         return false;
     }
 
-    // Calculate transfer amounts
+    // Calculate transfer amounts.
     const double availableSpace = 1.0 - targetCell.percentFull();
     const double safeAvailableSpace =
-        std::max(0.0, availableSpace - 0.01); // Leave 1% safety margin
+        std::max(0.0, availableSpace - 0.01); // Leave 1% safety margin.
     const double moveAmount = std::min(totalMass, safeAvailableSpace * TRANSFER_FACTOR);
 
-    // Don't transfer if move amount is zero
+    // Don't transfer if move amount is zero.
     if (moveAmount <= 0.0) {
         return false;
     }
@@ -436,11 +433,11 @@ void World::handleTransferFailure(
     bool shouldTransferX,
     bool shouldTransferY)
 {
-    // Comprehensive transfer failure handling that conserves momentum
+    // Comprehensive transfer failure handling that conserves momentum.
 
-    // First, handle boundary collisions (out of bounds)
+    // First, handle boundary collisions (out of bounds).
     if (shouldTransferX && !isWithinBounds(targetX, y)) {
-        // Horizontal boundary collision
+        // Horizontal boundary collision.
         cell.v.x = -cell.v.x * ELASTICITY_FACTOR;
         cell.com.x =
             (targetX < 0) ? -Cell::COM_DEFLECTION_THRESHOLD : Cell::COM_DEFLECTION_THRESHOLD;
@@ -448,20 +445,20 @@ void World::handleTransferFailure(
     }
 
     if (shouldTransferY && !isWithinBounds(x, targetY)) {
-        // Vertical boundary collision
+        // Vertical boundary collision.
         cell.v.y = -cell.v.y * ELASTICITY_FACTOR;
         cell.com.y =
             (targetY < 0) ? -Cell::COM_DEFLECTION_THRESHOLD : Cell::COM_DEFLECTION_THRESHOLD;
         spdlog::trace("  Y boundary reflection: COM.y={}, v.y={}", cell.com.y, cell.v.y);
     }
 
-    // Handle in-bounds collisions (blocked by other cells)
+    // Handle in-bounds collisions (blocked by other cells).
     bool hitHorizontalObstacle = false;
     bool hitVerticalObstacle = false;
 
     if (shouldTransferX && isWithinBounds(targetX, y)) {
         double targetFullness = at(targetX, y).percentFull();
-        if (targetFullness >= 0.95) { // Nearly full cell blocks transfer
+        if (targetFullness >= 0.95) { // Nearly full cell blocks transfer.
             hitHorizontalObstacle = true;
             cell.v.x = -cell.v.x * ELASTICITY_FACTOR;
             cell.com.x =
@@ -470,17 +467,17 @@ void World::handleTransferFailure(
                 "  X collision with full cell ({},{}): fullness={}", targetX, y, targetFullness);
         }
         else if (targetFullness > 0.7) {
-            // Partial blockage - reduce momentum without full reflection
-            double blockageFactor = (targetFullness - 0.7) / 0.25; // 0.0 to 1.0
-            cell.v.x *= (1.0 - blockageFactor * 0.5);              // Reduce by up to 50%
-            cell.com.x *= (1.0 - blockageFactor * 0.3);            // Reduce COM deflection
+            // Partial blockage - reduce momentum without full reflection.
+            double blockageFactor = (targetFullness - 0.7) / 0.25; // 0.0 to 1.0.
+            cell.v.x *= (1.0 - blockageFactor * 0.5);              // Reduce by up to 50%.
+            cell.com.x *= (1.0 - blockageFactor * 0.3);            // Reduce COM deflection.
             spdlog::trace("  X partial blockage: factor={}, new v.x={}", blockageFactor, cell.v.x);
         }
     }
 
     if (shouldTransferY && isWithinBounds(x, targetY)) {
         double targetFullness = at(x, targetY).percentFull();
-        if (targetFullness >= 0.95) { // Nearly full cell blocks transfer
+        if (targetFullness >= 0.95) { // Nearly full cell blocks transfer.
             hitVerticalObstacle = true;
             cell.v.y = -cell.v.y * ELASTICITY_FACTOR;
             cell.com.y =
@@ -489,19 +486,19 @@ void World::handleTransferFailure(
                 "  Y collision with full cell ({},{}): fullness={}", x, targetY, targetFullness);
         }
         else if (targetFullness > 0.7) {
-            // Partial blockage - reduce momentum without full reflection
-            double blockageFactor = (targetFullness - 0.7) / 0.25; // 0.0 to 1.0
-            cell.v.y *= (1.0 - blockageFactor * 0.5);              // Reduce by up to 50%
-            cell.com.y *= (1.0 - blockageFactor * 0.3);            // Reduce COM deflection
+            // Partial blockage - reduce momentum without full reflection.
+            double blockageFactor = (targetFullness - 0.7) / 0.25; // 0.0 to 1.0.
+            cell.v.y *= (1.0 - blockageFactor * 0.5);              // Reduce by up to 50%.
+            cell.com.y *= (1.0 - blockageFactor * 0.3);            // Reduce COM deflection.
             spdlog::trace("  Y partial blockage: factor={}, new v.y={}", blockageFactor, cell.v.y);
         }
     }
 
-    // Handle diagonal collisions (corner case)
+    // Handle diagonal collisions (corner case).
     if (shouldTransferX && shouldTransferY && isWithinBounds(targetX, targetY)) {
         double diagonalFullness = at(targetX, targetY).percentFull();
         if (diagonalFullness >= 0.95) {
-            // Diagonal collision - reflect both components
+            // Diagonal collision - reflect both components.
             if (!hitHorizontalObstacle) {
                 cell.v.x = -cell.v.x * ELASTICITY_FACTOR;
                 cell.com.x = (cell.com.x > 0) ? Cell::COM_DEFLECTION_THRESHOLD
@@ -516,22 +513,22 @@ void World::handleTransferFailure(
         }
     }
 
-    // Monte Carlo transfer failure - momentum bleeding to prevent buildup
-    // This handles the case where transfer was blocked not due to physics, but due to Monte Carlo
-    // selection
+    // Monte Carlo transfer failure - momentum bleeding to prevent buildup.
+    // This handles the case where transfer was blocked not due to physics, but due to Monte Carlo.
+    // selection.
     if (!hitHorizontalObstacle && !hitVerticalObstacle && (shouldTransferX || shouldTransferY)) {
-        // Apply gentle momentum damping to prevent infinite acceleration
-        const double MOMENTUM_BLEED_FACTOR = 0.02; // 2% velocity reduction per failed transfer
+        // Apply gentle momentum damping to prevent infinite acceleration.
+        const double MOMENTUM_BLEED_FACTOR = 0.02; // 2% velocity reduction per failed transfer.
 
         if (shouldTransferX && isWithinBounds(targetX, y) && at(targetX, y).percentFull() < 0.7) {
-            // Transfer could have succeeded but was blocked by Monte Carlo - apply momentum bleed
+            // Transfer could have succeeded but was blocked by Monte Carlo - apply momentum bleed.
             cell.v.x *= (1.0 - MOMENTUM_BLEED_FACTOR);
             cell.com.x *= (1.0 - MOMENTUM_BLEED_FACTOR * 0.5);
             spdlog::trace("  Monte Carlo X momentum bleed: new v.x={}", cell.v.x);
         }
 
         if (shouldTransferY && isWithinBounds(x, targetY) && at(x, targetY).percentFull() < 0.7) {
-            // Transfer could have succeeded but was blocked by Monte Carlo - apply momentum bleed
+            // Transfer could have succeeded but was blocked by Monte Carlo - apply momentum bleed.
             cell.v.y *= (1.0 - MOMENTUM_BLEED_FACTOR);
             cell.com.y *= (1.0 - MOMENTUM_BLEED_FACTOR * 0.5);
             spdlog::trace("  Monte Carlo Y momentum bleed: new v.y={}", cell.v.y);
@@ -540,10 +537,14 @@ void World::handleTransferFailure(
 }
 
 void World::handleBoundaryReflection(
-    Cell& /* cell */, int /* targetX */, int /* targetY */, bool /* shouldTransferX */, bool /* shouldTransferY */)
+    Cell& /* cell */,
+    int /* targetX */,
+    int /* targetY */,
+    bool /* shouldTransferX */,
+    bool /* shouldTransferY */)
 {
-    // Legacy method - now handled by handleTransferFailure
-    // Kept for compatibility but functionality moved to handleTransferFailure
+    // Legacy method - now handled by handleTransferFailure.
+    // Kept for compatibility but functionality moved to handleTransferFailure.
 }
 
 void World::checkExcessiveDeflectionReflection(Cell& cell)
@@ -577,7 +578,7 @@ bool World::isWithinBounds(const Vector2i& pos) const
 
 Vector2d World::calculateNaturalCOM(const Vector2d& sourceCOM, int deltaX, int deltaY)
 {
-    // This function calculates the "natural" position of the COM in the target cell
+    // This function calculates the "natural" position of the COM in the target cell.
     // if it were to continue its trajectory uninterrupted.
     // The old logic was a simple subtraction, which was incorrect.
     // The new logic correctly "wraps" the COM around to the other side of the cell.
@@ -638,34 +639,33 @@ void World::setUIReference(SimulatorUI* ui)
     spdlog::debug("UI reference set for World");
 }
 
-
 void World::applyPressure(const double /* deltaTimeSeconds */)
 {
-    // Random number generator for probabilistic pressure application
+    // Random number generator for probabilistic pressure application.
     static std::mt19937 rng(std::random_device{}());
     static std::uniform_real_distribution<double> dist(0.0, 1.0);
 
-    int pressureApplications = 0; // Debug counter
+    int pressureApplications = 0; // Debug counter.
 
     for (uint32_t y = 0; y < height; y++) {
         for (uint32_t x = 0; x < width; x++) {
             Cell& cell = at(x, y);
 
-            // Skip empty cells or cells with negligible pressure
+            // Skip empty cells or cells with negligible pressure.
             if (cell.percentFull() < MIN_MATTER_THRESHOLD) continue;
 
             if (cell.pressure.mag() < 0.001) continue;
 
-            // Calculate pressure thresholds based on material type
+            // Calculate pressure thresholds based on material type.
             double pressureThreshold;
             double maxPressureForFullProb;
             if (cell.water > cell.dirt) {
-                // Water flows easily - very low threshold
+                // Water flows easily - very low threshold.
                 pressureThreshold = waterPressureThreshold;
                 maxPressureForFullProb = pressureThreshold * 10.0;
             }
             else {
-                // Dirt is more solid
+                // Dirt is more solid.
                 pressureThreshold = 0.005;
                 maxPressureForFullProb = pressureThreshold * 20.0;
             }
@@ -704,7 +704,7 @@ void World::applyPressure(const double /* deltaTimeSeconds */)
                 }
             }
             else {
-                canApplyDirectly = true; // Pressure against boundary
+                canApplyDirectly = true; // Pressure against boundary.
             }
 
             Vector2d appliedDirection;
@@ -718,7 +718,7 @@ void World::applyPressure(const double /* deltaTimeSeconds */)
             else {
                 bool foundOpenNeighbor = false;
                 if (isWaterCell) {
-                    // WATER-SPECIFIC LOGIC
+                    // WATER-SPECIFIC LOGIC.
                     Vector2d gravityDirection(0.0, 1.0);
                     Vector2d currentVelocity = cell.v.normalize();
                     double bestScore = -2.0;
@@ -726,7 +726,7 @@ void World::applyPressure(const double /* deltaTimeSeconds */)
                     for (int dy = -1; dy <= 1; dy++) {
                         for (int dx = -1; dx <= 1; dx++) {
                             if (dx == 0 && dy == 0) continue;
-                            
+
                             Vector2i offset(dx, dy);
                             Vector2i neighborPos(static_cast<int>(x), static_cast<int>(y));
                             neighborPos += offset;
@@ -734,7 +734,8 @@ void World::applyPressure(const double /* deltaTimeSeconds */)
                             if (isWithinBounds(neighborPos.x, neighborPos.y)) {
                                 Cell& neighbor = at(neighborPos.x, neighborPos.y);
                                 if (neighbor.percentFull() < 0.95) {
-                                    Vector2d neighborDirection = Vector2d(offset.x, offset.y).normalize();
+                                    Vector2d neighborDirection =
+                                        Vector2d(offset.x, offset.y).normalize();
                                     if (neighborDirection.dot(gravityDirection) >= -0.1) {
                                         double velocityScore = (cell.v.mag() > 0.1)
                                             ? neighborDirection.dot(currentVelocity) * 0.4
@@ -791,9 +792,9 @@ void World::applyPressure(const double /* deltaTimeSeconds */)
                                 double fragmentAmount =
                                     std::min(cell.water * fragmentationRatio, availableSpace);
 
-                                // IMPORTANT: Only fragment if the result pieces will be above
-                                // threshold This prevents creating tiny water pieces that get
-                                // removed later
+                                // IMPORTANT: Only fragment if the result pieces will be above.
+                                // threshold This prevents creating tiny water pieces that get.
+                                // removed later.
                                 if (fragmentAmount > MIN_MATTER_THRESHOLD * 2.0) {
                                     moves.push_back({ .fromX = x,
                                                       .fromY = y,
@@ -802,10 +803,10 @@ void World::applyPressure(const double /* deltaTimeSeconds */)
                                                       .dirtAmount = 0.0,
                                                       .waterAmount = fragmentAmount,
                                                       .comOffset = appliedDirection * 0.3 });
-                                    // CRITICAL FIX: Don't decrement water here! Let applyMoves()
-                                    // handle it properly This was causing mass loss because moves
-                                    // were processed with already-decremented source cells
-                                    // cell.water -= fragmentAmount;  // REMOVED
+                                    // CRITICAL FIX: Don't decrement water here! Let applyMoves().
+                                    // handle it properly This was causing mass loss because moves.
+                                    // were processed with already-decremented source cells.
+                                    // cell.water -= fragmentAmount;  // REMOVED.
                                     fragmented = true;
                                 }
                             }
@@ -813,21 +814,22 @@ void World::applyPressure(const double /* deltaTimeSeconds */)
                     }
                 }
                 else {
-                    // DIRT LOGIC
+                    // DIRT LOGIC.
                     double bestAngle = M_PI;
                     const double MAX_DEFLECTION_ANGLE = M_PI / 2.0;
 
                     for (int dy = -1; dy <= 1; dy++) {
                         for (int dx = -1; dx <= 1; dx++) {
                             if (dx == 0 && dy == 0) continue;
-                            
+
                             Vector2i offset(dx, dy);
                             Vector2i neighborPos(static_cast<int>(x), static_cast<int>(y));
                             neighborPos += offset;
 
                             if (isWithinBounds(neighborPos.x, neighborPos.y)) {
                                 if (at(neighborPos.x, neighborPos.y).percentFull() < 0.95) {
-                                    Vector2d neighborDirection = Vector2d(offset.x, offset.y).normalize();
+                                    Vector2d neighborDirection =
+                                        Vector2d(offset.x, offset.y).normalize();
                                     double angle = std::acos(std::max(
                                         -1.0,
                                         std::min(1.0, desiredDirection.dot(neighborDirection))));
@@ -838,8 +840,8 @@ void World::applyPressure(const double /* deltaTimeSeconds */)
                                     }
                                 }
                                 else {
-                                    // Skip pressure application to overfull cells to prevent
-                                    // capacity violations
+                                    // Skip pressure application to overfull cells to prevent.
+                                    // capacity violations.
                                     if (at(neighborPos.x, neighborPos.y).percentFull() > 1.01) {
                                         spdlog::trace(
                                             "Skipping pressure application to overfull cell "
@@ -847,7 +849,7 @@ void World::applyPressure(const double /* deltaTimeSeconds */)
                                             neighborPos.x,
                                             neighborPos.y,
                                             at(neighborPos.x, neighborPos.y).percentFull() * 100);
-                                        continue; // Skip this neighbor
+                                        continue; // Skip this neighbor.
                                     }
                                 }
                             }
@@ -859,14 +861,14 @@ void World::applyPressure(const double /* deltaTimeSeconds */)
             }
 
             if (!fragmented) {
-                // Use much gentler pressure forces to prevent aggressive water movement
-                double forceScale = isWaterCell ? 5.0 : 20.0; // Water moves more gently
+                // Use much gentler pressure forces to prevent aggressive water movement.
+                double forceScale = isWaterCell ? 5.0 : 20.0; // Water moves more gently.
                 double effectiveForce = pressureForce * forceMultiplier * forceScale;
                 Vector2d pressureAcceleration = appliedDirection * effectiveForce;
                 cell.v += pressureAcceleration;
                 pressureApplications++;
 
-                // Also use lower velocity caps for water to prevent wild movement
+                // Also use lower velocity caps for water to prevent wild movement.
                 const double MAX_PRESSURE_VELOCITY = isWaterCell ? 4.0 : 8.0;
                 if (cell.v.mag() > MAX_PRESSURE_VELOCITY) {
                     cell.v = cell.v.normalize() * MAX_PRESSURE_VELOCITY;
@@ -899,7 +901,7 @@ void World::updateAllPressures(double deltaTimeSeconds)
             if (cell.percentFull() < MIN_MATTER_THRESHOLD) continue;
             double mass = cell.percentFull();
 
-            // Get normalized deflection in [-1, 1] range
+            // Get normalized deflection in [-1, 1] range.
             Vector2d normalizedDeflection = cell.getNormalizedDeflection();
 
             if (normalizedDeflection.mag() > 0.01) {
@@ -912,7 +914,7 @@ void World::updateAllPressures(double deltaTimeSeconds)
                     normalizedDeflection.mag());
             }
 
-            // Right neighbor
+            // Right neighbor.
             if (x + 1 < width) {
                 if (normalizedDeflection.x > 0.0) {
                     Cell& neighbor = at(x + 1, y);
@@ -923,7 +925,7 @@ void World::updateAllPressures(double deltaTimeSeconds)
                     pressuresGenerated++;
                 }
             }
-            // Left neighbor
+            // Left neighbor.
             if (x > 0) {
                 if (normalizedDeflection.x < 0.0) {
                     Cell& neighbor = at(x - 1, y);
@@ -934,7 +936,7 @@ void World::updateAllPressures(double deltaTimeSeconds)
                     pressuresGenerated++;
                 }
             }
-            // Down neighbor
+            // Down neighbor.
             if (y + 1 < height) {
                 if (normalizedDeflection.y > 0.0) {
                     Cell& neighbor = at(x, y + 1);
@@ -945,7 +947,7 @@ void World::updateAllPressures(double deltaTimeSeconds)
                     pressuresGenerated++;
                 }
             }
-            // Up neighbor
+            // Up neighbor.
             if (y > 0) {
                 if (normalizedDeflection.y < 0.0) {
                     Cell& neighbor = at(x, y - 1);
@@ -961,9 +963,9 @@ void World::updateAllPressures(double deltaTimeSeconds)
 
     spdlog::trace("Generated {} pressure contributions this frame", pressuresGenerated);
 
-    // TEMPORARILY DISABLE PRESSURE DIFFUSION FOR DEBUGGING
-    // The diffusion is averaging pressure values and preventing threshold-based application
-    const int numPressureIterations = 0; // Was 8
+    // TEMPORARILY DISABLE PRESSURE DIFFUSION FOR DEBUGGING.
+    // The diffusion is averaging pressure values and preventing threshold-based application.
+    const int numPressureIterations = 0; // Was 8.
     std::vector<Vector2d> nextPressure(width * height);
     for (int iter = 0; iter < numPressureIterations; ++iter) {
         for (uint32_t y = 0; y < height; ++y) {
@@ -973,13 +975,13 @@ void World::updateAllPressures(double deltaTimeSeconds)
                 for (int dy = -1; dy <= 1; ++dy) {
                     for (int dx = -1; dx <= 1; ++dx) {
                         if (dx == 0 && dy == 0) continue;
-                        
+
                         Vector2i offset(dx, dy);
                         Vector2i neighborPos(x, y);
                         neighborPos += offset;
-                        
-                        if (neighborPos.x >= 0 && neighborPos.x < (int)width && 
-                            neighborPos.y >= 0 && neighborPos.y < (int)height) {
+
+                        if (neighborPos.x >= 0 && neighborPos.x < (int)width && neighborPos.y >= 0
+                            && neighborPos.y < (int)height) {
                             sum += at(neighborPos.x, neighborPos.y).pressure;
                             ++count;
                         }
@@ -988,7 +990,7 @@ void World::updateAllPressures(double deltaTimeSeconds)
                 nextPressure[y * width + x] = sum / count;
             }
         }
-        // Copy nextPressure back to cells
+        // Copy nextPressure back to cells.
         for (uint32_t y = 0; y < height; ++y) {
             for (uint32_t x = 0; x < width; ++x) {
                 at(x, y).pressure = nextPressure[y * width + x];
@@ -999,7 +1001,7 @@ void World::updateAllPressures(double deltaTimeSeconds)
 
 void World::updateAllPressuresTopDown(double deltaTimeSeconds)
 {
-    // Clear all pressures first
+    // Clear all pressures first.
     for (uint32_t y = 0; y < height; ++y) {
         for (uint32_t x = 0; x < width; ++x) {
             at(x, y).pressure = Vector2d(0.0, 0.0);
@@ -1008,7 +1010,7 @@ void World::updateAllPressuresTopDown(double deltaTimeSeconds)
 
     spdlog::trace("=== TOP-DOWN PRESSURE GENERATION ===");
 
-    // Process each column from top to bottom
+    // Process each column from top to bottom.
     for (uint32_t x = 0; x < width; ++x) {
         double accumulatedMass = 0.0;
         Vector2d accumulatedPressure(0.0, 0.0);
@@ -1016,34 +1018,34 @@ void World::updateAllPressuresTopDown(double deltaTimeSeconds)
         for (uint32_t y = 0; y < height; ++y) {
             Cell& cell = at(x, y);
 
-            // Add this cell's mass to the accumulated total
+            // Add this cell's mass to the accumulated total.
             if (cell.percentFull() >= MIN_MATTER_THRESHOLD) {
                 accumulatedMass += cell.percentFull();
             }
 
-            // Calculate hydrostatic pressure from accumulated mass above
-            // This increases linearly with depth and accumulated mass
+            // Calculate hydrostatic pressure from accumulated mass above.
+            // This increases linearly with depth and accumulated mass.
             double hydrostaticPressure = accumulatedMass * gravity * deltaTimeSeconds * 0.1;
 
-            // Apply base hydrostatic pressure downward
+            // Apply base hydrostatic pressure downward.
             cell.pressure.y += hydrostaticPressure;
 
-            // Add lateral pressure based on COM deflection of all cells above
-            // This allows pressure to "spread sideways" as it accumulates
+            // Add lateral pressure based on COM deflection of all cells above.
+            // This allows pressure to "spread sideways" as it accumulates.
             Vector2d lateralPressure(0.0, 0.0);
 
-            // Look at cells above to determine lateral pressure direction
+            // Look at cells above to determine lateral pressure direction.
             for (uint32_t checkY = 0; checkY <= y; ++checkY) {
                 Cell& upperCell = at(x, checkY);
                 if (upperCell.percentFull() >= MIN_MATTER_THRESHOLD) {
                     Vector2d deflection = upperCell.getNormalizedDeflection();
-                    // Scale lateral pressure by distance (closer cells have more influence)
+                    // Scale lateral pressure by distance (closer cells have more influence).
                     double distanceScale = 1.0 / (1.0 + (y - checkY) * 0.5);
                     lateralPressure.x += deflection.x * upperCell.percentFull() * distanceScale;
                 }
             }
 
-            // Apply accumulated lateral pressure
+            // Apply accumulated lateral pressure.
             cell.pressure.x += lateralPressure.x * deltaTimeSeconds * 0.05;
 
             spdlog::trace(
@@ -1056,31 +1058,31 @@ void World::updateAllPressuresTopDown(double deltaTimeSeconds)
         }
     }
 
-    // Add horizontal pressure propagation
-    // This allows pressure to spread sideways between columns
+    // Add horizontal pressure propagation.
+    // This allows pressure to spread sideways between columns.
     for (uint32_t y = 0; y < height; ++y) {
         for (uint32_t x = 0; x < width; ++x) {
             Cell& cell = at(x, y);
             if (cell.percentFull() < MIN_MATTER_THRESHOLD) continue;
 
-            // Look at neighboring columns to determine pressure differences
+            // Look at neighboring columns to determine pressure differences.
             double leftPressure = (x > 0) ? at(x - 1, y).pressure.y : 0.0;
             double rightPressure = (x + 1 < width) ? at(x + 1, y).pressure.y : 0.0;
             double currentPressure = cell.pressure.y;
 
-            // Calculate pressure gradients
+            // Calculate pressure gradients.
             double leftGradient = currentPressure - leftPressure;
             double rightGradient = currentPressure - rightPressure;
 
-            // Apply horizontal pressure based on gradients
+            // Apply horizontal pressure based on gradients.
             if (leftGradient > 0.001) {
-                // Higher pressure than left neighbor - apply leftward pressure
+                // Higher pressure than left neighbor - apply leftward pressure.
                 if (x > 0) {
                     at(x - 1, y).pressure.x += leftGradient * 0.1;
                 }
             }
             if (rightGradient > 0.001) {
-                // Higher pressure than right neighbor - apply rightward pressure
+                // Higher pressure than right neighbor - apply rightward pressure.
                 if (x + 1 < width) {
                     at(x + 1, y).pressure.x += rightGradient * 0.1;
                 }
@@ -1091,7 +1093,7 @@ void World::updateAllPressuresTopDown(double deltaTimeSeconds)
 
 void World::updateAllPressuresIterativeSettling(double deltaTimeSeconds)
 {
-    // Clear all pressures first
+    // Clear all pressures first.
     for (uint32_t y = 0; y < height; ++y) {
         for (uint32_t x = 0; x < width; ++x) {
             at(x, y).pressure = Vector2d(0.0, 0.0);
@@ -1100,43 +1102,43 @@ void World::updateAllPressuresIterativeSettling(double deltaTimeSeconds)
 
     spdlog::trace("=== ITERATIVE SETTLING PRESSURE GENERATION ===");
 
-    // Multiple settling passes - each pass allows material to settle under pressure
+    // Multiple settling passes - each pass allows material to settle under pressure.
     const int numSettlingPasses = 3;
     const double passTimeStep = deltaTimeSeconds / numSettlingPasses;
 
     for (int pass = 0; pass < numSettlingPasses; ++pass) {
         spdlog::trace("Settling pass {}/{}", (pass + 1), numSettlingPasses);
 
-        // For each pass, work from top to bottom
+        // For each pass, work from top to bottom.
         for (uint32_t y = 0; y < height; ++y) {
             for (uint32_t x = 0; x < width; ++x) {
                 Cell& cell = at(x, y);
                 if (cell.percentFull() < MIN_MATTER_THRESHOLD) continue;
 
-                // Calculate pressure from mass above (looking at previous pass results)
+                // Calculate pressure from mass above (looking at previous pass results).
                 double pressureFromAbove = 0.0;
                 for (uint32_t checkY = 0; checkY < y; ++checkY) {
                     Cell& upperCell = at(x, checkY);
                     if (upperCell.percentFull() >= MIN_MATTER_THRESHOLD) {
-                        // Distance decay factor - closer cells contribute more pressure
+                        // Distance decay factor - closer cells contribute more pressure.
                         double distanceFactor = 1.0 / (1.0 + (y - checkY) * 0.3);
                         pressureFromAbove += upperCell.percentFull() * gravity * distanceFactor;
                     }
                 }
 
-                // Apply settling pressure (increases with each pass)
+                // Apply settling pressure (increases with each pass).
                 double settlingPressure = pressureFromAbove * passTimeStep * (pass + 1) * 0.02;
                 cell.pressure.y += settlingPressure;
 
-                // Add lateral pressure redistribution based on pressure differences
+                // Add lateral pressure redistribution based on pressure differences.
                 Vector2d lateralPressure(0.0, 0.0);
 
-                // Check neighboring columns for pressure differences
+                // Check neighboring columns for pressure differences.
                 if (x > 0) {
                     Cell& leftCell = at(x - 1, y);
                     double pressureDiff = cell.pressure.y - leftCell.pressure.y;
                     if (pressureDiff > 0.001) {
-                        lateralPressure.x -= pressureDiff * 0.1; // Pressure flows left
+                        lateralPressure.x -= pressureDiff * 0.1; // Pressure flows left.
                         leftCell.pressure.x += pressureDiff * 0.1;
                     }
                 }
@@ -1145,14 +1147,14 @@ void World::updateAllPressuresIterativeSettling(double deltaTimeSeconds)
                     Cell& rightCell = at(x + 1, y);
                     double pressureDiff = cell.pressure.y - rightCell.pressure.y;
                     if (pressureDiff > 0.001) {
-                        lateralPressure.x += pressureDiff * 0.1; // Pressure flows right
+                        lateralPressure.x += pressureDiff * 0.1; // Pressure flows right.
                         rightCell.pressure.x += pressureDiff * 0.1;
                     }
                 }
 
                 cell.pressure.x += lateralPressure.x;
 
-                // Add COM deflection influence (but scaled down since hydrostatic is primary)
+                // Add COM deflection influence (but scaled down since hydrostatic is primary).
                 Vector2d deflection = cell.getNormalizedDeflection();
                 cell.pressure.x += deflection.x * cell.percentFull() * passTimeStep * 0.02;
                 cell.pressure.y += deflection.y * cell.percentFull() * passTimeStep * 0.02;
@@ -1170,7 +1172,7 @@ void World::updateAllPressuresIterativeSettling(double deltaTimeSeconds)
             }
         }
 
-        // Smooth pressure between passes to prevent oscillations
+        // Smooth pressure between passes to prevent oscillations.
         if (pass < numSettlingPasses - 1) {
             std::vector<Vector2d> smoothedPressure(width * height);
             for (uint32_t y = 0; y < height; ++y) {
@@ -1178,18 +1180,19 @@ void World::updateAllPressuresIterativeSettling(double deltaTimeSeconds)
                     Vector2d sum = at(x, y).pressure;
                     int count = 1;
 
-                    // Average with neighbors for smoothing
+                    // Average with neighbors for smoothing.
                     for (int dy = -1; dy <= 1; ++dy) {
                         for (int dx = -1; dx <= 1; ++dx) {
                             if (dx == 0 && dy == 0) continue;
-                            
+
                             Vector2i offset(dx, dy);
                             Vector2i neighborPos(x, y);
                             neighborPos += offset;
-                            
-                            if (neighborPos.x >= 0 && neighborPos.x < (int)width && 
-                                neighborPos.y >= 0 && neighborPos.y < (int)height) {
-                                sum += at(neighborPos.x, neighborPos.y).pressure * 0.3; // Reduced weight for neighbors
+
+                            if (neighborPos.x >= 0 && neighborPos.x < (int)width
+                                && neighborPos.y >= 0 && neighborPos.y < (int)height) {
+                                sum += at(neighborPos.x, neighborPos.y).pressure
+                                    * 0.3; // Reduced weight for neighbors.
                                 count++;
                             }
                         }
@@ -1198,7 +1201,7 @@ void World::updateAllPressuresIterativeSettling(double deltaTimeSeconds)
                 }
             }
 
-            // Apply smoothed pressure back to cells
+            // Apply smoothed pressure back to cells.
             for (uint32_t y = 0; y < height; ++y) {
                 for (uint32_t x = 0; x < width; ++x) {
                     at(x, y).pressure = smoothedPressure[y * width + x];
@@ -1248,12 +1251,12 @@ const Cell& World::at(const Vector2i& pos) const
 
 CellInterface& World::getCellInterface(uint32_t x, uint32_t y)
 {
-    return at(x, y); // Call the existing at() method
+    return at(x, y); // Call the existing at() method.
 }
 
 const CellInterface& World::getCellInterface(uint32_t x, uint32_t y) const
 {
-    return at(x, y); // Call the existing at() method  
+    return at(x, y); // Call the existing at() method.
 }
 
 size_t World::coordToIndex(uint32_t x, uint32_t y) const
@@ -1273,7 +1276,7 @@ void World::applyMoves()
         Cell& sourceCell = at(move.fromX, move.fromY);
         Cell& targetCell = at(move.toX, move.toY);
 
-        // Skip moves from truly empty cells only
+        // Skip moves from truly empty cells only.
         if (sourceCell.percentFull() <= 0.0) {
             spdlog::trace("Skipping move from empty cell at ({},{})", move.fromX, move.fromY);
             continue;
@@ -1281,9 +1284,9 @@ void World::applyMoves()
 
         const double originalSourceMass = sourceCell.percentFull();
 
-        // Calculate maximum possible transfer while respecting capacity with safety margin
+        // Calculate maximum possible transfer while respecting capacity with safety margin.
         const double availableSpace = 1.0 - targetCell.percentFull();
-        const double safeAvailableSpace = std::max(0.0, availableSpace - 0.01); // 1% safety margin
+        const double safeAvailableSpace = std::max(0.0, availableSpace - 0.01); // 1% safety margin.
         const double totalMass = move.dirtAmount + move.waterAmount;
         const double moveAmount = std::min({
             totalMass,
@@ -1302,56 +1305,57 @@ void World::applyMoves()
             targetCell.v.x,
             targetCell.v.y);
 
-        // Validate cell states before transfer
+        // Validate cell states before transfer.
         sourceCell.validateState("source before transfer");
         targetCell.validateState("target before transfer");
 
-        // Assert that transfer calculations are valid
+        // Assert that transfer calculations are valid.
         ASSERT(std::isfinite(availableSpace), "Available space is NaN or infinite");
         ASSERT(std::isfinite(totalMass), "Total mass is NaN or infinite");
         ASSERT(std::isfinite(moveAmount), "Move amount is NaN or infinite");
 
-        // --- ELASTIC COLLISION RESPONSE (only if both cells have mass) ---
+        // --- ELASTIC COLLISION RESPONSE (only if both cells have mass) ---.
         if (sourceCell.percentFull() > MIN_MATTER_THRESHOLD
             && targetCell.percentFull() > MIN_MATTER_THRESHOLD) {
-            // Normal vector from source to target
+            // Normal vector from source to target.
             Vector2d normal =
                 Vector2d((int)move.toX - (int)move.fromX, (int)move.toY - (int)move.fromY)
                     .normalize();
             if (normal.mag() > 0.0) {
-                // Project velocities onto the normal
+                // Project velocities onto the normal.
                 double v1n = sourceCell.v.dot(normal);
                 double v2n = targetCell.v.dot(normal);
-                // Tangential components (unchanged)
+                // Tangential components (unchanged).
                 Vector2d v1t = sourceCell.v - normal * v1n;
                 Vector2d v2t = targetCell.v - normal * v2n;
-                // Masses (use total mass)
+                // Masses (use total mass).
                 double m1 = sourceCell.percentFull();
                 double m2 = targetCell.percentFull();
-                // 1D elastic collision formula (with elasticity factor)
+                // 1D elastic collision formula (with elasticity factor).
                 double elasticity = World::ELASTICITY_FACTOR;
                 double v1n_after = (v1n * (m1 - m2) + 2 * m2 * v2n) / (m1 + m2);
                 double v2n_after = (v2n * (m2 - m1) + 2 * m1 * v1n) / (m1 + m2);
-                // Interpolate with elasticity
+                // Interpolate with elasticity.
                 v1n_after = v1n + (v1n_after - v1n) * elasticity;
                 v2n_after = v2n + (v2n_after - v2n) * elasticity;
-                // Update velocities
+                // Update velocities.
                 sourceCell.v = v1t + normal * v1n_after;
                 targetCell.v = v2t + normal * v2n_after;
             }
         }
-        // --- END ELASTIC COLLISION RESPONSE ---
+        // --- END ELASTIC COLLISION RESPONSE ---.
 
         // Calculate the fraction being moved.
-        const double moveFraction __attribute__((unused)) = originalSourceMass > 0 ? moveAmount / originalSourceMass : 0.0;
+        const double moveFraction __attribute__((unused)) =
+            originalSourceMass > 0 ? moveAmount / originalSourceMass : 0.0;
 
-        // Calculate actual amounts to move based on proportions
+        // Calculate actual amounts to move based on proportions.
         const double dirtProportion =
             originalSourceMass > 0 ? sourceCell.dirt / originalSourceMass : 0.0;
         const double waterProportion =
             originalSourceMass > 0 ? sourceCell.water / originalSourceMass : 0.0;
 
-        // Assert that proportions are valid
+        // Assert that proportions are valid.
         ASSERT(std::isfinite(dirtProportion), "Dirt proportion is NaN or infinite");
         ASSERT(std::isfinite(waterProportion), "Water proportion is NaN or infinite");
         ASSERT(
@@ -1360,21 +1364,21 @@ void World::applyMoves()
             waterProportion >= 0.0 && waterProportion <= 1.0,
             "Water proportion out of range [0,1]");
 
-        // Apply fragmentation: reduce dirt transfer by fragmentation factor
-        // Higher fragmentation factor means more dirt stays behind
+        // Apply fragmentation: reduce dirt transfer by fragmentation factor.
+        // Higher fragmentation factor means more dirt stays behind.
         const double dirtMoveAmount =
             moveAmount * dirtProportion * (1.0 - DIRT_FRAGMENTATION_FACTOR);
         const double waterMoveAmount =
-            moveAmount * waterProportion; // Water not affected by fragmentation
+            moveAmount * waterProportion; // Water not affected by fragmentation.
 
         const double actualDirt = std::min(dirtMoveAmount, sourceCell.dirt);
         const double actualWater = std::min(waterMoveAmount, sourceCell.water);
 
-        // Assert that actual transfer amounts are valid
+        // Assert that actual transfer amounts are valid.
         ASSERT(std::isfinite(actualDirt) && actualDirt >= 0.0, "Actual dirt amount invalid");
         ASSERT(std::isfinite(actualWater) && actualWater >= 0.0, "Actual water amount invalid");
 
-        // Update source cell
+        // Update source cell.
         spdlog::trace(
             "Before source update: dirt={} water={} total={}",
             sourceCell.dirt,
@@ -1390,7 +1394,7 @@ void World::applyMoves()
             sourceCell.percentFull());
         sourceCell.validateState("source after update");
 
-        // Update target cell
+        // Update target cell.
         const double oldTargetMass = targetCell.percentFull();
         Vector2d expectedCom = move.comOffset;
         ASSERT(
@@ -1398,25 +1402,25 @@ void World::applyMoves()
                 && std::isfinite(expectedCom.y),
             "Target update values invalid");
 
-        // Update target cell's COM using weighted average
+        // Update target cell's COM using weighted average.
         if (oldTargetMass == 0.0) {
-            // First mass in cell, use the expected COM and transfer velocity
+            // First mass in cell, use the expected COM and transfer velocity.
             spdlog::trace("Target cell empty, adding: dirt={} water={}", actualDirt, actualWater);
-            // Safely add dirt with capacity checking - return excess to source
+            // Safely add dirt with capacity checking - return excess to source.
             double actualDirtAdded = targetCell.safeAddMaterial(targetCell.dirt, actualDirt);
             double excessDirt = actualDirt - actualDirtAdded;
             if (excessDirt > 0.0) {
-                sourceCell.dirt += excessDirt; // Return excess to source
+                sourceCell.dirt += excessDirt; // Return excess to source.
                 spdlog::trace("Returned excess dirt to source: {}", excessDirt);
             }
-            // Safely add water with capacity checking - return excess to source
+            // Safely add water with capacity checking - return excess to source.
             double actualWaterAdded = targetCell.safeAddMaterial(targetCell.water, actualWater);
             double excessWater = actualWater - actualWaterAdded;
             if (excessWater > 0.0) {
-                sourceCell.water += excessWater; // Return excess to source
+                sourceCell.water += excessWater; // Return excess to source.
                 spdlog::trace("Returned excess water to source: {}", excessWater);
             }
-            // Update COM and velocity after material additions
+            // Update COM and velocity after material additions.
             if (targetCell.percentFull() > 0.0) {
                 targetCell.com = expectedCom;
                 targetCell.v = sourceCell.v;
@@ -1434,7 +1438,7 @@ void World::applyMoves()
             Vector2d newCom = (targetCell.com * oldTargetMass + expectedCom * newMass)
                 / (oldTargetMass + newMass);
 
-            // Assert weighted average calculation is valid
+            // Assert weighted average calculation is valid.
             ASSERT(
                 std::isfinite(newMass) && std::isfinite(newCom.x) && std::isfinite(newCom.y),
                 "Weighted average calculation invalid");
@@ -1442,24 +1446,24 @@ void World::applyMoves()
 
             spdlog::trace(
                 "Target cell has mass, adding: dirt={} water={}", actualDirt, actualWater);
-            // Safely add dirt with capacity checking - return excess to source
+            // Safely add dirt with capacity checking - return excess to source.
             double actualDirtAdded = targetCell.safeAddMaterial(targetCell.dirt, actualDirt);
             double excessDirt = actualDirt - actualDirtAdded;
             if (excessDirt > 0.0) {
-                sourceCell.dirt += excessDirt; // Return excess to source
+                sourceCell.dirt += excessDirt; // Return excess to source.
                 spdlog::trace("Returned excess dirt to source: {}", excessDirt);
             }
-            // Safely add water with capacity checking - return excess to source
+            // Safely add water with capacity checking - return excess to source.
             double actualWaterAdded = targetCell.safeAddMaterial(targetCell.water, actualWater);
             double excessWater = actualWater - actualWaterAdded;
             if (excessWater > 0.0) {
-                sourceCell.water += excessWater; // Return excess to source
+                sourceCell.water += excessWater; // Return excess to source.
                 spdlog::trace("Returned excess water to source: {}", excessWater);
             }
-            // Update COM and velocity after material additions
+            // Update COM and velocity after material additions.
             if (targetCell.percentFull() > 0.0) {
                 targetCell.com = newCom;
-                // Keep existing velocity for cells with mass
+                // Keep existing velocity for cells with mass.
             }
             spdlog::trace(
                 "Target after update: dirt={} water={} total={}",
@@ -1485,22 +1489,22 @@ void World::applyMoves()
 
         // Update source cell's COM and velocity if any mass remains.
         if (sourceCell.percentFull() > 0.0) {
-            // Preserve velocity if no collision occurred
+            // Preserve velocity if no collision occurred.
             Vector2d newV = sourceCell.v;
-            // Scale COM based on remaining mass
+            // Scale COM based on remaining mass.
             const double remainingMass __attribute__((unused)) = sourceCell.dirt + sourceCell.water;
             const double movedMassFraction =
                 originalSourceMass > 0 ? (actualDirt + actualWater) / originalSourceMass : 0.0;
             Vector2d newCom = sourceCell.com * (1.0 - movedMassFraction);
 
-            // Assert source cell remaining calculations are valid
+            // Assert source cell remaining calculations are valid.
             ASSERT(
                 std::isfinite(remainingMass) && std::isfinite(movedMassFraction)
                     && std::isfinite(newCom.x) && std::isfinite(newCom.y),
                 "Source remaining calculations invalid");
             ASSERT(
                 movedMassFraction >= 0.0 && movedMassFraction <= 1.001,
-                "Move fraction out of range [0,1]"); // Allow for float error
+                "Move fraction out of range [0,1]"); // Allow for float error.
 
             sourceCell.update(sourceCell.dirt, newCom, newV);
         }
@@ -1509,11 +1513,11 @@ void World::applyMoves()
             sourceCell.water = 0.0;
         }
 
-        // Final validation of both cells
+        // Final validation of both cells.
         sourceCell.validateState("source final");
         targetCell.validateState("target final");
 
-        // Debug: Log final state
+        // Debug: Log final state.
         spdlog::trace(
             "After transfer: source_v=({},{}) target_v=({},{})",
             sourceCell.v.x,
@@ -1553,21 +1557,21 @@ uint32_t World::getHeight() const
 void World::reset()
 {
     spdlog::info("Resetting World (RulesA) to empty state");
-    
-    // Exit time reversal navigation mode to ensure we're working with current state
+
+    // Exit time reversal navigation mode to ensure we're working with current state.
     currentHistoryIndex = -1;
     hasStoredCurrentState = false;
-    
-    // Reset simulation state
+
+    // Reset simulation state.
     simulationTime = 0.0;
     timestep = 0;
     lastSaveTime = 0.0;
     hasUserInputSinceLastSave = false;
 
-    // Mark user input for time reversal
+    // Mark user input for time reversal.
     markUserInput();
 
-    // Clear all cells
+    // Clear all cells.
     spdlog::info("Clearing {} cells", cells.size());
     for (auto& cell : cells) {
         cell.update(0.0, Vector2d(0.0, 0.0), Vector2d(0.0, 0.0));
@@ -1578,126 +1582,150 @@ void World::reset()
         cell.pressure = Vector2d(0.0, 0.0);
         cell.markDirty();
     }
-    
-    spdlog::info("World (RulesA) reset complete - world is now empty");
-}
 
-void World::setup()
-{
-    spdlog::info("Setting up World (RulesA) with initial materials");
-    
-    // First reset to empty state
-    reset();
-    
-    spdlog::info("About to check worldSetup pointer...");
-    // Use the world setup strategy to initialize the world
-    if (worldSetup) {
-        spdlog::info("Calling WorldSetup::setup for World (RulesA)");
-        worldSetup->setup(*this);
-    } else {
-        spdlog::error("WorldSetup is null in World::setup()!");
-    }
-    
-    spdlog::info("World (RulesA) setup complete");
-    spdlog::info("DEBUGGING: Total mass after setup = {:.3f}", getTotalMass());
+    spdlog::info("World (RulesA) reset complete - world is now empty");
 }
 
 void World::addDirtAtPixel(int pixelX, int pixelY)
 {
-    spdlog::info("WorldA::addDirtAtPixel pixel ({},{}) -> cell ({},{})", 
-                 pixelX, pixelY, pixelX / Cell::WIDTH, pixelY / Cell::HEIGHT);
-    
-    // Mark user input for time reversal
+    spdlog::info(
+        "WorldA::addDirtAtPixel pixel ({},{}) -> cell ({},{})",
+        pixelX,
+        pixelY,
+        pixelX / Cell::WIDTH,
+        pixelY / Cell::HEIGHT);
+
+    // Mark user input for time reversal.
     markUserInput();
 
-    // Convert pixel coordinates to cell coordinates
+    // Convert pixel coordinates to cell coordinates.
     int cellX = pixelX / Cell::WIDTH;
     int cellY = pixelY / Cell::HEIGHT;
 
-    // Check if coordinates are within bounds
+    // Check if coordinates are within bounds.
     if (cellX >= 0 && cellX < static_cast<int>(width) && cellY >= 0
         && cellY < static_cast<int>(height)) {
         Cell& cell = at(cellX, cellY);
         cell.update(1.0, Vector2d(0.0, 0.0), Vector2d(0.0, 0.0));
         cell.markDirty();
-    } else {
-        spdlog::info("WorldA: Pixel ({},{}) -> cell ({},{}) is out of bounds (grid: {}x{})", 
-                     pixelX, pixelY, cellX, cellY, width, height);
+    }
+    else {
+        spdlog::info(
+            "WorldA: Pixel ({},{}) -> cell ({},{}) is out of bounds (grid: {}x{})",
+            pixelX,
+            pixelY,
+            cellX,
+            cellY,
+            width,
+            height);
     }
 }
 
 void World::addWaterAtPixel(int pixelX, int pixelY)
 {
-    spdlog::info("WorldA::addWaterAtPixel pixel ({},{}) -> cell ({},{})", 
-                 pixelX, pixelY, pixelX / Cell::WIDTH, pixelY / Cell::HEIGHT);
-    
-    // Mark user input for time reversal
+    spdlog::info(
+        "WorldA::addWaterAtPixel pixel ({},{}) -> cell ({},{})",
+        pixelX,
+        pixelY,
+        pixelX / Cell::WIDTH,
+        pixelY / Cell::HEIGHT);
+
+    // Mark user input for time reversal.
     markUserInput();
 
-    // Convert pixel coordinates to cell coordinates
+    // Convert pixel coordinates to cell coordinates.
     int cellX = pixelX / Cell::WIDTH;
     int cellY = pixelY / Cell::HEIGHT;
 
-    // Check if coordinates are within bounds
+    // Check if coordinates are within bounds.
     if (cellX >= 0 && cellX < static_cast<int>(width) && cellY >= 0
         && cellY < static_cast<int>(height)) {
         Cell& cell = at(cellX, cellY);
-        spdlog::info("WorldA: Adding water to cell ({},{}) - before: dirt={:.3f}, water={:.3f}", 
-                     cellX, cellY, cell.dirt, cell.water);
-        // Use safeAddMaterial to respect capacity limits
+        spdlog::info(
+            "WorldA: Adding water to cell ({},{}) - before: dirt={:.3f}, water={:.3f}",
+            cellX,
+            cellY,
+            cell.dirt,
+            cell.water);
+        // Use safeAddMaterial to respect capacity limits.
         double actualAdded = cell.safeAddMaterial(cell.water, 1.0);
         cell.markDirty();
-        spdlog::info("WorldA: After adding water - dirt={:.3f}, water={:.3f}, actualAdded={:.3f}", 
-                     cell.dirt, cell.water, actualAdded);
-    } else {
-        spdlog::info("WorldA: Pixel ({},{}) -> cell ({},{}) is out of bounds (grid: {}x{})", 
-                     pixelX, pixelY, cellX, cellY, width, height);
+        spdlog::info(
+            "WorldA: After adding water - dirt={:.3f}, water={:.3f}, actualAdded={:.3f}",
+            cell.dirt,
+            cell.water,
+            actualAdded);
+    }
+    else {
+        spdlog::info(
+            "WorldA: Pixel ({},{}) -> cell ({},{}) is out of bounds (grid: {}x{})",
+            pixelX,
+            pixelY,
+            cellX,
+            cellY,
+            width,
+            height);
     }
 }
 
 void World::addMaterialAtPixel(int pixelX, int pixelY, MaterialType type, double amount)
 {
-    spdlog::debug("WorldA::addMaterialAtPixel({}) at pixel ({},{}) with amount {:.3f}", 
-                  getMaterialName(type), pixelX, pixelY, amount);
-    
-    // WorldA mapping: Convert materials to dirt/water equivalents
+    spdlog::debug(
+        "WorldA::addMaterialAtPixel({}) at pixel ({},{}) with amount {:.3f}",
+        getMaterialName(type),
+        pixelX,
+        pixelY,
+        amount);
+
+    // WorldA mapping: Convert materials to dirt/water equivalents.
     switch (type) {
         case MaterialType::DIRT:
-        case MaterialType::SAND:   // Sand -> dirt (granular material)
-        case MaterialType::WOOD:   // Wood -> dirt (solid material)
-        case MaterialType::METAL:  // Metal -> dirt (dense solid)
-        case MaterialType::WALL:   // Wall -> dirt (immovable -> dense dirt)
+        case MaterialType::SAND:  // Sand -> dirt (granular material).
+        case MaterialType::WOOD:  // Wood -> dirt (solid material).
+        case MaterialType::METAL: // Metal -> dirt (dense solid).
+        case MaterialType::WALL:  // Wall -> dirt (immovable -> dense dirt).
             addDirtAtPixel(pixelX, pixelY);
             break;
-            
+
         case MaterialType::WATER:
-        case MaterialType::LEAF:   // Leaf -> water (light material)
+        case MaterialType::LEAF: // Leaf -> water (light material).
             addWaterAtPixel(pixelX, pixelY);
             break;
-            
+
         case MaterialType::AIR:
-            // AIR -> no operation (WorldA cannot remove materials easily)
+            // AIR -> no operation (WorldA cannot remove materials easily).
             spdlog::debug("WorldA: AIR material ignored (cannot remove materials)");
             break;
-            
+
         default:
-            spdlog::warn("WorldA: Unknown material type {}, defaulting to DIRT", static_cast<int>(type));
+            spdlog::warn(
+                "WorldA: Unknown material type {}, defaulting to DIRT", static_cast<int>(type));
             addDirtAtPixel(pixelX, pixelY);
             break;
     }
+}
+
+void World::addMaterialAtCell(uint32_t x, uint32_t y, MaterialType type, double amount)
+{
+    // Convert cell coordinates to pixel coordinates (center of cell).
+    int pixelX = x * Cell::WIDTH + Cell::WIDTH / 2;
+    int pixelY = y * Cell::HEIGHT + Cell::HEIGHT / 2;
+
+    // Use the existing pixel-based method.
+    addMaterialAtPixel(pixelX, pixelY, type, amount);
 }
 
 bool World::hasMaterialAtPixel(int pixelX, int pixelY) const
 {
     int cellX, cellY;
     pixelToCell(pixelX, pixelY, cellX, cellY);
-    
-    if (cellX >= 0 && cellX < static_cast<int>(width) && 
-        cellY >= 0 && cellY < static_cast<int>(height)) {
+
+    if (cellX >= 0 && cellX < static_cast<int>(width) && cellY >= 0
+        && cellY < static_cast<int>(height)) {
         const CellInterface& cell = getCellInterface(cellX, cellY);
         return !cell.isEmpty();
     }
-    
+
     return false;
 }
 
@@ -1719,7 +1747,7 @@ void World::restoreLastDragCell()
         Cell& cell = at(lastDragCellX, lastDragCellY);
         cell.update(lastCellOriginalDirt, cell.com, cell.v);
         cell.markDirty();
-        // Don't modify velocity or COM when restoring - they'll be set properly in endDragging
+        // Don't modify velocity or COM when restoring - they'll be set properly in endDragging.
     }
     lastDragCellX = -1;
     lastDragCellY = -1;
@@ -1730,18 +1758,18 @@ void World::startDragging(int pixelX, int pixelY)
 {
     spdlog::info("Starting drag at pixel ({},{})", pixelX, pixelY);
 
-    // Mark user input for time reversal
+    // Mark user input for time reversal.
     markUserInput();
 
     int cellX, cellY;
     pixelToCell(pixelX, pixelY, cellX, cellY);
 
-    // Check if coordinates are within bounds
+    // Check if coordinates are within bounds.
     if (cellX >= 0 && cellX < static_cast<int>(width) && cellY >= 0
         && cellY < static_cast<int>(height)) {
         Cell& cell = at(cellX, cellY);
 
-        // Only start dragging if there's dirt to drag
+        // Only start dragging if there's dirt to drag.
         if (cell.dirt > MIN_MATTER_THRESHOLD) {
             isDragging = true;
             dragStartX = cellX;
@@ -1749,25 +1777,25 @@ void World::startDragging(int pixelX, int pixelY)
             draggedDirt = cell.dirt;
             draggedVelocity = cell.v;
 
-            // Calculate initial COM based on cursor position within cell
+            // Calculate initial COM based on cursor position within cell.
             double subCellX = (pixelX % Cell::WIDTH) / static_cast<double>(Cell::WIDTH);
             double subCellY = (pixelY % Cell::HEIGHT) / static_cast<double>(Cell::HEIGHT);
-            // Map from [0,1] to [-1,1]
+            // Map from [0,1] to [-1,1].
             draggedCom = Vector2d(subCellX * 2.0 - 1.0, subCellY * 2.0 - 1.0);
 
-            // Clear the source cell
+            // Clear the source cell.
             cell.update(0.0, Vector2d(0.0, 0.0), Vector2d(0.0, 0.0));
             cell.markDirty();
 
-            // Visual feedback: fill the cell under the cursor
+            // Visual feedback: fill the cell under the cursor.
             restoreLastDragCell();
             lastDragCellX = cellX;
             lastDragCellY = cellY;
-            lastCellOriginalDirt = 0.0; // Already set to 0 above
+            lastCellOriginalDirt = 0.0; // Already set to 0 above.
             cell.update(draggedDirt, draggedCom, cell.v);
             cell.markDirty();
 
-            // Initialize recent positions
+            // Initialize recent positions.
             recentPositions.clear();
             recentPositions.push_back({ cellX, cellY });
         }
@@ -1783,18 +1811,18 @@ void World::updateDrag(int pixelX, int pixelY)
 
     if (cellX >= 0 && cellX < static_cast<int>(width) && cellY >= 0
         && cellY < static_cast<int>(height)) {
-        // Calculate velocity based on drag movement
+        // Calculate velocity based on drag movement.
         double dx = cellX - dragStartX;
         double dy = cellY - dragStartY;
-        draggedVelocity = Vector2d(dx * 2.0, dy * 2.0); // Scale factor for better feel
+        draggedVelocity = Vector2d(dx * 2.0, dy * 2.0); // Scale factor for better feel.
 
-        // Calculate COM based on cursor position within cell
+        // Calculate COM based on cursor position within cell.
         double subCellX = (pixelX % Cell::WIDTH) / static_cast<double>(Cell::WIDTH);
         double subCellY = (pixelY % Cell::HEIGHT) / static_cast<double>(Cell::HEIGHT);
-        // Map from [0,1] to [-1,1]
+        // Map from [0,1] to [-1,1].
         draggedCom = Vector2d(subCellX * 2.0 - 1.0, subCellY * 2.0 - 1.0);
 
-        // Visual feedback: restore previous cell, fill new cell
+        // Visual feedback: restore previous cell, fill new cell.
         if (cellX != lastDragCellX || cellY != lastDragCellY) {
             restoreLastDragCell();
             Cell& cell = at(cellX, cellY);
@@ -1805,19 +1833,19 @@ void World::updateDrag(int pixelX, int pixelY)
             cell.markDirty();
         }
         else {
-            // Update COM even if we're in the same cell
+            // Update COM even if we're in the same cell.
             Cell& cell = at(cellX, cellY);
             cell.update(cell.dirt, draggedCom, cell.v);
             cell.markDirty();
         }
 
-        // Track recent positions
+        // Track recent positions.
         recentPositions.push_back({ cellX, cellY });
         if (recentPositions.size() > MAX_RECENT_POSITIONS) {
             recentPositions.erase(recentPositions.begin());
         }
 
-        // Debug: Print current drag state
+        // Debug: Print current drag state.
         spdlog::debug(
             "Drag Update - Cell: ({},{}) COM: ({:.2f},{:.2f}) Recent positions: {} Current "
             "velocity: ({:.2f},{:.2f})",
@@ -1837,13 +1865,13 @@ void World::endDragging(int pixelX, int pixelY)
 
     spdlog::info("Ending drag at pixel ({},{})", pixelX, pixelY);
 
-    // Mark user input for time reversal
+    // Mark user input for time reversal.
     markUserInput();
 
     int cellX, cellY;
     pixelToCell(pixelX, pixelY, cellX, cellY);
 
-    // Debug: Print recent positions before calculating velocity
+    // Debug: Print recent positions before calculating velocity.
     spdlog::trace("Release Debug:");
     spdlog::trace("Recent positions: ");
     for (const auto& pos : recentPositions) {
@@ -1851,20 +1879,20 @@ void World::endDragging(int pixelX, int pixelY)
     }
     spdlog::trace("");
 
-    // Calculate final COM based on cursor position within cell
+    // Calculate final COM based on cursor position within cell.
     double subCellX = (pixelX % Cell::WIDTH) / static_cast<double>(Cell::WIDTH);
     double subCellY = (pixelY % Cell::HEIGHT) / static_cast<double>(Cell::HEIGHT);
-    // Map from [0,1] to [-1,1]
+    // Map from [0,1] to [-1,1].
     draggedCom = Vector2d(subCellX * 2.0 - 1.0, subCellY * 2.0 - 1.0);
     spdlog::trace("Final COM before placement: ({},{})", draggedCom.x, draggedCom.y);
 
-    // Restore the last cell before finalizing
+    // Restore the last cell before finalizing.
     restoreLastDragCell();
 
-    // Check if coordinates are within bounds
+    // Check if coordinates are within bounds.
     if (cellX >= 0 && cellX < static_cast<int>(width) && cellY >= 0
         && cellY < static_cast<int>(height)) {
-        // Calculate average velocity from recent positions
+        // Calculate average velocity from recent positions.
         if (recentPositions.size() > 1) {
             double avgDx = 0.0, avgDy = 0.0;
             for (size_t i = 1; i < recentPositions.size(); ++i) {
@@ -1876,7 +1904,7 @@ void World::endDragging(int pixelX, int pixelY)
             }
             avgDx /= (recentPositions.size() - 1);
             avgDy /= (recentPositions.size() - 1);
-            // Scale by cell size and a factor for better feel
+            // Scale by cell size and a factor for better feel.
             draggedVelocity = Vector2d(avgDx * Cell::WIDTH * 2.0, avgDy * Cell::HEIGHT * 2.0);
 
             spdlog::trace(
@@ -1886,7 +1914,7 @@ void World::endDragging(int pixelX, int pixelY)
             spdlog::trace("Not enough positions for velocity calculation");
         }
 
-        // Queue up the drag end state for processing in advanceTime
+        // Queue up the drag end state for processing in advanceTime.
         pendingDragEnd.hasPendingEnd = true;
         pendingDragEnd.cellX = cellX;
         pendingDragEnd.cellY = cellY;
@@ -1904,7 +1932,7 @@ void World::endDragging(int pixelX, int pixelY)
             draggedCom.y);
     }
 
-    // Reset drag state
+    // Reset drag state.
     isDragging = false;
     draggedDirt = 0.0;
     draggedVelocity = Vector2d(0.0, 0.0);
@@ -1922,162 +1950,69 @@ void World::updateCursorForce(int pixelX, int pixelY, bool isActive)
     }
 }
 
-// ConfigurableWorldSetup control methods
-void World::setLeftThrowEnabled(bool enabled)
-{
-    ConfigurableWorldSetup* configSetup = dynamic_cast<ConfigurableWorldSetup*>(worldSetup.get());
-    if (configSetup) {
-        configSetup->setLeftThrowEnabled(enabled);
-    }
-}
-
-void World::setRightThrowEnabled(bool enabled)
-{
-    ConfigurableWorldSetup* configSetup = dynamic_cast<ConfigurableWorldSetup*>(worldSetup.get());
-    if (configSetup) {
-        configSetup->setRightThrowEnabled(enabled);
-    }
-}
-
-void World::setLowerRightQuadrantEnabled(bool enabled)
-{
-    ConfigurableWorldSetup* configSetup = dynamic_cast<ConfigurableWorldSetup*>(worldSetup.get());
-    if (configSetup) {
-        configSetup->setLowerRightQuadrantEnabled(enabled);
-    }
-}
-
-void World::setWallsEnabled(bool enabled)
-{
-    ConfigurableWorldSetup* configSetup = dynamic_cast<ConfigurableWorldSetup*>(worldSetup.get());
-    if (configSetup) {
-        configSetup->setWallsEnabled(enabled);
-    }
-}
-
-void World::setRainRate(double rate)
-{
-    ConfigurableWorldSetup* configSetup = dynamic_cast<ConfigurableWorldSetup*>(worldSetup.get());
-    if (configSetup) {
-        configSetup->setRainRate(rate);
-    }
-}
+// ConfigurableWorldSetup control methods.
 
 void World::resizeGrid(uint32_t newWidth, uint32_t newHeight)
 {
-    // Don't resize if dimensions haven't changed
-    if (newWidth == width && newHeight == height) {
-        spdlog::debug("Resize requested but dimensions unchanged: {}x{}", width, height);
+    if (!shouldResize(newWidth, newHeight)) {
         return;
     }
 
-    spdlog::info(
-        "Resizing World grid: {}x{} -> {}x{}",
-        width,
-        height,
-        newWidth,
-        newHeight);
+    onPreResize(newWidth, newHeight);
 
-    // Mark this as user input for time reversal (preserving history)
-    markUserInput();
+    // Phase 1: Generate interpolated cells using the interpolation tool.
+    std::vector<Cell> interpolatedCells = WorldInterpolationTool::generateInterpolatedCellsA(
+        cells, width, height, newWidth, newHeight);
 
-    // Try bilinear interpolation first for smoother rescaling
-    if (WorldInterpolationTool::resizeWorldWithBilinearFiltering(*this, newWidth, newHeight)) {
-        spdlog::info("WorldA bilinear resize completed successfully");
-        return;
-    }
-    
-    spdlog::warn("Bilinear resize failed for WorldA, falling back to WorldSetup method");
-
-    // Fallback to original WorldSetup-based interpolation
-    // Capture current world state before resizing using WorldSetup
-    uint32_t oldWidth = width;
-    uint32_t oldHeight = height;
-    std::vector<WorldSetup::ResizeData> oldState = worldSetup->captureWorldState(*this);
-
-    // Clear existing cells and resize
-    cells.clear();
+    // Phase 2: Update world state with the new interpolated cells.
     width = newWidth;
     height = newHeight;
-    cells.resize(width * height);
+    cells = std::move(interpolatedCells);
 
-    // Initialize new cells with default values
+    onPostResize();
+
+    spdlog::info("WorldA bilinear resize complete");
+}
+
+void World::onPreResize(uint32_t /*newWidth*/, uint32_t /*newHeight*/)
+{
+    // Mark this as user input for time reversal (preserving history).
+    markUserInput();
+}
+
+void World::markAllCellsDirty()
+{
     for (auto& cell : cells) {
-        cell.update(0.0, Vector2d(0.0, 0.0), Vector2d(0.0, 0.0));
-        cell.water = 0.0;
-    }
-
-    // Apply the preserved state using feature-preserving interpolation
-    if (!oldState.empty()) {
-        worldSetup->applyWorldState(*this, oldState, oldWidth, oldHeight);
-    }
-    else {
-        // If no previous state, use the default world setup
-        reset();
+        cell.markDirty();
     }
 }
 
-bool World::isLeftThrowEnabled() const
-{
-    const ConfigurableWorldSetup* configSetup =
-        dynamic_cast<const ConfigurableWorldSetup*>(worldSetup.get());
-    return configSetup ? configSetup->isLeftThrowEnabled() : false;
-}
-
-bool World::isRightThrowEnabled() const
-{
-    const ConfigurableWorldSetup* configSetup =
-        dynamic_cast<const ConfigurableWorldSetup*>(worldSetup.get());
-    return configSetup ? configSetup->isRightThrowEnabled() : false;
-}
-
-bool World::isLowerRightQuadrantEnabled() const
-{
-    const ConfigurableWorldSetup* configSetup =
-        dynamic_cast<const ConfigurableWorldSetup*>(worldSetup.get());
-    return configSetup ? configSetup->isLowerRightQuadrantEnabled() : false;
-}
-
-bool World::areWallsEnabled() const
-{
-    const ConfigurableWorldSetup* configSetup =
-        dynamic_cast<const ConfigurableWorldSetup*>(worldSetup.get());
-    return configSetup ? configSetup->areWallsEnabled() : false;
-}
-
-double World::getRainRate() const
-{
-    const ConfigurableWorldSetup* configSetup =
-        dynamic_cast<const ConfigurableWorldSetup*>(worldSetup.get());
-    return configSetup ? configSetup->getRainRate() : 0.0;
-}
-
-// Time reversal implementation
+// Time reversal implementation.
 void World::saveWorldState()
 {
     if (!timeReversalEnabled) return;
 
-    // If we're not at the most recent position, truncate history from current position
+    // If we're not at the most recent position, truncate history from current position.
     if (currentHistoryIndex >= 0) {
         stateHistory.erase(stateHistory.begin() + currentHistoryIndex + 1, stateHistory.end());
         currentHistoryIndex = -1;
     }
 
-    // Create a snapshot of the current world state
+    // Create a snapshot of the current world state.
     WorldState state;
-    state.cells = cells;             // Deep copy of all cells
-    state.width = width;             // Capture current grid width
-    state.height = height;           // Capture current grid height
-    state.cellWidth = Cell::WIDTH;   // Capture current cell width
-    state.cellHeight = Cell::HEIGHT; // Capture current cell height
+    state.cells = cells;             // Deep copy of all cells.
+    state.width = width;             // Capture current grid width.
+    state.height = height;           // Capture current grid height.
+    state.cellWidth = Cell::WIDTH;   // Capture current cell width.
+    state.cellHeight = Cell::HEIGHT; // Capture current cell height.
     state.timestep = timestep;
-    state.totalMass = getTotalMass(); // Use the getter
+    state.totalMass = getTotalMass(); // Use the getter.
     state.removedMass = removedMass;
-    state.timestamp = simulationTime; // Capture current simulation time
+    state.timestamp = simulationTime; // Capture current simulation time.
 
     stateHistory.push_back(std::move(state));
 
-    // Limit history size to prevent memory issues
+    // Limit history size to prevent memory issues.
     if (stateHistory.size() > MAX_HISTORY_SIZE) {
         stateHistory.erase(stateHistory.begin());
     }
@@ -2090,7 +2025,7 @@ void World::goBackward()
 {
     if (!canGoBackward()) return;
 
-    // If we're at the 'present', save the current state before moving back
+    // If we're at the 'present', save the current state before moving back.
     if (currentHistoryIndex == -1) {
         WorldState currentLiveState;
         currentLiveState.cells = cells;
@@ -2099,7 +2034,7 @@ void World::goBackward()
         currentLiveState.cellWidth = Cell::WIDTH;
         currentLiveState.cellHeight = Cell::HEIGHT;
         currentLiveState.timestep = timestep;
-        currentLiveState.totalMass = getTotalMass(); // Use the getter
+        currentLiveState.totalMass = getTotalMass(); // Use the getter.
         currentLiveState.removedMass = removedMass;
         currentLiveState.timestamp = simulationTime;
         stateHistory.push_back(std::move(currentLiveState));
@@ -2107,19 +2042,19 @@ void World::goBackward()
     }
 
     if (currentHistoryIndex == -1) {
-        // Moving back from current state - go to last saved state
+        // Moving back from current state - go to last saved state.
         currentHistoryIndex = static_cast<int>(stateHistory.size()) - 1;
     }
     else if (currentHistoryIndex > 0) {
-        // Move further back in history
+        // Move further back in history.
         currentHistoryIndex--;
     }
     else {
-        // Already at the earliest state
+        // Already at the earliest state.
         return;
     }
 
-    // Restore the state using the helper method that handles grid size changes
+    // Restore the state using the helper method that handles grid size changes.
     const WorldState& state = stateHistory[currentHistoryIndex];
     restoreWorldState(state);
 
@@ -2136,20 +2071,20 @@ void World::goForward()
 
     currentHistoryIndex++;
 
-    // If we've reached beyond the saved history, restore to current live state
+    // If we've reached beyond the saved history, restore to current live state.
     if (currentHistoryIndex >= static_cast<int>(stateHistory.size())) {
-        currentHistoryIndex = -1; // Reset to current state indicator
+        currentHistoryIndex = -1; // Reset to current state indicator.
 
-        // Restore the captured current live state if we have it
+        // Restore the captured current live state if we have it.
         if (hasStoredCurrentState) {
             restoreWorldState(currentLiveState);
-            hasStoredCurrentState = false; // Clear the stored state
+            hasStoredCurrentState = false; // Clear the stored state.
             spdlog::trace("Restored captured current live state");
         }
         return;
     }
 
-    // Restore the state using the helper method that handles grid size changes
+    // Restore the state using the helper method that handles grid size changes.
     const WorldState& state = stateHistory[currentHistoryIndex];
     restoreWorldState(state);
 
@@ -2162,7 +2097,7 @@ void World::goForward()
 
 void World::restoreWorldState(const WorldState& state)
 {
-    // Restore cell size first (affects grid calculations)
+    // Restore cell size first (affects grid calculations).
     if (Cell::WIDTH != state.cellWidth || Cell::HEIGHT != state.cellHeight) {
         spdlog::trace(
             "Cell size changed from {}x{} to {}x{} during restore",
@@ -2174,7 +2109,7 @@ void World::restoreWorldState(const WorldState& state)
     Cell::WIDTH = state.cellWidth;
     Cell::HEIGHT = state.cellHeight;
 
-    // Check if grid size has changed
+    // Check if grid size has changed.
     if (state.width != width || state.height != height) {
         spdlog::trace(
             "Grid size changed from {}x{} to {}x{} during restore",
@@ -2183,109 +2118,154 @@ void World::restoreWorldState(const WorldState& state)
             state.width,
             state.height);
 
-        // Resize the grid to match the stored state
+        // Resize the grid to match the stored state.
         cells.clear();
         width = state.width;
         height = state.height;
         cells.resize(width * height);
 
-        // Initialize new cells with default values
+        // Initialize new cells with default values.
         for (auto& cell : cells) {
             cell.update(0.0, Vector2d(0.0, 0.0), Vector2d(0.0, 0.0));
             cell.water = 0.0;
         }
     }
 
-    // Now restore the cells (sizes are guaranteed to match)
+    // Now restore the cells (sizes are guaranteed to match).
     cells = state.cells;
     timestep = state.timestep;
     removedMass = state.removedMass;
     simulationTime = state.timestamp;
 
-    // Mark all cells as needing redraw
+    // Mark all cells as needing redraw.
     for (auto& cell : cells) {
         cell.markDirty();
     }
 }
 
-// World type management implementation
+std::string World::settingsToString() const
+{
+    std::stringstream ss;
+    ss << "=== World (RulesA) Settings ===\n";
+    ss << "Grid size: " << width << "x" << height << "\n";
+    ss << "Gravity: " << gravity << "\n";
+    ss << "Pressure system: ";
+    switch (pressureSystem) {
+        case PressureSystem::Original:
+            ss << "Original";
+            break;
+        case PressureSystem::TopDown:
+            ss << "TopDown";
+            break;
+        case PressureSystem::IterativeSettling:
+            ss << "IterativeSettling";
+            break;
+    }
+    ss << "\n";
+    ss << "Pressure scale: " << pressureScale << "\n";
+    ss << "Water pressure threshold: " << waterPressureThreshold << "\n";
+    ss << "Elasticity factor: " << ELASTICITY_FACTOR << "\n";
+    ss << "Dirt fragmentation factor: " << DIRT_FRAGMENTATION_FACTOR << "\n";
+    ss << "Add particles enabled: " << (addParticlesEnabled ? "true" : "false") << "\n";
+    ss << "Walls enabled: " << (areWallsEnabled() ? "true" : "false") << "\n";
+    ss << "Rain rate: " << getRainRate() << "\n";
+    ss << "Left throw enabled: " << (isLeftThrowEnabled() ? "true" : "false") << "\n";
+    ss << "Right throw enabled: " << (isRightThrowEnabled() ? "true" : "false") << "\n";
+    ss << "Lower right quadrant enabled: " << (isLowerRightQuadrantEnabled() ? "true" : "false")
+       << "\n";
+    ss << "Cursor force enabled: " << (cursorForceEnabled ? "true" : "false") << "\n";
+    ss << "Timescale: " << timescale << "\n";
+    ss << "Min matter threshold: " << MIN_MATTER_THRESHOLD << "\n";
+    return ss.str();
+}
+
+// World type management implementation.
 WorldType World::getWorldType() const
 {
     return WorldType::RulesA;
 }
 
+void World::setWorldSetup(std::unique_ptr<WorldSetup> newSetup)
+{
+    worldSetup_ = std::move(newSetup);
+    // Reset and apply the new setup.
+    if (worldSetup_) {
+        this->setup();
+    }
+}
+
+WorldSetup* World::getWorldSetup() const
+{
+    return worldSetup_.get();
+}
+
 void World::preserveState(::WorldState& state) const
 {
-    // Initialize state with current world properties
+    // Initialize state with current world properties.
     state.initializeGrid(width, height);
     state.timescale = timescale;
     state.timestep = timestep;
-    
-    // Copy physics parameters
+
+    // Copy physics parameters.
     state.gravity = gravity;
     state.elasticity_factor = ELASTICITY_FACTOR;
     state.pressure_scale = pressureScale;
     state.dirt_fragmentation_factor = DIRT_FRAGMENTATION_FACTOR;
     state.water_pressure_threshold = waterPressureThreshold;
-    
-    // Copy world setup flags
+
+    // Copy world setup flags.
     state.left_throw_enabled = isLeftThrowEnabled();
     state.right_throw_enabled = isRightThrowEnabled();
     state.lower_right_quadrant_enabled = isLowerRightQuadrantEnabled();
     state.walls_enabled = areWallsEnabled();
     state.rain_rate = getRainRate();
-    
-    // Copy time reversal state
+
+    // Copy time reversal state.
     state.time_reversal_enabled = timeReversalEnabled;
-    
-    // Copy control flags
+
+    // Copy control flags.
     state.add_particles_enabled = addParticlesEnabled;
     state.cursor_force_enabled = cursorForceEnabled;
-    
-    // Convert Cell data to WorldState::CellData
+
+    // Convert Cell data to WorldState::CellData.
     for (uint32_t y = 0; y < height; ++y) {
         for (uint32_t x = 0; x < width; ++x) {
             const Cell& cell = at(x, y);
-            
-            // Calculate total mass and determine dominant material
+
+            // Calculate total mass and determine dominant material.
             double totalMass = cell.dirt + cell.water;
             MaterialType dominantMaterial = MaterialType::AIR;
-            
+
             if (totalMass > MIN_MATTER_THRESHOLD) {
                 if (cell.dirt > cell.water) {
                     dominantMaterial = MaterialType::DIRT;
-                } else if (cell.water > 0.0) {
+                }
+                else if (cell.water > 0.0) {
                     dominantMaterial = MaterialType::WATER;
                 }
             }
-            
-            // Create CellData with converted information
-            ::WorldState::CellData cellData(
-                totalMass,
-                dominantMaterial,
-                cell.v,
-                cell.com,
-                cell.pressure.mag()  // Convert Vector2d pressure to scalar
-            );
-            
+
+            // Create CellData with converted information.
+            ::WorldState::CellData cellData(totalMass, dominantMaterial, cell.v, cell.com);
+
             state.setCellData(x, y, cellData);
         }
     }
-    
-    spdlog::info("World state preserved: {}x{} grid with {} total mass", 
-                width, height, getTotalMass());
+
+    spdlog::info(
+        "World state preserved: {}x{} grid with {} total mass", width, height, getTotalMass());
 }
 
 void World::restoreState(const ::WorldState& state)
 {
     spdlog::info("Restoring World state from {}x{} grid", state.width, state.height);
-    
-    // Resize grid if necessary
+
+    // Resize grid if necessary.
     if (state.width != width || state.height != height) {
         resizeGrid(state.width, state.height);
     }
-    
-    // Restore physics parameters
+
+    // Restore physics parameters.
     timescale = state.timescale;
     timestep = state.timestep;
     gravity = state.gravity;
@@ -2293,31 +2273,31 @@ void World::restoreState(const ::WorldState& state)
     pressureScale = state.pressure_scale;
     DIRT_FRAGMENTATION_FACTOR = state.dirt_fragmentation_factor;
     waterPressureThreshold = state.water_pressure_threshold;
-    
-    // Restore world setup flags
+
+    // Restore world setup flags.
     setLeftThrowEnabled(state.left_throw_enabled);
     setRightThrowEnabled(state.right_throw_enabled);
     setLowerRightQuadrantEnabled(state.lower_right_quadrant_enabled);
     setWallsEnabled(state.walls_enabled);
     setRainRate(state.rain_rate);
-    
-    // Restore time reversal state
+
+    // Restore time reversal state.
     timeReversalEnabled = state.time_reversal_enabled;
-    
-    // Restore control flags
+
+    // Restore control flags.
     addParticlesEnabled = state.add_particles_enabled;
     cursorForceEnabled = state.cursor_force_enabled;
-    
-    // Convert WorldState::CellData back to Cell data
+
+    // Convert WorldState::CellData back to Cell data.
     for (uint32_t y = 0; y < height; ++y) {
         for (uint32_t x = 0; x < width; ++x) {
             const ::WorldState::CellData& cellData = state.getCellData(x, y);
             Cell& cell = at(x, y);
-            
-            // Convert from pure material back to mixed dirt/water
+
+            // Convert from pure material back to mixed dirt/water.
             double dirtAmount = 0.0;
             double waterAmount = 0.0;
-            
+
             if (cellData.material_mass > MIN_MATTER_THRESHOLD) {
                 switch (cellData.dominant_material) {
                     case MaterialType::DIRT:
@@ -2326,83 +2306,49 @@ void World::restoreState(const ::WorldState& state)
                     case MaterialType::METAL:
                     case MaterialType::LEAF:
                     case MaterialType::WALL:
-                        // Convert solid materials to dirt
-                        // WorldB mass = fill_ratio * density, so convert back: dirt = mass / density
+                        // Convert solid materials to dirt.
+                        // WorldB mass = fill_ratio * density, so convert back: dirt = mass /.
+                        // density.
                         {
-                            const MaterialProperties& props = getMaterialProperties(cellData.dominant_material);
-                            dirtAmount = props.density > 0.0 ? cellData.material_mass / props.density : cellData.material_mass;
-                            dirtAmount = std::min(1.0, dirtAmount); // Clamp to valid range
+                            const MaterialProperties& props =
+                                getMaterialProperties(cellData.dominant_material);
+                            dirtAmount = props.density > 0.0
+                                ? cellData.material_mass / props.density
+                                : cellData.material_mass;
+                            dirtAmount = std::min(1.0, dirtAmount); // Clamp to valid range.
                         }
                         break;
                     case MaterialType::WATER:
-                        // Convert water to water
-                        // WorldB mass = fill_ratio * density, so convert back: water = mass / density
+                        // Convert water to water.
+                        // WorldB mass = fill_ratio * density, so convert back: water = mass /.
+                        // density.
                         {
-                            const MaterialProperties& props = getMaterialProperties(MaterialType::WATER);
-                            waterAmount = props.density > 0.0 ? cellData.material_mass / props.density : cellData.material_mass;
-                            waterAmount = std::min(1.0, waterAmount); // Clamp to valid range
+                            const MaterialProperties& props =
+                                getMaterialProperties(MaterialType::WATER);
+                            waterAmount = props.density > 0.0
+                                ? cellData.material_mass / props.density
+                                : cellData.material_mass;
+                            waterAmount = std::min(1.0, waterAmount); // Clamp to valid range.
                         }
                         break;
                     case MaterialType::AIR:
                     default:
-                        // Empty cell
+                        // Empty cell.
                         break;
                 }
             }
-            
-            // Update cell with converted data
+
+            // Update cell with converted data.
             cell.update(dirtAmount, cellData.com, cellData.velocity);
             cell.water = waterAmount;
-            cell.pressure = Vector2d(cellData.pressure, 0.0);  // Convert scalar pressure to Vector2d
+            cell.pressure =
+                Vector2d(0.0, 0.0); // Reset pressure since CellData no longer stores it.
             cell.markDirty();
         }
     }
-    
-    // Clear history since we've restored from external state
-    clearHistory();
-    
-    spdlog::info("World state restored: {} total mass", getTotalMass());
-}
 
-std::string World::toAsciiDiagram() const
-{
-    std::ostringstream diagram;
-    
-    // Add top border (2 chars per cell + 1 space between each cell, except last)
-    diagram << "+";
-    for (uint32_t x = 0; x < width; ++x) {
-        diagram << "--";
-        if (x < width - 1) {
-            diagram << "-";  // Space between cells
-        }
-    }
-    diagram << "+\n";
-    
-    // Iterate through each row from top to bottom
-    for (uint32_t y = 0; y < height; ++y) {
-        diagram << "|";  // Left border
-        
-        // Add each cell's ASCII representation (2 characters each) with spaces between
-        for (uint32_t x = 0; x < width; ++x) {
-            const Cell& cell = cells[coordToIndex(x, y)];
-            diagram << cell.toAsciiCharacter();
-            if (x < width - 1) {
-                diagram << " ";  // Space between cells
-            }
-        }
-        
-        diagram << "|\n";  // Right border and newline
-    }
-    
-    // Add bottom border (2 chars per cell + 1 space between each cell, except last)
-    diagram << "+";
-    for (uint32_t x = 0; x < width; ++x) {
-        diagram << "--";
-        if (x < width - 1) {
-            diagram << "-";  // Space between cells
-        }
-    }
-    diagram << "+\n";
-    
-    return diagram.str();
+    // Clear history since we've restored from external state.
+    clearHistory();
+
+    spdlog::info("World state restored: {} total mass", getTotalMass());
 }
