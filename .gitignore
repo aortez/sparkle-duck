@@ -1,6 +1,6 @@
 *CMakeFiles*
 *CMakeCache.txt
-
+.*
 
 .cmake/
 .idea/
@@ -8,9 +8,11 @@
 .vscode/
 
 *.json
+*.log
 
 # lvgl/ - removed to allow submodule
 test-lvgl/_deps
+build/
 test-lvgl/build/
 test-lvgl/wl_protocols/
 yocto/rpi-build/

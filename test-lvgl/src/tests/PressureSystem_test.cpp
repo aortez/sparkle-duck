@@ -6,22 +6,22 @@
 
 #include <iostream>
 
-// Simple mock draw area for World constructor
+// Simple mock draw area for World constructor.
 class MockDrawArea {
 public:
     static void* create() {
-        return reinterpret_cast<void*>(0x12345678); // Mock pointer
+        return reinterpret_cast<void*>(0x12345678); // Mock pointer.
     }
 };
 
 class PressureSystemTest : public ::testing::Test {
 protected:
     void SetUp() override {
-        // Create a mock draw_area pointer for World constructor
-        // World needs this but doesn't actually use it for pressure calculations
+        // Create a mock draw_area pointer for World constructor.
+        // World needs this but doesn't actually use it for pressure calculations.
         void* mock_draw_area = MockDrawArea::create();
         
-        // Create a world for testing (small size for performance)
+        // Create a world for testing (small size for performance).
         world = std::make_unique<World>(8, 8, reinterpret_cast<lv_obj_t*>(mock_draw_area));
         world->setGravity(9.81);
     }
@@ -30,14 +30,14 @@ protected:
         world.reset();
     }
     
-    // Helper function to add dirt directly to cells (bypassing pixel coordinate conversion)
+    // Helper function to add dirt directly to cells (bypassing pixel coordinate conversion).
     void addDirtToCell(uint32_t x, uint32_t y, double amount) {
         if (x < world->getWidth() && y < world->getHeight()) {
             world->at(x, y).dirt = amount;
         }
     }
     
-    // Helper function to calculate total pressure in the world
+    // Helper function to calculate total pressure in the world.
     double getTotalPressure() {
         double total = 0.0;
         for (uint32_t y = 0; y < world->getHeight(); ++y) {
@@ -55,7 +55,7 @@ TEST_F(PressureSystemTest, PressureSystemSwitching) {
     spdlog::info("Starting PressureSystemTest::PressureSystemSwitching test");
     std::cout << "\n=== PRESSURE SYSTEM SWITCHING TEST ===" << std::endl;
     
-    // Test that all three pressure systems work
+    // Test that all three pressure systems work.
     std::vector<World::PressureSystem> systems = {
         World::PressureSystem::Original,
         World::PressureSystem::TopDown,
@@ -68,7 +68,7 @@ TEST_F(PressureSystemTest, PressureSystemSwitching) {
         "Iterative Settling"
     };
     
-    // Add some material for testing
+    // Add some material for testing.
     addDirtToCell(3, 2, 0.8);
     addDirtToCell(4, 2, 0.9);
     addDirtToCell(3, 3, 0.7);
@@ -77,21 +77,21 @@ TEST_F(PressureSystemTest, PressureSystemSwitching) {
     for (size_t i = 0; i < systems.size(); ++i) {
         std::cout << "\nTesting pressure system: " << system_names[i] << std::endl;
         
-        // Set the pressure system
+        // Set the pressure system.
         world->setPressureSystem(systems[i]);
         
-        // Verify it was set correctly
+        // Verify it was set correctly.
         EXPECT_EQ(world->getPressureSystem(), systems[i]);
         
-        // Run a few simulation steps to test pressure calculation
+        // Run a few simulation steps to test pressure calculation.
         for (int step = 0; step < 3; ++step) {
-            world->advanceTime(1.0/60.0); // 60 FPS timestep
+            world->advanceTime(1.0/60.0); // 60 FPS timestep.
         }
         
         double total_pressure = getTotalPressure();
         std::cout << "  Total pressure magnitude: " << total_pressure << std::endl;
         
-        // Basic validation that pressure system is functional
+        // Basic validation that pressure system is functional.
         EXPECT_GE(total_pressure, 0.0) << "Pressure should be non-negative";
         
         if (total_pressure > 0.0) {
@@ -121,10 +121,10 @@ TEST_F(PressureSystemTest, PressureSystemComparison) {
                        World::PressureSystem::TopDown,
                        World::PressureSystem::IterativeSettling}) {
         
-        // Reset world to consistent state
+        // Reset world to consistent state.
         world->reset();
         
-        // Add material in a column to create pressure
+        // Add material in a column to create pressure.
         addDirtToCell(4, 1, 0.9);
         addDirtToCell(4, 2, 0.8);
         addDirtToCell(4, 3, 0.9);
@@ -132,12 +132,12 @@ TEST_F(PressureSystemTest, PressureSystemComparison) {
         
         world->setPressureSystem(system);
         
-        // Run simulation
+        // Run simulation.
         for (int step = 0; step < 8; ++step) {
             world->advanceTime(1.0/60.0);
         }
         
-        // Collect pressure statistics
+        // Collect pressure statistics.
         double total_pressure = 0.0;
         double max_pressure = 0.0;
         
@@ -169,7 +169,7 @@ TEST_F(PressureSystemTest, PressureSystemComparison) {
         results.push_back(result);
     }
     
-    // Display comparison
+    // Display comparison.
     std::cout << "\nPressure System Comparison Results:" << std::endl;
     std::cout << "System                    | Total Pressure | Max Pressure" << std::endl;
     std::cout << "--------------------------|----------------|-------------" << std::endl;
@@ -181,7 +181,7 @@ TEST_F(PressureSystemTest, PressureSystemComparison) {
                result.max_pressure);
     }
     
-    // Basic sanity checks
+    // Basic sanity checks.
     for (const auto& result : results) {
         EXPECT_GE(result.total_pressure, 0.0) << "Pressure should be non-negative for " << result.name;
         EXPECT_GE(result.max_pressure, 0.0) << "Max pressure should be non-negative for " << result.name;
@@ -194,25 +194,25 @@ TEST_F(PressureSystemTest, PressureSystemAPI) {
     spdlog::info("Starting PressureSystemTest::PressureSystemAPI test");
     std::cout << "\n=== PRESSURE SYSTEM API TEST ===" << std::endl;
     
-    // Test that we can switch pressure systems programmatically
-    // (this simulates what the UI dropdown callback does)
+    // Test that we can switch pressure systems programmatically.
+    // (this simulates what the UI dropdown callback does).
     
-    // Start with Original system
+    // Start with Original system.
     world->setPressureSystem(World::PressureSystem::Original);
     EXPECT_EQ(world->getPressureSystem(), World::PressureSystem::Original);
     std::cout << "✓ Original system set successfully" << std::endl;
     
-    // Switch to TopDown
+    // Switch to TopDown.
     world->setPressureSystem(World::PressureSystem::TopDown);
     EXPECT_EQ(world->getPressureSystem(), World::PressureSystem::TopDown);
     std::cout << "✓ TopDown system set successfully" << std::endl;
     
-    // Switch to IterativeSettling
+    // Switch to IterativeSettling.
     world->setPressureSystem(World::PressureSystem::IterativeSettling);
     EXPECT_EQ(world->getPressureSystem(), World::PressureSystem::IterativeSettling);
     std::cout << "✓ IterativeSettling system set successfully" << std::endl;
     
-    // Switch back to Original
+    // Switch back to Original.
     world->setPressureSystem(World::PressureSystem::Original);
     EXPECT_EQ(world->getPressureSystem(), World::PressureSystem::Original);
     std::cout << "✓ Switched back to Original system successfully" << std::endl;
@@ -224,23 +224,23 @@ TEST_F(PressureSystemTest, TopDownPressureAccumulation) {
     spdlog::info("Starting PressureSystemTest::TopDownPressureAccumulation test");
     std::cout << "\n=== TOP-DOWN PRESSURE ACCUMULATION TEST ===" << std::endl;
     
-    // Create a vertical column of material to test pressure accumulation
+    // Create a vertical column of material to test pressure accumulation.
     world->reset();
     
-    // Add material vertically (should create accumulating pressure)
+    // Add material vertically (should create accumulating pressure).
     for (uint32_t y = 1; y <= 5; ++y) {
-        addDirtToCell(4, y, 0.8);  // Center column
+        addDirtToCell(4, y, 0.8);  // Center column.
     }
     
-    // Use top-down pressure system
+    // Use top-down pressure system.
     world->setPressureSystem(World::PressureSystem::TopDown);
     
-    // Run simulation to let pressure develop
+    // Run simulation to let pressure develop.
     for (int step = 0; step < 12; ++step) {
         world->advanceTime(1.0/60.0);
     }
     
-    // Check pressure by row
+    // Check pressure by row.
     std::vector<double> pressures_by_row;
     for (uint32_t y = 0; y < world->getHeight(); ++y) {
         double row_pressure = 0.0;
@@ -248,12 +248,12 @@ TEST_F(PressureSystemTest, TopDownPressureAccumulation) {
             row_pressure += world->at(x, y).pressure.mag();
         }
         pressures_by_row.push_back(row_pressure);
-        if (row_pressure > 0.0001) {  // Only print significant pressures
+        if (row_pressure > 0.0001) {  // Only print significant pressures.
             std::cout << "  Row " << y << " pressure: " << row_pressure << std::endl;
         }
     }
     
-    // Check if any pressure was generated
+    // Check if any pressure was generated.
     double total_pressure = getTotalPressure();
     if (total_pressure > 0.0001) {
         std::cout << "  ✓ Top-down pressure system generated pressure: " << total_pressure << std::endl;
@@ -261,7 +261,7 @@ TEST_F(PressureSystemTest, TopDownPressureAccumulation) {
         std::cout << "  ! No significant pressure generated" << std::endl;
     }
     
-    // Basic validation
+    // Basic validation.
     EXPECT_GE(total_pressure, 0.0) << "Total pressure should be non-negative";
     
     std::cout << "=== Top-down test completed ===\n" << std::endl;

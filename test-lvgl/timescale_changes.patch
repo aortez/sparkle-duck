@@ -1,0 +1,208 @@
+diff --git a/test-lvgl/src/SimulatorUI.cpp b/test-lvgl/src/SimulatorUI.cpp
+index 1d23f10..4db1961 100644
+--- a/test-lvgl/src/SimulatorUI.cpp
++++ b/test-lvgl/src/SimulatorUI.cpp
+@@ -436,39 +436,18 @@ void SimulatorUI::createControlButtons()
+             gravity_button_, gravityBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
+     }
+ 
+-    // Create cohesion toggle button.
+-    if (event_router_) {
+-        LVGLEventBuilder::button(screen_, event_router_)
+-            .onCohesionToggle()
+-            .size(CONTROL_WIDTH, 50)
+-            .position(MAIN_CONTROLS_X, 325, LV_ALIGN_TOP_LEFT)
+-            .text("Cohesion Bind: Off")
+-            .toggle(true)
+-            .buildOrLog();
+-    }
+-    else {
+-        lv_obj_t* cohesion_btn = lv_btn_create(screen_);
+-        lv_obj_set_size(cohesion_btn, CONTROL_WIDTH, 50);
+-        lv_obj_align(cohesion_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 325);
+-        lv_obj_t* cohesion_label = lv_label_create(cohesion_btn);
+-        lv_label_set_text(cohesion_label, "Cohesion Bind: Off");
+-        lv_obj_center(cohesion_label);
+-        lv_obj_add_event_cb(
+-            cohesion_btn, cohesionBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
+-    }
+-
+-    // Create cohesion bind strength slider below the bind button - migrated to LVGLBuilder.
+-    [[maybe_unused]] auto bind_strength_slider =
++    // Create viscosity strength slider.
++    [[maybe_unused]] auto viscosity_slider =
+         LVGLBuilder::slider(screen_)
+-            .position(MAIN_CONTROLS_X, 400)
++            .position(MAIN_CONTROLS_X, 340)
+             .size(CONTROL_WIDTH, 10)
+             .range(0, 200) // 0.0 to 2.0 range
+             .value(100)    // Default 1.0
+-            .label("Bind Strength", 0, -20)
+-            .valueLabel("%.1f", 120, -20)
++            .label("Viscosity", 0, -20)
++            .valueLabel("%.1f", 80, -20)
+             .valueTransform(LVGLBuilder::Transforms::Linear(0.01)) // Convert 0-200 to 0.0-2.0
+             .callback(
+-                cohesionBindStrengthSliderEventCb,
++                viscosityStrengthSliderEventCb,
+                 [this](lv_obj_t* value_label) -> void* { return createCallbackData(value_label); })
+             .buildOrLog();
+ 
+@@ -479,7 +458,7 @@ void SimulatorUI::createControlButtons()
+         LVGLEventBuilder::button(screen_, event_router_)
+             .onCohesionToggle() // TODO: Create onCohesionForceToggle() for clarity.
+             .size(CONTROL_WIDTH, 50)
+-            .position(MAIN_CONTROLS_X, 415, LV_ALIGN_TOP_LEFT)
++            .position(MAIN_CONTROLS_X, 390, LV_ALIGN_TOP_LEFT)
+             .text("Cohesion Force: Off")
+             .toggle(true)
+             .buildOrLog();
+@@ -487,7 +466,7 @@ void SimulatorUI::createControlButtons()
+     else {
+         lv_obj_t* cohesion_force_btn = lv_btn_create(screen_);
+         lv_obj_set_size(cohesion_force_btn, CONTROL_WIDTH, 50);
+-        lv_obj_align(cohesion_force_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 415);
++        lv_obj_align(cohesion_force_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 390);
+         lv_obj_t* cohesion_force_label = lv_label_create(cohesion_force_btn);
+         lv_label_set_text(cohesion_force_label, "Cohesion Force: Off");
+         lv_obj_center(cohesion_force_label);
+@@ -498,7 +477,7 @@ void SimulatorUI::createControlButtons()
+     // Create COM cohesion strength slider below the force button - migrated to LVGLBuilder.
+     auto cohesion_builder =
+         LVGLBuilder::slider(screen_)
+-            .position(MAIN_CONTROLS_X, 490)
++            .position(MAIN_CONTROLS_X, 460)
+             .size(CONTROL_WIDTH, 10)
+             .range(0, 30000) // 0.0 to 300.0 range
+             .value(15000)    // Default 150.0
+@@ -514,7 +493,7 @@ void SimulatorUI::createControlButtons()
+     // Create COM cohesion range slider.
+     auto com_range_builder =
+         LVGLBuilder::slider(screen_)
+-            .position(MAIN_CONTROLS_X, 550)
++            .position(MAIN_CONTROLS_X, 520)
+             .size(CONTROL_WIDTH, 10)
+             .range(1, 5)
+             .value(1)
+@@ -530,7 +509,7 @@ void SimulatorUI::createControlButtons()
+         LVGLEventBuilder::button(screen_, event_router_)
+             .onAdhesionToggle()
+             .size(CONTROL_WIDTH, 50)
+-            .position(MAIN_CONTROLS_X, 590, LV_ALIGN_TOP_LEFT)
++            .position(MAIN_CONTROLS_X, 560, LV_ALIGN_TOP_LEFT)
+             .text("Adhesion: Off")
+             .toggle(true)
+             .buildOrLog();
+@@ -745,7 +724,8 @@ void SimulatorUI::createSliders()
+                                     .label("Timescale", 0, -20)
+                                     .valueLabel("%.1fx", 110, -20);
+         timescale_slider.buildOrLog();
+-        // Store the value label reference
++        // Store the slider and value label references
++        timescale_slider_ = timescale_slider.getSlider();
+         timescale_label_ = timescale_slider.getValueLabel();
+     }
+     else {
+@@ -757,13 +737,19 @@ void SimulatorUI::createSliders()
+                 .range(0, 100)
+                 .value(50)
+                 .label("Timescale", 0, -20)
+-                .valueLabel("1.0x", 110, -20)
++                .valueLabel("%.1fx", 110, -20)
++                .valueTransform([](int32_t value) {
++                    // Convert 0-100 to logarithmic scale: 0.1x to 10x with 1.0x at center (50)
++                    return pow(10.0, (value - 50) / 50.0);
++                })
+                 .callback(timescaleSliderEventCb, [this](lv_obj_t* value_label) -> void* {
+                     // Store the value label reference
+                     timescale_label_ = value_label;
+                     return createCallbackData(value_label);
+                 });
+         timescale_builder.buildOrLog();
++        // Store the slider reference
++        timescale_slider_ = timescale_builder.getSlider();
+     }
+ 
+     // Elasticity slider - migrated to EventRouter or LVGLBuilder.
+@@ -1190,6 +1176,16 @@ void SimulatorUI::updateTimescaleSlider(double timescale)
+         snprintf(buf, sizeof(buf), "%.2fx", timescale);
+         lv_label_set_text(timescale_label_, buf);
+     }
++    
++    if (timescale_slider_) {
++        // Convert timescale to slider value (inverse of the logarithmic conversion)
++        // timescale = pow(10.0, (value - 50) / 50.0)
++        // log10(timescale) = (value - 50) / 50.0
++        // value = 50 + 50 * log10(timescale)
++        int32_t slider_value = static_cast<int32_t>(50 + 50 * log10(timescale));
++        slider_value = std::max(0, std::min(100, slider_value)); // Clamp to valid range
++        lv_slider_set_value(timescale_slider_, slider_value, LV_ANIM_OFF);
++    }
+ }
+ 
+ void SimulatorUI::updateElasticitySlider(double elasticity)
+@@ -1532,7 +1528,7 @@ void SimulatorUI::cohesionBtnEventCb(lv_event_t* e)
+             data->world->setCohesionBindForceEnabled(new_state);
+             const lv_obj_t* btn = static_cast<const lv_obj_t*>(lv_event_get_target(e));
+             lv_obj_t* label = lv_obj_get_child(btn, 0);
+-            lv_label_set_text(label, new_state ? "Cohesion Bind: On" : "Cohesion Bind: Off");
++            lv_label_set_text(label, new_state ? "Viscosity: On" : "Viscosity: Off");
+         }
+     }
+ }
+@@ -2355,7 +2351,7 @@ void SimulatorUI::adhesionStrengthSliderEventCb(lv_event_t* e)
+     }
+ }
+ 
+-void SimulatorUI::cohesionBindStrengthSliderEventCb(lv_event_t* e)
++void SimulatorUI::viscosityStrengthSliderEventCb(lv_event_t* e)
+ {
+     lv_obj_t* slider = static_cast<lv_obj_t*>(lv_event_get_target(e));
+     CallbackData* data = static_cast<CallbackData*>(lv_event_get_user_data(e));
+@@ -2363,7 +2359,7 @@ void SimulatorUI::cohesionBindStrengthSliderEventCb(lv_event_t* e)
+         int32_t value = lv_slider_get_value(slider);
+         double strength = value / 100.0; // Range 0.0 to 2.0.
+         if (data->world) {
+-            data->world->setCohesionBindForceStrength(strength);
++            data->world->setViscosityStrength(strength);
+         }
+         char buf[16];
+         snprintf(buf, sizeof(buf), "%.1f", strength);
+diff --git a/test-lvgl/src/SimulatorUI.h b/test-lvgl/src/SimulatorUI.h
+index b585dc0..427da05 100644
+--- a/test-lvgl/src/SimulatorUI.h
++++ b/test-lvgl/src/SimulatorUI.h
+@@ -89,6 +89,7 @@ private:
+     lv_obj_t* dynamic_strength_label_ = nullptr;
+     lv_obj_t* gravity_button_ = nullptr; // Gravity is a toggle button
+     lv_obj_t* gravity_label_ = nullptr;
++    lv_obj_t* timescale_slider_ = nullptr; // Timescale slider object
+     lv_obj_t* timescale_label_ = nullptr; // Value label for timescale slider
+     lv_obj_t* elasticity_slider_ = nullptr;
+     lv_obj_t* elasticity_label_ = nullptr;
+@@ -191,7 +192,7 @@ private:
+     // Cohesion strength sliders.
+     static void cohesionForceStrengthSliderEventCb(lv_event_t* e);
+     static void adhesionStrengthSliderEventCb(lv_event_t* e);
+-    static void cohesionBindStrengthSliderEventCb(lv_event_t* e);
++    static void viscosityStrengthSliderEventCb(lv_event_t* e);
+     static void comCohesionRangeSliderEventCb(lv_event_t* e);
+ 
+     // Push-based UI update timer callback.
+diff --git a/test-lvgl/src/ui/LVGLEventBuilder.cpp b/test-lvgl/src/ui/LVGLEventBuilder.cpp
+index 9bd425d..b541acc 100644
+--- a/test-lvgl/src/ui/LVGLEventBuilder.cpp
++++ b/test-lvgl/src/ui/LVGLEventBuilder.cpp
+@@ -71,6 +71,12 @@ LVGLEventBuilder::SliderBuilder& LVGLEventBuilder::SliderBuilder::onValueChange(
+ }
+ 
+ LVGLEventBuilder::SliderBuilder& LVGLEventBuilder::SliderBuilder::onTimescaleChange() {
++    // Set up value transform for the label to show timescale instead of slider value
++    valueTransform([](int32_t value) {
++        // Convert 0-100 to logarithmic scale: 0.1x to 10x with 1.0x at center (50)
++        return pow(10.0, (value - 50) / 50.0);
++    });
++    
+     return onValueChange([](int32_t value) {
+         // Convert 0-100 to logarithmic scale: 0.1x to 10x with 1.0x at center (50)
+         double timescale = pow(10.0, (value - 50) / 50.0);

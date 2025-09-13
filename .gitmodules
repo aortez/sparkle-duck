@@ -4,3 +4,6 @@
 [submodule "test-lvgl/spdlog"]
 	path = test-lvgl/spdlog
 	url = https://github.com/gabime/spdlog.git
+[submodule "test-lvgl/external/args"]
+	path = test-lvgl/external/args
+	url = https://github.com/Taywee/args.git

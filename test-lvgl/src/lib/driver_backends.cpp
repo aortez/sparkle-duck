@@ -50,7 +50,7 @@
  *  STATIC PROTOTYPES
  **********************/
 
-/* Internal functions */
+/* Internal functions. */
 
 /**********************
  *  STATIC VARIABLES
@@ -89,19 +89,19 @@ backend_init_t available_backends[] = {
 #if LV_USE_EVDEV
     backend_init_evdev,
 #endif
-    NULL /* Sentinel */
+    NULL /* Sentinel. */
 };
 
-/* Contains the backend descriptors */
+/* Contains the backend descriptors. */
 static backend_t* backends[sizeof(available_backends) / sizeof(available_backends[0])];
 
-/* Set once the user selects a backend - or it is set to the default backend */
+/* Set once the user selects a backend - or it is set to the default backend. */
 static backend_t* sel_display_backend = NULL;
 
 /**********************
  *  GLOBAL VARIABLES
  **********************/
-/* Contains global simulator settings common to each backend */
+/* Contains global simulator settings common to each backend. */
 simulator_settings_t settings;
 
 /**********************
@@ -121,7 +121,7 @@ void driver_backends_register(void)
 
     i = 0;
     if (backends[i] != NULL) {
-        /* backends are already registered - leave */
+        /* backends are already registered - leave. */
         return;
     }
 
@@ -176,11 +176,11 @@ int driver_backends_init_backend(const char* backend_name)
     i = 0;
     while ((b = backends[i]) != NULL) {
         printf("[DEBUG] Checking backend: %s\n", b->name);
-        /* Check if such a backend exists */
+        /* Check if such a backend exists. */
         if (strcasecmp(b->name, backend_name) == 0) {
             printf("[DEBUG] Selected backend: %s\n", b->name);
             if (b->type == BACKEND_DISPLAY) {
-                /* Initialize the display */
+                /* Initialize the display. */
 
                 dispb = b->handle->display;
                 LV_ASSERT_NULL(dispb->init_display);
@@ -196,12 +196,12 @@ int driver_backends_init_backend(const char* backend_name)
                 break;
             }
             else if (b->type == BACKEND_INDEV) {
-                /* Initialize input device */
+                /* Initialize input device. */
 
                 indevb = b->handle->indev;
                 LV_ASSERT_NULL(indevb->init_indev);
 
-                /* The display driver backend - has to be initialized first */
+                /* The display driver backend - has to be initialized first. */
                 if (sel_display_backend == NULL) {
                     LV_LOG_ERROR(
                         "Failed to init indev backend: %s - display needs to be "

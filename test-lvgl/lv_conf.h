@@ -1298,30 +1298,30 @@
 *==================*/
 
 /** Enable examples to be built with the library. */
-#define LV_BUILD_EXAMPLES 1
+#define LV_BUILD_EXAMPLES 0
 
 /*===================
  * DEMO USAGE
  ====================*/
 
 /** Show some widgets. This might be required to increase `LV_MEM_SIZE`. */
-#define LV_USE_DEMO_WIDGETS 1
+#define LV_USE_DEMO_WIDGETS 0
 
 /** Demonstrate usage of encoder and keyboard. */
-#define LV_USE_DEMO_KEYPAD_AND_ENCODER 1
+#define LV_USE_DEMO_KEYPAD_AND_ENCODER 0
 
 /** Benchmark your system */
-#define LV_USE_DEMO_BENCHMARK 1
+#define LV_USE_DEMO_BENCHMARK 0
 
 /** Render test for each primitive.
  *  - Requires at least 480x272 display. */
-#define LV_USE_DEMO_RENDER 1
+#define LV_USE_DEMO_RENDER 0
 
 /** Stress test for LVGL */
-#define LV_USE_DEMO_STRESS 1
+#define LV_USE_DEMO_STRESS 0
 
 /** Music player demo */
-#define LV_USE_DEMO_MUSIC 1
+#define LV_USE_DEMO_MUSIC 0
 #if LV_USE_DEMO_MUSIC
     #define LV_DEMO_MUSIC_SQUARE    0
     #define LV_DEMO_MUSIC_LANDSCAPE 0
@@ -1338,16 +1338,16 @@
   ---------------------------*/
 
 /** Flex layout demo */
-#define LV_USE_DEMO_FLEX_LAYOUT     1
+#define LV_USE_DEMO_FLEX_LAYOUT     0
 
 /** Smart-phone like multi-language demo */
-#define LV_USE_DEMO_MULTILANG       1
+#define LV_USE_DEMO_MULTILANG       0
 
 /** Widget transformation demo */
-#define LV_USE_DEMO_TRANSFORM       1
+#define LV_USE_DEMO_TRANSFORM       0
 
 /** Demonstrate scroll settings */
-#define LV_USE_DEMO_SCROLL          1
+#define LV_USE_DEMO_SCROLL          0
 
 /*E-bike demo with Lottie animations (if LV_USE_LOTTIE is enabled)*/
 #define LV_USE_DEMO_EBIKE           0
@@ -1356,7 +1356,7 @@
 #endif
 
 /** High-resolution demo */
-#define LV_USE_DEMO_HIGH_RES        1
+#define LV_USE_DEMO_HIGH_RES        0
 
 /* Smart watch demo */
 #define LV_USE_DEMO_SMARTWATCH      0

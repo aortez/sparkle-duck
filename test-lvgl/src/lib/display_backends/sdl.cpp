@@ -108,30 +108,30 @@ static lv_display_t* init_sdl(void)
  */
 static void run_loop_sdl(SimulationManager& manager)
 {
-    // Initialize simulation loop state for step counting
+    // Initialize simulation loop state for step counting.
     SimulatorLoop::LoopState state;
     SimulatorLoop::initState(state);
     
-    // Set max_steps from global settings
+    // Set max_steps from global settings.
     state.max_steps = settings.max_steps;
 
     uint32_t idle_time;
 
-    /* Handle LVGL tasks */
+    /* Handle LVGL tasks. */
     while (state.is_running) {
         // Process one frame of simulation.
         SimulatorLoop::processFrame(manager, state, 8);
 
-        // Exit immediately if step limit reached - don't wait for more events
+        // Exit immediately if step limit reached - don't wait for more events.
         if (!state.is_running) {
             printf("Simulation completed after %u steps\n", state.step_count);
             break;
         }
 
-        /* Returns the time to the next timer execution */
+        /* Returns the time to the next timer execution. */
         idle_time = lv_timer_handler();
         
-        bool frame_limiting_enabled = true; // Default to enabled
+        bool frame_limiting_enabled = true; // Default to enabled.
         if (manager.getUI()) {
             frame_limiting_enabled = manager.getUI()->isFrameLimitingEnabled();
         }
@@ -140,12 +140,12 @@ static void run_loop_sdl(SimulationManager& manager)
         }
     }
     
-    // Process any final UI updates before taking screenshot
+    // Process any final UI updates before taking screenshot.
     for (int i = 0; i < 3; ++i) {
         lv_timer_handler();
-        usleep(10000); // 10ms
+        usleep(10000); // 10ms.
     }
     
     SimulatorUI::takeExitScreenshot();
 }
-#endif /*#if LV_USE_SDL*/
+#endif /*#if LV_USE_SDL. */
