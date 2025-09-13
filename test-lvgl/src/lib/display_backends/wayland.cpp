@@ -151,13 +151,13 @@ static void run_loop_wayland(SimulationManager& manager)
 
         if (completed) {
             /* wait only if the cycle was completed and FPS limiting is enabled. */
-            bool frame_limiting_enabled = true; // Default to enabled.
+//            bool frame_limiting_enabled = true; // Default to enabled.
             if (manager.getUI()) {
-                frame_limiting_enabled = manager.getUI()->isFrameLimitingEnabled();
+//                frame_limiting_enabled = manager.getUI()->isFrameLimitingEnabled();
             }
-            if (frame_limiting_enabled) {
-                usleep(LV_DEF_REFR_PERIOD * 1000);
-            }
+//            if (frame_limiting_enabled) {
+//                usleep(LV_DEF_REFR_PERIOD * 1000);
+//            }
         }
 
         /* Run until the last window closes. */
@@ -169,7 +169,7 @@ static void run_loop_wayland(SimulationManager& manager)
     // Process any final UI updates before taking screenshot.
     for (int i = 0; i < 3; ++i) {
         lv_wayland_timer_handler();
-        usleep(10000); // 10ms.
+//        usleep(10000); // 10ms.
     }
     
     SimulatorUI::takeExitScreenshot();

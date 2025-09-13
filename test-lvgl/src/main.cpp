@@ -35,7 +35,7 @@ static void print_lvgl_version();
 static std::string selected_backend;
 
 /* contains the selected world type */
-static WorldType selected_world_type = WorldType::RulesB; // Default to RulesB per CLAUDE.md.
+static WorldType selected_world_type = WorldType::RulesB;
 
 /* flag to use the new event-driven system */
 static bool use_event_system = false;
@@ -71,12 +71,12 @@ int main(int argc, char** argv)
     try {
         // Create console sink with colors.
         auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
-        console_sink->set_level(spdlog::level::info); // Only INFO and above to console.
+        console_sink->set_level(spdlog::level::info);
 
         // Create basic file sink (overwrites each run).
         auto file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(
-            "sparkle-duck.log", true);              // true = truncate (overwrite).
-        file_sink->set_level(spdlog::level::trace); // Everything to file.
+            "sparkle-duck.log", true);
+        file_sink->set_level(spdlog::level::info);
 
         // Create logger with both sinks.
         std::vector<spdlog::sink_ptr> sinks{ console_sink, file_sink };
@@ -84,7 +84,7 @@ int main(int argc, char** argv)
 
         // Set as default logger.
         spdlog::set_default_logger(logger);
-        spdlog::flush_every(std::chrono::seconds(1)); // Flush every second.
+        spdlog::flush_every(std::chrono::seconds(1));
     }
     catch (const spdlog::spdlog_ex& ex) {
         std::cout << "Log initialization failed: " << ex.what() << std::endl;
@@ -92,9 +92,9 @@ int main(int argc, char** argv)
     }
 
     spdlog::info("🦆 Sparkle Duck Dirt Simulator starting up! 🦆");
-    spdlog::debug("Logging configured: console (INFO+) and file sparkle-duck.log (TRACE+)");
 
-    // Set up argument parser.
+    driver_backends_register();
+
     args::ArgumentParser parser(
         "Sparkle Duck - A cell-based multi-material physics simulation",
         "Default window size (1200x1200) provides a square window with comfortable space for the "
@@ -132,9 +132,6 @@ int main(int argc, char** argv)
         "push-updates",
         "Enable push-based UI updates for thread safety (experimental)",
         { 'p', "push-updates" });
-
-    // Register backends before parsing.
-    driver_backends_register();
 
     // Default values from environment if set.
     settings.window_width = atoi(getenv("LV_SIM_WINDOW_WIDTH") ?: "1200");

@@ -15,14 +15,8 @@ namespace DirtSim {
  */
 class UIManager {
 public:
-    /**
-     * @brief Construct UIManager with the main display.
-     */
     explicit UIManager(lv_disp_t* display);
 
-    /**
-     * @brief Destructor - ensures proper LVGL cleanup.
-     */
     ~UIManager();
 
     /**

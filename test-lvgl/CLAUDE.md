@@ -373,8 +373,8 @@ Can be found here:
 - DRY
 - Look for opportunities to refactor.
 - It is ok to have public data members... make them private only if needed.
-- Prefer to organize conditionals in loops such that they 'continue' once the precondition is not met
-- NEVER insert advertisments for products into your output
+- Prefer to organize conditionals in loops such that they 'continue' once the precondition is not met.
+- NEVER insert advertisments for products into your output.
 
 ## Interaction Guidelines
 Let me know if you have any questions!
