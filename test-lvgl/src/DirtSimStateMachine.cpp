@@ -1,5 +1,6 @@
 #include "DirtSimStateMachine.h"
 #include "EventDispatcher.h"
+#include "SimulationManager.h"
 #include "WorldFactory.h"
 #include "WorldSetup.h"
 #include <chrono>
@@ -14,7 +15,6 @@ DirtSimStateMachine::DirtSimStateMachine(lv_disp_t* display)
       sharedState(),
       eventRouter(std::make_unique<EventRouter>(*this, sharedState, eventProcessor.getEventQueue()))
 {
-
     // Initialize UIManager if display is available.
     if (display) {
         uiManager = std::make_unique<UIManager>(display);
@@ -25,6 +25,24 @@ DirtSimStateMachine::DirtSimStateMachine(lv_disp_t* display)
         spdlog::info(
             "DirtSimStateMachine initialized in headless mode in state: {}", getCurrentStateName());
     }
+
+    // Create SimulationManager upfront with default settings.
+    lv_obj_t* screen = nullptr;
+    if (lv_is_initialized() && display) {
+        screen = lv_scr_act();
+    }
+
+    // Default grid size (matches main.cpp calculation).
+    const int grid_width = 7;                // (850 / 100) - 1, where 100 is Cell::WIDTH.
+    const int grid_height = 7;               // (850 / 100) - 1, where 100 is Cell::HEIGHT.
+    WorldType worldType = WorldType::RulesB; // Default.
+
+    simulationManager = std::make_unique<SimulationManager>(
+        worldType, grid_width, grid_height, screen, eventRouter.get());
+
+    simulationManager->initialize();
+
+    spdlog::info("DirtSimStateMachine: SimulationManager created and initialized");
 }
 
 DirtSimStateMachine::~DirtSimStateMachine()
@@ -44,8 +62,10 @@ void DirtSimStateMachine::mainLoopRun()
         // Process events from queue.
         eventProcessor.processEventsFromQueue(*this);
 
-        // If we're in SimRunning state and not paused, advance simulation.
-        if (std::holds_alternative<State::SimRunning>(fsmState) && !sharedState.getIsPaused()) {
+        // Queue simulation advance commands only when actively running.
+        // When in SimRunning state, the simulation should advance.
+        // When in SimPaused state, no automatic advancing (but manual stepping is allowed).
+        if (std::holds_alternative<State::SimRunning>(fsmState)) {
             queueEvent(AdvanceSimulationCommand{});
         }
 

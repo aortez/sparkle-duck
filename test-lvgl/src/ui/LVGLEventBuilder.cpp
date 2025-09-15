@@ -137,23 +137,41 @@ LVGLEventBuilder::ButtonBuilder& LVGLEventBuilder::ButtonBuilder::onToggle(Event
         spdlog::error("ButtonBuilder: EventRouter not set! Use withEventRouter() first.");
         return *this;
     }
-    
+
     toggleEvents_ = std::make_shared<std::pair<Event, Event>>(checkedEvent, uncheckedEvent);
     toggle(true);  // Enable toggle mode.
 
     EventRouter* router = eventRouter_;  // Capture the router pointer directly.
-    lv_obj_t* btn = getButton();  // Get the button pointer before lambda.
-    auto callbackFunc = std::make_shared<std::function<void()>>([router, btn, checkedEvent, uncheckedEvent]() {
-        if (btn) {
-            bool isChecked = lv_obj_has_state(btn, LV_STATE_CHECKED);
-            Event event = isChecked ? checkedEvent : uncheckedEvent;
-            router->routeEvent(event);
+
+    // We need to store the callback data so it can access the button after it's created.
+    // We'll use a custom structure that includes both the events and the router.
+    struct ToggleCallbackData {
+        EventRouter* router;
+        Event checkedEvent;
+        Event uncheckedEvent;
+    };
+
+    auto* data = new ToggleCallbackData{router, checkedEvent, uncheckedEvent};
+
+    // Set up the callback using the standard LVGL callback mechanism.
+    callback([](lv_event_t* e) {
+        if (lv_event_get_code(e) == LV_EVENT_VALUE_CHANGED) {
+            auto* toggleData = static_cast<ToggleCallbackData*>(lv_event_get_user_data(e));
+            lv_obj_t* btn = static_cast<lv_obj_t*>(lv_event_get_target(e));
+            if (toggleData && btn) {
+                bool isChecked = lv_obj_has_state(btn, LV_STATE_CHECKED);
+                Event event = isChecked ? toggleData->checkedEvent : toggleData->uncheckedEvent;
+                // Use info level for better visibility during debugging.
+                spdlog::info("Button toggle: isChecked={}, routing {} event",
+                            isChecked,
+                            isChecked ? "checked (PauseCommand)" : "unchecked (ResumeCommand)");
+                toggleData->router->routeEvent(event);
+            }
         }
-    });
-    
-    callback([](lv_event_t* e) { eventCallback(e); }, createCallbackData(callbackFunc));
+    }, data);
+
     events(LV_EVENT_VALUE_CHANGED);
-    
+
     return *this;
 }
 

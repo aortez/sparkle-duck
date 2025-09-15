@@ -648,13 +648,13 @@ void SimulatorUI::createSliders()
 
     // Move Pause/Resume button to top of slider column.
     if (event_router_) {
-        auto pause_btn = LVGLEventBuilder::button(screen_, event_router_)
-                             .onPauseResume() // Call event method first.
-                             .size(CONTROL_WIDTH, 50)
-                             .position(SLIDER_COLUMN_X, 10, LV_ALIGN_TOP_LEFT)
-                             .buildOrLog();
-        if (pause_btn) {
-            pause_label_ = lv_label_create(pause_btn);
+        pause_btn_ = LVGLEventBuilder::button(screen_, event_router_)
+                         .onPauseResume() // Call event method first.
+                         .size(CONTROL_WIDTH, 50)
+                         .position(SLIDER_COLUMN_X, 10, LV_ALIGN_TOP_LEFT)
+                         .buildOrLog();
+        if (pause_btn_) {
+            pause_label_ = lv_label_create(pause_btn_);
             lv_label_set_text(pause_label_, "Pause");
             lv_obj_center(pause_label_);
         }
@@ -1222,9 +1222,12 @@ void SimulatorUI::applyUpdate(const UIUpdateEvent& update)
 
     // Update UI state elements if they changed.
     if (update.dirty.uiState) {
-        // Update pause label.
+        // Update pause label to show the current state.
+        // Note: We don't manually sync the button's checked state because the button
+        // manages its own toggle state when clicked. Trying to manually sync it
+        // can cause conflicts and race conditions.
         if (pause_label_) {
-            lv_label_set_text(pause_label_, update.isPaused ? "Paused" : "Running");
+            lv_label_set_text(pause_label_, update.isPaused ? "Resume" : "Pause");
         }
 
         // Update debug button.

@@ -60,6 +60,7 @@ public:
                 }
                 else {
                     // Queue for simulation thread.
+                    spdlog::info("EventRouter: Queuing {} event for state machine", T::name());
                     queueEvent(e);
                 }
             },

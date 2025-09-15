@@ -10,38 +10,26 @@ namespace DirtSim {
 namespace State {
 
 void SimRunning::onEnter(DirtSimStateMachine& dsm) {
-    spdlog::info("SimRunning: Creating SimulationManager");
-    
-    // Determine screen/container for UI.
-    lv_obj_t* screen = nullptr;
-    if (lv_is_initialized() && dsm.display) {
-        screen = lv_scr_act();
+    spdlog::info("SimRunning: Entering simulation state");
+
+    // SimulationManager is now created in DirtSimStateMachine constructor,
+    // so we just need to use it here.
+    if (!dsm.simulationManager) {
+        spdlog::error("SimRunning: No SimulationManager available!");
+        return;
     }
-    
-    // Create SimulationManager with default world type and size.
-    // TODO: These should come from configuration or previous state.
-    // Grid size calculation matches main.cpp (based on 850px draw area)
-    const int grid_width = 7;   // (850 / 100) - 1, where 100 is Cell::WIDTH.
-    const int grid_height = 7;  // (850 / 100) - 1, where 100 is Cell::HEIGHT.
-    WorldType worldType = WorldType::RulesB;  // Default.
-    
-    dsm.simulationManager = std::make_unique<SimulationManager>(
-        worldType, grid_width, grid_height, screen, &dsm.getEventRouter());
-    
-    // Initialize the simulation.
-    dsm.simulationManager->initialize();
-    
-    // Initialize step count from shared state (preserves count when resuming from pause)
+
+    // Initialize step count from shared state (preserves count when resuming from pause).
     stepCount = dsm.getSharedState().getCurrentStep();
-    
-    // Only reset if we're starting fresh (not resuming from pause)
+
+    // Log whether we're starting fresh or resuming.
     if (stepCount == 0) {
-        spdlog::debug("SimRunning: Starting fresh with step count 0");
+        spdlog::info("SimRunning: Starting fresh simulation");
     } else {
-        spdlog::info("SimRunning: Resuming at step {}", stepCount);
+        spdlog::info("SimRunning: Resuming simulation at step {}", stepCount);
     }
-    
-    spdlog::info("SimRunning: SimulationManager created, simulation ready");
+
+    spdlog::info("SimRunning: Ready to run simulation");
 }
 
 void SimRunning::onExit(DirtSimStateMachine& /*dsm. */) {
