@@ -62,12 +62,62 @@ State::Any SimPaused::onEvent(const AdvanceSimulationCommand& /*cmd. */, DirtSim
 }
 
 State::Any SimPaused::onEvent(const MouseDownEvent& evt, DirtSimStateMachine& dsm) {
-    // Allow material placement while paused.
-    if (dsm.simulationManager && dsm.simulationManager->getWorld()) {
-        auto material = dsm.getSharedState().getSelectedMaterial();
-        dsm.simulationManager->getWorld()->addMaterialAtPixel(evt.pixelX, evt.pixelY, material);
+    if (!dsm.simulationManager || !dsm.simulationManager->getWorld()) {
+        return *this;
     }
-    
+
+    auto* world = dsm.simulationManager->getWorld();
+
+    // Always enter GRAB_MODE - either grab existing material or create new and grab it.
+    previousState.interactionMode = SimRunning::InteractionMode::GRAB_MODE;
+
+    if (world->hasMaterialAtPixel(evt.pixelX, evt.pixelY)) {
+        // Cell has material - grab it.
+        world->startDragging(evt.pixelX, evt.pixelY);
+        spdlog::debug("SimPaused MouseDown: Grabbing existing material at ({}, {})", evt.pixelX, evt.pixelY);
+    } else {
+        // Cell is empty - add material first, then grab it.
+        auto material = dsm.getSharedState().getSelectedMaterial();
+        world->addMaterialAtPixel(evt.pixelX, evt.pixelY, material);
+        world->startDragging(evt.pixelX, evt.pixelY);
+        spdlog::debug("SimPaused MouseDown: Creating and grabbing new {} at ({}, {})",
+                      static_cast<int>(material), evt.pixelX, evt.pixelY);
+    }
+
+    return *this;
+}
+
+State::Any SimPaused::onEvent(const MouseMoveEvent& evt, DirtSimStateMachine& dsm) {
+    if (!dsm.simulationManager || !dsm.simulationManager->getWorld()) {
+        return *this;
+    }
+
+    auto* world = dsm.simulationManager->getWorld();
+
+    // Only update drag position if we're in GRAB_MODE.
+    if (previousState.interactionMode == SimRunning::InteractionMode::GRAB_MODE) {
+        world->updateDrag(evt.pixelX, evt.pixelY);
+    }
+
+    return *this;
+}
+
+State::Any SimPaused::onEvent(const MouseUpEvent& evt, DirtSimStateMachine& dsm) {
+    if (!dsm.simulationManager || !dsm.simulationManager->getWorld()) {
+        return *this;
+    }
+
+    auto* world = dsm.simulationManager->getWorld();
+
+    if (previousState.interactionMode == SimRunning::InteractionMode::GRAB_MODE) {
+        // End dragging and release material with velocity.
+        world->endDragging(evt.pixelX, evt.pixelY);
+        spdlog::debug("SimPaused MouseUp: Ending GRAB_MODE at ({}, {})", evt.pixelX, evt.pixelY);
+    }
+
+    // Reset interaction mode.
+    previousState.interactionMode = SimRunning::InteractionMode::NONE;
+
     return *this;
 }
 

@@ -67,10 +67,17 @@ struct MainMenu {
  */
 struct SimRunning {
     uint32_t stepCount = 0;
-    
+
+    // Interaction mode for smart cell grabber.
+    enum class InteractionMode {
+        NONE,       // No interaction active.
+        GRAB_MODE   // Dragging material (either existing or newly created).
+    };
+    InteractionMode interactionMode = InteractionMode::NONE;
+
     void onEnter(DirtSimStateMachine& dsm);
     void onExit(DirtSimStateMachine& dsm);
-    
+
     Any onEvent(const AdvanceSimulationCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const PauseCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const ResetSimulationCommand& cmd, DirtSimStateMachine& dsm);
@@ -85,6 +92,8 @@ struct SimRunning {
     Any onEvent(const LoadWorldCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const SetTimestepCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const MouseDownEvent& evt, DirtSimStateMachine& dsm);
+    Any onEvent(const MouseMoveEvent& evt, DirtSimStateMachine& dsm);
+    Any onEvent(const MouseUpEvent& evt, DirtSimStateMachine& dsm);
     Any onEvent(const SelectMaterialCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const SetTimescaleCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const SetElasticityCommand& cmd, DirtSimStateMachine& dsm);
@@ -136,14 +145,16 @@ struct SimRunning {
 struct SimPaused {
     // Store the previous SimRunning state with all its data
     SimRunning previousState;
-    
+
     void onEnter(DirtSimStateMachine& dsm);
     void onExit(DirtSimStateMachine& dsm);
-    
+
     Any onEvent(const ResumeCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const ResetSimulationCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const AdvanceSimulationCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const MouseDownEvent& evt, DirtSimStateMachine& dsm);
+    Any onEvent(const MouseMoveEvent& evt, DirtSimStateMachine& dsm);
+    Any onEvent(const MouseUpEvent& evt, DirtSimStateMachine& dsm);
     Any onEvent(const SelectMaterialCommand& cmd, DirtSimStateMachine& dsm);
     
     // Handle immediate events routed through push system
