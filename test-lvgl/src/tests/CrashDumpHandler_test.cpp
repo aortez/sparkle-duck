@@ -17,7 +17,7 @@ protected:
         std::filesystem::create_directories(test_dir_);
         
         // Create a small simulation for testing.
-        manager_ = std::make_unique<SimulationManager>(WorldType::RulesB, 10, 10, nullptr);
+        manager_ = std::make_unique<SimulationManager>(WorldType::RulesB, 10, 10, nullptr, nullptr);
         manager_->initialize();
         
         // Install crash dump handler.

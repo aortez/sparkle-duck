@@ -1,5 +1,6 @@
 #include "SimulatorUI.h"
 #include "Cell.h"
+#include "Event.h"
 #include "EventRouter.h"
 #include "MaterialType.h"
 #include "SharedSimState.h"
@@ -341,16 +342,6 @@ void SimulatorUI::createControlButtons()
                          .position(MAIN_CONTROLS_X, 10)
                          .text("Debug: Off")
                          .buildOrLog();
-    }
-    else {
-        lv_obj_t* debug_btn = lv_btn_create(screen_);
-        lv_obj_set_size(debug_btn, CONTROL_WIDTH, 50);
-        lv_obj_align(debug_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 10);
-        lv_obj_t* debug_label = lv_label_create(debug_btn);
-        lv_label_set_text(debug_label, "Debug: Off");
-        lv_obj_center(debug_label);
-        lv_obj_add_event_cb(debug_btn, debugBtnEventCb, LV_EVENT_CLICKED, nullptr);
-        debug_btn_ = debug_btn;
     }
 
     // === WorldA Pressure Controls ===.
@@ -2064,7 +2055,6 @@ void SimulatorUI::printAsciiBtnEventCb(lv_event_t* e)
     }
 }
 
-// Static function to take exit screenshot.
 void SimulatorUI::takeExitScreenshot()
 {
     // Get current screen.
@@ -2082,13 +2072,13 @@ void SimulatorUI::takeExitScreenshot()
     }
 
     // Get executable directory and create filename.
-    std::string exec_dir = get_executable_directory();
-    std::string filename = exec_dir + "/screenshot-last-exit.png";
+    const std::string exec_dir = get_executable_directory();
+    const std::string filename = exec_dir + "/screenshot-last-exit.png";
 
     // Get buffer data and dimensions.
     const uint8_t* rgb_data = static_cast<const uint8_t*>(snapshot->data);
-    uint32_t width = snapshot->header.w;
-    uint32_t height = snapshot->header.h;
+    const uint32_t width = snapshot->header.w;
+    const uint32_t height = snapshot->header.h;
 
     // Save PNG file.
     write_png_file(filename.c_str(), rgb_data, width, height);

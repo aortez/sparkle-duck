@@ -481,10 +481,101 @@ The dual-path event system has been fully implemented and tested. All phases are
 4. **SimulationManager Lifecycle**: Created in SimRunning::onEnter, preserved through pause states
 
 ### Phase 7: Migration
+
+#### 7.1: Event System Extensions
+- [ ] Add missing 35+ events to Event.h (physics sliders, UI toggles)
+- [ ] Extend EventRouter with new immediate event classifications
+- [ ] Add event handlers to SimRunning/SimPaused states
+
+#### 7.2: UI Callback Migration (Batch Approach)
+**Batch 1: Core Controls (5 callbacks)**
+- [ ] `pauseBtnEventCb` → PauseCommand/ResumeCommand
+- [ ] `resetBtnEventCb` → ResetSimulationCommand
+- [ ] `gravityBtnEventCb` → SetGravityCommand
+- [ ] `timescaleSliderEventCb` → SetTimescaleCommand
+- [ ] `elasticitySliderEventCb` → SetElasticityCommand
+
+**Batch 2: Physics Parameters (10 callbacks)**
+- [ ] `pressureScaleSliderEventCb` → SetPressureScaleCommand
+- [ ] `pressureScaleWorldBSliderEventCb` → SetPressureScaleWorldBCommand
+- [ ] `cohesionForceBtnEventCb` → ToggleCohesionForceCommand
+- [ ] `cohesionForceStrengthSliderEventCb` → SetCohesionForceStrengthCommand
+- [ ] `adhesionBtnEventCb` → ToggleAdhesionCommand
+- [ ] `adhesionStrengthSliderEventCb` → SetAdhesionStrengthCommand
+- [ ] `viscosityStrengthSliderEventCb` → SetViscosityStrengthCommand
+- [ ] `frictionStrengthSliderEventCb` → SetFrictionStrengthCommand
+- [ ] `comCohesionRangeSliderEventCb` → SetCOMCohesionRangeCommand
+- [ ] `airResistanceSliderEventCb` → SetAirResistanceCommand
+
+**Batch 3: Material & World Controls (8 callbacks)**
+- [ ] `worldTypeButtonMatrixEventCb` → SwitchWorldTypeCommand
+- [ ] Material picker callbacks → SelectMaterialCommand (already implemented)
+- [ ] `cellSizeSliderEventCb` → SetCellSizeCommand
+- [ ] `fragmentationSliderEventCb` → SetFragmentationCommand
+- [ ] `pressureSystemDropdownEventCb` → SetPressureSystemCommand
+- [ ] `forceBtnEventCb` → ToggleForceCommand
+- [ ] `cohesionBtnEventCb` → ToggleCohesionCommand
+- [ ] `debugBtnEventCb` → ToggleDebugCommand
+
+**Batch 4: Advanced Features (10 callbacks)**
+- [ ] `screenshotBtnEventCb` → CaptureScreenshotCommand
+- [ ] `printAsciiBtnEventCb` → PrintAsciiDiagramCommand
+- [ ] `quitBtnEventCb` → QuitApplicationCommand
+- [ ] `backwardBtnEventCb` → StepBackwardCommand
+- [ ] `forwardBtnEventCb` → StepForwardCommand
+- [ ] `timeReversalToggleBtnEventCb` → ToggleTimeReversalCommand
+- [ ] `leftThrowBtnEventCb` → ToggleLeftThrowCommand
+- [ ] `rightThrowBtnEventCb` → ToggleRightThrowCommand
+- [ ] `quadrantBtnEventCb` → ToggleQuadrantCommand
+- [ ] `frameLimitBtnEventCb` → ToggleFrameLimitCommand
+
+**Batch 5: Specialized Physics (10 callbacks)**
+- [ ] `waterCohesionSliderEventCb` → SetWaterCohesionCommand
+- [ ] `waterViscositySliderEventCb` → SetWaterViscosityCommand
+- [ ] `waterPressureThresholdSliderEventCb` → SetWaterPressureThresholdCommand
+- [ ] `waterBuoyancySliderEventCb` → SetWaterBuoyancyCommand
+- [ ] `hydrostaticPressureToggleEventCb` → ToggleHydrostaticPressureCommand
+- [ ] `dynamicPressureToggleEventCb` → ToggleDynamicPressureCommand
+- [ ] `pressureDiffusionToggleEventCb` → TogglePressureDiffusionCommand
+- [ ] `hydrostaticPressureStrengthSliderEventCb` → SetHydrostaticPressureStrengthCommand
+- [ ] `dynamicPressureStrengthSliderEventCb` → SetDynamicPressureStrengthCommand
+- [ ] `rainSliderEventCb` → SetRainRateCommand
+
+#### 7.3: Default Path Switch
+- [ ] Update main.cpp to default use_event_system = true
+- [ ] Add legacy flag --traditional-mode for fallback
+- [ ] Update Makefile run targets to use event system
+
+#### 7.4: Validation & Cleanup
+- [ ] Visual test suite with all 43 UI interactions
+- [ ] Remove unused callback methods from SimulatorUI
+- [ ] Performance benchmarks (event vs traditional)
 - [ ] Create migration guide for existing code
-- [ ] Update all references to use new event system
-- [ ] Remove old callback-based code
-- [ ] Verify all features work with new system
+
+#### Migration Component Status
+**Core Files Requiring Updates:**
+- [ ] `src/Event.h` - Add 35+ new event types
+- [ ] `src/EventTraits.h` - Classify new events as immediate/queued
+- [ ] `src/EventRouter.h` - Add immediate event processing methods
+- [ ] `src/EventRouter.cpp` - Implement new immediate event handlers
+- [ ] `src/states/SimRunning.cpp` - Add onEvent handlers for queued events
+- [ ] `src/states/SimPaused.cpp` - Add onEvent handlers for applicable events
+- [ ] `src/SimulatorUI.cpp` - Replace callback registrations with EventRouter calls
+- [ ] `src/SimulatorUI.h` - Remove static callback method declarations
+- [ ] `src/main.cpp` - Switch default to event system
+- [ ] `Makefile` - Update run targets
+
+#### Performance Monitoring
+- [ ] Add metrics for event queue depth
+- [ ] Monitor UIUpdateQueue drop rates
+- [ ] Benchmark immediate vs push-based event latency
+- [ ] Profile memory usage of event system vs traditional
+
+#### Migration Safety
+- [ ] Feature flag for gradual rollout: SPARKLE_DUCK_EVENT_SYSTEM=1
+- [ ] Automated tests for UI callback → event conversion
+- [ ] Rollback plan if performance regressions occur
+- [ ] Compatibility layer during transition period
 
 ### Phase 8: Documentation
 - [ ] Update code comments with thread safety notes

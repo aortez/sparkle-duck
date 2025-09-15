@@ -3,11 +3,10 @@
 # This script finds the most recent core dump for the sparkle-duck executable
 # and runs gdb on it to generate a stack trace.
 
-set -e
+set -eu
 
 # --- Configuration ---
 EXECUTABLE_PATH="/home/oldman/workspace/sparkle-duck/test-lvgl/build/bin/sparkle-duck"
-COREDUMP_DIR="/var/lib/apport/coredump"
 
 # --- Script Body ---
 
@@ -18,31 +17,26 @@ if [ ! -f "$EXECUTABLE_PATH" ]; then
     exit 1
 fi
 
-# 2. Construct the core dump file name pattern
-# Apport replaces '/' with '_' in the executable path for the core dump name.
-EXE_PATH_FOR_CORENAME=$(echo "$EXECUTABLE_PATH" | tr '/' '_')
-CORE_PATTERN="*"
-
-echo "Searching for core dumps with pattern: $CORE_PATTERN in $COREDUMP_DIR"
-
-# 3. Find the most recent core dump file
-LATEST_CORE=$(find "$COREDUMP_DIR" -name "$CORE_PATTERN" -printf '%T@ %p\n' 2>/dev/null | sort -n | tail -1 | cut -d' ' -f2-)
-
-if [ -z "$LATEST_CORE" ]; then
-    echo "Error: No sparkle-duck core dump found in $COREDUMP_DIR"
-    echo "You can check the directory manually with: ls -l $COREDUMP_DIR"
+# 2. Check if coredumpctl is available
+if ! command -v coredumpctl &> /dev/null; then
+    echo "Error: coredumpctl not found. Is systemd-coredump installed?"
     exit 1
 fi
 
-echo "Found latest core dump: $LATEST_CORE"
-echo "----------------------------------------"
+# 3. List recent core dumps for sparkle-duck
+echo "===== Recent core dumps for sparkle-duck ====="
+coredumpctl list "$EXECUTABLE_PATH" 2>/dev/null | tail -10 || {
+    echo "No core dumps found for $EXECUTABLE_PATH"
+    echo "You may need to enable core dumps with: ulimit -c unlimited"
+    exit 1
+}
 
-# 4. Make the core dump readable and executable by the user
-echo "Updating permissions for $LATEST_CORE"
-chmod u+rx "$LATEST_CORE"
+echo ""
+echo "===== Debugging most recent core dump ====="
 
-# 5. Run gdb to get the backtrace
-gdb "$EXECUTABLE_PATH" "$LATEST_CORE" -ex "bt" --batch
+# 4. Debug the most recent core dump with gdb
+# Using --debugger-arguments for cleaner syntax
+coredumpctl debug "$EXECUTABLE_PATH" --debugger-arguments="--batch -ex 'set pagination off' -ex 'bt full' -ex 'frame 0' -ex 'info registers' -ex 'info locals' -ex 'thread apply all bt'"
 
 echo "----------------------------------------"
 echo "Script finished." 

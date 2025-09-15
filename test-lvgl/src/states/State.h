@@ -75,22 +75,55 @@ struct SimRunning {
     Any onEvent(const PauseCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const ResetSimulationCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const SaveWorldCommand& cmd, DirtSimStateMachine& dsm);
+    Any onEvent(const StepBackwardCommand& cmd, DirtSimStateMachine& dsm);
+    Any onEvent(const StepForwardCommand& cmd, DirtSimStateMachine& dsm);
+    Any onEvent(const ToggleTimeReversalCommand& cmd, DirtSimStateMachine& dsm);
+    Any onEvent(const SetWaterCohesionCommand& cmd, DirtSimStateMachine& dsm);
+    Any onEvent(const SetWaterViscosityCommand& cmd, DirtSimStateMachine& dsm);
+    Any onEvent(const SetWaterPressureThresholdCommand& cmd, DirtSimStateMachine& dsm);
+    Any onEvent(const SetWaterBuoyancyCommand& cmd, DirtSimStateMachine& dsm);
+    Any onEvent(const LoadWorldCommand& cmd, DirtSimStateMachine& dsm);
+    Any onEvent(const SetTimestepCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const MouseDownEvent& evt, DirtSimStateMachine& dsm);
     Any onEvent(const SelectMaterialCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const SetTimescaleCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const SetElasticityCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const SetDynamicStrengthCommand& cmd, DirtSimStateMachine& dsm);
-    
+    Any onEvent(const SetPressureScaleCommand& cmd, DirtSimStateMachine& dsm);
+    Any onEvent(const SetPressureScaleWorldBCommand& cmd, DirtSimStateMachine& dsm);
+    Any onEvent(const SetCohesionForceStrengthCommand& cmd, DirtSimStateMachine& dsm);
+    Any onEvent(const SetAdhesionStrengthCommand& cmd, DirtSimStateMachine& dsm);
+    Any onEvent(const SetViscosityStrengthCommand& cmd, DirtSimStateMachine& dsm);
+    Any onEvent(const SetFrictionStrengthCommand& cmd, DirtSimStateMachine& dsm);
+    Any onEvent(const SetCOMCohesionRangeCommand& cmd, DirtSimStateMachine& dsm);
+    Any onEvent(const SetAirResistanceCommand& cmd, DirtSimStateMachine& dsm);
+    Any onEvent(const ToggleHydrostaticPressureCommand& cmd, DirtSimStateMachine& dsm);
+    Any onEvent(const ToggleDynamicPressureCommand& cmd, DirtSimStateMachine& dsm);
+    Any onEvent(const TogglePressureDiffusionCommand& cmd, DirtSimStateMachine& dsm);
+    Any onEvent(const SetHydrostaticPressureStrengthCommand& cmd, DirtSimStateMachine& dsm);
+    Any onEvent(const SetDynamicPressureStrengthCommand& cmd, DirtSimStateMachine& dsm);
+    Any onEvent(const SetRainRateCommand& cmd, DirtSimStateMachine& dsm);
+
     // Handle immediate events routed through push system
     Any onEvent(const GetFPSCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const GetSimStatsCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const ToggleDebugCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const ToggleForceCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const ToggleCohesionCommand& cmd, DirtSimStateMachine& dsm);
+    Any onEvent(const ToggleCohesionForceCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const ToggleAdhesionCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const ToggleTimeHistoryCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const PrintAsciiDiagramCommand& cmd, DirtSimStateMachine& dsm);
-    
+    Any onEvent(const SetCellSizeCommand& cmd, DirtSimStateMachine& dsm);
+    Any onEvent(const SetFragmentationCommand& cmd, DirtSimStateMachine& dsm);
+    Any onEvent(const SetPressureSystemCommand& cmd, DirtSimStateMachine& dsm);
+    Any onEvent(const ToggleWallsCommand& cmd, DirtSimStateMachine& dsm);
+    Any onEvent(const ToggleLeftThrowCommand& cmd, DirtSimStateMachine& dsm);
+    Any onEvent(const ToggleRightThrowCommand& cmd, DirtSimStateMachine& dsm);
+    Any onEvent(const ToggleQuadrantCommand& cmd, DirtSimStateMachine& dsm);
+    Any onEvent(const ToggleFrameLimitCommand& cmd, DirtSimStateMachine& dsm);
+    Any onEvent(const QuitApplicationCommand& cmd, DirtSimStateMachine& dsm);
+
     static constexpr const char* name() { return "SimRunning"; }
 };
 
@@ -119,10 +152,12 @@ struct SimPaused {
     Any onEvent(const ToggleDebugCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const ToggleForceCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const ToggleCohesionCommand& cmd, DirtSimStateMachine& dsm);
+    Any onEvent(const ToggleCohesionForceCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const ToggleAdhesionCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const ToggleTimeHistoryCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const PrintAsciiDiagramCommand& cmd, DirtSimStateMachine& dsm);
-    
+    Any onEvent(const QuitApplicationCommand& cmd, DirtSimStateMachine& dsm);
+
     static constexpr const char* name() { return "SimPaused"; }
 };
 

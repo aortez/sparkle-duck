@@ -235,7 +235,7 @@ TEST_F(ScenarioSwitchingTest, DimensionRestorationOnScenarioSwitch) {
     // Create a SimulationManager with default dimensions
     const uint32_t defaultWidth = 8;
     const uint32_t defaultHeight = 8;
-    auto manager = std::make_unique<SimulationManager>(WorldType::RulesB, defaultWidth, defaultHeight, nullptr);
+    auto manager = std::make_unique<SimulationManager>(WorldType::RulesB, defaultWidth, defaultHeight, nullptr, nullptr);
     manager->initialize();
     
     // Verify initial dimensions

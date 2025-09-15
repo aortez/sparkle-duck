@@ -1,4 +1,5 @@
 #include "SimulationManager.h"
+#include "EventRouter.h"
 #include "SimulatorUI.h"
 #include "SparkleAssert.h"
 #include "WorldSetup.h"
@@ -7,10 +8,15 @@
 #include "spdlog/spdlog.h"
 
 SimulationManager::SimulationManager(
-    WorldType initialType, uint32_t width, uint32_t height, lv_obj_t* screen)
+    WorldType initialType,
+    uint32_t width,
+    uint32_t height,
+    lv_obj_t* screen,
+    EventRouter* eventRouter)
     : world_(nullptr),
       ui_(nullptr),
       draw_area_(nullptr),
+      eventRouter_(eventRouter),
       width_(width),
       height_(height),
       default_width_(width),
@@ -28,8 +34,8 @@ SimulationManager::SimulationManager(
 
     // Create UI if screen is provided.
     if (screen) {
-        ui_ = std::make_unique<SimulatorUI>(screen);
-        spdlog::info("SimulationManager created with UI");
+        ui_ = std::make_unique<SimulatorUI>(screen, eventRouter);
+        spdlog::info("SimulationManager created with UI and EventRouter");
     }
     else {
         spdlog::info("SimulationManager created in headless mode");
@@ -223,6 +229,14 @@ void SimulationManager::dumpTimerStats() const
     if (world_) {
         world_->dumpTimerStats();
     }
+}
+
+bool SimulationManager::shouldExit() const
+{
+    if (!eventRouter_) {
+        throw std::runtime_error("SimulationManager::shouldExit() called without EventRouter");
+    }
+    return eventRouter_->getSharedSimState().getShouldExit();
 }
 
 std::unique_ptr<WorldInterface> SimulationManager::createWorld(WorldType type)

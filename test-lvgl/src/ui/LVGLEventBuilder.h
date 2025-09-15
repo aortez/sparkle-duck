@@ -298,7 +298,7 @@ public:
         std::shared_ptr<std::function<Event(int, int)>> mouseUpHandler_;
         
         void setupMouseEvents();
-        std::pair<int, int> getRelativeCoords(lv_obj_t* obj, lv_point_t* point);
+        static std::pair<int, int> getRelativeCoords(lv_obj_t* obj, lv_point_t* point);
     };
     
     // Factory method for draw area
