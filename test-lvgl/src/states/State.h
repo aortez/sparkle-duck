@@ -145,6 +145,8 @@ struct SimRunning {
 struct SimPaused {
     // Store the previous SimRunning state with all its data
     SimRunning previousState;
+    // Store the timescale before pausing so we can restore it
+    double previousTimescale = 1.0;
 
     void onEnter(DirtSimStateMachine& dsm);
     void onExit(DirtSimStateMachine& dsm);

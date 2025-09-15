@@ -9,21 +9,46 @@ namespace State {
 
 void SimPaused::onEnter(DirtSimStateMachine& dsm) {
     spdlog::info("SimPaused: Entered pause state from SimRunning at step {}", previousState.stepCount);
-    
+
     // Set the pause flag.
     dsm.getSharedState().setIsPaused(true);
-    
-    // Update pause button state if UI exists.
-    if (dsm.simulationManager && dsm.simulationManager->getUI()) {
-        // TODO: Update pause button visual state.
+
+    // Actually pause the simulation by setting timescale to 0.
+    if (dsm.simulationManager && dsm.simulationManager->getWorld()) {
+        // Store the current timescale before pausing.
+        previousTimescale = dsm.simulationManager->getWorld()->getTimescale();
+        dsm.simulationManager->getWorld()->setTimescale(0.0);
+        spdlog::info("SimPaused: Set timescale to 0.0 (was {})", previousTimescale);
+    }
+
+    // Push UI update to change pause button label to "Resume".
+    if (dsm.getSharedState().isPushUpdatesEnabled()) {
+        UIUpdateEvent update = dsm.buildUIUpdate();
+        update.dirty.uiState = true;
+        update.isPaused = true;
+        dsm.getSharedState().pushUIUpdate(std::move(update));
     }
 }
 
 void SimPaused::onExit(DirtSimStateMachine& dsm) {
     spdlog::info("SimPaused: Exiting pause state");
-    
+
     // Clear the pause flag.
     dsm.getSharedState().setIsPaused(false);
+
+    // Restore the timescale to resume simulation.
+    if (dsm.simulationManager && dsm.simulationManager->getWorld()) {
+        dsm.simulationManager->getWorld()->setTimescale(previousTimescale);
+        spdlog::info("SimPaused: Restored timescale to {}", previousTimescale);
+    }
+
+    // Push UI update to change pause button label back to "Pause".
+    if (dsm.getSharedState().isPushUpdatesEnabled()) {
+        UIUpdateEvent update = dsm.buildUIUpdate();
+        update.dirty.uiState = true;
+        update.isPaused = false;
+        dsm.getSharedState().pushUIUpdate(std::move(update));
+    }
 }
 
 State::Any SimPaused::onEvent(const ResumeCommand& /*cmd*/, DirtSimStateMachine& /*dsm. */) {

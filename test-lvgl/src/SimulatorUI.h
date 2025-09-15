@@ -67,6 +67,7 @@ private:
     lv_obj_t* mass_label_;
     lv_obj_t* fps_label_;
     lv_obj_t* pause_label_;
+    lv_obj_t* pause_btn_ = nullptr; // Store pause button reference for state sync.
     lv_obj_t* world_type_btnm_;
     lv_obj_t* debug_btn_ = nullptr;
     lv_obj_t* scenario_dropdown_ = nullptr;
