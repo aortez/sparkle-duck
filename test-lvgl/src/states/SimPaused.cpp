@@ -143,14 +143,30 @@ State::Any SimPaused::onEvent(const ToggleCohesionCommand& /*cmd. */, DirtSimSta
     params.cohesionEnabled = !params.cohesionEnabled;
     dsm.getSharedState().updatePhysicsParams(params);
     spdlog::debug("SimPaused: ToggleCohesionCommand - Cohesion now: {}", params.cohesionEnabled);
-    
+
     // Force a push update with physics params dirty flag.
     if (dsm.getSharedState().isPushUpdatesEnabled()) {
         UIUpdateEvent update = dsm.buildUIUpdate();
         update.dirty.physicsParams = true;
         dsm.getSharedState().pushUIUpdate(std::move(update));
     }
-    
+
+    return *this;
+}
+
+State::Any SimPaused::onEvent(const ToggleCohesionForceCommand& /*cmd. */, DirtSimStateMachine& dsm) {
+    auto params = dsm.getSharedState().getPhysicsParams();
+    params.cohesionEnabled = !params.cohesionEnabled;
+    dsm.getSharedState().updatePhysicsParams(params);
+    spdlog::debug("SimPaused: ToggleCohesionForceCommand - Cohesion force now: {}", params.cohesionEnabled);
+
+    // Force a push update with physics params dirty flag.
+    if (dsm.getSharedState().isPushUpdatesEnabled()) {
+        UIUpdateEvent update = dsm.buildUIUpdate();
+        update.dirty.physicsParams = true;
+        dsm.getSharedState().pushUIUpdate(std::move(update));
+    }
+
     return *this;
 }
 
@@ -203,6 +219,16 @@ State::Any SimPaused::onEvent(const PrintAsciiDiagramCommand& /*cmd. */, DirtSim
     }
     
     return *this;
+}
+
+State::Any SimPaused::onEvent(const QuitApplicationCommand& /*cmd*/, DirtSimStateMachine& /*dsm*/) {
+    spdlog::info("SimPaused: Quit application requested");
+
+    // Take exit screenshot before quitting.
+    SimulatorUI::takeExitScreenshot();
+
+    // Transition to Shutdown state.
+    return Shutdown{};
 }
 
 } // namespace State.

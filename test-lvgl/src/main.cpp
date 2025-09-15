@@ -19,6 +19,7 @@
 #include <memory>
 #include <stdio.h>
 #include <string.h>
+#include <thread>
 #include <unistd.h>
 #include <vector>
 
@@ -74,8 +75,8 @@ int main(int argc, char** argv)
         console_sink->set_level(spdlog::level::info);
 
         // Create basic file sink (overwrites each run).
-        auto file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(
-            "sparkle-duck.log", true);
+        auto file_sink =
+            std::make_shared<spdlog::sinks::basic_file_sink_mt>("sparkle-duck.log", true);
         file_sink->set_level(spdlog::level::info);
 
         // Create logger with both sinks.
@@ -235,12 +236,22 @@ int main(int argc, char** argv)
             spdlog::info("Push-based UI updates activated in state machine");
         }
 
+        // Start the state machine's event processing thread.
+        std::thread stateMachineThread([&stateMachine]() {
+            spdlog::info("Starting state machine event processing thread");
+            stateMachine->mainLoopRun();
+            spdlog::info("State machine event processing thread exiting");
+        });
+
         // Initialize the state machine - transition from Startup -> MainMenu -> SimRunning.
-        stateMachine->handleEvent(InitCompleteEvent{});
+        stateMachine->getEventRouter().routeEvent(InitCompleteEvent{});
 
         // Skip the main menu and go directly to simulation for now.
         // TODO: In the future, show the main menu and let user click start.
-        stateMachine->handleEvent(StartSimulationCommand{});
+        stateMachine->getEventRouter().routeEvent(StartSimulationCommand{});
+
+        // Wait a bit for events to be processed by the state machine thread.
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
         // Get the SimulationManager from the state machine.
         auto* simManager = stateMachine->getSimulationManager();
@@ -264,6 +275,15 @@ int main(int argc, char** argv)
             // Enter the run loop with the state machine's SimulationManager.
             driver_backends_run_loop(*simManager);
 
+            // Signal the state machine to exit.
+            stateMachine->getSharedState().setShouldExit(true);
+
+            // Wait for the state machine thread to finish.
+            if (stateMachineThread.joinable()) {
+                spdlog::info("Waiting for state machine thread to finish...");
+                stateMachineThread.join();
+            }
+
             // Cleanup.
             CrashDumpHandler::uninstall();
 
@@ -275,7 +295,7 @@ int main(int argc, char** argv)
     if (!use_event_system) {
         // Traditional path with SimulationManager.
         auto manager = std::make_unique<SimulationManager>(
-            selected_world_type, grid_width, grid_height, lv_scr_act());
+            selected_world_type, grid_width, grid_height, lv_scr_act(), nullptr);
         manager_ptr = manager.get();
 
         spdlog::info(

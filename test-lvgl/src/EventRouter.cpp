@@ -101,6 +101,18 @@ void EventRouter::processImmediateEvent(const ToggleCohesionCommand& /*cmd. */)
         "Processing ToggleCohesionCommand - Cohesion physics now: {}", params.cohesionEnabled);
 }
 
+void EventRouter::processImmediateEvent(const ToggleCohesionForceCommand& /*cmd. */)
+{
+    // Toggle cohesion force physics state.
+    auto params = sharedState_.getPhysicsParams();
+    params.cohesionEnabled = !params.cohesionEnabled;
+    sharedState_.updatePhysicsParams(params);
+
+    spdlog::info(
+        "Processing ToggleCohesionForceCommand - Cohesion force physics now: {}",
+        params.cohesionEnabled);
+}
+
 void EventRouter::processImmediateEvent(const ToggleAdhesionCommand& /*cmd. */)
 {
     // Toggle adhesion physics state and visualization.

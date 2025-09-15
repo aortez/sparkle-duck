@@ -8,28 +8,19 @@ namespace State {
 
 void Shutdown::onEnter(DirtSimStateMachine& dsm) {
     spdlog::info("Shutdown: Performing cleanup");
-    
-    // UI cleanup happens automatically when states exit (they own their UI)
-    // Just clean up UIManager screens.
-    if (dsm.uiManager) {
-        dsm.uiManager->clearCurrentContainer();
-    }
-    
-    // Clean up SimulationManager (which owns the world)
-    if (dsm.simulationManager) {
-        dsm.simulationManager.reset();
-    }
-    
-    // Clean up world (if it exists separately from SimulationManager)
-    if (dsm.world) {
-        // Could save state here.
-        dsm.world.reset();
-    }
-    
-    // Set exit flag.
+
+    // Don't touch UI here - let the backend loop handle UI cleanup
+    // to avoid LVGL rendering conflicts
+
+    // Don't reset SimulationManager here either - the backend loop
+    // is still using it. It will be cleaned up when DirtSimStateMachine
+    // is destroyed.
+
+    // Set exit flag to signal backend loop and state machine thread to exit.
+    spdlog::info("Shutdown: Setting shouldExit flag to true");
     dsm.getSharedState().setShouldExit(true);
-    
-    spdlog::info("Shutdown: Cleanup complete");
+
+    spdlog::info("Shutdown: Cleanup complete, shouldExit={}", dsm.getSharedState().getShouldExit());
 }
 
 } // namespace State.

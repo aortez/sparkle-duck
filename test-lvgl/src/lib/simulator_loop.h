@@ -54,6 +54,13 @@ inline void initState(LoopState& state) {
 
 // Process one frame of simulation
 inline void processFrame(SimulationManager& manager, LoopState& state, uint32_t delta_time_ms = 16) {
+    // Check if we should exit (quit button pressed)
+    if (manager.shouldExit()) {
+        printf("Exit requested, shutting down...\n");
+        state.is_running = false;
+        return;
+    }
+
     // Check if we've reached the step limit
     if (state.max_steps > 0 && state.step_count >= state.max_steps) {
         printf("Simulation completed after %u steps\n", state.step_count);

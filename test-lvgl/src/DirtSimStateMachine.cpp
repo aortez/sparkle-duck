@@ -53,6 +53,8 @@ void DirtSimStateMachine::mainLoopRun()
         std::this_thread::sleep_for(std::chrono::milliseconds(16)); // ~60 FPS.
     }
 
+    spdlog::info("State machine event loop exiting (shouldExit=true)");
+
     spdlog::info("Main event loop exiting");
 }
 

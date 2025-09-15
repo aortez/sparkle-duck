@@ -9,6 +9,9 @@
 #include <cstdint>
 #include <memory>
 
+// Forward declarations
+class EventRouter;
+
 /**
  * @brief Central manager for simulation state and world switching.
  *
@@ -25,9 +28,14 @@ public:
      * @param width Grid width in cells
      * @param height Grid height in cells
      * @param screen LVGL screen for UI creation (can be nullptr for headless)
+     * @param eventRouter EventRouter for UI event handling (required for event system)
      */
     SimulationManager(
-        WorldType initialType, uint32_t width, uint32_t height, lv_obj_t* screen = nullptr);
+        WorldType initialType,
+        uint32_t width,
+        uint32_t height,
+        lv_obj_t* screen,
+        EventRouter* eventRouter);
 
     /**
      * @brief Destructor.
@@ -63,6 +71,12 @@ public:
      * @param deltaTime Time step in seconds
      */
     void advanceTime(double deltaTime);
+
+    /**
+     * @brief Check if the application should exit.
+     * @return True if exit has been requested, false otherwise
+     */
+    bool shouldExit() const;
 
     /**
      * @brief Draw the current world state.
@@ -137,6 +151,7 @@ private:
     std::unique_ptr<WorldInterface> world_; ///< Current world instance.
     std::unique_ptr<SimulatorUI> ui_;       ///< UI instance (null in headless mode).
     lv_obj_t* draw_area_;                   ///< LVGL draw area (from UI).
+    EventRouter* eventRouter_;              ///< EventRouter for event handling (may be null).
 
     uint32_t width_;               ///< Grid width in cells.
     uint32_t height_;              ///< Grid height in cells.

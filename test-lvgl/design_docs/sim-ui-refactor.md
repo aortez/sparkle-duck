@@ -69,7 +69,7 @@ public:
         SliderBuilder& valueLabel(const char* format = "%.2f"); // Creates auto-updating value display
         SliderBuilder& callback(lv_event_cb_t cb, void* user_data = nullptr);
         lv_obj_t* build(); // Returns the slider object
-        
+
     private:
         lv_obj_t* parent_;
         lv_obj_t* slider_;
@@ -175,7 +175,7 @@ lv_obj_set_size(elasticity_slider, CONTROL_WIDTH, 10);
 lv_obj_align(elasticity_slider, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 270);
 lv_slider_set_range(elasticity_slider, 0, 200);
 lv_slider_set_value(elasticity_slider, 80, LV_ANIM_OFF);
-lv_obj_add_event_cb(elasticity_slider, elasticitySliderEventCb, LV_EVENT_ALL, 
+lv_obj_add_event_cb(elasticity_slider, elasticitySliderEventCb, LV_EVENT_ALL,
                    createCallbackData(elasticity_value_label));
 ```
 
@@ -274,7 +274,7 @@ for (const auto& config : PHYSICS_SLIDERS) {
 
 #### **Step 6: Batch Migration**
 - Migrate all remaining sliders in `createSliders()`
-- Migrate buttons in `createControlButtons()` 
+- Migrate buttons in `createControlButtons()`
 - Add layout helpers for positioning consistency
 
 #### **Step 7: Refactor and Cleanup**
@@ -386,11 +386,11 @@ The enhanced LVGLBuilder achieved the clean pattern we envisioned:
    lv_obj_t* some_label = lv_label_create(screen_);
    lv_label_set_text(some_label, "Label Text");
    lv_obj_align(some_label, LV_ALIGN_TOP_LEFT, x, y);
-   
+
    lv_obj_t* some_value_label = lv_label_create(screen_);
    lv_label_set_text(some_value_label, "0.0");
    lv_obj_align(some_value_label, LV_ALIGN_TOP_LEFT, x + 110, y);
-   
+
    lv_obj_t* some_slider = lv_slider_create(screen_);
    lv_obj_set_size(some_slider, CONTROL_WIDTH, 10);
    lv_obj_align(some_slider, LV_ALIGN_TOP_LEFT, x, y + 20);
@@ -492,3 +492,6 @@ For each migrated slider/button:
 5. **Document patterns** for TestUI and future UI development
 
 The foundation is solid and the pattern is proven. Future migrations should be straightforward following the how-to guide above.
+
+TODO:
+commands should return responses, which can be used to trigger things like the state change for a button.

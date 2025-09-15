@@ -10,10 +10,10 @@ Trees are living organisms in the WorldB physics simulation that grow from seeds
 
 #### Update Timing
 - Trees update every physics timestep alongside regular material physics
-- Uses a biological clock system where different processes (growth, nutrient uptake, reproduction) have independent timers
-- Each process has a cooldown period after activation to limit action rates
-- Trees accumulate "readiness" for actions when not on cooldown
-- No multi-timestep actions - all operations complete immediately when triggered
+   1. Input data is gathered from the environment into each cell.
+   2. Each cell's logic code runs.
+   3. The tree's logic code runs, possibly initiating or terminating an existing action.
+   4. Actions take a certain amount of time to complete.
 
 #### Resource Systems
 
@@ -65,10 +65,12 @@ transfer correctly.
   - color: 0x654321 (dark brown)
 
 **Tree Materials**
-- SEED → WOOD (trunk/branches)
-- WOOD → LEAF (photosynthesis) or ROOT (nutrients)
-- All tree materials subject to normal physics
-- Tree cells have special "organism_id" marking ownership
+- SEED - Turns into ROOT.
+- WOOD - Structural.
+- ROOT - absorbs nutrients from adjacent cells and provides structure.
+- LEAF - absorbs nutrients from air and light.
+- All tree materials subject to physics.
+- Tree cells have special "organism_id" marking ownership.
 
 ### Growth Mechanics
 
@@ -99,18 +101,18 @@ public:
     void update(WorldB& world, double deltaTime);
     TreeId plantSeed(const WorldB& world, uint32_t x, uint32_t y);
     void removeTree(TreeId id);
-    
+
     // Resource management (Phase 3)
     void updateLightMap(const WorldB& world);
     void processPhotosynthesis();
     void distributeResources();
-    
+
     // Growth (Phase 2)
     void attemptGrowth(TreeId id, WorldB& world);
-    
+
     // Accessors
     const std::unordered_map<TreeId, Tree>& getTrees() const { return trees_; }
-    
+
 private:
     std::unordered_map<TreeId, Tree> trees_;
     std::unordered_map<Vector2i, TreeId> cell_to_tree_;  // Track which cells belong to which tree
@@ -137,11 +139,11 @@ public:
     TreeId id;
     std::vector<TreeCell> cells;
     uint32_t age = 0;  // timesteps since planting
-    
+
     // Growth parameters (for future phases)
     uint32_t growth_interval = 100;  // Timesteps between growth attempts
     double growth_energy_threshold = 10.0;
-    
+
     // Resource pools (distributed across cells) - Phase 3
     double totalEnergy() const;
     double totalWater() const;
@@ -154,15 +156,15 @@ public:
 class WorldB {
     // Existing members...
     std::unique_ptr<TreeManager> tree_manager_;
-    
+
     // In constructor:
     tree_manager_ = std::make_unique<TreeManager>();
-    
+
     // In advanceTime():
     if (tree_manager_) {
         tree_manager_->update(*this, scaledDeltaTime);
     }
-    
+
     // Accessor:
     TreeManager* getTreeManager() { return tree_manager_.get(); }
     const TreeManager* getTreeManager() const { return tree_manager_.get(); }
@@ -214,7 +216,7 @@ CellB uses a variant-of-pointers pattern for material-specific data:
 
 ### Photosynthesis
 ```
-Energy Production = 
+Energy Production =
     (Light Intensity × Light Efficiency × LEAF Count) +
     (Water Available × Water Efficiency) +
     (Nutrients × Nutrient Efficiency) -

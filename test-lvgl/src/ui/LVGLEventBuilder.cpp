@@ -54,12 +54,14 @@ LVGLEventBuilder::SliderBuilder& LVGLEventBuilder::SliderBuilder::onValueChange(
     }
     
     eventHandler_ = std::make_shared<std::function<Event(int32_t)>>(handler);
-    
-    auto callbackFunc = std::make_shared<std::function<void()>>([this, handler]() {
-        if (auto* slider = getSlider()) {
+
+    EventRouter* router = eventRouter_;  // Capture the router pointer directly.
+    lv_obj_t* slider = getSlider();  // Get the slider pointer before lambda.
+    auto callbackFunc = std::make_shared<std::function<void()>>([router, slider, handler]() {
+        if (slider) {
             int32_t value = lv_slider_get_value(slider);
             Event event = handler(value);
-            eventRouter_->routeEvent(event);
+            router->routeEvent(event);
         }
     });
     
@@ -116,10 +118,12 @@ LVGLEventBuilder::ButtonBuilder& LVGLEventBuilder::ButtonBuilder::onClick(std::f
     }
     
     eventHandler_ = std::make_shared<std::function<Event()>>(handler);
-    
-    auto callbackFunc = std::make_shared<std::function<void()>>([this, handler]() {
+
+    EventRouter* router = eventRouter_;  // Capture the router pointer directly.
+    auto callbackFunc = std::make_shared<std::function<void()>>([router, handler]() {
         Event event = handler();
-        eventRouter_->routeEvent(event);
+        spdlog::debug("LVGLEventBuilder: Button clicked, routing event");
+        router->routeEvent(event);
     });
     
     callback([](lv_event_t* e) { eventCallback(e); }, createCallbackData(callbackFunc));
@@ -136,12 +140,14 @@ LVGLEventBuilder::ButtonBuilder& LVGLEventBuilder::ButtonBuilder::onToggle(Event
     
     toggleEvents_ = std::make_shared<std::pair<Event, Event>>(checkedEvent, uncheckedEvent);
     toggle(true);  // Enable toggle mode.
-    
-    auto callbackFunc = std::make_shared<std::function<void()>>([this, checkedEvent, uncheckedEvent]() {
-        if (auto* btn = getButton()) {
+
+    EventRouter* router = eventRouter_;  // Capture the router pointer directly.
+    lv_obj_t* btn = getButton();  // Get the button pointer before lambda.
+    auto callbackFunc = std::make_shared<std::function<void()>>([router, btn, checkedEvent, uncheckedEvent]() {
+        if (btn) {
             bool isChecked = lv_obj_has_state(btn, LV_STATE_CHECKED);
             Event event = isChecked ? checkedEvent : uncheckedEvent;
-            eventRouter_->routeEvent(event);
+            router->routeEvent(event);
         }
     });
     
@@ -173,6 +179,7 @@ LVGLEventBuilder::ButtonBuilder& LVGLEventBuilder::ButtonBuilder::onDebugToggle(
 }
 
 LVGLEventBuilder::ButtonBuilder& LVGLEventBuilder::ButtonBuilder::onQuit() {
+    spdlog::info("LVGLEventBuilder: Setting up Quit button");
     return onClick(Event{QuitApplicationCommand{}});
 }
 
@@ -408,12 +415,16 @@ void LVGLEventBuilder::DrawAreaBuilder::setupMouseEvents() {
     
     // Mouse down.
     if (mouseDownHandler_) {
-        auto callbackFunc = std::make_shared<std::function<void()>>([this]() {
+        // Capture by value to avoid use-after-free when builder is destroyed.
+        auto handler = mouseDownHandler_;  // shared_ptr copy keeps handler alive
+        auto router = eventRouter_;        // raw pointer copy
+        auto area = drawArea_;             // raw pointer copy
+        auto callbackFunc = std::make_shared<std::function<void()>>([handler, router, area]() {
             lv_point_t point;
             lv_indev_get_point(lv_indev_get_act(), &point);
-            auto [x, y] = getRelativeCoords(drawArea_, &point);
-            Event event = (*mouseDownHandler_)(x, y);
-            eventRouter_->routeEvent(event);
+            auto [x, y] = DrawAreaBuilder::getRelativeCoords(area, &point);
+            Event event = (*handler)(x, y);
+            router->routeEvent(event);
         });
         
         lv_obj_add_event_cb(drawArea_, eventCallback, LV_EVENT_PRESSED, createCallbackData(callbackFunc));
@@ -421,12 +432,16 @@ void LVGLEventBuilder::DrawAreaBuilder::setupMouseEvents() {
     
     // Mouse move.
     if (mouseMoveHandler_) {
-        auto callbackFunc = std::make_shared<std::function<void()>>([this]() {
+        // Capture by value to avoid use-after-free when builder is destroyed.
+        auto handler = mouseMoveHandler_;  // shared_ptr copy keeps handler alive
+        auto router = eventRouter_;        // raw pointer copy
+        auto area = drawArea_;             // raw pointer copy
+        auto callbackFunc = std::make_shared<std::function<void()>>([handler, router, area]() {
             lv_point_t point;
             lv_indev_get_point(lv_indev_get_act(), &point);
-            auto [x, y] = getRelativeCoords(drawArea_, &point);
-            Event event = (*mouseMoveHandler_)(x, y);
-            eventRouter_->routeEvent(event);
+            auto [x, y] = DrawAreaBuilder::getRelativeCoords(area, &point);
+            Event event = (*handler)(x, y);
+            router->routeEvent(event);
         });
         
         lv_obj_add_event_cb(drawArea_, eventCallback, LV_EVENT_PRESSING, createCallbackData(callbackFunc));
@@ -434,12 +449,16 @@ void LVGLEventBuilder::DrawAreaBuilder::setupMouseEvents() {
     
     // Mouse up.
     if (mouseUpHandler_) {
-        auto callbackFunc = std::make_shared<std::function<void()>>([this]() {
+        // Capture by value to avoid use-after-free when builder is destroyed.
+        auto handler = mouseUpHandler_;    // shared_ptr copy keeps handler alive
+        auto router = eventRouter_;        // raw pointer copy
+        auto area = drawArea_;             // raw pointer copy
+        auto callbackFunc = std::make_shared<std::function<void()>>([handler, router, area]() {
             lv_point_t point;
             lv_indev_get_point(lv_indev_get_act(), &point);
-            auto [x, y] = getRelativeCoords(drawArea_, &point);
-            Event event = (*mouseUpHandler_)(x, y);
-            eventRouter_->routeEvent(event);
+            auto [x, y] = DrawAreaBuilder::getRelativeCoords(area, &point);
+            Event event = (*handler)(x, y);
+            router->routeEvent(event);
         });
         
         lv_obj_add_event_cb(drawArea_, eventCallback, LV_EVENT_RELEASED, createCallbackData(callbackFunc));
