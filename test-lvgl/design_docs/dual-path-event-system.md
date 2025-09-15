@@ -486,6 +486,16 @@ The dual-path event system has been fully implemented and tested. All phases are
 - [ ] Add missing 35+ events to Event.h (physics sliders, UI toggles)
 - [ ] Extend EventRouter with new immediate event classifications
 - [ ] Add event handlers to SimRunning/SimPaused states
+- [ ] **Fix Mouse Event Handlers** (Critical - drag functionality broken):
+  - [ ] Add `MouseMoveEvent` handler to SimRunning state
+  - [ ] Add `MouseUpEvent` handler to SimRunning state
+  - [ ] Add interaction mode tracking (GRAB_MODE vs PAINT_MODE)
+  - [ ] Update `MouseDownEvent` handler to check for existing material
+  - [ ] Implement smart material interaction logic:
+    - If cell has material: call `startDragging()` (GRAB_MODE)
+    - If cell is empty: call `addMaterialAtPixel()` (PAINT_MODE)
+  - [ ] MouseMoveEvent: call `updateDrag()` or `addMaterialAtPixel()` based on mode
+  - [ ] MouseUpEvent: call `endDragging()` if in GRAB_MODE
 
 #### 7.2: UI Callback Migration (Batch Approach)
 **Batch 1: Core Controls (5 callbacks)**
