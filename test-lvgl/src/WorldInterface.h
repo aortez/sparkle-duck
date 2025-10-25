@@ -131,8 +131,14 @@ public:
     // Set gravity strength.
     virtual void setGravity(double g) = 0;
 
+    // Get gravity strength.
+    virtual double getGravity() const = 0;
+
     // Set elasticity factor for collisions (0.0 to 1.0).
     virtual void setElasticityFactor(double e) = 0;
+
+    // Get elasticity factor.
+    virtual double getElasticityFactor() const = 0;
 
     // Set pressure system scaling factor.
     virtual void setPressureScale(double scale) = 0;
@@ -263,11 +269,24 @@ public:
     // Enable/disable cursor force interaction.
     virtual void setCursorForceEnabled(bool enabled) = 0;
 
+    // Check if cursor force is enabled.
+    virtual bool isCursorForceEnabled() const = 0;
+
     // Update cursor force at pixel coordinates.
     virtual void updateCursorForce(int pixelX, int pixelY, bool isActive) = 0;
 
     // Clear cursor force effect.
     virtual void clearCursorForce() = 0;
+
+    // =================================================================
+    // DEBUG VISUALIZATION
+    // =================================================================
+
+    // Enable/disable debug visualization overlay.
+    virtual void setDebugDrawEnabled(bool enabled) = 0;
+
+    // Check if debug visualization is enabled.
+    virtual bool isDebugDrawEnabled() const = 0;
 
     // =================================================================
     // COHESION PHYSICS CONTROL

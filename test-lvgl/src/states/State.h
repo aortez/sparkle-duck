@@ -98,6 +98,7 @@ struct SimRunning {
     Any onEvent(const SetTimescaleCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const SetElasticityCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const SetDynamicStrengthCommand& cmd, DirtSimStateMachine& dsm);
+    Any onEvent(const SetGravityCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const SetPressureScaleCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const SetPressureScaleWorldBCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const SetCohesionForceStrengthCommand& cmd, DirtSimStateMachine& dsm);

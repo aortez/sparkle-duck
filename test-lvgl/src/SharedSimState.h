@@ -200,8 +200,8 @@ public:
         double elasticity = 0.8;
         double timescale = 1.0;
         double dynamicStrength = 1.0;
-        bool debugEnabled = false;
-        bool gravityEnabled = true;
+        // debugEnabled removed - now owned by World.
+        // gravityEnabled removed - use gravity value (0.0 = disabled).
         bool forceVisualizationEnabled = false;
         bool cohesionEnabled = true;
         bool adhesionEnabled = true;

@@ -162,7 +162,7 @@ TEST_F(SharedSimStatePushUpdateTest, CompleteUIUpdateFlow) {
     SharedSimState::PhysicsParams params;
     params.gravity = 9.81;
     params.elasticity = 0.5;
-    params.debugEnabled = true;
+    // debugEnabled removed - no longer cached in SharedSimState.
     params.forceVisualizationEnabled = true;
     sharedState.updatePhysicsParams(params);
     
@@ -178,8 +178,8 @@ TEST_F(SharedSimStatePushUpdateTest, CompleteUIUpdateFlow) {
     update.physicsParams.gravity = sharedParams.gravity;
     update.physicsParams.elasticity = sharedParams.elasticity;
     update.physicsParams.timescale = sharedParams.timescale;
-    update.physicsParams.debugEnabled = sharedParams.debugEnabled;
-    update.physicsParams.gravityEnabled = sharedParams.gravityEnabled;
+    // debugEnabled removed - set directly on UIUpdateEvent instead.
+    // gravityEnabled removed - check gravity value instead.
     update.physicsParams.forceVisualizationEnabled = sharedParams.forceVisualizationEnabled;
     update.physicsParams.cohesionEnabled = sharedParams.cohesionEnabled;
     update.physicsParams.adhesionEnabled = sharedParams.adhesionEnabled;
@@ -198,7 +198,7 @@ TEST_F(SharedSimStatePushUpdateTest, CompleteUIUpdateFlow) {
     EXPECT_TRUE(popped->isPaused);
     EXPECT_EQ(popped->selectedMaterial, MaterialType::WATER);
     EXPECT_EQ(popped->physicsParams.gravity, 9.81);
-    EXPECT_TRUE(popped->physicsParams.debugEnabled);
+    EXPECT_TRUE(popped->debugEnabled);  // Now in UIUpdateEvent.debugEnabled (from world).
     EXPECT_TRUE(popped->physicsParams.forceVisualizationEnabled);
     EXPECT_EQ(popped->worldType, "WorldA");
 }

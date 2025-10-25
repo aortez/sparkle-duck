@@ -18,7 +18,6 @@ class World;
 // A cell in grid-based simulation.
 class Cell : public CellInterface {
 public:
-    static bool debugDraw;
     static bool adhesionDrawEnabled;
     static uint32_t WIDTH;
     static uint32_t HEIGHT;
@@ -56,7 +55,7 @@ public:
 
     static uint32_t getSize() { return WIDTH; }
 
-    void draw(lv_obj_t* parent, uint32_t x, uint32_t y);
+    void draw(lv_obj_t* parent, uint32_t x, uint32_t y, bool debugDraw);
 
     // Separate drawing methods for different modes
     void drawNormal(lv_obj_t* parent, uint32_t x, uint32_t y);

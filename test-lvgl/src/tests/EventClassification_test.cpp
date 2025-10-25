@@ -145,12 +145,13 @@ TEST_F(EventClassificationTest, SharedStateAccess) {
     
     // Test physics params.
     auto params = state.getPhysicsParams();
-    params.gravityEnabled = true;
+    // gravityEnabled removed - use gravity value directly.
+    params.gravity = 9.81;
     params.elasticity = 0.75;
     state.updatePhysicsParams(params);
-    
+
     auto newParams = state.getPhysicsParams();
-    EXPECT_TRUE(newParams.gravityEnabled);
+    EXPECT_DOUBLE_EQ(newParams.gravity, 9.81);
     EXPECT_FLOAT_EQ(newParams.elasticity, 0.75);
 }
 

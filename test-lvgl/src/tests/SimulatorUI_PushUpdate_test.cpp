@@ -36,8 +36,8 @@ protected:
         event.physicsParams.gravity = 9.81;
         event.physicsParams.elasticity = 0.8;
         event.physicsParams.timescale = 1.0;
-        event.physicsParams.debugEnabled = false;
-        
+        // debugEnabled removed from physicsParams - now in event.debugEnabled.
+
         // Initialize UI state.
         event.isPaused = false;
         event.debugEnabled = false;
@@ -135,9 +135,9 @@ TEST_F(SimulatorUIPushUpdateTest, UpdatesDebugStateWhenDirty) {
     
     // Apply the update.
     ui_->applyUpdate(update);
-    
-    // In a real test, we'd verify Cell::debugDraw is set to true.
-    // and the debug button shows "Debug: On"
+
+    // In a real test, we'd verify world->isDebugDrawEnabled() is set to true.
+    // and the debug button shows "Debug: On".
 }
 
 /**

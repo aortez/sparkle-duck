@@ -41,6 +41,7 @@ WorldB::WorldB(uint32_t width, uint32_t height, lv_obj_t* draw_area)
       cursor_force_active_(false),
       cursor_force_x_(0),
       cursor_force_y_(0),
+      debug_draw_enabled_(true),
       cohesion_bind_force_enabled_(false),
       cohesion_com_force_enabled_(false),
 
@@ -173,7 +174,7 @@ void WorldB::draw()
 
     for (uint32_t y = 0; y < height_; y++) {
         for (uint32_t x = 0; x < width_; x++) {
-            at(x, y).draw(draw_area_, x, y);
+            at(x, y).draw(draw_area_, x, y, debug_draw_enabled_);
         }
     }
 
@@ -182,7 +183,7 @@ void WorldB::draw()
         && isValidCell(last_drag_cell_x_, last_drag_cell_y_)) {
         // Render floating particle at current drag position.
         // This particle can potentially collide with other objects in the world.
-        floating_particle_.draw(draw_area_, last_drag_cell_x_, last_drag_cell_y_);
+        floating_particle_.draw(draw_area_, last_drag_cell_x_, last_drag_cell_y_, debug_draw_enabled_);
         spdlog::trace(
             "Drew floating particle {} at cell ({},{}) pixel pos ({:.1f},{:.1f})",
             getMaterialName(floating_particle_.getMaterialType()),

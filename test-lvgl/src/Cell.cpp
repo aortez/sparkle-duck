@@ -30,7 +30,6 @@ constexpr int FLOW_VISUALIZATION_SCALE = 800;    // Scale for flow vector displa
 constexpr int DENSITY_GRID_SIZE = 10;            // Grid for density visualization.
 } // namespace.
 
-bool Cell::debugDraw = true;
 bool Cell::adhesionDrawEnabled = true;
 uint32_t Cell::WIDTH = 100;  // Increased size for better detail visibility.
 uint32_t Cell::HEIGHT = 100; // Increased size for better detail visibility.
@@ -133,7 +132,7 @@ __attribute__((unused)) static void safe_set_pixel(
     }
 }
 
-void Cell::draw(lv_obj_t* parent, uint32_t x, uint32_t y)
+void Cell::draw(lv_obj_t* parent, uint32_t x, uint32_t y, bool debugDraw)
 {
     // Skip drawing if nothing has changed and canvas exists.
     if (!needsRedraw && canvas != nullptr) {

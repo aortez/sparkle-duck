@@ -116,9 +116,10 @@ public:
     // =================================================================
 
     void setGravity(double g) override { gravity_ = g; }
-    double getGravity() const { return gravity_; }
+    double getGravity() const override { return gravity_; }
     Vector2d getGravityVector() const { return Vector2d(0.0, gravity_); }
     void setElasticityFactor(double e) override { elasticity_factor_ = e; }
+    double getElasticityFactor() const override { return elasticity_factor_; }
     void setPressureScale(double scale) override { pressure_scale_ = scale; }
     double getPressureScale() const { return pressure_scale_; }
     void setDirtFragmentationFactor(double /* factor */) override { /* no-op for WorldB */ }
@@ -194,8 +195,13 @@ public:
 
     // WORLDINTERFACE IMPLEMENTATION - CURSOR FORCE
     void setCursorForceEnabled(bool enabled) override { cursor_force_enabled_ = enabled; }
+    bool isCursorForceEnabled() const override { return cursor_force_enabled_; }
     void updateCursorForce(int pixelX, int pixelY, bool isActive) override;
     void clearCursorForce() override { cursor_force_active_ = false; }
+
+    // WORLDINTERFACE IMPLEMENTATION - DEBUG VISUALIZATION
+    void setDebugDrawEnabled(bool enabled) override { debug_draw_enabled_ = enabled; }
+    bool isDebugDrawEnabled() const override { return debug_draw_enabled_; }
 
     // WORLDINTERFACE IMPLEMENTATION - COHESION PHYSICS CONTROL
     void setCohesionBindForceEnabled(bool enabled) override
@@ -415,13 +421,16 @@ private:
     // World setup controls
     bool add_particles_enabled_;
 
-    // Cursor force state
+    // Cursor force state.
     bool cursor_force_enabled_;
     bool cursor_force_active_;
     int cursor_force_x_;
     int cursor_force_y_;
 
-    // Cohesion physics control
+    // Debug visualization.
+    bool debug_draw_enabled_;
+
+    // Cohesion physics control.
     bool cohesion_bind_force_enabled_; // Enable/disable cohesion bind force (resistance)
     bool cohesion_com_force_enabled_;  // Enable/disable cohesion COM force (attraction)
 

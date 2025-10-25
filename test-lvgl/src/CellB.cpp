@@ -540,21 +540,21 @@ double CellB::getTotalMaterial() const
 // RENDERING METHODS.
 // =================================================================.
 
-void CellB::draw(lv_obj_t* parent, uint32_t x, uint32_t y)
+void CellB::draw(lv_obj_t* parent, uint32_t x, uint32_t y, bool debugDraw)
 {
     if (!needs_redraw_) {
         return; // Skip redraw if not needed.
     }
 
-    // Use debug mode based on Cell::debugDraw static flag.
+    // Use debug mode from parameter.
     spdlog::trace(
         "[RENDER] CellB::draw() called for cell ({},{}) - debugDraw={}, hydrostatic={}, dynamic={}",
         x,
         y,
-        Cell::debugDraw,
+        debugDraw,
         hydrostatic_component_,
         dynamic_component_);
-    if (Cell::debugDraw) {
+    if (debugDraw) {
         spdlog::trace("[RENDER] Entering drawDebug() mode");
         drawDebug(parent, x, y);
     }

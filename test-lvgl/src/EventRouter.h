@@ -91,7 +91,7 @@ private:
         // All current immediate events are push-compatible.
         // They update UI state that can be delivered via push updates.
         return std::is_same_v<T, GetFPSCommand> || std::is_same_v<T, GetSimStatsCommand>
-            || std::is_same_v<T, ToggleDebugCommand> || std::is_same_v<T, ToggleForceCommand>
+            || std::is_same_v<T, ToggleForceCommand>
             || std::is_same_v<T, ToggleCohesionCommand>
             || std::is_same_v<T, ToggleCohesionForceCommand>
             || std::is_same_v<T, ToggleAdhesionCommand>
@@ -146,7 +146,6 @@ private:
     void processImmediateEvent(const GetSimStatsCommand& cmd);
     void processImmediateEvent(const PauseCommand& cmd);
     void processImmediateEvent(const ResumeCommand& cmd);
-    void processImmediateEvent(const ToggleDebugCommand& cmd);
     void processImmediateEvent(const PrintAsciiDiagramCommand& cmd);
     void processImmediateEvent(const ToggleForceCommand& cmd);
     void processImmediateEvent(const ToggleCohesionCommand& cmd);

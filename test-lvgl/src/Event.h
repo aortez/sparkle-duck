@@ -34,14 +34,14 @@ concept HasEventName = requires {
 
 /**
  * @brief Physics parameters for UI display.
- * Matches SharedSimState::PhysicsParams structure.
+ * Transport struct for UIUpdateEvent (not source of truth).
  */
 struct PhysicsParams {
     double gravity = 9.81;
     double elasticity = 0.8;
     double timescale = 1.0;
-    bool debugEnabled = false;
-    bool gravityEnabled = true;
+    // debugEnabled removed - read from world->isDebugDrawEnabled() instead.
+    // gravityEnabled removed - use gravity value (0.0 = disabled).
     bool forceVisualizationEnabled = false;
     bool cohesionEnabled = true;
     bool adhesionEnabled = true;
@@ -276,10 +276,10 @@ struct MouseUpEvent {
 // =================================================================
 
 /**
- * @brief Set gravity enabled state.
+ * @brief Set gravity strength.
  */
 struct SetGravityCommand {
-    bool enabled;
+    double gravity;
     static constexpr const char* name() { return "SetGravityCommand"; }
 };
 

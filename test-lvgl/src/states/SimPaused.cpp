@@ -181,19 +181,22 @@ State::Any SimPaused::onEvent(const GetSimStatsCommand& /*cmd. */, DirtSimStateM
 }
 
 State::Any SimPaused::onEvent(const ToggleDebugCommand& /*cmd. */, DirtSimStateMachine& dsm) {
-    // Toggle debug draw state.
-    auto params = dsm.getSharedState().getPhysicsParams();
-    params.debugEnabled = !params.debugEnabled;
-    dsm.getSharedState().updatePhysicsParams(params);
-    spdlog::debug("SimPaused: ToggleDebugCommand - Debug draw now: {}", params.debugEnabled);
-    
-    // Force a push update with uiState dirty flag.
-    if (dsm.getSharedState().isPushUpdatesEnabled()) {
-        UIUpdateEvent update = dsm.buildUIUpdate();
-        update.dirty.uiState = true;
-        dsm.getSharedState().pushUIUpdate(std::move(update));
+    // Toggle debug draw state in world (source of truth).
+    if (dsm.simulationManager && dsm.simulationManager->getWorld()) {
+        auto* world = dsm.simulationManager->getWorld();
+        bool newValue = !world->isDebugDrawEnabled();
+        world->setDebugDrawEnabled(newValue);
+        world->markAllCellsDirty();
+        spdlog::info("SimPaused: ToggleDebugCommand - Debug draw now: {}", newValue);
+
+        // Push UI update with uiState dirty flag.
+        if (dsm.getSharedState().isPushUpdatesEnabled()) {
+            UIUpdateEvent update = dsm.buildUIUpdate();
+            update.dirty.uiState = true;
+            dsm.getSharedState().pushUIUpdate(std::move(update));
+        }
     }
-    
+
     return *this;
 }
 

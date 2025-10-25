@@ -1538,7 +1538,7 @@ void World::draw()
     timers.startTimer("draw");
     for (uint32_t y = 0; y < height; y++) {
         for (uint32_t x = 0; x < width; x++) {
-            at(x, y).draw(draw_area, x, y);
+            at(x, y).draw(draw_area, x, y, debugDrawEnabled);
         }
     }
     timers.stopTimer("draw");
