@@ -242,6 +242,18 @@ LVGLEventBuilder::ButtonBuilder& LVGLEventBuilder::ButtonBuilder::onTimeHistoryT
     return onClick(Event{ToggleTimeHistoryCommand{}});
 }
 
+LVGLEventBuilder::ButtonBuilder& LVGLEventBuilder::ButtonBuilder::onStepBackward() {
+    return onClick(Event{StepBackwardCommand{}});
+}
+
+LVGLEventBuilder::ButtonBuilder& LVGLEventBuilder::ButtonBuilder::onStepForward() {
+    return onClick(Event{StepForwardCommand{}});
+}
+
+LVGLEventBuilder::ButtonBuilder& LVGLEventBuilder::ButtonBuilder::onFrameLimitToggle() {
+    return onClick(Event{ToggleFrameLimitCommand{}});
+}
+
 // ===== SwitchBuilder Implementation =====
 
 LVGLEventBuilder::SwitchBuilder& LVGLEventBuilder::SwitchBuilder::withEventRouter(EventRouter* router) {

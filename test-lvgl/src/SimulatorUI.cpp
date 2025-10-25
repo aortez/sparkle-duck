@@ -190,14 +190,12 @@ void SimulatorUI::createLabels()
     lv_obj_align(fps_label_, LV_ALIGN_TOP_LEFT, 10, 10); // Top-left corner of world area.
 
     // Create frame limiting toggle button below FPS display.
-    lv_obj_t* frame_limit_btn = lv_btn_create(screen_);
-    lv_obj_set_size(frame_limit_btn, 120, 30);
-    lv_obj_align(frame_limit_btn, LV_ALIGN_TOP_LEFT, 10, 40); // Below FPS label.
-    lv_obj_t* frame_limit_label = lv_label_create(frame_limit_btn);
-    lv_label_set_text(frame_limit_label, "Limit: On");
-    lv_obj_center(frame_limit_label);
-    lv_obj_add_event_cb(
-        frame_limit_btn, frameLimitBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
+    LVGLEventBuilder::button(screen_, event_router_)
+        .onFrameLimitToggle()
+        .size(120, 30)
+        .position(10, 40, LV_ALIGN_TOP_LEFT)
+        .text("Limit: On")
+        .buildOrLog();
 }
 
 void SimulatorUI::createWorldTypeColumn()
@@ -538,31 +536,27 @@ void SimulatorUI::createSliders()
         .buildOrLog();
 
     // Move Time History controls below Reset.
-    lv_obj_t* time_reversal_btn = lv_btn_create(screen_);
-    lv_obj_set_size(time_reversal_btn, CONTROL_WIDTH, 30);
-    lv_obj_align(time_reversal_btn, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 130);
-    lv_obj_t* time_reversal_label = lv_label_create(time_reversal_btn);
-    lv_label_set_text(time_reversal_label, "Time History: On");
-    lv_obj_center(time_reversal_label);
-    lv_obj_add_event_cb(
-        time_reversal_btn, timeReversalToggleBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
+    LVGLEventBuilder::button(screen_, event_router_)
+        .onTimeHistoryToggle()
+        .size(CONTROL_WIDTH, 30)
+        .position(SLIDER_COLUMN_X, 130, LV_ALIGN_TOP_LEFT)
+        .text("Time History: On")
+        .buildOrLog();
 
     // Backward and Forward buttons below Time History.
-    lv_obj_t* backward_btn = lv_btn_create(screen_);
-    lv_obj_set_size(backward_btn, CONTROL_WIDTH / 2 - 5, 30);
-    lv_obj_align(backward_btn, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 165);
-    lv_obj_t* backward_label = lv_label_create(backward_btn);
-    lv_label_set_text(backward_label, "<<");
-    lv_obj_center(backward_label);
-    lv_obj_add_event_cb(backward_btn, backwardBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
+    LVGLEventBuilder::button(screen_, event_router_)
+        .onStepBackward()
+        .size(CONTROL_WIDTH / 2 - 5, 30)
+        .position(SLIDER_COLUMN_X, 165, LV_ALIGN_TOP_LEFT)
+        .text("<<")
+        .buildOrLog();
 
-    lv_obj_t* forward_btn = lv_btn_create(screen_);
-    lv_obj_set_size(forward_btn, CONTROL_WIDTH / 2 - 5, 30);
-    lv_obj_align(forward_btn, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X + CONTROL_WIDTH / 2 + 5, 165);
-    lv_obj_t* forward_label = lv_label_create(forward_btn);
-    lv_label_set_text(forward_label, ">>");
-    lv_obj_center(forward_label);
-    lv_obj_add_event_cb(forward_btn, forwardBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
+    LVGLEventBuilder::button(screen_, event_router_)
+        .onStepForward()
+        .size(CONTROL_WIDTH / 2 - 5, 30)
+        .position(SLIDER_COLUMN_X + CONTROL_WIDTH / 2 + 5, 165, LV_ALIGN_TOP_LEFT)
+        .text(">>")
+        .buildOrLog();
 
     // Start sliders below the moved buttons.
     // Timescale slider.

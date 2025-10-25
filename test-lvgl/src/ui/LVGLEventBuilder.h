@@ -171,7 +171,22 @@ public:
          * @brief Convenience method for time history toggle button.
          */
         ButtonBuilder& onTimeHistoryToggle();
-        
+
+        /**
+         * @brief Convenience method for step backward button.
+         */
+        ButtonBuilder& onStepBackward();
+
+        /**
+         * @brief Convenience method for step forward button.
+         */
+        ButtonBuilder& onStepForward();
+
+        /**
+         * @brief Convenience method for frame limit toggle button.
+         */
+        ButtonBuilder& onFrameLimitToggle();
+
         /**
          * @brief Set the event router for this builder.
          */
