@@ -354,86 +354,62 @@ State::Any SimRunning::onEvent(const SetPressureScaleWorldBCommand& cmd, DirtSim
 }
 
 State::Any SimRunning::onEvent(const SetCohesionForceStrengthCommand& cmd, DirtSimStateMachine& dsm) {
-    // Apply to world.
     if (auto* simMgr = dsm.getSimulationManager()) {
         if (auto* world = simMgr->getWorld()) {
-            // Note: Need to add setCohesionForceStrength method to WorldInterface.
-            // For now, suppress unused warning.
-            (void)world;
+            world->setCohesionComForceStrength(cmd.strength);
+            spdlog::info("SimRunning: Set cohesion force strength to {}", cmd.strength);
         }
     }
-
-    spdlog::debug("SimRunning: Set cohesion force strength to {}", cmd.strength);
     return *this;
 }
 
 State::Any SimRunning::onEvent(const SetAdhesionStrengthCommand& cmd, DirtSimStateMachine& dsm) {
-    // Apply to world.
     if (auto* simMgr = dsm.getSimulationManager()) {
         if (auto* world = simMgr->getWorld()) {
-            // Note: Need to add setAdhesionStrength method to WorldInterface.
-            // For now, suppress unused warning.
-            (void)world;
+            world->setAdhesionStrength(cmd.strength);
+            spdlog::info("SimRunning: Set adhesion strength to {}", cmd.strength);
         }
     }
-
-    spdlog::debug("SimRunning: Set adhesion strength to {}", cmd.strength);
     return *this;
 }
 
 State::Any SimRunning::onEvent(const SetViscosityStrengthCommand& cmd, DirtSimStateMachine& dsm) {
-    // Apply to world.
     if (auto* simMgr = dsm.getSimulationManager()) {
         if (auto* world = simMgr->getWorld()) {
-            // TODO: Need to add setViscosityStrength method to WorldInterface.
-            // For now, suppress unused warning.
-            (void)world;
+            world->setViscosityStrength(cmd.strength);
+            spdlog::info("SimRunning: Set viscosity strength to {}", cmd.strength);
         }
     }
-
-    spdlog::debug("SimRunning: Set viscosity strength to {}", cmd.strength);
     return *this;
 }
 
 State::Any SimRunning::onEvent(const SetFrictionStrengthCommand& cmd, DirtSimStateMachine& dsm) {
-    // Apply to world.
     if (auto* simMgr = dsm.getSimulationManager()) {
         if (auto* world = simMgr->getWorld()) {
-            // TODO: Need to add setFrictionStrength method to WorldInterface.
-            // For now, suppress unused warning.
-            (void)world;
+            world->setFrictionStrength(cmd.strength);
+            spdlog::info("SimRunning: Set friction strength to {}", cmd.strength);
         }
     }
-
-    spdlog::debug("SimRunning: Set friction strength to {}", cmd.strength);
     return *this;
 }
 
 State::Any SimRunning::onEvent(const SetCOMCohesionRangeCommand& cmd, DirtSimStateMachine& dsm) {
-    // Apply to world.
     if (auto* simMgr = dsm.getSimulationManager()) {
         if (auto* world = simMgr->getWorld()) {
-            // TODO: Need to add setCOMCohesionRange method to WorldInterface.
-            // For now, suppress unused warning.
-            (void)world;
+            world->setCOMCohesionRange(cmd.range);
+            spdlog::info("SimRunning: Set COM cohesion range to {}", cmd.range);
         }
     }
-
-    spdlog::debug("SimRunning: Set COM cohesion range to {}", cmd.range);
     return *this;
 }
 
 State::Any SimRunning::onEvent(const SetAirResistanceCommand& cmd, DirtSimStateMachine& dsm) {
-    // Apply to world.
     if (auto* simMgr = dsm.getSimulationManager()) {
         if (auto* world = simMgr->getWorld()) {
-            // TODO: Need to add setAirResistance method to WorldInterface.
-            // For now, suppress unused warning.
-            (void)world;
+            world->setAirResistanceStrength(cmd.strength);
+            spdlog::info("SimRunning: Set air resistance to {}", cmd.strength);
         }
     }
-
-    spdlog::debug("SimRunning: Set air resistance to {}", cmd.strength);
     return *this;
 }
 
@@ -471,16 +447,12 @@ State::Any SimRunning::onEvent(const TogglePressureDiffusionCommand& /*cmd*/, Di
 }
 
 State::Any SimRunning::onEvent(const SetHydrostaticPressureStrengthCommand& cmd, DirtSimStateMachine& dsm) {
-    // Apply to world.
     if (auto* simMgr = dsm.getSimulationManager()) {
         if (auto* world = simMgr->getWorld()) {
-            // TODO: Need to add setHydrostaticPressureStrength method to WorldInterface.
-            // For now, suppress unused warning.
-            (void)world;
+            world->setHydrostaticPressureStrength(cmd.strength);
+            spdlog::info("SimRunning: Set hydrostatic pressure strength to {}", cmd.strength);
         }
     }
-
-    spdlog::debug("SimRunning: Set hydrostatic pressure strength to {}", cmd.strength);
     return *this;
 }
 

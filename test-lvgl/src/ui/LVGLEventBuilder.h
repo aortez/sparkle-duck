@@ -85,7 +85,61 @@ public:
          * Automatically converts slider value (0-300) to strength (0.0-3.0)
          */
         SliderBuilder& onDynamicStrengthChange();
-        
+
+        /**
+         * @brief Convenience method for cohesion force strength sliders.
+         * Automatically converts slider value (0-30000) to strength (0.0-300.0)
+         */
+        SliderBuilder& onCohesionForceStrengthChange();
+
+        /**
+         * @brief Convenience method for adhesion strength sliders.
+         * Automatically converts slider value (0-1000) to strength (0.0-10.0)
+         */
+        SliderBuilder& onAdhesionStrengthChange();
+
+        /**
+         * @brief Convenience method for viscosity strength sliders.
+         * Automatically converts slider value (0-200) to strength (0.0-2.0)
+         */
+        SliderBuilder& onViscosityStrengthChange();
+
+        /**
+         * @brief Convenience method for friction strength sliders.
+         * Automatically converts slider value (0-10) to strength (0.0-1.0)
+         */
+        SliderBuilder& onFrictionStrengthChange();
+
+        /**
+         * @brief Convenience method for COM cohesion range sliders.
+         * Value is integer range (1-5)
+         */
+        SliderBuilder& onCOMCohesionRangeChange();
+
+        /**
+         * @brief Convenience method for pressure scale sliders (WorldA).
+         * Automatically converts slider value (0-1000) to scale (0.0-10.0)
+         */
+        SliderBuilder& onPressureScaleChange();
+
+        /**
+         * @brief Convenience method for pressure scale sliders (WorldB).
+         * Automatically converts slider value (0-200) to scale (0.0-2.0)
+         */
+        SliderBuilder& onPressureScaleWorldBChange();
+
+        /**
+         * @brief Convenience method for hydrostatic pressure strength sliders.
+         * Automatically converts slider value (0-300) to strength (0.0-3.0)
+         */
+        SliderBuilder& onHydrostaticPressureStrengthChange();
+
+        /**
+         * @brief Convenience method for air resistance sliders.
+         * Automatically converts slider value (0-100) to strength (0.0-1.0)
+         */
+        SliderBuilder& onAirResistanceChange();
+
         /**
          * @brief Set the event router for this builder.
          */

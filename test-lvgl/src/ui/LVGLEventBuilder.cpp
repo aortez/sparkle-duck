@@ -126,6 +126,100 @@ LVGLEventBuilder::SliderBuilder& LVGLEventBuilder::SliderBuilder::onDynamicStren
     });
 }
 
+LVGLEventBuilder::SliderBuilder& LVGLEventBuilder::SliderBuilder::onCohesionForceStrengthChange() {
+    valueTransform([](int32_t value) {
+        return value / 100.0;  // Convert 0-30000 to 0.0-300.0
+    });
+
+    return onValueChange([](int32_t value) {
+        double strength = value / 100.0;
+        return Event{SetCohesionForceStrengthCommand{strength}};
+    });
+}
+
+LVGLEventBuilder::SliderBuilder& LVGLEventBuilder::SliderBuilder::onAdhesionStrengthChange() {
+    valueTransform([](int32_t value) {
+        return value / 100.0;  // Convert 0-1000 to 0.0-10.0
+    });
+
+    return onValueChange([](int32_t value) {
+        double strength = value / 100.0;
+        return Event{SetAdhesionStrengthCommand{strength}};
+    });
+}
+
+LVGLEventBuilder::SliderBuilder& LVGLEventBuilder::SliderBuilder::onViscosityStrengthChange() {
+    valueTransform([](int32_t value) {
+        return value / 100.0;  // Convert 0-200 to 0.0-2.0
+    });
+
+    return onValueChange([](int32_t value) {
+        double strength = value / 100.0;
+        return Event{SetViscosityStrengthCommand{strength}};
+    });
+}
+
+LVGLEventBuilder::SliderBuilder& LVGLEventBuilder::SliderBuilder::onFrictionStrengthChange() {
+    valueTransform([](int32_t value) {
+        return value / 10.0;  // Convert 0-10 to 0.0-1.0
+    });
+
+    return onValueChange([](int32_t value) {
+        double strength = value / 10.0;
+        return Event{SetFrictionStrengthCommand{strength}};
+    });
+}
+
+LVGLEventBuilder::SliderBuilder& LVGLEventBuilder::SliderBuilder::onCOMCohesionRangeChange() {
+    return onValueChange([](int32_t value) {
+        return Event{SetCOMCohesionRangeCommand{static_cast<uint32_t>(value)}};
+    });
+}
+
+LVGLEventBuilder::SliderBuilder& LVGLEventBuilder::SliderBuilder::onPressureScaleChange() {
+    valueTransform([](int32_t value) {
+        return value / 100.0;  // Convert 0-1000 to 0.0-10.0
+    });
+
+    return onValueChange([](int32_t value) {
+        double scale = value / 100.0;
+        return Event{SetPressureScaleCommand{scale}};
+    });
+}
+
+LVGLEventBuilder::SliderBuilder& LVGLEventBuilder::SliderBuilder::onPressureScaleWorldBChange() {
+    valueTransform([](int32_t value) {
+        return value / 100.0;  // Convert 0-200 to 0.0-2.0
+    });
+
+    return onValueChange([](int32_t value) {
+        double scale = value / 100.0;
+        return Event{SetPressureScaleWorldBCommand{scale}};
+    });
+}
+
+LVGLEventBuilder::SliderBuilder& LVGLEventBuilder::SliderBuilder::onHydrostaticPressureStrengthChange() {
+    valueTransform([](int32_t value) {
+        return value / 100.0;  // Convert 0-300 to 0.0-3.0
+    });
+
+    return onValueChange([](int32_t value) {
+        double strength = value / 100.0;
+        return Event{SetHydrostaticPressureStrengthCommand{strength}};
+    });
+}
+
+LVGLEventBuilder::SliderBuilder& LVGLEventBuilder::SliderBuilder::onAirResistanceChange() {
+    valueTransform([](int32_t value) {
+        return value / 100.0;  // Convert 0-100 to 0.0-1.0
+    });
+
+    return onValueChange([](int32_t value) {
+        double strength = value / 100.0;
+        return Event{SetAirResistanceCommand{strength}};
+    });
+}
+
 // ===== ButtonBuilder Implementation =====
 
 LVGLEventBuilder::ButtonBuilder& LVGLEventBuilder::ButtonBuilder::withEventRouter(EventRouter* router) {
