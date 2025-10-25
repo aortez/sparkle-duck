@@ -705,42 +705,33 @@ void SimulatorUI::createSliders()
     lv_label_set_text(hydrostatic_label, "Hydrostatic Pressure");
     lv_obj_align(hydrostatic_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 645);
 
-    hydrostatic_switch_ = lv_switch_create(screen_);
-    lv_obj_align(hydrostatic_switch_, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X + 180, 645);
-    // Default disabled to match WorldB constructor.
-    lv_obj_add_event_cb(
-        hydrostatic_switch_,
-        hydrostaticPressureToggleEventCb,
-        LV_EVENT_VALUE_CHANGED,
-        createCallbackData());
+    hydrostatic_switch_ = LVGLEventBuilder::lvSwitch(screen_, event_router_)
+                              .onHydrostaticPressureToggle()
+                              .position(SLIDER_COLUMN_X + 180, 645, LV_ALIGN_TOP_LEFT)
+                              .checked(false)
+                              .buildOrLog();
 
     // Dynamic pressure toggle.
     lv_obj_t* dynamic_label = lv_label_create(screen_);
     lv_label_set_text(dynamic_label, "Dynamic Pressure");
     lv_obj_align(dynamic_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 675);
 
-    dynamic_switch_ = lv_switch_create(screen_);
-    lv_obj_align(dynamic_switch_, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X + 180, 675);
-    // Default disabled to match WorldB constructor.
-    lv_obj_add_event_cb(
-        dynamic_switch_,
-        dynamicPressureToggleEventCb,
-        LV_EVENT_VALUE_CHANGED,
-        createCallbackData());
+    dynamic_switch_ = LVGLEventBuilder::lvSwitch(screen_, event_router_)
+                          .onDynamicPressureToggle()
+                          .position(SLIDER_COLUMN_X + 180, 675, LV_ALIGN_TOP_LEFT)
+                          .checked(false)
+                          .buildOrLog();
 
     // Pressure diffusion toggle.
     lv_obj_t* diffusion_label = lv_label_create(screen_);
     lv_label_set_text(diffusion_label, "Pressure Diffusion");
     lv_obj_align(diffusion_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 705);
 
-    diffusion_switch_ = lv_switch_create(screen_);
-    lv_obj_align(diffusion_switch_, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X + 180, 705);
-    // Default disabled to match WorldB constructor.
-    lv_obj_add_event_cb(
-        diffusion_switch_,
-        pressureDiffusionToggleEventCb,
-        LV_EVENT_VALUE_CHANGED,
-        createCallbackData());
+    diffusion_switch_ = LVGLEventBuilder::lvSwitch(screen_, event_router_)
+                            .onPressureDiffusionToggle()
+                            .position(SLIDER_COLUMN_X + 180, 705, LV_ALIGN_TOP_LEFT)
+                            .checked(false)
+                            .buildOrLog();
 
     // Hydrostatic pressure strength slider (WorldB only) - migrated to LVGLBuilder.
     auto hydrostatic_builder =

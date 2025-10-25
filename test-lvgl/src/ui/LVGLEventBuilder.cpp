@@ -15,6 +15,10 @@ LVGLEventBuilder::ButtonBuilder LVGLEventBuilder::button(lv_obj_t* parent, Event
     return ButtonBuilder(parent).withEventRouter(router);
 }
 
+LVGLEventBuilder::SwitchBuilder LVGLEventBuilder::lvSwitch(lv_obj_t* parent, EventRouter* router) {
+    return SwitchBuilder(parent).withEventRouter(router);
+}
+
 LVGLEventBuilder::ButtonMatrixBuilder LVGLEventBuilder::buttonMatrix(lv_obj_t* parent, EventRouter* router) {
     return ButtonMatrixBuilder(parent).withEventRouter(router);
 }
@@ -236,6 +240,106 @@ LVGLEventBuilder::ButtonBuilder& LVGLEventBuilder::ButtonBuilder::onAdhesionTogg
 
 LVGLEventBuilder::ButtonBuilder& LVGLEventBuilder::ButtonBuilder::onTimeHistoryToggle() {
     return onClick(Event{ToggleTimeHistoryCommand{}});
+}
+
+// ===== SwitchBuilder Implementation =====
+
+LVGLEventBuilder::SwitchBuilder& LVGLEventBuilder::SwitchBuilder::withEventRouter(EventRouter* router) {
+    eventRouter_ = router;
+    return *this;
+}
+
+LVGLEventBuilder::SwitchBuilder& LVGLEventBuilder::SwitchBuilder::onToggle(Event checkedEvent, Event uncheckedEvent) {
+    if (!eventRouter_) {
+        spdlog::error("SwitchBuilder: EventRouter not set! Use withEventRouter() first.");
+        return *this;
+    }
+
+    toggleEvents_ = std::make_shared<std::pair<Event, Event>>(checkedEvent, uncheckedEvent);
+    return *this;
+}
+
+LVGLEventBuilder::SwitchBuilder& LVGLEventBuilder::SwitchBuilder::onHydrostaticPressureToggle() {
+    return onToggle(
+        Event{ToggleHydrostaticPressureCommand{}},
+        Event{ToggleHydrostaticPressureCommand{}});
+}
+
+LVGLEventBuilder::SwitchBuilder& LVGLEventBuilder::SwitchBuilder::onDynamicPressureToggle() {
+    return onToggle(
+        Event{ToggleDynamicPressureCommand{}},
+        Event{ToggleDynamicPressureCommand{}});
+}
+
+LVGLEventBuilder::SwitchBuilder& LVGLEventBuilder::SwitchBuilder::onPressureDiffusionToggle() {
+    return onToggle(
+        Event{TogglePressureDiffusionCommand{}},
+        Event{TogglePressureDiffusionCommand{}});
+}
+
+LVGLEventBuilder::SwitchBuilder& LVGLEventBuilder::SwitchBuilder::position(int x, int y, lv_align_t align) {
+    position_ = std::make_tuple(x, y, align);
+    return *this;
+}
+
+LVGLEventBuilder::SwitchBuilder& LVGLEventBuilder::SwitchBuilder::checked(bool isChecked) {
+    initialChecked_ = isChecked;
+    return *this;
+}
+
+lv_obj_t* LVGLEventBuilder::SwitchBuilder::buildOrLog() {
+    if (!parent_) {
+        spdlog::error("SwitchBuilder: parent cannot be null");
+        return nullptr;
+    }
+
+    // Create the switch.
+    switch_ = lv_switch_create(parent_);
+    if (!switch_) {
+        spdlog::error("SwitchBuilder: Failed to create switch");
+        return nullptr;
+    }
+
+    // Set position if specified.
+    if (position_.has_value()) {
+        auto [x, y, align] = position_.value();
+        lv_obj_align(switch_, align, x, y);
+    }
+
+    // Set initial checked state.
+    if (initialChecked_) {
+        lv_obj_add_state(switch_, LV_STATE_CHECKED);
+    }
+
+    // Set up event handling if toggle events are configured.
+    if (toggleEvents_ && eventRouter_) {
+        struct SwitchCallbackData {
+            EventRouter* router;
+            Event checkedEvent;
+            Event uncheckedEvent;
+        };
+
+        auto* data = new SwitchCallbackData{
+            eventRouter_,
+            toggleEvents_->first,
+            toggleEvents_->second
+        };
+
+        lv_obj_add_event_cb(switch_, [](lv_event_t* e) {
+            if (lv_event_get_code(e) == LV_EVENT_VALUE_CHANGED) {
+                auto* switchData = static_cast<SwitchCallbackData*>(lv_event_get_user_data(e));
+                lv_obj_t* sw = lv_event_get_target_obj(e);
+                if (switchData && sw) {
+                    bool isChecked = lv_obj_has_state(sw, LV_STATE_CHECKED);
+                    Event event = isChecked ? switchData->checkedEvent : switchData->uncheckedEvent;
+                    spdlog::info("Switch toggled: isChecked={}, routing event", isChecked);
+                    switchData->router->routeEvent(event);
+                }
+            }
+        }, LV_EVENT_VALUE_CHANGED, data);
+    }
+
+    return switch_;
 }
 
 // ===== ButtonMatrixBuilder Implementation =====

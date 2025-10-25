@@ -18,27 +18,33 @@ namespace DirtSim {
  */
 class LVGLEventBuilder {
 public:
-    // Forward declarations
+    // Forward declarations.
     class SliderBuilder;
     class ButtonBuilder;
+    class SwitchBuilder;
     class ButtonMatrixBuilder;
     class DropdownBuilder;
-    
+
     /**
      * @brief Create a slider with event routing support.
      */
     static SliderBuilder slider(lv_obj_t* parent, EventRouter* router);
-    
+
     /**
      * @brief Create a button with event routing support.
      */
     static ButtonBuilder button(lv_obj_t* parent, EventRouter* router);
-    
+
+    /**
+     * @brief Create a switch with event routing support.
+     */
+    static SwitchBuilder lvSwitch(lv_obj_t* parent, EventRouter* router);
+
     /**
      * @brief Create a button matrix with event routing support.
      */
     static ButtonMatrixBuilder buttonMatrix(lv_obj_t* parent, EventRouter* router);
-    
+
     /**
      * @brief Create a dropdown with event routing support.
      */
@@ -176,7 +182,70 @@ public:
         std::shared_ptr<std::function<Event()>> eventHandler_;
         std::shared_ptr<std::pair<Event, Event>> toggleEvents_;
     };
-    
+
+    /**
+     * @brief SwitchBuilder for event handling with LVGL switches.
+     */
+    class SwitchBuilder {
+    public:
+        explicit SwitchBuilder(lv_obj_t* parent) : parent_(parent), switch_(nullptr) {}
+
+        /**
+         * @brief Set up switch to emit events based on state.
+         * @param checkedEvent Event when switch becomes checked (on).
+         * @param uncheckedEvent Event when switch becomes unchecked (off).
+         */
+        SwitchBuilder& onToggle(Event checkedEvent, Event uncheckedEvent);
+
+        /**
+         * @brief Convenience method for hydrostatic pressure toggle.
+         */
+        SwitchBuilder& onHydrostaticPressureToggle();
+
+        /**
+         * @brief Convenience method for dynamic pressure toggle.
+         */
+        SwitchBuilder& onDynamicPressureToggle();
+
+        /**
+         * @brief Convenience method for pressure diffusion toggle.
+         */
+        SwitchBuilder& onPressureDiffusionToggle();
+
+        /**
+         * @brief Set position of the switch.
+         */
+        SwitchBuilder& position(int x, int y, lv_align_t align = LV_ALIGN_TOP_LEFT);
+
+        /**
+         * @brief Set initial checked state.
+         */
+        SwitchBuilder& checked(bool isChecked);
+
+        /**
+         * @brief Set the event router for this builder.
+         */
+        SwitchBuilder& withEventRouter(EventRouter* router);
+
+        /**
+         * @brief Build the switch and return it.
+         */
+        lv_obj_t* buildOrLog();
+
+        /**
+         * @brief Get the created switch.
+         */
+        lv_obj_t* getSwitch() const { return switch_; }
+
+    private:
+        lv_obj_t* parent_;
+        lv_obj_t* switch_;
+        EventRouter* eventRouter_ = nullptr;
+        std::shared_ptr<std::pair<Event, Event>> toggleEvents_;
+        std::optional<std::tuple<int, int, lv_align_t>> position_;
+        bool initialChecked_ = false;
+    };
+
     /**
      * @brief Extended button matrix builder for event handling.
      */
