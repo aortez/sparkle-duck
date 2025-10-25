@@ -144,7 +144,6 @@ void SimulatorUI::initialize()
     createMaterialPicker();
     createControlButtons();
     createSliders();
-    setupDrawAreaEvents();
 
     // Set initial button matrix state based on current world type.
     if (world_) {
@@ -168,21 +167,12 @@ void SimulatorUI::initialize()
 
 void SimulatorUI::createDrawArea()
 {
-    if (event_router_) {
-        draw_area_ = LVGLEventBuilder::drawArea(screen_, event_router_)
-                         .size(DRAW_AREA_SIZE, DRAW_AREA_SIZE)
-                         .position(0, 0, LV_ALIGN_LEFT_MID)
-                         .onMouseEvents() // This sets up mouse down/move/up events.
-                         .buildOrLog();
-        if (draw_area_) {
-            lv_obj_set_style_pad_all(draw_area_, 0, 0);
-        }
-    }
-    else {
-        // Fallback to old system.
-        draw_area_ = lv_obj_create(screen_);
-        lv_obj_set_size(draw_area_, DRAW_AREA_SIZE, DRAW_AREA_SIZE);
-        lv_obj_align(draw_area_, LV_ALIGN_LEFT_MID, 0, 0);
+    draw_area_ = LVGLEventBuilder::drawArea(screen_, event_router_)
+                     .size(DRAW_AREA_SIZE, DRAW_AREA_SIZE)
+                     .position(0, 0, LV_ALIGN_LEFT_MID)
+                     .onMouseEvents() // This sets up mouse down/move/up events.
+                     .buildOrLog();
+    if (draw_area_) {
         lv_obj_set_style_pad_all(draw_area_, 0, 0);
     }
 }
@@ -220,60 +210,27 @@ void SimulatorUI::createWorldTypeColumn()
     // Create world type button matrix with vertical stack.
     static const char* world_btnm_map[] = { "WorldA", "\n", "WorldB", "" };
 
-    if (event_router_) {
-        world_type_btnm_ =
-            LVGLEventBuilder::buttonMatrix(screen_, event_router_)
-                .map(world_btnm_map)
-                .size(WORLD_TYPE_COLUMN_WIDTH, 100)
-                .position(WORLD_TYPE_COLUMN_X, 30, LV_ALIGN_TOP_LEFT)
-                .oneChecked(true)
-                .buttonCtrl(0, LV_BUTTONMATRIX_CTRL_CHECKABLE)
-                .buttonCtrl(1, LV_BUTTONMATRIX_CTRL_CHECKABLE)
-                .selectedButton(1) // WorldB is default.
-                .style(
-                    LV_PART_ITEMS,
-                    [](lv_style_t* style) {
-                        lv_style_set_bg_color(style, lv_color_hex(0x404040));
-                        lv_style_set_text_color(style, lv_color_white());
-                    })
-                .style(
-                    static_cast<lv_style_selector_t>(
-                        static_cast<int>(LV_PART_ITEMS) | static_cast<int>(LV_STATE_CHECKED)),
-                    [](lv_style_t* style) { lv_style_set_bg_color(style, lv_color_hex(0x0080FF)); })
-                .onWorldTypeSelect()
-                .buildOrLog();
-    }
-    else {
-        // Fallback to old callback system.
-        world_type_btnm_ = lv_buttonmatrix_create(screen_);
-        lv_obj_set_size(
-            world_type_btnm_, WORLD_TYPE_COLUMN_WIDTH, 100); // 100px height for vertical stack.
-        lv_obj_align(world_type_btnm_, LV_ALIGN_TOP_LEFT, WORLD_TYPE_COLUMN_X, 30);
-        lv_buttonmatrix_set_map(world_type_btnm_, world_btnm_map);
-        lv_buttonmatrix_set_one_checked(world_type_btnm_, true);
-
-        // Make buttons checkable.
-        lv_buttonmatrix_set_button_ctrl(world_type_btnm_, 0, LV_BUTTONMATRIX_CTRL_CHECKABLE);
-        lv_buttonmatrix_set_button_ctrl(world_type_btnm_, 1, LV_BUTTONMATRIX_CTRL_CHECKABLE);
-
-        // Set initial selection to WorldB (default per CLAUDE.md).
-        lv_buttonmatrix_set_selected_button(world_type_btnm_, 1);
-
-        // Style the button matrix.
-        lv_obj_set_style_bg_color(world_type_btnm_, lv_color_hex(0x404040), LV_PART_ITEMS);
-        lv_obj_set_style_bg_color(
-            world_type_btnm_,
-            lv_color_hex(0x0080FF),
-            static_cast<lv_style_selector_t>(
-                static_cast<int>(LV_PART_ITEMS) | static_cast<int>(LV_STATE_CHECKED)));
-        lv_obj_set_style_text_color(world_type_btnm_, lv_color_white(), LV_PART_ITEMS);
-
-        lv_obj_add_event_cb(
-            world_type_btnm_,
-            worldTypeButtonMatrixEventCb,
-            LV_EVENT_VALUE_CHANGED,
-            createCallbackData());
-    }
+    world_type_btnm_ =
+        LVGLEventBuilder::buttonMatrix(screen_, event_router_)
+            .map(world_btnm_map)
+            .size(WORLD_TYPE_COLUMN_WIDTH, 100)
+            .position(WORLD_TYPE_COLUMN_X, 30, LV_ALIGN_TOP_LEFT)
+            .oneChecked(true)
+            .buttonCtrl(0, LV_BUTTONMATRIX_CTRL_CHECKABLE)
+            .buttonCtrl(1, LV_BUTTONMATRIX_CTRL_CHECKABLE)
+            .selectedButton(1) // WorldB is default.
+            .style(
+                LV_PART_ITEMS,
+                [](lv_style_t* style) {
+                    lv_style_set_bg_color(style, lv_color_hex(0x404040));
+                    lv_style_set_text_color(style, lv_color_white());
+                })
+            .style(
+                static_cast<lv_style_selector_t>(
+                    static_cast<int>(LV_PART_ITEMS) | static_cast<int>(LV_STATE_CHECKED)),
+                [](lv_style_t* style) { lv_style_set_bg_color(style, lv_color_hex(0x0080FF)); })
+            .onWorldTypeSelect()
+            .buildOrLog();
 
     // Create scenario controls after world type buttons.
     // Scenario label.
@@ -383,48 +340,24 @@ void SimulatorUI::createControlButtons()
     pressure_scale_slider_ = pressure_scale_builder.buildOrLog();
 
     // Create cursor force toggle button.
-    if (event_router_) {
-        LVGLEventBuilder::button(screen_, event_router_)
-            .onForceToggle()
-            .size(CONTROL_WIDTH, 50)
-            .position(MAIN_CONTROLS_X, 205, LV_ALIGN_TOP_LEFT)
-            .text("Force: Off")
-            .toggle(true)
-            .buildOrLog();
-    }
-    else {
-        lv_obj_t* force_btn = lv_btn_create(screen_);
-        lv_obj_set_size(force_btn, CONTROL_WIDTH, 50);
-        lv_obj_align(force_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 205);
-        lv_obj_t* force_label = lv_label_create(force_btn);
-        lv_label_set_text(force_label, "Force: Off");
-        lv_obj_center(force_label);
-        lv_obj_add_event_cb(force_btn, forceBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
-    }
+    LVGLEventBuilder::button(screen_, event_router_)
+        .onForceToggle()
+        .size(CONTROL_WIDTH, 50)
+        .position(MAIN_CONTROLS_X, 205, LV_ALIGN_TOP_LEFT)
+        .text("Force: Off")
+        .toggle(true)
+        .buildOrLog();
 
     // Create gravity toggle button.
-    if (event_router_) {
-        gravity_button_ = LVGLEventBuilder::button(screen_, event_router_)
-                              .onGravityToggle() // Call event method first.
-                              .size(CONTROL_WIDTH, 50)
-                              .position(MAIN_CONTROLS_X, 265, LV_ALIGN_TOP_LEFT)
-                              .text("Gravity: On")
-                              .toggle(true) // Make it a toggle button.
-                              .buildOrLog();
-        if (gravity_button_) {
-            gravity_label_ = lv_obj_get_child(gravity_button_, 0);
-        }
-    }
-    else {
-        // Fallback to old callback system.
-        gravity_button_ = lv_btn_create(screen_);
-        lv_obj_set_size(gravity_button_, CONTROL_WIDTH, 50);
-        lv_obj_align(gravity_button_, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 265);
-        gravity_label_ = lv_label_create(gravity_button_);
-        lv_label_set_text(gravity_label_, "Gravity: On");
-        lv_obj_center(gravity_label_);
-        lv_obj_add_event_cb(
-            gravity_button_, gravityBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
+    gravity_button_ = LVGLEventBuilder::button(screen_, event_router_)
+                          .onGravityToggle() // Call event method first.
+                          .size(CONTROL_WIDTH, 50)
+                          .position(MAIN_CONTROLS_X, 265, LV_ALIGN_TOP_LEFT)
+                          .text("Gravity: On")
+                          .toggle(true) // Make it a toggle button.
+                          .buildOrLog();
+    if (gravity_button_) {
+        gravity_label_ = lv_obj_get_child(gravity_button_, 0);
     }
 
     // Create viscosity strength slider.
@@ -445,25 +378,13 @@ void SimulatorUI::createControlButtons()
     // Create cohesion force toggle button.
     // TODO: This currently uses the same ToggleCohesionCommand as the bind button.
     // May need separate commands for bind vs force cohesion.
-    if (event_router_) {
-        LVGLEventBuilder::button(screen_, event_router_)
-            .onCohesionToggle() // TODO: Create onCohesionForceToggle() for clarity.
-            .size(CONTROL_WIDTH, 50)
-            .position(MAIN_CONTROLS_X, 390, LV_ALIGN_TOP_LEFT)
-            .text("Cohesion Force: Off")
-            .toggle(true)
-            .buildOrLog();
-    }
-    else {
-        lv_obj_t* cohesion_force_btn = lv_btn_create(screen_);
-        lv_obj_set_size(cohesion_force_btn, CONTROL_WIDTH, 50);
-        lv_obj_align(cohesion_force_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 390);
-        lv_obj_t* cohesion_force_label = lv_label_create(cohesion_force_btn);
-        lv_label_set_text(cohesion_force_label, "Cohesion Force: Off");
-        lv_obj_center(cohesion_force_label);
-        lv_obj_add_event_cb(
-            cohesion_force_btn, cohesionForceBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
-    }
+    LVGLEventBuilder::button(screen_, event_router_)
+        .onCohesionToggle() // TODO: Create onCohesionForceToggle() for clarity.
+        .size(CONTROL_WIDTH, 50)
+        .position(MAIN_CONTROLS_X, 390, LV_ALIGN_TOP_LEFT)
+        .text("Cohesion Force: Off")
+        .toggle(true)
+        .buildOrLog();
 
     // Create COM cohesion strength slider below the force button - migrated to LVGLBuilder.
     auto cohesion_builder =
@@ -510,25 +431,13 @@ void SimulatorUI::createControlButtons()
     friction_strength_slider_ = friction_builder.buildOrLog();
 
     // Create adhesion toggle button.
-    if (event_router_) {
-        LVGLEventBuilder::button(screen_, event_router_)
-            .onAdhesionToggle()
-            .size(CONTROL_WIDTH, 50)
-            .position(MAIN_CONTROLS_X, 560, LV_ALIGN_TOP_LEFT)
-            .text("Adhesion: Off")
-            .toggle(true)
-            .buildOrLog();
-    }
-    else {
-        lv_obj_t* adhesion_btn = lv_btn_create(screen_);
-        lv_obj_set_size(adhesion_btn, CONTROL_WIDTH, 50);
-        lv_obj_align(adhesion_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 590);
-        lv_obj_t* adhesion_label = lv_label_create(adhesion_btn);
-        lv_label_set_text(adhesion_label, "Adhesion: Off");
-        lv_obj_center(adhesion_label);
-        lv_obj_add_event_cb(
-            adhesion_btn, adhesionBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
-    }
+    LVGLEventBuilder::button(screen_, event_router_)
+        .onAdhesionToggle()
+        .size(CONTROL_WIDTH, 50)
+        .position(MAIN_CONTROLS_X, 560, LV_ALIGN_TOP_LEFT)
+        .text("Adhesion: Off")
+        .toggle(true)
+        .buildOrLog();
 
     // Create adhesion strength slider - migrated to LVGLBuilder with value transform.
     [[maybe_unused]] auto adhesion_strength_slider =
@@ -575,69 +484,32 @@ void SimulatorUI::createControlButtons()
     lv_obj_add_event_cb(quadrant_btn, quadrantBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
 
     // Create screenshot button.
-    if (event_router_) {
-        LVGLEventBuilder::button(screen_, event_router_)
-            .onScreenshot() // Call event method first.
-            .size(CONTROL_WIDTH, 50)
-            .position(MAIN_CONTROLS_X, 815, LV_ALIGN_TOP_LEFT)
-            .text("Screenshot")
-            .buildOrLog();
-    }
-    else {
-        // Fallback to old callback system.
-        lv_obj_t* screenshot_btn = lv_btn_create(screen_);
-        lv_obj_set_size(screenshot_btn, CONTROL_WIDTH, 50);
-        lv_obj_align(screenshot_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 815);
-        lv_obj_t* screenshot_label = lv_label_create(screenshot_btn);
-        lv_label_set_text(screenshot_label, "Screenshot");
-        lv_obj_center(screenshot_label);
-        lv_obj_add_event_cb(
-            screenshot_btn, screenshotBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
-    }
+    LVGLEventBuilder::button(screen_, event_router_)
+        .onScreenshot() // Call event method first.
+        .size(CONTROL_WIDTH, 50)
+        .position(MAIN_CONTROLS_X, 815, LV_ALIGN_TOP_LEFT)
+        .text("Screenshot")
+        .buildOrLog();
 
     // Create print ASCII button.
-    if (event_router_) {
-        LVGLEventBuilder::button(screen_, event_router_)
-            .onPrintAscii()
-            .size(CONTROL_WIDTH, 50)
-            .position(MAIN_CONTROLS_X, 875, LV_ALIGN_TOP_LEFT)
-            .text("Print ASCII")
-            .buildOrLog();
-    }
-    else {
-        lv_obj_t* print_ascii_btn = lv_btn_create(screen_);
-        lv_obj_set_size(print_ascii_btn, CONTROL_WIDTH, 50);
-        lv_obj_align(print_ascii_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 875);
-        lv_obj_t* print_ascii_label = lv_label_create(print_ascii_btn);
-        lv_label_set_text(print_ascii_label, "Print ASCII");
-        lv_obj_center(print_ascii_label);
-        lv_obj_add_event_cb(
-            print_ascii_btn, printAsciiBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
-    }
+    LVGLEventBuilder::button(screen_, event_router_)
+        .onPrintAscii()
+        .size(CONTROL_WIDTH, 50)
+        .position(MAIN_CONTROLS_X, 875, LV_ALIGN_TOP_LEFT)
+        .text("Print ASCII")
+        .buildOrLog();
 
     // Time reversal controls have been moved to slider column.
 
     // Create quit button.
-    if (event_router_) {
-        auto quit_btn = LVGLEventBuilder::button(screen_, event_router_)
-                            .onQuit()
-                            .size(CONTROL_WIDTH, 50)
-                            .position(-10, -10, LV_ALIGN_BOTTOM_RIGHT)
-                            .text("Quit")
-                            .buildOrLog();
-        if (quit_btn) {
-            lv_obj_set_style_bg_color(quit_btn, lv_color_hex(0xFF0000), 0);
-        }
-    }
-    else {
-        lv_obj_t* quit_btn = lv_btn_create(screen_);
-        lv_obj_set_size(quit_btn, CONTROL_WIDTH, 50);
-        lv_obj_align(quit_btn, LV_ALIGN_BOTTOM_RIGHT, -10, -10);
+    auto quit_btn = LVGLEventBuilder::button(screen_, event_router_)
+                        .onQuit()
+                        .size(CONTROL_WIDTH, 50)
+                        .position(-10, -10, LV_ALIGN_BOTTOM_RIGHT)
+                        .text("Quit")
+                        .buildOrLog();
+    if (quit_btn) {
         lv_obj_set_style_bg_color(quit_btn, lv_color_hex(0xFF0000), 0);
-        lv_obj_t* quit_label = lv_label_create(quit_btn);
-        lv_label_set_text(quit_label, "Quit");
-        lv_obj_center(quit_label);
-        lv_obj_add_event_cb(quit_btn, quitBtnEventCb, LV_EVENT_CLICKED, nullptr);
     }
 }
 
@@ -647,48 +519,24 @@ void SimulatorUI::createSliders()
     const int SLIDER_COLUMN_X = MAIN_CONTROLS_X + CONTROL_WIDTH + 10;
 
     // Move Pause/Resume button to top of slider column.
-    if (event_router_) {
-        pause_btn_ = LVGLEventBuilder::button(screen_, event_router_)
-                         .onPauseResume() // Call event method first.
-                         .size(CONTROL_WIDTH, 50)
-                         .position(SLIDER_COLUMN_X, 10, LV_ALIGN_TOP_LEFT)
-                         .buildOrLog();
-        if (pause_btn_) {
-            pause_label_ = lv_label_create(pause_btn_);
-            lv_label_set_text(pause_label_, "Pause");
-            lv_obj_center(pause_label_);
-        }
-    }
-    else {
-        // Fallback to old callback system.
-        lv_obj_t* pause_btn = lv_btn_create(screen_);
-        lv_obj_set_size(pause_btn, CONTROL_WIDTH, 50);
-        lv_obj_align(pause_btn, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 10);
-        pause_label_ = lv_label_create(pause_btn);
+    pause_btn_ = LVGLEventBuilder::button(screen_, event_router_)
+                     .onPauseResume() // Call event method first.
+                     .size(CONTROL_WIDTH, 50)
+                     .position(SLIDER_COLUMN_X, 10, LV_ALIGN_TOP_LEFT)
+                     .buildOrLog();
+    if (pause_btn_) {
+        pause_label_ = lv_label_create(pause_btn_);
         lv_label_set_text(pause_label_, "Pause");
         lv_obj_center(pause_label_);
-        lv_obj_add_event_cb(pause_btn, pauseBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
     }
 
     // Move Reset button below Pause.
-    if (event_router_) {
-        LVGLEventBuilder::button(screen_, event_router_)
-            .onReset() // Call event method first.
-            .size(CONTROL_WIDTH, 50)
-            .position(SLIDER_COLUMN_X, 70, LV_ALIGN_TOP_LEFT)
-            .text("Reset")
-            .buildOrLog();
-    }
-    else {
-        // Fallback to old callback system.
-        lv_obj_t* reset_btn = lv_btn_create(screen_);
-        lv_obj_set_size(reset_btn, CONTROL_WIDTH, 50);
-        lv_obj_align(reset_btn, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 70);
-        lv_obj_t* reset_label = lv_label_create(reset_btn);
-        lv_label_set_text(reset_label, "Reset");
-        lv_obj_center(reset_label);
-        lv_obj_add_event_cb(reset_btn, resetBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
-    }
+    LVGLEventBuilder::button(screen_, event_router_)
+        .onReset() // Call event method first.
+        .size(CONTROL_WIDTH, 50)
+        .position(SLIDER_COLUMN_X, 70, LV_ALIGN_TOP_LEFT)
+        .text("Reset")
+        .buildOrLog();
 
     // Move Time History controls below Reset.
     lv_obj_t* time_reversal_btn = lv_btn_create(screen_);
@@ -719,75 +567,31 @@ void SimulatorUI::createSliders()
 
     // Start sliders below the moved buttons.
     // Timescale slider.
-    if (event_router_) {
-        auto timescale_slider = LVGLEventBuilder::slider(screen_, event_router_)
-                                    .onTimescaleChange() // Call event method first.
-                                    .position(SLIDER_COLUMN_X, 230, LV_ALIGN_TOP_LEFT)
-                                    .size(CONTROL_WIDTH, 10)
-                                    .range(0, 100)
-                                    .value(50)
-                                    .label("Timescale", 0, -20)
-                                    .valueLabel("%.1fx", 110, -20);
-        timescale_slider.buildOrLog();
-        // Store the slider and value label references
-        timescale_slider_ = timescale_slider.getSlider();
-        timescale_label_ = timescale_slider.getValueLabel();
-    }
-    else {
-        // Fallback to LVGLBuilder.
-        auto timescale_builder =
-            LVGLBuilder::slider(screen_)
-                .position(SLIDER_COLUMN_X, 230)
-                .size(CONTROL_WIDTH, 10)
-                .range(0, 100)
-                .value(50)
-                .label("Timescale", 0, -20)
-                .valueLabel("%.1fx", 110, -20)
-                .valueTransform([](int32_t value) {
-                    // Convert 0-100 to logarithmic scale: 0.1x to 10x with 1.0x at center (50)
-                    return pow(10.0, (value - 50) / 50.0);
-                })
-                .callback(timescaleSliderEventCb, [this](lv_obj_t* value_label) -> void* {
-                    // Store the value label reference
-                    timescale_label_ = value_label;
-                    return createCallbackData(value_label);
-                });
-        timescale_builder.buildOrLog();
-        // Store the slider reference
-        timescale_slider_ = timescale_builder.getSlider();
-    }
+    auto timescale_slider = LVGLEventBuilder::slider(screen_, event_router_)
+                                .onTimescaleChange() // Call event method first.
+                                .position(SLIDER_COLUMN_X, 230, LV_ALIGN_TOP_LEFT)
+                                .size(CONTROL_WIDTH, 10)
+                                .range(0, 100)
+                                .value(50)
+                                .label("Timescale", 0, -20)
+                                .valueLabel("%.1fx", 110, -20);
+    timescale_slider.buildOrLog();
+    // Store the slider and value label references.
+    timescale_slider_ = timescale_slider.getSlider();
+    timescale_label_ = timescale_slider.getValueLabel();
 
-    // Elasticity slider - migrated to EventRouter or LVGLBuilder.
-    if (event_router_) {
-        auto elasticity_slider = LVGLEventBuilder::slider(screen_, event_router_)
-                                     .onElasticityChange() // Call event method first.
-                                     .position(SLIDER_COLUMN_X, 270, LV_ALIGN_TOP_LEFT)
-                                     .size(CONTROL_WIDTH, 10)
-                                     .range(0, 200)
-                                     .value(80)
-                                     .label("Elasticity")
-                                     .valueLabel("%.1f");
-        elasticity_slider.buildOrLog();
-        // Store the value label reference
-        elasticity_label_ = elasticity_slider.getValueLabel();
-    }
-    else {
-        // Fallback to LVGLBuilder.
-        auto elasticity_builder =
-            LVGLBuilder::slider(screen_)
-                .position(SLIDER_COLUMN_X, 270)
-                .size(CONTROL_WIDTH, 10)
-                .range(0, 200)
-                .value(80)
-                .label("Elasticity")
-                .valueLabel("%.1f")
-                .callback(elasticitySliderEventCb, [this](lv_obj_t* value_label) -> void* {
-                    // Store the value label reference
-                    elasticity_label_ = value_label;
-                    return createCallbackData(value_label);
-                });
-        elasticity_slider_ = elasticity_builder.buildOrLog();
-    }
+    // Elasticity slider - migrated to EventRouter.
+    auto elasticity_slider = LVGLEventBuilder::slider(screen_, event_router_)
+                                 .onElasticityChange() // Call event method first.
+                                 .position(SLIDER_COLUMN_X, 270, LV_ALIGN_TOP_LEFT)
+                                 .size(CONTROL_WIDTH, 10)
+                                 .range(0, 200)
+                                 .value(80)
+                                 .label("Elasticity")
+                                 .valueLabel("%.1f");
+    elasticity_slider.buildOrLog();
+    // Store the value label reference.
+    elasticity_label_ = elasticity_slider.getValueLabel();
 
     // Dirt fragmentation slider - migrated to LVGLBuilder with value transform.
     [[maybe_unused]] auto fragmentation_slider =
@@ -957,35 +761,15 @@ void SimulatorUI::createSliders()
     hydrostatic_strength_slider_ = hydrostatic_builder.buildOrLog();
 
     // Dynamic pressure strength slider (WorldB only) - migrated to EventRouter.
-    if (event_router_) {
-        LVGLEventBuilder::slider(screen_, event_router_)
-            .onDynamicStrengthChange() // Uses new event system.
-            .position(SLIDER_COLUMN_X, 815, LV_ALIGN_TOP_LEFT)
-            .size(CONTROL_WIDTH, 10)
-            .range(0, 300) // 0.0 to 3.0 range.
-            .value(100)    // Default 1.0 -> 100.
-            .label("Dynamic Strength", 0, -20)
-            .valueLabel("%.1f", 140, -20)
-            .buildOrLog();
-    }
-    else {
-        // Fallback to old callback system.
-        auto dynamic_strength_builder =
-            LVGLBuilder::slider(screen_)
-                .position(SLIDER_COLUMN_X, 815)
-                .size(CONTROL_WIDTH, 10)
-                .range(0, 300)
-                .value(100)
-                .label("Dynamic Strength", 0, -20)
-                .valueLabel("%.1f", 140, -20)
-                .valueTransform(LVGLBuilder::Transforms::Linear(0.01)) // Convert 0-300 to 0.0-3.0
-                .callback(
-                    dynamicPressureStrengthSliderEventCb, [this](lv_obj_t* value_label) -> void* {
-                        dynamic_strength_label_ = value_label;
-                        return createCallbackData(value_label);
-                    });
-        dynamic_strength_slider_ = dynamic_strength_builder.buildOrLog();
-    }
+    LVGLEventBuilder::slider(screen_, event_router_)
+        .onDynamicStrengthChange() // Uses new event system.
+        .position(SLIDER_COLUMN_X, 815, LV_ALIGN_TOP_LEFT)
+        .size(CONTROL_WIDTH, 10)
+        .range(0, 300) // 0.0 to 3.0 range.
+        .value(100)    // Default 1.0 -> 100.
+        .label("Dynamic Strength", 0, -20)
+        .valueLabel("%.1f", 140, -20)
+        .buildOrLog();
 
     // Air resistance slider - migrated to LVGLBuilder with value transform.
     auto air_resistance_builder =
@@ -1020,16 +804,6 @@ void SimulatorUI::createSliders()
     pressure_scale_worldb_slider_ = pressure_scale_worldb_builder.buildOrLog();
 }
 
-void SimulatorUI::setupDrawAreaEvents()
-{
-    // Only set up old callbacks if not using event router.
-    if (!event_router_) {
-        lv_obj_add_event_cb(draw_area_, drawAreaEventCb, LV_EVENT_PRESSED, createCallbackData());
-        lv_obj_add_event_cb(draw_area_, drawAreaEventCb, LV_EVENT_PRESSING, createCallbackData());
-        lv_obj_add_event_cb(draw_area_, drawAreaEventCb, LV_EVENT_RELEASED, createCallbackData());
-    }
-    // If using event router, events were already set up in createDrawArea().
-}
 
 void SimulatorUI::updateMassLabel(double totalMass)
 {
