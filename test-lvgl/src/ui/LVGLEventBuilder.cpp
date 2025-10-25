@@ -220,6 +220,29 @@ LVGLEventBuilder::SliderBuilder& LVGLEventBuilder::SliderBuilder::onAirResistanc
     });
 }
 
+LVGLEventBuilder::SliderBuilder& LVGLEventBuilder::SliderBuilder::onCellSizeChange() {
+    return onValueChange([](int32_t value) {
+        return Event{SetCellSizeCommand{static_cast<double>(value)}};
+    });
+}
+
+LVGLEventBuilder::SliderBuilder& LVGLEventBuilder::SliderBuilder::onFragmentationChange() {
+    valueTransform([](int32_t value) {
+        return value / 100.0;  // Convert 0-100 to 0.0-1.0
+    });
+
+    return onValueChange([](int32_t value) {
+        double factor = value / 100.0;
+        return Event{SetFragmentationCommand{factor}};
+    });
+}
+
+LVGLEventBuilder::SliderBuilder& LVGLEventBuilder::SliderBuilder::onRainRateChange() {
+    return onValueChange([](int32_t value) {
+        return Event{SetRainRateCommand{static_cast<double>(value)}};
+    });
+}
+
 // ===== ButtonBuilder Implementation =====
 
 LVGLEventBuilder::ButtonBuilder& LVGLEventBuilder::ButtonBuilder::withEventRouter(EventRouter* router) {

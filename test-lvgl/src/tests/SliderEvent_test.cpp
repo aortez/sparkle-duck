@@ -1,5 +1,6 @@
 #include "UIEventTestBase.h"
 #include "../ui/LVGLEventBuilder.h"
+#include "../Cell.h"
 #include <gtest/gtest.h>
 
 /**
@@ -62,4 +63,114 @@ TEST_F(SliderEventTest, ElasticitySliderGeneratesEvent) {
 
     EXPECT_NE(newElasticity, initialElasticity) << "Elasticity should have changed";
     EXPECT_NEAR(newElasticity, 1.5, 0.01) << "Elasticity should be 1.5";
+}
+
+TEST_F(SliderEventTest, CohesionForceStrengthSliderWorks) {
+    double initialStrength = getWorld()->getCohesionComForceStrength();
+    spdlog::info("[TEST] Initial cohesion force strength: {}", initialStrength);
+
+    lv_obj_t* slider = DirtSim::LVGLEventBuilder::slider(getScreen(), getRouter())
+                           .onCohesionForceStrengthChange()
+                           .range(0, 30000)
+                           .value(20000)  // 200.0
+                           .buildOrLog();
+
+    ASSERT_NE(slider, nullptr) << "Slider should be created";
+
+    lv_obj_send_event(slider, LV_EVENT_VALUE_CHANGED, nullptr);
+    processEvents();
+
+    double newStrength = getWorld()->getCohesionComForceStrength();
+    spdlog::info("[TEST] New cohesion force strength: {}", newStrength);
+
+    EXPECT_NE(newStrength, initialStrength) << "Cohesion strength should have changed";
+    EXPECT_NEAR(newStrength, 200.0, 0.1) << "Cohesion strength should be 200.0";
+}
+
+TEST_F(SliderEventTest, ViscosityStrengthSliderWorks) {
+    double initialStrength = getWorld()->getViscosityStrength();
+    spdlog::info("[TEST] Initial viscosity strength: {}", initialStrength);
+
+    lv_obj_t* slider = DirtSim::LVGLEventBuilder::slider(getScreen(), getRouter())
+                           .onViscosityStrengthChange()
+                           .range(0, 200)
+                           .value(150)  // 1.5
+                           .buildOrLog();
+
+    ASSERT_NE(slider, nullptr) << "Slider should be created";
+
+    lv_obj_send_event(slider, LV_EVENT_VALUE_CHANGED, nullptr);
+    processEvents();
+
+    double newStrength = getWorld()->getViscosityStrength();
+    spdlog::info("[TEST] New viscosity strength: {}", newStrength);
+
+    EXPECT_NE(newStrength, initialStrength) << "Viscosity strength should have changed";
+    EXPECT_NEAR(newStrength, 1.5, 0.01) << "Viscosity strength should be 1.5";
+}
+
+TEST_F(SliderEventTest, AdhesionStrengthSliderWorks) {
+    double initialStrength = getWorld()->getAdhesionStrength();
+    spdlog::info("[TEST] Initial adhesion strength: {}", initialStrength);
+
+    lv_obj_t* slider = DirtSim::LVGLEventBuilder::slider(getScreen(), getRouter())
+                           .onAdhesionStrengthChange()
+                           .range(0, 1000)
+                           .value(800)  // 8.0
+                           .buildOrLog();
+
+    ASSERT_NE(slider, nullptr) << "Slider should be created";
+
+    lv_obj_send_event(slider, LV_EVENT_VALUE_CHANGED, nullptr);
+    processEvents();
+
+    double newStrength = getWorld()->getAdhesionStrength();
+    spdlog::info("[TEST] New adhesion strength: {}", newStrength);
+
+    EXPECT_NE(newStrength, initialStrength) << "Adhesion strength should have changed";
+    EXPECT_NEAR(newStrength, 8.0, 0.01) << "Adhesion strength should be 8.0";
+}
+
+TEST_F(SliderEventTest, RainRateSliderWorks) {
+    double initialRate = getWorld()->getRainRate();
+    spdlog::info("[TEST] Initial rain rate: {}", initialRate);
+
+    lv_obj_t* slider = DirtSim::LVGLEventBuilder::slider(getScreen(), getRouter())
+                           .onRainRateChange()
+                           .range(0, 100)
+                           .value(50)
+                           .buildOrLog();
+
+    ASSERT_NE(slider, nullptr) << "Slider should be created";
+
+    lv_obj_send_event(slider, LV_EVENT_VALUE_CHANGED, nullptr);
+    processEvents();
+
+    double newRate = getWorld()->getRainRate();
+    spdlog::info("[TEST] New rain rate: {}", newRate);
+
+    EXPECT_NE(newRate, initialRate) << "Rain rate should have changed";
+    EXPECT_NEAR(newRate, 50.0, 0.01) << "Rain rate should be 50.0";
+}
+
+TEST_F(SliderEventTest, CellSizeSliderWorks) {
+    uint32_t initialSize = Cell::getSize();
+    spdlog::info("[TEST] Initial cell size: {}", initialSize);
+
+    lv_obj_t* slider = DirtSim::LVGLEventBuilder::slider(getScreen(), getRouter())
+                           .onCellSizeChange()
+                           .range(10, 100)
+                           .value(75)
+                           .buildOrLog();
+
+    ASSERT_NE(slider, nullptr) << "Slider should be created";
+
+    lv_obj_send_event(slider, LV_EVENT_VALUE_CHANGED, nullptr);
+    processEvents();
+
+    uint32_t newSize = Cell::getSize();
+    spdlog::info("[TEST] Cell size after slider: {}", newSize);
+
+    EXPECT_NE(newSize, initialSize) << "Cell size should have changed";
+    EXPECT_EQ(newSize, 75) << "Cell size should be 75";
 }

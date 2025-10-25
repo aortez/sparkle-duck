@@ -152,6 +152,7 @@ private:
     void processImmediateEvent(const ToggleCohesionForceCommand& cmd);
     void processImmediateEvent(const ToggleAdhesionCommand& cmd);
     void processImmediateEvent(const ToggleTimeHistoryCommand& cmd);
+    void processImmediateEvent(const SetCellSizeCommand& cmd);
 
     DirtSim::DirtSimStateMachine& stateMachine_;
     SharedSimState& sharedState_;

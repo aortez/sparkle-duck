@@ -68,6 +68,12 @@ struct IsImmediateEvent<ToggleAdhesionCommand> : std::true_type {};
 template <>
 struct IsImmediateEvent<ToggleTimeHistoryCommand> : std::true_type {};
 
+/**
+ * @brief SetCellSizeCommand is processed immediately (requires UI thread for grid resize).
+ */
+template <>
+struct IsImmediateEvent<SetCellSizeCommand> : std::true_type {};
+
 // NOTE: PauseCommand and ResumeCommand are NOT immediate events
 // They need to go through the state machine to trigger state transitions
 // /**

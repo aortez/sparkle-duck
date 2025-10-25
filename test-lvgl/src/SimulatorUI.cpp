@@ -562,48 +562,39 @@ void SimulatorUI::createSliders()
     // Store the value label reference.
     elasticity_label_ = elasticity_slider.getValueLabel();
 
-    // Dirt fragmentation slider - migrated to LVGLBuilder with value transform.
-    [[maybe_unused]] auto fragmentation_slider =
-        LVGLBuilder::slider(screen_)
-            .position(SLIDER_COLUMN_X, 310)
-            .size(CONTROL_WIDTH, 10)
-            .range(0, 100)
-            .value(0)
-            .label("Dirt Fragmentation", 0, -20)
-            .valueLabel("%.2f", 155, -20)
-            .valueTransform(LVGLBuilder::Transforms::Linear(0.01)) // Convert 0-100 to 0.0-1.0
-            .callback(
-                fragmentationSliderEventCb,
-                [this](lv_obj_t* value_label) -> void* { return createCallbackData(value_label); })
-            .buildOrLog();
+    // Dirt fragmentation slider.
+    LVGLEventBuilder::slider(screen_, event_router_)
+        .onFragmentationChange()
+        .position(SLIDER_COLUMN_X, 310, LV_ALIGN_TOP_LEFT)
+        .size(CONTROL_WIDTH, 10)
+        .range(0, 100)
+        .value(0)
+        .label("Dirt Fragmentation", 0, -20)
+        .valueLabel("%.2f", 155, -20)
+        .buildOrLog();
 
     // Cell size slider.
     spdlog::info("Creating cell size slider - Cell::getSize() returns: {}", Cell::getSize());
-    auto cell_size_builder =
-        LVGLBuilder::slider(screen_)
-            .position(SLIDER_COLUMN_X, 350)
-            .size(CONTROL_WIDTH, 10)
-            .range(10, 100)
-            .value(Cell::getSize()) // Use actual cell size instead of hardcoded 100.
-            .label("Cell Size", 0, -20)
-            .valueLabel("%.0f", 110, -20) // Use %.0f for double with no decimal places.
-            .callback(cellSizeSliderEventCb, [this](lv_obj_t* value_label) -> void* {
-                return createCallbackData(value_label);
-            });
-    cell_size_builder.buildOrLog();
+    LVGLEventBuilder::slider(screen_, event_router_)
+        .onCellSizeChange()
+        .position(SLIDER_COLUMN_X, 350, LV_ALIGN_TOP_LEFT)
+        .size(CONTROL_WIDTH, 10)
+        .range(10, 100)
+        .value(Cell::getSize())
+        .label("Cell Size", 0, -20)
+        .valueLabel("%.0f", 110, -20)
+        .buildOrLog();
 
     // Rain rate slider.
-    auto rain_builder = LVGLBuilder::slider(screen_)
-                            .position(SLIDER_COLUMN_X, 430)
-                            .size(CONTROL_WIDTH, 10)
-                            .range(0, 100)
-                            .value(0)
-                            .label("Rain Rate", 0, -20)
-                            .valueLabel("%d/s", 110, -20)
-                            .callback(rainSliderEventCb, [this](lv_obj_t* value_label) -> void* {
-                                return createCallbackData(value_label);
-                            });
-    rain_builder.buildOrLog();
+    LVGLEventBuilder::slider(screen_, event_router_)
+        .onRainRateChange()
+        .position(SLIDER_COLUMN_X, 430, LV_ALIGN_TOP_LEFT)
+        .size(CONTROL_WIDTH, 10)
+        .range(0, 100)
+        .value(0)
+        .label("Rain Rate", 0, -20)
+        .valueLabel("%d/s", 110, -20)
+        .buildOrLog();
 
     // Water cohesion slider - migrated to LVGLBuilder with value transform.
     [[maybe_unused]] auto water_cohesion_slider =

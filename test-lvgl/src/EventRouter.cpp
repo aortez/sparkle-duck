@@ -116,3 +116,23 @@ void EventRouter::processImmediateEvent(const ToggleTimeHistoryCommand& /*cmd. *
         spdlog::info("Processing ToggleTimeHistoryCommand - Time history now: {}", newValue);
     }
 }
+
+void EventRouter::processImmediateEvent(const SetCellSizeCommand& cmd)
+{
+    auto* world = sharedState_.getCurrentWorld();
+    if (world) {
+        spdlog::info("Processing SetCellSizeCommand - Setting cell size to {}", cmd.size);
+        Cell::setSize(static_cast<uint32_t>(cmd.size));
+
+        // Recalculate grid dimensions based on new cell size.
+        const int DRAW_AREA_SIZE = 850;
+        const int new_grid_width = (DRAW_AREA_SIZE / static_cast<int>(cmd.size)) - 1;
+        const int new_grid_height = (DRAW_AREA_SIZE / static_cast<int>(cmd.size)) - 1;
+
+        // Resize the world grid (safe on UI thread).
+        world->resizeGrid(new_grid_width, new_grid_height);
+        world->markAllCellsDirty();
+
+        spdlog::info("Processing SetCellSizeCommand - Resized grid to {}x{} cells", new_grid_width, new_grid_height);
+    }
+}
