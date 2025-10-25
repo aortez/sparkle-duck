@@ -200,13 +200,6 @@ public:
         double elasticity = 0.8;
         double timescale = 1.0;
         double dynamicStrength = 1.0;
-        // debugEnabled removed - now owned by World.
-        // gravityEnabled removed - use gravity value (0.0 = disabled).
-        bool forceVisualizationEnabled = false;
-        bool cohesionEnabled = true;
-        bool adhesionEnabled = true;
-        bool timeHistoryEnabled = false;
-        // Add more as needed.
     };
 
     /**
@@ -298,25 +291,6 @@ public:
      * @brief Check if a UI update is pending.
      */
     bool hasUIUpdatePending() const { return uiUpdateQueue_.hasPendingUpdate(); }
-
-    /**
-     * @brief Get force visualization enabled state.
-     * Thread-safe accessor for UI state.
-     */
-    bool getForceEnabled() const
-    {
-        std::shared_lock lock(paramsMutex_);
-        return physicsParams_.forceVisualizationEnabled;
-    }
-
-    /**
-     * @brief Set force visualization enabled state.
-     */
-    void setForceEnabled(bool enabled)
-    {
-        std::unique_lock lock(paramsMutex_);
-        physicsParams_.forceVisualizationEnabled = enabled;
-    }
 
 private:
     // Atomic variables for lock-free access.

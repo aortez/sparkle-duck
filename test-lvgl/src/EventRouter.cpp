@@ -68,66 +68,51 @@ void EventRouter::processImmediateEvent(const PrintAsciiDiagramCommand& /*cmd. *
 
 void EventRouter::processImmediateEvent(const ToggleForceCommand& /*cmd. */)
 {
-    // Toggle force visualization state.
-    auto params = sharedState_.getPhysicsParams();
-    params.forceVisualizationEnabled = !params.forceVisualizationEnabled;
-    sharedState_.updatePhysicsParams(params);
-
-    spdlog::info(
-        "Processing ToggleForceCommand - Force visualization now: {}",
-        params.forceVisualizationEnabled);
+    auto* world = sharedState_.getCurrentWorld();
+    if (world) {
+        bool newValue = !world->isCursorForceEnabled();
+        world->setCursorForceEnabled(newValue);
+        spdlog::info("Processing ToggleForceCommand - Force visualization now: {}", newValue);
+    }
 }
 
 void EventRouter::processImmediateEvent(const ToggleCohesionCommand& /*cmd. */)
 {
-    // Toggle cohesion physics state.
-    auto params = sharedState_.getPhysicsParams();
-    params.cohesionEnabled = !params.cohesionEnabled;
-    sharedState_.updatePhysicsParams(params);
-
-    spdlog::info(
-        "Processing ToggleCohesionCommand - Cohesion physics now: {}", params.cohesionEnabled);
+    auto* world = sharedState_.getCurrentWorld();
+    if (world) {
+        bool newValue = !world->isCohesionComForceEnabled();
+        world->setCohesionComForceEnabled(newValue);
+        spdlog::info("Processing ToggleCohesionCommand - Cohesion physics now: {}", newValue);
+    }
 }
 
 void EventRouter::processImmediateEvent(const ToggleCohesionForceCommand& /*cmd. */)
 {
-    // Toggle cohesion force physics state.
-    auto params = sharedState_.getPhysicsParams();
-    params.cohesionEnabled = !params.cohesionEnabled;
-    sharedState_.updatePhysicsParams(params);
-
-    spdlog::info(
-        "Processing ToggleCohesionForceCommand - Cohesion force physics now: {}",
-        params.cohesionEnabled);
+    auto* world = sharedState_.getCurrentWorld();
+    if (world) {
+        bool newValue = !world->isCohesionComForceEnabled();
+        world->setCohesionComForceEnabled(newValue);
+        spdlog::info("Processing ToggleCohesionForceCommand - Cohesion force physics now: {}", newValue);
+    }
 }
 
 void EventRouter::processImmediateEvent(const ToggleAdhesionCommand& /*cmd. */)
 {
-    // Toggle adhesion physics state and visualization.
-    auto params = sharedState_.getPhysicsParams();
-    params.adhesionEnabled = !params.adhesionEnabled;
-    sharedState_.updatePhysicsParams(params);
-
-    // Also toggle the adhesion vector visualization.
-    Cell::adhesionDrawEnabled = params.adhesionEnabled;
-
-    // Update world if available.
     auto* world = sharedState_.getCurrentWorld();
     if (world) {
-        world->setAdhesionEnabled(params.adhesionEnabled);
+        bool newValue = !world->isAdhesionEnabled();
+        world->setAdhesionEnabled(newValue);
+        Cell::adhesionDrawEnabled = newValue;
+        spdlog::info("Processing ToggleAdhesionCommand - Adhesion physics now: {}", newValue);
     }
-
-    spdlog::info(
-        "Processing ToggleAdhesionCommand - Adhesion physics now: {}", params.adhesionEnabled);
 }
 
 void EventRouter::processImmediateEvent(const ToggleTimeHistoryCommand& /*cmd. */)
 {
-    // Toggle time history tracking.
-    auto params = sharedState_.getPhysicsParams();
-    params.timeHistoryEnabled = !params.timeHistoryEnabled;
-    sharedState_.updatePhysicsParams(params);
-
-    spdlog::info(
-        "Processing ToggleTimeHistoryCommand - Time history now: {}", params.timeHistoryEnabled);
+    auto* world = sharedState_.getCurrentWorld();
+    if (world) {
+        bool newValue = !world->isTimeReversalEnabled();
+        world->enableTimeReversal(newValue);
+        spdlog::info("Processing ToggleTimeHistoryCommand - Time history now: {}", newValue);
+    }
 }

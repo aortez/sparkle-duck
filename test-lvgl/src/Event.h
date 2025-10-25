@@ -40,12 +40,6 @@ struct PhysicsParams {
     double gravity = 9.81;
     double elasticity = 0.8;
     double timescale = 1.0;
-    // debugEnabled removed - read from world->isDebugDrawEnabled() instead.
-    // gravityEnabled removed - use gravity value (0.0 = disabled).
-    bool forceVisualizationEnabled = false;
-    bool cohesionEnabled = true;
-    bool adhesionEnabled = true;
-    bool timeHistoryEnabled = false;
 };
 
 /**

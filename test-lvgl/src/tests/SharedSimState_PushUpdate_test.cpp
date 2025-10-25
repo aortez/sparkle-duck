@@ -135,19 +135,6 @@ TEST_F(SharedSimStatePushUpdateTest, ThreadSafetyWithOtherState) {
     EXPECT_GE(sharedState.getCurrentFPS(), 0.0f);
 }
 
-TEST_F(SharedSimStatePushUpdateTest, GetForceEnabled) {
-    // Test the new accessor methods.
-    sharedState.setForceEnabled(true);
-    EXPECT_TRUE(sharedState.getForceEnabled());
-    
-    sharedState.setForceEnabled(false);
-    EXPECT_FALSE(sharedState.getForceEnabled());
-    
-    // Verify it's part of physics params.
-    auto params = sharedState.getPhysicsParams();
-    EXPECT_FALSE(params.forceVisualizationEnabled);
-}
-
 TEST_F(SharedSimStatePushUpdateTest, CompleteUIUpdateFlow) {
     // Enable push updates.
     sharedState.enablePushUpdates(true);
@@ -162,8 +149,6 @@ TEST_F(SharedSimStatePushUpdateTest, CompleteUIUpdateFlow) {
     SharedSimState::PhysicsParams params;
     params.gravity = 9.81;
     params.elasticity = 0.5;
-    // debugEnabled removed - no longer cached in SharedSimState.
-    params.forceVisualizationEnabled = true;
     sharedState.updatePhysicsParams(params);
     
     // Create and push a UI update.
@@ -178,12 +163,6 @@ TEST_F(SharedSimStatePushUpdateTest, CompleteUIUpdateFlow) {
     update.physicsParams.gravity = sharedParams.gravity;
     update.physicsParams.elasticity = sharedParams.elasticity;
     update.physicsParams.timescale = sharedParams.timescale;
-    // debugEnabled removed - set directly on UIUpdateEvent instead.
-    // gravityEnabled removed - check gravity value instead.
-    update.physicsParams.forceVisualizationEnabled = sharedParams.forceVisualizationEnabled;
-    update.physicsParams.cohesionEnabled = sharedParams.cohesionEnabled;
-    update.physicsParams.adhesionEnabled = sharedParams.adhesionEnabled;
-    update.physicsParams.timeHistoryEnabled = sharedParams.timeHistoryEnabled;
     
     update.worldType = "WorldA";
     update.timestamp = std::chrono::steady_clock::now();
@@ -198,7 +177,7 @@ TEST_F(SharedSimStatePushUpdateTest, CompleteUIUpdateFlow) {
     EXPECT_TRUE(popped->isPaused);
     EXPECT_EQ(popped->selectedMaterial, MaterialType::WATER);
     EXPECT_EQ(popped->physicsParams.gravity, 9.81);
-    EXPECT_TRUE(popped->debugEnabled);  // Now in UIUpdateEvent.debugEnabled (from world).
-    EXPECT_TRUE(popped->physicsParams.forceVisualizationEnabled);
+    EXPECT_TRUE(popped->debugEnabled);
+    EXPECT_TRUE(popped->forceEnabled);
     EXPECT_EQ(popped->worldType, "WorldA");
 }

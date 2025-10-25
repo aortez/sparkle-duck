@@ -205,28 +205,20 @@ UIUpdateEvent DirtSimStateMachine::buildUIUpdate()
     update.stats = sharedState.getStats();
 
     // Physics parameters - read from world (source of truth).
-    auto params = sharedState.getPhysicsParams();
     if (simulationManager && simulationManager->getWorld()) {
         auto* world = simulationManager->getWorld();
         update.physicsParams.gravity = world->getGravity();
         update.physicsParams.elasticity = world->getElasticityFactor();
         update.physicsParams.timescale = world->getTimescale();
-        // debugEnabled read from world.
         update.debugEnabled = world->isDebugDrawEnabled();
-        // forceVisualizationEnabled read from world.
         update.forceEnabled = world->isCursorForceEnabled();
+        update.cohesionEnabled = world->isCohesionComForceEnabled();
+        update.adhesionEnabled = world->isAdhesionEnabled();
+        update.timeHistoryEnabled = world->isTimeReversalEnabled();
     }
-    // gravityEnabled removed - UI can check if gravity == 0.0.
-    update.physicsParams.forceVisualizationEnabled = params.forceVisualizationEnabled;
-    update.physicsParams.cohesionEnabled = params.cohesionEnabled;
-    update.physicsParams.adhesionEnabled = params.adhesionEnabled;
-    update.physicsParams.timeHistoryEnabled = params.timeHistoryEnabled;
 
     // UI state.
     update.isPaused = sharedState.getIsPaused();
-    update.cohesionEnabled = params.cohesionEnabled;
-    update.adhesionEnabled = params.adhesionEnabled;
-    update.timeHistoryEnabled = params.timeHistoryEnabled;
 
     // World state.
     update.selectedMaterial = sharedState.getSelectedMaterial();
