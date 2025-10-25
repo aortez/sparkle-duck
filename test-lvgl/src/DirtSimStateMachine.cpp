@@ -42,6 +42,12 @@ DirtSimStateMachine::DirtSimStateMachine(lv_disp_t* display)
 
     simulationManager->initialize();
 
+    // Set world in SharedSimState for immediate event handlers.
+    if (simulationManager->getWorld()) {
+        sharedState.setCurrentWorld(simulationManager->getWorld());
+        spdlog::info("DirtSimStateMachine: World registered in SharedSimState");
+    }
+
     spdlog::info("DirtSimStateMachine: SimulationManager created and initialized");
 }
 
@@ -198,13 +204,19 @@ UIUpdateEvent DirtSimStateMachine::buildUIUpdate()
     update.stepCount = sharedState.getCurrentStep();
     update.stats = sharedState.getStats();
 
-    // Physics parameters - get from shared state.
+    // Physics parameters - read from world (source of truth).
     auto params = sharedState.getPhysicsParams();
-    update.physicsParams.gravity = params.gravity;
-    update.physicsParams.elasticity = params.elasticity;
-    update.physicsParams.timescale = params.timescale;
-    update.physicsParams.debugEnabled = params.debugEnabled;
-    update.physicsParams.gravityEnabled = params.gravityEnabled;
+    if (simulationManager && simulationManager->getWorld()) {
+        auto* world = simulationManager->getWorld();
+        update.physicsParams.gravity = world->getGravity();
+        update.physicsParams.elasticity = world->getElasticityFactor();
+        update.physicsParams.timescale = world->getTimescale();
+        // debugEnabled read from world.
+        update.debugEnabled = world->isDebugDrawEnabled();
+        // forceVisualizationEnabled read from world.
+        update.forceEnabled = world->isCursorForceEnabled();
+    }
+    // gravityEnabled removed - UI can check if gravity == 0.0.
     update.physicsParams.forceVisualizationEnabled = params.forceVisualizationEnabled;
     update.physicsParams.cohesionEnabled = params.cohesionEnabled;
     update.physicsParams.adhesionEnabled = params.adhesionEnabled;
@@ -212,8 +224,6 @@ UIUpdateEvent DirtSimStateMachine::buildUIUpdate()
 
     // UI state.
     update.isPaused = sharedState.getIsPaused();
-    update.debugEnabled = params.debugEnabled;
-    update.forceEnabled = params.forceVisualizationEnabled;
     update.cohesionEnabled = params.cohesionEnabled;
     update.adhesionEnabled = params.adhesionEnabled;
     update.timeHistoryEnabled = params.timeHistoryEnabled;

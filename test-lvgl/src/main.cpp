@@ -35,12 +35,6 @@ static void print_lvgl_version();
  * has specified one on the command line */
 static std::string selected_backend;
 
-/* contains the selected world type */
-static WorldType selected_world_type = WorldType::RulesB;
-
-/* flag to use the new event-driven system (now the default) */
-static bool use_event_system = true;
-
 /* flag to use push-based UI updates */
 static bool use_push_updates = false;
 
@@ -123,15 +117,10 @@ int main(int argc, char** argv)
         "Select physics system: rulesA (mixed materials) or rulesB (pure materials, default)",
         { 'w', "world" },
         "rulesB");
-    args::Flag event_system(
-        parser,
-        "event-system",
-        "Use the new event-driven state machine (experimental)",
-        { "event-system" });
     args::Flag push_updates(
         parser,
         "push-updates",
-        "Enable push-based UI updates for thread safety (experimental)",
+        "Enable push-based UI updates for thread safety",
         { 'p', "push-updates" });
 
     // Default values from environment if set.
@@ -185,29 +174,16 @@ int main(int argc, char** argv)
     if (window_height) settings.window_height = args::get(window_height);
     if (max_steps) settings.max_steps = args::get(max_steps);
 
+    // Note: World type selection via command-line is not yet implemented in the event system.
+    // The state machine currently uses WorldB by default.
+    // TODO: Pass world type to state machine constructor when implementing world type selection.
     if (world_type) {
-        try {
-            selected_world_type = parseWorldType(args::get(world_type));
-        }
-        catch (const std::runtime_error& e) {
-            std::cerr << "Error: " << e.what() << std::endl;
-            return 1;
-        }
-    }
-
-    if (event_system) {
-        use_event_system = true;
-        spdlog::info("Event-driven state machine enabled (experimental)");
+        spdlog::warn("--world flag is not yet implemented in event system (always uses WorldB)");
     }
 
     if (push_updates) {
         use_push_updates = true;
-        spdlog::info("Push-based UI updates enabled (experimental)");
-        if (!event_system) {
-            spdlog::warn(
-                "Push-based UI updates require --event-system flag, enabling it automatically");
-            use_event_system = true;
-        }
+        spdlog::info("Push-based UI updates enabled");
     }
 
     /* Initialize LVGL. */
@@ -219,104 +195,66 @@ int main(int argc, char** argv)
         die("Failed to initialize display backend");
     }
 
-    // Calculate grid size based on cell size and drawing area.
-    // (One fewer than would fit perfectly).
-    const int grid_width = (850 / Cell::WIDTH) - 1;
-    const int grid_height = (850 / Cell::HEIGHT) - 1;
+    spdlog::info("Starting with event-driven state machine");
 
-    if (use_event_system) {
-        spdlog::info("Starting with event-driven state machine");
+    // Create the state machine with display.
+    auto stateMachine = std::make_unique<DirtSim::DirtSimStateMachine>(lv_disp_get_default());
 
-        // Create the state machine with display.
-        auto stateMachine = std::make_unique<DirtSim::DirtSimStateMachine>(lv_disp_get_default());
-
-        // Enable push-based UI updates if requested.
-        if (use_push_updates) {
-            stateMachine->getSharedState().enablePushUpdates(true);
-            spdlog::info("Push-based UI updates activated in state machine");
-        }
-
-        // Start the state machine's event processing thread.
-        std::thread stateMachineThread([&stateMachine]() {
-            spdlog::info("Starting state machine event processing thread");
-            stateMachine->mainLoopRun();
-            spdlog::info("State machine event processing thread exiting");
-        });
-
-        // Initialize the state machine - transition from Startup -> MainMenu -> SimRunning.
-        stateMachine->getEventRouter().routeEvent(InitCompleteEvent{});
-
-        // Skip the main menu and go directly to simulation for now.
-        // TODO: In the future, show the main menu and let user click start.
-        stateMachine->getEventRouter().routeEvent(StartSimulationCommand{});
-
-        // Wait a bit for events to be processed by the state machine thread.
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-
-        // Get the SimulationManager from the state machine.
-        auto* simManager = stateMachine->getSimulationManager();
-        if (!simManager) {
-            spdlog::error("Failed to get SimulationManager from state machine");
-            spdlog::warn("Falling back to traditional SimulationManager");
-            use_event_system = false;
-        }
-        else {
-            manager_ptr = simManager;
-
-            spdlog::info(
-                "Using SimulationManager from event system ({}x{} grid)",
-                simManager->getWidth(),
-                simManager->getHeight());
-
-            // Install crash dump handler.
-            CrashDumpHandler::install(manager_ptr);
-            spdlog::info("Crash dump handler installed - assertions will generate JSON dumps");
-
-            // Enter the run loop with the state machine's SimulationManager.
-            driver_backends_run_loop(*simManager);
-
-            // Signal the state machine to exit.
-            stateMachine->getSharedState().setShouldExit(true);
-
-            // Wait for the state machine thread to finish.
-            if (stateMachineThread.joinable()) {
-                spdlog::info("Waiting for state machine thread to finish...");
-                stateMachineThread.join();
-            }
-
-            // Cleanup.
-            CrashDumpHandler::uninstall();
-
-            // State machine will clean up when it goes out of scope.
-            return 0;
-        }
+    // Enable push-based UI updates if requested.
+    if (use_push_updates) {
+        stateMachine->getSharedState().enablePushUpdates(true);
+        spdlog::info("Push-based UI updates activated in state machine");
     }
 
-    if (!use_event_system) {
-        // Traditional path with SimulationManager.
-        auto manager = std::make_unique<SimulationManager>(
-            selected_world_type, grid_width, grid_height, lv_scr_act(), nullptr);
-        manager_ptr = manager.get();
+    // Start the state machine's event processing thread.
+    std::thread stateMachineThread([&stateMachine]() {
+        spdlog::info("Starting state machine event processing thread");
+        stateMachine->mainLoopRun();
+        spdlog::info("State machine event processing thread exiting");
+    });
 
-        spdlog::info(
-            "Created {} physics system ({}x{} grid)",
-            getWorldTypeName(selected_world_type),
-            grid_width,
-            grid_height);
+    // Initialize the state machine - transition from Startup -> MainMenu -> SimRunning.
+    stateMachine->getEventRouter().routeEvent(InitCompleteEvent{});
 
-        // Install crash dump handler.
-        CrashDumpHandler::install(manager_ptr);
-        spdlog::info("Crash dump handler installed - assertions will generate JSON dumps");
+    // Skip the main menu and go directly to simulation for now.
+    // TODO: In the future, show the main menu and let user click start.
+    stateMachine->getEventRouter().routeEvent(StartSimulationCommand{});
 
-        // Initialize the simulation.
-        manager->initialize();
+    // Wait a bit for events to be processed by the state machine thread.
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-        // Enter the run loop, using the selected backend.
-        driver_backends_run_loop(*manager);
-
-        // Cleanup crash dump handler.
-        CrashDumpHandler::uninstall();
+    // Get the SimulationManager from the state machine.
+    auto* simManager = stateMachine->getSimulationManager();
+    if (!simManager) {
+        spdlog::error("Failed to get SimulationManager from state machine");
+        return 1;
     }
+
+    manager_ptr = simManager;
+
+    spdlog::info(
+        "Using SimulationManager from event system ({}x{} grid)",
+        simManager->getWidth(),
+        simManager->getHeight());
+
+    // Install crash dump handler.
+    CrashDumpHandler::install(manager_ptr);
+    spdlog::info("Crash dump handler installed - assertions will generate JSON dumps");
+
+    // Enter the run loop with the state machine's SimulationManager.
+    driver_backends_run_loop(*simManager);
+
+    // Signal the state machine to exit.
+    stateMachine->getSharedState().setShouldExit(true);
+
+    // Wait for the state machine thread to finish.
+    if (stateMachineThread.joinable()) {
+        spdlog::info("Waiting for state machine thread to finish...");
+        stateMachineThread.join();
+    }
+
+    // Cleanup.
+    CrashDumpHandler::uninstall();
 
     spdlog::info("Application shutting down cleanly");
 

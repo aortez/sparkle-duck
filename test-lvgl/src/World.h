@@ -140,11 +140,13 @@ public:
     void restoreLastDragCell() override;
 
     void setGravity(double g) override { gravity = g; }
+    double getGravity() const override { return gravity; }
 
-    // Set the elasticity factor for reflections
+    // Set the elasticity factor for reflections.
     void setElasticityFactor(double e) override { ELASTICITY_FACTOR = e; }
+    double getElasticityFactor() const override { return ELASTICITY_FACTOR; }
 
-    // Set the pressure scale factor
+    // Set the pressure scale factor.
     void setPressureScale(double scale) override { pressureScale = scale; }
 
     // Water physics configuration
@@ -160,12 +162,17 @@ public:
     // Mark all cells as dirty (needing redraw)
     void markAllCellsDirty() override;
 
-    // Cursor force interaction
+    // Cursor force interaction.
     void setCursorForceEnabled(bool enabled) override { cursorForceEnabled = enabled; }
+    bool isCursorForceEnabled() const override { return cursorForceEnabled; }
     void updateCursorForce(int pixelX, int pixelY, bool isActive) override;
     void clearCursorForce() override { cursorForceActive = false; }
 
-    // Cohesion bind force control (no-op for WorldA)
+    // Debug visualization.
+    void setDebugDrawEnabled(bool enabled) override { debugDrawEnabled = enabled; }
+    bool isDebugDrawEnabled() const override { return debugDrawEnabled; }
+
+    // Cohesion bind force control (no-op for WorldA).
     void setCohesionBindForceEnabled([[maybe_unused]] bool enabled) override
     { /* no-op for WorldA */ }
 
@@ -338,14 +345,17 @@ private:
     double waterPressureThreshold = 0.0004; // Default threshold for water pressure application
                                             // (further lowered for easier flow)
 
-    // Cursor force state
+    // Cursor force state.
     bool cursorForceEnabled = true;
     bool cursorForceActive = false;
     int cursorForceX = 0;
     int cursorForceY = 0;
-    static constexpr double CURSOR_FORCE_STRENGTH = 10.0; // Adjust this to control force magnitude
-    static constexpr double CURSOR_FORCE_RADIUS = 5.0; // Number of cells affected by cursor force
-    static double ELASTICITY_FACTOR; // Energy preserved in reflections (0.0 to 1.0)
+    static constexpr double CURSOR_FORCE_STRENGTH = 10.0; // Adjust this to control force magnitude.
+    static constexpr double CURSOR_FORCE_RADIUS = 5.0; // Number of cells affected by cursor force.
+    static double ELASTICITY_FACTOR; // Energy preserved in reflections (0.0 to 1.0).
+
+    // Debug visualization.
+    bool debugDrawEnabled = true;
 
     // Track mass that has been removed due to being below the threshold.
     double removedMass = 0.0;

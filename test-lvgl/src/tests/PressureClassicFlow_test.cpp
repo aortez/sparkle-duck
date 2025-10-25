@@ -73,20 +73,20 @@ protected:
         world->setDynamicPressureEnabled(false);
         world->setHydrostaticPressureEnabled(true);
         world->setPressureScale(10.0);  // Strong pressure for visible effects.
-        
+
         // Enable debug visualization to see pressure vectors.
-        Cell::debugDraw = true;
-        
+        world->setDebugDrawEnabled(true);
+
         // Standard test settings.
         world->setWallsEnabled(false);
         world->setAddParticlesEnabled(false);
         world->setGravity(9.81);
-        
+
         spdlog::info("[TEST] Classic pressure flow tests - 6x6 world with debug visualization");
     }
-    
+
     void TearDown() override {
-        Cell::debugDraw = false;
+        world->setDebugDrawEnabled(false);
         VisualTestBase::TearDown();
     }
     

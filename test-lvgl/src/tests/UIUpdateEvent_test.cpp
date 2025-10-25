@@ -67,16 +67,17 @@ TEST_F(UIUpdateEventTest, PhysicsParamsIntegration) {
     EXPECT_DOUBLE_EQ(event.physicsParams.gravity, 9.81);
     EXPECT_DOUBLE_EQ(event.physicsParams.elasticity, 0.8);
     EXPECT_DOUBLE_EQ(event.physicsParams.timescale, 1.0);
-    EXPECT_FALSE(event.physicsParams.debugEnabled);
-    EXPECT_TRUE(event.physicsParams.gravityEnabled);
+    EXPECT_FALSE(event.debugEnabled);  // debugEnabled now in UIUpdateEvent directly.
+    // gravityEnabled removed - check gravity != 0.0 instead.
     
     // Modify params.
     event.physicsParams.gravity = 19.62;
-    event.physicsParams.debugEnabled = true;
+    // debugEnabled removed from physicsParams - now in event.debugEnabled.
+    event.debugEnabled = true;
     event.physicsParams.forceVisualizationEnabled = true;
-    
+
     EXPECT_DOUBLE_EQ(event.physicsParams.gravity, 19.62);
-    EXPECT_TRUE(event.physicsParams.debugEnabled);
+    EXPECT_TRUE(event.debugEnabled);  // Now in UIUpdateEvent directly.
     EXPECT_TRUE(event.physicsParams.forceVisualizationEnabled);
 }
 
@@ -159,8 +160,8 @@ TEST_F(UIUpdateEventTest, ComprehensiveStateCapture) {
     event.physicsParams.gravity = 4.9;
     event.physicsParams.elasticity = 0.95;
     event.physicsParams.timescale = 2.0;
-    event.physicsParams.debugEnabled = true;
-    event.physicsParams.gravityEnabled = false;
+    // debugEnabled removed - now in event.debugEnabled (from world).
+    // gravityEnabled removed - check gravity value instead.
     event.physicsParams.forceVisualizationEnabled = true;
     event.physicsParams.cohesionEnabled = false;
     event.physicsParams.adhesionEnabled = false;

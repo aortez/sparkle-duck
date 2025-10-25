@@ -348,22 +348,21 @@ void SimulatorUI::createControlButtons()
         .toggle(true)
         .buildOrLog();
 
-    // Create gravity toggle button.
-    gravity_button_ = LVGLEventBuilder::button(screen_, event_router_)
-                          .onGravityToggle() // Call event method first.
-                          .size(CONTROL_WIDTH, 50)
-                          .position(MAIN_CONTROLS_X, 265, LV_ALIGN_TOP_LEFT)
-                          .text("Gravity: On")
-                          .toggle(true) // Make it a toggle button.
-                          .buildOrLog();
-    if (gravity_button_) {
-        gravity_label_ = lv_obj_get_child(gravity_button_, 0);
-    }
+    // Create gravity slider (-10x to +10x Earth gravity).
+    LVGLEventBuilder::slider(screen_, event_router_)
+        .onGravityChange()
+        .position(MAIN_CONTROLS_X, 285, LV_ALIGN_TOP_LEFT)
+        .size(CONTROL_WIDTH, 10)
+        .range(-1000, 1000)  // -10x to +10x.
+        .value(100)          // 1x Earth gravity (9.81).
+        .label("Gravity", 0, -20)
+        .valueLabel("%.1f", 80, -20)
+        .buildOrLog();
 
     // Create viscosity strength slider.
     [[maybe_unused]] auto viscosity_slider =
         LVGLBuilder::slider(screen_)
-            .position(MAIN_CONTROLS_X, 340)
+            .position(MAIN_CONTROLS_X, 345)
             .size(CONTROL_WIDTH, 10)
             .range(0, 200) // 0.0 to 2.0 range
             .value(100)    // Default 1.0
@@ -940,10 +939,10 @@ void SimulatorUI::populateFromWorld()
 
 void SimulatorUI::updateDebugButton()
 {
-    if (debug_btn_) {
+    if (debug_btn_ && world_) {
         lv_obj_t* label = lv_obj_get_child(debug_btn_, 0);
         if (label) {
-            lv_label_set_text(label, Cell::debugDraw ? "Debug: On" : "Debug: Off");
+            lv_label_set_text(label, world_->isDebugDrawEnabled() ? "Debug: On" : "Debug: Off");
         }
     }
 }
@@ -1005,8 +1004,8 @@ void SimulatorUI::applyUpdate(const UIUpdateEvent& update)
         }
 
         // Update debug button.
-        if (update.debugEnabled != Cell::debugDraw) {
-            Cell::debugDraw = update.debugEnabled;
+        if (world_ && update.debugEnabled != world_->isDebugDrawEnabled()) {
+            world_->setDebugDrawEnabled(update.debugEnabled);
             updateDebugButton();
         }
 
@@ -1213,13 +1212,14 @@ void SimulatorUI::debugBtnEventCb(lv_event_t* e)
 {
     if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
         CallbackData* data = static_cast<CallbackData*>(lv_event_get_user_data(e));
-        Cell::debugDraw = !Cell::debugDraw;
-        const lv_obj_t* btn = static_cast<const lv_obj_t*>(lv_event_get_target(e));
-        lv_obj_t* label = lv_obj_get_child(btn, 0);
-        lv_label_set_text(label, Cell::debugDraw ? "Debug: On" : "Debug: Off");
-
-        // Mark all cells dirty to ensure proper rendering updates.
         if (data && data->world) {
+            bool current = data->world->isDebugDrawEnabled();
+            data->world->setDebugDrawEnabled(!current);
+            const lv_obj_t* btn = static_cast<const lv_obj_t*>(lv_event_get_target(e));
+            lv_obj_t* label = lv_obj_get_child(btn, 0);
+            lv_label_set_text(label, data->world->isDebugDrawEnabled() ? "Debug: On" : "Debug: Off");
+
+            // Mark all cells dirty to ensure proper rendering updates.
             data->world->markAllCellsDirty();
         }
     }

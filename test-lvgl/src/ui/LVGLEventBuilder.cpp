@@ -55,18 +55,28 @@ LVGLEventBuilder::SliderBuilder& LVGLEventBuilder::SliderBuilder::onValueChange(
     
     eventHandler_ = std::make_shared<std::function<Event(int32_t)>>(handler);
 
-    EventRouter* router = eventRouter_;  // Capture the router pointer directly.
-    lv_obj_t* slider = getSlider();  // Get the slider pointer before lambda.
-    auto callbackFunc = std::make_shared<std::function<void()>>([router, slider, handler]() {
-        if (slider) {
+    EventRouter* router = eventRouter_;  // Capture router pointer.
+
+    // Create a callback that gets the slider from the event (not from getSlider()).
+    auto callbackFunc = std::make_shared<std::function<void(lv_event_t*)>>([router, handler](lv_event_t* e) {
+        // Get slider from event target (not from captured pointer).
+        lv_obj_t* slider = lv_event_get_target_obj(e);
+        if (slider && router) {
             int32_t value = lv_slider_get_value(slider);
+            spdlog::info("SliderBuilder: Slider value changed to {}", value);
             Event event = handler(value);
+            spdlog::info("SliderBuilder: Generated event, routing...");
             router->routeEvent(event);
         }
     });
-    
-    // Use the base class callback method with our generic callback.
-    callback([](lv_event_t* e) { eventCallback(e); }, createCallbackData(callbackFunc));
+
+    // Register callback using static wrapper.
+    callback([](lv_event_t* e) {
+        auto* funcPtr = static_cast<std::shared_ptr<std::function<void(lv_event_t*)>>*>(lv_event_get_user_data(e));
+        if (funcPtr && *funcPtr) {
+            (**funcPtr)(e);
+        }
+    }, new std::shared_ptr<std::function<void(lv_event_t*)>>(callbackFunc));
     events(LV_EVENT_VALUE_CHANGED);
     
     return *this;
@@ -90,6 +100,18 @@ LVGLEventBuilder::SliderBuilder& LVGLEventBuilder::SliderBuilder::onElasticityCh
     return onValueChange([](int32_t value) {
         double elasticity = value / 100.0;  // Convert 0-100 to 0.0-1.0
         return Event{SetElasticityCommand{elasticity}};
+    });
+}
+
+LVGLEventBuilder::SliderBuilder& LVGLEventBuilder::SliderBuilder::onGravityChange() {
+    // Set up value transform for display label.
+    valueTransform([](int32_t value) {
+        return (value / 100.0) * 9.81;  // Convert -1000 to +1000 → -98.1 to +98.1
+    });
+
+    return onValueChange([](int32_t value) {
+        double gravity = (value / 100.0) * 9.81;  // -1000 to +1000 → -98.1 to +98.1
+        return Event{SetGravityCommand{gravity}};
     });
 }
 
@@ -181,11 +203,6 @@ LVGLEventBuilder::ButtonBuilder& LVGLEventBuilder::ButtonBuilder::onPauseResume(
 
 LVGLEventBuilder::ButtonBuilder& LVGLEventBuilder::ButtonBuilder::onReset() {
     return onClick(Event{ResetSimulationCommand{}});
-}
-
-LVGLEventBuilder::ButtonBuilder& LVGLEventBuilder::ButtonBuilder::onGravityToggle() {
-    // We need to track gravity state somehow, for now just toggle with true/false.
-    return onToggle(Event{SetGravityCommand{true}}, Event{SetGravityCommand{false}});
 }
 
 LVGLEventBuilder::ButtonBuilder& LVGLEventBuilder::ButtonBuilder::onPrintAscii() {

@@ -33,12 +33,6 @@ template <>
 struct IsImmediateEvent<GetSimStatsCommand> : std::true_type {};
 
 /**
- * @brief ToggleDebugCommand is processed immediately for UI updates.
- */
-template <>
-struct IsImmediateEvent<ToggleDebugCommand> : std::true_type {};
-
-/**
  * @brief PrintAsciiDiagramCommand is processed immediately for UI response.
  */
 template <>

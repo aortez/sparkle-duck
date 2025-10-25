@@ -230,6 +230,8 @@ add_executable(sparkle-duck-tests
     src/tests/StateTransitionTests.cpp
     src/tests/UIUpdateQueue_test.cpp
     src/tests/SharedSimState_PushUpdate_test.cpp
+    src/tests/ButtonEvent_test.cpp
+    src/tests/SliderEvent_test.cpp
     src/tests/UIUpdateEvent_test.cpp
     src/tests/SimulationPushUpdate_test.cpp
     src/tests/UIUpdateConsumer_test.cpp

@@ -146,19 +146,19 @@ TEST_F(DualPathTest, ToggleDebugCommandUpdatesDebugFlag) {
     stateMachine->handleEvent(InitCompleteEvent{});
     stateMachine->handleEvent(StartSimulationCommand{});
     
-    // Check initial state.
-    auto initialParams = sharedState->getPhysicsParams();
-    bool initialDebugState = initialParams.debugEnabled;
-    
+    // Check initial state from world (source of truth).
+    auto* world = stateMachine->getSimulationManager()->getWorld();
+    ASSERT_NE(world, nullptr);
+    bool initialDebugState = world->isDebugDrawEnabled();
+
     // Send toggle command.
     router->routeEvent(ToggleDebugCommand{});
-    
+
     // Process the queued event.
     stateMachine->eventProcessor.processEventsFromQueue(*stateMachine);
-    
-    // Debug flag should be toggled.
-    auto updatedParams = sharedState->getPhysicsParams();
-    EXPECT_NE(updatedParams.debugEnabled, initialDebugState);
+
+    // Debug flag in world should be toggled.
+    EXPECT_NE(world->isDebugDrawEnabled(), initialDebugState);
 }
 
 TEST_F(DualPathTest, ToggleCommandsGeneratePushUpdates) {

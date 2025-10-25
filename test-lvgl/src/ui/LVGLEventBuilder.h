@@ -61,13 +61,19 @@ public:
          * Automatically converts slider value (0-100) to timescale (0.0-1.0)
          */
         SliderBuilder& onTimescaleChange();
-        
+
         /**
          * @brief Convenience method for elasticity sliders.
          * Automatically converts slider value (0-100) to elasticity (0.0-1.0)
          */
         SliderBuilder& onElasticityChange();
-        
+
+        /**
+         * @brief Convenience method for gravity sliders.
+         * Automatically converts slider value (-1000 to +1000) to gravity (-98.1 to +98.1).
+         */
+        SliderBuilder& onGravityChange();
+
         /**
          * @brief Convenience method for dynamic strength sliders.
          * Automatically converts slider value (0-300) to strength (0.0-3.0)
@@ -119,11 +125,6 @@ public:
          * @brief Convenience method for reset button.
          */
         ButtonBuilder& onReset();
-        
-        /**
-         * @brief Convenience method for gravity toggle button.
-         */
-        ButtonBuilder& onGravityToggle();
 
         /**
          * @brief Convenience method for print ASCII button.

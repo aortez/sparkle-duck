@@ -284,44 +284,48 @@ State::Any SimRunning::onEvent(const SelectMaterialCommand& cmd, DirtSimStateMac
 }
 
 State::Any SimRunning::onEvent(const SetTimescaleCommand& cmd, DirtSimStateMachine& dsm) {
-    auto params = dsm.getSharedState().getPhysicsParams();
-    params.timescale = cmd.timescale;
-    dsm.getSharedState().updatePhysicsParams(params);
-    spdlog::debug("SimRunning: Set timescale to {}", cmd.timescale);
+    // Update world directly (source of truth).
+    if (auto* simMgr = dsm.getSimulationManager()) {
+        if (auto* world = simMgr->getWorld()) {
+            world->setTimescale(cmd.timescale);
+            spdlog::info("SimRunning: Set timescale to {}", cmd.timescale);
+        }
+    }
     return *this;
 }
 
 State::Any SimRunning::onEvent(const SetElasticityCommand& cmd, DirtSimStateMachine& dsm) {
-    auto params = dsm.getSharedState().getPhysicsParams();
-    params.elasticity = cmd.elasticity;
-    dsm.getSharedState().updatePhysicsParams(params);
-    
-    // Apply to world.
+    // Update world directly (source of truth).
     if (auto* simMgr = dsm.getSimulationManager()) {
         if (auto* world = simMgr->getWorld()) {
             world->setElasticityFactor(cmd.elasticity);
+            spdlog::info("SimRunning: Set elasticity to {}", cmd.elasticity);
         }
     }
-    
-    spdlog::debug("SimRunning: Set elasticity to {}", cmd.elasticity);
     return *this;
 }
 
 State::Any SimRunning::onEvent(const SetDynamicStrengthCommand& cmd, DirtSimStateMachine& dsm) {
-    auto params = dsm.getSharedState().getPhysicsParams();
-    params.dynamicStrength = cmd.strength;
-    dsm.getSharedState().updatePhysicsParams(params);
-
-    // Apply to world if it's WorldB.
+    // Update world directly (source of truth).
     if (auto* simMgr = dsm.getSimulationManager()) {
         if (auto* world = simMgr->getWorld()) {
             if (world->getWorldType() == WorldType::RulesB) {
                 world->setDynamicPressureStrength(cmd.strength);
+                spdlog::info("SimRunning: Set dynamic strength to {:.1f}", cmd.strength);
             }
         }
     }
+    return *this;
+}
 
-    spdlog::info("Dynamic Strength slider changed to: {:.1f}", cmd.strength);
+State::Any SimRunning::onEvent(const SetGravityCommand& cmd, DirtSimStateMachine& dsm) {
+    // Update world directly (source of truth).
+    if (auto* simMgr = dsm.getSimulationManager()) {
+        if (auto* world = simMgr->getWorld()) {
+            world->setGravity(cmd.gravity);
+            spdlog::info("SimRunning: Set gravity to {}", cmd.gravity);
+        }
+    }
     return *this;
 }
 
@@ -547,19 +551,22 @@ State::Any SimRunning::onEvent(const GetSimStatsCommand& /*cmd. */, DirtSimState
 }
 
 State::Any SimRunning::onEvent(const ToggleDebugCommand& /*cmd. */, DirtSimStateMachine& dsm) {
-    // Toggle debug draw state.
-    auto params = dsm.getSharedState().getPhysicsParams();
-    params.debugEnabled = !params.debugEnabled;
-    dsm.getSharedState().updatePhysicsParams(params);
-    spdlog::debug("SimRunning: ToggleDebugCommand - Debug draw now: {}", params.debugEnabled);
-    
-    // Force a push update with uiState dirty flag.
-    if (dsm.getSharedState().isPushUpdatesEnabled()) {
-        UIUpdateEvent update = dsm.buildUIUpdate();
-        update.dirty.uiState = true;
-        dsm.getSharedState().pushUIUpdate(std::move(update));
+    // Toggle debug draw state in world (source of truth).
+    if (dsm.simulationManager && dsm.simulationManager->getWorld()) {
+        auto* world = dsm.simulationManager->getWorld();
+        bool newValue = !world->isDebugDrawEnabled();
+        world->setDebugDrawEnabled(newValue);
+        world->markAllCellsDirty();
+        spdlog::info("SimRunning: ToggleDebugCommand - Debug draw now: {}", newValue);
+
+        // Push UI update with uiState dirty flag.
+        if (dsm.getSharedState().isPushUpdatesEnabled()) {
+            UIUpdateEvent update = dsm.buildUIUpdate();
+            update.dirty.uiState = true;
+            dsm.getSharedState().pushUIUpdate(std::move(update));
+        }
     }
-    
+
     return *this;
 }
 

@@ -53,18 +53,6 @@ void EventRouter::processImmediateEvent(const ResumeCommand& /*cmd. */)
     // when the simulation thread checks the pause state.
 }
 
-void EventRouter::processImmediateEvent(const ToggleDebugCommand& /*cmd. */)
-{
-    // Toggle debug draw state.
-    Cell::debugDraw = !Cell::debugDraw;
-
-    spdlog::info("Processing ToggleDebugCommand - Debug draw now: {}", Cell::debugDraw);
-
-    // Update UI label if we have access to it.
-    // Note: The UI will need to observe this state change somehow.
-    // For now, just toggle the state.
-}
-
 void EventRouter::processImmediateEvent(const PrintAsciiDiagramCommand& /*cmd. */)
 {
     // Get the current world from shared state.
