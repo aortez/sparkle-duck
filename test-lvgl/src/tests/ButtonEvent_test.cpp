@@ -97,3 +97,30 @@ TEST_F(ButtonEventTest, GravitySliderWorks) {
     EXPECT_NE(newGravity, initialGravity) << "Gravity should have changed";
     EXPECT_NEAR(newGravity, -49.05, 0.1) << "Gravity should be -5x Earth gravity";
 }
+
+TEST_F(ButtonEventTest, HydrostaticPressureSwitchWorks) {
+    auto* world = getWorld();
+    bool initialState = world->isHydrostaticPressureEnabled();
+    spdlog::info("[TEST] Initial hydrostatic pressure state: {}", initialState);
+
+    // Create hydrostatic pressure switch.
+    lv_obj_t* sw = DirtSim::LVGLEventBuilder::lvSwitch(getScreen(), getRouter())
+                       .onHydrostaticPressureToggle()
+                       .checked(false)
+                       .buildOrLog();
+
+    ASSERT_NE(sw, nullptr) << "Hydrostatic pressure switch should be created";
+
+    // Simulate user toggling switch on.
+    lv_obj_add_state(sw, LV_STATE_CHECKED);
+    lv_obj_send_event(sw, LV_EVENT_VALUE_CHANGED, nullptr);
+
+    // Process queued events.
+    processEvents();
+
+    // Verify hydrostatic pressure was toggled.
+    bool newState = world->isHydrostaticPressureEnabled();
+    spdlog::info("[TEST] New hydrostatic pressure state: {}", newState);
+
+    EXPECT_NE(newState, initialState) << "Hydrostatic pressure should have toggled";
+}

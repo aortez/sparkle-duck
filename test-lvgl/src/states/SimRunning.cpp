@@ -438,44 +438,35 @@ State::Any SimRunning::onEvent(const SetAirResistanceCommand& cmd, DirtSimStateM
 }
 
 State::Any SimRunning::onEvent(const ToggleHydrostaticPressureCommand& /*cmd*/, DirtSimStateMachine& dsm) {
-    // Apply to world.
     if (auto* simMgr = dsm.getSimulationManager()) {
         if (auto* world = simMgr->getWorld()) {
-            // TODO: Need to add toggleHydrostaticPressure method to WorldInterface.
-            // For now, suppress unused warning.
-            (void)world;
+            bool newValue = !world->isHydrostaticPressureEnabled();
+            world->setHydrostaticPressureEnabled(newValue);
+            spdlog::info("SimRunning: Toggle hydrostatic pressure - now: {}", newValue);
         }
     }
-
-    spdlog::info("SimRunning: Toggle hydrostatic pressure");
     return *this;
 }
 
 State::Any SimRunning::onEvent(const ToggleDynamicPressureCommand& /*cmd*/, DirtSimStateMachine& dsm) {
-    // Apply to world.
     if (auto* simMgr = dsm.getSimulationManager()) {
         if (auto* world = simMgr->getWorld()) {
-            // TODO: Need to add toggleDynamicPressure method to WorldInterface.
-            // For now, suppress unused warning.
-            (void)world;
+            bool newValue = !world->isDynamicPressureEnabled();
+            world->setDynamicPressureEnabled(newValue);
+            spdlog::info("SimRunning: Toggle dynamic pressure - now: {}", newValue);
         }
     }
-
-    spdlog::info("SimRunning: Toggle dynamic pressure");
     return *this;
 }
 
 State::Any SimRunning::onEvent(const TogglePressureDiffusionCommand& /*cmd*/, DirtSimStateMachine& dsm) {
-    // Apply to world.
     if (auto* simMgr = dsm.getSimulationManager()) {
         if (auto* world = simMgr->getWorld()) {
-            // TODO: Need to add togglePressureDiffusion method to WorldInterface.
-            // For now, suppress unused warning.
-            (void)world;
+            bool newValue = !world->isPressureDiffusionEnabled();
+            world->setPressureDiffusionEnabled(newValue);
+            spdlog::info("SimRunning: Toggle pressure diffusion - now: {}", newValue);
         }
     }
-
-    spdlog::info("SimRunning: Toggle pressure diffusion");
     return *this;
 }
 
