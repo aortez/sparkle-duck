@@ -139,7 +139,6 @@ private:
     void createMaterialPicker();
     void createControlButtons();
     void createSliders();
-    void setupDrawAreaEvents();
 
     // Static event callback methods.
     static void drawAreaEventCb(lv_event_t* e);

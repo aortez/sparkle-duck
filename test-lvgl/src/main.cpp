@@ -38,8 +38,8 @@ static std::string selected_backend;
 /* contains the selected world type */
 static WorldType selected_world_type = WorldType::RulesB;
 
-/* flag to use the new event-driven system */
-static bool use_event_system = false;
+/* flag to use the new event-driven system (now the default) */
+static bool use_event_system = true;
 
 /* flag to use push-based UI updates */
 static bool use_push_updates = false;
