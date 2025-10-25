@@ -188,38 +188,6 @@ public:
         return currentStats_.totalMass;
     }
 
-    // =================================================================
-    // UI STATE PERSISTENCE
-    // =================================================================
-
-    /**
-     * @brief Physics parameter state for UI persistence.
-     */
-    struct PhysicsParams {
-        double gravity = 9.81;
-        double elasticity = 0.8;
-        double timescale = 1.0;
-        double dynamicStrength = 1.0;
-    };
-
-    /**
-     * @brief Get physics parameters.
-     */
-    PhysicsParams getPhysicsParams() const
-    {
-        std::shared_lock lock(paramsMutex_);
-        return physicsParams_;
-    }
-
-    /**
-     * @brief Update physics parameters.
-     */
-    void updatePhysicsParams(const PhysicsParams& params)
-    {
-        std::unique_lock lock(paramsMutex_);
-        physicsParams_ = params;
-    }
-
     /**
      * @brief Get current world interface.
      */
@@ -303,9 +271,6 @@ private:
     // Mutex-protected complex data.
     mutable std::shared_mutex statsMutex_;
     SimulationStats currentStats_;
-
-    mutable std::shared_mutex paramsMutex_;
-    PhysicsParams physicsParams_;
 
     mutable std::shared_mutex worldMutex_;
     WorldInterface* currentWorld_ = nullptr;

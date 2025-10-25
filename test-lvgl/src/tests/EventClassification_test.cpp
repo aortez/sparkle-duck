@@ -143,16 +143,12 @@ TEST_F(EventClassificationTest, SharedStateAccess) {
     state.setSelectedMaterial(MaterialType::WATER);
     EXPECT_EQ(state.getSelectedMaterial(), MaterialType::WATER);
     
-    // Test physics params.
-    auto params = state.getPhysicsParams();
-    // gravityEnabled removed - use gravity value directly.
-    params.gravity = 9.81;
-    params.elasticity = 0.75;
-    state.updatePhysicsParams(params);
+    // Test basic SharedSimState functionality.
+    state.setCurrentStep(100);
+    EXPECT_EQ(state.getCurrentStep(), 100);
 
-    auto newParams = state.getPhysicsParams();
-    EXPECT_DOUBLE_EQ(newParams.gravity, 9.81);
-    EXPECT_FLOAT_EQ(newParams.elasticity, 0.75);
+    state.setCurrentFPS(60.5f);
+    EXPECT_FLOAT_EQ(state.getCurrentFPS(), 60.5f);
 }
 
 // ===== Thread Safety Tests =====
