@@ -321,21 +321,16 @@ void SimulatorUI::createControlButtons()
         LV_EVENT_VALUE_CHANGED,
         createCallbackData());
 
-    // Pressure scale slider (WorldA only) - migrated to LVGLBuilder with value transform.
-    auto pressure_scale_builder =
-        LVGLBuilder::slider(screen_)
-            .position(MAIN_CONTROLS_X, 185)
-            .size(CONTROL_WIDTH, 10)
-            .range(0, 1000)
-            .value(100)
-            .label("Pressure Scale (WorldA)", 0, -20)
-            .valueLabel("%.1f", 135, -20)
-            .valueTransform(LVGLBuilder::Transforms::Linear(0.01)) // Convert 0-1000 to 0.0-10.0
-            .callback(pressureScaleSliderEventCb, [this](lv_obj_t* value_label) -> void* {
-                pressure_scale_label_ = value_label;
-                return createCallbackData(value_label);
-            });
-    pressure_scale_slider_ = pressure_scale_builder.buildOrLog();
+    // Pressure scale slider (WorldA only).
+    LVGLEventBuilder::slider(screen_, event_router_)
+        .onPressureScaleChange()
+        .position(MAIN_CONTROLS_X, 185, LV_ALIGN_TOP_LEFT)
+        .size(CONTROL_WIDTH, 10)
+        .range(0, 1000)
+        .value(100)
+        .label("Pressure Scale (WorldA)", 0, -20)
+        .valueLabel("%.1f", 135, -20)
+        .buildOrLog();
 
     // Create cursor force toggle button.
     LVGLEventBuilder::button(screen_, event_router_)
@@ -358,19 +353,15 @@ void SimulatorUI::createControlButtons()
         .buildOrLog();
 
     // Create viscosity strength slider.
-    [[maybe_unused]] auto viscosity_slider =
-        LVGLBuilder::slider(screen_)
-            .position(MAIN_CONTROLS_X, 345)
-            .size(CONTROL_WIDTH, 10)
-            .range(0, 200) // 0.0 to 2.0 range
-            .value(100)    // Default 1.0
-            .label("Viscosity", 0, -20)
-            .valueLabel("%.1f", 80, -20)
-            .valueTransform(LVGLBuilder::Transforms::Linear(0.01)) // Convert 0-200 to 0.0-2.0
-            .callback(
-                viscosityStrengthSliderEventCb,
-                [this](lv_obj_t* value_label) -> void* { return createCallbackData(value_label); })
-            .buildOrLog();
+    LVGLEventBuilder::slider(screen_, event_router_)
+        .onViscosityStrengthChange()
+        .position(MAIN_CONTROLS_X, 345, LV_ALIGN_TOP_LEFT)
+        .size(CONTROL_WIDTH, 10)
+        .range(0, 200)
+        .value(100)
+        .label("Viscosity", 0, -20)
+        .valueLabel("%.1f", 80, -20)
+        .buildOrLog();
 
     // Create cohesion force toggle button.
     // TODO: This currently uses the same ToggleCohesionCommand as the bind button.
@@ -383,49 +374,38 @@ void SimulatorUI::createControlButtons()
         .toggle(true)
         .buildOrLog();
 
-    // Create COM cohesion strength slider below the force button - migrated to LVGLBuilder.
-    auto cohesion_builder =
-        LVGLBuilder::slider(screen_)
-            .position(MAIN_CONTROLS_X, 460)
-            .size(CONTROL_WIDTH, 10)
-            .range(0, 30000) // 0.0 to 300.0 range
-            .value(15000)    // Default 150.0
-            .label("Cohesion Strength", 0, -20)
-            .valueLabel("%.1f", 165, -20)
-            .valueTransform(LVGLBuilder::Transforms::Linear(0.01)) // Convert 0-30000 to 0.0-300.0
-            .callback(cohesionForceStrengthSliderEventCb, [this](lv_obj_t* value_label) -> void* {
-                cohesion_force_label_ = value_label;
-                return createCallbackData(value_label);
-            });
-    cohesion_force_slider_ = cohesion_builder.buildOrLog();
+    // Create COM cohesion strength slider below the force button.
+    LVGLEventBuilder::slider(screen_, event_router_)
+        .onCohesionForceStrengthChange()
+        .position(MAIN_CONTROLS_X, 460, LV_ALIGN_TOP_LEFT)
+        .size(CONTROL_WIDTH, 10)
+        .range(0, 30000)
+        .value(15000)
+        .label("Cohesion Strength", 0, -20)
+        .valueLabel("%.1f", 165, -20)
+        .buildOrLog();
 
     // Create COM cohesion range slider.
-    auto com_range_builder =
-        LVGLBuilder::slider(screen_)
-            .position(MAIN_CONTROLS_X, 510)
-            .size(CONTROL_WIDTH, 10)
-            .range(1, 5)
-            .value(1)
-            .label("Cohesion Range", 0, -20)
-            .valueLabel("%.0f", 120, -20)
-            .callback(comCohesionRangeSliderEventCb, [this](lv_obj_t* value_label) -> void* {
-                return createCallbackData(value_label);
-            });
-    com_range_builder.buildOrLog();
+    LVGLEventBuilder::slider(screen_, event_router_)
+        .onCOMCohesionRangeChange()
+        .position(MAIN_CONTROLS_X, 510, LV_ALIGN_TOP_LEFT)
+        .size(CONTROL_WIDTH, 10)
+        .range(1, 5)
+        .value(1)
+        .label("Cohesion Range", 0, -20)
+        .valueLabel("%.0f", 120, -20)
+        .buildOrLog();
 
     // Create friction strength slider.
-    auto friction_builder =
-        LVGLBuilder::slider(screen_)
-            .position(MAIN_CONTROLS_X, 540)
-            .size(CONTROL_WIDTH, 10)
-            .range(0, 10)
-            .value(1)
-            .label("Friction Strength", 0, -20)
-            .valueLabel("%.1f", 120, -20)
-            .callback(frictionStrengthSliderEventCb, [this](lv_obj_t* value_label) -> void* {
-                return createCallbackData(value_label);
-            });
-    friction_strength_slider_ = friction_builder.buildOrLog();
+    LVGLEventBuilder::slider(screen_, event_router_)
+        .onFrictionStrengthChange()
+        .position(MAIN_CONTROLS_X, 540, LV_ALIGN_TOP_LEFT)
+        .size(CONTROL_WIDTH, 10)
+        .range(0, 10)
+        .value(1)
+        .label("Friction Strength", 0, -20)
+        .valueLabel("%.1f", 120, -20)
+        .buildOrLog();
 
     // Create adhesion toggle button.
     LVGLEventBuilder::button(screen_, event_router_)
@@ -436,20 +416,16 @@ void SimulatorUI::createControlButtons()
         .toggle(true)
         .buildOrLog();
 
-    // Create adhesion strength slider - migrated to LVGLBuilder with value transform.
-    [[maybe_unused]] auto adhesion_strength_slider =
-        LVGLBuilder::slider(screen_)
-            .position(MAIN_CONTROLS_X, 670)
-            .size(CONTROL_WIDTH, 10)
-            .range(0, 1000) // 0.0 to 10.0 range
-            .value(500)     // Default 5.0
-            .label("Adhesion Strength", 0, -20)
-            .valueLabel("%.1f", 140, -20)
-            .valueTransform(LVGLBuilder::Transforms::Linear(0.01)) // Convert 0-1000 to 0.0-10.0
-            .callback(
-                adhesionStrengthSliderEventCb,
-                [this](lv_obj_t* value_label) -> void* { return createCallbackData(value_label); })
-            .buildOrLog();
+    // Create adhesion strength slider.
+    LVGLEventBuilder::slider(screen_, event_router_)
+        .onAdhesionStrengthChange()
+        .position(MAIN_CONTROLS_X, 670, LV_ALIGN_TOP_LEFT)
+        .size(CONTROL_WIDTH, 10)
+        .range(0, 1000)
+        .value(500)
+        .label("Adhesion Strength", 0, -20)
+        .valueLabel("%.1f", 140, -20)
+        .buildOrLog();
 
     // Create left throw toggle button.
     lv_obj_t* left_throw_btn = lv_btn_create(screen_);
@@ -727,22 +703,16 @@ void SimulatorUI::createSliders()
                             .checked(false)
                             .buildOrLog();
 
-    // Hydrostatic pressure strength slider (WorldB only) - migrated to LVGLBuilder.
-    auto hydrostatic_builder =
-        LVGLBuilder::slider(screen_)
-            .position(SLIDER_COLUMN_X, 765)
-            .size(CONTROL_WIDTH, 10)
-            .range(0, 300) // 0.0 to 3.0 range
-            .value(100)    // Default 1.0
-            .label("Hydrostatic Strength", 0, -20)
-            .valueLabel("%.1f", 140, -20)
-            .valueTransform(LVGLBuilder::Transforms::Linear(0.01)) // Convert 0-300 to 0.0-3.0
-            .callback(
-                hydrostaticPressureStrengthSliderEventCb, [this](lv_obj_t* value_label) -> void* {
-                    hydrostatic_strength_label_ = value_label;
-                    return createCallbackData(value_label);
-                });
-    hydrostatic_strength_slider_ = hydrostatic_builder.buildOrLog();
+    // Hydrostatic pressure strength slider (WorldB only).
+    LVGLEventBuilder::slider(screen_, event_router_)
+        .onHydrostaticPressureStrengthChange()
+        .position(SLIDER_COLUMN_X, 765, LV_ALIGN_TOP_LEFT)
+        .size(CONTROL_WIDTH, 10)
+        .range(0, 300)
+        .value(100)
+        .label("Hydrostatic Strength", 0, -20)
+        .valueLabel("%.1f", 140, -20)
+        .buildOrLog();
 
     // Dynamic pressure strength slider (WorldB only) - migrated to EventRouter.
     LVGLEventBuilder::slider(screen_, event_router_)
@@ -755,37 +725,27 @@ void SimulatorUI::createSliders()
         .valueLabel("%.1f", 140, -20)
         .buildOrLog();
 
-    // Air resistance slider - migrated to LVGLBuilder with value transform.
-    auto air_resistance_builder =
-        LVGLBuilder::slider(screen_)
-            .position(SLIDER_COLUMN_X, 865)
-            .size(CONTROL_WIDTH, 10)
-            .range(0, 100) // 0.0 to 1.0 range
-            .value(10)     // Default 0.1
-            .label("Air Resistance", 0, -20)
-            .valueLabel("%.2f", 120, -20)
-            .valueTransform(LVGLBuilder::Transforms::Linear(0.01)) // Convert 0-100 to 0.0-1.0
-            .callback(airResistanceSliderEventCb, [this](lv_obj_t* value_label) -> void* {
-                air_resistance_label_ = value_label;
-                return createCallbackData(value_label);
-            });
-    air_resistance_slider_ = air_resistance_builder.buildOrLog();
+    // Air resistance slider.
+    LVGLEventBuilder::slider(screen_, event_router_)
+        .onAirResistanceChange()
+        .position(SLIDER_COLUMN_X, 865, LV_ALIGN_TOP_LEFT)
+        .size(CONTROL_WIDTH, 10)
+        .range(0, 100)
+        .value(10)
+        .label("Air Resistance", 0, -20)
+        .valueLabel("%.2f", 120, -20)
+        .buildOrLog();
 
     // Pressure scale slider for WorldB.
-    auto pressure_scale_worldb_builder =
-        LVGLBuilder::slider(screen_)
-            .position(SLIDER_COLUMN_X, 915)
-            .size(CONTROL_WIDTH, 10)
-            .range(0, 200) // 0.0 to 2.0 range
-            .value(100)    // Default 1.0
-            .label("Pressure Scale", 0, -20)
-            .valueLabel("%.1f", 120, -20)
-            .valueTransform(LVGLBuilder::Transforms::Linear(0.01)) // Convert 0-200 to 0.0-2.0
-            .callback(pressureScaleWorldBSliderEventCb, [this](lv_obj_t* value_label) -> void* {
-                pressure_scale_worldb_label_ = value_label;
-                return createCallbackData(value_label);
-            });
-    pressure_scale_worldb_slider_ = pressure_scale_worldb_builder.buildOrLog();
+    LVGLEventBuilder::slider(screen_, event_router_)
+        .onPressureScaleWorldBChange()
+        .position(SLIDER_COLUMN_X, 915, LV_ALIGN_TOP_LEFT)
+        .size(CONTROL_WIDTH, 10)
+        .range(0, 200)
+        .value(100)
+        .label("Pressure Scale", 0, -20)
+        .valueLabel("%.1f", 120, -20)
+        .buildOrLog();
 }
 
 
