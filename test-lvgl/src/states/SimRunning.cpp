@@ -571,88 +571,87 @@ State::Any SimRunning::onEvent(const ToggleDebugCommand& /*cmd. */, DirtSimState
 }
 
 State::Any SimRunning::onEvent(const ToggleForceCommand& /*cmd. */, DirtSimStateMachine& dsm) {
-    auto params = dsm.getSharedState().getPhysicsParams();
-    params.forceVisualizationEnabled = !params.forceVisualizationEnabled;
-    dsm.getSharedState().updatePhysicsParams(params);
-    spdlog::debug("SimRunning: ToggleForceCommand - Force viz now: {}", params.forceVisualizationEnabled);
-    
-    // Force a push update with physics params dirty flag.
-    if (dsm.getSharedState().isPushUpdatesEnabled()) {
-        UIUpdateEvent update = dsm.buildUIUpdate();
-        update.dirty.physicsParams = true;
-        dsm.getSharedState().pushUIUpdate(std::move(update));
+    if (auto* simMgr = dsm.getSimulationManager()) {
+        if (auto* world = simMgr->getWorld()) {
+            bool newValue = !world->isCursorForceEnabled();
+            world->setCursorForceEnabled(newValue);
+            spdlog::info("SimRunning: ToggleForceCommand - Force viz now: {}", newValue);
+
+            if (dsm.getSharedState().isPushUpdatesEnabled()) {
+                UIUpdateEvent update = dsm.buildUIUpdate();
+                update.dirty.uiState = true;
+                dsm.getSharedState().pushUIUpdate(std::move(update));
+            }
+        }
     }
-    
     return *this;
 }
 
 State::Any SimRunning::onEvent(const ToggleCohesionCommand& /*cmd. */, DirtSimStateMachine& dsm) {
-    auto params = dsm.getSharedState().getPhysicsParams();
-    params.cohesionEnabled = !params.cohesionEnabled;
-    dsm.getSharedState().updatePhysicsParams(params);
-    spdlog::debug("SimRunning: ToggleCohesionCommand - Cohesion now: {}", params.cohesionEnabled);
+    if (auto* simMgr = dsm.getSimulationManager()) {
+        if (auto* world = simMgr->getWorld()) {
+            bool newValue = !world->isCohesionComForceEnabled();
+            world->setCohesionComForceEnabled(newValue);
+            spdlog::info("SimRunning: ToggleCohesionCommand - Cohesion now: {}", newValue);
 
-    // Force a push update with physics params dirty flag.
-    if (dsm.getSharedState().isPushUpdatesEnabled()) {
-        UIUpdateEvent update = dsm.buildUIUpdate();
-        update.dirty.physicsParams = true;
-        dsm.getSharedState().pushUIUpdate(std::move(update));
+            if (dsm.getSharedState().isPushUpdatesEnabled()) {
+                UIUpdateEvent update = dsm.buildUIUpdate();
+                update.dirty.uiState = true;
+                dsm.getSharedState().pushUIUpdate(std::move(update));
+            }
+        }
     }
-
     return *this;
 }
 
 State::Any SimRunning::onEvent(const ToggleCohesionForceCommand& /*cmd. */, DirtSimStateMachine& dsm) {
-    auto params = dsm.getSharedState().getPhysicsParams();
-    params.cohesionEnabled = !params.cohesionEnabled;
-    dsm.getSharedState().updatePhysicsParams(params);
-    spdlog::debug("SimRunning: ToggleCohesionForceCommand - Cohesion force now: {}", params.cohesionEnabled);
+    if (auto* simMgr = dsm.getSimulationManager()) {
+        if (auto* world = simMgr->getWorld()) {
+            bool newValue = !world->isCohesionComForceEnabled();
+            world->setCohesionComForceEnabled(newValue);
+            spdlog::info("SimRunning: ToggleCohesionForceCommand - Cohesion force now: {}", newValue);
 
-    // Force a push update with physics params dirty flag.
-    if (dsm.getSharedState().isPushUpdatesEnabled()) {
-        UIUpdateEvent update = dsm.buildUIUpdate();
-        update.dirty.physicsParams = true;
-        dsm.getSharedState().pushUIUpdate(std::move(update));
+            if (dsm.getSharedState().isPushUpdatesEnabled()) {
+                UIUpdateEvent update = dsm.buildUIUpdate();
+                update.dirty.uiState = true;
+                dsm.getSharedState().pushUIUpdate(std::move(update));
+            }
+        }
     }
-
     return *this;
 }
 
 State::Any SimRunning::onEvent(const ToggleAdhesionCommand& /*cmd. */, DirtSimStateMachine& dsm) {
-    auto params = dsm.getSharedState().getPhysicsParams();
-    params.adhesionEnabled = !params.adhesionEnabled;
-    dsm.getSharedState().updatePhysicsParams(params);
-    
-    // Update world if available.
-    if (dsm.simulationManager && dsm.simulationManager->getWorld()) {
-        dsm.simulationManager->getWorld()->setAdhesionEnabled(params.adhesionEnabled);
+    if (auto* simMgr = dsm.getSimulationManager()) {
+        if (auto* world = simMgr->getWorld()) {
+            bool newValue = !world->isAdhesionEnabled();
+            world->setAdhesionEnabled(newValue);
+            spdlog::info("SimRunning: ToggleAdhesionCommand - Adhesion now: {}", newValue);
+
+            if (dsm.getSharedState().isPushUpdatesEnabled()) {
+                UIUpdateEvent update = dsm.buildUIUpdate();
+                update.dirty.uiState = true;
+                dsm.getSharedState().pushUIUpdate(std::move(update));
+            }
+        }
     }
-    
-    spdlog::debug("SimRunning: ToggleAdhesionCommand - Adhesion now: {}", params.adhesionEnabled);
-    
-    // Force a push update with physics params dirty flag.
-    if (dsm.getSharedState().isPushUpdatesEnabled()) {
-        UIUpdateEvent update = dsm.buildUIUpdate();
-        update.dirty.physicsParams = true;
-        dsm.getSharedState().pushUIUpdate(std::move(update));
-    }
-    
     return *this;
 }
 
 State::Any SimRunning::onEvent(const ToggleTimeHistoryCommand& /*cmd. */, DirtSimStateMachine& dsm) {
-    auto params = dsm.getSharedState().getPhysicsParams();
-    params.timeHistoryEnabled = !params.timeHistoryEnabled;
-    dsm.getSharedState().updatePhysicsParams(params);
-    spdlog::debug("SimRunning: ToggleTimeHistoryCommand - Time history now: {}", params.timeHistoryEnabled);
-    
-    // Force a push update with physics params dirty flag.
-    if (dsm.getSharedState().isPushUpdatesEnabled()) {
-        UIUpdateEvent update = dsm.buildUIUpdate();
-        update.dirty.physicsParams = true;
-        dsm.getSharedState().pushUIUpdate(std::move(update));
+    if (auto* simMgr = dsm.getSimulationManager()) {
+        if (auto* world = simMgr->getWorld()) {
+            bool newValue = !world->isTimeReversalEnabled();
+            world->enableTimeReversal(newValue);
+            spdlog::info("SimRunning: ToggleTimeHistoryCommand - Time history now: {}", newValue);
+
+            if (dsm.getSharedState().isPushUpdatesEnabled()) {
+                UIUpdateEvent update = dsm.buildUIUpdate();
+                update.dirty.uiState = true;
+                dsm.getSharedState().pushUIUpdate(std::move(update));
+            }
+        }
     }
-    
     return *this;
 }
 

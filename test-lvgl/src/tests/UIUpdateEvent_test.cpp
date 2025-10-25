@@ -74,11 +74,11 @@ TEST_F(UIUpdateEventTest, PhysicsParamsIntegration) {
     event.physicsParams.gravity = 19.62;
     // debugEnabled removed from physicsParams - now in event.debugEnabled.
     event.debugEnabled = true;
-    event.physicsParams.forceVisualizationEnabled = true;
+    event.forceEnabled = true;
 
     EXPECT_DOUBLE_EQ(event.physicsParams.gravity, 19.62);
-    EXPECT_TRUE(event.debugEnabled);  // Now in UIUpdateEvent directly.
-    EXPECT_TRUE(event.physicsParams.forceVisualizationEnabled);
+    EXPECT_TRUE(event.debugEnabled);
+    EXPECT_TRUE(event.forceEnabled);
 }
 
 TEST_F(UIUpdateEventTest, DirtyFlagsUsage) {
@@ -160,12 +160,10 @@ TEST_F(UIUpdateEventTest, ComprehensiveStateCapture) {
     event.physicsParams.gravity = 4.9;
     event.physicsParams.elasticity = 0.95;
     event.physicsParams.timescale = 2.0;
-    // debugEnabled removed - now in event.debugEnabled (from world).
-    // gravityEnabled removed - check gravity value instead.
-    event.physicsParams.forceVisualizationEnabled = true;
-    event.physicsParams.cohesionEnabled = false;
-    event.physicsParams.adhesionEnabled = false;
-    event.physicsParams.timeHistoryEnabled = true;
+    event.forceEnabled = true;
+    event.cohesionEnabled = false;
+    event.adhesionEnabled = false;
+    event.timeHistoryEnabled = true;
     
     event.isPaused = true;
     event.debugEnabled = true;
