@@ -124,7 +124,6 @@ struct SimRunning {
     Any onEvent(const ToggleAdhesionCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const ToggleTimeHistoryCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const PrintAsciiDiagramCommand& cmd, DirtSimStateMachine& dsm);
-    Any onEvent(const SetCellSizeCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const SetFragmentationCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const SetPressureSystemCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const ToggleWallsCommand& cmd, DirtSimStateMachine& dsm);

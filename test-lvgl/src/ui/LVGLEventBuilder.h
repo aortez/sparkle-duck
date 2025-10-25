@@ -141,6 +141,24 @@ public:
         SliderBuilder& onAirResistanceChange();
 
         /**
+         * @brief Convenience method for cell size sliders.
+         * Value is cell size in pixels (typically 25-100)
+         */
+        SliderBuilder& onCellSizeChange();
+
+        /**
+         * @brief Convenience method for fragmentation sliders.
+         * Automatically converts slider value (0-100) to factor (0.0-1.0)
+         */
+        SliderBuilder& onFragmentationChange();
+
+        /**
+         * @brief Convenience method for rain rate sliders.
+         * Value is rain rate (typically 0-100 particles/second)
+         */
+        SliderBuilder& onRainRateChange();
+
+        /**
          * @brief Set the event router for this builder.
          */
         SliderBuilder& withEventRouter(EventRouter* router);

@@ -1,4 +1,5 @@
 #include "State.h"
+#include "../Cell.h"
 #include "../DirtSimStateMachine.h"
 #include "../SimulationManager.h"
 #include "../SimulatorUI.h"
@@ -471,16 +472,12 @@ State::Any SimRunning::onEvent(const SetDynamicPressureStrengthCommand& cmd, Dir
 }
 
 State::Any SimRunning::onEvent(const SetRainRateCommand& cmd, DirtSimStateMachine& dsm) {
-    // Apply to world.
     if (auto* simMgr = dsm.getSimulationManager()) {
         if (auto* world = simMgr->getWorld()) {
-            // TODO: Need to add setRainRate method to WorldInterface.
-            // For now, suppress unused warning.
-            (void)world;
+            world->setRainRate(cmd.rate);
+            spdlog::info("SimRunning: Set rain rate to {}", cmd.rate);
         }
     }
-
-    spdlog::debug("SimRunning: Set rain rate to {}", cmd.rate);
     return *this;
 }
 
@@ -631,31 +628,13 @@ State::Any SimRunning::onEvent(const PrintAsciiDiagramCommand& /*cmd. */, DirtSi
     return *this;
 }
 
-State::Any SimRunning::onEvent(const SetCellSizeCommand& cmd, DirtSimStateMachine& dsm) {
-    // Apply to world.
-    if (auto* simMgr = dsm.getSimulationManager()) {
-        if (auto* world = simMgr->getWorld()) {
-            // TODO: Need to add setCellSize method to WorldInterface.
-            // For now, suppress unused warning.
-            (void)world;
-        }
-    }
-
-    spdlog::debug("SimRunning: Set cell size to {}", cmd.size);
-    return *this;
-}
-
 State::Any SimRunning::onEvent(const SetFragmentationCommand& cmd, DirtSimStateMachine& dsm) {
-    // Apply to world.
     if (auto* simMgr = dsm.getSimulationManager()) {
         if (auto* world = simMgr->getWorld()) {
-            // TODO: Need to add setFragmentationFactor method to WorldInterface.
-            // For now, suppress unused warning.
-            (void)world;
+            world->setDirtFragmentationFactor(cmd.factor);
+            spdlog::info("SimRunning: Set fragmentation factor to {}", cmd.factor);
         }
     }
-
-    spdlog::debug("SimRunning: Set fragmentation factor to {}", cmd.factor);
     return *this;
 }
 
