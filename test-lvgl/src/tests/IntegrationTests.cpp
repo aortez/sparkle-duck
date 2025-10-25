@@ -129,21 +129,19 @@ TEST_F(IntegrationTests, UIWorkflow_MaterialSelectionAndDrawing) {
 }
 
 TEST_F(IntegrationTests, UIWorkflow_PhysicsParameterAdjustment) {
-    auto& sharedState = dsm->getSharedState();
-    
+    auto* world = dsm->getSimulationManager()->getWorld();
+
     // Adjust timescale.
     simulateSliderChange("timescale", 0.5);
     processEvents();
-    
-    auto params = sharedState.getPhysicsParams();
-    EXPECT_FLOAT_EQ(params.timescale, 0.5);
-    
+
+    EXPECT_FLOAT_EQ(world->getTimescale(), 0.5);
+
     // Adjust elasticity.
     simulateSliderChange("elasticity", 0.8);
     processEvents();
-    
-    params = sharedState.getPhysicsParams();
-    EXPECT_FLOAT_EQ(params.elasticity, 0.8);
+
+    EXPECT_FLOAT_EQ(world->getElasticityFactor(), 0.8);
 }
 
 TEST_F(IntegrationTests, UIWorkflow_DrawingWhilePaused) {

@@ -145,12 +145,6 @@ TEST_F(SharedSimStatePushUpdateTest, CompleteUIUpdateFlow) {
     sharedState.setIsPaused(true);
     sharedState.setSelectedMaterial(MaterialType::WATER);
     
-    // Update physics params.
-    SharedSimState::PhysicsParams params;
-    params.gravity = 9.81;
-    params.elasticity = 0.5;
-    sharedState.updatePhysicsParams(params);
-    
     // Create and push a UI update.
     UIUpdateEvent update;
     update.fps = static_cast<uint32_t>(sharedState.getCurrentFPS());
@@ -158,11 +152,10 @@ TEST_F(SharedSimStatePushUpdateTest, CompleteUIUpdateFlow) {
     update.isPaused = sharedState.getIsPaused();
     update.selectedMaterial = sharedState.getSelectedMaterial();
     
-    // Copy physics params from SharedSimState type to Event type.
-    auto sharedParams = sharedState.getPhysicsParams();
-    update.physicsParams.gravity = sharedParams.gravity;
-    update.physicsParams.elasticity = sharedParams.elasticity;
-    update.physicsParams.timescale = sharedParams.timescale;
+    // Set physics params directly (no longer cached in SharedSimState).
+    update.physicsParams.gravity = 9.81;
+    update.physicsParams.elasticity = 0.8;
+    update.physicsParams.timescale = 1.0;
     
     update.worldType = "WorldA";
     update.timestamp = std::chrono::steady_clock::now();
