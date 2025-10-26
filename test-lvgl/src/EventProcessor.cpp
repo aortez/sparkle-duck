@@ -34,8 +34,12 @@ void EventProcessor::processEvent(const Event& event, DirtSim::DirtSimStateMachi
 {
     auto startTime = std::chrono::steady_clock::now();
 
-    spdlog::info(
-        "Processing event: {} in state: {}", getEventName(event), dsm.getCurrentStateName());
+    std::string eventName = getEventName(event);
+    if (eventName == "AdvanceSimulationCommand") {
+        spdlog::debug("Processing event: {} in state: {}", eventName, dsm.getCurrentStateName());
+    } else {
+        spdlog::info("Processing event: {} in state: {}", eventName, dsm.getCurrentStateName());
+    }
 
     try {
         // Dispatch event to state machine.

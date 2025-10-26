@@ -266,9 +266,8 @@ void SimulatorUI::createMaterialPicker()
     lv_obj_set_style_border_width(picker_container, 1, 0);
     lv_obj_set_style_border_color(picker_container, lv_color_hex(0x606060), 0);
 
-    // Create MaterialPicker instance.
-    material_picker_ = std::make_unique<MaterialPicker>(picker_container);
-    material_picker_->setParentUI(this); // Set up parent UI reference for notifications.
+    // Create MaterialPicker instance with event router.
+    material_picker_ = std::make_unique<MaterialPicker>(picker_container, event_router_);
     material_picker_->createMaterialSelector();
 
     spdlog::info("Material picker created in SimulatorUI");
@@ -309,17 +308,13 @@ void SimulatorUI::createControlButtons()
     lv_label_set_text(pressure_label, "Pressure System:");
     lv_obj_align(pressure_label, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 95);
 
-    lv_obj_t* pressure_dropdown = lv_dropdown_create(screen_);
-    lv_obj_set_size(pressure_dropdown, CONTROL_WIDTH, 40);
-    lv_obj_align(pressure_dropdown, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 115);
-    lv_dropdown_set_options(
-        pressure_dropdown, "Original (COM)\nTop-Down Hydrostatic\nIterative Settling");
-    lv_dropdown_set_selected(pressure_dropdown, 0); // Default to Original.
-    lv_obj_add_event_cb(
-        pressure_dropdown,
-        pressureSystemDropdownEventCb,
-        LV_EVENT_VALUE_CHANGED,
-        createCallbackData());
+    LVGLEventBuilder::dropdown(screen_, event_router_)
+        .onPressureSystemChange()
+        .size(CONTROL_WIDTH, 40)
+        .position(MAIN_CONTROLS_X, 115, LV_ALIGN_TOP_LEFT)
+        .options("Original (COM)\nTop-Down Hydrostatic\nIterative Settling")
+        .selected(0)
+        .buildOrLog();
 
     // Pressure scale slider (WorldA only).
     LVGLEventBuilder::slider(screen_, event_router_)
@@ -428,33 +423,28 @@ void SimulatorUI::createControlButtons()
         .buildOrLog();
 
     // Create left throw toggle button.
-    lv_obj_t* left_throw_btn = lv_btn_create(screen_);
-    lv_obj_set_size(left_throw_btn, CONTROL_WIDTH, 50);
-    lv_obj_align(left_throw_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 690);
-    lv_obj_t* left_throw_label = lv_label_create(left_throw_btn);
-    lv_label_set_text(left_throw_label, "Left Throw: On");
-    lv_obj_center(left_throw_label);
-    lv_obj_add_event_cb(
-        left_throw_btn, leftThrowBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
+    LVGLEventBuilder::button(screen_, event_router_)
+        .onLeftThrowToggle()
+        .size(CONTROL_WIDTH, 50)
+        .position(MAIN_CONTROLS_X, 690, LV_ALIGN_TOP_LEFT)
+        .text("Left Throw: On")
+        .buildOrLog();
 
     // Create right throw toggle button.
-    lv_obj_t* right_throw_btn = lv_btn_create(screen_);
-    lv_obj_set_size(right_throw_btn, CONTROL_WIDTH, 50);
-    lv_obj_align(right_throw_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 750);
-    lv_obj_t* right_throw_label = lv_label_create(right_throw_btn);
-    lv_label_set_text(right_throw_label, "Right Throw: On");
-    lv_obj_center(right_throw_label);
-    lv_obj_add_event_cb(
-        right_throw_btn, rightThrowBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
+    LVGLEventBuilder::button(screen_, event_router_)
+        .onRightThrowToggle()
+        .size(CONTROL_WIDTH, 50)
+        .position(MAIN_CONTROLS_X, 750, LV_ALIGN_TOP_LEFT)
+        .text("Right Throw: On")
+        .buildOrLog();
 
     // Create quadrant toggle button.
-    lv_obj_t* quadrant_btn = lv_btn_create(screen_);
-    lv_obj_set_size(quadrant_btn, CONTROL_WIDTH, 50);
-    lv_obj_align(quadrant_btn, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 810);
-    lv_obj_t* quadrant_label = lv_label_create(quadrant_btn);
-    lv_label_set_text(quadrant_label, "Quadrant: On");
-    lv_obj_center(quadrant_label);
-    lv_obj_add_event_cb(quadrant_btn, quadrantBtnEventCb, LV_EVENT_CLICKED, createCallbackData());
+    LVGLEventBuilder::button(screen_, event_router_)
+        .onQuadrantToggle()
+        .size(CONTROL_WIDTH, 50)
+        .position(MAIN_CONTROLS_X, 810, LV_ALIGN_TOP_LEFT)
+        .text("Quadrant: On")
+        .buildOrLog();
 
     // Create screenshot button.
     LVGLEventBuilder::button(screen_, event_router_)
@@ -596,65 +586,49 @@ void SimulatorUI::createSliders()
         .valueLabel("%d/s", 110, -20)
         .buildOrLog();
 
-    // Water cohesion slider - migrated to LVGLBuilder with value transform.
-    [[maybe_unused]] auto water_cohesion_slider =
-        LVGLBuilder::slider(screen_)
-            .position(SLIDER_COLUMN_X, 470)
-            .size(CONTROL_WIDTH, 10)
-            .range(0, 1000) // 0.0 to 1.0 range
-            .value(600)     // Default 0.6
-            .label("Water Cohesion", 0, -20)
-            .valueLabel("%.3f", 150, -20)
-            .valueTransform(LVGLBuilder::Transforms::Linear(0.001)) // Convert 0-1000 to 0.0-1.0
-            .callback(
-                waterCohesionSliderEventCb,
-                [this](lv_obj_t* value_label) -> void* { return createCallbackData(value_label); })
-            .buildOrLog();
+    // Water cohesion slider.
+    LVGLEventBuilder::slider(screen_, event_router_)
+        .onWaterCohesionChange()
+        .position(SLIDER_COLUMN_X, 470, LV_ALIGN_TOP_LEFT)
+        .size(CONTROL_WIDTH, 10)
+        .range(0, 1000)
+        .value(600)
+        .label("Water Cohesion", 0, -20)
+        .valueLabel("%.3f", 150, -20)
+        .buildOrLog();
 
-    // Water viscosity slider - migrated to LVGLBuilder with value transform.
-    [[maybe_unused]] auto water_viscosity_slider =
-        LVGLBuilder::slider(screen_)
-            .position(SLIDER_COLUMN_X, 510)
-            .size(CONTROL_WIDTH, 10)
-            .range(0, 1000) // 0.0 to 1.0 range
-            .value(100)     // Default 0.1
-            .label("Water Viscosity", 0, -20)
-            .valueLabel("%.3f", 150, -20)
-            .valueTransform(LVGLBuilder::Transforms::Linear(0.001)) // Convert 0-1000 to 0.0-1.0
-            .callback(
-                waterViscositySliderEventCb,
-                [this](lv_obj_t* value_label) -> void* { return createCallbackData(value_label); })
-            .buildOrLog();
+    // Water viscosity slider.
+    LVGLEventBuilder::slider(screen_, event_router_)
+        .onWaterViscosityChange()
+        .position(SLIDER_COLUMN_X, 510, LV_ALIGN_TOP_LEFT)
+        .size(CONTROL_WIDTH, 10)
+        .range(0, 1000)
+        .value(100)
+        .label("Water Viscosity", 0, -20)
+        .valueLabel("%.3f", 150, -20)
+        .buildOrLog();
 
     // Water pressure threshold slider.
-    auto water_pressure_builder =
-        LVGLBuilder::slider(screen_)
-            .position(SLIDER_COLUMN_X, 550)
-            .size(CONTROL_WIDTH, 10)
-            .range(0, 1000)
-            .value(40)
-            .label("Water Pressure Threshold", 0, -20)
-            .valueLabel("%.4f", 190, -20)
-            .valueTransform(LVGLBuilder::Transforms::Linear(0.00001)) // Convert 0-1000 to 0.0-0.01
-            .callback(waterPressureThresholdSliderEventCb, [this](lv_obj_t* value_label) -> void* {
-                return createCallbackData(value_label);
-            });
-    water_pressure_builder.buildOrLog();
+    LVGLEventBuilder::slider(screen_, event_router_)
+        .onWaterPressureThresholdChange()
+        .position(SLIDER_COLUMN_X, 550, LV_ALIGN_TOP_LEFT)
+        .size(CONTROL_WIDTH, 10)
+        .range(0, 1000)
+        .value(40)
+        .label("Water Pressure Threshold", 0, -20)
+        .valueLabel("%.4f", 190, -20)
+        .buildOrLog();
 
     // Water buoyancy slider.
-    auto buoyancy_builder =
-        LVGLBuilder::slider(screen_)
-            .position(SLIDER_COLUMN_X, 590)
-            .size(CONTROL_WIDTH, 10)
-            .range(0, 1000)
-            .value(100)
-            .label("Water Buoyancy", 0, -20)
-            .valueLabel("%.3f", 150, -20)
-            .valueTransform(LVGLBuilder::Transforms::Linear(0.001)) // Convert 0-1000 to 0.0-1.0
-            .callback(waterBuoyancySliderEventCb, [this](lv_obj_t* value_label) -> void* {
-                return createCallbackData(value_label);
-            });
-    buoyancy_builder.buildOrLog();
+    LVGLEventBuilder::slider(screen_, event_router_)
+        .onWaterBuoyancyChange()
+        .position(SLIDER_COLUMN_X, 590, LV_ALIGN_TOP_LEFT)
+        .size(CONTROL_WIDTH, 10)
+        .range(0, 1000)
+        .value(100)
+        .label("Water Buoyancy", 0, -20)
+        .valueLabel("%.3f", 150, -20)
+        .buildOrLog();
 
     // === WorldB Pressure Controls ===.
     lv_obj_t* worldB_pressure_header = lv_label_create(screen_);

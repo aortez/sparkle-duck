@@ -1,16 +1,19 @@
 #include "MaterialPicker.h"
 #include "CellB.h"
+#include "Event.h"
+#include "EventRouter.h"
 #include "SimulatorUI.h"
 #include "spdlog/spdlog.h"
 
 #include <algorithm>
 #include <cstring>
 
-MaterialPicker::MaterialPicker(lv_obj_t* parent)
+MaterialPicker::MaterialPicker(lv_obj_t* parent, EventRouter* eventRouter)
     : parent_(parent),
       material_grid_(nullptr),
       selected_material_(MaterialType::DIRT), // Default to DIRT as specified.
-      parent_ui_(nullptr)
+      parent_ui_(nullptr),
+      event_router_(eventRouter)
 {
     spdlog::debug("Creating MaterialPicker with default selection: DIRT");
 
@@ -150,11 +153,14 @@ void MaterialPicker::onMaterialButtonClicked(lv_event_t* e)
     // Update selection.
     picker->setSelectedMaterial(clickedMaterial);
 
-    // Notify parent UI about material selection change.
-    if (picker->parent_ui_) {
+    // Route material selection through event system.
+    if (picker->event_router_) {
+        picker->event_router_->routeEvent(Event{SelectMaterialCommand{clickedMaterial}});
+    }
+    // Legacy callback for backward compatibility.
+    else if (picker->parent_ui_) {
         picker->parent_ui_->onMaterialSelectionChanged(clickedMaterial);
     }
-    // This will be implemented when we integrate with SimulatorUI.
 }
 
 // =================================================================

@@ -6,7 +6,8 @@
 #include <array>
 #include <memory>
 
-// Forward declarations
+// Forward declarations.
+class EventRouter;
 class SimulatorUI;
 
 /**
@@ -41,8 +42,9 @@ public:
     /**
      * Constructor - creates material picker UI within parent container.
      * @param parent LVGL parent object to contain the material picker.
+     * @param eventRouter EventRouter for sending material selection events (optional for legacy).
      */
-    explicit MaterialPicker(lv_obj_t* parent);
+    explicit MaterialPicker(lv_obj_t* parent, EventRouter* eventRouter = nullptr);
 
     /**
      * Destructor - cleanup LVGL objects and resources.
@@ -127,7 +129,8 @@ private:
 
     // State management.
     MaterialType selected_material_; // Currently selected material.
-    SimulatorUI* parent_ui_;         // Parent UI for notifications.
+    SimulatorUI* parent_ui_;         // Parent UI for notifications (legacy).
+    EventRouter* event_router_;      // EventRouter for material selection events.
 
     // =================================================================
     // HELPER METHODS
