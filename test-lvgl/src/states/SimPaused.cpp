@@ -188,22 +188,6 @@ State::Any SimPaused::onEvent(const ToggleDebugCommand& /*cmd. */, DirtSimStateM
     return *this;
 }
 
-State::Any SimPaused::onEvent(const ToggleForceCommand& /*cmd. */, DirtSimStateMachine& dsm) {
-    if (auto* simMgr = dsm.getSimulationManager()) {
-        if (auto* world = simMgr->getWorld()) {
-            bool newValue = !world->isCursorForceEnabled();
-            world->setCursorForceEnabled(newValue);
-            spdlog::info("SimPaused: ToggleForceCommand - Force viz now: {}", newValue);
-
-            
-                UIUpdateEvent update = dsm.buildUIUpdate();
-                update.dirty.uiState = true;
-                dsm.getSharedState().pushUIUpdate(std::move(update));
-        }
-    }
-    return *this;
-}
-
 State::Any SimPaused::onEvent(const ToggleCohesionCommand& /*cmd. */, DirtSimStateMachine& dsm) {
     if (auto* simMgr = dsm.getSimulationManager()) {
         if (auto* world = simMgr->getWorld()) {

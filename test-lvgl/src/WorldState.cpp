@@ -75,7 +75,6 @@ rapidjson::Value WorldState::toJson(rapidjson::Document::AllocatorType& allocato
     setup.AddMember("rain_rate", rain_rate, allocator);
     setup.AddMember("time_reversal_enabled", time_reversal_enabled, allocator);
     setup.AddMember("add_particles_enabled", add_particles_enabled, allocator);
-    setup.AddMember("cursor_force_enabled", cursor_force_enabled, allocator);
     json.AddMember("setup", setup, allocator);
 
     // Add grid cell data (only non-empty cells for efficiency).
@@ -179,9 +178,6 @@ WorldState WorldState::fromJson(const rapidjson::Value& json)
         }
         if (setup.HasMember("add_particles_enabled") && setup["add_particles_enabled"].IsBool()) {
             state.add_particles_enabled = setup["add_particles_enabled"].GetBool();
-        }
-        if (setup.HasMember("cursor_force_enabled") && setup["cursor_force_enabled"].IsBool()) {
-            state.cursor_force_enabled = setup["cursor_force_enabled"].GetBool();
         }
     }
 

@@ -530,7 +530,6 @@ World (source of truth) → buildUIUpdate() → UIUpdateEvent (transport) → UI
   - `dynamicStrength` (already had getter)
 - [x] **Toggle Flags**: Migrated to World ownership
   - `debugEnabled` → `world->isDebugDrawEnabled()`
-  - `forceVisualizationEnabled` → `world->isCursorForceEnabled()`
   - `cohesionEnabled` → `world->isCohesionComForceEnabled()`
   - `adhesionEnabled` → `world->isAdhesionEnabled()`
   - `timeHistoryEnabled` → `world->isTimeReversalEnabled()`
@@ -555,7 +554,7 @@ World (source of truth) → buildUIUpdate() → UIUpdateEvent (transport) → UI
 - [x] Tests verify events flow through system and update World state
 
 #### WorldInterface Extensions
-- [x] Added getters: `getGravity()`, `getElasticityFactor()`, `isCursorForceEnabled()`
+- [x] Added getters: `getGravity()`, `getElasticityFactor()`
 - [x] Implemented in both World (RulesA) and WorldB (RulesB)
 
 ### Phase 7: Remaining Migration Work

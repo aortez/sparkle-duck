@@ -263,22 +263,6 @@ public:
     virtual double getRainRate() const;
 
     // =================================================================
-    // CURSOR FORCE INTERACTION
-    // =================================================================
-
-    // Enable/disable cursor force interaction.
-    virtual void setCursorForceEnabled(bool enabled) = 0;
-
-    // Check if cursor force is enabled.
-    virtual bool isCursorForceEnabled() const = 0;
-
-    // Update cursor force at pixel coordinates.
-    virtual void updateCursorForce(int pixelX, int pixelY, bool isActive) = 0;
-
-    // Clear cursor force effect.
-    virtual void clearCursorForce() = 0;
-
-    // =================================================================
     // DEBUG VISUALIZATION
     // =================================================================
 

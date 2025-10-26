@@ -86,12 +86,7 @@ public:
     
     // Particle addition control
     virtual void setAddParticlesEnabled(bool enabled) = 0;
-    
-    // Cursor force interaction
-    virtual void setCursorForceEnabled(bool enabled) = 0;
-    virtual void updateCursorForce(int pixelX, int pixelY, bool isActive) = 0;
-    virtual void clearCursorForce() = 0;
-    
+
     // Grid resizing
     virtual void resizeGrid(uint32_t newWidth, uint32_t newHeight, bool clearHistory = true) = 0;
     
@@ -308,7 +303,7 @@ Created comprehensive polymorphic test suite verifying WorldInterface works with
   - Drag interaction: start/update/end dragging sequence
   - Time reversal: enable/disable, state management, history operations
   - World setup controls: throws, walls, quadrant, rain rate
-  - Particle and cursor controls: force interaction, particle addition
+  - Particle controls: particle addition
   - Grid resizing: dynamic size changes with history preservation
   - Performance and debugging: timer stats, user input marking
   - Mass conservation: physics simulation with conservation validation

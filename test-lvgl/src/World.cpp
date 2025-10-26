@@ -308,21 +308,6 @@ void World::applyPhysicsToCell(Cell& cell, uint32_t x, uint32_t y, double deltaT
             }
         }
     }
-
-    // Apply cursor force if active.
-    if (cursorForceEnabled && cursorForceActive) {
-        double dx = cursorForceX - static_cast<int>(x);
-        double dy = cursorForceY - static_cast<int>(y);
-        double distance = std::sqrt(dx * dx + dy * dy);
-
-        if (distance <= CURSOR_FORCE_RADIUS) {
-            double forceFactor = (1.0 - distance / CURSOR_FORCE_RADIUS) * CURSOR_FORCE_STRENGTH;
-            if (distance > 0) {
-                cell.v.x += (dx / distance) * forceFactor * deltaTimeSeconds;
-                cell.v.y += (dy / distance) * forceFactor * deltaTimeSeconds;
-            }
-        }
-    }
 }
 
 void World::calculateTransferDirection(
@@ -1940,16 +1925,6 @@ void World::endDragging(int pixelX, int pixelY)
     recentPositions.clear();
 }
 
-void World::updateCursorForce(int pixelX, int pixelY, bool isActive)
-{
-    if (!cursorForceEnabled) return;
-
-    cursorForceActive = isActive;
-    if (isActive) {
-        pixelToCell(pixelX, pixelY, cursorForceX, cursorForceY);
-    }
-}
-
 // ConfigurableWorldSetup control methods.
 
 void World::resizeGrid(uint32_t newWidth, uint32_t newHeight)
@@ -2173,7 +2148,6 @@ std::string World::settingsToString() const
     ss << "Right throw enabled: " << (isRightThrowEnabled() ? "true" : "false") << "\n";
     ss << "Lower right quadrant enabled: " << (isLowerRightQuadrantEnabled() ? "true" : "false")
        << "\n";
-    ss << "Cursor force enabled: " << (cursorForceEnabled ? "true" : "false") << "\n";
     ss << "Timescale: " << timescale << "\n";
     ss << "Min matter threshold: " << MIN_MATTER_THRESHOLD << "\n";
     return ss.str();
@@ -2225,7 +2199,6 @@ void World::preserveState(::WorldState& state) const
 
     // Copy control flags.
     state.add_particles_enabled = addParticlesEnabled;
-    state.cursor_force_enabled = cursorForceEnabled;
 
     // Convert Cell data to WorldState::CellData.
     for (uint32_t y = 0; y < height; ++y) {
@@ -2286,7 +2259,6 @@ void World::restoreState(const ::WorldState& state)
 
     // Restore control flags.
     addParticlesEnabled = state.add_particles_enabled;
-    cursorForceEnabled = state.cursor_force_enabled;
 
     // Convert WorldState::CellData back to Cell data.
     for (uint32_t y = 0; y < height; ++y) {

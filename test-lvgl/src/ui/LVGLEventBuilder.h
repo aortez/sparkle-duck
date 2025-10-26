@@ -247,12 +247,7 @@ public:
          * @brief Convenience method for screenshot button.
          */
         ButtonBuilder& onScreenshot();
-        
-        /**
-         * @brief Convenience method for force toggle button.
-         */
-        ButtonBuilder& onForceToggle();
-        
+
         /**
          * @brief Convenience method for cohesion toggle button.
          */

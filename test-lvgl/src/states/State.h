@@ -118,7 +118,6 @@ struct SimRunning {
     Any onEvent(const GetFPSCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const GetSimStatsCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const ToggleDebugCommand& cmd, DirtSimStateMachine& dsm);
-    Any onEvent(const ToggleForceCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const ToggleCohesionCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const ToggleCohesionForceCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const ToggleAdhesionCommand& cmd, DirtSimStateMachine& dsm);
@@ -163,7 +162,6 @@ struct SimPaused {
     Any onEvent(const GetFPSCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const GetSimStatsCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const ToggleDebugCommand& cmd, DirtSimStateMachine& dsm);
-    Any onEvent(const ToggleForceCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const ToggleCohesionCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const ToggleCohesionForceCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const ToggleAdhesionCommand& cmd, DirtSimStateMachine& dsm);

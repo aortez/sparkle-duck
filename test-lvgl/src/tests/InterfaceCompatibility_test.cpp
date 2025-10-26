@@ -307,15 +307,8 @@ TEST_P(InterfaceCompatibilityTest, ParticleAndCursorControls) {
     // Test particle addition control.
     world->setAddParticlesEnabled(true);
     world->setAddParticlesEnabled(false);
-    
-    // Test cursor force controls.
-    world->setCursorForceEnabled(true);
-    world->updateCursorForce(100, 100, true);
-    world->updateCursorForce(150, 150, false);
-    world->clearCursorForce();
-    world->setCursorForceEnabled(false);
-    
-    spdlog::info("Particle and cursor controls validated for {}", getWorldTypeName());
+
+    spdlog::info("Particle controls validated for {}", getWorldTypeName());
 }
 
 // =================================================================

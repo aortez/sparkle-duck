@@ -37,10 +37,6 @@ WorldB::WorldB(uint32_t width, uint32_t height, lv_obj_t* draw_area)
       hydrostatic_pressure_strength_(1.0),
       dynamic_pressure_strength_(1.0),
       add_particles_enabled_(true),
-      cursor_force_enabled_(true),
-      cursor_force_active_(false),
-      cursor_force_x_(0),
-      cursor_force_y_(0),
       debug_draw_enabled_(true),
       cohesion_bind_force_enabled_(false),
       cohesion_com_force_enabled_(false),
@@ -517,20 +513,6 @@ void WorldB::restoreLastDragCell()
     recent_positions_.clear();
     dragged_velocity_ = Vector2d(0.0, 0.0);
     dragged_com_ = Vector2d(0.0, 0.0);
-}
-
-// =================================================================.
-// CURSOR FORCE INTERACTION.
-// =================================================================.
-
-void WorldB::updateCursorForce(int pixelX, int pixelY, bool isActive)
-{
-    cursor_force_active_ = isActive && cursor_force_enabled_;
-
-    if (cursor_force_active_) {
-        pixelToCell(pixelX, pixelY, cursor_force_x_, cursor_force_y_);
-        spdlog::trace("Cursor force active at cell ({},{})", cursor_force_x_, cursor_force_y_);
-    }
 }
 
 // =================================================================.
@@ -1376,7 +1358,6 @@ std::string WorldB::settingsToString() const
     ss << "Right throw enabled: " << (isRightThrowEnabled() ? "true" : "false") << "\n";
     ss << "Lower right quadrant enabled: " << (isLowerRightQuadrantEnabled() ? "true" : "false")
        << "\n";
-    ss << "Cursor force enabled: " << (cursor_force_enabled_ ? "true" : "false") << "\n";
     ss << "Cohesion COM force enabled: " << (isCohesionComForceEnabled() ? "true" : "false")
        << "\n";
     ss << "Cohesion bind force enabled: " << (isCohesionBindForceEnabled() ? "true" : "false")
@@ -1435,7 +1416,6 @@ void WorldB::preserveState(::WorldState& state) const
 
     // Copy control flags.
     state.add_particles_enabled = add_particles_enabled_;
-    state.cursor_force_enabled = cursor_force_enabled_;
 
     // Convert CellB data to WorldState::CellData.
     for (uint32_t y = 0; y < height_; ++y) {
@@ -1489,7 +1469,6 @@ void WorldB::restoreState(const ::WorldState& state)
 
     // Restore control flags.
     add_particles_enabled_ = state.add_particles_enabled;
-    cursor_force_enabled_ = state.cursor_force_enabled;
 
     // Convert WorldState::CellData back to CellB data.
     for (uint32_t y = 0; y < height_; ++y) {

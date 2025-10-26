@@ -326,15 +326,6 @@ void SimulatorUI::createControlButtons()
         .valueLabel("%.1f", 135, -20)
         .buildOrLog();
 
-    // Create cursor force toggle button.
-    LVGLEventBuilder::button(screen_, event_router_)
-        .onForceToggle()
-        .size(CONTROL_WIDTH, 50)
-        .position(MAIN_CONTROLS_X, 205, LV_ALIGN_TOP_LEFT)
-        .text("Force: Off")
-        .toggle(true)
-        .buildOrLog();
-
     // Create gravity slider (-10x to +10x Earth gravity).
     LVGLEventBuilder::slider(screen_, event_router_)
         .onGravityChange()
@@ -1021,7 +1012,6 @@ void SimulatorUI::drawAreaEventCb(lv_event_t* e)
                 getMaterialName(selectedMaterial));
             world_ptr->addMaterialAtPixel(point.x, point.y, selectedMaterial);
         }
-        world_ptr->updateCursorForce(point.x, point.y, true);
     }
     else if (code == LV_EVENT_PRESSING) {
         // Handle both grab and paint modes during drag.
@@ -1037,7 +1027,6 @@ void SimulatorUI::drawAreaEventCb(lv_event_t* e)
                 getMaterialName(data->ui->paint_material_));
             world_ptr->addMaterialAtPixel(point.x, point.y, data->ui->paint_material_);
         }
-        world_ptr->updateCursorForce(point.x, point.y, true);
     }
     else if (code == LV_EVENT_RELEASED) {
         // Handle both grab and paint modes on release.
@@ -1051,9 +1040,8 @@ void SimulatorUI::drawAreaEventCb(lv_event_t* e)
             // No special action needed for paint mode - just stop painting.
         }
 
-        // Reset interaction mode and clear cursor force.
+        // Reset interaction mode.
         data->ui->interaction_mode_ = data->ui->InteractionMode::NONE;
-        world_ptr->clearCursorForce();
 
         // Mark all cells dirty to ensure proper rendering updates.
         world_ptr->markAllCellsDirty();
@@ -1174,22 +1162,6 @@ void SimulatorUI::pressureSystemDropdownEventCb(lv_event_t* e)
                                            "Top-Down Hydrostatic",
                                            "Iterative Settling" };
             spdlog::info("Pressure system switched to: {}", system_names[selected]);
-        }
-    }
-}
-
-void SimulatorUI::forceBtnEventCb(lv_event_t* e)
-{
-    if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
-        CallbackData* data = static_cast<CallbackData*>(lv_event_get_user_data(e));
-        if (data && data->world) {
-            // Toggle cursor force.
-            static bool force_enabled = false;
-            force_enabled = !force_enabled;
-            data->world->setCursorForceEnabled(force_enabled);
-            const lv_obj_t* btn = static_cast<const lv_obj_t*>(lv_event_get_target(e));
-            lv_obj_t* label = lv_obj_get_child(btn, 0);
-            lv_label_set_text(label, force_enabled ? "Force: On" : "Force: Off");
         }
     }
 }

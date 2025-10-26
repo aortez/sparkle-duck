@@ -80,7 +80,6 @@ The UI is organized into several distinct columns from left to right:
 - **Pressure Scale Slider**: Pressure strength for WorldA (0.0-10.0)
 
 #### General Physics Controls
-- **Force Toggle**: "Force: Off/On"
 - **Gravity Toggle**: "Gravity: On/Off"
 - **Cohesion Toggle**: "Cohesion: On/Off"
 - **Cohesion Bind Strength Slider**: Bind strength (0.0-2.0)
@@ -185,7 +184,7 @@ The UI initialization follows this order in `SimulatorUI::initialize()`:
 - **WorldA Pressure Header** (Y=70)
 - Pressure System dropdown (Y=115-155) - WorldA only
 - Pressure Scale slider (Y=165-185) - WorldA only
-- Force toggle (Y=205), Gravity toggle (Y=265)
+- Gravity toggle (Y=285)
 - Cohesion Bind toggle (Y=325)
 - Cohesion Bind Strength slider (Y=380-400)
 - Cohesion Force toggle (Y=415)
@@ -251,7 +250,7 @@ The UI initialization follows this order in `SimulatorUI::initialize()`:
 **Simulation Controls:**
 - Reset, Pause/Resume, Debug toggle
 - Pressure system dropdown (Original/Top-Down/Iterative)
-- Force and gravity toggles
+- Gravity toggle
 - Screenshot capture functionality
 
 **Physics Parameter Sliders:**
@@ -277,7 +276,7 @@ The UI initialization follows this order in `SimulatorUI::initialize()`:
 
 #### Mouse/Touch Interaction
 - **Draw Area Events**: Click, drag, and release for material placement
-- **Real-time Updates**: Mouse position tracked for particle addition and cursor force
+- **Real-time Updates**: Mouse position tracked for particle addition
 - **Coordinate Translation**: Pixel coordinates converted to grid coordinates
 
 #### LVGLEventBuilder Pattern
@@ -361,9 +360,8 @@ This data will be stored in `SharedSimState` and restored when recreating UI com
 - **Unified Controls**: Same UI works with both physics systems via WorldInterface
 
 #### Material Interaction
-- **Click to Add**: Mouse clicks add water/dirt to simulation
+- **Click to Add**: Mouse clicks add selected material to simulation
 - **Drag System**: Click and drag to move materials
-- **Force Application**: Optional cursor force for particle manipulation
 
 ## Notable Features
 

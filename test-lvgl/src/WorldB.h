@@ -193,12 +193,6 @@ public:
     void setWallsEnabled(bool enabled) override;
     bool areWallsEnabled() const override; // WorldB defaults to true instead of false
 
-    // WORLDINTERFACE IMPLEMENTATION - CURSOR FORCE
-    void setCursorForceEnabled(bool enabled) override { cursor_force_enabled_ = enabled; }
-    bool isCursorForceEnabled() const override { return cursor_force_enabled_; }
-    void updateCursorForce(int pixelX, int pixelY, bool isActive) override;
-    void clearCursorForce() override { cursor_force_active_ = false; }
-
     // WORLDINTERFACE IMPLEMENTATION - DEBUG VISUALIZATION
     void setDebugDrawEnabled(bool enabled) override { debug_draw_enabled_ = enabled; }
     bool isDebugDrawEnabled() const override { return debug_draw_enabled_; }
@@ -420,12 +414,6 @@ private:
 
     // World setup controls
     bool add_particles_enabled_;
-
-    // Cursor force state.
-    bool cursor_force_enabled_;
-    bool cursor_force_active_;
-    int cursor_force_x_;
-    int cursor_force_y_;
 
     // Debug visualization.
     bool debug_draw_enabled_;

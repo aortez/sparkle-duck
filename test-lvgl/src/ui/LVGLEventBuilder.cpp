@@ -387,10 +387,6 @@ LVGLEventBuilder::ButtonBuilder& LVGLEventBuilder::ButtonBuilder::onScreenshot()
     return onClick(Event{CaptureScreenshotCommand{}});
 }
 
-LVGLEventBuilder::ButtonBuilder& LVGLEventBuilder::ButtonBuilder::onForceToggle() {
-    return onClick(Event{ToggleForceCommand{}});
-}
-
 LVGLEventBuilder::ButtonBuilder& LVGLEventBuilder::ButtonBuilder::onCohesionToggle() {
     return onClick(Event{ToggleCohesionCommand{}});
 }

@@ -66,16 +66,6 @@ void EventRouter::processImmediateEvent(const PrintAsciiDiagramCommand& /*cmd. *
     }
 }
 
-void EventRouter::processImmediateEvent(const ToggleForceCommand& /*cmd. */)
-{
-    auto* world = sharedState_.getCurrentWorld();
-    if (world) {
-        bool newValue = !world->isCursorForceEnabled();
-        world->setCursorForceEnabled(newValue);
-        spdlog::info("Processing ToggleForceCommand - Force visualization now: {}", newValue);
-    }
-}
-
 void EventRouter::processImmediateEvent(const ToggleCohesionCommand& /*cmd. */)
 {
     auto* world = sharedState_.getCurrentWorld();

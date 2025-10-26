@@ -209,7 +209,6 @@ UIUpdateEvent DirtSimStateMachine::buildUIUpdate()
         update.physicsParams.elasticity = world->getElasticityFactor();
         update.physicsParams.timescale = world->getTimescale();
         update.debugEnabled = world->isDebugDrawEnabled();
-        update.forceEnabled = world->isCursorForceEnabled();
         update.cohesionEnabled = world->isCohesionComForceEnabled();
         update.adhesionEnabled = world->isAdhesionEnabled();
         update.timeHistoryEnabled = world->isTimeReversalEnabled();

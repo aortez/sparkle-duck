@@ -149,7 +149,6 @@ private:
     static void debugBtnEventCb(lv_event_t* e);
     static void pressureSystemDropdownEventCb(lv_event_t* e);
     static void worldTypeButtonMatrixEventCb(lv_event_t* e);
-    static void forceBtnEventCb(lv_event_t* e);
     static void gravityBtnEventCb(lv_event_t* e);
     static void cohesionBtnEventCb(lv_event_t* e);
     static void cohesionForceBtnEventCb(lv_event_t* e);

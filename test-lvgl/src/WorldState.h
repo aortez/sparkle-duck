@@ -43,7 +43,6 @@ struct WorldState {
 
     // Other control flags
     bool add_particles_enabled;
-    bool cursor_force_enabled;
 
     /**
      * CellData - Basic material data for cross-compatibility
@@ -99,8 +98,7 @@ struct WorldState {
           walls_enabled(true),
           rain_rate(0.0),
           time_reversal_enabled(false),
-          add_particles_enabled(true),
-          cursor_force_enabled(false)
+          add_particles_enabled(true)
     {}
 
     // Constructor with dimensions

@@ -64,7 +64,6 @@ struct UIUpdateEvent {
     // UI state.
     bool isPaused = false;           ///< Simulation paused state.
     bool debugEnabled = false;       ///< Debug visualization state.
-    bool forceEnabled = false;       ///< Force visualization state.
     bool cohesionEnabled = true;     ///< Cohesion physics state.
     bool adhesionEnabled = true;     ///< Adhesion physics state.
     bool timeHistoryEnabled = false; ///< Time history tracking state.
@@ -418,13 +417,6 @@ struct ToggleDebugCommand {
 };
 
 /**
- * @brief Toggle cursor force visualization.
- */
-struct ToggleForceCommand {
-    static constexpr const char* name() { return "ToggleForceCommand"; }
-};
-
-/**
  * @brief Toggle cohesion physics.
  */
 struct ToggleCohesionCommand {
@@ -628,7 +620,6 @@ using Event = std::variant<
     SetDynamicPressureStrengthCommand,
     SetRainRateCommand,
     ToggleDebugCommand,
-    ToggleForceCommand,
     ToggleCohesionCommand,
     ToggleCohesionForceCommand,
     ToggleAdhesionCommand,

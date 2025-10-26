@@ -39,12 +39,6 @@ template <>
 struct IsImmediateEvent<PrintAsciiDiagramCommand> : std::true_type {};
 
 /**
- * @brief ToggleForceCommand is processed immediately for UI updates.
- */
-template <>
-struct IsImmediateEvent<ToggleForceCommand> : std::true_type {};
-
-/**
  * @brief ToggleCohesionCommand is processed immediately for UI updates.
  */
 template <>
