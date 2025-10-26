@@ -21,6 +21,47 @@ This document outlines the plan for a WebRTC-based client/test driver for the Sp
 - Multiple concurrent client connections.
 - Automated discovery of server from client (maybe only on lan?).
 
+## Technology Choices
+
+### Network Protocol: WebSocket + WebRTC Hybrid
+
+**WebSocket** (websocketpp or Boost.Beast):
+- Command/control protocol (JSON-based).
+- Simple request/response for simulation control.
+- WebRTC signaling channel (offer/answer exchange).
+- No NAT traversal needed on LAN.
+
+**WebRTC** (libdatachannel):
+- Real-time video streaming of LVGL framebuffer.
+- Efficient compression (H.264/VP8) - ~500KB/s vs 5MB/s for PNG.
+- Low latency (~50-100ms) for smooth remote viewing.
+- Data channels for large binary state dumps.
+
+### Discovery: Multi-Backend Architecture
+
+**Initial implementation - LAN Discovery (mDNS/Avahi)**:
+- Service type: `_sparkleduck._tcp.local`.
+- Automatic server discovery on local network.
+- Zero-configuration, works out of the box.
+- Available on Linux (Avahi), macOS (Bonjour), Windows (Bonjour for Windows).
+
+**Future extension - Internet Discovery**:
+- Abstract `DiscoveryBackend` interface for pluggable discovery.
+- LAN backend: mDNS (Phase 3).
+- Internet backend options (future phases):
+  - **Central directory**: Simple REST API for server registration/query.
+  - **DHT**: Distributed discovery via libp2p or OpenDHT.
+  - **Hybrid**: Support multiple backends simultaneously.
+- WebRTC already supports internet connections via STUN/TURN servers.
+- Only discovery mechanism needs to change - connection layer stays the same.
+
+### Client Types Supported
+
+1. **Python test scripts**: WebSocket commands + JSON responses.
+2. **Web browsers**: WebSocket + WebRTC (native browser APIs).
+3. **LVGL native client**: WebSocket commands + WebRTC video rendering.
+4. **Command-line tools**: websocat, curl for simple testing.
+
 ## Proposed Architecture
 
 ### 1. Core Library Refactoring
@@ -231,15 +272,18 @@ int main() {
    - Build and run `sparkle-duck` with new structure.
    - Ensure no regressions from directory reorganization.
 
-5. **Phase 3**: Create basic `server_main.cpp` with simple command protocol.
-   - Start with WebSocket (simpler than WebRTC).
-   - Implement JSON-based command/response protocol.
-   - Test with simple command-line client or curl.
+5. **Phase 3**: Create basic `server_main.cpp` with WebSocket command protocol.
+   - Implement JSON-based command/response protocol (step, pause, query state).
+   - Add mDNS/Avahi service announcement for LAN discovery.
+   - Test with simple command-line client (websocat, Python script).
+   - WebSocket signaling will be reused for WebRTC negotiation later.
 
-6. **Phase 4**: Add streaming and advanced features.
-   - Screenshot/state dump streaming.
-   - Multiple concurrent clients.
-   - Consider WebRTC if P2P or low-latency video becomes important.
+6. **Phase 4**: Add WebRTC video streaming.
+   - Integrate libdatachannel for WebRTC support.
+   - Use existing WebSocket for WebRTC signaling (offer/answer).
+   - Add video track for real-time framebuffer streaming (H.264/VP8).
+   - Add data channel for efficient binary state dumps.
+   - Keep WebSocket commands alongside WebRTC for control.
 
 7. **Phase 5**: Build LVGL network client.
    - Create `client_main.cpp` that connects to server.
