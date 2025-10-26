@@ -417,24 +417,10 @@ struct ToggleDebugCommand {
 };
 
 /**
- * @brief Toggle cohesion physics.
- */
-struct ToggleCohesionCommand {
-    static constexpr const char* name() { return "ToggleCohesionCommand"; }
-};
-
-/**
  * @brief Toggle cohesion force physics.
  */
 struct ToggleCohesionForceCommand {
     static constexpr const char* name() { return "ToggleCohesionForceCommand"; }
-};
-
-/**
- * @brief Toggle adhesion physics.
- */
-struct ToggleAdhesionCommand {
-    static constexpr const char* name() { return "ToggleAdhesionCommand"; }
 };
 
 /**
@@ -620,9 +606,7 @@ using Event = std::variant<
     SetDynamicPressureStrengthCommand,
     SetRainRateCommand,
     ToggleDebugCommand,
-    ToggleCohesionCommand,
     ToggleCohesionForceCommand,
-    ToggleAdhesionCommand,
     ToggleTimeHistoryCommand,
 
     // Material & world controls

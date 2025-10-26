@@ -80,21 +80,17 @@ The UI is organized into several distinct columns from left to right:
 - **Pressure Scale Slider**: Pressure strength for WorldA (0.0-10.0)
 
 #### General Physics Controls
-- **Gravity Toggle**: "Gravity: On/Off"
-- **Cohesion Toggle**: "Cohesion: On/Off"
-- **Cohesion Bind Strength Slider**: Bind strength (0.0-2.0)
-- **Cohesion Force Toggle**: "Cohesion Force: On/Off"
-- **Cohesion Strength Slider**: COM cohesion strength (0.0-300.0)
+- **Gravity Slider**: -10x to +10x Earth gravity
+- **Viscosity Slider**: Material flow resistance (0.0-2.0)
+- **Cohesion Force Toggle Slider**: Integrated switch + slider (0.0-300.0, 0 = disabled)
+- **Cohesion Range Slider**: Neighbor detection range (1-5 cells)
+- **Friction Toggle Slider**: Integrated switch + slider (0.0-1.0, 0 = disabled, default enabled at 1.0)
+- **Adhesion Toggle Slider**: Integrated switch + slider (0.0-10.0, 0 = disabled)
 - **Left Throw Toggle**: "Left Throw: On/Off"
 - **Right Throw Toggle**: "Right Throw: On/Off"
 - **Quadrant Toggle**: "Quadrant: On/Off"
 - **Screenshot Button**: Captures simulation image
 - **Print ASCII Button**: Outputs world state to console
-- **COM Cohesion Mode Label**: "COM Cohesion Mode:"
-- **COM Cohesion Mode Radio Buttons**: Mode selection
-  - Original (default)
-  - Centering
-  - Mass-Based
 
 ### Simulation Controls & Sliders Column (Position: 1440px from left)
 
@@ -184,21 +180,17 @@ The UI initialization follows this order in `SimulatorUI::initialize()`:
 - **WorldA Pressure Header** (Y=70)
 - Pressure System dropdown (Y=115-155) - WorldA only
 - Pressure Scale slider (Y=165-185) - WorldA only
-- Gravity toggle (Y=285)
-- Cohesion Bind toggle (Y=325)
-- Cohesion Bind Strength slider (Y=380-400)
-- Cohesion Force toggle (Y=415)
-- Cohesion Strength slider (Y=470-490)
-- COM Range slider (Y=530-550)
-- Adhesion toggle (Y=590)
-- Adhesion Strength slider (Y=650-670)
-- Left Throw toggle (Y=690)
-- Right Throw toggle (Y=750)
-- Quadrant toggle (Y=810)
-- Screenshot button (Y=815)
-- Print ASCII button (Y=875)
-- COM Cohesion Mode label (Y=930)
-- COM Cohesion Mode radio buttons (Y=950)
+- Gravity slider (Y=285-305)
+- Viscosity slider (Y=345-365)
+- **Cohesion Force toggle slider** (Y=320-390) - switch at 320, slider at 360, ~70px total height
+- Cohesion Range slider (Y=405-425)
+- **Friction toggle slider** (Y=450-520) - switch at 450, slider at 490, ~70px total height
+- **Adhesion toggle slider** (Y=530-600) - switch at 530, slider at 570, ~70px total height
+- Left Throw toggle (Y=610)
+- Right Throw toggle (Y=670)
+- Quadrant toggle (Y=730)
+- Screenshot button (Y=790)
+- Print ASCII button (Y=850)
 
 ### **Slider Column** (X=1440):
 - Timescale (Y=90-110)
@@ -310,6 +302,48 @@ auto slider = LVGLEventBuilder::slider(parent, eventRouter)
 - **Event System Integration**: Automatic routing to immediate or queued processing based on event type
 
 This pattern bridges LVGL's C-style callbacks with our type-safe event system, making UI code more maintainable and testable.
+
+#### ToggleSlider Component Pattern
+
+The ToggleSlider is a specialized UI component that combines a toggle switch with a slider into a unified control:
+
+**Component Structure:**
+```
+[Label Text........] [⚫]     <- Row 1: Label + Switch (40px height)
+[========●==========] [5.2]   <- Row 2: Slider + Value Label (20px height)
+```
+
+**Key Features:**
+- **State Management**: Internal saved value persists when toggling off/on
+- **Single Model Variable**: Only stores numeric value (0.0 = disabled, >0.0 = enabled)
+- **Automatic Disabling**: Slider grays out when switch is off
+- **Value Preservation**: Remembers last setting when re-enabled
+- **Compact Layout**: Saves ~30px vertical space vs separate toggle button + slider
+
+**Example Usage:**
+```cpp
+LVGLEventBuilder::toggleSlider(screen_, event_router_)
+    .label("Adhesion")
+    .position(MAIN_CONTROLS_X, 510, LV_ALIGN_TOP_LEFT)
+    .sliderWidth(200)
+    .range(0, 1000)           // Internal range (0-1000)
+    .value(500)               // Initial value (if enabled)
+    .defaultValue(500)        // Default when toggled on
+    .valueScale(0.01)         // Scale to 0.0-10.0 for display
+    .valueFormat("%.1f")      // Display format
+    .valueLabelOffset(140, -20)
+    .initiallyEnabled(false)  // Start disabled
+    .onValueChange([](double value) {
+        return Event{SetAdhesionStrengthCommand{value}};  // Single event (0 = disabled)
+    })
+    .buildOrLog();
+```
+
+**Benefits:**
+- **Simplified Model**: Eliminates separate enabled/disabled boolean flags
+- **Better UX**: Preserves tuned parameter values across toggle cycles
+- **Cleaner Code**: One variable instead of two (e.g., `adhesionStrength` vs `adhesionEnabled + adhesionStrength`)
+- **Visual Consistency**: Matches WorldB pressure toggle pattern
 
 ### UI Lifecycle Management Strategy
 

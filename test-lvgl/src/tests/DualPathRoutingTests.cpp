@@ -55,8 +55,6 @@ TEST_F(DualPathTest, AllToggleCommandsRoutedThroughPushWhenEnabled) {
     // Test all toggle commands.
     std::vector<Event> toggleEvents = {
         ToggleDebugCommand{},
-        ToggleCohesionCommand{},
-        ToggleAdhesionCommand{},
         ToggleTimeHistoryCommand{}
     };
     
@@ -165,7 +163,7 @@ TEST_F(DualPathTest, ToggleCommandsGeneratePushUpdates) {
     }
 
     // Send toggle command.
-    router->routeEvent(ToggleCohesionCommand{});
+    router->routeEvent(ToggleDebugCommand{});
 
     // Process the queued event.
     stateMachine->eventProcessor.processEventsFromQueue(*stateMachine);

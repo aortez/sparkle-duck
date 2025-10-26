@@ -39,9 +39,8 @@ WorldB::WorldB(uint32_t width, uint32_t height, lv_obj_t* draw_area)
       add_particles_enabled_(true),
       debug_draw_enabled_(true),
       cohesion_bind_force_enabled_(false),
-      cohesion_com_force_enabled_(false),
 
-      cohesion_com_force_strength_(150.0),
+      cohesion_com_force_strength_(0.0),
       cohesion_bind_force_strength_(1.0),
       com_cohesion_range_(1),
       viscosity_strength_(1.0),
@@ -687,7 +686,7 @@ void WorldB::applyAirResistance(double deltaTime)
 
 void WorldB::applyCohesionForces(double deltaTime)
 {
-    if (!cohesion_com_force_enabled_) {
+    if (cohesion_com_force_strength_ <= 0.0) {
         return;
     }
 
@@ -966,7 +965,7 @@ std::vector<MaterialMove> WorldB::computeMaterialMoves(double deltaTime)
 
             // NEW: Calculate COM-based cohesion force.
             WorldBCohesionCalculator::COMCohesionForce com_cohesion;
-            if (cohesion_com_force_enabled_) {
+            if (cohesion_com_force_strength_ > 0.0) {
                 com_cohesion = WorldBCohesionCalculator(*this).calculateCOMCohesionForce(
                     x, y, com_cohesion_range_);
             }

@@ -66,16 +66,6 @@ void EventRouter::processImmediateEvent(const PrintAsciiDiagramCommand& /*cmd. *
     }
 }
 
-void EventRouter::processImmediateEvent(const ToggleCohesionCommand& /*cmd. */)
-{
-    auto* world = sharedState_.getCurrentWorld();
-    if (world) {
-        bool newValue = !world->isCohesionComForceEnabled();
-        world->setCohesionComForceEnabled(newValue);
-        spdlog::info("Processing ToggleCohesionCommand - Cohesion physics now: {}", newValue);
-    }
-}
-
 void EventRouter::processImmediateEvent(const ToggleCohesionForceCommand& /*cmd. */)
 {
     auto* world = sharedState_.getCurrentWorld();
@@ -84,17 +74,6 @@ void EventRouter::processImmediateEvent(const ToggleCohesionForceCommand& /*cmd.
         world->setCohesionComForceEnabled(newValue);
         spdlog::info(
             "Processing ToggleCohesionForceCommand - Cohesion force physics now: {}", newValue);
-    }
-}
-
-void EventRouter::processImmediateEvent(const ToggleAdhesionCommand& /*cmd. */)
-{
-    auto* world = sharedState_.getCurrentWorld();
-    if (world) {
-        bool newValue = !world->isAdhesionEnabled();
-        world->setAdhesionEnabled(newValue);
-        Cell::adhesionDrawEnabled = newValue;
-        spdlog::info("Processing ToggleAdhesionCommand - Adhesion physics now: {}", newValue);
     }
 }
 

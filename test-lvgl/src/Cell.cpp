@@ -31,8 +31,8 @@ constexpr int DENSITY_GRID_SIZE = 10;            // Grid for density visualizati
 } // namespace.
 
 bool Cell::adhesionDrawEnabled = true;
-uint32_t Cell::WIDTH = 100;  // Increased size for better detail visibility.
-uint32_t Cell::HEIGHT = 100; // Increased size for better detail visibility.
+uint32_t Cell::WIDTH = 30;  // Default cell size.
+uint32_t Cell::HEIGHT = 30; // Default cell size.
 
 // Initialize water physics constants.
 double Cell::COHESION_STRENGTH =

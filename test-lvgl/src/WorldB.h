@@ -206,9 +206,10 @@ public:
 
     void setCohesionComForceEnabled(bool enabled) override
     {
-        cohesion_com_force_enabled_ = enabled;
+        // Backward compatibility: set strength to 0 (disabled) or default (enabled).
+        cohesion_com_force_strength_ = enabled ? 150.0 : 0.0;
     }
-    bool isCohesionComForceEnabled() const override { return cohesion_com_force_enabled_; }
+    bool isCohesionComForceEnabled() const override { return cohesion_com_force_strength_ > 0.0; }
 
     void setCohesionComForceStrength(double strength) override
     {
@@ -420,9 +421,8 @@ private:
 
     // Cohesion physics control.
     bool cohesion_bind_force_enabled_; // Enable/disable cohesion bind force (resistance)
-    bool cohesion_com_force_enabled_;  // Enable/disable cohesion COM force (attraction)
 
-    double cohesion_com_force_strength_; // Scaling factor for COM cohesion force magnitude
+    double cohesion_com_force_strength_; // Scaling factor for COM cohesion force magnitude (0 = disabled)
     double
         cohesion_bind_force_strength_; // Scaling factor for cohesion bind resistance - DEPRECATED
     uint32_t com_cohesion_range_;      // Range for COM cohesion neighbors (default 2)

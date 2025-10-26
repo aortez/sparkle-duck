@@ -304,7 +304,7 @@ void SimulatorUI::createControlButtons()
 
     // Create pressure system dropdown.
     lv_obj_t* pressure_label = lv_label_create(screen_);
-    lv_label_set_text(pressure_label, "Pressure System:");
+    lv_label_set_text(pressure_label, "System:");
     lv_obj_align(pressure_label, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 95);
 
     LVGLEventBuilder::dropdown(screen_, event_router_)
@@ -322,14 +322,14 @@ void SimulatorUI::createControlButtons()
         .size(CONTROL_WIDTH, 10)
         .range(0, 1000)
         .value(100)
-        .label("Pressure Scale (WorldA)", 0, -20)
+        .label("Strength", 0, -20)
         .valueLabel("%.1f", 135, -20)
         .buildOrLog();
 
     // Create gravity slider (-10x to +10x Earth gravity).
     LVGLEventBuilder::slider(screen_, event_router_)
         .onGravityChange()
-        .position(MAIN_CONTROLS_X, 285, LV_ALIGN_TOP_LEFT)
+        .position(MAIN_CONTROLS_X, 245, LV_ALIGN_TOP_LEFT)
         .size(CONTROL_WIDTH, 10)
         .range(-1000, 1000) // -10x to +10x.
         .value(100)         // 1x Earth gravity (9.81).
@@ -340,7 +340,7 @@ void SimulatorUI::createControlButtons()
     // Create viscosity strength slider.
     LVGLEventBuilder::slider(screen_, event_router_)
         .onViscosityStrengthChange()
-        .position(MAIN_CONTROLS_X, 345, LV_ALIGN_TOP_LEFT)
+        .position(MAIN_CONTROLS_X, 285, LV_ALIGN_TOP_LEFT)
         .size(CONTROL_WIDTH, 10)
         .range(0, 200)
         .value(100)
@@ -348,32 +348,27 @@ void SimulatorUI::createControlButtons()
         .valueLabel("%.1f", 80, -20)
         .buildOrLog();
 
-    // Create cohesion force toggle button.
-    // TODO: This currently uses the same ToggleCohesionCommand as the bind button.
-    // May need separate commands for bind vs force cohesion.
-    LVGLEventBuilder::button(screen_, event_router_)
-        .onCohesionToggle() // TODO: Create onCohesionForceToggle() for clarity.
-        .size(CONTROL_WIDTH, 50)
-        .position(MAIN_CONTROLS_X, 390, LV_ALIGN_TOP_LEFT)
-        .text("Cohesion Force: Off")
-        .toggle(true)
-        .buildOrLog();
-
-    // Create COM cohesion strength slider below the force button.
-    LVGLEventBuilder::slider(screen_, event_router_)
-        .onCohesionForceStrengthChange()
-        .position(MAIN_CONTROLS_X, 460, LV_ALIGN_TOP_LEFT)
-        .size(CONTROL_WIDTH, 10)
-        .range(0, 30000)
-        .value(15000)
-        .label("Cohesion Strength", 0, -20)
-        .valueLabel("%.1f", 165, -20)
-        .buildOrLog();
+    // Create cohesion force toggle slider (integrated switch + slider).
+    cohesion_switch_ = LVGLEventBuilder::toggleSlider(screen_, event_router_)
+                           .label("Cohesion Force")
+                           .position(MAIN_CONTROLS_X, 320, LV_ALIGN_TOP_LEFT)
+                           .sliderWidth(CONTROL_WIDTH)
+                           .range(0, 30000)
+                           .value(15000)
+                           .defaultValue(15000)
+                           .valueScale(0.01)
+                           .valueFormat("%.1f")
+                           .valueLabelOffset(165, -20)
+                           .initiallyEnabled(false)
+                           .onValueChange([](double value) {
+                               return Event{SetCohesionForceStrengthCommand{value}};
+                           })
+                           .buildOrLog();
 
     // Create COM cohesion range slider.
     LVGLEventBuilder::slider(screen_, event_router_)
         .onCOMCohesionRangeChange()
-        .position(MAIN_CONTROLS_X, 510, LV_ALIGN_TOP_LEFT)
+        .position(MAIN_CONTROLS_X, 405, LV_ALIGN_TOP_LEFT)
         .size(CONTROL_WIDTH, 10)
         .range(1, 5)
         .value(1)
@@ -381,42 +376,44 @@ void SimulatorUI::createControlButtons()
         .valueLabel("%.0f", 120, -20)
         .buildOrLog();
 
-    // Create friction strength slider.
-    LVGLEventBuilder::slider(screen_, event_router_)
-        .onFrictionStrengthChange()
-        .position(MAIN_CONTROLS_X, 540, LV_ALIGN_TOP_LEFT)
-        .size(CONTROL_WIDTH, 10)
-        .range(0, 10)
-        .value(1)
-        .label("Friction Strength", 0, -20)
-        .valueLabel("%.1f", 120, -20)
+    // Create friction toggle slider (integrated switch + slider).
+    LVGLEventBuilder::toggleSlider(screen_, event_router_)
+        .label("Friction")
+        .position(MAIN_CONTROLS_X, 450, LV_ALIGN_TOP_LEFT)
+        .sliderWidth(CONTROL_WIDTH)
+        .range(0, 100)
+        .value(100)
+        .defaultValue(100)
+        .valueScale(0.01)
+        .valueFormat("%.2f")
+        .initiallyEnabled(true)
+        .onValueChange([](double value) {
+            return Event{SetFrictionStrengthCommand{value}};
+        })
         .buildOrLog();
 
-    // Create adhesion toggle button.
-    LVGLEventBuilder::button(screen_, event_router_)
-        .onAdhesionToggle()
-        .size(CONTROL_WIDTH, 50)
-        .position(MAIN_CONTROLS_X, 560, LV_ALIGN_TOP_LEFT)
-        .text("Adhesion: Off")
-        .toggle(true)
-        .buildOrLog();
-
-    // Create adhesion strength slider.
-    LVGLEventBuilder::slider(screen_, event_router_)
-        .onAdhesionStrengthChange()
-        .position(MAIN_CONTROLS_X, 670, LV_ALIGN_TOP_LEFT)
-        .size(CONTROL_WIDTH, 10)
-        .range(0, 1000)
-        .value(500)
-        .label("Adhesion Strength", 0, -20)
-        .valueLabel("%.1f", 140, -20)
-        .buildOrLog();
+    // Create adhesion toggle slider (integrated switch + slider).
+    adhesion_switch_ = LVGLEventBuilder::toggleSlider(screen_, event_router_)
+                           .label("Adhesion")
+                           .position(MAIN_CONTROLS_X, 530, LV_ALIGN_TOP_LEFT)
+                           .sliderWidth(CONTROL_WIDTH)
+                           .range(0, 1000)
+                           .value(500)
+                           .defaultValue(500)
+                           .valueScale(0.01)
+                           .valueFormat("%.1f")
+                           .valueLabelOffset(140, -20)
+                           .initiallyEnabled(false)
+                           .onValueChange([](double value) {
+                               return Event{SetAdhesionStrengthCommand{value}};
+                           })
+                           .buildOrLog();
 
     // Create left throw toggle button.
     LVGLEventBuilder::button(screen_, event_router_)
         .onLeftThrowToggle()
         .size(CONTROL_WIDTH, 50)
-        .position(MAIN_CONTROLS_X, 690, LV_ALIGN_TOP_LEFT)
+        .position(MAIN_CONTROLS_X, 610, LV_ALIGN_TOP_LEFT)
         .text("Left Throw: On")
         .buildOrLog();
 
@@ -424,7 +421,7 @@ void SimulatorUI::createControlButtons()
     LVGLEventBuilder::button(screen_, event_router_)
         .onRightThrowToggle()
         .size(CONTROL_WIDTH, 50)
-        .position(MAIN_CONTROLS_X, 750, LV_ALIGN_TOP_LEFT)
+        .position(MAIN_CONTROLS_X, 670, LV_ALIGN_TOP_LEFT)
         .text("Right Throw: On")
         .buildOrLog();
 
@@ -432,7 +429,7 @@ void SimulatorUI::createControlButtons()
     LVGLEventBuilder::button(screen_, event_router_)
         .onQuadrantToggle()
         .size(CONTROL_WIDTH, 50)
-        .position(MAIN_CONTROLS_X, 810, LV_ALIGN_TOP_LEFT)
+        .position(MAIN_CONTROLS_X, 730, LV_ALIGN_TOP_LEFT)
         .text("Quadrant: On")
         .buildOrLog();
 
@@ -440,7 +437,7 @@ void SimulatorUI::createControlButtons()
     LVGLEventBuilder::button(screen_, event_router_)
         .onScreenshot() // Call event method first.
         .size(CONTROL_WIDTH, 50)
-        .position(MAIN_CONTROLS_X, 815, LV_ALIGN_TOP_LEFT)
+        .position(MAIN_CONTROLS_X, 790, LV_ALIGN_TOP_LEFT)
         .text("Screenshot")
         .buildOrLog();
 
@@ -448,7 +445,7 @@ void SimulatorUI::createControlButtons()
     LVGLEventBuilder::button(screen_, event_router_)
         .onPrintAscii()
         .size(CONTROL_WIDTH, 50)
-        .position(MAIN_CONTROLS_X, 875, LV_ALIGN_TOP_LEFT)
+        .position(MAIN_CONTROLS_X, 850, LV_ALIGN_TOP_LEFT)
         .text("Print ASCII")
         .buildOrLog();
 

@@ -24,6 +24,7 @@ public:
     class SwitchBuilder;
     class ButtonMatrixBuilder;
     class DropdownBuilder;
+    class ToggleSliderBuilder;
 
     /**
      * @brief Create a slider with event routing support.
@@ -49,6 +50,12 @@ public:
      * @brief Create a dropdown with event routing support.
      */
     static DropdownBuilder dropdown(lv_obj_t* parent, EventRouter* router);
+
+    /**
+     * @brief Create a toggle slider (switch + slider combo) with event routing support.
+     */
+    static ToggleSliderBuilder toggleSlider(lv_obj_t* parent, EventRouter* router);
+
     /**
      * @brief Extended SliderBuilder with event system integration.
      */
@@ -249,16 +256,6 @@ public:
         ButtonBuilder& onScreenshot();
 
         /**
-         * @brief Convenience method for cohesion toggle button.
-         */
-        ButtonBuilder& onCohesionToggle();
-        
-        /**
-         * @brief Convenience method for adhesion toggle button.
-         */
-        ButtonBuilder& onAdhesionToggle();
-        
-        /**
          * @brief Convenience method for time history toggle button.
          */
         ButtonBuilder& onTimeHistoryToggle();
@@ -365,6 +362,106 @@ public:
         std::shared_ptr<std::pair<Event, Event>> toggleEvents_;
         std::optional<std::tuple<int, int, lv_align_t>> position_;
         bool initialChecked_ = false;
+    };
+
+    /**
+     * @brief ToggleSliderBuilder - Combined toggle switch + slider component.
+     *
+     * Creates a compact control with:
+     * - Label (feature name)
+     * - Switch (enable/disable)
+     * - Slider (strength/value control)
+     * - Value label (numeric display)
+     *
+     * When toggled OFF: Slider disabled/grayed, value set to 0, last value saved.
+     * When toggled ON: Slider enabled, last value restored (or default).
+     * Model stores only the numeric value (0.0 = disabled).
+     */
+    class ToggleSliderBuilder {
+    public:
+        explicit ToggleSliderBuilder(lv_obj_t* parent, EventRouter* router)
+            : parent_(parent), eventRouter_(router) {}
+
+        /**
+         * @brief Set the label text for the feature.
+         */
+        ToggleSliderBuilder& label(const char* text);
+
+        /**
+         * @brief Set position for the control group.
+         * @param x X coordinate for label and switch.
+         * @param y Y coordinate for label and switch (slider appears below).
+         */
+        ToggleSliderBuilder& position(int x, int y, lv_align_t align = LV_ALIGN_TOP_LEFT);
+
+        /**
+         * @brief Set slider width (height is fixed at 10px).
+         */
+        ToggleSliderBuilder& sliderWidth(int width);
+
+        /**
+         * @brief Set slider range (min, max).
+         */
+        ToggleSliderBuilder& range(int min, int max);
+
+        /**
+         * @brief Set initial slider value.
+         */
+        ToggleSliderBuilder& value(int initialValue);
+
+        /**
+         * @brief Set default value when toggle is turned on (if no saved value).
+         */
+        ToggleSliderBuilder& defaultValue(int defValue);
+
+        /**
+         * @brief Set value scale factor (e.g., 0.01 to convert 0-1000 to 0.0-10.0).
+         */
+        ToggleSliderBuilder& valueScale(double scale);
+
+        /**
+         * @brief Set value label format string (e.g., "%.1f").
+         */
+        ToggleSliderBuilder& valueFormat(const char* format);
+
+        /**
+         * @brief Set value label offset from slider.
+         */
+        ToggleSliderBuilder& valueLabelOffset(int x, int y);
+
+        /**
+         * @brief Set initial toggle state (default: false/off).
+         */
+        ToggleSliderBuilder& initiallyEnabled(bool enabled);
+
+        /**
+         * @brief Set event generator function (takes scaled value, returns Event).
+         */
+        ToggleSliderBuilder& onValueChange(std::function<Event(double)> handler);
+
+        /**
+         * @brief Build the toggle slider component.
+         * @return The switch widget (primary interactive element).
+         */
+        lv_obj_t* buildOrLog();
+
+    private:
+        lv_obj_t* parent_;
+        EventRouter* eventRouter_;
+
+        const char* labelText_ = "Feature";
+        std::optional<std::tuple<int, int, lv_align_t>> position_;
+        int sliderWidth_ = 200;
+        int rangeMin_ = 0;
+        int rangeMax_ = 100;
+        int initialValue_ = 0;
+        int defaultValue_ = 50;
+        double valueScale_ = 1.0;
+        const char* valueFormat_ = "%.1f";
+        int valueLabelOffsetX_ = 140;
+        int valueLabelOffsetY_ = -20;
+        bool initiallyEnabled_ = false;
+        std::function<Event(double)> eventGenerator_;
     };
 
     /**

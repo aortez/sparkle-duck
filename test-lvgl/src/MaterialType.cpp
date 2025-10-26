@@ -28,7 +28,7 @@ static std::array<MaterialProperties, 8> MATERIAL_PROPERTIES = {
           0.0,   // motion_sensitivity - viscosity heavily affected by motion state
           1.0,   // static_friction_coefficient - full resistance when at rest
           0.5,   // kinetic_friction_coefficient - half resistance when moving (avalanche behavior)
-          5,     // stick_velocity - stays put until velocity exceeds 0.05
+          0.05,     // stick_velocity - stays put until velocity exceeds 0.05
           0.10,  // friction_transition_width - gradual transition to flowing state
           false, // is_fluid - not a fluid
           false  // is_rigid - deformable granular material

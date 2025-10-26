@@ -188,45 +188,12 @@ State::Any SimPaused::onEvent(const ToggleDebugCommand& /*cmd. */, DirtSimStateM
     return *this;
 }
 
-State::Any SimPaused::onEvent(const ToggleCohesionCommand& /*cmd. */, DirtSimStateMachine& dsm) {
-    if (auto* simMgr = dsm.getSimulationManager()) {
-        if (auto* world = simMgr->getWorld()) {
-            bool newValue = !world->isCohesionComForceEnabled();
-            world->setCohesionComForceEnabled(newValue);
-            spdlog::info("SimPaused: ToggleCohesionCommand - Cohesion now: {}", newValue);
-
-            
-                UIUpdateEvent update = dsm.buildUIUpdate();
-                update.dirty.uiState = true;
-                dsm.getSharedState().pushUIUpdate(std::move(update));
-        }
-    }
-    return *this;
-}
-
 State::Any SimPaused::onEvent(const ToggleCohesionForceCommand& /*cmd. */, DirtSimStateMachine& dsm) {
     if (auto* simMgr = dsm.getSimulationManager()) {
         if (auto* world = simMgr->getWorld()) {
             bool newValue = !world->isCohesionComForceEnabled();
             world->setCohesionComForceEnabled(newValue);
             spdlog::info("SimPaused: ToggleCohesionForceCommand - Cohesion force now: {}", newValue);
-
-            
-                UIUpdateEvent update = dsm.buildUIUpdate();
-                update.dirty.uiState = true;
-                dsm.getSharedState().pushUIUpdate(std::move(update));
-        }
-    }
-    return *this;
-}
-
-State::Any SimPaused::onEvent(const ToggleAdhesionCommand& /*cmd. */, DirtSimStateMachine& dsm) {
-    if (auto* simMgr = dsm.getSimulationManager()) {
-        if (auto* world = simMgr->getWorld()) {
-            bool newValue = !world->isAdhesionEnabled();
-            world->setAdhesionEnabled(newValue);
-            spdlog::info("SimPaused: ToggleAdhesionCommand - Adhesion now: {}", newValue);
-
             
                 UIUpdateEvent update = dsm.buildUIUpdate();
                 update.dirty.uiState = true;
