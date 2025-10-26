@@ -14,11 +14,6 @@ UIUpdateConsumer::UIUpdateConsumer(SharedSimState* sim_state, SimulatorUI* ui)
 
 bool UIUpdateConsumer::consumeUpdate()
 {
-    // Only consume updates if push updates are enabled.
-    if (!isPushUpdatesEnabled()) {
-        return false;
-    }
-
     // Try to pop an update from the queue.
     auto update_opt = sim_state_->popUIUpdate();
     if (!update_opt.has_value()) {
@@ -59,11 +54,6 @@ void UIUpdateConsumer::resetMetrics()
 {
     metrics_ = Metrics();
     last_sequence_num_ = std::nullopt;
-}
-
-bool UIUpdateConsumer::isPushUpdatesEnabled() const
-{
-    return sim_state_->isPushUpdatesEnabled();
 }
 
 void UIUpdateConsumer::applyUpdate(const UIUpdateEvent& update)

@@ -56,11 +56,6 @@ public:
      */
     void resetMetrics();
 
-    /**
-     * Check if push updates are enabled in SharedSimState.
-     */
-    bool isPushUpdatesEnabled() const;
-
 private:
     SharedSimState* sim_state_;
     SimulatorUI* ui_;

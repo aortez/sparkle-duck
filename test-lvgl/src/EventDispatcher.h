@@ -47,7 +47,8 @@ public:
                                     "Dispatching {} to state handler in {}",
                                     EventType::name(),
                                     StateType::name());
-                            } else {
+                            }
+                            else {
                                 spdlog::info(
                                     "Dispatching {} to state handler in {}",
                                     EventType::name(),

@@ -48,8 +48,7 @@ protected:
 
 TEST_F(LVGLTimerTest, TimerNotCreatedWhenPushUpdatesDisabled) {
     // Ensure push updates are disabled.
-    sharedState_->enablePushUpdates(false);
-    
+
     // Create UI.
     SimulatorUI ui(screen_, eventRouter_.get());
     ui.initialize();
@@ -68,8 +67,7 @@ TEST_F(LVGLTimerTest, TimerNotCreatedWhenPushUpdatesDisabled) {
 
 TEST_F(LVGLTimerTest, TimerCreatedWhenPushUpdatesEnabled) {
     // Enable push updates.
-    sharedState_->enablePushUpdates(true);
-    
+
     // Create UI.
     SimulatorUI ui(screen_, eventRouter_.get());
     
@@ -99,8 +97,7 @@ TEST_F(LVGLTimerTest, TimerCreatedWhenPushUpdatesEnabled) {
 
 TEST_F(LVGLTimerTest, TimerCallbackRateIs60FPS) {
     // Enable push updates.
-    sharedState_->enablePushUpdates(true);
-    
+
     // Create UI.
     SimulatorUI ui(screen_, eventRouter_.get());
     
@@ -142,8 +139,7 @@ TEST_F(LVGLTimerTest, TimerCallbackRateIs60FPS) {
 
 TEST_F(LVGLTimerTest, TimerCleanedUpInDestructor) {
     // Enable push updates.
-    sharedState_->enablePushUpdates(true);
-    
+
     {
         // Create UI in a scope.
         SimulatorUI ui(screen_, eventRouter_.get());
@@ -170,8 +166,7 @@ TEST_F(LVGLTimerTest, TimerCleanedUpInDestructor) {
 
 TEST_F(LVGLTimerTest, TimerIntegrationWithUIUpdateConsumer) {
     // Enable push updates.
-    sharedState_->enablePushUpdates(true);
-    
+
     // Create UI.
     SimulatorUI ui(screen_, eventRouter_.get());
     

@@ -46,15 +46,14 @@ public:
                 using T = std::decay_t<decltype(e)>;
 
                 if constexpr (is_immediate_event_v<T>) {
-                    // Check if push updates are enabled and event is compatible
-                    if (sharedState_.isPushUpdatesEnabled() && isPushCompatible(e)) {
+                    // Push-based updates are always enabled for thread safety.
+                    if (isPushCompatible(e)) {
                         // Route through state machine for push-based update.
                         queueEvent(e);
-                        spdlog::debug(
-                            "Routing {} through push system instead of immediate", e.name());
+                        spdlog::debug("Routing {} through push system", e.name());
                     }
                     else {
-                        // Process immediately on current thread (legacy behavior).
+                        // Process immediately on current thread (for non-push-compatible events).
                         processImmediate(e);
                     }
                 }
@@ -91,8 +90,7 @@ private:
         // All current immediate events are push-compatible.
         // They update UI state that can be delivered via push updates.
         return std::is_same_v<T, GetFPSCommand> || std::is_same_v<T, GetSimStatsCommand>
-            || std::is_same_v<T, ToggleForceCommand>
-            || std::is_same_v<T, ToggleCohesionCommand>
+            || std::is_same_v<T, ToggleForceCommand> || std::is_same_v<T, ToggleCohesionCommand>
             || std::is_same_v<T, ToggleCohesionForceCommand>
             || std::is_same_v<T, ToggleAdhesionCommand>
             || std::is_same_v<T, ToggleTimeHistoryCommand>

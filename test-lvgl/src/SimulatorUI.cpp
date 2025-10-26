@@ -150,18 +150,17 @@ void SimulatorUI::initialize()
         updateWorldTypeButtonMatrix(world_->getWorldType());
     }
 
-    // Initialize push-based UI update system if enabled.
+    // Initialize push-based UI update system (always enabled for thread safety).
     if (event_router_) {
         SharedSimState& sharedState = event_router_->getSharedSimState();
-        if (sharedState.isPushUpdatesEnabled()) {
-            // Create UIUpdateConsumer.
-            updateConsumer_ = std::make_unique<UIUpdateConsumer>(&sharedState, this);
 
-            // Create LVGL timer for 60fps updates (16.67ms).
-            updateTimer_ = lv_timer_create(uiUpdateTimerCb, 16, this);
+        // Create UIUpdateConsumer.
+        updateConsumer_ = std::make_unique<UIUpdateConsumer>(&sharedState, this);
 
-            spdlog::info("Push-based UI update system initialized with 60fps timer");
-        }
+        // Create LVGL timer for 60fps updates (16.67ms).
+        updateTimer_ = lv_timer_create(uiUpdateTimerCb, 16, this);
+
+        spdlog::info("Push-based UI update system initialized with 60fps timer");
     }
 }
 
@@ -341,8 +340,8 @@ void SimulatorUI::createControlButtons()
         .onGravityChange()
         .position(MAIN_CONTROLS_X, 285, LV_ALIGN_TOP_LEFT)
         .size(CONTROL_WIDTH, 10)
-        .range(-1000, 1000)  // -10x to +10x.
-        .value(100)          // 1x Earth gravity (9.81).
+        .range(-1000, 1000) // -10x to +10x.
+        .value(100)         // 1x Earth gravity (9.81).
         .label("Gravity", 0, -20)
         .valueLabel("%.1f", 80, -20)
         .buildOrLog();
@@ -712,7 +711,6 @@ void SimulatorUI::createSliders()
         .valueLabel("%.1f", 120, -20)
         .buildOrLog();
 }
-
 
 void SimulatorUI::updateMassLabel(double totalMass)
 {
@@ -1127,7 +1125,8 @@ void SimulatorUI::debugBtnEventCb(lv_event_t* e)
             data->world->setDebugDrawEnabled(!current);
             const lv_obj_t* btn = static_cast<const lv_obj_t*>(lv_event_get_target(e));
             lv_obj_t* label = lv_obj_get_child(btn, 0);
-            lv_label_set_text(label, data->world->isDebugDrawEnabled() ? "Debug: On" : "Debug: Off");
+            lv_label_set_text(
+                label, data->world->isDebugDrawEnabled() ? "Debug: On" : "Debug: Off");
 
             // Mark all cells dirty to ensure proper rendering updates.
             data->world->markAllCellsDirty();

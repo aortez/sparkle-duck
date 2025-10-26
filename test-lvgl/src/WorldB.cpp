@@ -183,7 +183,8 @@ void WorldB::draw()
         && isValidCell(last_drag_cell_x_, last_drag_cell_y_)) {
         // Render floating particle at current drag position.
         // This particle can potentially collide with other objects in the world.
-        floating_particle_.draw(draw_area_, last_drag_cell_x_, last_drag_cell_y_, debug_draw_enabled_);
+        floating_particle_.draw(
+            draw_area_, last_drag_cell_x_, last_drag_cell_y_, debug_draw_enabled_);
         spdlog::trace(
             "Drew floating particle {} at cell ({},{}) pixel pos ({:.1f},{:.1f})",
             getMaterialName(floating_particle_.getMaterialType()),

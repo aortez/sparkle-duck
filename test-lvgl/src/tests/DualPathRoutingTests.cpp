@@ -26,8 +26,7 @@ protected:
 
 TEST_F(DualPathTest, ImmediateEventProcessedImmediatelyWhenPushDisabled) {
     // Ensure push updates are disabled.
-    sharedState->enablePushUpdates(false);
-    
+
     // Send GetFPSCommand.
     GetFPSCommand cmd;
     router->routeEvent(cmd);
@@ -39,8 +38,7 @@ TEST_F(DualPathTest, ImmediateEventProcessedImmediatelyWhenPushDisabled) {
 
 TEST_F(DualPathTest, ImmediateEventQueuedWhenPushEnabled) {
     // Enable push updates.
-    sharedState->enablePushUpdates(true);
-    
+
     // Send GetFPSCommand.
     GetFPSCommand cmd;
     router->routeEvent(cmd);
@@ -53,8 +51,7 @@ TEST_F(DualPathTest, ImmediateEventQueuedWhenPushEnabled) {
 }
 
 TEST_F(DualPathTest, AllToggleCommandsRoutedThroughPushWhenEnabled) {
-    sharedState->enablePushUpdates(true);
-    
+
     // Test all toggle commands.
     std::vector<Event> toggleEvents = {
         ToggleDebugCommand{},
@@ -79,8 +76,7 @@ TEST_F(DualPathTest, AllToggleCommandsRoutedThroughPushWhenEnabled) {
 }
 
 TEST_F(DualPathTest, GetCommandsRoutedThroughPushWhenEnabled) {
-    sharedState->enablePushUpdates(true);
-    
+
     std::vector<Event> getCommands = {
         GetFPSCommand{},
         GetSimStatsCommand{}
@@ -101,8 +97,7 @@ TEST_F(DualPathTest, GetCommandsRoutedThroughPushWhenEnabled) {
 }
 
 TEST_F(DualPathTest, PrintAsciiDiagramCommandRoutedThroughPush) {
-    sharedState->enablePushUpdates(true);
-    
+
     PrintAsciiDiagramCommand cmd;
     router->routeEvent(cmd);
     
@@ -115,8 +110,7 @@ TEST_F(DualPathTest, PrintAsciiDiagramCommandRoutedThroughPush) {
 
 TEST_F(DualPathTest, NonImmediateEventsAlwaysQueued) {
     // Test with push disabled.
-    sharedState->enablePushUpdates(false);
-    
+
     PauseCommand pauseCmd;
     router->routeEvent(pauseCmd);
     
@@ -129,8 +123,7 @@ TEST_F(DualPathTest, NonImmediateEventsAlwaysQueued) {
     }
     
     // Test with push enabled.
-    sharedState->enablePushUpdates(true);
-    
+
     ResumeCommand resumeCmd;
     router->routeEvent(resumeCmd);
     
@@ -140,8 +133,7 @@ TEST_F(DualPathTest, NonImmediateEventsAlwaysQueued) {
 
 TEST_F(DualPathTest, ToggleDebugCommandUpdatesDebugFlag) {
     // Enable push updates to route through state machine.
-    sharedState->enablePushUpdates(true);
-    
+
     // Transition to SimRunning state.
     stateMachine->handleEvent(InitCompleteEvent{});
     stateMachine->handleEvent(StartSimulationCommand{});
@@ -163,8 +155,7 @@ TEST_F(DualPathTest, ToggleDebugCommandUpdatesDebugFlag) {
 
 TEST_F(DualPathTest, ToggleCommandsGeneratePushUpdates) {
     // Enable push updates.
-    sharedState->enablePushUpdates(true);
-    
+
     // Transition to SimRunning state.
     stateMachine->handleEvent(InitCompleteEvent{});
     stateMachine->handleEvent(StartSimulationCommand{});
@@ -191,8 +182,7 @@ TEST_F(DualPathTest, ToggleCommandsGeneratePushUpdates) {
 
 TEST_F(DualPathTest, GetFPSCommandGeneratesFPSDirtyFlag) {
     // Enable push updates.
-    sharedState->enablePushUpdates(true);
-    
+
     // Transition to SimRunning state.
     stateMachine->handleEvent(InitCompleteEvent{});
     stateMachine->handleEvent(StartSimulationCommand{});
@@ -218,8 +208,7 @@ TEST_F(DualPathTest, GetFPSCommandGeneratesFPSDirtyFlag) {
 
 TEST_F(DualPathTest, GetSimStatsCommandGeneratesStatsDirtyFlags) {
     // Enable push updates.
-    sharedState->enablePushUpdates(true);
-    
+
     // Transition to SimRunning state.
     stateMachine->handleEvent(InitCompleteEvent{});
     stateMachine->handleEvent(StartSimulationCommand{});

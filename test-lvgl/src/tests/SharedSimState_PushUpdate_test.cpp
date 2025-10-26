@@ -22,39 +22,11 @@ protected:
     }
 };
 
-TEST_F(SharedSimStatePushUpdateTest, FeatureFlagDefaults) {
-    // Push updates should be disabled by default.
-    EXPECT_FALSE(sharedState.isPushUpdatesEnabled());
-}
+// Note: Push updates are now always enabled for thread safety.
+// Tests for toggle functionality have been removed.
 
-TEST_F(SharedSimStatePushUpdateTest, FeatureFlagToggle) {
-    // Enable push updates.
-    sharedState.enablePushUpdates(true);
-    EXPECT_TRUE(sharedState.isPushUpdatesEnabled());
-    
-    // Disable push updates.
-    sharedState.enablePushUpdates(false);
-    EXPECT_FALSE(sharedState.isPushUpdatesEnabled());
-}
-
-TEST_F(SharedSimStatePushUpdateTest, PushWhenDisabled) {
-    // Ensure push updates are disabled.
-    sharedState.enablePushUpdates(false);
-    
-    // Push an update.
-    sharedState.pushUIUpdate(createTestEvent());
-    
-    // Should not be queued.
-    EXPECT_FALSE(sharedState.hasUIUpdatePending());
-    auto popped = sharedState.popUIUpdate();
-    EXPECT_FALSE(popped.has_value());
-}
-
-TEST_F(SharedSimStatePushUpdateTest, PushWhenEnabled) {
-    // Enable push updates.
-    sharedState.enablePushUpdates(true);
-    
-    // Push an update.
+TEST_F(SharedSimStatePushUpdateTest, PushUpdatesWork) {
+    // Push an update (push updates are always enabled).
     sharedState.pushUIUpdate(createTestEvent(144));
     
     // Should be queued.
@@ -70,8 +42,6 @@ TEST_F(SharedSimStatePushUpdateTest, PushWhenEnabled) {
 }
 
 TEST_F(SharedSimStatePushUpdateTest, MetricsAccess) {
-    sharedState.enablePushUpdates(true);
-    
     // Push several updates.
     for (int i = 0; i < 5; ++i) {
         sharedState.pushUIUpdate(createTestEvent(i * 10));
@@ -89,8 +59,6 @@ TEST_F(SharedSimStatePushUpdateTest, MetricsAccess) {
 
 TEST_F(SharedSimStatePushUpdateTest, ThreadSafetyWithOtherState) {
     // Test that push updates don't interfere with other shared state operations.
-    sharedState.enablePushUpdates(true);
-    
     std::thread pushThread([this]() {
         for (int i = 0; i < 1000; ++i) {
             sharedState.pushUIUpdate(createTestEvent(i));
@@ -136,9 +104,6 @@ TEST_F(SharedSimStatePushUpdateTest, ThreadSafetyWithOtherState) {
 }
 
 TEST_F(SharedSimStatePushUpdateTest, CompleteUIUpdateFlow) {
-    // Enable push updates.
-    sharedState.enablePushUpdates(true);
-    
     // Set up some state.
     sharedState.setCurrentStep(12345);
     sharedState.setCurrentFPS(59.5f);
