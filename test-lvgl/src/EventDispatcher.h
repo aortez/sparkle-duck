@@ -42,10 +42,17 @@ public:
 
                         // Try state-specific handler first.
                         if constexpr (hasEventHandler<StateType, EventType>()) {
-                            spdlog::info(
-                                "Dispatching {} to state handler in {}",
-                                EventType::name(),
-                                StateType::name());
+                            if constexpr (std::is_same_v<EventType, AdvanceSimulationCommand>) {
+                                spdlog::debug(
+                                    "Dispatching {} to state handler in {}",
+                                    EventType::name(),
+                                    StateType::name());
+                            } else {
+                                spdlog::info(
+                                    "Dispatching {} to state handler in {}",
+                                    EventType::name(),
+                                    StateType::name());
+                            }
                             return state.onEvent(evt, dsm);
                         }
                         // Try global handler.

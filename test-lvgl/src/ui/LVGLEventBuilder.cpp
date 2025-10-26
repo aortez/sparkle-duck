@@ -243,6 +243,50 @@ LVGLEventBuilder::SliderBuilder& LVGLEventBuilder::SliderBuilder::onRainRateChan
     });
 }
 
+LVGLEventBuilder::SliderBuilder& LVGLEventBuilder::SliderBuilder::onWaterCohesionChange() {
+    valueTransform([](int32_t value) {
+        return value / 1000.0;  // Convert 0-1000 to 0.0-1.0
+    });
+
+    return onValueChange([](int32_t value) {
+        double cohesion = value / 1000.0;
+        return Event{SetWaterCohesionCommand{cohesion}};
+    });
+}
+
+LVGLEventBuilder::SliderBuilder& LVGLEventBuilder::SliderBuilder::onWaterViscosityChange() {
+    valueTransform([](int32_t value) {
+        return value / 1000.0;  // Convert 0-1000 to 0.0-1.0
+    });
+
+    return onValueChange([](int32_t value) {
+        double viscosity = value / 1000.0;
+        return Event{SetWaterViscosityCommand{viscosity}};
+    });
+}
+
+LVGLEventBuilder::SliderBuilder& LVGLEventBuilder::SliderBuilder::onWaterPressureThresholdChange() {
+    valueTransform([](int32_t value) {
+        return value / 100000.0;  // Convert 0-1000 to 0.0-0.01
+    });
+
+    return onValueChange([](int32_t value) {
+        double threshold = value / 100000.0;
+        return Event{SetWaterPressureThresholdCommand{threshold}};
+    });
+}
+
+LVGLEventBuilder::SliderBuilder& LVGLEventBuilder::SliderBuilder::onWaterBuoyancyChange() {
+    valueTransform([](int32_t value) {
+        return value / 1000.0;  // Convert 0-1000 to 0.0-1.0
+    });
+
+    return onValueChange([](int32_t value) {
+        double buoyancy = value / 1000.0;
+        return Event{SetWaterBuoyancyCommand{buoyancy}};
+    });
+}
+
 // ===== ButtonBuilder Implementation =====
 
 LVGLEventBuilder::ButtonBuilder& LVGLEventBuilder::ButtonBuilder::withEventRouter(EventRouter* router) {
@@ -369,6 +413,18 @@ LVGLEventBuilder::ButtonBuilder& LVGLEventBuilder::ButtonBuilder::onStepForward(
 
 LVGLEventBuilder::ButtonBuilder& LVGLEventBuilder::ButtonBuilder::onFrameLimitToggle() {
     return onClick(Event{ToggleFrameLimitCommand{}});
+}
+
+LVGLEventBuilder::ButtonBuilder& LVGLEventBuilder::ButtonBuilder::onLeftThrowToggle() {
+    return onClick(Event{ToggleLeftThrowCommand{}});
+}
+
+LVGLEventBuilder::ButtonBuilder& LVGLEventBuilder::ButtonBuilder::onRightThrowToggle() {
+    return onClick(Event{ToggleRightThrowCommand{}});
+}
+
+LVGLEventBuilder::ButtonBuilder& LVGLEventBuilder::ButtonBuilder::onQuadrantToggle() {
+    return onClick(Event{ToggleQuadrantCommand{}});
 }
 
 // ===== SwitchBuilder Implementation =====
@@ -617,10 +673,16 @@ LVGLEventBuilder::DropdownBuilder& LVGLEventBuilder::DropdownBuilder::onValueCha
 }
 
 LVGLEventBuilder::DropdownBuilder& LVGLEventBuilder::DropdownBuilder::onPressureSystemChange() {
-    // TODO: Implement when SetPressureModeCommand is added to the event system.
-    // For now, pressure system changes will remain as direct manipulation.
-    spdlog::warn("onPressureSystemChange() not yet implemented - pressure system needs direct manipulation");
-    return *this;
+    return onValueChange([](uint16_t selectedIndex) {
+        WorldInterface::PressureSystem system;
+        switch (selectedIndex) {
+            case 0: system = WorldInterface::PressureSystem::Original; break;
+            case 1: system = WorldInterface::PressureSystem::TopDown; break;
+            case 2: system = WorldInterface::PressureSystem::IterativeSettling; break;
+            default: system = WorldInterface::PressureSystem::Original; break;
+        }
+        return Event{SetPressureSystemCommand{system}};
+    });
 }
 
 LVGLEventBuilder::DrawAreaBuilder::DrawAreaBuilder(lv_obj_t* parent) 

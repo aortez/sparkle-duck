@@ -159,6 +159,30 @@ public:
         SliderBuilder& onRainRateChange();
 
         /**
+         * @brief Convenience method for water cohesion sliders (WorldA).
+         * Automatically converts slider value (0-1000) to cohesion (0.0-1.0)
+         */
+        SliderBuilder& onWaterCohesionChange();
+
+        /**
+         * @brief Convenience method for water viscosity sliders (WorldA).
+         * Automatically converts slider value (0-1000) to viscosity (0.0-1.0)
+         */
+        SliderBuilder& onWaterViscosityChange();
+
+        /**
+         * @brief Convenience method for water pressure threshold sliders (WorldA).
+         * Automatically converts slider value (0-1000) to threshold (0.0-0.01)
+         */
+        SliderBuilder& onWaterPressureThresholdChange();
+
+        /**
+         * @brief Convenience method for water buoyancy sliders (WorldA).
+         * Automatically converts slider value (0-1000) to buoyancy (0.0-1.0)
+         */
+        SliderBuilder& onWaterBuoyancyChange();
+
+        /**
          * @brief Set the event router for this builder.
          */
         SliderBuilder& withEventRouter(EventRouter* router);
@@ -258,6 +282,21 @@ public:
          * @brief Convenience method for frame limit toggle button.
          */
         ButtonBuilder& onFrameLimitToggle();
+
+        /**
+         * @brief Convenience method for left throw toggle button.
+         */
+        ButtonBuilder& onLeftThrowToggle();
+
+        /**
+         * @brief Convenience method for right throw toggle button.
+         */
+        ButtonBuilder& onRightThrowToggle();
+
+        /**
+         * @brief Convenience method for quadrant toggle button.
+         */
+        ButtonBuilder& onQuadrantToggle();
 
         /**
          * @brief Set the event router for this builder.

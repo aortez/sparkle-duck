@@ -152,47 +152,31 @@ State::Any SimRunning::onEvent(const ToggleTimeReversalCommand& /*cmd*/, DirtSim
     return *this;  // Stay in SimRunning.
 }
 
-State::Any SimRunning::onEvent(const SetWaterCohesionCommand& cmd, DirtSimStateMachine& dsm) {
-    if (auto* simMgr = dsm.getSimulationManager()) {
-        if (auto* world = simMgr->getWorld()) {
-            // TODO: Implement world->setWaterCohesion() method when available.
-            (void)world;
-        }
-    }
-    spdlog::debug("SimRunning: Set water cohesion to {}", cmd.cohesion_value);
+State::Any SimRunning::onEvent(const SetWaterCohesionCommand& cmd, DirtSimStateMachine& /*dsm*/) {
+    Cell::setCohesionStrength(cmd.cohesion_value);
+    spdlog::info("SimRunning: Set water cohesion to {}", cmd.cohesion_value);
     return *this;
 }
 
-State::Any SimRunning::onEvent(const SetWaterViscosityCommand& cmd, DirtSimStateMachine& dsm) {
-    if (auto* simMgr = dsm.getSimulationManager()) {
-        if (auto* world = simMgr->getWorld()) {
-            // TODO: Implement world->setWaterViscosity() method when available.
-            (void)world;
-        }
-    }
-    spdlog::debug("SimRunning: Set water viscosity to {}", cmd.viscosity_value);
+State::Any SimRunning::onEvent(const SetWaterViscosityCommand& cmd, DirtSimStateMachine& /*dsm*/) {
+    Cell::setViscosityFactor(cmd.viscosity_value);
+    spdlog::info("SimRunning: Set water viscosity to {}", cmd.viscosity_value);
     return *this;
 }
 
 State::Any SimRunning::onEvent(const SetWaterPressureThresholdCommand& cmd, DirtSimStateMachine& dsm) {
     if (auto* simMgr = dsm.getSimulationManager()) {
         if (auto* world = simMgr->getWorld()) {
-            // TODO: Implement world->setWaterPressureThreshold() method when available.
-            (void)world;
+            world->setWaterPressureThreshold(cmd.threshold_value);
+            spdlog::info("SimRunning: Set water pressure threshold to {}", cmd.threshold_value);
         }
     }
-    spdlog::debug("SimRunning: Set water pressure threshold to {}", cmd.threshold_value);
     return *this;
 }
 
-State::Any SimRunning::onEvent(const SetWaterBuoyancyCommand& cmd, DirtSimStateMachine& dsm) {
-    if (auto* simMgr = dsm.getSimulationManager()) {
-        if (auto* world = simMgr->getWorld()) {
-            // TODO: Implement world->setWaterBuoyancy() method when available.
-            (void)world;
-        }
-    }
-    spdlog::debug("SimRunning: Set water buoyancy to {}", cmd.buoyancy_value);
+State::Any SimRunning::onEvent(const SetWaterBuoyancyCommand& cmd, DirtSimStateMachine& /*dsm*/) {
+    Cell::setBuoyancyStrength(cmd.buoyancy_value);
+    spdlog::info("SimRunning: Set water buoyancy to {}", cmd.buoyancy_value);
     return *this;
 }
 
@@ -639,16 +623,12 @@ State::Any SimRunning::onEvent(const SetFragmentationCommand& cmd, DirtSimStateM
 }
 
 State::Any SimRunning::onEvent(const SetPressureSystemCommand& cmd, DirtSimStateMachine& dsm) {
-    // Apply to world.
     if (auto* simMgr = dsm.getSimulationManager()) {
         if (auto* world = simMgr->getWorld()) {
-            // TODO: Need to add setPressureSystem method to WorldInterface.
-            // For now, suppress unused warning.
-            (void)world;
+            world->setPressureSystem(cmd.system);
+            spdlog::info("SimRunning: Set pressure system to {}", static_cast<int>(cmd.system));
         }
     }
-
-    spdlog::debug("SimRunning: Set pressure system to {}", static_cast<int>(cmd.system));
     return *this;
 }
 
@@ -667,44 +647,35 @@ State::Any SimRunning::onEvent(const ToggleWallsCommand& /*cmd*/, DirtSimStateMa
 }
 
 State::Any SimRunning::onEvent(const ToggleLeftThrowCommand& /*cmd*/, DirtSimStateMachine& dsm) {
-    // Apply to world.
     if (auto* simMgr = dsm.getSimulationManager()) {
         if (auto* world = simMgr->getWorld()) {
-            // TODO: Need to add toggleLeftThrow method to WorldInterface.
-            // For now, suppress unused warning.
-            (void)world;
+            bool newValue = !world->isLeftThrowEnabled();
+            world->setLeftThrowEnabled(newValue);
+            spdlog::info("SimRunning: Toggle left throw - now: {}", newValue);
         }
     }
-
-    spdlog::info("SimRunning: Toggle left throw");
     return *this;
 }
 
 State::Any SimRunning::onEvent(const ToggleRightThrowCommand& /*cmd*/, DirtSimStateMachine& dsm) {
-    // Apply to world.
     if (auto* simMgr = dsm.getSimulationManager()) {
         if (auto* world = simMgr->getWorld()) {
-            // TODO: Need to add toggleRightThrow method to WorldInterface.
-            // For now, suppress unused warning.
-            (void)world;
+            bool newValue = !world->isRightThrowEnabled();
+            world->setRightThrowEnabled(newValue);
+            spdlog::info("SimRunning: Toggle right throw - now: {}", newValue);
         }
     }
-
-    spdlog::info("SimRunning: Toggle right throw");
     return *this;
 }
 
 State::Any SimRunning::onEvent(const ToggleQuadrantCommand& /*cmd*/, DirtSimStateMachine& dsm) {
-    // Apply to world.
     if (auto* simMgr = dsm.getSimulationManager()) {
         if (auto* world = simMgr->getWorld()) {
-            // TODO: Need to add toggleQuadrant method to WorldInterface.
-            // For now, suppress unused warning.
-            (void)world;
+            bool newValue = !world->isLowerRightQuadrantEnabled();
+            world->setLowerRightQuadrantEnabled(newValue);
+            spdlog::info("SimRunning: Toggle quadrant - now: {}", newValue);
         }
     }
-
-    spdlog::info("SimRunning: Toggle quadrant");
     return *this;
 }
 
