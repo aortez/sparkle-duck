@@ -23,8 +23,7 @@ protected:
 
 TEST_F(SimulationPushUpdateTest, PushDisabledByDefault) {
     // Feature should be disabled by default.
-    EXPECT_FALSE(dsm->getSharedState().isPushUpdatesEnabled());
-    
+
     // Queue some events to advance to SimRunning.
     dsm->queueEvent(InitCompleteEvent{});
     dsm->queueEvent(StartSimulationCommand{});
@@ -53,9 +52,7 @@ TEST_F(SimulationPushUpdateTest, PushDisabledByDefault) {
 
 TEST_F(SimulationPushUpdateTest, PushOnSimulationAdvance) {
     // Enable push updates.
-    dsm->getSharedState().enablePushUpdates(true);
-    EXPECT_TRUE(dsm->getSharedState().isPushUpdatesEnabled());
-    
+
     // Queue events to get to SimRunning.
     dsm->queueEvent(InitCompleteEvent{});
     dsm->queueEvent(StartSimulationCommand{});
@@ -94,8 +91,7 @@ TEST_F(SimulationPushUpdateTest, PushOnSimulationAdvance) {
 
 TEST_F(SimulationPushUpdateTest, PushOnStateTransition) {
     // Enable push updates.
-    dsm->getSharedState().enablePushUpdates(true);
-    
+
     // Get to SimRunning first.
     dsm->queueEvent(InitCompleteEvent{});
     dsm->queueEvent(StartSimulationCommand{});
@@ -132,8 +128,7 @@ TEST_F(SimulationPushUpdateTest, PushOnStateTransition) {
 
 TEST_F(SimulationPushUpdateTest, PushOnPausedAdvance) {
     // Enable push updates.
-    dsm->getSharedState().enablePushUpdates(true);
-    
+
     // Get to SimPaused state.
     dsm->queueEvent(InitCompleteEvent{});
     dsm->queueEvent(StartSimulationCommand{});
@@ -176,8 +171,7 @@ TEST_F(SimulationPushUpdateTest, PushOnPausedAdvance) {
 
 TEST_F(SimulationPushUpdateTest, LatestUpdateWins) {
     // Enable push updates.
-    dsm->getSharedState().enablePushUpdates(true);
-    
+
     // Get to SimRunning.
     dsm->queueEvent(InitCompleteEvent{});
     dsm->queueEvent(StartSimulationCommand{});

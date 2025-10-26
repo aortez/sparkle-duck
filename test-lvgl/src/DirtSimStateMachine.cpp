@@ -148,13 +148,11 @@ void DirtSimStateMachine::transitionTo(State::Any newState)
     // Call onEnter for new state.
     std::visit([this](auto& state) { callOnEnter(state); }, fsmState);
 
-    // Push UI update on state transitions if push-based system is enabled.
-    if (sharedState.isPushUpdatesEnabled()) {
-        // Build update with uiState dirty flag forced on for state changes.
-        UIUpdateEvent update = buildUIUpdate();
-        update.dirty.uiState = true; // Always mark UI state dirty on transitions.
-        sharedState.pushUIUpdate(std::move(update));
-    }
+    // Push UI update on state transitions (always enabled for thread safety).
+    // Build update with uiState dirty flag forced on for state changes.
+    UIUpdateEvent update = buildUIUpdate();
+    update.dirty.uiState = true; // Always mark UI state dirty on transitions.
+    sharedState.pushUIUpdate(std::move(update));
 }
 
 // Global event handlers.

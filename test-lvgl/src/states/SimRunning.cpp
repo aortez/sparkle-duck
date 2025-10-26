@@ -44,38 +44,17 @@ void SimRunning::onExit(DirtSimStateMachine& /*dsm. */) {
 
 
 State::Any SimRunning::onEvent(const AdvanceSimulationCommand& /*cmd. */, DirtSimStateMachine& dsm) {
-    if (!dsm.simulationManager) {
-        spdlog::error("SimRunning: Cannot advance - no SimulationManager!");
-        return *this;
-    }
-    
-    // Advance the simulation.
-    dsm.simulationManager->advanceTime(1.0/60.0);  // 60 FPS timestep.
-    stepCount++;
-    
-    // Update shared state step count.
-    dsm.getSharedState().setCurrentStep(stepCount);
-    
-    // Update shared state statistics periodically.
-    if (stepCount % 60 == 0) {
-        SimulationStats stats;
-        stats.stepCount = stepCount;
-        auto* world = dsm.simulationManager->getWorld();
-        stats.totalCells = world->getWidth() * world->getHeight();
-        // TODO: Get more detailed stats from world.
-        
-        dsm.getSharedState().updateStats(stats);
-    }
-    
-    // Update FPS.
-    // TODO: Calculate actual FPS.
-    dsm.getSharedState().setCurrentFPS(60.0f);
-    
-    // Push UI update if push-based system is enabled.
-    if (dsm.getSharedState().isPushUpdatesEnabled()) {
-        dsm.getSharedState().pushUIUpdate(dsm.buildUIUpdate());
-    }
-    
+    // NOTE: When in SimRunning state, the simulation is advanced by the UI thread's
+    // processFrame loop (simulator_loop.h:83). We should NOT call advanceTime here
+    // because that would create a race condition with two threads advancing physics
+    // simultaneously. This handler exists for compatibility but is a no-op in SimRunning.
+    // The UI loop handles step counting and stat updates automatically.
+
+    spdlog::trace("SimRunning: AdvanceSimulationCommand received but ignored (UI loop drives simulation)");
+
+    // Suppress unused parameter warning.
+    (void)dsm;
+
     return *this;  // Stay in SimRunning.
 }
 
@@ -469,28 +448,24 @@ State::Any SimRunning::onEvent(const SetRainRateCommand& cmd, DirtSimStateMachin
 State::Any SimRunning::onEvent(const GetFPSCommand& /*cmd. */, DirtSimStateMachine& dsm) {
     // FPS is already tracked in shared state and will be in next push update.
     spdlog::debug("SimRunning: GetFPSCommand - FPS will be in next update");
-    
+
     // Force a push update with FPS dirty flag.
-    if (dsm.getSharedState().isPushUpdatesEnabled()) {
-        UIUpdateEvent update = dsm.buildUIUpdate();
-        update.dirty.fps = true;
-        dsm.getSharedState().pushUIUpdate(std::move(update));
-    }
-    
+    UIUpdateEvent update = dsm.buildUIUpdate();
+    update.dirty.fps = true;
+    dsm.getSharedState().pushUIUpdate(std::move(update));
+
     return *this;
 }
 
 State::Any SimRunning::onEvent(const GetSimStatsCommand& /*cmd. */, DirtSimStateMachine& dsm) {
     // Stats are already tracked and will be in next push update.
     spdlog::debug("SimRunning: GetSimStatsCommand - Stats will be in next update");
-    
+
     // Force a push update with stats dirty flag.
-    if (dsm.getSharedState().isPushUpdatesEnabled()) {
-        UIUpdateEvent update = dsm.buildUIUpdate();
-        update.dirty.stats = true;
-        dsm.getSharedState().pushUIUpdate(std::move(update));
-    }
-    
+    UIUpdateEvent update = dsm.buildUIUpdate();
+    update.dirty.stats = true;
+    dsm.getSharedState().pushUIUpdate(std::move(update));
+
     return *this;
 }
 
@@ -504,11 +479,9 @@ State::Any SimRunning::onEvent(const ToggleDebugCommand& /*cmd. */, DirtSimState
         spdlog::info("SimRunning: ToggleDebugCommand - Debug draw now: {}", newValue);
 
         // Push UI update with uiState dirty flag.
-        if (dsm.getSharedState().isPushUpdatesEnabled()) {
-            UIUpdateEvent update = dsm.buildUIUpdate();
-            update.dirty.uiState = true;
-            dsm.getSharedState().pushUIUpdate(std::move(update));
-        }
+        UIUpdateEvent update = dsm.buildUIUpdate();
+        update.dirty.uiState = true;
+        dsm.getSharedState().pushUIUpdate(std::move(update));
     }
 
     return *this;
@@ -521,11 +494,9 @@ State::Any SimRunning::onEvent(const ToggleForceCommand& /*cmd. */, DirtSimState
             world->setCursorForceEnabled(newValue);
             spdlog::info("SimRunning: ToggleForceCommand - Force viz now: {}", newValue);
 
-            if (dsm.getSharedState().isPushUpdatesEnabled()) {
-                UIUpdateEvent update = dsm.buildUIUpdate();
-                update.dirty.uiState = true;
-                dsm.getSharedState().pushUIUpdate(std::move(update));
-            }
+            UIUpdateEvent update = dsm.buildUIUpdate();
+            update.dirty.uiState = true;
+            dsm.getSharedState().pushUIUpdate(std::move(update));
         }
     }
     return *this;
@@ -538,11 +509,9 @@ State::Any SimRunning::onEvent(const ToggleCohesionCommand& /*cmd. */, DirtSimSt
             world->setCohesionComForceEnabled(newValue);
             spdlog::info("SimRunning: ToggleCohesionCommand - Cohesion now: {}", newValue);
 
-            if (dsm.getSharedState().isPushUpdatesEnabled()) {
-                UIUpdateEvent update = dsm.buildUIUpdate();
-                update.dirty.uiState = true;
-                dsm.getSharedState().pushUIUpdate(std::move(update));
-            }
+            UIUpdateEvent update = dsm.buildUIUpdate();
+            update.dirty.uiState = true;
+            dsm.getSharedState().pushUIUpdate(std::move(update));
         }
     }
     return *this;
@@ -555,11 +524,9 @@ State::Any SimRunning::onEvent(const ToggleCohesionForceCommand& /*cmd. */, Dirt
             world->setCohesionComForceEnabled(newValue);
             spdlog::info("SimRunning: ToggleCohesionForceCommand - Cohesion force now: {}", newValue);
 
-            if (dsm.getSharedState().isPushUpdatesEnabled()) {
-                UIUpdateEvent update = dsm.buildUIUpdate();
-                update.dirty.uiState = true;
-                dsm.getSharedState().pushUIUpdate(std::move(update));
-            }
+            UIUpdateEvent update = dsm.buildUIUpdate();
+            update.dirty.uiState = true;
+            dsm.getSharedState().pushUIUpdate(std::move(update));
         }
     }
     return *this;
@@ -572,11 +539,9 @@ State::Any SimRunning::onEvent(const ToggleAdhesionCommand& /*cmd. */, DirtSimSt
             world->setAdhesionEnabled(newValue);
             spdlog::info("SimRunning: ToggleAdhesionCommand - Adhesion now: {}", newValue);
 
-            if (dsm.getSharedState().isPushUpdatesEnabled()) {
-                UIUpdateEvent update = dsm.buildUIUpdate();
-                update.dirty.uiState = true;
-                dsm.getSharedState().pushUIUpdate(std::move(update));
-            }
+            UIUpdateEvent update = dsm.buildUIUpdate();
+            update.dirty.uiState = true;
+            dsm.getSharedState().pushUIUpdate(std::move(update));
         }
     }
     return *this;
@@ -589,11 +554,9 @@ State::Any SimRunning::onEvent(const ToggleTimeHistoryCommand& /*cmd. */, DirtSi
             world->enableTimeReversal(newValue);
             spdlog::info("SimRunning: ToggleTimeHistoryCommand - Time history now: {}", newValue);
 
-            if (dsm.getSharedState().isPushUpdatesEnabled()) {
-                UIUpdateEvent update = dsm.buildUIUpdate();
-                update.dirty.uiState = true;
-                dsm.getSharedState().pushUIUpdate(std::move(update));
-            }
+            UIUpdateEvent update = dsm.buildUIUpdate();
+            update.dirty.uiState = true;
+            dsm.getSharedState().pushUIUpdate(std::move(update));
         }
     }
     return *this;

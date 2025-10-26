@@ -35,9 +35,6 @@ static void print_lvgl_version();
  * has specified one on the command line */
 static std::string selected_backend;
 
-/* flag to use push-based UI updates */
-static bool use_push_updates = false;
-
 /* Global simulator settings, defined in lv_linux_backend.c */
 extern simulator_settings_t settings;
 
@@ -117,11 +114,6 @@ int main(int argc, char** argv)
         "Select physics system: rulesA (mixed materials) or rulesB (pure materials, default)",
         { 'w', "world" },
         "rulesB");
-    args::Flag push_updates(
-        parser,
-        "push-updates",
-        "Enable push-based UI updates for thread safety",
-        { 'p', "push-updates" });
 
     // Default values from environment if set.
     settings.window_width = atoi(getenv("LV_SIM_WINDOW_WIDTH") ?: "1200");
@@ -181,11 +173,6 @@ int main(int argc, char** argv)
         spdlog::warn("--world flag is not yet implemented in event system (always uses WorldB)");
     }
 
-    if (push_updates) {
-        use_push_updates = true;
-        spdlog::info("Push-based UI updates enabled");
-    }
-
     /* Initialize LVGL. */
     lv_init();
 
@@ -200,11 +187,7 @@ int main(int argc, char** argv)
     // Create the state machine with display.
     auto stateMachine = std::make_unique<DirtSim::DirtSimStateMachine>(lv_disp_get_default());
 
-    // Enable push-based UI updates if requested.
-    if (use_push_updates) {
-        stateMachine->getSharedState().enablePushUpdates(true);
-        spdlog::info("Push-based UI updates activated in state machine");
-    }
+    // Note: Push-based UI updates are always enabled for thread safety.
 
     // Start the state machine's event processing thread.
     std::thread stateMachineThread([&stateMachine]() {

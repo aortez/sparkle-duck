@@ -53,8 +53,7 @@ TEST_F(UIUpdateConsumerTest, ConstructionRequiresNonNullPointers) {
 
 TEST_F(UIUpdateConsumerTest, ConsumeUpdateReturnsFalseWhenDisabled) {
     // Push updates are disabled by default.
-    EXPECT_FALSE(consumer_->isPushUpdatesEnabled());
-    
+
     // Push an update.
     sim_state_->pushUIUpdate(createTestUpdate());
     
@@ -68,9 +67,7 @@ TEST_F(UIUpdateConsumerTest, ConsumeUpdateReturnsFalseWhenDisabled) {
 
 TEST_F(UIUpdateConsumerTest, ConsumeUpdateReturnsFalseWhenQueueEmpty) {
     // Enable push updates.
-    sim_state_->enablePushUpdates(true);
-    EXPECT_TRUE(consumer_->isPushUpdatesEnabled());
-    
+
     // Consume with empty queue should return false.
     EXPECT_FALSE(consumer_->consumeUpdate());
     
@@ -81,8 +78,7 @@ TEST_F(UIUpdateConsumerTest, ConsumeUpdateReturnsFalseWhenQueueEmpty) {
 
 TEST_F(UIUpdateConsumerTest, ConsumeUpdateSuccessfullyConsumesWhenEnabled) {
     // Enable push updates.
-    sim_state_->enablePushUpdates(true);
-    
+
     // Push an update.
     auto update = createTestUpdate(1);
     sim_state_->pushUIUpdate(update);
@@ -98,8 +94,7 @@ TEST_F(UIUpdateConsumerTest, ConsumeUpdateSuccessfullyConsumesWhenEnabled) {
 
 TEST_F(UIUpdateConsumerTest, DetectsMissedUpdates) {
     // Enable push updates.
-    sim_state_->enablePushUpdates(true);
-    
+
     // Consume first update.
     sim_state_->pushUIUpdate(createTestUpdate(1));
     EXPECT_TRUE(consumer_->consumeUpdate());
@@ -116,8 +111,7 @@ TEST_F(UIUpdateConsumerTest, DetectsMissedUpdates) {
 
 TEST_F(UIUpdateConsumerTest, TracksLatencyMetrics) {
     // Enable push updates.
-    sim_state_->enablePushUpdates(true);
-    
+
     // Create update with known timestamp.
     auto update = createTestUpdate(1);
     auto past_time = std::chrono::steady_clock::now() - std::chrono::milliseconds(10);
@@ -138,8 +132,7 @@ TEST_F(UIUpdateConsumerTest, TracksLatencyMetrics) {
 
 TEST_F(UIUpdateConsumerTest, UpdatesLatencyMetricsOverTime) {
     // Enable push updates.
-    sim_state_->enablePushUpdates(true);
-    
+
     // Consume multiple updates with different latencies.
     for (int i = 1; i <= 5; i++) {
         auto update = createTestUpdate(i);
@@ -162,8 +155,7 @@ TEST_F(UIUpdateConsumerTest, UpdatesLatencyMetricsOverTime) {
 
 TEST_F(UIUpdateConsumerTest, ResetMetricsClearsAllData) {
     // Enable push updates.
-    sim_state_->enablePushUpdates(true);
-    
+
     // Consume some updates.
     for (int i = 1; i <= 3; i++) {
         sim_state_->pushUIUpdate(createTestUpdate(i));
@@ -188,8 +180,7 @@ TEST_F(UIUpdateConsumerTest, ResetMetricsClearsAllData) {
 
 TEST_F(UIUpdateConsumerTest, HandlesRapidUpdates) {
     // Enable push updates.
-    sim_state_->enablePushUpdates(true);
-    
+
     // First consume one update to establish baseline.
     sim_state_->pushUIUpdate(createTestUpdate(1));
     EXPECT_TRUE(consumer_->consumeUpdate());

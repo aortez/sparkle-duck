@@ -92,7 +92,8 @@ void EventRouter::processImmediateEvent(const ToggleCohesionForceCommand& /*cmd.
     if (world) {
         bool newValue = !world->isCohesionComForceEnabled();
         world->setCohesionComForceEnabled(newValue);
-        spdlog::info("Processing ToggleCohesionForceCommand - Cohesion force physics now: {}", newValue);
+        spdlog::info(
+            "Processing ToggleCohesionForceCommand - Cohesion force physics now: {}", newValue);
     }
 }
 
@@ -133,6 +134,9 @@ void EventRouter::processImmediateEvent(const SetCellSizeCommand& cmd)
         world->resizeGrid(new_grid_width, new_grid_height);
         world->markAllCellsDirty();
 
-        spdlog::info("Processing SetCellSizeCommand - Resized grid to {}x{} cells", new_grid_width, new_grid_height);
+        spdlog::info(
+            "Processing SetCellSizeCommand - Resized grid to {}x{} cells",
+            new_grid_width,
+            new_grid_height);
     }
 }

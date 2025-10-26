@@ -211,20 +211,6 @@ public:
     // =================================================================
 
     /**
-     * @brief Check if push-based updates are enabled.
-     */
-    bool isPushUpdatesEnabled() const { return usePushUpdates_.load(std::memory_order_acquire); }
-
-    /**
-     * @brief Enable or disable push-based UI updates.
-     * @param enable true to enable push updates, false to use legacy immediate events.
-     */
-    void enablePushUpdates(bool enable)
-    {
-        usePushUpdates_.store(enable, std::memory_order_release);
-    }
-
-    /**
      * @brief Get next sequence number for UI updates.
      * @return Next monotonic sequence number.
      */
@@ -235,14 +221,8 @@ public:
 
     /**
      * @brief Push a UI update from simulation thread.
-     * Only works if push updates are enabled.
      */
-    void pushUIUpdate(UIUpdateEvent update)
-    {
-        if (isPushUpdatesEnabled()) {
-            uiUpdateQueue_.push(std::move(update));
-        }
-    }
+    void pushUIUpdate(UIUpdateEvent update) { uiUpdateQueue_.push(std::move(update)); }
 
     /**
      * @brief Pop the latest UI update for consumption by UI thread.
@@ -275,8 +255,7 @@ private:
     mutable std::shared_mutex worldMutex_;
     WorldInterface* currentWorld_ = nullptr;
 
-    // Push-based UI update system.
+    // Push-based UI update system (always enabled).
     UIUpdateQueue uiUpdateQueue_;
-    std::atomic<bool> usePushUpdates_{ false };    // Feature flag - disabled by default.
     std::atomic<uint64_t> updateSequenceNum_{ 0 }; // Monotonic sequence counter.
 };

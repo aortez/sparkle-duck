@@ -37,7 +37,8 @@ void EventProcessor::processEvent(const Event& event, DirtSim::DirtSimStateMachi
     std::string eventName = getEventName(event);
     if (eventName == "AdvanceSimulationCommand") {
         spdlog::debug("Processing event: {} in state: {}", eventName, dsm.getCurrentStateName());
-    } else {
+    }
+    else {
         spdlog::info("Processing event: {} in state: {}", eventName, dsm.getCurrentStateName());
     }
 
