@@ -86,10 +86,10 @@ The UI is organized into several distinct columns from left to right:
 - **Cohesion Range Slider**: Neighbor detection range (1-5 cells)
 - **Friction Toggle Slider**: Integrated switch + slider (0.0-1.0, 0 = disabled, default enabled at 1.0)
 - **Adhesion Toggle Slider**: Integrated switch + slider (0.0-10.0, 0 = disabled)
-- **Left Throw Toggle**: "Left Throw: On/Off"
-- **Right Throw Toggle**: "Right Throw: On/Off"
-- **Quadrant Toggle**: "Quadrant: On/Off"
-- **Water Column Toggle**: Enable/disable 5×20 water column on left side
+- **Left Throw Switch**: Enable/disable left-side particle throwing (default: ON)
+- **Right Throw Switch**: Enable/disable right-side particle throwing (default: ON)
+- **Quadrant Switch**: Enable/disable lower-right quadrant dirt fill (default: ON)
+- **Water Column Switch**: Enable/disable 5×20 water column on left side (default: ON)
 - **Screenshot Button**: Captures simulation image
 - **Print ASCII Button**: Outputs world state to console
 
@@ -187,12 +187,12 @@ The UI initialization follows this order in `SimulatorUI::initialize()`:
 - Cohesion Range slider (Y=405-425)
 - **Friction toggle slider** (Y=450-520) - switch at 450, slider at 490, ~70px total height
 - **Adhesion toggle slider** (Y=530-600) - switch at 530, slider at 570, ~70px total height
-- Left Throw toggle (Y=610)
-- Right Throw toggle (Y=670)
-- Quadrant toggle (Y=730)
-- **Water Column toggle** (Y=790) - label + switch pattern
-- Screenshot button (Y=820)
-- Print ASCII button (Y=880)
+- **Left Throw switch** (Y=610) - label + switch pattern
+- **Right Throw switch** (Y=640) - label + switch pattern
+- **Quadrant switch** (Y=670) - label + switch pattern
+- **Water Column switch** (Y=700) - label + switch pattern
+- Screenshot button (Y=730)
+- Print ASCII button (Y=790)
 
 ### **Slider Column** (X=1440):
 - Timescale (Y=90-110)

@@ -643,6 +643,49 @@ State::Any SimRunning::onEvent(const ToggleQuadrantCommand& /*cmd*/, DirtSimStat
         if (auto* world = simMgr->getWorld()) {
             bool newValue = !world->isLowerRightQuadrantEnabled();
             world->setLowerRightQuadrantEnabled(newValue);
+
+            // For WorldB, manipulate cells directly for immediate feedback.
+            WorldB* worldB = dynamic_cast<WorldB*>(world);
+            if (worldB) {
+                uint32_t startX = worldB->getWidth() / 2;
+                uint32_t startY = worldB->getHeight() / 2;
+
+                if (newValue) {
+                    // Add dirt quadrant immediately.
+                    spdlog::info("SimRunning: Adding lower right quadrant ({}x{}) at runtime",
+                                 worldB->getWidth() - startX, worldB->getHeight() - startY);
+                    for (uint32_t y = startY; y < worldB->getHeight(); ++y) {
+                        for (uint32_t x = startX; x < worldB->getWidth(); ++x) {
+                            CellB& cell = worldB->at(x, y);
+                            // Only add dirt to non-wall cells.
+                            if (!cell.isWall()) {
+                                cell.setMaterialType(MaterialType::DIRT);
+                                cell.setFillRatio(1.0);
+                                cell.setCOM(Vector2d(0.0, 0.0));
+                                cell.setVelocity(Vector2d(0.0, 0.0));
+                                cell.markDirty();
+                            }
+                        }
+                    }
+                } else {
+                    // Remove dirt from quadrant area (only dirt cells).
+                    spdlog::info("SimRunning: Removing dirt from lower right quadrant at runtime");
+                    for (uint32_t y = startY; y < worldB->getHeight(); ++y) {
+                        for (uint32_t x = startX; x < worldB->getWidth(); ++x) {
+                            CellB& cell = worldB->at(x, y);
+                            // Only clear dirt cells, leave walls and other materials.
+                            if (cell.getMaterialType() == MaterialType::DIRT && !cell.isWall()) {
+                                cell.setMaterialType(MaterialType::AIR);
+                                cell.setFillRatio(0.0);
+                                cell.setCOM(Vector2d(0.0, 0.0));
+                                cell.setVelocity(Vector2d(0.0, 0.0));
+                                cell.markDirty();
+                            }
+                        }
+                    }
+                }
+            }
+
             spdlog::info("SimRunning: Toggle quadrant - now: {}", newValue);
         }
     }

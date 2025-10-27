@@ -34,7 +34,7 @@ public:
         configurableSetup->setRightThrowEnabled(true);
         configurableSetup->setTopDropEnabled(true);
         configurableSetup->setRainRate(0.0); // No rain by default.
-        configurableSetup->setWaterColumnEnabled(false); // Off by default.
+        configurableSetup->setWaterColumnEnabled(true); // On by default.
 
         return configurableSetup;
     }

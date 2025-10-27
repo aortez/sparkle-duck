@@ -25,6 +25,7 @@ public:
     class ButtonMatrixBuilder;
     class DropdownBuilder;
     class ToggleSliderBuilder;
+    class LabeledSwitchBuilder;
 
     /**
      * @brief Create a slider with event routing support.
@@ -55,6 +56,11 @@ public:
      * @brief Create a toggle slider (switch + slider combo) with event routing support.
      */
     static ToggleSliderBuilder toggleSlider(lv_obj_t* parent, EventRouter* router);
+
+    /**
+     * @brief Create a labeled switch (label + switch combo) with event routing support.
+     */
+    static LabeledSwitchBuilder labeledSwitch(lv_obj_t* parent, EventRouter* router);
 
     /**
      * @brief Extended SliderBuilder with event system integration.
@@ -336,6 +342,21 @@ public:
         SwitchBuilder& onWaterColumnToggle();
 
         /**
+         * @brief Convenience method for left throw toggle.
+         */
+        SwitchBuilder& onLeftThrowToggle();
+
+        /**
+         * @brief Convenience method for right throw toggle.
+         */
+        SwitchBuilder& onRightThrowToggle();
+
+        /**
+         * @brief Convenience method for quadrant toggle.
+         */
+        SwitchBuilder& onQuadrantToggle();
+
+        /**
          * @brief Set position of the switch.
          */
         SwitchBuilder& position(int x, int y, lv_align_t align = LV_ALIGN_TOP_LEFT);
@@ -467,6 +488,97 @@ public:
         int valueLabelOffsetY_ = -20;
         bool initiallyEnabled_ = false;
         std::function<Event(double)> eventGenerator_;
+    };
+
+    /**
+     * @brief LabeledSwitchBuilder - Label + switch combo with proper vertical centering.
+     *
+     * Creates a compact control with:
+     * - Label (feature name) on the left
+     * - Switch (toggle) on the right, vertically centered with label
+     *
+     * Automatically handles vertical alignment issues between text baseline and switch center.
+     */
+    class LabeledSwitchBuilder {
+    public:
+        explicit LabeledSwitchBuilder(lv_obj_t* parent, EventRouter* router)
+            : parent_(parent), eventRouter_(router) {}
+
+        /**
+         * @brief Set the label text.
+         */
+        LabeledSwitchBuilder& label(const char* text);
+
+        /**
+         * @brief Set position for the control (label position).
+         */
+        LabeledSwitchBuilder& position(int x, int y, lv_align_t align = LV_ALIGN_TOP_LEFT);
+
+        /**
+         * @brief Set switch offset from label (default: 150px).
+         */
+        LabeledSwitchBuilder& switchOffset(int offset);
+
+        /**
+         * @brief Set initial checked state.
+         */
+        LabeledSwitchBuilder& checked(bool isChecked);
+
+        /**
+         * @brief Set toggle events (checkedEvent, uncheckedEvent).
+         */
+        LabeledSwitchBuilder& onToggle(Event checkedEvent, Event uncheckedEvent);
+
+        /**
+         * @brief Convenience method for water column toggle.
+         */
+        LabeledSwitchBuilder& onWaterColumnToggle();
+
+        /**
+         * @brief Convenience method for left throw toggle.
+         */
+        LabeledSwitchBuilder& onLeftThrowToggle();
+
+        /**
+         * @brief Convenience method for right throw toggle.
+         */
+        LabeledSwitchBuilder& onRightThrowToggle();
+
+        /**
+         * @brief Convenience method for quadrant toggle.
+         */
+        LabeledSwitchBuilder& onQuadrantToggle();
+
+        /**
+         * @brief Convenience method for hydrostatic pressure toggle.
+         */
+        LabeledSwitchBuilder& onHydrostaticPressureToggle();
+
+        /**
+         * @brief Convenience method for dynamic pressure toggle.
+         */
+        LabeledSwitchBuilder& onDynamicPressureToggle();
+
+        /**
+         * @brief Convenience method for pressure diffusion toggle.
+         */
+        LabeledSwitchBuilder& onPressureDiffusionToggle();
+
+        /**
+         * @brief Build the labeled switch.
+         * @return The switch widget.
+         */
+        lv_obj_t* buildOrLog();
+
+    private:
+        lv_obj_t* parent_;
+        EventRouter* eventRouter_;
+
+        const char* labelText_ = "Feature";
+        std::optional<std::tuple<int, int, lv_align_t>> position_;
+        int switchOffset_ = 150;
+        bool initiallyChecked_ = false;
+        std::shared_ptr<std::pair<Event, Event>> toggleEvents_;
     };
 
     /**

@@ -31,6 +31,10 @@ LVGLEventBuilder::ToggleSliderBuilder LVGLEventBuilder::toggleSlider(lv_obj_t* p
     return ToggleSliderBuilder(parent, router);
 }
 
+LVGLEventBuilder::LabeledSwitchBuilder LVGLEventBuilder::labeledSwitch(lv_obj_t* parent, EventRouter* router) {
+    return LabeledSwitchBuilder(parent, router);
+}
+
 LVGLEventBuilder::DrawAreaBuilder LVGLEventBuilder::drawArea(lv_obj_t* parent, EventRouter* router) {
     return DrawAreaBuilder(parent).withEventRouter(router);
 }
@@ -458,6 +462,24 @@ LVGLEventBuilder::SwitchBuilder& LVGLEventBuilder::SwitchBuilder::onWaterColumnT
     return onToggle(
         Event{ToggleWaterColumnCommand{}},
         Event{ToggleWaterColumnCommand{}});
+}
+
+LVGLEventBuilder::SwitchBuilder& LVGLEventBuilder::SwitchBuilder::onLeftThrowToggle() {
+    return onToggle(
+        Event{ToggleLeftThrowCommand{}},
+        Event{ToggleLeftThrowCommand{}});
+}
+
+LVGLEventBuilder::SwitchBuilder& LVGLEventBuilder::SwitchBuilder::onRightThrowToggle() {
+    return onToggle(
+        Event{ToggleRightThrowCommand{}},
+        Event{ToggleRightThrowCommand{}});
+}
+
+LVGLEventBuilder::SwitchBuilder& LVGLEventBuilder::SwitchBuilder::onQuadrantToggle() {
+    return onToggle(
+        Event{ToggleQuadrantCommand{}},
+        Event{ToggleQuadrantCommand{}});
 }
 
 LVGLEventBuilder::SwitchBuilder& LVGLEventBuilder::SwitchBuilder::position(int x, int y, lv_align_t align) {
@@ -1075,6 +1097,130 @@ lv_obj_t* LVGLEventBuilder::ToggleSliderBuilder::buildOrLog() {
     spdlog::debug("ToggleSliderBuilder: Created '{}' at ({}, {}) with range [{}, {}]",
                   labelText_, x, y, rangeMin_, rangeMax_);
 
+    return toggle_switch;
+}
+
+// ===== LabeledSwitchBuilder Implementation =====
+
+LVGLEventBuilder::LabeledSwitchBuilder& LVGLEventBuilder::LabeledSwitchBuilder::label(const char* text) {
+    labelText_ = text;
+    return *this;
+}
+
+LVGLEventBuilder::LabeledSwitchBuilder& LVGLEventBuilder::LabeledSwitchBuilder::position(int x, int y, lv_align_t align) {
+    position_ = std::make_tuple(x, y, align);
+    return *this;
+}
+
+LVGLEventBuilder::LabeledSwitchBuilder& LVGLEventBuilder::LabeledSwitchBuilder::switchOffset(int offset) {
+    switchOffset_ = offset;
+    return *this;
+}
+
+LVGLEventBuilder::LabeledSwitchBuilder& LVGLEventBuilder::LabeledSwitchBuilder::checked(bool isChecked) {
+    initiallyChecked_ = isChecked;
+    return *this;
+}
+
+LVGLEventBuilder::LabeledSwitchBuilder& LVGLEventBuilder::LabeledSwitchBuilder::onToggle(Event checkedEvent, Event uncheckedEvent) {
+    toggleEvents_ = std::make_shared<std::pair<Event, Event>>(checkedEvent, uncheckedEvent);
+    return *this;
+}
+
+LVGLEventBuilder::LabeledSwitchBuilder& LVGLEventBuilder::LabeledSwitchBuilder::onWaterColumnToggle() {
+    return onToggle(Event{ToggleWaterColumnCommand{}}, Event{ToggleWaterColumnCommand{}});
+}
+
+LVGLEventBuilder::LabeledSwitchBuilder& LVGLEventBuilder::LabeledSwitchBuilder::onLeftThrowToggle() {
+    return onToggle(Event{ToggleLeftThrowCommand{}}, Event{ToggleLeftThrowCommand{}});
+}
+
+LVGLEventBuilder::LabeledSwitchBuilder& LVGLEventBuilder::LabeledSwitchBuilder::onRightThrowToggle() {
+    return onToggle(Event{ToggleRightThrowCommand{}}, Event{ToggleRightThrowCommand{}});
+}
+
+LVGLEventBuilder::LabeledSwitchBuilder& LVGLEventBuilder::LabeledSwitchBuilder::onQuadrantToggle() {
+    return onToggle(Event{ToggleQuadrantCommand{}}, Event{ToggleQuadrantCommand{}});
+}
+
+LVGLEventBuilder::LabeledSwitchBuilder& LVGLEventBuilder::LabeledSwitchBuilder::onHydrostaticPressureToggle() {
+    return onToggle(Event{ToggleHydrostaticPressureCommand{}}, Event{ToggleHydrostaticPressureCommand{}});
+}
+
+LVGLEventBuilder::LabeledSwitchBuilder& LVGLEventBuilder::LabeledSwitchBuilder::onDynamicPressureToggle() {
+    return onToggle(Event{ToggleDynamicPressureCommand{}}, Event{ToggleDynamicPressureCommand{}});
+}
+
+LVGLEventBuilder::LabeledSwitchBuilder& LVGLEventBuilder::LabeledSwitchBuilder::onPressureDiffusionToggle() {
+    return onToggle(Event{TogglePressureDiffusionCommand{}}, Event{TogglePressureDiffusionCommand{}});
+}
+
+lv_obj_t* LVGLEventBuilder::LabeledSwitchBuilder::buildOrLog() {
+    if (!position_.has_value()) {
+        spdlog::error("LabeledSwitchBuilder: position() must be called before buildOrLog()");
+        return nullptr;
+    }
+
+    if (!toggleEvents_) {
+        spdlog::error("LabeledSwitchBuilder: onToggle() or convenience method must be called before buildOrLog()");
+        return nullptr;
+    }
+
+    auto [x, y, align] = position_.value();
+
+    // Create label.
+    lv_obj_t* label = lv_label_create(parent_);
+    lv_label_set_text(label, labelText_);
+    lv_obj_align(label, align, x, y);
+
+    // Create switch, vertically centered with label.
+    // LVGL switch is ~25px tall, text is ~16px tall.
+    // Offset switch up to align centers: y - (switch_height - text_height)/2 ≈ y - 5.
+    lv_obj_t* toggle_switch = lv_switch_create(parent_);
+    lv_obj_align(toggle_switch, align, x + switchOffset_, y - 5);  // -5px for visual centering.
+
+    if (initiallyChecked_) {
+        lv_obj_add_state(toggle_switch, LV_STATE_CHECKED);
+    }
+
+    // Set up event handling using shared toggleEvents.
+    if (eventRouter_) {
+        lv_obj_add_event_cb(
+            toggle_switch,
+            [](lv_event_t* e) {
+                if (lv_event_get_code(e) != LV_EVENT_VALUE_CHANGED) return;
+
+                auto* data = static_cast<std::pair<EventRouter*, std::shared_ptr<std::pair<Event, Event>>>*>(
+                    lv_event_get_user_data(e));
+                if (!data || !data->first || !data->second) return;
+
+                EventRouter* router = data->first;
+                auto& events = *(data->second);
+
+                lv_obj_t* sw = static_cast<lv_obj_t*>(lv_event_get_target(e));
+                bool isChecked = lv_obj_has_state(sw, LV_STATE_CHECKED);
+
+                router->routeEvent(isChecked ? events.first : events.second);
+                spdlog::info("Switch toggled: isChecked={}, routing event", isChecked);
+            },
+            LV_EVENT_VALUE_CHANGED,
+            new std::pair<EventRouter*, std::shared_ptr<std::pair<Event, Event>>>(eventRouter_, toggleEvents_));
+
+        // Clean up callback data on delete.
+        lv_obj_add_event_cb(
+            toggle_switch,
+            [](lv_event_t* e) {
+                if (lv_event_get_code(e) == LV_EVENT_DELETE) {
+                    auto* data = static_cast<std::pair<EventRouter*, std::shared_ptr<std::pair<Event, Event>>>*>(
+                        lv_event_get_user_data(e));
+                    delete data;
+                }
+            },
+            LV_EVENT_DELETE,
+            nullptr);
+    }
+
+    spdlog::debug("LabeledSwitchBuilder: Created '{}' at ({}, {})", labelText_, x, y);
     return toggle_switch;
 }
 

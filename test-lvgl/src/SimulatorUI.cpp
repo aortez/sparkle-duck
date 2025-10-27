@@ -409,46 +409,43 @@ void SimulatorUI::createControlButtons()
                            })
                            .buildOrLog();
 
-    // Create left throw toggle button.
-    LVGLEventBuilder::button(screen_, event_router_)
-        .onLeftThrowToggle()
-        .size(CONTROL_WIDTH, 50)
+    // Create left throw toggle.
+    LVGLEventBuilder::labeledSwitch(screen_, event_router_)
+        .label("Left Throw")
         .position(MAIN_CONTROLS_X, 610, LV_ALIGN_TOP_LEFT)
-        .text("Left Throw: On")
+        .onLeftThrowToggle()
+        .checked(true)
         .buildOrLog();
 
-    // Create right throw toggle button.
-    LVGLEventBuilder::button(screen_, event_router_)
+    // Create right throw toggle.
+    LVGLEventBuilder::labeledSwitch(screen_, event_router_)
+        .label("Right Throw")
+        .position(MAIN_CONTROLS_X, 640, LV_ALIGN_TOP_LEFT)
         .onRightThrowToggle()
-        .size(CONTROL_WIDTH, 50)
-        .position(MAIN_CONTROLS_X, 670, LV_ALIGN_TOP_LEFT)
-        .text("Right Throw: On")
+        .checked(true)
         .buildOrLog();
 
-    // Create quadrant toggle button.
-    LVGLEventBuilder::button(screen_, event_router_)
+    // Create quadrant toggle.
+    LVGLEventBuilder::labeledSwitch(screen_, event_router_)
+        .label("Quadrant")
+        .position(MAIN_CONTROLS_X, 670, LV_ALIGN_TOP_LEFT)
         .onQuadrantToggle()
-        .size(CONTROL_WIDTH, 50)
-        .position(MAIN_CONTROLS_X, 730, LV_ALIGN_TOP_LEFT)
-        .text("Quadrant: On")
+        .checked(true)
         .buildOrLog();
 
     // Create water column toggle.
-    lv_obj_t* water_column_label = lv_label_create(screen_);
-    lv_label_set_text(water_column_label, "Water Column");
-    lv_obj_align(water_column_label, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 790);
-
-    LVGLEventBuilder::lvSwitch(screen_, event_router_)
+    LVGLEventBuilder::labeledSwitch(screen_, event_router_)
+        .label("Water Column")
+        .position(MAIN_CONTROLS_X, 700, LV_ALIGN_TOP_LEFT)
         .onWaterColumnToggle()
-        .position(MAIN_CONTROLS_X + 150, 790, LV_ALIGN_TOP_LEFT)
-        .checked(false)
+        .checked(true)
         .buildOrLog();
 
     // Create screenshot button.
     LVGLEventBuilder::button(screen_, event_router_)
         .onScreenshot() // Call event method first.
         .size(CONTROL_WIDTH, 50)
-        .position(MAIN_CONTROLS_X, 820, LV_ALIGN_TOP_LEFT)
+        .position(MAIN_CONTROLS_X, 730, LV_ALIGN_TOP_LEFT)
         .text("Screenshot")
         .buildOrLog();
 
@@ -456,7 +453,7 @@ void SimulatorUI::createControlButtons()
     LVGLEventBuilder::button(screen_, event_router_)
         .onPrintAscii()
         .size(CONTROL_WIDTH, 50)
-        .position(MAIN_CONTROLS_X, 880, LV_ALIGN_TOP_LEFT)
+        .position(MAIN_CONTROLS_X, 790, LV_ALIGN_TOP_LEFT)
         .text("Print ASCII")
         .buildOrLog();
 
@@ -634,35 +631,29 @@ void SimulatorUI::createSliders()
     lv_obj_align(worldB_pressure_header, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 620);
 
     // Hydrostatic pressure toggle.
-    lv_obj_t* hydrostatic_label = lv_label_create(screen_);
-    lv_label_set_text(hydrostatic_label, "Hydrostatic Pressure");
-    lv_obj_align(hydrostatic_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 645);
-
-    hydrostatic_switch_ = LVGLEventBuilder::lvSwitch(screen_, event_router_)
+    hydrostatic_switch_ = LVGLEventBuilder::labeledSwitch(screen_, event_router_)
+                              .label("Hydrostatic Pressure")
+                              .position(SLIDER_COLUMN_X, 645, LV_ALIGN_TOP_LEFT)
+                              .switchOffset(180)
                               .onHydrostaticPressureToggle()
-                              .position(SLIDER_COLUMN_X + 180, 645, LV_ALIGN_TOP_LEFT)
                               .checked(false)
                               .buildOrLog();
 
     // Dynamic pressure toggle.
-    lv_obj_t* dynamic_label = lv_label_create(screen_);
-    lv_label_set_text(dynamic_label, "Dynamic Pressure");
-    lv_obj_align(dynamic_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 675);
-
-    dynamic_switch_ = LVGLEventBuilder::lvSwitch(screen_, event_router_)
+    dynamic_switch_ = LVGLEventBuilder::labeledSwitch(screen_, event_router_)
+                          .label("Dynamic Pressure")
+                          .position(SLIDER_COLUMN_X, 675, LV_ALIGN_TOP_LEFT)
+                          .switchOffset(180)
                           .onDynamicPressureToggle()
-                          .position(SLIDER_COLUMN_X + 180, 675, LV_ALIGN_TOP_LEFT)
                           .checked(false)
                           .buildOrLog();
 
     // Pressure diffusion toggle.
-    lv_obj_t* diffusion_label = lv_label_create(screen_);
-    lv_label_set_text(diffusion_label, "Pressure Diffusion");
-    lv_obj_align(diffusion_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 705);
-
-    diffusion_switch_ = LVGLEventBuilder::lvSwitch(screen_, event_router_)
+    diffusion_switch_ = LVGLEventBuilder::labeledSwitch(screen_, event_router_)
+                            .label("Pressure Diffusion")
+                            .position(SLIDER_COLUMN_X, 705, LV_ALIGN_TOP_LEFT)
+                            .switchOffset(180)
                             .onPressureDiffusionToggle()
-                            .position(SLIDER_COLUMN_X + 180, 705, LV_ALIGN_TOP_LEFT)
                             .checked(false)
                             .buildOrLog();
 
