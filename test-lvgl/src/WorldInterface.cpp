@@ -68,6 +68,17 @@ void WorldInterface::setRainRate(double rate)
     }
 }
 
+void WorldInterface::setWaterColumnEnabled(bool enabled)
+{
+    ConfigurableWorldSetup* configSetup = dynamic_cast<ConfigurableWorldSetup*>(worldSetup_.get());
+    if (configSetup) {
+        configSetup->setWaterColumnEnabled(enabled);
+        spdlog::info("WorldInterface: Set water column enabled = {} (ConfigurableWorldSetup found)", enabled);
+    } else {
+        spdlog::warn("WorldInterface: Cannot set water column - ConfigurableWorldSetup not available");
+    }
+}
+
 bool WorldInterface::isLeftThrowEnabled() const
 {
     const ConfigurableWorldSetup* configSetup =
@@ -101,6 +112,13 @@ double WorldInterface::getRainRate() const
     const ConfigurableWorldSetup* configSetup =
         dynamic_cast<const ConfigurableWorldSetup*>(worldSetup_.get());
     return configSetup ? configSetup->getRainRate() : 0.0;
+}
+
+bool WorldInterface::isWaterColumnEnabled() const
+{
+    const ConfigurableWorldSetup* configSetup =
+        dynamic_cast<const ConfigurableWorldSetup*>(worldSetup_.get());
+    return configSetup ? configSetup->isWaterColumnEnabled() : false;
 }
 
 std::string WorldInterface::toAsciiDiagram() const

@@ -89,6 +89,7 @@ The UI is organized into several distinct columns from left to right:
 - **Left Throw Toggle**: "Left Throw: On/Off"
 - **Right Throw Toggle**: "Right Throw: On/Off"
 - **Quadrant Toggle**: "Quadrant: On/Off"
+- **Water Column Toggle**: Enable/disable 5×20 water column on left side
 - **Screenshot Button**: Captures simulation image
 - **Print ASCII Button**: Outputs world state to console
 
@@ -189,8 +190,9 @@ The UI initialization follows this order in `SimulatorUI::initialize()`:
 - Left Throw toggle (Y=610)
 - Right Throw toggle (Y=670)
 - Quadrant toggle (Y=730)
-- Screenshot button (Y=790)
-- Print ASCII button (Y=850)
+- **Water Column toggle** (Y=790) - label + switch pattern
+- Screenshot button (Y=820)
+- Print ASCII button (Y=880)
 
 ### **Slider Column** (X=1440):
 - Timescale (Y=90-110)
@@ -206,9 +208,9 @@ The UI initialization follows this order in `SimulatorUI::initialize()`:
 - Hydrostatic Pressure toggle (Y=645)
 - Dynamic Pressure toggle (Y=675)
 - Pressure Diffusion toggle (Y=705)
-- Hydrostatic Strength slider (Y=745-765)
-- Dynamic Strength slider (Y=795-815)
-- Air Resistance slider (Y=845-865)
+- Hydrostatic Strength slider (Y=735-755)
+- Dynamic Strength slider (Y=785-805)
+- Air Resistance slider (Y=835-855)
 
 ### **Special Elements**:
 - Quit button: Bottom-right corner with red background

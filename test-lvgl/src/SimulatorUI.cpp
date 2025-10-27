@@ -433,11 +433,22 @@ void SimulatorUI::createControlButtons()
         .text("Quadrant: On")
         .buildOrLog();
 
+    // Create water column toggle.
+    lv_obj_t* water_column_label = lv_label_create(screen_);
+    lv_label_set_text(water_column_label, "Water Column");
+    lv_obj_align(water_column_label, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 790);
+
+    LVGLEventBuilder::lvSwitch(screen_, event_router_)
+        .onWaterColumnToggle()
+        .position(MAIN_CONTROLS_X + 150, 790, LV_ALIGN_TOP_LEFT)
+        .checked(false)
+        .buildOrLog();
+
     // Create screenshot button.
     LVGLEventBuilder::button(screen_, event_router_)
         .onScreenshot() // Call event method first.
         .size(CONTROL_WIDTH, 50)
-        .position(MAIN_CONTROLS_X, 790, LV_ALIGN_TOP_LEFT)
+        .position(MAIN_CONTROLS_X, 820, LV_ALIGN_TOP_LEFT)
         .text("Screenshot")
         .buildOrLog();
 
@@ -445,7 +456,7 @@ void SimulatorUI::createControlButtons()
     LVGLEventBuilder::button(screen_, event_router_)
         .onPrintAscii()
         .size(CONTROL_WIDTH, 50)
-        .position(MAIN_CONTROLS_X, 850, LV_ALIGN_TOP_LEFT)
+        .position(MAIN_CONTROLS_X, 880, LV_ALIGN_TOP_LEFT)
         .text("Print ASCII")
         .buildOrLog();
 
@@ -658,7 +669,7 @@ void SimulatorUI::createSliders()
     // Hydrostatic pressure strength slider (WorldB only).
     LVGLEventBuilder::slider(screen_, event_router_)
         .onHydrostaticPressureStrengthChange()
-        .position(SLIDER_COLUMN_X, 765, LV_ALIGN_TOP_LEFT)
+        .position(SLIDER_COLUMN_X, 735, LV_ALIGN_TOP_LEFT)
         .size(CONTROL_WIDTH, 10)
         .range(0, 300)
         .value(100)
@@ -669,7 +680,7 @@ void SimulatorUI::createSliders()
     // Dynamic pressure strength slider (WorldB only) - migrated to EventRouter.
     LVGLEventBuilder::slider(screen_, event_router_)
         .onDynamicStrengthChange() // Uses new event system.
-        .position(SLIDER_COLUMN_X, 815, LV_ALIGN_TOP_LEFT)
+        .position(SLIDER_COLUMN_X, 785, LV_ALIGN_TOP_LEFT)
         .size(CONTROL_WIDTH, 10)
         .range(0, 300) // 0.0 to 3.0 range.
         .value(100)    // Default 1.0 -> 100.
@@ -680,7 +691,7 @@ void SimulatorUI::createSliders()
     // Air resistance slider.
     LVGLEventBuilder::slider(screen_, event_router_)
         .onAirResistanceChange()
-        .position(SLIDER_COLUMN_X, 865, LV_ALIGN_TOP_LEFT)
+        .position(SLIDER_COLUMN_X, 835, LV_ALIGN_TOP_LEFT)
         .size(CONTROL_WIDTH, 10)
         .range(0, 100)
         .value(10)

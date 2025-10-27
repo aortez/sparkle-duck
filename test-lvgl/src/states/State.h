@@ -124,6 +124,7 @@ struct SimRunning {
     Any onEvent(const SetFragmentationCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const SetPressureSystemCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const ToggleWallsCommand& cmd, DirtSimStateMachine& dsm);
+    Any onEvent(const ToggleWaterColumnCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const ToggleLeftThrowCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const ToggleRightThrowCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const ToggleQuadrantCommand& cmd, DirtSimStateMachine& dsm);

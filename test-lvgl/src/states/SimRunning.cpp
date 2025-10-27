@@ -1,8 +1,10 @@
 #include "State.h"
 #include "../Cell.h"
+#include "../CellB.h"
 #include "../DirtSimStateMachine.h"
 #include "../SimulationManager.h"
 #include "../SimulatorUI.h"
+#include "../WorldB.h"
 #include "../WorldFactory.h"
 #include "../WorldSetup.h"
 #include <spdlog/spdlog.h>
@@ -561,6 +563,56 @@ State::Any SimRunning::onEvent(const ToggleWallsCommand& /*cmd*/, DirtSimStateMa
     }
 
     spdlog::info("SimRunning: Toggle walls");
+    return *this;
+}
+
+State::Any SimRunning::onEvent(const ToggleWaterColumnCommand& /*cmd*/, DirtSimStateMachine& dsm) {
+    if (auto* simMgr = dsm.getSimulationManager()) {
+        if (auto* world = simMgr->getWorld()) {
+            bool newValue = !world->isWaterColumnEnabled();
+            world->setWaterColumnEnabled(newValue);
+
+            // For WorldB, we can manipulate cells directly.
+            WorldB* worldB = dynamic_cast<WorldB*>(world);
+            if (worldB) {
+                if (newValue) {
+                    // Add water column (5 wide × 20 tall) on left side.
+                    spdlog::info("SimRunning: Adding water column (5 wide × 20 tall) at runtime");
+                    for (uint32_t y = 0; y < 20 && y < worldB->getHeight(); ++y) {
+                        for (uint32_t x = 1; x <= 5 && x < worldB->getWidth(); ++x) {
+                            CellB& cell = worldB->at(x, y);
+                            // Only add water to non-wall cells.
+                            if (!cell.isWall()) {
+                                cell.setMaterialType(MaterialType::WATER);
+                                cell.setFillRatio(1.0);
+                                cell.setCOM(Vector2d(0.0, 0.0));
+                                cell.setVelocity(Vector2d(0.0, 0.0));
+                                cell.markDirty();
+                            }
+                        }
+                    }
+                } else {
+                    // Remove water from column area (only water cells).
+                    spdlog::info("SimRunning: Removing water from water column area at runtime");
+                    for (uint32_t y = 0; y < 20 && y < worldB->getHeight(); ++y) {
+                        for (uint32_t x = 1; x <= 5 && x < worldB->getWidth(); ++x) {
+                            CellB& cell = worldB->at(x, y);
+                            // Only clear water cells, leave walls and other materials.
+                            if (cell.getMaterialType() == MaterialType::WATER && !cell.isWall()) {
+                                cell.setMaterialType(MaterialType::AIR);
+                                cell.setFillRatio(0.0);
+                                cell.setCOM(Vector2d(0.0, 0.0));
+                                cell.setVelocity(Vector2d(0.0, 0.0));
+                                cell.markDirty();
+                            }
+                        }
+                    }
+                }
+            }
+
+            spdlog::info("SimRunning: Water column toggled - now: {}", newValue);
+        }
+    }
     return *this;
 }
 

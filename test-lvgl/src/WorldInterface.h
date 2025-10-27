@@ -247,6 +247,9 @@ public:
     // Set rain particle generation rate.
     virtual void setRainRate(double rate);
 
+    // Enable/disable water column on left side.
+    virtual void setWaterColumnEnabled(bool enabled);
+
     // Check if left throw is enabled.
     virtual bool isLeftThrowEnabled() const;
 
@@ -261,6 +264,9 @@ public:
 
     // Get current rain rate.
     virtual double getRainRate() const;
+
+    // Check if water column is enabled.
+    virtual bool isWaterColumnEnabled() const;
 
     // =================================================================
     // DEBUG VISUALIZATION

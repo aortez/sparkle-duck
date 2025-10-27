@@ -454,6 +454,12 @@ LVGLEventBuilder::SwitchBuilder& LVGLEventBuilder::SwitchBuilder::onPressureDiff
         Event{TogglePressureDiffusionCommand{}});
 }
 
+LVGLEventBuilder::SwitchBuilder& LVGLEventBuilder::SwitchBuilder::onWaterColumnToggle() {
+    return onToggle(
+        Event{ToggleWaterColumnCommand{}},
+        Event{ToggleWaterColumnCommand{}});
+}
+
 LVGLEventBuilder::SwitchBuilder& LVGLEventBuilder::SwitchBuilder::position(int x, int y, lv_align_t align) {
     position_ = std::make_tuple(x, y, align);
     return *this;

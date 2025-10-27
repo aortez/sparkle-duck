@@ -466,6 +466,13 @@ struct ToggleWallsCommand {
 };
 
 /**
+ * @brief Toggle water column on left side.
+ */
+struct ToggleWaterColumnCommand {
+    static constexpr const char* name() { return "ToggleWaterColumnCommand"; }
+};
+
+/**
  * @brief Toggle left throw mode.
  */
 struct ToggleLeftThrowCommand {
@@ -614,6 +621,7 @@ using Event = std::variant<
     SetFragmentationCommand,
     SetPressureSystemCommand,
     ToggleWallsCommand,
+    ToggleWaterColumnCommand,
     ToggleLeftThrowCommand,
     ToggleRightThrowCommand,
     ToggleQuadrantCommand,

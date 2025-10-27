@@ -105,6 +105,7 @@ public:
     void setTopDropEnabled(bool enabled) { topDropEnabled = enabled; }
     void setSweepEnabled(bool enabled) { sweepEnabled = enabled; }
     void setRainRate(double rate) { rainRate = rate; }
+    void setWaterColumnEnabled(bool enabled) { waterColumnEnabled = enabled; }
 
     // Getters for current state
     bool isLowerRightQuadrantEnabled() const { return lowerRightQuadrantEnabled; }
@@ -115,6 +116,7 @@ public:
     bool isTopDropEnabled() const { return topDropEnabled; }
     bool isSweepEnabled() const { return sweepEnabled; }
     double getRainRate() const { return rainRate; }
+    bool isWaterColumnEnabled() const { return waterColumnEnabled; }
 
 private:
     // Setup control flags
@@ -126,6 +128,7 @@ private:
     bool leftThrowEnabled = true;
     bool rightThrowEnabled = true;
     bool topDropEnabled = true;
-    bool sweepEnabled = false; // Currently disabled in DefaultWorldSetup
-    double rainRate = 0.0;     // Rain rate in drops per second, 0 = disabled
+    bool sweepEnabled = false;       // Currently disabled in DefaultWorldSetup
+    double rainRate = 0.0;           // Rain rate in drops per second, 0 = disabled
+    bool waterColumnEnabled = false; // Water column on left side (5 wide × 20 tall)
 };

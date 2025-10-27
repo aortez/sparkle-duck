@@ -331,6 +331,11 @@ public:
         SwitchBuilder& onPressureDiffusionToggle();
 
         /**
+         * @brief Convenience method for water column toggle.
+         */
+        SwitchBuilder& onWaterColumnToggle();
+
+        /**
          * @brief Set position of the switch.
          */
         SwitchBuilder& position(int x, int y, lv_align_t align = LV_ALIGN_TOP_LEFT);
