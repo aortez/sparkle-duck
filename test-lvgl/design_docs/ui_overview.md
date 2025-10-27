@@ -76,10 +76,10 @@ Contains physics parameters and world setup controls organized into sections:
 - **Adhesion Toggle Slider**: Attractive forces between different materials
 
 #### World Setup Switches
-- **Left Throw**: Particle generation from left side
-- **Right Throw**: Particle generation from right side
-- **Quadrant**: Lower-right dirt pile
-- **Water Column**: Left-side water reservoir
+- **Left Throw**: Particle generation from left side (disabled by default)
+- **Right Throw**: Particle generation from right side (enabled by default)
+- **Quadrant**: Lower-right dirt pile (enabled by default)
+- **Water Column**: Left-side water reservoir (enabled by default)
 
 #### Utility Buttons
 - **Screenshot**: Capture current state

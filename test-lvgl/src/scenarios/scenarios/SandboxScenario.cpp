@@ -30,7 +30,7 @@ public:
         configurableSetup->setLowerRightQuadrantEnabled(true);
         configurableSetup->setWallsEnabled(true);  // Walls enabled for physics containment.
         configurableSetup->setMiddleMetalWallEnabled(false);
-        configurableSetup->setLeftThrowEnabled(true);
+        configurableSetup->setLeftThrowEnabled(false);
         configurableSetup->setRightThrowEnabled(true);
         configurableSetup->setTopDropEnabled(true);
         configurableSetup->setRainRate(0.0); // No rain by default.

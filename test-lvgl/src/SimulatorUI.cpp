@@ -414,7 +414,7 @@ void SimulatorUI::createControlButtons()
         .label("Left Throw")
         .position(MAIN_CONTROLS_X, 610, LV_ALIGN_TOP_LEFT)
         .onLeftThrowToggle()
-        .checked(true)
+        .checked(false)
         .buildOrLog();
 
     // Create right throw toggle.
