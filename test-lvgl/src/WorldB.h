@@ -361,10 +361,10 @@ private:
     // INTERNAL PHYSICS METHODS
     // =================================================================
 
-    void applyGravity(double deltaTime);
-    void applyAirResistance(double deltaTime);
-    void applyCohesionForces(double deltaTime);
-    void applyPressureForces(double deltaTime);
+    void applyGravity();
+    void applyAirResistance();
+    void applyCohesionForces();
+    void applyPressureForces();
     void resolveForces(double deltaTime);
 
     // Helper method for viscosity calculations.

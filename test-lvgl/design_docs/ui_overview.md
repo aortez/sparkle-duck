@@ -9,7 +9,7 @@ This document provides a comprehensive overview of the user interface architectu
 #### 1. **SimulatorUI** - Main User Interface (`src/SimulatorUI.h/.cpp`)
 - **Primary UI Class**: The main interface for the physics simulation application
 - **Built on LVGL**: Uses LVGL (Light and Versatile Graphics Library) for cross-platform UI rendering
-- **Layout Architecture**: 
+- **Layout Architecture**:
   - **Draw Area**: 850x850 pixel simulation rendering area (left side)
   - **World Type Column**: 150px wide column for physics system selection (WorldA/WorldB)
   - **Main Controls**: 200px wide column on the right side for simulation controls

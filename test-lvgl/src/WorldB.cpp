@@ -642,11 +642,11 @@ double WorldB::getTotalMass() const
 // INTERNAL PHYSICS METHODS.
 // =================================================================.
 
-void WorldB::applyGravity(double deltaTime)
+void WorldB::applyGravity()
 {
     ScopeTimer timer(timers_, "apply_gravity");
 
-    const Vector2d gravityForce(0.0, gravity_ * deltaTime);
+    const Vector2d gravityForce(0.0, gravity_);
 
     for (auto& cell : cells_) {
         if (!cell.isEmpty() && !cell.isWall()) {
@@ -656,7 +656,7 @@ void WorldB::applyGravity(double deltaTime)
     }
 }
 
-void WorldB::applyAirResistance(double deltaTime)
+void WorldB::applyAirResistance()
 {
     if (!air_resistance_enabled_) {
         return;
@@ -671,20 +671,15 @@ void WorldB::applyAirResistance(double deltaTime)
             CellB& cell = at(x, y);
 
             if (!cell.isEmpty() && !cell.isWall()) {
-                // Calculate and accumulate air resistance force.
                 Vector2d air_resistance_force = air_resistance_calculator.calculateAirResistance(
                     x, y, air_resistance_strength_);
-
-                // Scale by deltaTime for frame-independent physics.
-                air_resistance_force = air_resistance_force * deltaTime;
-
                 cell.addPendingForce(air_resistance_force);
             }
         }
     }
 }
 
-void WorldB::applyCohesionForces(double deltaTime)
+void WorldB::applyCohesionForces()
 {
     if (cohesion_com_force_strength_ <= 0.0) {
         return;
@@ -705,12 +700,10 @@ void WorldB::applyCohesionForces(double deltaTime)
                 WorldBCohesionCalculator(*this).calculateCOMCohesionForce(
                     x, y, com_cohesion_range_);
 
-            // Accumulate forces instead of applying directly to velocity.
-
             // COM cohesion force accumulation (only if force is active).
             if (com_cohesion.force_active) {
                 Vector2d com_cohesion_force = com_cohesion.force_direction
-                    * com_cohesion.force_magnitude * deltaTime * cohesion_com_force_strength_;
+                    * com_cohesion.force_magnitude * cohesion_com_force_strength_;
                 cell.addPendingForce(com_cohesion_force);
             }
 
@@ -719,14 +712,14 @@ void WorldB::applyCohesionForces(double deltaTime)
                 WorldBAdhesionCalculator::AdhesionForce adhesion =
                     adhesion_calculator_.calculateAdhesionForce(x, y);
                 Vector2d adhesion_force = adhesion.force_direction * adhesion.force_magnitude
-                    * deltaTime * adhesion_calculator_.getAdhesionStrength();
+                    * adhesion_calculator_.getAdhesionStrength();
                 cell.addPendingForce(adhesion_force);
             }
         }
     }
 }
 
-void WorldB::applyPressureForces(double deltaTime)
+void WorldB::applyPressureForces()
 {
     if (!hydrostatic_pressure_enabled_ && !dynamic_pressure_enabled_) {
         return;
@@ -757,9 +750,7 @@ void WorldB::applyPressureForces(double deltaTime)
 
             // Only apply force if system is out of equilibrium.
             if (gradient.magnitude() > 0.001) {
-                Vector2d pressure_force = gradient * pressure_scale_ * deltaTime;
-
-                // Add to pending forces instead of directly modifying velocity.
+                Vector2d pressure_force = gradient * pressure_scale_;
                 cell.addPendingForce(pressure_force);
 
                 spdlog::debug(
@@ -809,16 +800,16 @@ void WorldB::resolveForces(double deltaTime)
     }
 
     // Apply gravity forces.
-    applyGravity(deltaTime);
+    applyGravity();
 
     // Apply air resistance forces.
-    applyAirResistance(deltaTime);
+    applyAirResistance();
 
     // Apply pressure forces from previous frame.
-    applyPressureForces(deltaTime);
+    applyPressureForces();
 
     // Apply cohesion and adhesion forces.
-    applyCohesionForces(deltaTime);
+    applyCohesionForces();
 
     // Now resolve all accumulated forces using viscosity model.
     WorldBSupportCalculator support_calc(*this);
