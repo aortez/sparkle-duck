@@ -11,10 +11,11 @@ class WorldB;
  * @brief Calculates air resistance forces for WorldB physics
  *
  * This class implements air resistance (drag) forces that oppose motion.
- * The resistance is proportional to velocity squared and inversely proportional
- * to material density, creating realistic drag effects where:
- * - Faster moving materials experience more resistance
- * - Denser materials are less affected by air resistance
+ * The drag force is proportional to velocity squared (F = k*v²), creating
+ * realistic quadratic drag behavior where:
+ * - Faster moving materials experience quadratically more resistance
+ * - All materials experience the same drag force at the same velocity
+ * - Denser materials are naturally less affected during integration (a = F/m)
  * - The effect is non-linear (quadratic with velocity)
  */
 class WorldBAirResistanceCalculator : public WorldBCalculatorBase {

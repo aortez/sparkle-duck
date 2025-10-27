@@ -31,11 +31,9 @@ WorldB::WorldB(uint32_t width, uint32_t height, lv_obj_t* draw_area)
       pressure_scale_(1.0),
       water_pressure_threshold_(0.0004),
       pressure_system_(PressureSystem::Original),
-      hydrostatic_pressure_enabled_(false),
-      dynamic_pressure_enabled_(false),
       pressure_diffusion_enabled_(false),
-      hydrostatic_pressure_strength_(1.0),
-      dynamic_pressure_strength_(1.0),
+      hydrostatic_pressure_strength_(0.0),
+      dynamic_pressure_strength_(0.0),
       add_particles_enabled_(true),
       debug_draw_enabled_(true),
       cohesion_bind_force_enabled_(false),
@@ -132,12 +130,12 @@ void WorldB::advanceTime(double deltaTimeSeconds)
     // Calculate pressures for NEXT frame after moves are complete.
     // This follows the two-frame model where pressure calculated in frame N
     // affects velocities in frame N+1.
-    if (hydrostatic_pressure_enabled_) {
+    if (hydrostatic_pressure_strength_ > 0.0) {
         pressure_calculator_.calculateHydrostaticPressure();
     }
 
     // Process any blocked transfers that were queued during processMaterialMoves.
-    if (dynamic_pressure_enabled_) {
+    if (dynamic_pressure_strength_ > 0.0) {
         // Generate virtual gravity transfers to create pressure from gravity forces.
         // This allows dynamic pressure to model hydrostatic-like behavior.
         //        pressure_calculator_.generateVirtualGravityTransfers(scaledDeltaTime);
@@ -721,7 +719,7 @@ void WorldB::applyCohesionForces()
 
 void WorldB::applyPressureForces()
 {
-    if (!hydrostatic_pressure_enabled_ && !dynamic_pressure_enabled_) {
+    if (hydrostatic_pressure_strength_ <= 0.0 && dynamic_pressure_strength_ <= 0.0) {
         return;
     }
 
@@ -1268,7 +1266,8 @@ bool WorldB::areWallsEnabled() const
 
 void WorldB::setHydrostaticPressureEnabled(bool enabled)
 {
-    hydrostatic_pressure_enabled_ = enabled;
+    // Backward compatibility: set strength to 0 (disabled) or default (enabled).
+    hydrostatic_pressure_strength_ = enabled ? 1.0 : 0.0;
 
     spdlog::info("Clearing all pressure values");
     for (auto& cell : cells_) {
@@ -1281,7 +1280,8 @@ void WorldB::setHydrostaticPressureEnabled(bool enabled)
 
 void WorldB::setDynamicPressureEnabled(bool enabled)
 {
-    dynamic_pressure_enabled_ = enabled;
+    // Backward compatibility: set strength to 0 (disabled) or default (enabled).
+    dynamic_pressure_strength_ = enabled ? 1.0 : 0.0;
 
     spdlog::info("Clearing all pressure values");
     for (auto& cell : cells_) {
@@ -1336,9 +1336,9 @@ std::string WorldB::settingsToString() const
             break;
     }
     ss << "\n";
-    ss << "Hydrostatic pressure enabled: " << (hydrostatic_pressure_enabled_ ? "true" : "false")
+    ss << "Hydrostatic pressure enabled: " << (isHydrostaticPressureEnabled() ? "true" : "false")
        << "\n";
-    ss << "Dynamic pressure enabled: " << (dynamic_pressure_enabled_ ? "true" : "false") << "\n";
+    ss << "Dynamic pressure enabled: " << (isDynamicPressureEnabled() ? "true" : "false") << "\n";
     ss << "Pressure scale: " << pressure_scale_ << "\n";
     ss << "Elasticity factor: " << elasticity_factor_ << "\n";
     ss << "Add particles enabled: " << (add_particles_enabled_ ? "true" : "false") << "\n";

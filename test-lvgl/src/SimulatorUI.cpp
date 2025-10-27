@@ -630,59 +630,51 @@ void SimulatorUI::createSliders()
     lv_label_set_text(worldB_pressure_header, "=== WorldB Pressure ===");
     lv_obj_align(worldB_pressure_header, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 620);
 
-    // Hydrostatic pressure toggle.
-    hydrostatic_switch_ = LVGLEventBuilder::labeledSwitch(screen_, event_router_)
+    // Hydrostatic pressure toggle slider (integrated switch + slider).
+    hydrostatic_switch_ = LVGLEventBuilder::toggleSlider(screen_, event_router_)
                               .label("Hydrostatic Pressure")
                               .position(SLIDER_COLUMN_X, 645, LV_ALIGN_TOP_LEFT)
-                              .switchOffset(180)
-                              .onHydrostaticPressureToggle()
-                              .checked(false)
+                              .sliderWidth(CONTROL_WIDTH)
+                              .range(0, 300)
+                              .value(100)
+                              .defaultValue(100)
+                              .valueScale(0.01)
+                              .valueFormat("%.2f")
+                              .initiallyEnabled(false)
+                              .onValueChange([](double value) {
+                                  return Event{SetHydrostaticPressureStrengthCommand{value}};
+                              })
                               .buildOrLog();
 
-    // Dynamic pressure toggle.
-    dynamic_switch_ = LVGLEventBuilder::labeledSwitch(screen_, event_router_)
+    // Dynamic pressure toggle slider (integrated switch + slider).
+    dynamic_switch_ = LVGLEventBuilder::toggleSlider(screen_, event_router_)
                           .label("Dynamic Pressure")
-                          .position(SLIDER_COLUMN_X, 675, LV_ALIGN_TOP_LEFT)
-                          .switchOffset(180)
-                          .onDynamicPressureToggle()
-                          .checked(false)
+                          .position(SLIDER_COLUMN_X, 725, LV_ALIGN_TOP_LEFT)
+                          .sliderWidth(CONTROL_WIDTH)
+                          .range(0, 300)
+                          .value(100)
+                          .defaultValue(100)
+                          .valueScale(0.01)
+                          .valueFormat("%.2f")
+                          .initiallyEnabled(false)
+                          .onValueChange([](double value) {
+                              return Event{SetDynamicPressureStrengthCommand{value}};
+                          })
                           .buildOrLog();
 
     // Pressure diffusion toggle.
     diffusion_switch_ = LVGLEventBuilder::labeledSwitch(screen_, event_router_)
                             .label("Pressure Diffusion")
-                            .position(SLIDER_COLUMN_X, 705, LV_ALIGN_TOP_LEFT)
-                            .switchOffset(180)
+                            .position(SLIDER_COLUMN_X, 805, LV_ALIGN_TOP_LEFT)
+                            .switchOffset(145)
                             .onPressureDiffusionToggle()
                             .checked(false)
                             .buildOrLog();
 
-    // Hydrostatic pressure strength slider (WorldB only).
-    LVGLEventBuilder::slider(screen_, event_router_)
-        .onHydrostaticPressureStrengthChange()
-        .position(SLIDER_COLUMN_X, 735, LV_ALIGN_TOP_LEFT)
-        .size(CONTROL_WIDTH, 10)
-        .range(0, 300)
-        .value(100)
-        .label("Hydrostatic Strength", 0, -20)
-        .valueLabel("%.1f", 140, -20)
-        .buildOrLog();
-
-    // Dynamic pressure strength slider (WorldB only) - migrated to EventRouter.
-    LVGLEventBuilder::slider(screen_, event_router_)
-        .onDynamicStrengthChange() // Uses new event system.
-        .position(SLIDER_COLUMN_X, 785, LV_ALIGN_TOP_LEFT)
-        .size(CONTROL_WIDTH, 10)
-        .range(0, 300) // 0.0 to 3.0 range.
-        .value(100)    // Default 1.0 -> 100.
-        .label("Dynamic Strength", 0, -20)
-        .valueLabel("%.1f", 140, -20)
-        .buildOrLog();
-
     // Air resistance slider.
     LVGLEventBuilder::slider(screen_, event_router_)
         .onAirResistanceChange()
-        .position(SLIDER_COLUMN_X, 835, LV_ALIGN_TOP_LEFT)
+        .position(SLIDER_COLUMN_X, 855, LV_ALIGN_TOP_LEFT)
         .size(CONTROL_WIDTH, 10)
         .range(0, 100)
         .value(10)

@@ -146,10 +146,10 @@ public:
     // =================================================================
 
     void setHydrostaticPressureEnabled(bool enabled) override;
-    bool isHydrostaticPressureEnabled() const override { return hydrostatic_pressure_enabled_; }
+    bool isHydrostaticPressureEnabled() const override { return hydrostatic_pressure_strength_ > 0.0; }
 
     void setDynamicPressureEnabled(bool enabled) override;
-    bool isDynamicPressureEnabled() const override { return dynamic_pressure_enabled_; }
+    bool isDynamicPressureEnabled() const override { return dynamic_pressure_strength_ > 0.0; }
 
     void setPressureDiffusionEnabled(bool enabled) override
     {
@@ -407,11 +407,9 @@ private:
     PressureSystem pressure_system_;
 
     // Dual pressure system controls
-    bool hydrostatic_pressure_enabled_;
-    bool dynamic_pressure_enabled_;
     bool pressure_diffusion_enabled_;
-    double hydrostatic_pressure_strength_;
-    double dynamic_pressure_strength_;
+    double hydrostatic_pressure_strength_;  // 0 = disabled
+    double dynamic_pressure_strength_;      // 0 = disabled
 
     // World setup controls
     bool add_particles_enabled_;

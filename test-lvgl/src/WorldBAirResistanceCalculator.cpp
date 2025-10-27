@@ -28,23 +28,23 @@ Vector2d WorldBAirResistanceCalculator::calculateAirResistance(
         return Vector2d(0.0, 0.0);
     }
 
-    // Get material properties.
+    // Get material properties for logging.
     MaterialType material = cell.getMaterialType();
     double density = getMaterialDensity(material);
 
-    // Calculate air resistance force.
-    // F = -k * v² * (1/density) * v_hat.
+    // Calculate air resistance force using proper physics.
+    // F_drag = -k * v² * v̂
     // Where:
-    // - k is the air resistance scalar.
-    // - v² creates non-linear (quadratic) relationship with velocity.
-    // - 1/density makes denser materials less affected.
-    // - v_hat is the unit vector in velocity direction (to oppose motion)
+    // - k is the air resistance coefficient (depends on cross-section, shape, air density).
+    // - v² creates realistic quadratic drag relationship.
+    // - v̂ is the unit vector opposing motion.
+    //
+    // Dense materials are naturally less affected because a = F/m during integration.
 
     Vector2d velocity_direction = velocity.normalize();
-    double density_factor = 1.0 / density; // Inverse relationship with density.
-    double force_magnitude = strength * velocity_magnitude * velocity_magnitude * density_factor;
+    double force_magnitude = strength * velocity_magnitude * velocity_magnitude;
 
-    // Force opposes motion (negative of velocity direction)
+    // Force opposes motion (negative of velocity direction).
     Vector2d air_resistance_force = velocity_direction * (-force_magnitude);
 
     // Debug logging for significant forces.
