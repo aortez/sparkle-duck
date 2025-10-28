@@ -108,6 +108,10 @@ public:
     // Check if cell at pixel coordinates has material.
     virtual bool hasMaterialAtPixel(int pixelX, int pixelY) const = 0;
 
+    // Spawn a ball of material at the given cell coordinates.
+    // Helper method that spawns a radius x radius square of material.
+    void spawnMaterialBall(MaterialType type, uint32_t centerX, uint32_t centerY, uint32_t radius = 2);
+
     // =================================================================
     // DRAG INTERACTION
     // =================================================================

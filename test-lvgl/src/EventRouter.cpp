@@ -66,6 +66,24 @@ void EventRouter::processImmediateEvent(const PrintAsciiDiagramCommand& /*cmd. *
     }
 }
 
+void EventRouter::processImmediateEvent(const SpawnDirtBallCommand& /*cmd. */)
+{
+    // Get the current world from shared state.
+    auto* world = sharedState_.getCurrentWorld();
+    if (world) {
+        // Calculate the top center position.
+        uint32_t centerX = world->getWidth() / 2;
+        uint32_t topY = 2; // Start at row 2 to avoid the very top edge.
+
+        // Spawn a 5x5 ball of the currently selected material.
+        MaterialType selectedMaterial = world->getSelectedMaterial();
+        world->spawnMaterialBall(selectedMaterial, centerX, topY, 2);
+    }
+    else {
+        spdlog::warn("SpawnDirtBallCommand: No world available");
+    }
+}
+
 void EventRouter::processImmediateEvent(const ToggleCohesionForceCommand& /*cmd. */)
 {
     auto* world = sharedState_.getCurrentWorld();

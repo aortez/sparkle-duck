@@ -121,6 +121,7 @@ struct SimRunning {
     Any onEvent(const ToggleCohesionForceCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const ToggleTimeHistoryCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const PrintAsciiDiagramCommand& cmd, DirtSimStateMachine& dsm);
+    Any onEvent(const SpawnDirtBallCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const SetFragmentationCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const SetPressureSystemCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const ToggleWallsCommand& cmd, DirtSimStateMachine& dsm);
@@ -164,6 +165,7 @@ struct SimPaused {
     Any onEvent(const ToggleCohesionForceCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const ToggleTimeHistoryCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const PrintAsciiDiagramCommand& cmd, DirtSimStateMachine& dsm);
+    Any onEvent(const SpawnDirtBallCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const QuitApplicationCommand& cmd, DirtSimStateMachine& dsm);
 
     static constexpr const char* name() { return "SimPaused"; }

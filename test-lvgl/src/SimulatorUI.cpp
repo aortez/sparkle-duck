@@ -457,6 +457,14 @@ void SimulatorUI::createControlButtons()
         .text("Print ASCII")
         .buildOrLog();
 
+    // Create spawn ball button.
+    LVGLEventBuilder::button(screen_, event_router_)
+        .onSpawnDirtBall()
+        .size(CONTROL_WIDTH, 50)
+        .position(MAIN_CONTROLS_X, 850, LV_ALIGN_TOP_LEFT)
+        .text("Spawn ball")
+        .buildOrLog();
+
     // Time reversal controls have been moved to slider column.
 
     // Create quit button.

@@ -92,7 +92,8 @@ private:
         return std::is_same_v<T, GetFPSCommand> || std::is_same_v<T, GetSimStatsCommand>
             || std::is_same_v<T, ToggleCohesionForceCommand>
             || std::is_same_v<T, ToggleTimeHistoryCommand>
-            || std::is_same_v<T, PrintAsciiDiagramCommand>;
+            || std::is_same_v<T, PrintAsciiDiagramCommand>
+            || std::is_same_v<T, SpawnDirtBallCommand>;
     }
 
     /**
@@ -143,6 +144,7 @@ private:
     void processImmediateEvent(const PauseCommand& cmd);
     void processImmediateEvent(const ResumeCommand& cmd);
     void processImmediateEvent(const PrintAsciiDiagramCommand& cmd);
+    void processImmediateEvent(const SpawnDirtBallCommand& cmd);
     void processImmediateEvent(const ToggleCohesionForceCommand& cmd);
     void processImmediateEvent(const ToggleTimeHistoryCommand& cmd);
     void processImmediateEvent(const SetCellSizeCommand& cmd);

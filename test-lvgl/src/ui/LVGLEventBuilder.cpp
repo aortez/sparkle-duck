@@ -382,6 +382,10 @@ LVGLEventBuilder::ButtonBuilder& LVGLEventBuilder::ButtonBuilder::onPrintAscii()
     return onClick(Event{PrintAsciiDiagramCommand{}});
 }
 
+LVGLEventBuilder::ButtonBuilder& LVGLEventBuilder::ButtonBuilder::onSpawnDirtBall() {
+    return onClick(Event{SpawnDirtBallCommand{}});
+}
+
 LVGLEventBuilder::ButtonBuilder& LVGLEventBuilder::ButtonBuilder::onDebugToggle() {
     return onClick(Event{ToggleDebugCommand{}});
 }

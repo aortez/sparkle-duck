@@ -525,6 +525,13 @@ struct PrintAsciiDiagramCommand {
     static constexpr const char* name() { return "PrintAsciiDiagramCommand"; }
 };
 
+/**
+ * @brief Spawn a 5x5 dirt ball at the top center of the world.
+ */
+struct SpawnDirtBallCommand {
+    static constexpr const char* name() { return "SpawnDirtBallCommand"; }
+};
+
 // =================================================================
 // MATERIAL SELECTION (From MaterialPicker)
 // =================================================================
@@ -631,6 +638,7 @@ using Event = std::variant<
     CaptureScreenshotCommand,
     QuitApplicationCommand,
     PrintAsciiDiagramCommand,
+    SpawnDirtBallCommand,
     SelectMaterialCommand,
 
     // State transitions

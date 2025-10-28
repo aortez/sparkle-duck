@@ -39,6 +39,12 @@ template <>
 struct IsImmediateEvent<PrintAsciiDiagramCommand> : std::true_type {};
 
 /**
+ * @brief SpawnDirtBallCommand is processed immediately for UI response.
+ */
+template <>
+struct IsImmediateEvent<SpawnDirtBallCommand> : std::true_type {};
+
+/**
  * @brief ToggleCohesionForceCommand is processed immediately for UI updates.
  */
 template <>

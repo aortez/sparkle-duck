@@ -228,7 +228,27 @@ State::Any SimPaused::onEvent(const PrintAsciiDiagramCommand& /*cmd. */, DirtSim
     else {
         spdlog::warn("PrintAsciiDiagramCommand: No world available");
     }
-    
+
+    return *this;
+}
+
+State::Any SimPaused::onEvent(const SpawnDirtBallCommand& /*cmd. */, DirtSimStateMachine& dsm) {
+    // Get the current world and spawn a 5x5 ball at top center.
+    if (dsm.simulationManager && dsm.simulationManager->getWorld()) {
+        auto* world = dsm.simulationManager->getWorld();
+
+        // Calculate the top center position.
+        uint32_t centerX = world->getWidth() / 2;
+        uint32_t topY = 2; // Start at row 2 to avoid the very top edge.
+
+        // Spawn a 5x5 ball of the currently selected material.
+        MaterialType selectedMaterial = world->getSelectedMaterial();
+        world->spawnMaterialBall(selectedMaterial, centerX, topY, 2);
+    }
+    else {
+        spdlog::warn("SpawnDirtBallCommand: No world available");
+    }
+
     return *this;
 }
 

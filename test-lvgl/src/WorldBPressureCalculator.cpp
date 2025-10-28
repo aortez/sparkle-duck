@@ -207,16 +207,17 @@ double WorldBPressureCalculator::getHydrostaticWeight(MaterialType type) const
     // Material-specific hydrostatic pressure sensitivity.
     switch (type) {
         case MaterialType::WATER:
-            return 1.0; // High hydrostatic sensitivity.
+            return 1.0;
         case MaterialType::SAND:
+          return 0.7;
         case MaterialType::DIRT:
-            return 0.7; // Moderate hydrostatic sensitivity.
+            return 0.3;
         case MaterialType::WOOD:
-            return 0.3; // Low hydrostatic sensitivity.
+            return 0.1;
         case MaterialType::METAL:
-            return 0.1; // Very low hydrostatic sensitivity.
+            return 0.05;
         case MaterialType::LEAF:
-            return 0.4; // Low-moderate sensitivity.
+            return 0.3;
         case MaterialType::WALL:
         case MaterialType::AIR:
         default:

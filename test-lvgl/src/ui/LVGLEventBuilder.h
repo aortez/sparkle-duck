@@ -245,7 +245,12 @@ public:
          * @brief Convenience method for print ASCII button.
          */
         ButtonBuilder& onPrintAscii();
-        
+
+        /**
+         * @brief Convenience method for spawn dirt ball button.
+         */
+        ButtonBuilder& onSpawnDirtBall();
+
         /**
          * @brief Convenience method for debug toggle button.
          */
