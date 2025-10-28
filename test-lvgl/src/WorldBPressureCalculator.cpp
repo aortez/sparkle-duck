@@ -912,7 +912,17 @@ void WorldBPressureCalculator::applyPressureDiffusion(double deltaTime)
 
             // Update pressure with diffusion flux.
             // Scale by deltaTime for frame-rate independence.
-            new_pressure[idx] = current_pressure + pressure_flux * deltaTime;
+            // Apply stability limiter to prevent numerical instability.
+            double pressure_change = pressure_flux * deltaTime;
+
+            // Limit maximum pressure change per timestep to prevent explosions.
+            // This ensures CFL stability for explicit diffusion scheme.
+            double max_change = current_pressure * 0.5 + 0.1; // Max 50% change + small absolute floor.
+            if (std::abs(pressure_change) > max_change) {
+                pressure_change = std::copysign(max_change, pressure_change);
+            }
+
+            new_pressure[idx] = current_pressure + pressure_change;
 
             // Ensure pressure doesn't go negative.
             if (new_pressure[idx] < 0.0) {
