@@ -218,8 +218,18 @@ bool WorldBSupportCalculator::hasStructuralSupport(uint32_t x, uint32_t y) const
                 }
 
                 // Check for immediate structural support.
-                if (neighbor.getMaterialType() == MaterialType::WALL
-                    || ny == static_cast<int>(world_.getHeight()) - 1) { // Ground level.
+                // Walls only provide support to rigid materials, not fluids.
+                if (neighbor.getMaterialType() == MaterialType::WALL) {
+                    // Only rigid materials can be structurally supported by walls.
+                    const MaterialProperties& cell_props =
+                        getMaterialProperties(cell.getMaterialType());
+                    if (cell_props.is_rigid) {
+                        return true;
+                    }
+                    // Fluids adjacent to walls are NOT structurally supported.
+                }
+                // Ground level provides support to all materials.
+                else if (ny == static_cast<int>(world_.getHeight()) - 1) {
                     return true;
                 }
 

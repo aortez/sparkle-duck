@@ -7,74 +7,167 @@
 #include <string>
 
 // Material property database.
-// Format: {density, elasticity, cohesion, adhesion, com_mass_constant, pressure_diffusion,
-// viscosity, motion_sensitivity, static_friction, kinetic_friction, stick_velocity,
-// friction_transition_width, is_fluid, is_rigid}
-static std::array<MaterialProperties, 8> MATERIAL_PROPERTIES = {
-    { // AIR: Nearly massless, high elasticity, no cohesion/adhesion, very high pressure diffusion,
-      // no friction.
-      { 0.001, 1.0, 0.0, 0.0, 0.0, 1.0, 0.001, 0.0, 1.0, 1.0, 0.0, 0.01, true, false },
+// Each material is defined using designated initializers for easy editing and understanding.
+static std::array<MaterialProperties, 8> MATERIAL_PROPERTIES = { {
+    // ========== AIR ==========
+    // Nearly massless, high elasticity, no cohesion/adhesion, very high pressure diffusion.
+    {
+        .density                      = 0.001,
+        .elasticity                   = 1.0,
+        .cohesion                     = 0.0,
+        .adhesion                     = 0.0,
+        .com_mass_constant            = 0.0,
+        .pressure_diffusion           = 1.0,
+        .viscosity                    = 0.001,
+        .motion_sensitivity           = 0.0,
+        .static_friction_coefficient  = 1.0,
+        .kinetic_friction_coefficient = 1.0,
+        .stick_velocity               = 0.0,
+        .friction_transition_width    = 0.01,
+        .is_fluid                     = true,
+        .is_rigid                     = false
+    },
 
-      // DIRT: Medium density granular material, medium pressure diffusion, resists flow until
-      // disturbed.
-      {
-          1.5,   // density - medium weight granular material
-          0.3,   // elasticity - low bounce, energy absorbed
-          0.3,   // cohesion - forms clumps and stable slopes
-          0.2,   // adhesion - moderate sticking to other materials
-          5.0,   // com_mass_constant - medium COM cohesion strength
-          0.4,   // pressure_diffusion - medium pressure propagation
-          0.5,   // viscosity - resists flow moderately
-          0.0,   // motion_sensitivity - viscosity heavily affected by motion state
-          1.0,   // static_friction_coefficient - full resistance when at rest
-          0.5,   // kinetic_friction_coefficient - half resistance when moving (avalanche behavior)
-          0.05,     // stick_velocity - stays put until velocity exceeds 0.05
-          0.10,  // friction_transition_width - gradual transition to flowing state
-          false, // is_fluid - not a fluid
-          false  // is_rigid - deformable granular material
-      },
-      //      {
-      //          1.5,    // density - medium weight granular material
-      //          0.3,    // elasticity - low bounce, energy absorbed
-      //          0.3,    // cohesion - forms clumps and stable slopes
-      //          0.2,    // adhesion - moderate sticking to other materials
-      //          5.0,    // com_mass_constant - medium COM cohesion strength
-      //          0.4,    // pressure_diffusion - medium pressure propagation
-      //          0.5,    // viscosity - resists flow moderately
-      //          0.99,   // motion_sensitivity - viscosity heavily affected by motion state
-      //          1.0,    // static_friction_coefficient - full resistance when at rest
-      //          0.5,    // kinetic_friction_coefficient - half resistance when moving (avalanche
-      //          behavior)
-      //          0.05,   // stick_velocity - stays put until velocity exceeds 0.05
-      //          0.10,   // friction_transition_width - gradual transition to flowing state
-      //          false,  // is_fluid - not a fluid
-      //          false   // is_rigid - deformable granular material
-      //      },
+    // ========== DIRT ==========
+    // Medium density granular material, forms clumps and stable slopes.
+    // Resists flow until disturbed (avalanche behavior).
+    {
+        .density                      = 1.5,  // Medium weight granular material.
+        .elasticity                   = 0.2,  // Low bounce, energy absorbed.
+        .cohesion                     = 0.3,  // Forms clumps and stable slopes.
+        .adhesion                     = 0.2,  // Moderate sticking to other materials.
+        .com_mass_constant            = 5.0,  // Medium COM cohesion strength.
+        .pressure_diffusion           = 0.3,  // Medium pressure propagation.
+        .viscosity                    = 0.5,  // Resists flow moderately.
+        .motion_sensitivity           = 0.0,  // Viscosity not affected by motion state.
+        .static_friction_coefficient  = 1.0,  // Full resistance when at rest.
+        .kinetic_friction_coefficient = 0.5,  // Half resistance when moving (avalanche).
+        .stick_velocity               = 0.05, // Stays put until velocity exceeds 0.05.
+        .friction_transition_width    = 0.10, // Gradual transition to flowing state.
+        .is_fluid                     = false,
+        .is_rigid                     = false
+    },
 
-      // WATER: Fluid with medium density, strong cohesion for droplet formation, high pressure
-      // diffusion, no static friction.
-      { 1.0, 0.1, 0.6, 0.5, 8.0, 0.9, 0.01, 1.0, 1.0, 1.0, 0.0, 0.01, true, false },
+    // ========== WATER ==========
+    // Fluid with medium density, moderate cohesion for droplet formation.
+    // High pressure diffusion, no static friction.
+    {
+        .density                      = 1.0,  // Standard fluid density.
+        .elasticity                   = 0.1,  // Low bounce (inelastic).
+        .cohesion                     = 0.25, // Moderate - forms droplets but flows freely.
+        .adhesion                     = 0.5,  // Sticks to surfaces (wetting).
+        .com_mass_constant            = 8.0,  // High COM cohesion strength.
+        .pressure_diffusion           = 0.9,  // Very fast pressure equilibration.
+        .viscosity                    = 0.01, // Flows very easily.
+        .motion_sensitivity           = 1.0,  // Fully affected by motion state.
+        .static_friction_coefficient  = 1.0,  // No static friction effect.
+        .kinetic_friction_coefficient = 1.0,  // No kinetic friction effect.
+        .stick_velocity               = 0.0,  // No stick velocity.
+        .friction_transition_width    = 0.01, // Minimal transition.
+        .is_fluid                     = true,
+        .is_rigid                     = false
+    },
 
-      // WOOD: Light rigid material with moderate elasticity, low directional diffusion, sticky
-      // surface.
-      { 0.8, 0.6, 0.7, 0.3, 3.0, 0.15, 0.9, 0.2, 1.3, 0.9, 0.02, 0.03, false, true },
+    // ========== WOOD ==========
+    // Light rigid material with moderate elasticity, low directional diffusion.
+    // Sticky surface, maintains structure.
+    {
+        .density                      = 0.8,  // Light rigid material.
+        .elasticity                   = 0.6,  // Moderate bounce.
+        .cohesion                     = 0.7,  // Strong internal binding.
+        .adhesion                     = 0.3,  // Moderate surface stickiness.
+        .com_mass_constant            = 3.0,  // Low-medium COM cohesion.
+        .pressure_diffusion           = 0.15, // Very slow (directional in real wood).
+        .viscosity                    = 0.9,  // Essentially solid.
+        .motion_sensitivity           = 0.2,  // Slightly affected by motion.
+        .static_friction_coefficient  = 1.3,  // Sticky when at rest.
+        .kinetic_friction_coefficient = 0.9,  // Moderate friction when moving.
+        .stick_velocity               = 0.02, // Sharp breakaway.
+        .friction_transition_width    = 0.03, // Moderate transition.
+        .is_fluid                     = false,
+        .is_rigid                     = true
+    },
 
-      // SAND: Dense granular material, settles faster than dirt, medium pressure diffusion, light
-      // resistance.
-      { 1.8, 0.2, 0.2, 0.1, 4.0, 0.3, 0.3, 0.5, 0.6, 0.4, 0.04, 0.08, false, false },
+    // ========== SAND ==========
+    // Dense granular material, settles faster than dirt.
+    // Light resistance, flows when disturbed.
+    {
+        .density                      = 1.8,  // Dense granular material.
+        .elasticity                   = 0.2,  // Low bounce.
+        .cohesion                     = 0.2,  // Weak binding (granular).
+        .adhesion                     = 0.1,  // Doesn't stick well.
+        .com_mass_constant            = 4.0,  // Medium COM cohesion.
+        .pressure_diffusion           = 0.3,  // Slow pressure propagation.
+        .viscosity                    = 0.3,  // Granular flow resistance.
+        .motion_sensitivity           = 0.5,  // Moderately affected by motion.
+        .static_friction_coefficient  = 0.6,  // Light resistance at rest.
+        .kinetic_friction_coefficient = 0.4,  // Light resistance when moving.
+        .stick_velocity               = 0.04, // Flows when disturbed.
+        .friction_transition_width    = 0.08, // Gradual transition.
+        .is_fluid                     = false,
+        .is_rigid                     = false
+    },
 
-      // METAL: Very dense rigid material with high elasticity and maximum cohesion, low diffusion,
-      // very sticky.
-      { 7.8, 0.8, 1.0, 0.1, 2.0, 0.1, 0.95, 0.1, 1.5, 1.0, 0.01, 0.02, false, true },
+    // ========== METAL ==========
+    // Very dense rigid material with high elasticity and maximum cohesion.
+    // Low diffusion, very sticky, essentially rigid body.
+    {
+        .density                      = 7.8,  // Very dense.
+        .elasticity                   = 0.8,  // High bounce (elastic collisions).
+        .cohesion                     = 1.0,  // Maximum binding strength.
+        .adhesion                     = 0.1,  // Low surface adhesion.
+        .com_mass_constant            = 2.0,  // Low COM cohesion (rigid body).
+        .pressure_diffusion           = 0.1,  // Minimal pressure propagation.
+        .viscosity                    = 0.95, // Essentially rigid.
+        .motion_sensitivity           = 0.1,  // Barely affected by motion.
+        .static_friction_coefficient  = 1.5,  // Very sticky when at rest.
+        .kinetic_friction_coefficient = 1.0,  // Full friction when moving.
+        .stick_velocity               = 0.01, // Very sharp breakaway.
+        .friction_transition_width    = 0.02, // Sharp transition.
+        .is_fluid                     = false,
+        .is_rigid                     = true
+    },
 
-      // LEAF: Very light organic matter, medium-high diffusion due to porous structure, light
-      // material.
-      { 0.3, 0.4, 0.3, 0.2, 10.0, 0.6, 0.2, 0.8, 0.5, 0.3, 0.03, 0.06, false, false },
+    // ========== LEAF ==========
+    // Very light organic matter, medium-high diffusion due to porous structure.
+    // Light material, easily affected by motion.
+    {
+        .density                      = 0.3,  // Very light.
+        .elasticity                   = 0.4,  // Moderate bounce.
+        .cohesion                     = 0.3,  // Light binding.
+        .adhesion                     = 0.2,  // Moderate sticking.
+        .com_mass_constant            = 10.0, // High COM cohesion (clusters).
+        .pressure_diffusion           = 0.6,  // Moderate-high (porous structure).
+        .viscosity                    = 0.2,  // Light resistance.
+        .motion_sensitivity           = 0.8,  // Highly affected by motion.
+        .static_friction_coefficient  = 0.5,  // Light materials.
+        .kinetic_friction_coefficient = 0.3,  // Easy to move.
+        .stick_velocity               = 0.03, // Moderate breakaway.
+        .friction_transition_width    = 0.06, // Moderate transition.
+        .is_fluid                     = false,
+        .is_rigid                     = false
+    },
 
-      // WALL: Immobile boundary material (infinite effective density), zero pressure diffusion, N/A
-      // friction.
-      { 1000.0, 0.9, 1.0, 1.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 0.01, false, true } }
-};
+    // ========== WALL ==========
+    // Immobile boundary material (infinite effective density).
+    // Zero pressure diffusion, acts as barrier and reflector.
+    {
+        .density                      = 1000.0, // Effectively infinite.
+        .elasticity                   = 0.9,    // High bounce for collisions.
+        .cohesion                     = 1.0,    // Maximum (immobile).
+        .adhesion                     = 1.0,    // Everything sticks to walls.
+        .com_mass_constant            = 0.0,    // N/A (immobile).
+        .pressure_diffusion           = 0.0,    // Complete barrier.
+        .viscosity                    = 1.0,    // Infinite (never flows).
+        .motion_sensitivity           = 0.0,    // N/A (immobile).
+        .static_friction_coefficient  = 1.0,    // N/A (immobile).
+        .kinetic_friction_coefficient = 1.0,    // N/A (immobile).
+        .stick_velocity               = 0.0,    // N/A (immobile).
+        .friction_transition_width    = 0.01,   // N/A (immobile).
+        .is_fluid                     = false,
+        .is_rigid                     = true
+    }
+} };
 
 // Material name lookup table.
 static const std::array<const char*, 8> MATERIAL_NAMES = {
