@@ -1024,8 +1024,9 @@ lv_obj_t* LVGLEventBuilder::ToggleSliderBuilder::buildOrLog() {
     lv_obj_set_size(container, sliderWidth_ + 10, 70);  // Width: slider + padding, Height: label+switch+slider.
     lv_obj_align(container, align, x - 5, y - 5);
     lv_obj_set_style_pad_all(container, 5, 0);
+    lv_obj_set_style_bg_color(container, lv_color_hex(0x000000), 0);  // Black background.
     lv_obj_set_style_border_width(container, 1, 0);
-    lv_obj_set_style_border_color(container, lv_color_hex(0x000000), 0);
+    lv_obj_set_style_border_color(container, lv_color_hex(0x808080), 0);  // Gray border for visibility.
     lv_obj_set_style_radius(container, 3, 0);
     lv_obj_set_scrollbar_mode(container, LV_SCROLLBAR_MODE_OFF);  // Disable scrolling.
     lv_obj_clear_flag(container, LV_OBJ_FLAG_SCROLLABLE);         // Make non-scrollable.
@@ -1033,6 +1034,7 @@ lv_obj_t* LVGLEventBuilder::ToggleSliderBuilder::buildOrLog() {
     // Create label (inside container).
     lv_obj_t* label = lv_label_create(container);
     lv_label_set_text(label, labelText_);
+    lv_obj_set_style_text_color(label, lv_color_hex(0xFFFFFF), 0);  // White text.
     lv_obj_align(label, LV_ALIGN_TOP_LEFT, 5, 5);
 
     // Create switch (same row as label, moved left to fit within bounds, positioned slightly higher).
@@ -1068,6 +1070,7 @@ lv_obj_t* LVGLEventBuilder::ToggleSliderBuilder::buildOrLog() {
     char buf[32];
     snprintf(buf, sizeof(buf), valueFormat_, scaledValue);
     lv_label_set_text(valueLabel, buf);
+    lv_obj_set_style_text_color(valueLabel, lv_color_hex(0xFFFFFF), 0);  // White text.
     lv_obj_align_to(valueLabel, slider, LV_ALIGN_OUT_TOP_MID, 0, -5);  // Centered above slider.
 
     // Allocate persistent state for callbacks.
@@ -1175,6 +1178,7 @@ lv_obj_t* LVGLEventBuilder::LabeledSwitchBuilder::buildOrLog() {
     // Create label.
     lv_obj_t* label = lv_label_create(parent_);
     lv_label_set_text(label, labelText_);
+    lv_obj_set_style_text_color(label, lv_color_hex(0xFFFFFF), 0);  // White text.
     lv_obj_align(label, align, x, y);
 
     // Create switch, vertically centered with label.

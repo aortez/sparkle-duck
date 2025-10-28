@@ -203,8 +203,9 @@ void LVGLBuilder::SliderBuilder::createLabel() {
         spdlog::warn("SliderBuilder: Failed to create label object");
         return;
     }
-    
+
     lv_label_set_text(label_, label_text_.c_str());
+    lv_obj_set_style_text_color(label_, lv_color_hex(0xFFFFFF), 0);  // White text.
     lv_obj_align(label_, label_position_.align, label_position_.x, label_position_.y);
 }
 
@@ -214,7 +215,9 @@ void LVGLBuilder::SliderBuilder::createValueLabel() {
         spdlog::warn("SliderBuilder: Failed to create value label object");
         return;
     }
-    
+
+    lv_obj_set_style_text_color(value_label_, lv_color_hex(0xFFFFFF), 0);  // White text.
+
     // Set initial value text based on slider's current value.
     char buf[32];
     int32_t current_value = lv_slider_get_value(slider_);

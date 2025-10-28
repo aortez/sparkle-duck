@@ -138,6 +138,9 @@ void SimulatorUI::initialize()
         throw std::runtime_error("SimulatorUI requires a valid screen object");
     }
 
+    // Set black background for the main screen.
+    lv_obj_set_style_bg_color(screen_, lv_color_hex(0x000000), 0);
+
     createDrawArea();
     createLabels();
     createWorldTypeColumn();
@@ -181,11 +184,13 @@ void SimulatorUI::createLabels()
     // Create mass label.
     mass_label_ = lv_label_create(screen_);
     lv_label_set_text(mass_label_, "Total Mass: 0.00");
+    lv_obj_set_style_text_color(mass_label_, lv_color_hex(0xFFFFFF), 0);  // White text.
     lv_obj_align(mass_label_, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 10);
 
     // Create FPS label - positioned over the world area.
     fps_label_ = lv_label_create(screen_);
     lv_label_set_text(fps_label_, "FPS: 0");
+    lv_obj_set_style_text_color(fps_label_, lv_color_hex(0xFFFFFF), 0);  // White text.
     lv_obj_align(fps_label_, LV_ALIGN_TOP_LEFT, 10, 10); // Top-left corner of world area.
 
     // Create frame limiting toggle button below FPS display.
@@ -202,6 +207,7 @@ void SimulatorUI::createWorldTypeColumn()
     // Create world type label.
     lv_obj_t* world_type_label = lv_label_create(screen_);
     lv_label_set_text(world_type_label, "World Type:");
+    lv_obj_set_style_text_color(world_type_label, lv_color_hex(0xFFFFFF), 0);  // White text.
     lv_obj_align(world_type_label, LV_ALIGN_TOP_LEFT, WORLD_TYPE_COLUMN_X, 10);
 
     // Create world type button matrix with vertical stack.
@@ -233,6 +239,7 @@ void SimulatorUI::createWorldTypeColumn()
     // Scenario label.
     lv_obj_t* scenario_label = lv_label_create(screen_);
     lv_label_set_text(scenario_label, "Scenario:");
+    lv_obj_set_style_text_color(scenario_label, lv_color_hex(0xFFFFFF), 0);  // White text.
     lv_obj_align(scenario_label, LV_ALIGN_TOP_LEFT, WORLD_TYPE_COLUMN_X, 135);
 
     // Scenario dropdown.
@@ -253,6 +260,7 @@ void SimulatorUI::createMaterialPicker()
     // Create material picker label.
     lv_obj_t* material_label = lv_label_create(screen_);
     lv_label_set_text(material_label, "Materials:");
+    lv_obj_set_style_text_color(material_label, lv_color_hex(0xFFFFFF), 0);  // White text.
     lv_obj_align(
         material_label, LV_ALIGN_TOP_LEFT, WORLD_TYPE_COLUMN_X, 195); // Below scenario dropdown.
 
@@ -300,11 +308,13 @@ void SimulatorUI::createControlButtons()
     // === WorldA Pressure Controls ===.
     lv_obj_t* worldA_pressure_header = lv_label_create(screen_);
     lv_label_set_text(worldA_pressure_header, "=== WorldA Pressure ===");
+    lv_obj_set_style_text_color(worldA_pressure_header, lv_color_hex(0xFFFFFF), 0);  // White text.
     lv_obj_align(worldA_pressure_header, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 70);
 
     // Create pressure system dropdown.
     lv_obj_t* pressure_label = lv_label_create(screen_);
     lv_label_set_text(pressure_label, "System:");
+    lv_obj_set_style_text_color(pressure_label, lv_color_hex(0xFFFFFF), 0);  // White text.
     lv_obj_align(pressure_label, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 95);
 
     LVGLEventBuilder::dropdown(screen_, event_router_)
@@ -636,6 +646,7 @@ void SimulatorUI::createSliders()
     // === WorldB Pressure Controls ===.
     lv_obj_t* worldB_pressure_header = lv_label_create(screen_);
     lv_label_set_text(worldB_pressure_header, "=== WorldB Pressure ===");
+    lv_obj_set_style_text_color(worldB_pressure_header, lv_color_hex(0xFFFFFF), 0);  // White text.
     lv_obj_align(worldB_pressure_header, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 620);
 
     // Hydrostatic pressure toggle slider (integrated switch + slider).
