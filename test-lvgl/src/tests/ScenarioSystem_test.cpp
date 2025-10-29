@@ -135,7 +135,7 @@ TEST_F(ScenarioSystemTest, CanApplyScenarioToWorld) {
     registry.registerScenario("simple", std::make_unique<SimpleScenario>());
     
     // Create a world and apply the scenario
-    auto world = createWorld(WorldType::RulesB, 10, 10, nullptr);
+    auto world = createWorld(WorldType::RulesB, 10, 10);
     
     // Get the scenario and apply it
     auto* scenario = registry.getScenario("simple");

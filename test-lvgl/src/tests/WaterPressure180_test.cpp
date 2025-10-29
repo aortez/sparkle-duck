@@ -31,7 +31,7 @@ protected:
     }
 
     void createWorld() {
-        world = std::make_unique<World>(width, height, nullptr); // No draw area for testing.
+        world = std::make_unique<World>(width, height); // Headless mode for testing.
         world->setAddParticlesEnabled(false);
         world->setGravity(9.81); // Keep gravity for realistic behavior.
     }

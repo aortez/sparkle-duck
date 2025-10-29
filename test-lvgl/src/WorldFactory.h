@@ -22,12 +22,12 @@ enum class WorldType {
  * @param type The world type to create (RulesA or RulesB)
  * @param width Grid width in cells
  * @param height Grid height in cells
- * @param draw_area LVGL drawing area (can be nullptr for headless operation)
  * @return Unique pointer to WorldInterface implementation
  * @throws std::runtime_error if unknown world type is requested
+ *
+ * Note: Drawing is handled by passing lv_obj_t& to draw() method when rendering is needed.
  */
-std::unique_ptr<WorldInterface> createWorld(
-    WorldType type, uint32_t width, uint32_t height, lv_obj_t* draw_area = nullptr);
+std::unique_ptr<WorldInterface> createWorld(WorldType type, uint32_t width, uint32_t height);
 
 /**
  * Get string name for WorldType (useful for logging/debugging)

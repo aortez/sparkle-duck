@@ -36,7 +36,8 @@ public:
     virtual uint32_t getTimestep() const = 0;
 
     // Draw the world to the screen.
-    virtual void draw() = 0;
+    // The drawArea parameter is the LVGL canvas to render to.
+    virtual void draw(lv_obj_t& drawArea) = 0;
 
     // Reset the world to empty state (clear all cells, reset timestep, etc.).
     virtual void reset() = 0;
@@ -52,12 +53,6 @@ public:
     // Get grid dimensions.
     virtual uint32_t getWidth() const = 0;
     virtual uint32_t getHeight() const = 0;
-
-    // Get the LVGL drawing area object.
-    virtual lv_obj_t* getDrawArea() const = 0;
-
-    // Set the LVGL drawing area object (for delayed initialization).
-    virtual void setDrawArea(lv_obj_t* drawArea) = 0;
 
     // Access cells through CellInterface for material operations.
     virtual CellInterface& getCellInterface(uint32_t x, uint32_t y) = 0;

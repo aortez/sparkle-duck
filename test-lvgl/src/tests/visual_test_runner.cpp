@@ -274,14 +274,13 @@ std::unique_ptr<World> VisualTestBase::createWorld(uint32_t width, uint32_t heig
     if (visual_mode_) {
         auto& coordinator = VisualTestCoordinator::getInstance();
         coordinator.postTaskSync([&] {
-            lv_obj_t* draw_area = ui_ ? ui_->getDrawArea() : nullptr;
-            world = std::make_unique<World>(width, height, draw_area);
+            world = std::make_unique<World>(width, height);
             if (ui_) {
                 ui_->setWorld(world.get());
             }
         });
     } else {
-        world = std::make_unique<World>(width, height, nullptr);
+        world = std::make_unique<World>(width, height);
     }
     return world;
 }
@@ -296,14 +295,13 @@ std::unique_ptr<WorldB> VisualTestBase::createWorldB(uint32_t width, uint32_t he
     if (visual_mode_) {
         auto& coordinator = VisualTestCoordinator::getInstance();
         coordinator.postTaskSync([&] {
-            lv_obj_t* draw_area = ui_ ? ui_->getDrawArea() : nullptr;
-            world = std::make_unique<WorldB>(width, height, draw_area);
+            world = std::make_unique<WorldB>(width, height);
             if (ui_) {
                 ui_->setWorld(world.get());
             }
         });
     } else {
-        world = std::make_unique<WorldB>(width, height, nullptr);
+        world = std::make_unique<WorldB>(width, height);
     }
     
     // Apply universal physics defaults.
@@ -336,7 +334,9 @@ void VisualTestBase::runSimulation(World* world, int steps, const std::string& d
             
             // Update visuals for every frame to ensure we see all physics behavior.
             coordinator.postTaskSync([world, this, description, i, steps] {
-                world->draw();
+                if (ui_) {
+                    world->draw(*ui_->getDrawArea());
+                }
                 // Update label with current progress.
                 std::string status = current_test_name_ + " - " + description +
                                      " [" + std::to_string(i + 1) + "/" + std::to_string(steps) + "]";
@@ -569,8 +569,10 @@ void VisualTestBase::stepSimulation(World* world, int steps) {
             world->advanceTime(0.016); // ~60 FPS timestep.
             
             // Update visual display for each step.
-            coordinator.postTaskSync([world] {
-                world->draw();
+            coordinator.postTaskSync([world, this] {
+                if (ui_) {
+                    world->draw(*ui_->getDrawArea());
+                }
             });
             
             // Small delay to make step visible.
@@ -871,9 +873,11 @@ void VisualTestBase::updateDisplay(WorldInterface* world, const std::string& sta
     if (visual_mode_ && world) {
         auto& coordinator = VisualTestCoordinator::getInstance();
         coordinator.postTaskSync([this, world, status] {
-            world->draw();
-            if (ui_ && !status.empty()) {
-                ui_->updateButtonStatus(status);
+            if (ui_) {
+                world->draw(*ui_->getDrawArea());
+                if (!status.empty()) {
+                    ui_->updateButtonStatus(status);
+                }
             }
         });
     }
@@ -990,8 +994,8 @@ void VisualTestBase::stepSimulation(WorldInterface* world, int steps, const std:
                             stepDescription + " [" + std::to_string(j + 1) + "/" + std::to_string(steps) + "]";
                         
                         coordinator.postTaskSync([this, world, status] {
-                            world->draw();
                             if (ui_) {
+                                world->draw(*ui_->getDrawArea());
                                 ui_->updateButtonStatus(status);
                             }
                         });
@@ -1018,8 +1022,8 @@ void VisualTestBase::stepSimulation(WorldInterface* world, int steps, const std:
                 stepDescription + " [" + std::to_string(i + 1) + "/" + std::to_string(steps) + "]";
             
             coordinator.postTaskSync([this, world, status] {
-                world->draw();
                 if (ui_) {
+                    world->draw(*ui_->getDrawArea());
                     ui_->updateButtonStatus(status);
                 }
             });
@@ -1108,8 +1112,8 @@ void VisualTestBase::runContinuousSimulation(WorldInterface* world, int steps, c
                 description + " [" + std::to_string(i + 1) + "/" + std::to_string(steps) + "]";
             
             coordinator.postTaskSync([this, world, status] {
-                world->draw();
                 if (ui_) {
+                    world->draw(*ui_->getDrawArea());
                     ui_->updateButtonStatus(status);
                 }
             });

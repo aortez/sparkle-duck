@@ -50,7 +50,7 @@ protected:
         setupTestLogging();
         
         // Create a simple test world.
-        world = std::make_unique<World>(width, height, nullptr);
+        world = std::make_unique<World>(width, height);
         world->setGravity(5.0); // Moderate gravity for stable testing.
         world->setElasticityFactor(0.3);  // Set elasticity factor.
         Cell::setBuoyancyStrength(0.05); // Extremely gentle buoyancy for stable testing.

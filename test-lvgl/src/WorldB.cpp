@@ -19,10 +19,9 @@
 #include <set>
 #include <sstream>
 
-WorldB::WorldB(uint32_t width, uint32_t height, lv_obj_t* draw_area)
+WorldB::WorldB(uint32_t width, uint32_t height)
     : width_(width),
       height_(height),
-      draw_area_(draw_area),
       timestep_(0),
       timescale_(1.0),
       removed_mass_(0.0),
@@ -155,19 +154,15 @@ void WorldB::advanceTime(double deltaTimeSeconds)
     timestep_++;
 }
 
-void WorldB::draw()
+void WorldB::draw(lv_obj_t& drawArea)
 {
-    if (draw_area_ == nullptr) {
-        return;
-    }
-
     ScopeTimer timer(timers_, "draw");
 
     spdlog::trace("WorldB::draw() - rendering {} cells", cells_.size());
 
     for (uint32_t y = 0; y < height_; y++) {
         for (uint32_t x = 0; x < width_; x++) {
-            at(x, y).draw(draw_area_, x, y, debug_draw_enabled_);
+            at(x, y).draw(&drawArea, x, y, debug_draw_enabled_);
         }
     }
 
@@ -177,7 +172,7 @@ void WorldB::draw()
         // Render floating particle at current drag position.
         // This particle can potentially collide with other objects in the world.
         floating_particle_.draw(
-            draw_area_, last_drag_cell_x_, last_drag_cell_y_, debug_draw_enabled_);
+            &drawArea, last_drag_cell_x_, last_drag_cell_y_, debug_draw_enabled_);
         spdlog::trace(
             "Drew floating particle {} at cell ({},{}) pixel pos ({:.1f},{:.1f})",
             getMaterialName(floating_particle_.getMaterialType()),

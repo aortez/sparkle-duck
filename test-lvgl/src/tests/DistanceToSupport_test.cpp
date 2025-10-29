@@ -8,7 +8,7 @@ class DistanceToSupportTest : public ::testing::Test {
 protected:
     void SetUp() override {
         // Use a larger world for better testing.
-        world = std::make_unique<WorldB>(6, 6, nullptr);
+        world = std::make_unique<WorldB>(6, 6);
         world->setWallsEnabled(false);  // Disable walls to test pure ground support.
         
         spdlog::info("=== Distance to Support Test Setup ===");

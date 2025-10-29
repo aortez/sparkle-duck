@@ -8,7 +8,7 @@ class WorldBPressureCalculatorTest : public ::testing::Test {
 protected:
     void SetUp() override {
         // Create a 6x6 world.
-        world = std::make_unique<WorldB>(6, 6, nullptr);
+        world = std::make_unique<WorldB>(6, 6);
         
         // Enable dynamic pressure for these tests.
         world->setPressureSystem(WorldInterface::PressureSystem::TopDown);

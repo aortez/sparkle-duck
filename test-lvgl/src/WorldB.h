@@ -40,7 +40,7 @@ public:
     };
 
 public:
-    WorldB(uint32_t width, uint32_t height, lv_obj_t* draw_area = nullptr);
+    WorldB(uint32_t width, uint32_t height);
     ~WorldB();
 
     // WorldB is not copyable due to unique_ptr members.
@@ -57,7 +57,7 @@ public:
 
     void advanceTime(double deltaTimeSeconds) override;
     uint32_t getTimestep() const override { return timestep_; }
-    void draw() override;
+    void draw(lv_obj_t& drawArea) override;
     void reset() override;
     void setup() override;
 
@@ -67,8 +67,6 @@ public:
 
     uint32_t getWidth() const override { return width_; }
     uint32_t getHeight() const override { return height_; }
-    lv_obj_t* getDrawArea() const override { return draw_area_; }
-    void setDrawArea(lv_obj_t* drawArea) override { draw_area_ = drawArea; }
 
     // WorldInterface cell access through CellInterface.
     CellInterface& getCellInterface(uint32_t x, uint32_t y) override;
@@ -392,7 +390,6 @@ private:
     std::vector<CellB> cells_;
     uint32_t width_;
     uint32_t height_;
-    lv_obj_t* draw_area_;
 
     // Simulation state
     uint32_t timestep_;

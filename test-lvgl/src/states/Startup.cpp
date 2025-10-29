@@ -12,7 +12,7 @@ State::Any Startup::onEvent(const InitCompleteEvent& /*evt. */, DirtSimStateMach
     spdlog::info("Startup: Initialization complete, creating world");
     
     // Create default world (WorldB/RulesB)
-    dsm.world = createWorld(WorldType::RulesB, 50, 50, nullptr);
+    dsm.world = createWorld(WorldType::RulesB, 50, 50);
     
     // Initialize world with some default content.
     if (dsm.world) {

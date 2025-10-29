@@ -7,7 +7,7 @@
 class ForcePhysicsIntegrationTest : public ::testing::Test {
 protected:
     void SetUp() override {
-        world = std::make_unique<WorldB>(5, 5, nullptr);
+        world = std::make_unique<WorldB>(5, 5);
         world->setWallsEnabled(false);
         world->reset();
     }

@@ -64,7 +64,7 @@ private:
 
 // Test basic scenario switching with WorldSetup
 TEST_F(ScenarioSwitchingTest, BasicWorldSetupSwitch) {
-    auto world = createWorld(WorldType::RulesB, 10, 10, nullptr);
+    auto world = createWorld(WorldType::RulesB, 10, 10);
     auto& registry = ScenarioRegistry::getInstance();
     
     // Get initial mass
@@ -91,7 +91,7 @@ TEST_F(ScenarioSwitchingTest, BasicWorldSetupSwitch) {
 
 // Test that null setup handling doesn't crash
 TEST_F(ScenarioSwitchingTest, NullSetupHandling) {
-    auto world = createWorld(WorldType::RulesB, 10, 10, nullptr);
+    auto world = createWorld(WorldType::RulesB, 10, 10);
     
     // Set null setup shouldn't crash
     world->setWorldSetup(nullptr);
@@ -103,7 +103,7 @@ TEST_F(ScenarioSwitchingTest, NullSetupHandling) {
 
 // Test rapid scenario switching (stress test)
 TEST_F(ScenarioSwitchingTest, RapidScenarioSwitching) {
-    auto world = createWorld(WorldType::RulesB, 10, 10, nullptr);
+    auto world = createWorld(WorldType::RulesB, 10, 10);
     auto& registry = ScenarioRegistry::getInstance();
     
     // Rapidly switch scenarios
@@ -121,7 +121,7 @@ TEST_F(ScenarioSwitchingTest, RapidScenarioSwitching) {
 
 // Test scenario switching during continuous physics updates
 TEST_F(ScenarioSwitchingTest, ScenarioSwitchDuringPhysics) {
-    auto world = createWorld(WorldType::RulesB, 10, 10, nullptr);
+    auto world = createWorld(WorldType::RulesB, 10, 10);
     auto& registry = ScenarioRegistry::getInstance();
     
     // Add initial material
@@ -148,7 +148,7 @@ TEST_F(ScenarioSwitchingTest, ScenarioSwitchDuringPhysics) {
 
 // Test scenario switching with ConfigurableWorldSetup
 TEST_F(ScenarioSwitchingTest, ConfigurableWorldSetupScenario) {
-    auto world = createWorld(WorldType::RulesB, 10, 10, nullptr);
+    auto world = createWorld(WorldType::RulesB, 10, 10);
     
     // Create a ConfigurableWorldSetup
     auto configurableSetup = std::make_unique<ConfigurableWorldSetup>();
@@ -170,7 +170,7 @@ TEST_F(ScenarioSwitchingTest, ConfigurableWorldSetupScenario) {
 
 // Test concurrent scenario switching and physics (thread safety)
 TEST_F(ScenarioSwitchingTest, ConcurrentScenarioSwitchAndPhysics) {
-    auto world = createWorld(WorldType::RulesB, 10, 10, nullptr);
+    auto world = createWorld(WorldType::RulesB, 10, 10);
     auto& registry = ScenarioRegistry::getInstance();
     
     std::atomic<bool> stop(false);
@@ -210,7 +210,7 @@ TEST_F(ScenarioSwitchingTest, ConcurrentScenarioSwitchAndPhysics) {
 
 // Test memory ownership during scenario switch
 TEST_F(ScenarioSwitchingTest, MemoryOwnershipDuringSwitch) {
-    auto world = createWorld(WorldType::RulesB, 10, 10, nullptr);
+    auto world = createWorld(WorldType::RulesB, 10, 10);
     auto& registry = ScenarioRegistry::getInstance();
     
     // Get current setup pointer before switch

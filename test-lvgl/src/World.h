@@ -38,7 +38,7 @@ struct DirtMove {
 
 class World : public WorldInterface {
 public:
-    World(uint32_t width, uint32_t height, lv_obj_t* draw_area = nullptr);
+    World(uint32_t width, uint32_t height);
     ~World();
 
     // World is not copyable due to unique_ptr members.
@@ -53,7 +53,7 @@ public:
 
     uint32_t getTimestep() const override { return timestep; }
 
-    void draw() override;
+    void draw(lv_obj_t& drawArea) override;
 
     void reset() override;
 
@@ -68,8 +68,6 @@ public:
 
     uint32_t getWidth() const override;
     uint32_t getHeight() const override;
-    lv_obj_t* getDrawArea() const override { return draw_area; }
-    void setDrawArea(lv_obj_t* drawArea) override { draw_area = drawArea; }
 
     void setTimescale(double scale) override { timescale = scale; }
     double getTimescale() const override { return timescale; }
@@ -325,7 +323,6 @@ private:
     Vector2d calculateNaturalCOM(const Vector2d& sourceCOM, int deltaX, int deltaY);
     Vector2d clampCOMToDeadZone(const Vector2d& naturalCOM);
 
-    lv_obj_t* draw_area;
     uint32_t width;
     uint32_t height;
     std::vector<Cell> cells;

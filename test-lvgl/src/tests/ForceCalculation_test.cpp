@@ -22,8 +22,7 @@ protected:
         
         // Create a 5x5 world for testing force calculations.
         // Pass the UI draw area if in visual mode, otherwise nullptr.
-        lv_obj_t* draw_area = (visual_mode_ && ui_) ? ui_->getDrawArea() : nullptr;
-        world = std::make_unique<WorldB>(5, 5, draw_area);
+        world = std::make_unique<WorldB>(5, 5);
         world->setWallsEnabled(false); // Disable walls for clean testing.
         world->setAddParticlesEnabled(false); // Disable automatic particle addition for clean testing.
         
@@ -46,7 +45,7 @@ protected:
         if (visual_mode_ && world) {
             auto& coordinator = VisualTestCoordinator::getInstance();
             coordinator.postTaskSync([this] {
-                world->draw();
+                if (ui_) { world->draw(*ui_->getDrawArea()); }
             });
         }
     }
@@ -70,8 +69,8 @@ protected:
                 world->advanceTime(0.016);
                 
                 auto& coordinator = VisualTestCoordinator::getInstance();
-                coordinator.postTaskSync([world] {
-                    world->draw();
+                coordinator.postTaskSync([world, this] {
+                    if (ui_) { world->draw(*ui_->getDrawArea()); }
                 });
                 
                 spdlog::info("Step {}/{} completed", step + 1, max_steps);
@@ -193,7 +192,7 @@ TEST_F(ForceCalculationTest, MetalHasHighCohesion) {
     auto cohesion_metal = WorldBCohesionCalculator(*world).calculateCohesionForce(2, 2);
     
     // Create new world for WATER test to avoid interference.
-    auto water_world = std::make_unique<WorldB>(5, 5, nullptr);
+    auto water_world = std::make_unique<WorldB>(5, 5);
     water_world->setAddParticlesEnabled(false);
     water_world->addMaterialAtCell(2, 2, MaterialType::WATER, 1.0);
     water_world->addMaterialAtCell(2, 1, MaterialType::WATER, 1.0); // Above (2,2).
@@ -258,8 +257,7 @@ TEST_F(ForceCalculationTest, MetalParticlesCohesionResistance) {
         scaleDrawingAreaForWorld(7, 7);
     }
     
-    lv_obj_t* draw_area = (visual_mode_ && ui_) ? ui_->getDrawArea() : nullptr;
-    auto large_world = std::make_unique<WorldB>(7, 7, draw_area);
+    auto large_world = std::make_unique<WorldB>(7, 7);
     large_world->setWallsEnabled(false); // Disable walls for clean test.
     large_world->setAddParticlesEnabled(false); // Disable automatic particle addition.
     
@@ -294,8 +292,8 @@ TEST_F(ForceCalculationTest, MetalParticlesCohesionResistance) {
     // Show initial setup in visual mode.
     if (visual_mode_) {
         auto& coordinator = VisualTestCoordinator::getInstance();
-        coordinator.postTaskSync([&large_world] {
-            large_world->draw();
+        coordinator.postTaskSync([&large_world, this] {
+            if (ui_) { large_world->draw(*ui_->getDrawArea()); }
         });
         spdlog::info("Showing initial metal droplet setup...");
         waitForNext();
@@ -331,8 +329,8 @@ TEST_F(ForceCalculationTest, MetalParticlesCohesionResistance) {
         // Update visual display.
         if (visual_mode_) {
             auto& coordinator = VisualTestCoordinator::getInstance();
-            coordinator.postTaskSync([&large_world] {
-                large_world->draw();
+            coordinator.postTaskSync([&large_world, this] {
+                if (ui_) { large_world->draw(*ui_->getDrawArea()); }
             });
         }
         
@@ -398,8 +396,7 @@ TEST_F(ForceCalculationTest, MetalParticlesCohesionResistance) {
 
 TEST_F(ForceCalculationTest, DebugMaterialTransfer) {
     // Debug test to understand material duplication and floating block behavior.
-    lv_obj_t* draw_area = (visual_mode_ && ui_) ? ui_->getDrawArea() : nullptr;
-    world = std::make_unique<WorldB>(3, 3, draw_area);
+    world = std::make_unique<WorldB>(3, 3);
     world->setWallsEnabled(false);
     
     // Simple test: single particle at top should fall straight down.
@@ -459,8 +456,7 @@ TEST_F(ForceCalculationTest, FloatingBlocksFallToNextCellSameSpeed) {
         scaleDrawingAreaForWorld(6, 4);
     }
     
-    lv_obj_t* draw_area = (visual_mode_ && ui_) ? ui_->getDrawArea() : nullptr;
-    world = std::make_unique<WorldB>(6, 4, draw_area);
+    world = std::make_unique<WorldB>(6, 4);
     world->setWallsEnabled(false); // Disable walls for clean test.
     world->setAddParticlesEnabled(false); // Disable automatic particle addition.
     
@@ -501,7 +497,7 @@ TEST_F(ForceCalculationTest, FloatingBlocksFallToNextCellSameSpeed) {
     if (visual_mode_) {
         auto& coordinator = VisualTestCoordinator::getInstance();
         coordinator.postTaskSync([this] {
-            world->draw();
+            if (ui_) { world->draw(*ui_->getDrawArea()); }
         });
         spdlog::info("Initial setup: 2x2 block vs isolated reference particle");
         
@@ -550,7 +546,7 @@ TEST_F(ForceCalculationTest, FloatingBlocksFallToNextCellSameSpeed) {
         if (visual_mode_) {
             auto& coordinator = VisualTestCoordinator::getInstance();
             coordinator.postTaskSync([this] {
-                world->draw();
+                if (ui_) { world->draw(*ui_->getDrawArea()); }
             });
         }
         
@@ -678,8 +674,7 @@ TEST_F(ForceCalculationTest, SupportedVsFloatingStructures) {
         scaleDrawingAreaForWorld(8, 8);
     }
     
-    lv_obj_t* draw_area = (visual_mode_ && ui_) ? ui_->getDrawArea() : nullptr;
-    auto large_world = std::make_unique<WorldB>(8, 8, draw_area);
+    auto large_world = std::make_unique<WorldB>(8, 8);
     large_world->setWallsEnabled(false); // Disable walls for clean test.
     large_world->setAddParticlesEnabled(false); // Disable automatic particle addition.
     
@@ -699,8 +694,8 @@ TEST_F(ForceCalculationTest, SupportedVsFloatingStructures) {
     // Show the supported vs floating structures in visual mode.
     if (visual_mode_) {
         auto& coordinator = VisualTestCoordinator::getInstance();
-        coordinator.postTaskSync([&large_world] {
-            large_world->draw();
+        coordinator.postTaskSync([&large_world, this] {
+            if (ui_) { large_world->draw(*ui_->getDrawArea()); }
         });
         spdlog::info("Showing supported tower vs floating structure...");
         waitForNext();

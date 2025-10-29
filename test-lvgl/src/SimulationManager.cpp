@@ -53,10 +53,6 @@ void SimulationManager::initialize()
         ui_->initialize();
         draw_area_ = ui_->getDrawArea();
         spdlog::info("UI initialized, draw_area obtained");
-
-        // Set the draw area on the world now that UI is initialized.
-        world_->setDrawArea(draw_area_);
-        spdlog::info("Draw area set on world");
     }
 
     // Connect UI and world if UI exists.
@@ -168,11 +164,6 @@ bool SimulationManager::resizeWorldIfNeeded(uint32_t requiredWidth, uint32_t req
         return false;
     }
 
-    // Set draw area if UI exists
-    if (ui_ && draw_area_) {
-        world_->setDrawArea(draw_area_);
-    }
-
     // Reconnect UI if it exists
     if (ui_) {
         connectUIAndWorld();
@@ -200,8 +191,8 @@ void SimulationManager::advanceTime(double deltaTime)
 
 void SimulationManager::draw()
 {
-    if (world_) {
-        world_->draw();
+    if (world_ && draw_area_) {
+        world_->draw(*draw_area_);
     }
 }
 

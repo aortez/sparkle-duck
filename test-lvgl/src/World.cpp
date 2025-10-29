@@ -42,9 +42,8 @@ struct EventState {
 double World::ELASTICITY_FACTOR = 0.8;         // Energy preserved in reflections (0.0 to 1.0).
 double World::DIRT_FRAGMENTATION_FACTOR = 0.0; // Default dirt fragmentation factor.
 
-World::World(uint32_t width, uint32_t height, lv_obj_t* draw_area)
-    : draw_area(draw_area),
-      width(width),
+World::World(uint32_t width, uint32_t height)
+    : width(width),
       height(height),
       cells(width * height),
       selected_material_(MaterialType::DIRT),
@@ -1514,16 +1513,12 @@ void World::applyMoves()
     moves.clear();
 }
 
-void World::draw()
+void World::draw(lv_obj_t& drawArea)
 {
-    if (draw_area == nullptr) {
-        return;
-    }
-
     timers.startTimer("draw");
     for (uint32_t y = 0; y < height; y++) {
         for (uint32_t x = 0; x < width; x++) {
-            at(x, y).draw(draw_area, x, y, debugDrawEnabled);
+            at(x, y).draw(&drawArea, x, y, debugDrawEnabled);
         }
     }
     timers.stopTimer("draw");

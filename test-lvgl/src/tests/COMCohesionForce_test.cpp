@@ -23,8 +23,7 @@ protected:
         
         // Create a 7x7 world for testing COM cohesion forces.
         // Pass the UI draw area if in visual mode, otherwise nullptr.
-        lv_obj_t* draw_area = (visual_mode_ && ui_) ? ui_->getDrawArea() : nullptr;
-        world = std::make_unique<WorldB>(7, 7, draw_area);
+        world = std::make_unique<WorldB>(7, 7);
         world->setWallsEnabled(false); // Disable walls for clean testing.
         world->setAddParticlesEnabled(false); // Disable automatic particle addition for clean testing.
         
@@ -47,7 +46,7 @@ protected:
         if (visual_mode_ && world) {
             auto& coordinator = VisualTestCoordinator::getInstance();
             coordinator.postTaskSync([this] {
-                world->draw();
+                if (ui_) { world->draw(*ui_->getDrawArea()); }
             });
         }
     }
@@ -537,8 +536,7 @@ TEST_F(COMCohesionForceTest, VelocityConservationAfterHorizontalCollision) {
     //         --D.
     //         --D.
     world.reset();
-    lv_obj_t* draw_area = (visual_mode_ && ui_) ? ui_->getDrawArea() : nullptr;
-    world = std::make_unique<WorldB>(3, 4, draw_area);
+    world = std::make_unique<WorldB>(3, 4);
     world->setWallsEnabled(false);
     world->setAddParticlesEnabled(false);
     

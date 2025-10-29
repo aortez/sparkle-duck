@@ -18,8 +18,7 @@ protected:
         
         // Create a small 4x2 world for testing horizontal line stability.
         // Pass the UI draw area if in visual mode, otherwise nullptr.
-        lv_obj_t* draw_area = (visual_mode_ && ui_) ? ui_->getDrawArea() : nullptr;
-        world = std::make_unique<WorldB>(4, 2, draw_area);
+        world = std::make_unique<WorldB>(4, 2);
         
         // Disable walls to prevent boundary interference with our test setup.
         world->setWallsEnabled(false);
@@ -99,7 +98,7 @@ protected:
         if (visual_mode_ && world) {
             auto& coordinator = VisualTestCoordinator::getInstance();
             coordinator.postTaskSync([this] {
-                world->draw();
+                if (ui_) { world->draw(*ui_->getDrawArea()); }
             });
         }
     }

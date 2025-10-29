@@ -19,10 +19,9 @@ protected:
     void SetUp() override {
         // Create a mock draw_area pointer for World constructor.
         // World needs this but doesn't actually use it for pressure calculations.
-        void* mock_draw_area = MockDrawArea::create();
         
         // Create a world for testing (small size for performance).
-        world = std::make_unique<World>(8, 8, reinterpret_cast<lv_obj_t*>(mock_draw_area));
+        world = std::make_unique<World>(8, 8);
         world->setGravity(9.81);
     }
     

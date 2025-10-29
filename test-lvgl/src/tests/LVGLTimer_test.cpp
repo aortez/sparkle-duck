@@ -72,7 +72,7 @@ TEST_F(LVGLTimerTest, TimerCreatedWhenPushUpdatesEnabled) {
     SimulatorUI ui(screen_, eventRouter_.get());
     
     // Create a simple world and manager for UI.
-    auto world = createWorld(WorldType::RulesA, 10, 10, screen_);
+    auto world = createWorld(WorldType::RulesA, 10, 10);
     ui.setWorld(world.get());
     
     ui.initialize();
@@ -102,7 +102,7 @@ TEST_F(LVGLTimerTest, TimerCallbackRateIs60FPS) {
     SimulatorUI ui(screen_, eventRouter_.get());
     
     // Create a simple world and manager for UI.
-    auto world = createWorld(WorldType::RulesA, 10, 10, screen_);
+    auto world = createWorld(WorldType::RulesA, 10, 10);
     ui.setWorld(world.get());
     
     ui.initialize();
@@ -171,7 +171,7 @@ TEST_F(LVGLTimerTest, TimerIntegrationWithUIUpdateConsumer) {
     SimulatorUI ui(screen_, eventRouter_.get());
     
     // Create world for complete setup.
-    auto world = createWorld(WorldType::RulesA, 10, 10, screen_);
+    auto world = createWorld(WorldType::RulesA, 10, 10);
     ui.setWorld(world.get());
     
     ui.initialize();

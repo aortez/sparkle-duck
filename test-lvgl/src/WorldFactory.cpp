@@ -6,20 +6,19 @@
 #include <stdexcept>
 #include <string>
 
-std::unique_ptr<WorldInterface> createWorld(
-    WorldType type, uint32_t width, uint32_t height, lv_obj_t* draw_area)
+std::unique_ptr<WorldInterface> createWorld(WorldType type, uint32_t width, uint32_t height)
 {
     switch (type) {
         case WorldType::RulesA: {
             // Create original World (mixed materials).
-            auto world = std::make_unique<World>(width, height, draw_area);
+            auto world = std::make_unique<World>(width, height);
             world->setup(); // Ensure clean initial state with proper setup.
             return world;
         }
 
         case WorldType::RulesB: {
             // Create WorldB (pure materials).
-            auto worldB = std::make_unique<WorldB>(width, height, draw_area);
+            auto worldB = std::make_unique<WorldB>(width, height);
 
             // Apply default WorldB configuration.
             worldB->setWallsEnabled(false); // Default to walls disabled to match World behavior.

@@ -36,7 +36,7 @@ protected:
     }
     
     std::unique_ptr<WorldInterface> createTestWorld(WorldType type, uint32_t width, uint32_t height) {
-        auto world = ::createWorld(type, width, height, nullptr);
+        auto world = ::createWorld(type, width, height);
         
         // Common test setup.
         if (type == WorldType::RulesB) {
@@ -74,7 +74,7 @@ TEST_P(InterfaceCompatibilityTest, GridAccessMethods) {
     EXPECT_GE(world->getTimestep(), 0);  // Should be >= 0.
     
     // Draw area should be null (no UI in tests).
-    EXPECT_EQ(world->getDrawArea(), nullptr);
+    // Draw area is now passed to draw() when needed, not stored in world.
     
     spdlog::info("Grid access methods validated for {}", getWorldTypeName());
 }
