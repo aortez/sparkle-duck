@@ -44,6 +44,10 @@ void MaterialPicker::createMaterialSelector()
     lv_obj_set_style_pad_all(material_grid_, 0, 0);
     lv_obj_set_style_border_width(material_grid_, 1, 0);
     lv_obj_set_style_border_color(material_grid_, lv_color_hex(0x808080), 0);
+    lv_obj_set_style_bg_color(material_grid_, lv_color_hex(0x000000), 0);  // Black background.
+
+    // Disable scrollbars.
+    lv_obj_clear_flag(material_grid_, LV_OBJ_FLAG_SCROLLABLE);
 
     // Set grid layout - this creates a flexible grid.
     lv_obj_set_layout(material_grid_, LV_LAYOUT_GRID);

@@ -146,10 +146,10 @@ public:
     // =================================================================
 
     void setHydrostaticPressureEnabled(bool enabled) override;
-    bool isHydrostaticPressureEnabled() const override { return hydrostatic_pressure_enabled_; }
+    bool isHydrostaticPressureEnabled() const override { return hydrostatic_pressure_strength_ > 0.0; }
 
     void setDynamicPressureEnabled(bool enabled) override;
-    bool isDynamicPressureEnabled() const override { return dynamic_pressure_enabled_; }
+    bool isDynamicPressureEnabled() const override { return dynamic_pressure_strength_ > 0.0; }
 
     void setPressureDiffusionEnabled(bool enabled) override
     {
@@ -193,12 +193,6 @@ public:
     void setWallsEnabled(bool enabled) override;
     bool areWallsEnabled() const override; // WorldB defaults to true instead of false
 
-    // WORLDINTERFACE IMPLEMENTATION - CURSOR FORCE
-    void setCursorForceEnabled(bool enabled) override { cursor_force_enabled_ = enabled; }
-    bool isCursorForceEnabled() const override { return cursor_force_enabled_; }
-    void updateCursorForce(int pixelX, int pixelY, bool isActive) override;
-    void clearCursorForce() override { cursor_force_active_ = false; }
-
     // WORLDINTERFACE IMPLEMENTATION - DEBUG VISUALIZATION
     void setDebugDrawEnabled(bool enabled) override { debug_draw_enabled_ = enabled; }
     bool isDebugDrawEnabled() const override { return debug_draw_enabled_; }
@@ -212,9 +206,10 @@ public:
 
     void setCohesionComForceEnabled(bool enabled) override
     {
-        cohesion_com_force_enabled_ = enabled;
+        // Backward compatibility: set strength to 0 (disabled) or default (enabled).
+        cohesion_com_force_strength_ = enabled ? 150.0 : 0.0;
     }
-    bool isCohesionComForceEnabled() const override { return cohesion_com_force_enabled_; }
+    bool isCohesionComForceEnabled() const override { return cohesion_com_force_strength_ > 0.0; }
 
     void setCohesionComForceStrength(double strength) override
     {
@@ -366,10 +361,10 @@ private:
     // INTERNAL PHYSICS METHODS
     // =================================================================
 
-    void applyGravity(double deltaTime);
-    void applyAirResistance(double deltaTime);
-    void applyCohesionForces(double deltaTime);
-    void applyPressureForces(double deltaTime);
+    void applyGravity();
+    void applyAirResistance();
+    void applyCohesionForces();
+    void applyPressureForces();
     void resolveForces(double deltaTime);
 
     // Helper method for viscosity calculations.
@@ -412,29 +407,20 @@ private:
     PressureSystem pressure_system_;
 
     // Dual pressure system controls
-    bool hydrostatic_pressure_enabled_;
-    bool dynamic_pressure_enabled_;
     bool pressure_diffusion_enabled_;
-    double hydrostatic_pressure_strength_;
-    double dynamic_pressure_strength_;
+    double hydrostatic_pressure_strength_;  // 0 = disabled
+    double dynamic_pressure_strength_;      // 0 = disabled
 
     // World setup controls
     bool add_particles_enabled_;
-
-    // Cursor force state.
-    bool cursor_force_enabled_;
-    bool cursor_force_active_;
-    int cursor_force_x_;
-    int cursor_force_y_;
 
     // Debug visualization.
     bool debug_draw_enabled_;
 
     // Cohesion physics control.
     bool cohesion_bind_force_enabled_; // Enable/disable cohesion bind force (resistance)
-    bool cohesion_com_force_enabled_;  // Enable/disable cohesion COM force (attraction)
 
-    double cohesion_com_force_strength_; // Scaling factor for COM cohesion force magnitude
+    double cohesion_com_force_strength_; // Scaling factor for COM cohesion force magnitude (0 = disabled)
     double
         cohesion_bind_force_strength_; // Scaling factor for cohesion bind resistance - DEPRECATED
     uint32_t com_cohesion_range_;      // Range for COM cohesion neighbors (default 2)

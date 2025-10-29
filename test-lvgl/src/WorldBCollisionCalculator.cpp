@@ -360,21 +360,33 @@ void WorldBCollisionCalculator::handleElasticCollision(
     Vector2d surface_normal = move.boundary_normal.normalize();
 
     if (move.target_mass > 0.0 && !toCell.isEmpty()) {
-        // Proper elastic collision formula for two-body collision.
+        // Two-body elastic collision with proper normal/tangential decomposition.
         Vector2d target_velocity = toCell.getVelocity();
         double m1 = move.material_mass;
         double m2 = move.target_mass;
-        Vector2d v1 = incident_velocity;
-        Vector2d v2 = target_velocity;
 
-        // Elastic collision formulas: v1' = ((m1-m2)v1 + 2m2v2)/(m1+m2)
-        //                            v2' = ((m2-m1)v2 + 2m1v1)/(m1+m2)
-        Vector2d new_v1 = ((m1 - m2) * v1 + 2.0 * m2 * v2) / (m1 + m2);
-        Vector2d new_v2 = ((m2 - m1) * v2 + 2.0 * m1 * v1) / (m1 + m2);
+        // Decompose both velocities into normal and tangential components.
+        auto v1_comp = decomposeVelocity(incident_velocity, surface_normal);
+        auto v2_comp = decomposeVelocity(target_velocity, surface_normal);
 
-        // Apply restitution coefficient for energy loss.
-        fromCell.setVelocity(new_v1 * move.restitution_coefficient);
-        toCell.setVelocity(new_v2 * move.restitution_coefficient);
+        // Apply 1D elastic collision formulas ONLY to normal components.
+        // v1_normal' = ((m1-m2)*v1_normal + 2*m2*v2_normal)/(m1+m2)
+        // v2_normal' = ((m2-m1)*v2_normal + 2*m1*v1_normal)/(m1+m2)
+        double v1_normal_new_scalar =
+            ((m1 - m2) * v1_comp.normal_scalar + 2.0 * m2 * v2_comp.normal_scalar) / (m1 + m2);
+        double v2_normal_new_scalar =
+            ((m2 - m1) * v2_comp.normal_scalar + 2.0 * m1 * v1_comp.normal_scalar) / (m1 + m2);
+
+        // Apply restitution coefficient ONLY to normal components.
+        v1_normal_new_scalar *= move.restitution_coefficient;
+        v2_normal_new_scalar *= move.restitution_coefficient;
+
+        // Recombine: final velocity = tangential (preserved) + normal (modified).
+        Vector2d new_v1 = v1_comp.tangential + surface_normal * v1_normal_new_scalar;
+        Vector2d new_v2 = v2_comp.tangential + surface_normal * v2_normal_new_scalar;
+
+        fromCell.setVelocity(new_v1);
+        toCell.setVelocity(new_v2);
 
         // Separate particles to prevent repeated collisions.
         // Move the particle that crossed the boundary back slightly.
@@ -416,9 +428,13 @@ void WorldBCollisionCalculator::handleElasticCollision(
             fromCOM.y);
     }
     else {
-        // Empty target or zero mass - just reflect off surface.
-        Vector2d reflected_velocity =
-            incident_velocity.reflect(surface_normal) * move.restitution_coefficient;
+        // Empty target or zero mass - reflect off surface with proper decomposition.
+        auto v_comp = decomposeVelocity(incident_velocity, surface_normal);
+
+        // Apply restitution only to normal component, preserve tangential.
+        Vector2d v_normal_reflected = v_comp.normal * (-move.restitution_coefficient);
+        Vector2d reflected_velocity = v_comp.tangential + v_normal_reflected;
+
         fromCell.setVelocity(reflected_velocity);
 
         // Also apply separation for reflections.
@@ -464,13 +480,12 @@ void WorldBCollisionCalculator::handleInelasticCollision(
     Vector2d surface_normal = move.boundary_normal.normalize();
 
     // Decompose velocity into normal and tangential components.
-    Vector2d v_normal = surface_normal * incident_velocity.dot(surface_normal);
-    Vector2d v_tangential = incident_velocity - v_normal;
+    auto v_comp = decomposeVelocity(incident_velocity, surface_normal);
 
     // Apply restitution only to normal component, preserve tangential.
     double inelastic_restitution = move.restitution_coefficient * INELASTIC_RESTITUTION_FACTOR;
-    Vector2d v_normal_reflected = v_normal * (-inelastic_restitution);
-    Vector2d final_velocity = v_tangential + v_normal_reflected;
+    Vector2d v_normal_reflected = v_comp.normal * (-inelastic_restitution);
+    Vector2d final_velocity = v_comp.tangential + v_normal_reflected;
 
     // Apply the corrected velocity to the incident particle.
     fromCell.setVelocity(final_velocity);
@@ -479,15 +494,15 @@ void WorldBCollisionCalculator::handleInelasticCollision(
     // Even if material transfer fails, momentum must be conserved.
     if (move.target_mass > 0.0) {
         Vector2d momentum_transferred =
-            v_normal * (1.0 + inelastic_restitution) * move.material_mass;
+            v_comp.normal * (1.0 + inelastic_restitution) * move.material_mass;
         Vector2d target_velocity_change = momentum_transferred / move.target_mass;
         toCell.setVelocity(toCell.getVelocity() + target_velocity_change);
 
         spdlog::debug(
             "Momentum transfer: normal=({:.3f},{:.3f}) momentum=({:.3f},{:.3f}) "
             "target_vel_change=({:.3f},{:.3f})",
-            v_normal.x,
-            v_normal.y,
+            v_comp.normal.x,
+            v_comp.normal.y,
             momentum_transferred.x,
             momentum_transferred.y,
             target_velocity_change.x,
@@ -716,6 +731,17 @@ void WorldBCollisionCalculator::applyCellBoundaryReflection(
 // =================================================================
 // UTILITY METHODS.
 // =================================================================
+
+WorldBCollisionCalculator::VelocityComponents WorldBCollisionCalculator::decomposeVelocity(
+    const Vector2d& velocity, const Vector2d& surface_normal) const
+{
+    VelocityComponents components;
+    Vector2d normalized_normal = surface_normal.normalize();
+    components.normal_scalar = velocity.dot(normalized_normal);
+    components.normal = normalized_normal * components.normal_scalar;
+    components.tangential = velocity - components.normal;
+    return components;
+}
 
 bool WorldBCollisionCalculator::isMaterialRigid(MaterialType material)
 {

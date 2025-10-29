@@ -138,6 +138,9 @@ void SimulatorUI::initialize()
         throw std::runtime_error("SimulatorUI requires a valid screen object");
     }
 
+    // Set black background for the main screen.
+    lv_obj_set_style_bg_color(screen_, lv_color_hex(0x000000), 0);
+
     createDrawArea();
     createLabels();
     createWorldTypeColumn();
@@ -181,11 +184,13 @@ void SimulatorUI::createLabels()
     // Create mass label.
     mass_label_ = lv_label_create(screen_);
     lv_label_set_text(mass_label_, "Total Mass: 0.00");
+    lv_obj_set_style_text_color(mass_label_, lv_color_hex(0xFFFFFF), 0);  // White text.
     lv_obj_align(mass_label_, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 10);
 
     // Create FPS label - positioned over the world area.
     fps_label_ = lv_label_create(screen_);
     lv_label_set_text(fps_label_, "FPS: 0");
+    lv_obj_set_style_text_color(fps_label_, lv_color_hex(0xFFFFFF), 0);  // White text.
     lv_obj_align(fps_label_, LV_ALIGN_TOP_LEFT, 10, 10); // Top-left corner of world area.
 
     // Create frame limiting toggle button below FPS display.
@@ -202,6 +207,8 @@ void SimulatorUI::createWorldTypeColumn()
     // Create world type label.
     lv_obj_t* world_type_label = lv_label_create(screen_);
     lv_label_set_text(world_type_label, "World Type:");
+    lv_obj_set_style_text_color(world_type_label, lv_color_hex(0xFFFFFF), 0);  // White text.
+    lv_obj_set_style_bg_opa(world_type_label, LV_OPA_TRANSP, 0);  // Transparent background.
     lv_obj_align(world_type_label, LV_ALIGN_TOP_LEFT, WORLD_TYPE_COLUMN_X, 10);
 
     // Create world type button matrix with vertical stack.
@@ -216,6 +223,12 @@ void SimulatorUI::createWorldTypeColumn()
             .buttonCtrl(0, LV_BUTTONMATRIX_CTRL_CHECKABLE)
             .buttonCtrl(1, LV_BUTTONMATRIX_CTRL_CHECKABLE)
             .selectedButton(1) // WorldB is default.
+            .style(
+                LV_PART_MAIN,
+                [](lv_style_t* style) {
+                    lv_style_set_bg_color(style, lv_color_hex(0x000000));  // Black background.
+                    lv_style_set_bg_opa(style, LV_OPA_COVER);  // Fully opaque.
+                })
             .style(
                 LV_PART_ITEMS,
                 [](lv_style_t* style) {
@@ -233,12 +246,25 @@ void SimulatorUI::createWorldTypeColumn()
     // Scenario label.
     lv_obj_t* scenario_label = lv_label_create(screen_);
     lv_label_set_text(scenario_label, "Scenario:");
+    lv_obj_set_style_text_color(scenario_label, lv_color_hex(0xFFFFFF), 0);  // White text.
+    lv_obj_set_style_bg_opa(scenario_label, LV_OPA_TRANSP, 0);  // Transparent background.
     lv_obj_align(scenario_label, LV_ALIGN_TOP_LEFT, WORLD_TYPE_COLUMN_X, 135);
 
     // Scenario dropdown.
     scenario_dropdown_ = lv_dropdown_create(screen_);
     lv_obj_set_size(scenario_dropdown_, WORLD_TYPE_COLUMN_WIDTH, 30);
     lv_obj_align(scenario_dropdown_, LV_ALIGN_TOP_LEFT, WORLD_TYPE_COLUMN_X, 155);
+
+    // Dark mode styling for dropdown.
+    lv_obj_set_style_bg_color(scenario_dropdown_, lv_color_hex(0x404040), 0);  // Dark background.
+    lv_obj_set_style_text_color(scenario_dropdown_, lv_color_hex(0xFFFFFF), 0);  // White text.
+
+    // Style the dropdown list (the part that opens).
+    lv_obj_t* list = lv_dropdown_get_list(scenario_dropdown_);
+    if (list) {
+        lv_obj_set_style_bg_color(list, lv_color_hex(0x404040), 0);  // Dark background.
+        lv_obj_set_style_text_color(list, lv_color_hex(0xFFFFFF), 0);  // White text.
+    }
 
     // Populate dropdown with scenarios from registry.
     updateScenarioDropdown();
@@ -253,6 +279,8 @@ void SimulatorUI::createMaterialPicker()
     // Create material picker label.
     lv_obj_t* material_label = lv_label_create(screen_);
     lv_label_set_text(material_label, "Materials:");
+    lv_obj_set_style_text_color(material_label, lv_color_hex(0xFFFFFF), 0);  // White text.
+    lv_obj_set_style_bg_opa(material_label, LV_OPA_TRANSP, 0);  // Transparent background.
     lv_obj_align(
         material_label, LV_ALIGN_TOP_LEFT, WORLD_TYPE_COLUMN_X, 195); // Below scenario dropdown.
 
@@ -264,6 +292,10 @@ void SimulatorUI::createMaterialPicker()
     lv_obj_set_style_pad_all(picker_container, 5, 0);
     lv_obj_set_style_border_width(picker_container, 1, 0);
     lv_obj_set_style_border_color(picker_container, lv_color_hex(0x606060), 0);
+    lv_obj_set_style_bg_color(picker_container, lv_color_hex(0x000000), 0);  // Black background.
+
+    // Disable scrollbars.
+    lv_obj_clear_flag(picker_container, LV_OBJ_FLAG_SCROLLABLE);
 
     // Create MaterialPicker instance with event router.
     material_picker_ = std::make_unique<MaterialPicker>(picker_container, event_router_);
@@ -300,20 +332,36 @@ void SimulatorUI::createControlButtons()
     // === WorldA Pressure Controls ===.
     lv_obj_t* worldA_pressure_header = lv_label_create(screen_);
     lv_label_set_text(worldA_pressure_header, "=== WorldA Pressure ===");
+    lv_obj_set_style_text_color(worldA_pressure_header, lv_color_hex(0xFFFFFF), 0);  // White text.
     lv_obj_align(worldA_pressure_header, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 70);
 
     // Create pressure system dropdown.
     lv_obj_t* pressure_label = lv_label_create(screen_);
-    lv_label_set_text(pressure_label, "Pressure System:");
+    lv_label_set_text(pressure_label, "System:");
+    lv_obj_set_style_text_color(pressure_label, lv_color_hex(0xFFFFFF), 0);  // White text.
+    lv_obj_set_style_bg_opa(pressure_label, LV_OPA_TRANSP, 0);  // Transparent background.
     lv_obj_align(pressure_label, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 95);
 
-    LVGLEventBuilder::dropdown(screen_, event_router_)
-        .onPressureSystemChange()
-        .size(CONTROL_WIDTH, 40)
-        .position(MAIN_CONTROLS_X, 115, LV_ALIGN_TOP_LEFT)
-        .options("Original (COM)\nTop-Down Hydrostatic\nIterative Settling")
-        .selected(0)
-        .buildOrLog();
+    lv_obj_t* pressure_dropdown = LVGLEventBuilder::dropdown(screen_, event_router_)
+                                       .onPressureSystemChange()
+                                       .size(CONTROL_WIDTH, 40)
+                                       .position(MAIN_CONTROLS_X, 115, LV_ALIGN_TOP_LEFT)
+                                       .options("Original (COM)\nTop-Down Hydrostatic\nIterative Settling")
+                                       .selected(0)
+                                       .buildOrLog();
+
+    // Style the pressure dropdown to match blue buttons.
+    if (pressure_dropdown) {
+        lv_obj_set_style_bg_color(pressure_dropdown, lv_color_hex(0x0080FF), 0);  // Blue background.
+        lv_obj_set_style_text_color(pressure_dropdown, lv_color_hex(0xFFFFFF), 0);  // White text.
+
+        // Style the dropdown list (the part that opens).
+        lv_obj_t* list = lv_dropdown_get_list(pressure_dropdown);
+        if (list) {
+            lv_obj_set_style_bg_color(list, lv_color_hex(0x404040), 0);  // Dark background.
+            lv_obj_set_style_text_color(list, lv_color_hex(0xFFFFFF), 0);  // White text.
+        }
+    }
 
     // Pressure scale slider (WorldA only).
     LVGLEventBuilder::slider(screen_, event_router_)
@@ -322,23 +370,14 @@ void SimulatorUI::createControlButtons()
         .size(CONTROL_WIDTH, 10)
         .range(0, 1000)
         .value(100)
-        .label("Pressure Scale (WorldA)", 0, -20)
+        .label("Strength", 0, -20)
         .valueLabel("%.1f", 135, -20)
-        .buildOrLog();
-
-    // Create cursor force toggle button.
-    LVGLEventBuilder::button(screen_, event_router_)
-        .onForceToggle()
-        .size(CONTROL_WIDTH, 50)
-        .position(MAIN_CONTROLS_X, 205, LV_ALIGN_TOP_LEFT)
-        .text("Force: Off")
-        .toggle(true)
         .buildOrLog();
 
     // Create gravity slider (-10x to +10x Earth gravity).
     LVGLEventBuilder::slider(screen_, event_router_)
         .onGravityChange()
-        .position(MAIN_CONTROLS_X, 285, LV_ALIGN_TOP_LEFT)
+        .position(MAIN_CONTROLS_X, 245, LV_ALIGN_TOP_LEFT)
         .size(CONTROL_WIDTH, 10)
         .range(-1000, 1000) // -10x to +10x.
         .value(100)         // 1x Earth gravity (9.81).
@@ -349,7 +388,7 @@ void SimulatorUI::createControlButtons()
     // Create viscosity strength slider.
     LVGLEventBuilder::slider(screen_, event_router_)
         .onViscosityStrengthChange()
-        .position(MAIN_CONTROLS_X, 345, LV_ALIGN_TOP_LEFT)
+        .position(MAIN_CONTROLS_X, 285, LV_ALIGN_TOP_LEFT)
         .size(CONTROL_WIDTH, 10)
         .range(0, 200)
         .value(100)
@@ -357,32 +396,27 @@ void SimulatorUI::createControlButtons()
         .valueLabel("%.1f", 80, -20)
         .buildOrLog();
 
-    // Create cohesion force toggle button.
-    // TODO: This currently uses the same ToggleCohesionCommand as the bind button.
-    // May need separate commands for bind vs force cohesion.
-    LVGLEventBuilder::button(screen_, event_router_)
-        .onCohesionToggle() // TODO: Create onCohesionForceToggle() for clarity.
-        .size(CONTROL_WIDTH, 50)
-        .position(MAIN_CONTROLS_X, 390, LV_ALIGN_TOP_LEFT)
-        .text("Cohesion Force: Off")
-        .toggle(true)
-        .buildOrLog();
-
-    // Create COM cohesion strength slider below the force button.
-    LVGLEventBuilder::slider(screen_, event_router_)
-        .onCohesionForceStrengthChange()
-        .position(MAIN_CONTROLS_X, 460, LV_ALIGN_TOP_LEFT)
-        .size(CONTROL_WIDTH, 10)
-        .range(0, 30000)
-        .value(15000)
-        .label("Cohesion Strength", 0, -20)
-        .valueLabel("%.1f", 165, -20)
-        .buildOrLog();
+    // Create cohesion force toggle slider (integrated switch + slider).
+    cohesion_switch_ = LVGLEventBuilder::toggleSlider(screen_, event_router_)
+                           .label("Cohesion Force")
+                           .position(MAIN_CONTROLS_X, 320, LV_ALIGN_TOP_LEFT)
+                           .sliderWidth(CONTROL_WIDTH)
+                           .range(0, 30000)
+                           .value(15000)
+                           .defaultValue(15000)
+                           .valueScale(0.01)
+                           .valueFormat("%.1f")
+                           .valueLabelOffset(165, -20)
+                           .initiallyEnabled(false)
+                           .onValueChange([](double value) {
+                               return Event{SetCohesionForceStrengthCommand{value}};
+                           })
+                           .buildOrLog();
 
     // Create COM cohesion range slider.
     LVGLEventBuilder::slider(screen_, event_router_)
         .onCOMCohesionRangeChange()
-        .position(MAIN_CONTROLS_X, 510, LV_ALIGN_TOP_LEFT)
+        .position(MAIN_CONTROLS_X, 405, LV_ALIGN_TOP_LEFT)
         .size(CONTROL_WIDTH, 10)
         .range(1, 5)
         .value(1)
@@ -390,66 +424,76 @@ void SimulatorUI::createControlButtons()
         .valueLabel("%.0f", 120, -20)
         .buildOrLog();
 
-    // Create friction strength slider.
-    LVGLEventBuilder::slider(screen_, event_router_)
-        .onFrictionStrengthChange()
-        .position(MAIN_CONTROLS_X, 540, LV_ALIGN_TOP_LEFT)
-        .size(CONTROL_WIDTH, 10)
-        .range(0, 10)
-        .value(1)
-        .label("Friction Strength", 0, -20)
-        .valueLabel("%.1f", 120, -20)
+    // Create friction toggle slider (integrated switch + slider).
+    LVGLEventBuilder::toggleSlider(screen_, event_router_)
+        .label("Friction")
+        .position(MAIN_CONTROLS_X, 450, LV_ALIGN_TOP_LEFT)
+        .sliderWidth(CONTROL_WIDTH)
+        .range(0, 100)
+        .value(100)
+        .defaultValue(100)
+        .valueScale(0.01)
+        .valueFormat("%.2f")
+        .initiallyEnabled(true)
+        .onValueChange([](double value) {
+            return Event{SetFrictionStrengthCommand{value}};
+        })
         .buildOrLog();
 
-    // Create adhesion toggle button.
-    LVGLEventBuilder::button(screen_, event_router_)
-        .onAdhesionToggle()
-        .size(CONTROL_WIDTH, 50)
-        .position(MAIN_CONTROLS_X, 560, LV_ALIGN_TOP_LEFT)
-        .text("Adhesion: Off")
-        .toggle(true)
-        .buildOrLog();
+    // Create adhesion toggle slider (integrated switch + slider).
+    adhesion_switch_ = LVGLEventBuilder::toggleSlider(screen_, event_router_)
+                           .label("Adhesion")
+                           .position(MAIN_CONTROLS_X, 530, LV_ALIGN_TOP_LEFT)
+                           .sliderWidth(CONTROL_WIDTH)
+                           .range(0, 1000)
+                           .value(500)
+                           .defaultValue(500)
+                           .valueScale(0.01)
+                           .valueFormat("%.1f")
+                           .valueLabelOffset(140, -20)
+                           .initiallyEnabled(false)
+                           .onValueChange([](double value) {
+                               return Event{SetAdhesionStrengthCommand{value}};
+                           })
+                           .buildOrLog();
 
-    // Create adhesion strength slider.
-    LVGLEventBuilder::slider(screen_, event_router_)
-        .onAdhesionStrengthChange()
-        .position(MAIN_CONTROLS_X, 670, LV_ALIGN_TOP_LEFT)
-        .size(CONTROL_WIDTH, 10)
-        .range(0, 1000)
-        .value(500)
-        .label("Adhesion Strength", 0, -20)
-        .valueLabel("%.1f", 140, -20)
-        .buildOrLog();
-
-    // Create left throw toggle button.
-    LVGLEventBuilder::button(screen_, event_router_)
+    // Create left throw toggle.
+    LVGLEventBuilder::labeledSwitch(screen_, event_router_)
+        .label("Left Throw")
+        .position(MAIN_CONTROLS_X, 610, LV_ALIGN_TOP_LEFT)
         .onLeftThrowToggle()
-        .size(CONTROL_WIDTH, 50)
-        .position(MAIN_CONTROLS_X, 690, LV_ALIGN_TOP_LEFT)
-        .text("Left Throw: On")
+        .checked(false)
         .buildOrLog();
 
-    // Create right throw toggle button.
-    LVGLEventBuilder::button(screen_, event_router_)
+    // Create right throw toggle.
+    LVGLEventBuilder::labeledSwitch(screen_, event_router_)
+        .label("Right Throw")
+        .position(MAIN_CONTROLS_X, 640, LV_ALIGN_TOP_LEFT)
         .onRightThrowToggle()
-        .size(CONTROL_WIDTH, 50)
-        .position(MAIN_CONTROLS_X, 750, LV_ALIGN_TOP_LEFT)
-        .text("Right Throw: On")
+        .checked(true)
         .buildOrLog();
 
-    // Create quadrant toggle button.
-    LVGLEventBuilder::button(screen_, event_router_)
+    // Create quadrant toggle.
+    LVGLEventBuilder::labeledSwitch(screen_, event_router_)
+        .label("Quadrant")
+        .position(MAIN_CONTROLS_X, 670, LV_ALIGN_TOP_LEFT)
         .onQuadrantToggle()
-        .size(CONTROL_WIDTH, 50)
-        .position(MAIN_CONTROLS_X, 810, LV_ALIGN_TOP_LEFT)
-        .text("Quadrant: On")
+        .checked(true)
+        .buildOrLog();
+
+    // Create water column toggle.
+    LVGLEventBuilder::labeledSwitch(screen_, event_router_)
+        .label("Water Column")
+        .position(MAIN_CONTROLS_X, 700, LV_ALIGN_TOP_LEFT)
+        .onWaterColumnToggle()
+        .checked(true)
         .buildOrLog();
 
     // Create screenshot button.
     LVGLEventBuilder::button(screen_, event_router_)
         .onScreenshot() // Call event method first.
         .size(CONTROL_WIDTH, 50)
-        .position(MAIN_CONTROLS_X, 815, LV_ALIGN_TOP_LEFT)
+        .position(MAIN_CONTROLS_X, 730, LV_ALIGN_TOP_LEFT)
         .text("Screenshot")
         .buildOrLog();
 
@@ -457,8 +501,16 @@ void SimulatorUI::createControlButtons()
     LVGLEventBuilder::button(screen_, event_router_)
         .onPrintAscii()
         .size(CONTROL_WIDTH, 50)
-        .position(MAIN_CONTROLS_X, 875, LV_ALIGN_TOP_LEFT)
+        .position(MAIN_CONTROLS_X, 790, LV_ALIGN_TOP_LEFT)
         .text("Print ASCII")
+        .buildOrLog();
+
+    // Create spawn ball button.
+    LVGLEventBuilder::button(screen_, event_router_)
+        .onSpawnDirtBall()
+        .size(CONTROL_WIDTH, 50)
+        .position(MAIN_CONTROLS_X, 850, LV_ALIGN_TOP_LEFT)
+        .text("Spawn ball")
         .buildOrLog();
 
     // Time reversal controls have been moved to slider column.
@@ -632,67 +684,54 @@ void SimulatorUI::createSliders()
     // === WorldB Pressure Controls ===.
     lv_obj_t* worldB_pressure_header = lv_label_create(screen_);
     lv_label_set_text(worldB_pressure_header, "=== WorldB Pressure ===");
+    lv_obj_set_style_text_color(worldB_pressure_header, lv_color_hex(0xFFFFFF), 0);  // White text.
     lv_obj_align(worldB_pressure_header, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 620);
 
-    // Hydrostatic pressure toggle.
-    lv_obj_t* hydrostatic_label = lv_label_create(screen_);
-    lv_label_set_text(hydrostatic_label, "Hydrostatic Pressure");
-    lv_obj_align(hydrostatic_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 645);
-
-    hydrostatic_switch_ = LVGLEventBuilder::lvSwitch(screen_, event_router_)
-                              .onHydrostaticPressureToggle()
-                              .position(SLIDER_COLUMN_X + 180, 645, LV_ALIGN_TOP_LEFT)
-                              .checked(false)
+    // Hydrostatic pressure toggle slider (integrated switch + slider).
+    hydrostatic_switch_ = LVGLEventBuilder::toggleSlider(screen_, event_router_)
+                              .label("Hydrostatic Pressure")
+                              .position(SLIDER_COLUMN_X, 645, LV_ALIGN_TOP_LEFT)
+                              .sliderWidth(CONTROL_WIDTH)
+                              .range(0, 300)
+                              .value(100)
+                              .defaultValue(100)
+                              .valueScale(0.01)
+                              .valueFormat("%.2f")
+                              .initiallyEnabled(false)
+                              .onValueChange([](double value) {
+                                  return Event{SetHydrostaticPressureStrengthCommand{value}};
+                              })
                               .buildOrLog();
 
-    // Dynamic pressure toggle.
-    lv_obj_t* dynamic_label = lv_label_create(screen_);
-    lv_label_set_text(dynamic_label, "Dynamic Pressure");
-    lv_obj_align(dynamic_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 675);
-
-    dynamic_switch_ = LVGLEventBuilder::lvSwitch(screen_, event_router_)
-                          .onDynamicPressureToggle()
-                          .position(SLIDER_COLUMN_X + 180, 675, LV_ALIGN_TOP_LEFT)
-                          .checked(false)
+    // Dynamic pressure toggle slider (integrated switch + slider).
+    dynamic_switch_ = LVGLEventBuilder::toggleSlider(screen_, event_router_)
+                          .label("Dynamic Pressure")
+                          .position(SLIDER_COLUMN_X, 725, LV_ALIGN_TOP_LEFT)
+                          .sliderWidth(CONTROL_WIDTH)
+                          .range(0, 300)
+                          .value(100)
+                          .defaultValue(100)
+                          .valueScale(0.01)
+                          .valueFormat("%.2f")
+                          .initiallyEnabled(false)
+                          .onValueChange([](double value) {
+                              return Event{SetDynamicPressureStrengthCommand{value}};
+                          })
                           .buildOrLog();
 
     // Pressure diffusion toggle.
-    lv_obj_t* diffusion_label = lv_label_create(screen_);
-    lv_label_set_text(diffusion_label, "Pressure Diffusion");
-    lv_obj_align(diffusion_label, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 705);
-
-    diffusion_switch_ = LVGLEventBuilder::lvSwitch(screen_, event_router_)
+    diffusion_switch_ = LVGLEventBuilder::labeledSwitch(screen_, event_router_)
+                            .label("Pressure Diffusion")
+                            .position(SLIDER_COLUMN_X, 805, LV_ALIGN_TOP_LEFT)
+                            .switchOffset(145)
                             .onPressureDiffusionToggle()
-                            .position(SLIDER_COLUMN_X + 180, 705, LV_ALIGN_TOP_LEFT)
                             .checked(false)
                             .buildOrLog();
-
-    // Hydrostatic pressure strength slider (WorldB only).
-    LVGLEventBuilder::slider(screen_, event_router_)
-        .onHydrostaticPressureStrengthChange()
-        .position(SLIDER_COLUMN_X, 765, LV_ALIGN_TOP_LEFT)
-        .size(CONTROL_WIDTH, 10)
-        .range(0, 300)
-        .value(100)
-        .label("Hydrostatic Strength", 0, -20)
-        .valueLabel("%.1f", 140, -20)
-        .buildOrLog();
-
-    // Dynamic pressure strength slider (WorldB only) - migrated to EventRouter.
-    LVGLEventBuilder::slider(screen_, event_router_)
-        .onDynamicStrengthChange() // Uses new event system.
-        .position(SLIDER_COLUMN_X, 815, LV_ALIGN_TOP_LEFT)
-        .size(CONTROL_WIDTH, 10)
-        .range(0, 300) // 0.0 to 3.0 range.
-        .value(100)    // Default 1.0 -> 100.
-        .label("Dynamic Strength", 0, -20)
-        .valueLabel("%.1f", 140, -20)
-        .buildOrLog();
 
     // Air resistance slider.
     LVGLEventBuilder::slider(screen_, event_router_)
         .onAirResistanceChange()
-        .position(SLIDER_COLUMN_X, 865, LV_ALIGN_TOP_LEFT)
+        .position(SLIDER_COLUMN_X, 855, LV_ALIGN_TOP_LEFT)
         .size(CONTROL_WIDTH, 10)
         .range(0, 100)
         .value(10)
@@ -1021,7 +1060,6 @@ void SimulatorUI::drawAreaEventCb(lv_event_t* e)
                 getMaterialName(selectedMaterial));
             world_ptr->addMaterialAtPixel(point.x, point.y, selectedMaterial);
         }
-        world_ptr->updateCursorForce(point.x, point.y, true);
     }
     else if (code == LV_EVENT_PRESSING) {
         // Handle both grab and paint modes during drag.
@@ -1037,7 +1075,6 @@ void SimulatorUI::drawAreaEventCb(lv_event_t* e)
                 getMaterialName(data->ui->paint_material_));
             world_ptr->addMaterialAtPixel(point.x, point.y, data->ui->paint_material_);
         }
-        world_ptr->updateCursorForce(point.x, point.y, true);
     }
     else if (code == LV_EVENT_RELEASED) {
         // Handle both grab and paint modes on release.
@@ -1051,9 +1088,8 @@ void SimulatorUI::drawAreaEventCb(lv_event_t* e)
             // No special action needed for paint mode - just stop painting.
         }
 
-        // Reset interaction mode and clear cursor force.
+        // Reset interaction mode.
         data->ui->interaction_mode_ = data->ui->InteractionMode::NONE;
-        world_ptr->clearCursorForce();
 
         // Mark all cells dirty to ensure proper rendering updates.
         world_ptr->markAllCellsDirty();
@@ -1174,22 +1210,6 @@ void SimulatorUI::pressureSystemDropdownEventCb(lv_event_t* e)
                                            "Top-Down Hydrostatic",
                                            "Iterative Settling" };
             spdlog::info("Pressure system switched to: {}", system_names[selected]);
-        }
-    }
-}
-
-void SimulatorUI::forceBtnEventCb(lv_event_t* e)
-{
-    if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
-        CallbackData* data = static_cast<CallbackData*>(lv_event_get_user_data(e));
-        if (data && data->world) {
-            // Toggle cursor force.
-            static bool force_enabled = false;
-            force_enabled = !force_enabled;
-            data->world->setCursorForceEnabled(force_enabled);
-            const lv_obj_t* btn = static_cast<const lv_obj_t*>(lv_event_get_target(e));
-            lv_obj_t* label = lv_obj_get_child(btn, 0);
-            lv_label_set_text(label, force_enabled ? "Force: On" : "Force: Off");
         }
     }
 }

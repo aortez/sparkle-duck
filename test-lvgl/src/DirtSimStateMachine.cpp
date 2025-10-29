@@ -33,8 +33,8 @@ DirtSimStateMachine::DirtSimStateMachine(lv_disp_t* display)
     }
 
     // Default grid size (matches main.cpp calculation).
-    const int grid_width = 7;                // (850 / 100) - 1, where 100 is Cell::WIDTH.
-    const int grid_height = 7;               // (850 / 100) - 1, where 100 is Cell::HEIGHT.
+    const int grid_width = 28;               // 850 / 30, where 30 is default Cell::WIDTH.
+    const int grid_height = 28;              // 850 / 30, where 30 is default Cell::HEIGHT.
     WorldType worldType = WorldType::RulesB; // Default.
 
     simulationManager = std::make_unique<SimulationManager>(
@@ -209,7 +209,6 @@ UIUpdateEvent DirtSimStateMachine::buildUIUpdate()
         update.physicsParams.elasticity = world->getElasticityFactor();
         update.physicsParams.timescale = world->getTimescale();
         update.debugEnabled = world->isDebugDrawEnabled();
-        update.forceEnabled = world->isCursorForceEnabled();
         update.cohesionEnabled = world->isCohesionComForceEnabled();
         update.adhesionEnabled = world->isAdhesionEnabled();
         update.timeHistoryEnabled = world->isTimeReversalEnabled();

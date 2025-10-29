@@ -258,6 +258,8 @@ DefaultWorldSetup::~DefaultWorldSetup()
 // ConfigurableWorldSetup implementation.
 void ConfigurableWorldSetup::setup(WorldInterface& world)
 {
+    spdlog::info("ConfigurableWorldSetup::setup called - waterColumnEnabled={}", waterColumnEnabled);
+
     if (lowerRightQuadrantEnabled) {
         fillLowerRightQuadrant(world);
     }
@@ -266,6 +268,18 @@ void ConfigurableWorldSetup::setup(WorldInterface& world)
     }
     if (middleMetalWallEnabled) {
         makeMiddleMetalWall(world);
+    }
+    if (waterColumnEnabled) {
+        // Add 5-wide × 20-tall water column on left side (top 20 cells).
+        spdlog::info("Adding water column (5 wide × 20 tall) on left side");
+        for (uint32_t y = 0; y < 20 && y < world.getHeight(); ++y) {
+            for (uint32_t x = 1; x <= 5 && x < world.getWidth(); ++x) {
+                CellInterface& cell = world.getCellInterface(x, y);
+                cell.addWater(1.0);  // Add full cell of water.
+            }
+        }
+    } else {
+        spdlog::info("Water column NOT enabled - skipping");
     }
 }
 

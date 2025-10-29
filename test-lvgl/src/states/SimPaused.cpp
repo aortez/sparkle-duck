@@ -188,61 +188,12 @@ State::Any SimPaused::onEvent(const ToggleDebugCommand& /*cmd. */, DirtSimStateM
     return *this;
 }
 
-State::Any SimPaused::onEvent(const ToggleForceCommand& /*cmd. */, DirtSimStateMachine& dsm) {
-    if (auto* simMgr = dsm.getSimulationManager()) {
-        if (auto* world = simMgr->getWorld()) {
-            bool newValue = !world->isCursorForceEnabled();
-            world->setCursorForceEnabled(newValue);
-            spdlog::info("SimPaused: ToggleForceCommand - Force viz now: {}", newValue);
-
-            
-                UIUpdateEvent update = dsm.buildUIUpdate();
-                update.dirty.uiState = true;
-                dsm.getSharedState().pushUIUpdate(std::move(update));
-        }
-    }
-    return *this;
-}
-
-State::Any SimPaused::onEvent(const ToggleCohesionCommand& /*cmd. */, DirtSimStateMachine& dsm) {
-    if (auto* simMgr = dsm.getSimulationManager()) {
-        if (auto* world = simMgr->getWorld()) {
-            bool newValue = !world->isCohesionComForceEnabled();
-            world->setCohesionComForceEnabled(newValue);
-            spdlog::info("SimPaused: ToggleCohesionCommand - Cohesion now: {}", newValue);
-
-            
-                UIUpdateEvent update = dsm.buildUIUpdate();
-                update.dirty.uiState = true;
-                dsm.getSharedState().pushUIUpdate(std::move(update));
-        }
-    }
-    return *this;
-}
-
 State::Any SimPaused::onEvent(const ToggleCohesionForceCommand& /*cmd. */, DirtSimStateMachine& dsm) {
     if (auto* simMgr = dsm.getSimulationManager()) {
         if (auto* world = simMgr->getWorld()) {
             bool newValue = !world->isCohesionComForceEnabled();
             world->setCohesionComForceEnabled(newValue);
             spdlog::info("SimPaused: ToggleCohesionForceCommand - Cohesion force now: {}", newValue);
-
-            
-                UIUpdateEvent update = dsm.buildUIUpdate();
-                update.dirty.uiState = true;
-                dsm.getSharedState().pushUIUpdate(std::move(update));
-        }
-    }
-    return *this;
-}
-
-State::Any SimPaused::onEvent(const ToggleAdhesionCommand& /*cmd. */, DirtSimStateMachine& dsm) {
-    if (auto* simMgr = dsm.getSimulationManager()) {
-        if (auto* world = simMgr->getWorld()) {
-            bool newValue = !world->isAdhesionEnabled();
-            world->setAdhesionEnabled(newValue);
-            spdlog::info("SimPaused: ToggleAdhesionCommand - Adhesion now: {}", newValue);
-
             
                 UIUpdateEvent update = dsm.buildUIUpdate();
                 update.dirty.uiState = true;
@@ -277,7 +228,27 @@ State::Any SimPaused::onEvent(const PrintAsciiDiagramCommand& /*cmd. */, DirtSim
     else {
         spdlog::warn("PrintAsciiDiagramCommand: No world available");
     }
-    
+
+    return *this;
+}
+
+State::Any SimPaused::onEvent(const SpawnDirtBallCommand& /*cmd. */, DirtSimStateMachine& dsm) {
+    // Get the current world and spawn a 5x5 ball at top center.
+    if (dsm.simulationManager && dsm.simulationManager->getWorld()) {
+        auto* world = dsm.simulationManager->getWorld();
+
+        // Calculate the top center position.
+        uint32_t centerX = world->getWidth() / 2;
+        uint32_t topY = 2; // Start at row 2 to avoid the very top edge.
+
+        // Spawn a 5x5 ball of the currently selected material.
+        MaterialType selectedMaterial = world->getSelectedMaterial();
+        world->spawnMaterialBall(selectedMaterial, centerX, topY, 2);
+    }
+    else {
+        spdlog::warn("SpawnDirtBallCommand: No world available");
+    }
+
     return *this;
 }
 

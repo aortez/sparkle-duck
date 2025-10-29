@@ -136,6 +136,5 @@ TEST_F(SharedSimStatePushUpdateTest, CompleteUIUpdateFlow) {
     EXPECT_EQ(popped->selectedMaterial, MaterialType::WATER);
     EXPECT_EQ(popped->physicsParams.gravity, 9.81);
     EXPECT_TRUE(popped->debugEnabled);
-    EXPECT_TRUE(popped->forceEnabled);
     EXPECT_EQ(popped->worldType, "WorldA");
 }

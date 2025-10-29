@@ -23,24 +23,19 @@ public:
     }
     
     std::unique_ptr<WorldSetup> createWorldSetup() const override {
-        // Create a ConfigurableWorldSetup that will persist with the world
-        class SandboxConfigurableSetup : public ConfigurableWorldSetup {
-        public:
-            void setup(WorldInterface& world) override {
-                // Only fill the lower right quadrant with dirt
-                // Don't call makeWalls() - this is the sandbox behavior
-                fillLowerRightQuadrant(world);
-            }
-        };
-        
-        auto configurableSetup = std::make_unique<SandboxConfigurableSetup>();
-        
-        // Configure initial settings
-        configurableSetup->setLeftThrowEnabled(true);
+        // Create a ConfigurableWorldSetup with sandbox-specific defaults.
+        auto configurableSetup = std::make_unique<ConfigurableWorldSetup>();
+
+        // Configure sandbox settings.
+        configurableSetup->setLowerRightQuadrantEnabled(true);
+        configurableSetup->setWallsEnabled(true);  // Walls enabled for physics containment.
+        configurableSetup->setMiddleMetalWallEnabled(false);
+        configurableSetup->setLeftThrowEnabled(false);
         configurableSetup->setRightThrowEnabled(true);
         configurableSetup->setTopDropEnabled(true);
-        configurableSetup->setRainRate(0.0); // No rain by default
-        
+        configurableSetup->setRainRate(0.0); // No rain by default.
+        configurableSetup->setWaterColumnEnabled(true); // On by default.
+
         return configurableSetup;
     }
     

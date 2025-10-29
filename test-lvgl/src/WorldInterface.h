@@ -108,6 +108,10 @@ public:
     // Check if cell at pixel coordinates has material.
     virtual bool hasMaterialAtPixel(int pixelX, int pixelY) const = 0;
 
+    // Spawn a ball of material at the given cell coordinates.
+    // Helper method that spawns a radius x radius square of material.
+    void spawnMaterialBall(MaterialType type, uint32_t centerX, uint32_t centerY, uint32_t radius = 2);
+
     // =================================================================
     // DRAG INTERACTION
     // =================================================================
@@ -247,6 +251,9 @@ public:
     // Set rain particle generation rate.
     virtual void setRainRate(double rate);
 
+    // Enable/disable water column on left side.
+    virtual void setWaterColumnEnabled(bool enabled);
+
     // Check if left throw is enabled.
     virtual bool isLeftThrowEnabled() const;
 
@@ -262,21 +269,8 @@ public:
     // Get current rain rate.
     virtual double getRainRate() const;
 
-    // =================================================================
-    // CURSOR FORCE INTERACTION
-    // =================================================================
-
-    // Enable/disable cursor force interaction.
-    virtual void setCursorForceEnabled(bool enabled) = 0;
-
-    // Check if cursor force is enabled.
-    virtual bool isCursorForceEnabled() const = 0;
-
-    // Update cursor force at pixel coordinates.
-    virtual void updateCursorForce(int pixelX, int pixelY, bool isActive) = 0;
-
-    // Clear cursor force effect.
-    virtual void clearCursorForce() = 0;
+    // Check if water column is enabled.
+    virtual bool isWaterColumnEnabled() const;
 
     // =================================================================
     // DEBUG VISUALIZATION

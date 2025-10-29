@@ -39,37 +39,6 @@ struct MaterialProperties {
                                       // (0.02-0.1).
     bool is_fluid;                    // True for materials that flow freely.
     bool is_rigid;                    // True for materials that only compress, don't flow.
-
-    MaterialProperties(
-        double d,
-        double e,
-        double c,
-        double a,
-        double cmc,
-        double pd,
-        double v,
-        double ms,
-        double sfc,
-        double kfc,
-        double sv,
-        double ftw,
-        bool fluid,
-        bool rigid)
-        : density(d),
-          elasticity(e),
-          cohesion(c),
-          adhesion(a),
-          com_mass_constant(cmc),
-          pressure_diffusion(pd),
-          viscosity(v),
-          motion_sensitivity(ms),
-          static_friction_coefficient(sfc),
-          kinetic_friction_coefficient(kfc),
-          stick_velocity(sv),
-          friction_transition_width(ftw),
-          is_fluid(fluid),
-          is_rigid(rigid)
-    {}
 };
 
 /**

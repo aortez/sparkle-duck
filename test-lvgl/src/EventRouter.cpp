@@ -66,23 +66,21 @@ void EventRouter::processImmediateEvent(const PrintAsciiDiagramCommand& /*cmd. *
     }
 }
 
-void EventRouter::processImmediateEvent(const ToggleForceCommand& /*cmd. */)
+void EventRouter::processImmediateEvent(const SpawnDirtBallCommand& /*cmd. */)
 {
+    // Get the current world from shared state.
     auto* world = sharedState_.getCurrentWorld();
     if (world) {
-        bool newValue = !world->isCursorForceEnabled();
-        world->setCursorForceEnabled(newValue);
-        spdlog::info("Processing ToggleForceCommand - Force visualization now: {}", newValue);
-    }
-}
+        // Calculate the top center position.
+        uint32_t centerX = world->getWidth() / 2;
+        uint32_t topY = 2; // Start at row 2 to avoid the very top edge.
 
-void EventRouter::processImmediateEvent(const ToggleCohesionCommand& /*cmd. */)
-{
-    auto* world = sharedState_.getCurrentWorld();
-    if (world) {
-        bool newValue = !world->isCohesionComForceEnabled();
-        world->setCohesionComForceEnabled(newValue);
-        spdlog::info("Processing ToggleCohesionCommand - Cohesion physics now: {}", newValue);
+        // Spawn a 5x5 ball of the currently selected material.
+        MaterialType selectedMaterial = world->getSelectedMaterial();
+        world->spawnMaterialBall(selectedMaterial, centerX, topY, 2);
+    }
+    else {
+        spdlog::warn("SpawnDirtBallCommand: No world available");
     }
 }
 
@@ -94,17 +92,6 @@ void EventRouter::processImmediateEvent(const ToggleCohesionForceCommand& /*cmd.
         world->setCohesionComForceEnabled(newValue);
         spdlog::info(
             "Processing ToggleCohesionForceCommand - Cohesion force physics now: {}", newValue);
-    }
-}
-
-void EventRouter::processImmediateEvent(const ToggleAdhesionCommand& /*cmd. */)
-{
-    auto* world = sharedState_.getCurrentWorld();
-    if (world) {
-        bool newValue = !world->isAdhesionEnabled();
-        world->setAdhesionEnabled(newValue);
-        Cell::adhesionDrawEnabled = newValue;
-        spdlog::info("Processing ToggleAdhesionCommand - Adhesion physics now: {}", newValue);
     }
 }
 

@@ -64,7 +64,6 @@ struct UIUpdateEvent {
     // UI state.
     bool isPaused = false;           ///< Simulation paused state.
     bool debugEnabled = false;       ///< Debug visualization state.
-    bool forceEnabled = false;       ///< Force visualization state.
     bool cohesionEnabled = true;     ///< Cohesion physics state.
     bool adhesionEnabled = true;     ///< Adhesion physics state.
     bool timeHistoryEnabled = false; ///< Time history tracking state.
@@ -418,31 +417,10 @@ struct ToggleDebugCommand {
 };
 
 /**
- * @brief Toggle cursor force visualization.
- */
-struct ToggleForceCommand {
-    static constexpr const char* name() { return "ToggleForceCommand"; }
-};
-
-/**
- * @brief Toggle cohesion physics.
- */
-struct ToggleCohesionCommand {
-    static constexpr const char* name() { return "ToggleCohesionCommand"; }
-};
-
-/**
  * @brief Toggle cohesion force physics.
  */
 struct ToggleCohesionForceCommand {
     static constexpr const char* name() { return "ToggleCohesionForceCommand"; }
-};
-
-/**
- * @brief Toggle adhesion physics.
- */
-struct ToggleAdhesionCommand {
-    static constexpr const char* name() { return "ToggleAdhesionCommand"; }
 };
 
 /**
@@ -485,6 +463,13 @@ struct SetPressureSystemCommand {
  */
 struct ToggleWallsCommand {
     static constexpr const char* name() { return "ToggleWallsCommand"; }
+};
+
+/**
+ * @brief Toggle water column on left side.
+ */
+struct ToggleWaterColumnCommand {
+    static constexpr const char* name() { return "ToggleWaterColumnCommand"; }
 };
 
 /**
@@ -538,6 +523,13 @@ struct QuitApplicationCommand {
  */
 struct PrintAsciiDiagramCommand {
     static constexpr const char* name() { return "PrintAsciiDiagramCommand"; }
+};
+
+/**
+ * @brief Spawn a 5x5 dirt ball at the top center of the world.
+ */
+struct SpawnDirtBallCommand {
+    static constexpr const char* name() { return "SpawnDirtBallCommand"; }
 };
 
 // =================================================================
@@ -628,10 +620,7 @@ using Event = std::variant<
     SetDynamicPressureStrengthCommand,
     SetRainRateCommand,
     ToggleDebugCommand,
-    ToggleForceCommand,
-    ToggleCohesionCommand,
     ToggleCohesionForceCommand,
-    ToggleAdhesionCommand,
     ToggleTimeHistoryCommand,
 
     // Material & world controls
@@ -639,6 +628,7 @@ using Event = std::variant<
     SetFragmentationCommand,
     SetPressureSystemCommand,
     ToggleWallsCommand,
+    ToggleWaterColumnCommand,
     ToggleLeftThrowCommand,
     ToggleRightThrowCommand,
     ToggleQuadrantCommand,
@@ -648,6 +638,7 @@ using Event = std::variant<
     CaptureScreenshotCommand,
     QuitApplicationCommand,
     PrintAsciiDiagramCommand,
+    SpawnDirtBallCommand,
     SelectMaterialCommand,
 
     // State transitions

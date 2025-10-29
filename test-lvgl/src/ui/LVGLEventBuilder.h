@@ -24,6 +24,8 @@ public:
     class SwitchBuilder;
     class ButtonMatrixBuilder;
     class DropdownBuilder;
+    class ToggleSliderBuilder;
+    class LabeledSwitchBuilder;
 
     /**
      * @brief Create a slider with event routing support.
@@ -49,6 +51,17 @@ public:
      * @brief Create a dropdown with event routing support.
      */
     static DropdownBuilder dropdown(lv_obj_t* parent, EventRouter* router);
+
+    /**
+     * @brief Create a toggle slider (switch + slider combo) with event routing support.
+     */
+    static ToggleSliderBuilder toggleSlider(lv_obj_t* parent, EventRouter* router);
+
+    /**
+     * @brief Create a labeled switch (label + switch combo) with event routing support.
+     */
+    static LabeledSwitchBuilder labeledSwitch(lv_obj_t* parent, EventRouter* router);
+
     /**
      * @brief Extended SliderBuilder with event system integration.
      */
@@ -232,7 +245,12 @@ public:
          * @brief Convenience method for print ASCII button.
          */
         ButtonBuilder& onPrintAscii();
-        
+
+        /**
+         * @brief Convenience method for spawn dirt ball button.
+         */
+        ButtonBuilder& onSpawnDirtBall();
+
         /**
          * @brief Convenience method for debug toggle button.
          */
@@ -247,22 +265,7 @@ public:
          * @brief Convenience method for screenshot button.
          */
         ButtonBuilder& onScreenshot();
-        
-        /**
-         * @brief Convenience method for force toggle button.
-         */
-        ButtonBuilder& onForceToggle();
-        
-        /**
-         * @brief Convenience method for cohesion toggle button.
-         */
-        ButtonBuilder& onCohesionToggle();
-        
-        /**
-         * @brief Convenience method for adhesion toggle button.
-         */
-        ButtonBuilder& onAdhesionToggle();
-        
+
         /**
          * @brief Convenience method for time history toggle button.
          */
@@ -339,6 +342,26 @@ public:
         SwitchBuilder& onPressureDiffusionToggle();
 
         /**
+         * @brief Convenience method for water column toggle.
+         */
+        SwitchBuilder& onWaterColumnToggle();
+
+        /**
+         * @brief Convenience method for left throw toggle.
+         */
+        SwitchBuilder& onLeftThrowToggle();
+
+        /**
+         * @brief Convenience method for right throw toggle.
+         */
+        SwitchBuilder& onRightThrowToggle();
+
+        /**
+         * @brief Convenience method for quadrant toggle.
+         */
+        SwitchBuilder& onQuadrantToggle();
+
+        /**
          * @brief Set position of the switch.
          */
         SwitchBuilder& position(int x, int y, lv_align_t align = LV_ALIGN_TOP_LEFT);
@@ -370,6 +393,197 @@ public:
         std::shared_ptr<std::pair<Event, Event>> toggleEvents_;
         std::optional<std::tuple<int, int, lv_align_t>> position_;
         bool initialChecked_ = false;
+    };
+
+    /**
+     * @brief ToggleSliderBuilder - Combined toggle switch + slider component.
+     *
+     * Creates a compact control with:
+     * - Label (feature name)
+     * - Switch (enable/disable)
+     * - Slider (strength/value control)
+     * - Value label (numeric display)
+     *
+     * When toggled OFF: Slider disabled/grayed, value set to 0, last value saved.
+     * When toggled ON: Slider enabled, last value restored (or default).
+     * Model stores only the numeric value (0.0 = disabled).
+     */
+    class ToggleSliderBuilder {
+    public:
+        explicit ToggleSliderBuilder(lv_obj_t* parent, EventRouter* router)
+            : parent_(parent), eventRouter_(router) {}
+
+        /**
+         * @brief Set the label text for the feature.
+         */
+        ToggleSliderBuilder& label(const char* text);
+
+        /**
+         * @brief Set position for the control group.
+         * @param x X coordinate for label and switch.
+         * @param y Y coordinate for label and switch (slider appears below).
+         */
+        ToggleSliderBuilder& position(int x, int y, lv_align_t align = LV_ALIGN_TOP_LEFT);
+
+        /**
+         * @brief Set slider width (height is fixed at 10px).
+         */
+        ToggleSliderBuilder& sliderWidth(int width);
+
+        /**
+         * @brief Set slider range (min, max).
+         */
+        ToggleSliderBuilder& range(int min, int max);
+
+        /**
+         * @brief Set initial slider value.
+         */
+        ToggleSliderBuilder& value(int initialValue);
+
+        /**
+         * @brief Set default value when toggle is turned on (if no saved value).
+         */
+        ToggleSliderBuilder& defaultValue(int defValue);
+
+        /**
+         * @brief Set value scale factor (e.g., 0.01 to convert 0-1000 to 0.0-10.0).
+         */
+        ToggleSliderBuilder& valueScale(double scale);
+
+        /**
+         * @brief Set value label format string (e.g., "%.1f").
+         */
+        ToggleSliderBuilder& valueFormat(const char* format);
+
+        /**
+         * @brief Set value label offset from slider.
+         */
+        ToggleSliderBuilder& valueLabelOffset(int x, int y);
+
+        /**
+         * @brief Set initial toggle state (default: false/off).
+         */
+        ToggleSliderBuilder& initiallyEnabled(bool enabled);
+
+        /**
+         * @brief Set event generator function (takes scaled value, returns Event).
+         */
+        ToggleSliderBuilder& onValueChange(std::function<Event(double)> handler);
+
+        /**
+         * @brief Build the toggle slider component.
+         * @return The switch widget (primary interactive element).
+         */
+        lv_obj_t* buildOrLog();
+
+    private:
+        lv_obj_t* parent_;
+        EventRouter* eventRouter_;
+
+        const char* labelText_ = "Feature";
+        std::optional<std::tuple<int, int, lv_align_t>> position_;
+        int sliderWidth_ = 200;
+        int rangeMin_ = 0;
+        int rangeMax_ = 100;
+        int initialValue_ = 0;
+        int defaultValue_ = 50;
+        double valueScale_ = 1.0;
+        const char* valueFormat_ = "%.1f";
+        int valueLabelOffsetX_ = 140;
+        int valueLabelOffsetY_ = -20;
+        bool initiallyEnabled_ = false;
+        std::function<Event(double)> eventGenerator_;
+    };
+
+    /**
+     * @brief LabeledSwitchBuilder - Label + switch combo with proper vertical centering.
+     *
+     * Creates a compact control with:
+     * - Label (feature name) on the left
+     * - Switch (toggle) on the right, vertically centered with label
+     *
+     * Automatically handles vertical alignment issues between text baseline and switch center.
+     */
+    class LabeledSwitchBuilder {
+    public:
+        explicit LabeledSwitchBuilder(lv_obj_t* parent, EventRouter* router)
+            : parent_(parent), eventRouter_(router) {}
+
+        /**
+         * @brief Set the label text.
+         */
+        LabeledSwitchBuilder& label(const char* text);
+
+        /**
+         * @brief Set position for the control (label position).
+         */
+        LabeledSwitchBuilder& position(int x, int y, lv_align_t align = LV_ALIGN_TOP_LEFT);
+
+        /**
+         * @brief Set switch offset from label (default: 150px).
+         */
+        LabeledSwitchBuilder& switchOffset(int offset);
+
+        /**
+         * @brief Set initial checked state.
+         */
+        LabeledSwitchBuilder& checked(bool isChecked);
+
+        /**
+         * @brief Set toggle events (checkedEvent, uncheckedEvent).
+         */
+        LabeledSwitchBuilder& onToggle(Event checkedEvent, Event uncheckedEvent);
+
+        /**
+         * @brief Convenience method for water column toggle.
+         */
+        LabeledSwitchBuilder& onWaterColumnToggle();
+
+        /**
+         * @brief Convenience method for left throw toggle.
+         */
+        LabeledSwitchBuilder& onLeftThrowToggle();
+
+        /**
+         * @brief Convenience method for right throw toggle.
+         */
+        LabeledSwitchBuilder& onRightThrowToggle();
+
+        /**
+         * @brief Convenience method for quadrant toggle.
+         */
+        LabeledSwitchBuilder& onQuadrantToggle();
+
+        /**
+         * @brief Convenience method for hydrostatic pressure toggle.
+         */
+        LabeledSwitchBuilder& onHydrostaticPressureToggle();
+
+        /**
+         * @brief Convenience method for dynamic pressure toggle.
+         */
+        LabeledSwitchBuilder& onDynamicPressureToggle();
+
+        /**
+         * @brief Convenience method for pressure diffusion toggle.
+         */
+        LabeledSwitchBuilder& onPressureDiffusionToggle();
+
+        /**
+         * @brief Build the labeled switch.
+         * @return The switch widget.
+         */
+        lv_obj_t* buildOrLog();
+
+    private:
+        lv_obj_t* parent_;
+        EventRouter* eventRouter_;
+
+        const char* labelText_ = "Feature";
+        std::optional<std::tuple<int, int, lv_align_t>> position_;
+        int switchOffset_ = 150;
+        bool initiallyChecked_ = false;
+        std::shared_ptr<std::pair<Event, Event>> toggleEvents_;
     };
 
     /**

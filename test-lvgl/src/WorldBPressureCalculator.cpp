@@ -207,16 +207,17 @@ double WorldBPressureCalculator::getHydrostaticWeight(MaterialType type) const
     // Material-specific hydrostatic pressure sensitivity.
     switch (type) {
         case MaterialType::WATER:
-            return 1.0; // High hydrostatic sensitivity.
+            return 1.0;
         case MaterialType::SAND:
+          return 0.7;
         case MaterialType::DIRT:
-            return 0.7; // Moderate hydrostatic sensitivity.
+            return 0.3;
         case MaterialType::WOOD:
-            return 0.3; // Low hydrostatic sensitivity.
+            return 0.1;
         case MaterialType::METAL:
-            return 0.1; // Very low hydrostatic sensitivity.
+            return 0.05;
         case MaterialType::LEAF:
-            return 0.4; // Low-moderate sensitivity.
+            return 0.3;
         case MaterialType::WALL:
         case MaterialType::AIR:
         default:
@@ -911,7 +912,17 @@ void WorldBPressureCalculator::applyPressureDiffusion(double deltaTime)
 
             // Update pressure with diffusion flux.
             // Scale by deltaTime for frame-rate independence.
-            new_pressure[idx] = current_pressure + pressure_flux * deltaTime;
+            // Apply stability limiter to prevent numerical instability.
+            double pressure_change = pressure_flux * deltaTime;
+
+            // Limit maximum pressure change per timestep to prevent explosions.
+            // This ensures CFL stability for explicit diffusion scheme.
+            double max_change = current_pressure * 0.5 + 0.1; // Max 50% change + small absolute floor.
+            if (std::abs(pressure_change) > max_change) {
+                pressure_change = std::copysign(max_change, pressure_change);
+            }
+
+            new_pressure[idx] = current_pressure + pressure_change;
 
             // Ensure pressure doesn't go negative.
             if (new_pressure[idx] < 0.0) {

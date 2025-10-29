@@ -79,6 +79,10 @@ private:
     lv_obj_t* dynamic_switch_ = nullptr;
     lv_obj_t* diffusion_switch_ = nullptr;
 
+    // Physics control switches.
+    lv_obj_t* cohesion_switch_ = nullptr;
+    lv_obj_t* adhesion_switch_ = nullptr;
+
     // Slider references for UI sync after scenario changes.
     lv_obj_t* pressure_scale_slider_ = nullptr;
     lv_obj_t* pressure_scale_label_ = nullptr;
@@ -149,7 +153,6 @@ private:
     static void debugBtnEventCb(lv_event_t* e);
     static void pressureSystemDropdownEventCb(lv_event_t* e);
     static void worldTypeButtonMatrixEventCb(lv_event_t* e);
-    static void forceBtnEventCb(lv_event_t* e);
     static void gravityBtnEventCb(lv_event_t* e);
     static void cohesionBtnEventCb(lv_event_t* e);
     static void cohesionForceBtnEventCb(lv_event_t* e);

@@ -118,15 +118,14 @@ struct SimRunning {
     Any onEvent(const GetFPSCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const GetSimStatsCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const ToggleDebugCommand& cmd, DirtSimStateMachine& dsm);
-    Any onEvent(const ToggleForceCommand& cmd, DirtSimStateMachine& dsm);
-    Any onEvent(const ToggleCohesionCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const ToggleCohesionForceCommand& cmd, DirtSimStateMachine& dsm);
-    Any onEvent(const ToggleAdhesionCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const ToggleTimeHistoryCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const PrintAsciiDiagramCommand& cmd, DirtSimStateMachine& dsm);
+    Any onEvent(const SpawnDirtBallCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const SetFragmentationCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const SetPressureSystemCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const ToggleWallsCommand& cmd, DirtSimStateMachine& dsm);
+    Any onEvent(const ToggleWaterColumnCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const ToggleLeftThrowCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const ToggleRightThrowCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const ToggleQuadrantCommand& cmd, DirtSimStateMachine& dsm);
@@ -163,12 +162,10 @@ struct SimPaused {
     Any onEvent(const GetFPSCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const GetSimStatsCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const ToggleDebugCommand& cmd, DirtSimStateMachine& dsm);
-    Any onEvent(const ToggleForceCommand& cmd, DirtSimStateMachine& dsm);
-    Any onEvent(const ToggleCohesionCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const ToggleCohesionForceCommand& cmd, DirtSimStateMachine& dsm);
-    Any onEvent(const ToggleAdhesionCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const ToggleTimeHistoryCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const PrintAsciiDiagramCommand& cmd, DirtSimStateMachine& dsm);
+    Any onEvent(const SpawnDirtBallCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const QuitApplicationCommand& cmd, DirtSimStateMachine& dsm);
 
     static constexpr const char* name() { return "SimPaused"; }

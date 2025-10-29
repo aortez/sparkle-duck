@@ -1,4 +1,5 @@
 #include "WorldInterface.h"
+#include "MaterialType.h"
 #include "WorldDiagramGeneratorEmoji.h"
 #include "WorldSetup.h"
 #include "spdlog/spdlog.h"
@@ -22,6 +23,26 @@ void WorldInterface::setup()
     else {
         spdlog::warn("WorldSetup is null in {}::setup()", getWorldTypeName());
     }
+}
+
+void WorldInterface::spawnMaterialBall(MaterialType type, uint32_t centerX, uint32_t centerY, uint32_t radius)
+{
+    // Spawn a (2*radius+1) x (2*radius+1) square of material centered at (centerX, centerY).
+    int r = static_cast<int>(radius);
+    for (int dy = -r; dy <= r; ++dy) {
+        for (int dx = -r; dx <= r; ++dx) {
+            uint32_t x = centerX + dx;
+            uint32_t y = centerY + dy;
+
+            // Check bounds.
+            if (x < getWidth() && y < getHeight()) {
+                addMaterialAtCell(x, y, type, 1.0);
+            }
+        }
+    }
+
+    spdlog::info("Spawned {}x{} {} ball at center ({}, {})",
+                 2*radius+1, 2*radius+1, getMaterialName(type), centerX, centerY);
 }
 
 // =================================================================
@@ -68,6 +89,17 @@ void WorldInterface::setRainRate(double rate)
     }
 }
 
+void WorldInterface::setWaterColumnEnabled(bool enabled)
+{
+    ConfigurableWorldSetup* configSetup = dynamic_cast<ConfigurableWorldSetup*>(worldSetup_.get());
+    if (configSetup) {
+        configSetup->setWaterColumnEnabled(enabled);
+        spdlog::info("WorldInterface: Set water column enabled = {} (ConfigurableWorldSetup found)", enabled);
+    } else {
+        spdlog::warn("WorldInterface: Cannot set water column - ConfigurableWorldSetup not available");
+    }
+}
+
 bool WorldInterface::isLeftThrowEnabled() const
 {
     const ConfigurableWorldSetup* configSetup =
@@ -101,6 +133,13 @@ double WorldInterface::getRainRate() const
     const ConfigurableWorldSetup* configSetup =
         dynamic_cast<const ConfigurableWorldSetup*>(worldSetup_.get());
     return configSetup ? configSetup->getRainRate() : 0.0;
+}
+
+bool WorldInterface::isWaterColumnEnabled() const
+{
+    const ConfigurableWorldSetup* configSetup =
+        dynamic_cast<const ConfigurableWorldSetup*>(worldSetup_.get());
+    return configSetup ? configSetup->isWaterColumnEnabled() : false;
 }
 
 std::string WorldInterface::toAsciiDiagram() const

@@ -31,21 +31,14 @@ WorldB::WorldB(uint32_t width, uint32_t height, lv_obj_t* draw_area)
       pressure_scale_(1.0),
       water_pressure_threshold_(0.0004),
       pressure_system_(PressureSystem::Original),
-      hydrostatic_pressure_enabled_(false),
-      dynamic_pressure_enabled_(false),
       pressure_diffusion_enabled_(false),
-      hydrostatic_pressure_strength_(1.0),
-      dynamic_pressure_strength_(1.0),
+      hydrostatic_pressure_strength_(0.0),
+      dynamic_pressure_strength_(0.0),
       add_particles_enabled_(true),
-      cursor_force_enabled_(true),
-      cursor_force_active_(false),
-      cursor_force_x_(0),
-      cursor_force_y_(0),
       debug_draw_enabled_(true),
       cohesion_bind_force_enabled_(false),
-      cohesion_com_force_enabled_(false),
 
-      cohesion_com_force_strength_(150.0),
+      cohesion_com_force_strength_(0.0),
       cohesion_bind_force_strength_(1.0),
       com_cohesion_range_(1),
       viscosity_strength_(1.0),
@@ -137,12 +130,12 @@ void WorldB::advanceTime(double deltaTimeSeconds)
     // Calculate pressures for NEXT frame after moves are complete.
     // This follows the two-frame model where pressure calculated in frame N
     // affects velocities in frame N+1.
-    if (hydrostatic_pressure_enabled_) {
+    if (hydrostatic_pressure_strength_ > 0.0) {
         pressure_calculator_.calculateHydrostaticPressure();
     }
 
     // Process any blocked transfers that were queued during processMaterialMoves.
-    if (dynamic_pressure_enabled_) {
+    if (dynamic_pressure_strength_ > 0.0) {
         // Generate virtual gravity transfers to create pressure from gravity forces.
         // This allows dynamic pressure to model hydrostatic-like behavior.
         //        pressure_calculator_.generateVirtualGravityTransfers(scaledDeltaTime);
@@ -520,20 +513,6 @@ void WorldB::restoreLastDragCell()
 }
 
 // =================================================================.
-// CURSOR FORCE INTERACTION.
-// =================================================================.
-
-void WorldB::updateCursorForce(int pixelX, int pixelY, bool isActive)
-{
-    cursor_force_active_ = isActive && cursor_force_enabled_;
-
-    if (cursor_force_active_) {
-        pixelToCell(pixelX, pixelY, cursor_force_x_, cursor_force_y_);
-        spdlog::trace("Cursor force active at cell ({},{})", cursor_force_x_, cursor_force_y_);
-    }
-}
-
-// =================================================================.
 // GRID MANAGEMENT.
 // =================================================================.
 
@@ -661,11 +640,11 @@ double WorldB::getTotalMass() const
 // INTERNAL PHYSICS METHODS.
 // =================================================================.
 
-void WorldB::applyGravity(double deltaTime)
+void WorldB::applyGravity()
 {
     ScopeTimer timer(timers_, "apply_gravity");
 
-    const Vector2d gravityForce(0.0, gravity_ * deltaTime);
+    const Vector2d gravityForce(0.0, gravity_);
 
     for (auto& cell : cells_) {
         if (!cell.isEmpty() && !cell.isWall()) {
@@ -675,7 +654,7 @@ void WorldB::applyGravity(double deltaTime)
     }
 }
 
-void WorldB::applyAirResistance(double deltaTime)
+void WorldB::applyAirResistance()
 {
     if (!air_resistance_enabled_) {
         return;
@@ -690,22 +669,17 @@ void WorldB::applyAirResistance(double deltaTime)
             CellB& cell = at(x, y);
 
             if (!cell.isEmpty() && !cell.isWall()) {
-                // Calculate and accumulate air resistance force.
                 Vector2d air_resistance_force = air_resistance_calculator.calculateAirResistance(
                     x, y, air_resistance_strength_);
-
-                // Scale by deltaTime for frame-independent physics.
-                air_resistance_force = air_resistance_force * deltaTime;
-
                 cell.addPendingForce(air_resistance_force);
             }
         }
     }
 }
 
-void WorldB::applyCohesionForces(double deltaTime)
+void WorldB::applyCohesionForces()
 {
-    if (!cohesion_com_force_enabled_) {
+    if (cohesion_com_force_strength_ <= 0.0) {
         return;
     }
 
@@ -724,12 +698,10 @@ void WorldB::applyCohesionForces(double deltaTime)
                 WorldBCohesionCalculator(*this).calculateCOMCohesionForce(
                     x, y, com_cohesion_range_);
 
-            // Accumulate forces instead of applying directly to velocity.
-
             // COM cohesion force accumulation (only if force is active).
             if (com_cohesion.force_active) {
                 Vector2d com_cohesion_force = com_cohesion.force_direction
-                    * com_cohesion.force_magnitude * deltaTime * cohesion_com_force_strength_;
+                    * com_cohesion.force_magnitude * cohesion_com_force_strength_;
                 cell.addPendingForce(com_cohesion_force);
             }
 
@@ -738,16 +710,16 @@ void WorldB::applyCohesionForces(double deltaTime)
                 WorldBAdhesionCalculator::AdhesionForce adhesion =
                     adhesion_calculator_.calculateAdhesionForce(x, y);
                 Vector2d adhesion_force = adhesion.force_direction * adhesion.force_magnitude
-                    * deltaTime * adhesion_calculator_.getAdhesionStrength();
+                    * adhesion_calculator_.getAdhesionStrength();
                 cell.addPendingForce(adhesion_force);
             }
         }
     }
 }
 
-void WorldB::applyPressureForces(double deltaTime)
+void WorldB::applyPressureForces()
 {
-    if (!hydrostatic_pressure_enabled_ && !dynamic_pressure_enabled_) {
+    if (hydrostatic_pressure_strength_ <= 0.0 && dynamic_pressure_strength_ <= 0.0) {
         return;
     }
 
@@ -776,9 +748,7 @@ void WorldB::applyPressureForces(double deltaTime)
 
             // Only apply force if system is out of equilibrium.
             if (gradient.magnitude() > 0.001) {
-                Vector2d pressure_force = gradient * pressure_scale_ * deltaTime;
-
-                // Add to pending forces instead of directly modifying velocity.
+                Vector2d pressure_force = gradient * pressure_scale_;
                 cell.addPendingForce(pressure_force);
 
                 spdlog::debug(
@@ -828,16 +798,16 @@ void WorldB::resolveForces(double deltaTime)
     }
 
     // Apply gravity forces.
-    applyGravity(deltaTime);
+    applyGravity();
 
     // Apply air resistance forces.
-    applyAirResistance(deltaTime);
+    applyAirResistance();
 
     // Apply pressure forces from previous frame.
-    applyPressureForces(deltaTime);
+    applyPressureForces();
 
     // Apply cohesion and adhesion forces.
-    applyCohesionForces(deltaTime);
+    applyCohesionForces();
 
     // Now resolve all accumulated forces using viscosity model.
     WorldBSupportCalculator support_calc(*this);
@@ -984,7 +954,7 @@ std::vector<MaterialMove> WorldB::computeMaterialMoves(double deltaTime)
 
             // NEW: Calculate COM-based cohesion force.
             WorldBCohesionCalculator::COMCohesionForce com_cohesion;
-            if (cohesion_com_force_enabled_) {
+            if (cohesion_com_force_strength_ > 0.0) {
                 com_cohesion = WorldBCohesionCalculator(*this).calculateCOMCohesionForce(
                     x, y, com_cohesion_range_);
             }
@@ -1296,7 +1266,8 @@ bool WorldB::areWallsEnabled() const
 
 void WorldB::setHydrostaticPressureEnabled(bool enabled)
 {
-    hydrostatic_pressure_enabled_ = enabled;
+    // Backward compatibility: set strength to 0 (disabled) or default (enabled).
+    hydrostatic_pressure_strength_ = enabled ? 1.0 : 0.0;
 
     spdlog::info("Clearing all pressure values");
     for (auto& cell : cells_) {
@@ -1309,7 +1280,8 @@ void WorldB::setHydrostaticPressureEnabled(bool enabled)
 
 void WorldB::setDynamicPressureEnabled(bool enabled)
 {
-    dynamic_pressure_enabled_ = enabled;
+    // Backward compatibility: set strength to 0 (disabled) or default (enabled).
+    dynamic_pressure_strength_ = enabled ? 1.0 : 0.0;
 
     spdlog::info("Clearing all pressure values");
     for (auto& cell : cells_) {
@@ -1364,9 +1336,9 @@ std::string WorldB::settingsToString() const
             break;
     }
     ss << "\n";
-    ss << "Hydrostatic pressure enabled: " << (hydrostatic_pressure_enabled_ ? "true" : "false")
+    ss << "Hydrostatic pressure enabled: " << (isHydrostaticPressureEnabled() ? "true" : "false")
        << "\n";
-    ss << "Dynamic pressure enabled: " << (dynamic_pressure_enabled_ ? "true" : "false") << "\n";
+    ss << "Dynamic pressure enabled: " << (isDynamicPressureEnabled() ? "true" : "false") << "\n";
     ss << "Pressure scale: " << pressure_scale_ << "\n";
     ss << "Elasticity factor: " << elasticity_factor_ << "\n";
     ss << "Add particles enabled: " << (add_particles_enabled_ ? "true" : "false") << "\n";
@@ -1376,7 +1348,6 @@ std::string WorldB::settingsToString() const
     ss << "Right throw enabled: " << (isRightThrowEnabled() ? "true" : "false") << "\n";
     ss << "Lower right quadrant enabled: " << (isLowerRightQuadrantEnabled() ? "true" : "false")
        << "\n";
-    ss << "Cursor force enabled: " << (cursor_force_enabled_ ? "true" : "false") << "\n";
     ss << "Cohesion COM force enabled: " << (isCohesionComForceEnabled() ? "true" : "false")
        << "\n";
     ss << "Cohesion bind force enabled: " << (isCohesionBindForceEnabled() ? "true" : "false")
@@ -1435,7 +1406,6 @@ void WorldB::preserveState(::WorldState& state) const
 
     // Copy control flags.
     state.add_particles_enabled = add_particles_enabled_;
-    state.cursor_force_enabled = cursor_force_enabled_;
 
     // Convert CellB data to WorldState::CellData.
     for (uint32_t y = 0; y < height_; ++y) {
@@ -1489,7 +1459,6 @@ void WorldB::restoreState(const ::WorldState& state)
 
     // Restore control flags.
     add_particles_enabled_ = state.add_particles_enabled;
-    cursor_force_enabled_ = state.cursor_force_enabled;
 
     // Convert WorldState::CellData back to CellB data.
     for (uint32_t y = 0; y < height_; ++y) {

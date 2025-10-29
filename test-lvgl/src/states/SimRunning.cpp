@@ -1,8 +1,10 @@
 #include "State.h"
 #include "../Cell.h"
+#include "../CellB.h"
 #include "../DirtSimStateMachine.h"
 #include "../SimulationManager.h"
 #include "../SimulatorUI.h"
+#include "../WorldB.h"
 #include "../WorldFactory.h"
 #include "../WorldSetup.h"
 #include <spdlog/spdlog.h>
@@ -487,57 +489,12 @@ State::Any SimRunning::onEvent(const ToggleDebugCommand& /*cmd. */, DirtSimState
     return *this;
 }
 
-State::Any SimRunning::onEvent(const ToggleForceCommand& /*cmd. */, DirtSimStateMachine& dsm) {
-    if (auto* simMgr = dsm.getSimulationManager()) {
-        if (auto* world = simMgr->getWorld()) {
-            bool newValue = !world->isCursorForceEnabled();
-            world->setCursorForceEnabled(newValue);
-            spdlog::info("SimRunning: ToggleForceCommand - Force viz now: {}", newValue);
-
-            UIUpdateEvent update = dsm.buildUIUpdate();
-            update.dirty.uiState = true;
-            dsm.getSharedState().pushUIUpdate(std::move(update));
-        }
-    }
-    return *this;
-}
-
-State::Any SimRunning::onEvent(const ToggleCohesionCommand& /*cmd. */, DirtSimStateMachine& dsm) {
-    if (auto* simMgr = dsm.getSimulationManager()) {
-        if (auto* world = simMgr->getWorld()) {
-            bool newValue = !world->isCohesionComForceEnabled();
-            world->setCohesionComForceEnabled(newValue);
-            spdlog::info("SimRunning: ToggleCohesionCommand - Cohesion now: {}", newValue);
-
-            UIUpdateEvent update = dsm.buildUIUpdate();
-            update.dirty.uiState = true;
-            dsm.getSharedState().pushUIUpdate(std::move(update));
-        }
-    }
-    return *this;
-}
-
 State::Any SimRunning::onEvent(const ToggleCohesionForceCommand& /*cmd. */, DirtSimStateMachine& dsm) {
     if (auto* simMgr = dsm.getSimulationManager()) {
         if (auto* world = simMgr->getWorld()) {
             bool newValue = !world->isCohesionComForceEnabled();
             world->setCohesionComForceEnabled(newValue);
             spdlog::info("SimRunning: ToggleCohesionForceCommand - Cohesion force now: {}", newValue);
-
-            UIUpdateEvent update = dsm.buildUIUpdate();
-            update.dirty.uiState = true;
-            dsm.getSharedState().pushUIUpdate(std::move(update));
-        }
-    }
-    return *this;
-}
-
-State::Any SimRunning::onEvent(const ToggleAdhesionCommand& /*cmd. */, DirtSimStateMachine& dsm) {
-    if (auto* simMgr = dsm.getSimulationManager()) {
-        if (auto* world = simMgr->getWorld()) {
-            bool newValue = !world->isAdhesionEnabled();
-            world->setAdhesionEnabled(newValue);
-            spdlog::info("SimRunning: ToggleAdhesionCommand - Adhesion now: {}", newValue);
 
             UIUpdateEvent update = dsm.buildUIUpdate();
             update.dirty.uiState = true;
@@ -570,6 +527,26 @@ State::Any SimRunning::onEvent(const PrintAsciiDiagramCommand& /*cmd. */, DirtSi
     }
     else {
         spdlog::warn("PrintAsciiDiagramCommand: No world available");
+    }
+
+    return *this;
+}
+
+State::Any SimRunning::onEvent(const SpawnDirtBallCommand& /*cmd. */, DirtSimStateMachine& dsm) {
+    // Get the current world and spawn a 5x5 ball at top center.
+    if (dsm.simulationManager && dsm.simulationManager->getWorld()) {
+        auto* world = dsm.simulationManager->getWorld();
+
+        // Calculate the top center position.
+        uint32_t centerX = world->getWidth() / 2;
+        uint32_t topY = 2; // Start at row 2 to avoid the very top edge.
+
+        // Spawn a 5x5 ball of the currently selected material.
+        MaterialType selectedMaterial = world->getSelectedMaterial();
+        world->spawnMaterialBall(selectedMaterial, centerX, topY, 2);
+    }
+    else {
+        spdlog::warn("SpawnDirtBallCommand: No world available");
     }
 
     return *this;
@@ -609,6 +586,56 @@ State::Any SimRunning::onEvent(const ToggleWallsCommand& /*cmd*/, DirtSimStateMa
     return *this;
 }
 
+State::Any SimRunning::onEvent(const ToggleWaterColumnCommand& /*cmd*/, DirtSimStateMachine& dsm) {
+    if (auto* simMgr = dsm.getSimulationManager()) {
+        if (auto* world = simMgr->getWorld()) {
+            bool newValue = !world->isWaterColumnEnabled();
+            world->setWaterColumnEnabled(newValue);
+
+            // For WorldB, we can manipulate cells directly.
+            WorldB* worldB = dynamic_cast<WorldB*>(world);
+            if (worldB) {
+                if (newValue) {
+                    // Add water column (5 wide × 20 tall) on left side.
+                    spdlog::info("SimRunning: Adding water column (5 wide × 20 tall) at runtime");
+                    for (uint32_t y = 0; y < 20 && y < worldB->getHeight(); ++y) {
+                        for (uint32_t x = 1; x <= 5 && x < worldB->getWidth(); ++x) {
+                            CellB& cell = worldB->at(x, y);
+                            // Only add water to non-wall cells.
+                            if (!cell.isWall()) {
+                                cell.setMaterialType(MaterialType::WATER);
+                                cell.setFillRatio(1.0);
+                                cell.setCOM(Vector2d(0.0, 0.0));
+                                cell.setVelocity(Vector2d(0.0, 0.0));
+                                cell.markDirty();
+                            }
+                        }
+                    }
+                } else {
+                    // Remove water from column area (only water cells).
+                    spdlog::info("SimRunning: Removing water from water column area at runtime");
+                    for (uint32_t y = 0; y < 20 && y < worldB->getHeight(); ++y) {
+                        for (uint32_t x = 1; x <= 5 && x < worldB->getWidth(); ++x) {
+                            CellB& cell = worldB->at(x, y);
+                            // Only clear water cells, leave walls and other materials.
+                            if (cell.getMaterialType() == MaterialType::WATER && !cell.isWall()) {
+                                cell.setMaterialType(MaterialType::AIR);
+                                cell.setFillRatio(0.0);
+                                cell.setCOM(Vector2d(0.0, 0.0));
+                                cell.setVelocity(Vector2d(0.0, 0.0));
+                                cell.markDirty();
+                            }
+                        }
+                    }
+                }
+            }
+
+            spdlog::info("SimRunning: Water column toggled - now: {}", newValue);
+        }
+    }
+    return *this;
+}
+
 State::Any SimRunning::onEvent(const ToggleLeftThrowCommand& /*cmd*/, DirtSimStateMachine& dsm) {
     if (auto* simMgr = dsm.getSimulationManager()) {
         if (auto* world = simMgr->getWorld()) {
@@ -636,6 +663,49 @@ State::Any SimRunning::onEvent(const ToggleQuadrantCommand& /*cmd*/, DirtSimStat
         if (auto* world = simMgr->getWorld()) {
             bool newValue = !world->isLowerRightQuadrantEnabled();
             world->setLowerRightQuadrantEnabled(newValue);
+
+            // For WorldB, manipulate cells directly for immediate feedback.
+            WorldB* worldB = dynamic_cast<WorldB*>(world);
+            if (worldB) {
+                uint32_t startX = worldB->getWidth() / 2;
+                uint32_t startY = worldB->getHeight() / 2;
+
+                if (newValue) {
+                    // Add dirt quadrant immediately.
+                    spdlog::info("SimRunning: Adding lower right quadrant ({}x{}) at runtime",
+                                 worldB->getWidth() - startX, worldB->getHeight() - startY);
+                    for (uint32_t y = startY; y < worldB->getHeight(); ++y) {
+                        for (uint32_t x = startX; x < worldB->getWidth(); ++x) {
+                            CellB& cell = worldB->at(x, y);
+                            // Only add dirt to non-wall cells.
+                            if (!cell.isWall()) {
+                                cell.setMaterialType(MaterialType::DIRT);
+                                cell.setFillRatio(1.0);
+                                cell.setCOM(Vector2d(0.0, 0.0));
+                                cell.setVelocity(Vector2d(0.0, 0.0));
+                                cell.markDirty();
+                            }
+                        }
+                    }
+                } else {
+                    // Remove dirt from quadrant area (only dirt cells).
+                    spdlog::info("SimRunning: Removing dirt from lower right quadrant at runtime");
+                    for (uint32_t y = startY; y < worldB->getHeight(); ++y) {
+                        for (uint32_t x = startX; x < worldB->getWidth(); ++x) {
+                            CellB& cell = worldB->at(x, y);
+                            // Only clear dirt cells, leave walls and other materials.
+                            if (cell.getMaterialType() == MaterialType::DIRT && !cell.isWall()) {
+                                cell.setMaterialType(MaterialType::AIR);
+                                cell.setFillRatio(0.0);
+                                cell.setCOM(Vector2d(0.0, 0.0));
+                                cell.setVelocity(Vector2d(0.0, 0.0));
+                                cell.markDirty();
+                            }
+                        }
+                    }
+                }
+            }
+
             spdlog::info("SimRunning: Toggle quadrant - now: {}", newValue);
         }
     }

@@ -169,6 +169,24 @@ public:
     // ===== UTILITY METHODS =====
 
     /**
+     * @brief Velocity decomposition result for collision physics.
+     */
+    struct VelocityComponents {
+        Vector2d normal;       // Normal component (perpendicular to surface).
+        Vector2d tangential;   // Tangential component (parallel to surface).
+        double normal_scalar;  // Signed magnitude of normal component.
+    };
+
+    /**
+     * @brief Decompose velocity into normal and tangential components.
+     * @param velocity The velocity vector to decompose.
+     * @param surface_normal The surface normal (will be normalized internally).
+     * @return Components struct with normal, tangential, and normal scalar.
+     */
+    VelocityComponents decomposeVelocity(
+        const Vector2d& velocity, const Vector2d& surface_normal) const;
+
+    /**
      * @brief Check if a material is considered rigid for collision purposes.
      * @param material Material type to check.
      * @return True if material is rigid (METAL, WOOD, WALL, etc.).

@@ -41,7 +41,6 @@ protected:
         // Initialize UI state.
         event.isPaused = false;
         event.debugEnabled = false;
-        event.forceEnabled = false;
         event.cohesionEnabled = true;
         event.adhesionEnabled = true;
         event.timeHistoryEnabled = false;
