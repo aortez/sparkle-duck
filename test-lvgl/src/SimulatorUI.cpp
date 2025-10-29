@@ -208,6 +208,7 @@ void SimulatorUI::createWorldTypeColumn()
     lv_obj_t* world_type_label = lv_label_create(screen_);
     lv_label_set_text(world_type_label, "World Type:");
     lv_obj_set_style_text_color(world_type_label, lv_color_hex(0xFFFFFF), 0);  // White text.
+    lv_obj_set_style_bg_opa(world_type_label, LV_OPA_TRANSP, 0);  // Transparent background.
     lv_obj_align(world_type_label, LV_ALIGN_TOP_LEFT, WORLD_TYPE_COLUMN_X, 10);
 
     // Create world type button matrix with vertical stack.
@@ -222,6 +223,12 @@ void SimulatorUI::createWorldTypeColumn()
             .buttonCtrl(0, LV_BUTTONMATRIX_CTRL_CHECKABLE)
             .buttonCtrl(1, LV_BUTTONMATRIX_CTRL_CHECKABLE)
             .selectedButton(1) // WorldB is default.
+            .style(
+                LV_PART_MAIN,
+                [](lv_style_t* style) {
+                    lv_style_set_bg_color(style, lv_color_hex(0x000000));  // Black background.
+                    lv_style_set_bg_opa(style, LV_OPA_COVER);  // Fully opaque.
+                })
             .style(
                 LV_PART_ITEMS,
                 [](lv_style_t* style) {
@@ -240,12 +247,24 @@ void SimulatorUI::createWorldTypeColumn()
     lv_obj_t* scenario_label = lv_label_create(screen_);
     lv_label_set_text(scenario_label, "Scenario:");
     lv_obj_set_style_text_color(scenario_label, lv_color_hex(0xFFFFFF), 0);  // White text.
+    lv_obj_set_style_bg_opa(scenario_label, LV_OPA_TRANSP, 0);  // Transparent background.
     lv_obj_align(scenario_label, LV_ALIGN_TOP_LEFT, WORLD_TYPE_COLUMN_X, 135);
 
     // Scenario dropdown.
     scenario_dropdown_ = lv_dropdown_create(screen_);
     lv_obj_set_size(scenario_dropdown_, WORLD_TYPE_COLUMN_WIDTH, 30);
     lv_obj_align(scenario_dropdown_, LV_ALIGN_TOP_LEFT, WORLD_TYPE_COLUMN_X, 155);
+
+    // Dark mode styling for dropdown.
+    lv_obj_set_style_bg_color(scenario_dropdown_, lv_color_hex(0x404040), 0);  // Dark background.
+    lv_obj_set_style_text_color(scenario_dropdown_, lv_color_hex(0xFFFFFF), 0);  // White text.
+
+    // Style the dropdown list (the part that opens).
+    lv_obj_t* list = lv_dropdown_get_list(scenario_dropdown_);
+    if (list) {
+        lv_obj_set_style_bg_color(list, lv_color_hex(0x404040), 0);  // Dark background.
+        lv_obj_set_style_text_color(list, lv_color_hex(0xFFFFFF), 0);  // White text.
+    }
 
     // Populate dropdown with scenarios from registry.
     updateScenarioDropdown();
@@ -261,6 +280,7 @@ void SimulatorUI::createMaterialPicker()
     lv_obj_t* material_label = lv_label_create(screen_);
     lv_label_set_text(material_label, "Materials:");
     lv_obj_set_style_text_color(material_label, lv_color_hex(0xFFFFFF), 0);  // White text.
+    lv_obj_set_style_bg_opa(material_label, LV_OPA_TRANSP, 0);  // Transparent background.
     lv_obj_align(
         material_label, LV_ALIGN_TOP_LEFT, WORLD_TYPE_COLUMN_X, 195); // Below scenario dropdown.
 
@@ -272,6 +292,10 @@ void SimulatorUI::createMaterialPicker()
     lv_obj_set_style_pad_all(picker_container, 5, 0);
     lv_obj_set_style_border_width(picker_container, 1, 0);
     lv_obj_set_style_border_color(picker_container, lv_color_hex(0x606060), 0);
+    lv_obj_set_style_bg_color(picker_container, lv_color_hex(0x000000), 0);  // Black background.
+
+    // Disable scrollbars.
+    lv_obj_clear_flag(picker_container, LV_OBJ_FLAG_SCROLLABLE);
 
     // Create MaterialPicker instance with event router.
     material_picker_ = std::make_unique<MaterialPicker>(picker_container, event_router_);
@@ -315,15 +339,29 @@ void SimulatorUI::createControlButtons()
     lv_obj_t* pressure_label = lv_label_create(screen_);
     lv_label_set_text(pressure_label, "System:");
     lv_obj_set_style_text_color(pressure_label, lv_color_hex(0xFFFFFF), 0);  // White text.
+    lv_obj_set_style_bg_opa(pressure_label, LV_OPA_TRANSP, 0);  // Transparent background.
     lv_obj_align(pressure_label, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 95);
 
-    LVGLEventBuilder::dropdown(screen_, event_router_)
-        .onPressureSystemChange()
-        .size(CONTROL_WIDTH, 40)
-        .position(MAIN_CONTROLS_X, 115, LV_ALIGN_TOP_LEFT)
-        .options("Original (COM)\nTop-Down Hydrostatic\nIterative Settling")
-        .selected(0)
-        .buildOrLog();
+    lv_obj_t* pressure_dropdown = LVGLEventBuilder::dropdown(screen_, event_router_)
+                                       .onPressureSystemChange()
+                                       .size(CONTROL_WIDTH, 40)
+                                       .position(MAIN_CONTROLS_X, 115, LV_ALIGN_TOP_LEFT)
+                                       .options("Original (COM)\nTop-Down Hydrostatic\nIterative Settling")
+                                       .selected(0)
+                                       .buildOrLog();
+
+    // Style the pressure dropdown to match blue buttons.
+    if (pressure_dropdown) {
+        lv_obj_set_style_bg_color(pressure_dropdown, lv_color_hex(0x0080FF), 0);  // Blue background.
+        lv_obj_set_style_text_color(pressure_dropdown, lv_color_hex(0xFFFFFF), 0);  // White text.
+
+        // Style the dropdown list (the part that opens).
+        lv_obj_t* list = lv_dropdown_get_list(pressure_dropdown);
+        if (list) {
+            lv_obj_set_style_bg_color(list, lv_color_hex(0x404040), 0);  // Dark background.
+            lv_obj_set_style_text_color(list, lv_color_hex(0xFFFFFF), 0);  // White text.
+        }
+    }
 
     // Pressure scale slider (WorldA only).
     LVGLEventBuilder::slider(screen_, event_router_)

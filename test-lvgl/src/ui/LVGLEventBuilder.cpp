@@ -965,9 +965,9 @@ static void toggleSliderSwitchCallback(lv_event_t* e) {
         lv_slider_set_value(state->slider, 0, LV_ANIM_OFF);
         lv_obj_add_state(state->slider, LV_STATE_DISABLED);
 
-        // Change indicator and knob to grey when disabled.
-        lv_obj_set_style_bg_color(state->slider, lv_color_hex(0x808080), LV_PART_INDICATOR);
-        lv_obj_set_style_bg_color(state->slider, lv_color_hex(0x808080), LV_PART_KNOB);
+        // Change indicator and knob to grey when disabled (darker track, lighter knob for contrast).
+        lv_obj_set_style_bg_color(state->slider, lv_color_hex(0x303030), LV_PART_INDICATOR);  // Dark track.
+        lv_obj_set_style_bg_color(state->slider, lv_color_hex(0x909090), LV_PART_KNOB);  // Light gray knob.
 
         // Update value label to show 0.
         char buf[32];
@@ -1055,9 +1055,9 @@ lv_obj_t* LVGLEventBuilder::ToggleSliderBuilder::buildOrLog() {
     // Set initial color and state based on initial enabled state.
     if (!initiallyEnabled_) {
         lv_obj_add_state(slider, LV_STATE_DISABLED);
-        // Set grey color for disabled state.
-        lv_obj_set_style_bg_color(slider, lv_color_hex(0x808080), LV_PART_INDICATOR);
-        lv_obj_set_style_bg_color(slider, lv_color_hex(0x808080), LV_PART_KNOB);
+        // Set grey color for disabled state (darker track, lighter knob for contrast).
+        lv_obj_set_style_bg_color(slider, lv_color_hex(0x303030), LV_PART_INDICATOR);  // Dark track.
+        lv_obj_set_style_bg_color(slider, lv_color_hex(0x909090), LV_PART_KNOB);  // Light gray knob.
     } else {
         // Set blue color for enabled state.
         lv_obj_set_style_bg_color(slider, lv_palette_main(LV_PALETTE_BLUE), LV_PART_INDICATOR);
