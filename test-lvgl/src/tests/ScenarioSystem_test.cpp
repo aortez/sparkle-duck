@@ -2,8 +2,8 @@
 #include "../scenarios/ScenarioRegistry.h"
 #include "../scenarios/Scenario.h"
 #include "../scenarios/ScenarioWorldSetup.h"
-#include "../WorldFactory.h"
 #include "../WorldInterface.h"
+#include "../World.h"
 #include "../WorldSetup.h"
 #include "spdlog/spdlog.h"
 
@@ -92,7 +92,7 @@ TEST_F(ScenarioSystemTest, FilterByWorldType) {
     registry.registerScenario("worlda_only", std::make_unique<WorldAOnlyScenario>());
     
     // Test filtering
-    auto worldBScenarios = registry.getScenariosForWorldType(true); // WorldB
+    auto worldBScenarios = registry.getScenariosForWorldType(true); // World
     EXPECT_EQ(worldBScenarios.size(), 0);
     
     auto worldAScenarios = registry.getScenariosForWorldType(false); // WorldA
@@ -135,7 +135,7 @@ TEST_F(ScenarioSystemTest, CanApplyScenarioToWorld) {
     registry.registerScenario("simple", std::make_unique<SimpleScenario>());
     
     // Create a world and apply the scenario
-    auto world = createWorld(WorldType::RulesB, 10, 10);
+    auto world = std::make_unique<World>(10, 10);
     
     // Get the scenario and apply it
     auto* scenario = registry.getScenario("simple");

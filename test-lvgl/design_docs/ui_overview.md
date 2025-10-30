@@ -11,9 +11,10 @@ This document provides a comprehensive overview of the user interface architectu
 - **Built on LVGL**: Uses LVGL (Light and Versatile Graphics Library) for cross-platform UI rendering
 - **Layout Architecture**:
   - **Draw Area**: 850x850 pixel simulation rendering area (left side)
-  - **World Type Column**: 150px wide column for physics system selection (WorldA/WorldB)
-  - **Main Controls**: 200px wide column on the right side for simulation controls
-  - **Total Window**: 1200x1200 pixels (configurable via command line)
+  - **Left Column**: 200px wide - Scenario selector and material picker
+  - **Right Column**: 200px wide - Simulation controls and physics parameters
+  - **Slider Column**: Additional column for parameter sliders
+  - **Total Window**: Approximately 1400x900 pixels (configurable via command line)
 
 #### 2. **TestUI** - Testing Interface (`src/tests/TestUI.h/.cpp`)
 - **Simplified UI**: Smaller testing interface (400x400 pixel draw area)
@@ -25,13 +26,13 @@ This document provides a comprehensive overview of the user interface architectu
 #### 3. **SimulationManager** - Central Coordinator (`src/SimulationManager.h`)
 - **Ownership Model**: Owns both UI and physics world instances
 - **Headless Support**: Can run without UI for testing/automation
-- **World Switching**: Coordinates switching between WorldA (RulesA) and WorldB (RulesB) physics systems
-- **State Management**: Handles cross-world state preservation during switching
+- **State Management**: Handles world resizing and scenario switching
 
 #### 4. **WorldInterface** - Physics/UI Bridge (`src/WorldInterface.h`)
-- **Abstraction Layer**: Provides unified API for both physics systems
+- **Abstraction Layer**: Provides unified API for physics system
 - **UI Integration**: Methods for UI callbacks and parameter updates
 - **Bidirectional Communication**: UI can call world methods, world can update UI
+- **Headless-Friendly**: Draw operations take draw area as parameter (not stored)
 
 ### Display Backend System
 
@@ -56,16 +57,12 @@ The UI is organized into several distinct columns from left to right:
 - **Draw Area**: Interactive physics grid
 - **Status Labels**: Total mass and FPS display
 
-### World Type & Material Picker Column (Center-Left)
-- **World Type Selector**: WorldA (RulesA) vs WorldB (RulesB)
+### Left Column (Center-Left)
+- **Scenario Selector**: Dropdown for world setup scenarios (Sandbox, Dam Break, etc.)
 - **Material Grid**: 8 material buttons (DIRT, WATER, WOOD, SAND, METAL, LEAF, WALL, AIR)
 
-### Main Controls Column (Center-Right)
+### Right Column (Center-Right)
 Contains physics parameters and world setup controls organized into sections:
-
-#### WorldA-Specific Controls
-- **Pressure System Dropdown**: Algorithm selection (COM, Top-Down Hydrostatic, Iterative Settling)
-- **Pressure Scale Slider**: WorldA pressure strength multiplier
 
 #### Physics Force Controls
 - **Gravity Slider**: Gravity strength and direction
@@ -95,11 +92,9 @@ Contains physics parameters and world setup controls organized into sections:
 #### Simulation Parameters
 - **Timescale Slider**: Simulation speed
 - **Elasticity Slider**: Collision bounce factor
-- **Cell Size Slider**: Grid resolution
 - **Rain Rate Slider**: Particle generation rate
-- **Water-Specific Sliders**: Cohesion, viscosity, pressure threshold, buoyancy
 
-#### WorldB Pressure Controls
+#### Pressure Controls
 - **Hydrostatic Pressure Switch**: Gravitational pressure accumulation
 - **Dynamic Pressure Switch**: Impact/movement pressure
 - **Pressure Diffusion Switch**: Pressure propagation
@@ -121,20 +116,22 @@ This organization groups related functionality and provides clear visual separat
 
 ### Pressure System Organization
 
-Pressure controls are separated by world type:
-- **WorldA Pressure**: Dropdown for algorithm selection and unified pressure scale (main controls column)
-- **WorldB Pressure**: Individual toggles for hydrostatic, dynamic, and diffusion systems with separate strength controls (slider column)
+Pressure system features three modes:
+- **Hydrostatic**: Gravitational pressure accumulation (weight of material above)
+- **Dynamic**: Impact and movement pressure (collisions and transfers)
+- **Diffusion**: Pressure propagation through materials
 
-This separation prevents confusion when switching between physics systems.
+Each can be toggled independently with separate strength multipliers.
 
 ## Widget Organization in Code
 
 The UI initialization follows this order in `SimulatorUI::initialize()`:
 1. `createDrawArea()` - Physics rendering surface
 2. `createLabels()` - Status displays
-3. `createWorldTypeColumn()` - Physics system selector
-4. `createControlButtons()` - Physics controls and world setup
-5. `createSliders()` - Parameter sliders
+3. `createScenarioDropdown()` - World setup selector
+4. `createMaterialPicker()` - Material selection grid
+5. `createControlButtons()` - Physics controls and world setup
+6. `createSliders()` - Parameter sliders
 6. `setupDrawAreaEvents()` - Mouse interaction
 
 ## Key Architectural Features
@@ -190,11 +187,11 @@ Label + switch with automatic vertical centering:
 
 ### UI Lifecycle Management
 
-The UI is created at application startup and persists for the application lifetime. When switching between WorldA and WorldB physics systems, the UI updates its world pointer without recreation. State is managed through the DirtSimStateMachine and SharedSimState systems.
+The UI is created at application startup and persists for the application lifetime. The UI manages a single World instance through the WorldInterface abstraction. State is managed through the DirtSimStateMachine and SharedSimState systems for thread-safe updates.
 
-### Integration with Physics Systems
+### Integration with Physics System
 
-The UI supports dual physics systems (WorldA/RulesA and WorldB/RulesB) through the WorldInterface abstraction layer. Runtime switching between physics systems preserves state. The same UI controls work with both systems, with world-specific controls (WorldA Pressure vs WorldB Pressure) organized in separate sections.
+The UI interacts with the World through the WorldInterface abstraction layer. All physics controls update world parameters in real-time. The interface supports both headless (testing/automation) and graphical (interactive) operation.
 
 Material interaction supports both addition (click) and manipulation (drag) modes, with the Smart Cell Grabber intelligently detecting user intent based on cell contents.
 

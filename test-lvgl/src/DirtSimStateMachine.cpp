@@ -1,7 +1,7 @@
 #include "DirtSimStateMachine.h"
 #include "EventDispatcher.h"
 #include "SimulationManager.h"
-#include "WorldFactory.h"
+
 #include "WorldSetup.h"
 #include <chrono>
 #include <spdlog/spdlog.h>
@@ -35,10 +35,9 @@ DirtSimStateMachine::DirtSimStateMachine(lv_disp_t* display)
     // Default grid size (matches main.cpp calculation).
     const int grid_width = 28;               // 850 / 30, where 30 is default Cell::WIDTH.
     const int grid_height = 28;              // 850 / 30, where 30 is default Cell::HEIGHT.
-    WorldType worldType = WorldType::RulesB; // Default.
 
     simulationManager = std::make_unique<SimulationManager>(
-        worldType, grid_width, grid_height, screen, eventRouter.get());
+        grid_width, grid_height, screen, eventRouter.get());
 
     simulationManager->initialize();
 
@@ -222,8 +221,7 @@ UIUpdateEvent DirtSimStateMachine::buildUIUpdate()
 
     // Get world type string.
     if (simulationManager) {
-        WorldType currentType = simulationManager->getCurrentWorldType();
-        update.worldType = getWorldTypeName(currentType);
+        update.worldType = "World";
     }
     else {
         update.worldType = "None";

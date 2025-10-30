@@ -1,9 +1,9 @@
 #include <gtest/gtest.h>
 #include "visual_test_runner.h"
 #include <cmath>
-#include "../WorldB.h"
+#include "../World.h"
 #include "../MaterialType.h"
-#include "../WorldBCohesionCalculator.h"
+#include "../WorldCohesionCalculator.h"
 #include <spdlog/spdlog.h>
 #include <thread>
 #include <chrono>
@@ -23,7 +23,7 @@ protected:
         
         // Create a 7x7 world for testing COM cohesion forces.
         // Pass the UI draw area if in visual mode, otherwise nullptr.
-        world = std::make_unique<WorldB>(7, 7);
+        world = std::make_unique<World>(7, 7);
         world->setWallsEnabled(false); // Disable walls for clean testing.
         world->setAddParticlesEnabled(false); // Disable automatic particle addition for clean testing.
         
@@ -58,7 +58,7 @@ protected:
     }
     
     // Helper method for automatic simulation control with COM cohesion focus.
-    void automaticCOMCohesionSteps(WorldB* world, int max_steps, const std::string& description) {
+    void automaticCOMCohesionSteps(World* world, int max_steps, const std::string& description) {
         if (!world) return;
         
         spdlog::info("=== COM Cohesion Test: {} ===", description);
@@ -99,7 +99,7 @@ protected:
             for (uint32_t x = 0; x < world->getWidth(); ++x) {
                 const auto& cell = world->at(x, y);
                 if (!cell.isEmpty()) {
-                    auto com_cohesion = WorldBCohesionCalculator(*world).calculateCOMCohesionForce(x, y, world->getCOMCohesionRange());
+                    auto com_cohesion = WorldCohesionCalculator(*world).calculateCOMCohesionForce(x, y, world->getCOMCohesionRange());
                     if (com_cohesion.force_magnitude > 0.001) {
                         spdlog::info("COM Cohesion at ({},{}): mag={:.3f}, dir=({:.3f},{:.3f}), connections={}",
                                    x, y, com_cohesion.force_magnitude,
@@ -162,7 +162,7 @@ protected:
         return Vector2d(0.0, 0.0); // Not found.
     }
     
-    std::unique_ptr<WorldB> world;
+    std::unique_ptr<World> world;
 };
 
 TEST_F(COMCohesionForceTest, COMCohesionIntegrationWithPhysics) {
@@ -226,8 +226,8 @@ TEST_F(COMCohesionForceTest, COMCohesionIntegrationWithPhysics) {
     for (int step = 0; step < steps; step++) {
         if (step < 5) {
             // Log COM forces for first few steps.
-            auto left_com_force = WorldBCohesionCalculator(*world).calculateCOMCohesionForce(2, 1, world->getCOMCohesionRange());
-            auto right_com_force = WorldBCohesionCalculator(*world).calculateCOMCohesionForce(4, 1, world->getCOMCohesionRange());
+            auto left_com_force = WorldCohesionCalculator(*world).calculateCOMCohesionForce(2, 1, world->getCOMCohesionRange());
+            auto right_com_force = WorldCohesionCalculator(*world).calculateCOMCohesionForce(4, 1, world->getCOMCohesionRange());
             spdlog::info("Step {}: Left COM force=({:.3f},{:.3f}), Right COM force=({:.3f},{:.3f})",
                         step, left_com_force.force_direction.x, left_com_force.force_direction.y,
                         right_com_force.force_direction.x, right_com_force.force_direction.y);
@@ -396,7 +396,7 @@ TEST_F(COMCohesionForceTest, COMCohesionMaterialStrengthComparison) {
 }
 
 TEST_F(COMCohesionForceTest, EmptyCellHasZeroCOMCohesion) {
-    auto com_cohesion = WorldBCohesionCalculator(*world).calculateCOMCohesionForce(3, 3, world->getCOMCohesionRange());
+    auto com_cohesion = WorldCohesionCalculator(*world).calculateCOMCohesionForce(3, 3, world->getCOMCohesionRange());
     
     EXPECT_EQ(com_cohesion.force_magnitude, 0.0);
     EXPECT_EQ(com_cohesion.active_connections, 0);
@@ -407,7 +407,7 @@ TEST_F(COMCohesionForceTest, EmptyCellHasZeroCOMCohesion) {
 TEST_F(COMCohesionForceTest, IsolatedCellHasZeroCOMCohesion) {
     world->addMaterialAtCell(3, 3, MaterialType::DIRT, 1.0);
     
-    auto com_cohesion = WorldBCohesionCalculator(*world).calculateCOMCohesionForce(3, 3, world->getCOMCohesionRange());
+    auto com_cohesion = WorldCohesionCalculator(*world).calculateCOMCohesionForce(3, 3, world->getCOMCohesionRange());
     
     // No same-material neighbors = no COM cohesion force.
     EXPECT_EQ(com_cohesion.force_magnitude, 0.0);
@@ -421,7 +421,7 @@ TEST_F(COMCohesionForceTest, CellWithNeighborsHasCOMCohesion) {
     world->addMaterialAtCell(3, 3, MaterialType::DIRT, 1.0); // Center.
     world->addMaterialAtCell(4, 3, MaterialType::DIRT, 1.0); // Right neighbor.
     
-    auto com_cohesion = WorldBCohesionCalculator(*world).calculateCOMCohesionForce(3, 3, world->getCOMCohesionRange());
+    auto com_cohesion = WorldCohesionCalculator(*world).calculateCOMCohesionForce(3, 3, world->getCOMCohesionRange());
     
     // Should have COM cohesion force toward the right neighbor.
     EXPECT_GT(com_cohesion.force_magnitude, 0.0);
@@ -434,14 +434,14 @@ TEST_F(COMCohesionForceTest, COMCohesionScalesWithMaterialProperties) {
     // Test with WATER (low cohesion = 0.1).
     world->addMaterialAtCell(3, 3, MaterialType::WATER, 1.0);
     world->addMaterialAtCell(4, 3, MaterialType::WATER, 1.0);
-    auto water_cohesion = WorldBCohesionCalculator(*world).calculateCOMCohesionForce(3, 3, world->getCOMCohesionRange());
+    auto water_cohesion = WorldCohesionCalculator(*world).calculateCOMCohesionForce(3, 3, world->getCOMCohesionRange());
     
     // Clear and test with METAL (high cohesion = 0.9).
-    world->at(3, 3) = CellB(MaterialType::AIR, 0.0);
-    world->at(4, 3) = CellB(MaterialType::AIR, 0.0);
+    world->at(3, 3) = Cell(MaterialType::AIR, 0.0);
+    world->at(4, 3) = Cell(MaterialType::AIR, 0.0);
     world->addMaterialAtCell(3, 3, MaterialType::METAL, 1.0);
     world->addMaterialAtCell(4, 3, MaterialType::METAL, 1.0);
-    auto metal_cohesion = WorldBCohesionCalculator(*world).calculateCOMCohesionForce(3, 3, world->getCOMCohesionRange());
+    auto metal_cohesion = WorldCohesionCalculator(*world).calculateCOMCohesionForce(3, 3, world->getCOMCohesionRange());
     
     // METAL should have much stronger COM cohesion than WATER.
     EXPECT_GT(metal_cohesion.force_magnitude, water_cohesion.force_magnitude);
@@ -454,7 +454,7 @@ TEST_F(COMCohesionForceTest, COMCohesionDirectionPointsTowardNeighborCenter) {
     world->addMaterialAtCell(4, 3, MaterialType::DIRT, 1.0); // Right (4,3).
     world->addMaterialAtCell(3, 4, MaterialType::DIRT, 1.0); // Below (3,4).
     
-    auto com_cohesion = WorldBCohesionCalculator(*world).calculateCOMCohesionForce(3, 3, world->getCOMCohesionRange());
+    auto com_cohesion = WorldCohesionCalculator(*world).calculateCOMCohesionForce(3, 3, world->getCOMCohesionRange());
     
     // Force should point toward the center of neighbors: (4+3)/2=3.5, (3+4)/2=3.5.
     // So force direction from (3,3) toward (3.5,3.5) should be (+0.5,+0.5) normalized.
@@ -473,15 +473,15 @@ TEST_F(COMCohesionForceTest, COMCohesionIncreasesWithMoreNeighbors) {
     // Test with 1 neighbor.
     world->addMaterialAtCell(3, 3, MaterialType::DIRT, 1.0);
     world->addMaterialAtCell(4, 3, MaterialType::DIRT, 1.0);
-    auto cohesion_1_neighbor = WorldBCohesionCalculator(*world).calculateCOMCohesionForce(3, 3, world->getCOMCohesionRange());
+    auto cohesion_1_neighbor = WorldCohesionCalculator(*world).calculateCOMCohesionForce(3, 3, world->getCOMCohesionRange());
     
     // Add second neighbor.
     world->addMaterialAtCell(2, 3, MaterialType::DIRT, 1.0);
-    auto cohesion_2_neighbors = WorldBCohesionCalculator(*world).calculateCOMCohesionForce(3, 3, world->getCOMCohesionRange());
+    auto cohesion_2_neighbors = WorldCohesionCalculator(*world).calculateCOMCohesionForce(3, 3, world->getCOMCohesionRange());
     
     // Add third neighbor.
     world->addMaterialAtCell(3, 2, MaterialType::DIRT, 1.0);
-    auto cohesion_3_neighbors = WorldBCohesionCalculator(*world).calculateCOMCohesionForce(3, 3, world->getCOMCohesionRange());
+    auto cohesion_3_neighbors = WorldCohesionCalculator(*world).calculateCOMCohesionForce(3, 3, world->getCOMCohesionRange());
     
     // More neighbors should generally increase force magnitude (more connection factor).
     EXPECT_EQ(cohesion_1_neighbor.active_connections, 1);
@@ -506,19 +506,19 @@ TEST_F(COMCohesionForceTest, COMCohesionRangeConfiguration) {
     
     // Test range 1 (should only see adjacent neighbors - none in this case).
     world->setCOMCohesionRange(1);
-    auto force_r1 = WorldBCohesionCalculator(*world).calculateCOMCohesionForce(3, 3, world->getCOMCohesionRange());
+    auto force_r1 = WorldCohesionCalculator(*world).calculateCOMCohesionForce(3, 3, world->getCOMCohesionRange());
     EXPECT_EQ(world->getCOMCohesionRange(), 1);
     EXPECT_EQ(force_r1.active_connections, 0) << "Range 1 should find 0 connections at distance 2";
     
     // Test range 2 (should see distance 2 neighbors)  
     world->setCOMCohesionRange(2);
-    auto force_r2 = WorldBCohesionCalculator(*world).calculateCOMCohesionForce(3, 3, world->getCOMCohesionRange());
+    auto force_r2 = WorldCohesionCalculator(*world).calculateCOMCohesionForce(3, 3, world->getCOMCohesionRange());
     EXPECT_EQ(world->getCOMCohesionRange(), 2);
     EXPECT_EQ(force_r2.active_connections, 2) << "Range 2 should find 2 connections at distance 2";
     
     // Test range 3 (should see distance 2 and 3 neighbors).
     world->setCOMCohesionRange(3);
-    auto force_r3 = WorldBCohesionCalculator(*world).calculateCOMCohesionForce(3, 3, world->getCOMCohesionRange());
+    auto force_r3 = WorldCohesionCalculator(*world).calculateCOMCohesionForce(3, 3, world->getCOMCohesionRange());
     EXPECT_EQ(world->getCOMCohesionRange(), 3);
     EXPECT_EQ(force_r3.active_connections, 3) << "Range 3 should find 3 connections at distance 2-3";
     
@@ -536,7 +536,7 @@ TEST_F(COMCohesionForceTest, VelocityConservationAfterHorizontalCollision) {
     //         --D.
     //         --D.
     world.reset();
-    world = std::make_unique<WorldB>(3, 4);
+    world = std::make_unique<World>(3, 4);
     world->setWallsEnabled(false);
     world->setAddParticlesEnabled(false);
     
@@ -592,7 +592,7 @@ TEST_F(COMCohesionForceTest, VelocityConservationAfterHorizontalCollision) {
         updateVisualDisplay();
         
         // THEN find the moving particle (after potential transfers).
-        CellB* moving_particle = nullptr;
+        Cell* moving_particle = nullptr;
         Vector2d current_position(0, 0);
         
         for (uint32_t y = 0; y < world->getHeight(); ++y) {

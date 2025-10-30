@@ -1,21 +1,21 @@
-#include "WorldBCohesionCalculator.h"
-#include "CellB.h"
+#include "WorldCohesionCalculator.h"
+#include "Cell.h"
 #include "MaterialType.h"
-#include "WorldB.h"
-#include "WorldBSupportCalculator.h"
+#include "World.h"
+#include "WorldSupportCalculator.h"
 #include "spdlog/spdlog.h"
 #include <algorithm>
 #include <cmath>
 
-WorldBCohesionCalculator::WorldBCohesionCalculator(const WorldB& world)
-    : WorldBCalculatorBase(world),
-      support_calculator_(std::make_unique<WorldBSupportCalculator>(world))
+WorldCohesionCalculator::WorldCohesionCalculator(const World& world)
+    : WorldCalculatorBase(world),
+      support_calculator_(std::make_unique<WorldSupportCalculator>(world))
 {}
 
-WorldBCohesionCalculator::CohesionForce WorldBCohesionCalculator::calculateCohesionForce(
+WorldCohesionCalculator::CohesionForce WorldCohesionCalculator::calculateCohesionForce(
     uint32_t x, uint32_t y) const
 {
-    const CellB& cell = getCellAt(x, y);
+    const Cell& cell = getCellAt(x, y);
     if (cell.isEmpty()) {
         return { 0.0, 0 };
     }
@@ -33,7 +33,7 @@ WorldBCohesionCalculator::CohesionForce WorldBCohesionCalculator::calculateCohes
             int ny = static_cast<int>(y) + dy;
 
             if (isValidCell(nx, ny)) {
-                const CellB& neighbor = getCellAt(nx, ny);
+                const Cell& neighbor = getCellAt(nx, ny);
                 if (neighbor.getMaterialType() == cell.getMaterialType()
                     && neighbor.getFillRatio() > MIN_MATTER_THRESHOLD) {
 
@@ -56,7 +56,7 @@ WorldBCohesionCalculator::CohesionForce WorldBCohesionCalculator::calculateCohes
                 int ny = static_cast<int>(y) + dy;
 
                 if (isValidCell(nx, ny)) {
-                    const CellB& neighbor = getCellAt(nx, ny);
+                    const Cell& neighbor = getCellAt(nx, ny);
                     if (neighbor.getMaterialType() == MaterialType::METAL
                         && neighbor.getFillRatio() > 0.5) {
                         metal_neighbors++;
@@ -104,7 +104,7 @@ WorldBCohesionCalculator::CohesionForce WorldBCohesionCalculator::calculateCohes
     }
     else {
         // Minimal cohesion without structural support.
-        support_factor = WorldB::MIN_SUPPORT_FACTOR; // 0.05.
+        support_factor = World::MIN_SUPPORT_FACTOR; // 0.05.
         spdlog::trace(
             "No structural support for {} at ({},{})",
             getMaterialName(cell.getMaterialType()),
@@ -131,10 +131,10 @@ WorldBCohesionCalculator::CohesionForce WorldBCohesionCalculator::calculateCohes
     return { resistance, connected_neighbors };
 }
 
-WorldBCohesionCalculator::COMCohesionForce WorldBCohesionCalculator::calculateCOMCohesionForce(
+WorldCohesionCalculator::COMCohesionForce WorldCohesionCalculator::calculateCOMCohesionForce(
     uint32_t x, uint32_t y, uint32_t com_cohesion_range) const
 {
-    const CellB& cell = getCellAt(x, y);
+    const Cell& cell = getCellAt(x, y);
     if (cell.isEmpty()) {
         return { { 0.0, 0.0 }, 0.0, { 0.0, 0.0 }, 0, 0.0, 0.0, false };
     }
@@ -145,8 +145,8 @@ WorldBCohesionCalculator::COMCohesionForce WorldBCohesionCalculator::calculateCO
     // Check if COM is in outer 25% area (beyond ±0.5) for mass-based mode.
     const Vector2d com = cell.getCOM();
     bool in_outer_zone =
-        (std::abs(com.x) > WorldB::COM_COHESION_INNER_THRESHOLD
-         || std::abs(com.y) > WorldB::COM_COHESION_INNER_THRESHOLD);
+        (std::abs(com.x) > World::COM_COHESION_INNER_THRESHOLD
+         || std::abs(com.y) > World::COM_COHESION_INNER_THRESHOLD);
 
     // Calculate cell world position including COM offset.
     const Vector2d cell_world_pos(
@@ -166,7 +166,7 @@ WorldBCohesionCalculator::COMCohesionForce WorldBCohesionCalculator::calculateCO
             int ny = static_cast<int>(y) + dy;
 
             if (isValidCell(nx, ny)) {
-                const CellB& neighbor = getCellAt(nx, ny);
+                const Cell& neighbor = getCellAt(nx, ny);
                 if (neighbor.getMaterialType() == cell.getMaterialType()
                     && neighbor.getFillRatio() > MIN_MATTER_THRESHOLD) {
 

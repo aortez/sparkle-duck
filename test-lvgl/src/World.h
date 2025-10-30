@@ -1,42 +1,43 @@
 #pragma once
-/**
- * \file
- * A grid-based physical simulation. Energy is approximately conserved.
- * Particles are affected by gravity, kimenatics, and generally behavior like
- * sand in an hourglass.
- *
- * Within each Cell, the COM (center of mass) moves within the [-1,1] bounds. When it is within
- * the cell's internal deadzone, the COM moves internally. When it moves outside the deadzone,
- * the cell's contents transfer to the neighboring cell.
- */
 
 #include "Cell.h"
+#include "MaterialMove.h"
+#include "MaterialType.h"
 #include "Timers.h"
 #include "Vector2i.h"
-#include "WorldFactory.h"
+#include "WorldAdhesionCalculator.h"
+#include "WorldCohesionCalculator.h"
+#include "WorldCollisionCalculator.h"
+#include "WorldPressureCalculator.h"
+#include "WorldSupportCalculator.h"
+
 #include "WorldInterface.h"
 #include "WorldSetup.h"
-#include "WorldState.h"
 
 #include <cstdint>
 #include <memory>
-#include <utility>
 #include <vector>
 
 // Forward declarations
 class SimulatorUI;
 
-struct DirtMove {
-    uint32_t fromX;
-    uint32_t fromY;
-    uint32_t toX;
-    uint32_t toY;
-    double dirtAmount;
-    double waterAmount;
-    Vector2d comOffset;
-};
+/**
+ * \file
+ * World implements the pure-material physics system based on GridMechanics.md.
+ * Unlike World (mixed dirt/water), World uses Cell with pure materials and
+ * fill ratios, providing a simpler but different physics model.
+ */
 
 class World : public WorldInterface {
+public:
+    // Motion states for viscosity calculations.
+    enum class MotionState {
+        STATIC,   // Supported by surface, minimal velocity.
+        FALLING,  // No support, downward velocity.
+        SLIDING,  // Moving along a surface with support.
+        TURBULENT // High velocity differences with neighbors.
+    };
+
 public:
     World(uint32_t width, uint32_t height);
     ~World();
@@ -49,381 +50,425 @@ public:
     World(World&&) = default;
     World& operator=(World&&) = default;
 
+    // =================================================================
+    // WORLDINTERFACE IMPLEMENTATION - CORE SIMULATION
+    // =================================================================
+
     void advanceTime(double deltaTimeSeconds) override;
-
-    uint32_t getTimestep() const override { return timestep; }
-
+    uint32_t getTimestep() const override { return timestep_; }
     void draw(lv_obj_t& drawArea) override;
-
     void reset() override;
+    void setup() override;
 
-    Cell& at(uint32_t x, uint32_t y);
-    const Cell& at(uint32_t x, uint32_t y) const;
-    Cell& at(const Vector2i& pos);
-    const Cell& at(const Vector2i& pos) const;
+    // =================================================================
+    // WORLDINTERFACE IMPLEMENTATION - GRID ACCESS
+    // =================================================================
 
-    // WorldInterface cell access through CellInterface
+    uint32_t getWidth() const override { return width_; }
+    uint32_t getHeight() const override { return height_; }
+
+    // WorldInterface cell access through CellInterface.
     CellInterface& getCellInterface(uint32_t x, uint32_t y) override;
     const CellInterface& getCellInterface(uint32_t x, uint32_t y) const override;
 
-    uint32_t getWidth() const override;
-    uint32_t getHeight() const override;
+    // =================================================================
+    // WORLDINTERFACE IMPLEMENTATION - SIMULATION CONTROL
+    // =================================================================
 
-    void setTimescale(double scale) override { timescale = scale; }
-    double getTimescale() const override { return timescale; }
-
-    // UI management
-    void setUI(std::unique_ptr<SimulatorUI> ui) override;
-    void setUIReference(SimulatorUI* ui) override;
-    SimulatorUI* getUI() const override { return ui_ref_ ? ui_ref_ : ui_.get(); }
-
-    // World type identification
-    const char* getWorldTypeName() const override { return "World (RulesA)"; }
-
-    // Get the total mass of dirt in the world.
+    void setTimescale(double scale) override { timescale_ = scale; }
+    double getTimescale() const override { return timescale_; }
     double getTotalMass() const override;
+    double getRemovedMass() const override { return removed_mass_; }
+    void setAddParticlesEnabled(bool enabled) override { add_particles_enabled_ = enabled; }
 
-    // Get the amount of dirt that has been removed due to being below the threshold.
-    double getRemovedMass() const override { return removedMass; }
+    // =================================================================
+    // WORLDINTERFACE IMPLEMENTATION - MATERIAL ADDITION
+    // =================================================================
 
-    // Control whether addParticles should be called during advanceTime
-    void setAddParticlesEnabled(bool enabled) override { addParticlesEnabled = enabled; }
-
-    // Add dirt at a specific pixel coordinate
     void addDirtAtPixel(int pixelX, int pixelY) override;
     void addWaterAtPixel(int pixelX, int pixelY) override;
 
-    // Universal material addition (mapped to dirt/water for WorldA compatibility)
+    // Universal material addition (direct support for all 8 material types).
     void addMaterialAtPixel(
         int pixelX, int pixelY, MaterialType type, double amount = 1.0) override;
 
-    // Add material at cell coordinates (useful for testing)
-    void addMaterialAtCell(uint32_t x, uint32_t y, MaterialType type, double amount = 1.0) override;
-
-    // Material selection state management
+    // Material selection state management.
     void setSelectedMaterial(MaterialType type) override { selected_material_ = type; }
     MaterialType getSelectedMaterial() const override { return selected_material_; }
 
-    // Check if cell at pixel coordinates has material
+    // Check if cell at pixel coordinates has material.
     bool hasMaterialAtPixel(int pixelX, int pixelY) const override;
 
-    // Time reversal functionality
-    void enableTimeReversal(bool enabled) override { timeReversalEnabled = enabled; }
-    bool isTimeReversalEnabled() const override { return timeReversalEnabled; }
-    void saveWorldState() override;
-    bool canGoBackward() const override { return !stateHistory.empty(); }
-    bool canGoForward() const override
-    {
-        return currentHistoryIndex < static_cast<int>(stateHistory.size()) - 1;
-    }
-    void goBackward() override;
-    void goForward() override;
-    void clearHistory() override
-    {
-        stateHistory.clear();
-        currentHistoryIndex = -1;
-        hasStoredCurrentState = false; // Also clear stored current state
-    }
-    size_t getHistorySize() const override { return stateHistory.size(); }
+    // =================================================================
+    // WORLDINTERFACE IMPLEMENTATION - DRAG INTERACTION
+    // =================================================================
 
-    // Start dragging dirt from a cell
     void startDragging(int pixelX, int pixelY) override;
-
-    // Update drag position
     void updateDrag(int pixelX, int pixelY) override;
-
-    // End dragging and place dirt
     void endDragging(int pixelX, int pixelY) override;
-
     void restoreLastDragCell() override;
 
-    void setGravity(double g) override { gravity = g; }
-    double getGravity() const override { return gravity; }
+    // =================================================================
+    // WORLDINTERFACE IMPLEMENTATION - PHYSICS PARAMETERS
+    // =================================================================
 
-    // Set the elasticity factor for reflections.
-    void setElasticityFactor(double e) override { ELASTICITY_FACTOR = e; }
-    double getElasticityFactor() const override { return ELASTICITY_FACTOR; }
+    void setGravity(double g) override { gravity_ = g; }
+    double getGravity() const override { return gravity_; }
+    Vector2d getGravityVector() const { return Vector2d(0.0, gravity_); }
+    void setElasticityFactor(double e) override { elasticity_factor_ = e; }
+    double getElasticityFactor() const override { return elasticity_factor_; }
+    void setPressureScale(double scale) override { pressure_scale_ = scale; }
+    double getPressureScale() const { return pressure_scale_; }
+    void setDirtFragmentationFactor(double /* factor */) override { /* no-op for World */ }
 
-    // Set the pressure scale factor.
-    void setPressureScale(double scale) override { pressureScale = scale; }
+    // =================================================================
+    // WORLDINTERFACE IMPLEMENTATION - WATER PHYSICS (SIMPLIFIED)
+    // =================================================================
 
-    // Water physics configuration
     void setWaterPressureThreshold(double threshold) override
     {
-        waterPressureThreshold = threshold;
+        water_pressure_threshold_ = threshold;
     }
-    double getWaterPressureThreshold() const override { return waterPressureThreshold; }
+    double getWaterPressureThreshold() const override { return water_pressure_threshold_; }
 
-    // Resize the world grid based on new cell size
+    // =================================================================
+    // WORLDINTERFACE IMPLEMENTATION - PRESSURE SYSTEM
+    // =================================================================
+
+    void setPressureSystem(PressureSystem system) override { pressure_system_ = system; }
+    PressureSystem getPressureSystem() const override { return pressure_system_; }
+
+    // =================================================================
+    // WORLDINTERFACE IMPLEMENTATION - DUAL PRESSURE SYSTEM
+    // =================================================================
+
+    void setHydrostaticPressureEnabled(bool enabled) override;
+    bool isHydrostaticPressureEnabled() const override { return hydrostatic_pressure_strength_ > 0.0; }
+
+    void setDynamicPressureEnabled(bool enabled) override;
+    bool isDynamicPressureEnabled() const override { return dynamic_pressure_strength_ > 0.0; }
+
+    void setPressureDiffusionEnabled(bool enabled) override
+    {
+        pressure_diffusion_enabled_ = enabled;
+    }
+    bool isPressureDiffusionEnabled() const override { return pressure_diffusion_enabled_; }
+
+    void setHydrostaticPressureStrength(double strength) override;
+    double getHydrostaticPressureStrength() const override;
+
+    void setDynamicPressureStrength(double strength) override;
+    double getDynamicPressureStrength() const override;
+
+    // Pressure calculator access.
+    WorldPressureCalculator& getPressureCalculator() { return pressure_calculator_; }
+    const WorldPressureCalculator& getPressureCalculator() const { return pressure_calculator_; }
+
+    // Collision calculator access.
+    WorldCollisionCalculator& getCollisionCalculator() { return collision_calculator_; }
+    const WorldCollisionCalculator& getCollisionCalculator() const
+    {
+        return collision_calculator_;
+    }
+
+    // =================================================================
+    // WORLDINTERFACE IMPLEMENTATION - TIME REVERSAL (NO-OP)
+    // =================================================================
+
+    void enableTimeReversal(bool /* enabled */) override { /* no-op */ }
+    bool isTimeReversalEnabled() const override { return false; }
+    void saveWorldState() override { /* no-op */ }
+    bool canGoBackward() const override { return false; }
+    bool canGoForward() const override { return false; }
+    void goBackward() override { /* no-op */ }
+    void goForward() override { /* no-op */ }
+    void clearHistory() override { /* no-op */ }
+    size_t getHistorySize() const override { return 0; }
+
+    // WORLDINTERFACE IMPLEMENTATION - WORLD SETUP (SIMPLIFIED)
+    // World-specific wall setup behavior (overrides base class)
+    void setWallsEnabled(bool enabled) override;
+    bool areWallsEnabled() const override; // World defaults to true instead of false
+
+    // WORLDINTERFACE IMPLEMENTATION - DEBUG VISUALIZATION
+    void setDebugDrawEnabled(bool enabled) override { debug_draw_enabled_ = enabled; }
+    bool isDebugDrawEnabled() const override { return debug_draw_enabled_; }
+
+    // WORLDINTERFACE IMPLEMENTATION - COHESION PHYSICS CONTROL
+    void setCohesionBindForceEnabled(bool enabled) override
+    {
+        cohesion_bind_force_enabled_ = enabled;
+    }
+    bool isCohesionBindForceEnabled() const override { return cohesion_bind_force_enabled_; }
+
+    void setCohesionComForceEnabled(bool enabled) override
+    {
+        // Backward compatibility: set strength to 0 (disabled) or default (enabled).
+        cohesion_com_force_strength_ = enabled ? 150.0 : 0.0;
+    }
+    bool isCohesionComForceEnabled() const override { return cohesion_com_force_strength_ > 0.0; }
+
+    void setCohesionComForceStrength(double strength) override
+    {
+        cohesion_com_force_strength_ = strength;
+    }
+    double getCohesionComForceStrength() const override { return cohesion_com_force_strength_; }
+
+    void setAdhesionStrength(double strength) override
+    {
+        adhesion_calculator_.setAdhesionStrength(strength);
+    }
+    double getAdhesionStrength() const override
+    {
+        return adhesion_calculator_.getAdhesionStrength();
+    }
+
+    void setAdhesionEnabled(bool enabled) override
+    {
+        adhesion_calculator_.setAdhesionEnabled(enabled);
+    }
+    bool isAdhesionEnabled() const override { return adhesion_calculator_.isAdhesionEnabled(); }
+
+    void setCohesionBindForceStrength(double strength) override
+    {
+        cohesion_bind_force_strength_ = strength;
+    }
+    double getCohesionBindForceStrength() const override { return cohesion_bind_force_strength_; }
+
+    // Viscosity control.
+    void setViscosityStrength(double strength) override { viscosity_strength_ = strength; }
+    double getViscosityStrength() const override { return viscosity_strength_; }
+
+    // Friction control.
+    void setFrictionStrength(double strength) { friction_strength_ = strength; }
+    double getFrictionStrength() const { return friction_strength_; }
+
+    void setCOMCohesionRange(uint32_t range) override { com_cohesion_range_ = range; }
+    uint32_t getCOMCohesionRange() const override { return com_cohesion_range_; }
+
+    // WORLDINTERFACE IMPLEMENTATION - AIR RESISTANCE CONTROL
+    void setAirResistanceEnabled(bool enabled) override { air_resistance_enabled_ = enabled; }
+    bool isAirResistanceEnabled() const override { return air_resistance_enabled_; }
+    void setAirResistanceStrength(double strength) override { air_resistance_strength_ = strength; }
+    double getAirResistanceStrength() const override { return air_resistance_strength_; }
+
+    // COM cohesion mode removed - always uses ORIGINAL implementation
+
+    // WORLDINTERFACE IMPLEMENTATION - GRID MANAGEMENT
     void resizeGrid(uint32_t newWidth, uint32_t newHeight) override;
-
-    // Mark all cells as dirty (needing redraw)
     void markAllCellsDirty() override;
 
-    // Debug visualization.
-    void setDebugDrawEnabled(bool enabled) override { debugDrawEnabled = enabled; }
-    bool isDebugDrawEnabled() const override { return debugDrawEnabled; }
-
-    // Cohesion bind force control (no-op for WorldA).
-    void setCohesionBindForceEnabled([[maybe_unused]] bool enabled) override
-    { /* no-op for WorldA */ }
-
-    bool isCohesionBindForceEnabled() const override { return false; }
-
-    // Cohesion COM force control (no-op for WorldA)
-    void setCohesionComForceEnabled([[maybe_unused]] bool enabled) override { /* no-op for WorldA */
-    }
-    bool isCohesionComForceEnabled() const override { return false; }
-
-    // Cohesion strength parameters (no-op for WorldA)
-    void setCohesionComForceStrength([[maybe_unused]] double strength) override
-    { /* no-op for WorldA */ }
-    double getCohesionComForceStrength() const override { return 1.0; }
-
-    void setAdhesionStrength([[maybe_unused]] double strength) override { /* no-op for WorldA */ }
-    void setFrictionStrength([[maybe_unused]] double strength) override { /* no-op for WorldA */ }
-    double getAdhesionStrength() const override { return 1.0; }
-    double getFrictionStrength() const override { return 1.0; }
-
-    void setAdhesionEnabled([[maybe_unused]] bool enabled) override { /* no-op for WorldA */ }
-    bool isAdhesionEnabled() const override { return false; }
-
-    void setCohesionBindForceStrength([[maybe_unused]] double strength) override
-    { /* no-op for WorldA */ }
-    double getCohesionBindForceStrength() const override { return 1.0; }
-
-    // Viscosity control (not implemented in RulesA).
-    void setViscosityStrength([[maybe_unused]] double strength) override { /* no-op for WorldA */ }
-    double getViscosityStrength() const override { return 1.0; }
-
-    // COM cohesion range control (no-op for WorldA)
-    void setCOMCohesionRange([[maybe_unused]] uint32_t range) override { /* no-op for WorldA */ }
-    uint32_t getCOMCohesionRange() const override { return 1; }
-
-    // Air resistance control (no-op for WorldA)
-    void setAirResistanceEnabled([[maybe_unused]] bool enabled) override { /* no-op for WorldA */ }
-    bool isAirResistanceEnabled() const override { return false; }
-    void setAirResistanceStrength([[maybe_unused]] double strength) override
-    { /* no-op for WorldA */ }
-    double getAirResistanceStrength() const override { return 0.0; }
-
-    // Dump timer statistics
-    void dumpTimerStats() const override { timers.dumpTimerStats(); }
-
-    // Minimum amount of matter that we should bother processing.
-    static constexpr double MIN_MATTER_THRESHOLD = 0.001;
-
-    // Physics constants
-    static constexpr double COM_CELL_WIDTH = 2.0; // COM coordinate system width per cell
-    static constexpr double REFLECTION_THRESHOLD =
-        1.2;                                       // Trigger reflection at 1.2x normal threshold
-    static constexpr double TRANSFER_FACTOR = 1.0; // Always transfer 100% of available space
-
-    // Controls how much dirt is left behind during transfers.
-    static double DIRT_FRAGMENTATION_FACTOR;
-
-    void setDirtFragmentationFactor(double factor) override { DIRT_FRAGMENTATION_FACTOR = factor; }
-
-    void applyPressure(const double timestep);
-
-    // Update pressure for all cells based on COM deflection into neighbors
-    void updateAllPressures(double timestep);
-
-    // Alternative top-down pressure system with hydrostatic accumulation
-    void updateAllPressuresTopDown(double timestep);
-
-    // Iterative settling pressure system with multiple passes
-    void updateAllPressuresIterativeSettling(double timestep);
-
-    // Pressure system selection (use WorldInterface enum)
-    using PressureSystem = WorldInterface::PressureSystem;
-
-    void setPressureSystem(PressureSystem system) override { pressureSystem = system; }
-    PressureSystem getPressureSystem() const override { return pressureSystem; }
-
-    // Dual pressure system controls (no-op for World - only WorldB supports these)
-    void setHydrostaticPressureEnabled(bool /* enabled */) override { /* no-op */ }
-    bool isHydrostaticPressureEnabled() const override { return false; }
-
-    void setDynamicPressureEnabled(bool /* enabled */) override { /* no-op */ }
-    bool isDynamicPressureEnabled() const override { return false; }
-
-    // Dual pressure strength controls (no-op for World - only WorldB supports these)
-    void setHydrostaticPressureStrength(double /* strength */) override { /* no-op */ }
-    double getHydrostaticPressureStrength() const override { return 1.0; }
-
-    void setDynamicPressureStrength(double /* strength */) override { /* no-op */ }
-    double getDynamicPressureStrength() const override { return 1.0; }
-
-    // Pressure diffusion controls (no-op for World - only WorldB supports these)
-    void setPressureDiffusionEnabled(bool /* enabled */) override { /* no-op */ }
-    bool isPressureDiffusionEnabled() const override { return false; }
-
-    double timescale = 1.0;
-
-    // Mark that user input has occurred (for triggering saves)
-    void markUserInput() override { hasUserInputSinceLastSave = true; }
-
-    // Get a string representation of all world settings
+    // WORLDINTERFACE IMPLEMENTATION - PERFORMANCE AND DEBUGGING
+    void dumpTimerStats() const override { timers_.dumpTimerStats(); }
+    void markUserInput() override { /* no-op for now */ }
     std::string settingsToString() const override;
-
-    // World type management
-    WorldType getWorldType() const override;
-    void preserveState(::WorldState& state) const override;
-    void restoreState(const ::WorldState& state) override;
 
     // World setup management
     void setWorldSetup(std::unique_ptr<WorldSetup> setup) override;
     WorldSetup* getWorldSetup() const override;
 
-protected:
-    Timers timers;
+    // WORLDINTERFACE IMPLEMENTATION - UI INTEGRATION
+    void setUI(std::unique_ptr<SimulatorUI> ui) override;
+    void setUIReference(SimulatorUI* ui) override;
+    SimulatorUI* getUI() const override { return ui_ref_ ? ui_ref_ : ui_.get(); }
 
+    // =================================================================
+    // WORLD-SPECIFIC METHODS
+    // =================================================================
+
+    // Direct cell access
+    Cell& at(uint32_t x, uint32_t y);
+    const Cell& at(uint32_t x, uint32_t y) const;
+    Cell& at(const Vector2i& pos);
+    const Cell& at(const Vector2i& pos) const;
+
+    // Add material at specific cell coordinates
+    void addMaterialAtCell(uint32_t x, uint32_t y, MaterialType type, double amount = 1.0) override;
+
+    // Physics constants from GridMechanics.md (all per-timestep values)
+    static constexpr double MAX_VELOCITY_PER_TIMESTEP = 20.0; // cells/timestep
+    static constexpr double VELOCITY_DAMPING_THRESHOLD_PER_TIMESTEP =
+        10.0; // velocity threshold for damping (cells/timestep)
+    static constexpr double VELOCITY_DAMPING_FACTOR_PER_TIMESTEP =
+        0.10;                                             // 10% slowdown per timestep
+    static constexpr double MIN_MATTER_THRESHOLD = 0.001; // minimum matter to process
+
+    // Distance-based cohesion decay constants
+    static constexpr double SUPPORT_DECAY_RATE = 0.3; // Decay rate per distance unit
+    static constexpr double MIN_SUPPORT_FACTOR =
+        0.05; // Minimum cohesion factor (never goes to zero)
+    static constexpr double MAX_SUPPORT_DISTANCE =
+        10; // Maximum search distance for support (legacy)
+
+    // Directional support constants for realistic physics
+    static constexpr double MAX_VERTICAL_SUPPORT_DISTANCE =
+        5; // Check 5 cells down for vertical support
+    static constexpr double RIGID_DENSITY_THRESHOLD =
+        5.0; // Materials above this density provide rigid support
+
+    // Mass-based COM cohesion constants
+    static constexpr double COM_COHESION_INNER_THRESHOLD =
+        0.5; // COM must be > 0.5 from center to activate
+    static constexpr double COM_COHESION_MIN_DISTANCE = 0.1; // Prevent division by near-zero
+    static constexpr double COM_COHESION_MAX_FORCE = 5.0;    // Cap maximum force magnitude
+    static constexpr double STRONG_ADHESION_THRESHOLD =
+        0.5; // Minimum adhesion needed for horizontal support
+
+    // =================================================================
+    // TESTING METHODS
+    // =================================================================
+
+    // Clear pending moves for testing
+    void clearPendingMoves() { pending_moves_.clear(); }
+
+    // Expose cells array for static method testing
+    const Cell* getCellsData() const { return cells_.data(); }
+
+    // =================================================================
+    // FORCE CALCULATION METHODS
+    // =================================================================
+
+    // Calculate adhesion force from different-material neighbors
+
+    // Support calculation methods moved to WorldSupportCalculator.
+    WorldSupportCalculator& getSupportCalculator() { return support_calculator_; }
+    const WorldSupportCalculator& getSupportCalculator() const { return support_calculator_; }
+
+    // Adhesion calculation methods moved to WorldAdhesionCalculator
+    WorldAdhesionCalculator& getAdhesionCalculator() { return adhesion_calculator_; }
+    const WorldAdhesionCalculator& getAdhesionCalculator() const { return adhesion_calculator_; }
+
+    // Material transfer computation - computes moves without processing them
+    std::vector<MaterialMove> computeMaterialMoves(double deltaTime);
+
+protected:
     // WorldInterface hook implementations
-    void onPreResize(uint32_t /*newWidth*/, uint32_t /*newHeight*/) override;
+    void onPostResize() override;
 
 private:
-    // Physics simulation methods (broken down from advanceTime)
-    void processParticleAddition(double deltaTimeSeconds);
-    void processDragEnd();
-    void applyPhysicsToCell(Cell& cell, uint32_t x, uint32_t y, double deltaTimeSeconds);
-    void processTransfers(double deltaTimeSeconds);
-    bool attemptTransfer(
-        Cell& cell,
-        uint32_t x,
-        uint32_t y,
-        int targetX,
-        int targetY,
-        const Vector2d& comOffset,
-        double totalMass);
-    void handleTransferFailure(
-        Cell& cell,
-        uint32_t x,
-        uint32_t y,
-        int targetX,
-        int targetY,
-        bool shouldTransferX,
-        bool shouldTransferY);
-    void handleBoundaryReflection(
-        Cell& cell, int targetX, int targetY, bool shouldTransferX, bool shouldTransferY);
-    void checkExcessiveDeflectionReflection(Cell& cell);
+    // =================================================================
+    // INTERNAL PHYSICS METHODS
+    // =================================================================
 
-    // Transfer calculation helpers
-    void calculateTransferDirection(
-        const Cell& cell,
-        bool& shouldTransferX,
-        bool& shouldTransferY,
-        int& targetX,
-        int& targetY,
-        Vector2d& comOffset,
-        uint32_t x,
-        uint32_t y);
-    bool isWithinBounds(int x, int y) const;
-    bool isWithinBounds(const Vector2i& pos) const;
-    Vector2d calculateNaturalCOM(const Vector2d& sourceCOM, int deltaX, int deltaY);
-    Vector2d clampCOMToDeadZone(const Vector2d& naturalCOM);
+    void applyGravity();
+    void applyAirResistance();
+    void applyCohesionForces();
+    void applyPressureForces();
+    void resolveForces(double deltaTime);
 
-    uint32_t width;
-    uint32_t height;
-    std::vector<Cell> cells;
+    // Helper method for viscosity calculations.
+    double getMotionStateMultiplier(MotionState state, double sensitivity) const;
+    void updateTransfers(double deltaTime);
+    void processVelocityLimiting(double deltaTime);
 
-    uint32_t timestep = 0;
+    void processMaterialMoves();
 
-    // Pressure scale factor (default 1.0)
-    double pressureScale = 1.0;
+    void setupBoundaryWalls();
 
-    // Water physics configuration
-    double waterPressureThreshold = 0.0004; // Default threshold for water pressure application
-                                            // (further lowered for easier flow)
+    // Coordinate conversion helpers
+    void pixelToCell(int pixelX, int pixelY, int& cellX, int& cellY) const;
+    Vector2i pixelToCell(int pixelX, int pixelY) const;
+    bool isValidCell(int x, int y) const;
+    bool isValidCell(const Vector2i& pos) const;
+    size_t coordToIndex(uint32_t x, uint32_t y) const;
+    size_t coordToIndex(const Vector2i& pos) const;
 
-    static double ELASTICITY_FACTOR; // Energy preserved in reflections (0.0 to 1.0).
+    // =================================================================
+    // MEMBER VARIABLES
+    // =================================================================
+
+    // Grid storage
+    std::vector<Cell> cells_;
+    uint32_t width_;
+    uint32_t height_;
+
+    // Simulation state
+    uint32_t timestep_;
+    double timescale_;
+    double removed_mass_;
+
+    // Physics parameters
+    double gravity_;
+    double elasticity_factor_;
+    double pressure_scale_;
+    double water_pressure_threshold_;
+    PressureSystem pressure_system_;
+
+    // Dual pressure system controls
+    bool pressure_diffusion_enabled_;
+    double hydrostatic_pressure_strength_;  // 0 = disabled
+    double dynamic_pressure_strength_;      // 0 = disabled
+
+    // World setup controls
+    bool add_particles_enabled_;
 
     // Debug visualization.
-    bool debugDrawEnabled = true;
+    bool debug_draw_enabled_;
 
-    // Track mass that has been removed due to being below the threshold.
-    double removedMass = 0.0;
+    // Cohesion physics control.
+    bool cohesion_bind_force_enabled_; // Enable/disable cohesion bind force (resistance)
 
-    // Control whether addParticles should be called during advanceTime
-    bool addParticlesEnabled = true;
+    double cohesion_com_force_strength_; // Scaling factor for COM cohesion force magnitude (0 = disabled)
+    double
+        cohesion_bind_force_strength_; // Scaling factor for cohesion bind resistance - DEPRECATED
+    uint32_t com_cohesion_range_;      // Range for COM cohesion neighbors (default 2)
 
-    // Gravity (default 9.81, can be set for tests)
-    double gravity = 9.81;
+    // Viscosity control
+    double viscosity_strength_; // Global multiplier for material viscosity (0.0-2.0)
 
-    // Drag state
-    bool isDragging = false;
-    int dragStartX = -1;
-    int dragStartY = -1;
-    double draggedDirt = 0.0;
-    Vector2d draggedVelocity;
-    Vector2d draggedCom; // Track COM during drag
-    int lastDragCellX = -1;
-    int lastDragCellY = -1;
-    double lastCellOriginalDirt = 0.0;
-    std::vector<std::pair<int, int>> recentPositions;
-    static constexpr size_t MAX_RECENT_POSITIONS = 5;
+    // Friction control
+    double friction_strength_; // Global multiplier for friction coefficients (0.0-2.0)
 
-    // Track pending drag end state
-    struct PendingDragEnd {
-        bool hasPendingEnd = false;
-        int cellX = -1;
-        int cellY = -1;
-        double dirt = 0.0;
-        Vector2d velocity;
-        Vector2d com;
-    };
-    PendingDragEnd pendingDragEnd;
+    // Air resistance control
+    bool air_resistance_enabled_;    // Enable/disable air resistance forces
+    double air_resistance_strength_; // Strength multiplier for air resistance
+
+    // Drag state (enhanced with visual feedback)
+    bool is_dragging_;
+    int drag_start_x_;
+    int drag_start_y_;
+    MaterialType dragged_material_;
+    double dragged_amount_;
+
+    // Current drag position tracking
+    int last_drag_cell_x_;
+    int last_drag_cell_y_;
+
+    // Floating particle for drag interaction (can collide with world)
+    bool has_floating_particle_;
+    Cell floating_particle_;
+    double floating_particle_pixel_x_;
+    double floating_particle_pixel_y_;
+
+    // Velocity tracking for "toss" behavior
+    std::vector<std::pair<int, int>> recent_positions_;
+    Vector2d dragged_velocity_;
+    Vector2d dragged_com_;
 
     // Material selection state (for UI coordination)
     MaterialType selected_material_;
 
-    // UI interface
+    // Material transfer queue
+    std::vector<MaterialMove> pending_moves_;
+
+    // Dynamic pressure system
+
+    // Performance timing.
+    mutable Timers timers_;
+
+    // Support calculation.
+    mutable WorldSupportCalculator support_calculator_;
+
+    // Pressure calculation.
+    WorldPressureCalculator pressure_calculator_;
+
+    // Collision calculation.
+    WorldCollisionCalculator collision_calculator_;
+
+    // Adhesion calculation.
+    mutable WorldAdhesionCalculator adhesion_calculator_;
+
+    // UI interface.
     std::unique_ptr<SimulatorUI> ui_; // Owned UI (legacy architecture)
     SimulatorUI* ui_ref_;             // Non-owning reference (SimulationManager architecture)
-
-    std::vector<DirtMove> moves;
-
-    // Time reversal state history
-    struct WorldState {
-        std::vector<Cell> cells;
-        uint32_t width;      // Grid width when this state was saved
-        uint32_t height;     // Grid height when this state was saved
-        uint32_t cellWidth;  // Cell width when this state was saved
-        uint32_t cellHeight; // Cell height when this state was saved
-        uint32_t timestep;
-        double totalMass;
-        double removedMass;
-        double timestamp; // Time when this state was captured (in seconds)
-        // Optional: also store physics state like pendingDragEnd, etc.
-    };
-
-    bool timeReversalEnabled = true;      // Enable by default
-    std::vector<WorldState> stateHistory; // History of world states
-    int currentHistoryIndex = -1;         // Current position in history (-1 = most recent)
-    static constexpr size_t MAX_HISTORY_SIZE = 1000; // Limit history to prevent memory issues
-
-    // Enhanced save logic
-    bool hasUserInputSinceLastSave = false;               // Track user input for triggering saves
-    double lastSaveTime = 0.0;                            // Track when we last saved (in seconds)
-    double simulationTime = 0.0;                          // Total simulation time elapsed
-    static constexpr double PERIODIC_SAVE_INTERVAL = 0.5; // Save every 500ms
-
-    // Current state preservation for time reversal
-    WorldState currentLiveState;        // Stored current state when starting navigation
-    bool hasStoredCurrentState = false; // Whether we've captured the current state
-
-    size_t coordToIndex(uint32_t x, uint32_t y) const;
-
-    // Apply all queued moves to the world.
-    void applyMoves();
-
-    // Helper to convert pixel coordinates to cell coordinates
-    void pixelToCell(int pixelX, int pixelY, int& cellX, int& cellY) const;
-    Vector2i pixelToCell(int pixelX, int pixelY) const;
-
-    // Helper method to restore state with potential grid size changes
-    void restoreWorldState(const WorldState& state);
-
-    // Pressure system selection
-    PressureSystem pressureSystem = PressureSystem::Original;
 };

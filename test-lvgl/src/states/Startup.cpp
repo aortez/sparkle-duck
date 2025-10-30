@@ -1,6 +1,6 @@
 #include "State.h"
 #include "../DirtSimStateMachine.h"
-#include "../WorldFactory.h"
+#include "../World.h"
 #include "../WorldSetup.h"
 #include <spdlog/spdlog.h>
 
@@ -11,8 +11,8 @@ namespace State {
 State::Any Startup::onEvent(const InitCompleteEvent& /*evt. */, DirtSimStateMachine& dsm) {
     spdlog::info("Startup: Initialization complete, creating world");
     
-    // Create default world (WorldB/RulesB)
-    dsm.world = createWorld(WorldType::RulesB, 50, 50);
+    // Create default world (World/"World")
+    dsm.world = std::make_unique<World>(50, 50);
     
     // Initialize world with some default content.
     if (dsm.world) {

@@ -8,7 +8,7 @@
 
 #include <gtest/gtest.h>
 #include "visual_test_runner.h"
-#include "../WorldB.h"
+#include "../World.h"
 #include "../MaterialType.h"
 #include <spdlog/spdlog.h>
 #include <spdlog/fmt/fmt.h>
@@ -39,7 +39,7 @@ protected:
         return world.get();
     }
     
-    std::unique_ptr<WorldB> world;
+    std::unique_ptr<World> world;
 };
 
 /**
@@ -81,7 +81,7 @@ TEST_F(UnifiedSimLoopExampleTest, SimpleFallingWaterTracking) {
     // if (visual_mode_) {
     //     for (int step = 0; step < 30; step++) {
     //         // Find water cell.
-    //         CellB* waterCell = findWaterCell();
+    //         Cell* waterCell = findWaterCell();
     //         
     //         // Track state.
     //         yPositions.push_back(waterCell->y);
@@ -104,7 +104,7 @@ TEST_F(UnifiedSimLoopExampleTest, SimpleFallingWaterTracking) {
     // } else {
     //     for (int step = 0; step < 30; step++) {
     //         // DUPLICATE: Same exact logic without display.
-    //         CellB* waterCell = findWaterCell();
+    //         Cell* waterCell = findWaterCell();
     //         yPositions.push_back(waterCell->y);
     //         velocities.push_back(waterCell->getVelocity().y);
     //         world->advanceTime(0.016);
@@ -123,7 +123,7 @@ TEST_F(UnifiedSimLoopExampleTest, SimpleFallingWaterTracking) {
             // PATTERN: Test logic goes here - runs identically in both modes.
             
             // Find water cell (it moves as it falls).
-            CellB* waterCell = nullptr;
+            Cell* waterCell = nullptr;
             for (uint32_t y = 0; y < world->getHeight(); y++) {
                 for (uint32_t x = 0; x < world->getWidth(); x++) {
                     if (world->at(x, y).getMaterialType() == MaterialType::WATER &&
@@ -194,8 +194,8 @@ TEST_F(UnifiedSimLoopExampleTest, PressureTrackingExample) {
     world->addMaterialAtCell(1, 1, MaterialType::WATER, 0.9);
     world->addMaterialAtCell(2, 1, MaterialType::WATER, 0.9);
     
-    CellB& cell1 = world->at(1, 1);
-    CellB& cell2 = world->at(2, 1);
+    Cell& cell1 = world->at(1, 1);
+    Cell& cell2 = world->at(2, 1);
     
     // Give them opposing velocities for collision.
     cell1.setVelocity(Vector2d(2.0, 0.0));

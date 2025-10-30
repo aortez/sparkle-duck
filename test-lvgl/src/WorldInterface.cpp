@@ -11,7 +11,7 @@ void WorldInterface::initializeWorldSetup()
 
 void WorldInterface::setup()
 {
-    spdlog::info("Setting up {} with initial materials", getWorldTypeName());
+    spdlog::info("Setting up {} with initial materials", "World");
 
     // First reset to empty state.
     reset();
@@ -21,7 +21,7 @@ void WorldInterface::setup()
         worldSetup_->setup(*this);
     }
     else {
-        spdlog::warn("WorldSetup is null in {}::setup()", getWorldTypeName());
+        spdlog::warn("WorldSetup is null in {}::setup()", "World");
     }
 }
 
@@ -156,7 +156,7 @@ bool WorldInterface::shouldResize(uint32_t newWidth, uint32_t newHeight) const
 
     spdlog::info(
         "Resizing {} grid: {}x{} -> {}x{}",
-        getWorldTypeName(),
+        "World",
         getWidth(),
         getHeight(),
         newWidth,

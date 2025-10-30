@@ -1,517 +1,443 @@
 #include "Cell.h"
-
-#include "World.h"
+#include "Cell.h"   // For WIDTH/HEIGHT constants.
+#include "World.h" // For MIN_MATTER_THRESHOLD constant.
 
 #include <algorithm>
-#include <cassert>
 #include <cctype>
 #include <cmath>
-#include <cstdio> // For snprintf.
-#include <cstring>
-#include <iostream>
+#include <sstream>
 #include <string>
 
 #include "lvgl/lvgl.h"
-
-// Define ASSERT macro if not already defined.
-#ifndef ASSERT
-#define ASSERT(cond, msg, ...) assert(cond)
-#endif
-
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
-#endif
-
-namespace {
-// Drawing constants.
-constexpr double COM_VISUALIZATION_RADIUS = 3.0; // Larger for 100px cells.
-constexpr int VELOCITY_VISUALIZATION_SCALE = 5;  // Better visibility.
-constexpr int FLOW_VISUALIZATION_SCALE = 800;    // Scale for flow vector display.
-constexpr int DENSITY_GRID_SIZE = 10;            // Grid for density visualization.
-} // namespace.
-
-bool Cell::adhesionDrawEnabled = true;
-uint32_t Cell::WIDTH = 30;  // Default cell size.
-uint32_t Cell::HEIGHT = 30; // Default cell size.
-
-// Initialize water physics constants.
-double Cell::COHESION_STRENGTH =
-    0.5; // Default cohesion strength (increased for stronger water flow).
-double Cell::VISCOSITY_FACTOR = 0.1;  // Default viscosity factor.
-double Cell::BUOYANCY_STRENGTH = 0.1; // Default buoyancy strength.
+#include "spdlog/spdlog.h"
 
 Cell::Cell()
-    : dirt(0.0),
-      water(0.0),
-      wood(0.0),
-      leaf(0.0),
-      metal(0.0),
-      com(0.0, 0.0),
-      v(0.0, 0.0),
-      pressure(0.0, 0.0),
-      buffer(WIDTH * HEIGHT * 4),
-      canvas(nullptr),
-      needsRedraw(true)
+    : material_type_(MaterialType::AIR),
+      fill_ratio_(0.0),
+      com_(0.0, 0.0),
+      velocity_(0.0, 0.0),
+      pressure_(0.0),
+      hydrostatic_component_(0.0),
+      dynamic_component_(0.0),
+      pressure_gradient_(0.0, 0.0),
+      accumulated_cohesion_force_(0.0, 0.0),
+      accumulated_adhesion_force_(0.0, 0.0),
+      accumulated_com_cohesion_force_(0.0, 0.0),
+      pending_force_(0.0, 0.0),
+      cached_friction_coefficient_(1.0),
+      canvas_(nullptr),
+      needs_redraw_(true)
+{}
+
+Cell::Cell(MaterialType type, double fill)
+    : material_type_(type),
+      fill_ratio_(std::clamp(fill, 0.0, 1.0)),
+      com_(0.0, 0.0),
+      velocity_(0.0, 0.0),
+      pressure_(0.0),
+      hydrostatic_component_(0.0),
+      dynamic_component_(0.0),
+      pressure_gradient_(0.0, 0.0),
+      accumulated_cohesion_force_(0.0, 0.0),
+      accumulated_adhesion_force_(0.0, 0.0),
+      accumulated_com_cohesion_force_(0.0, 0.0),
+      pending_force_(0.0, 0.0),
+      cached_friction_coefficient_(1.0),
+      canvas_(nullptr),
+      needs_redraw_(true)
 {}
 
 Cell::~Cell()
 {
     // Clean up the LVGL canvas object if it exists.
-    if (canvas != nullptr) {
-        lv_obj_del(canvas);
-        canvas = nullptr;
+    if (canvas_ != nullptr) {
+        lv_obj_del(canvas_);
+        canvas_ = nullptr;
     }
 }
 
-// Copy constructor - don't copy LVGL objects for time reversal.
+// Copy constructor - don't copy LVGL objects, they'll be recreated on demand.
 Cell::Cell(const Cell& other)
-    : dirt(other.dirt),
-      water(other.water),
-      wood(other.wood),
-      leaf(other.leaf),
-      metal(other.metal),
-      com(other.com),
-      v(other.v),
-      pressure(other.pressure),
-      buffer(other.buffer.size()) // Create new buffer with same size.
-      ,
-      canvas(nullptr) // Don't copy LVGL object.
-      ,
-      needsRedraw(true) // New copy needs redraw.
+    : material_type_(other.material_type_),
+      fill_ratio_(other.fill_ratio_),
+      com_(other.com_),
+      velocity_(other.velocity_),
+      pressure_(other.pressure_),
+      hydrostatic_component_(other.hydrostatic_component_),
+      dynamic_component_(other.dynamic_component_),
+      pressure_gradient_(other.pressure_gradient_),
+      accumulated_cohesion_force_(other.accumulated_cohesion_force_),
+      accumulated_adhesion_force_(other.accumulated_adhesion_force_),
+      accumulated_com_cohesion_force_(other.accumulated_com_cohesion_force_),
+      pending_force_(other.pending_force_),
+      cached_friction_coefficient_(other.cached_friction_coefficient_),
+      buffer_(other.buffer_.size()), // Create new buffer with same size.
+      canvas_(nullptr),              // Don't copy LVGL object.
+      needs_redraw_(true)            // New copy needs redraw.
 {
     // Buffer contents will be regenerated when drawn.
 }
 
-// Assignment operator - don't copy LVGL objects for time reversal.
+// Assignment operator - don't copy LVGL objects, they'll be recreated on demand.
 Cell& Cell::operator=(const Cell& other)
 {
     if (this != &other) {
-        dirt = other.dirt;
-        water = other.water;
-        wood = other.wood;
-        leaf = other.leaf;
-        metal = other.metal;
-        com = other.com;
-        v = other.v;
-        pressure = other.pressure;
+        // Clean up existing canvas before assignment.
+        if (canvas_ != nullptr) {
+            lv_obj_del(canvas_);
+            canvas_ = nullptr;
+        }
+
+        // Copy the physics state.
+        material_type_ = other.material_type_;
+        fill_ratio_ = other.fill_ratio_;
+        com_ = other.com_;
+        velocity_ = other.velocity_;
+        pressure_ = other.pressure_;
+        hydrostatic_component_ = other.hydrostatic_component_;
+        dynamic_component_ = other.dynamic_component_;
+        pressure_gradient_ = other.pressure_gradient_;
+        accumulated_cohesion_force_ = other.accumulated_cohesion_force_;
+        accumulated_adhesion_force_ = other.accumulated_adhesion_force_;
+        accumulated_com_cohesion_force_ = other.accumulated_com_cohesion_force_;
+        pending_force_ = other.pending_force_;
+        cached_friction_coefficient_ = other.cached_friction_coefficient_;
 
         // Resize buffer if needed but don't copy contents.
-        buffer.resize(other.buffer.size());
+        buffer_.resize(other.buffer_.size());
 
-        // Don't copy LVGL object - keep our own canvas.
-        // canvas stays as is (either nullptr or our own object).
-        needsRedraw = true; // Assignment means we need redraw.
+        // Don't copy LVGL object - keep canvas_ as nullptr.
+        // canvas_ stays as nullptr.
+        needs_redraw_ = true; // Assignment means we need redraw.
     }
     return *this;
 }
 
-void Cell::update(double newDirty, const Vector2d& newCom, const Vector2d& newV)
+void Cell::setFillRatio(double ratio)
 {
-    // Check if the new dirt amount would cause overfill.
-    double currentTotal = water + wood + leaf + metal; // Total without dirt.
-    if (currentTotal + newDirty > 1.10) {
-        // Clamp the dirt to fit within capacity, but don't create dirt.
-        dirt = std::max(0.0, std::min(newDirty, 1.10 - currentTotal));
-    }
-    else {
-        dirt = newDirty;
+    fill_ratio_ = std::clamp(ratio, 0.0, 1.0);
+
+    // If fill ratio becomes effectively zero, convert to air.
+    if (fill_ratio_ < MIN_FILL_THRESHOLD) {
+        material_type_ = MaterialType::AIR;
+        fill_ratio_ = 0.0;
+        velocity_ = Vector2d(0.0, 0.0);
+        com_ = Vector2d(0.0, 0.0);
+
+        // Clear all pressure values when cell becomes empty.
+        pressure_ = 0.0;
+        hydrostatic_component_ = 0.0;
+        dynamic_component_ = 0.0;
+        pressure_gradient_ = Vector2d(0.0, 0.0);
     }
 
-    com = newCom;
-    v = newV;
-    needsRedraw = true;
+    markDirty();
 }
 
-// Helper function to safely set a pixel on the canvas.
-__attribute__((unused)) static void safe_set_pixel(
-    lv_obj_t* canvas, int x, int y, lv_color_t color, lv_opa_t opa)
+void Cell::setCOM(const Vector2d& com)
 {
-    if (x >= 0 && x < static_cast<int>(Cell::WIDTH) && y >= 0
-        && y < static_cast<int>(Cell::HEIGHT)) {
-        lv_canvas_set_px(canvas, x, y, color, opa);
-    }
+    com_ = Vector2d(std::clamp(com.x, COM_MIN, COM_MAX), std::clamp(com.y, COM_MIN, COM_MAX));
+    markDirty(); // Ensure visual updates when COM changes.
 }
 
-void Cell::draw(lv_obj_t* parent, uint32_t x, uint32_t y, bool debugDraw)
+double Cell::getMass() const
 {
-    // Skip drawing if nothing has changed and canvas exists.
-    if (!needsRedraw && canvas != nullptr) {
-        return;
+    if (isEmpty()) {
+        return 0.0;
     }
-
-    if (canvas == nullptr) {
-        canvas = lv_canvas_create(parent);
-        lv_obj_set_size(canvas, Cell::WIDTH, Cell::HEIGHT);
-        lv_obj_set_pos(canvas, x * Cell::WIDTH, y * Cell::HEIGHT);
-
-        lv_canvas_set_buffer(
-            canvas, buffer.data(), Cell::WIDTH, Cell::HEIGHT, LV_COLOR_FORMAT_ARGB8888);
-    }
-
-    // Zero buffer.
-    std::fill(buffer.begin(), buffer.end(), 0);
-
-    if (!debugDraw) {
-        drawNormal(parent, x, y);
-    }
-    else {
-        drawDebug(parent, x, y);
-    }
-
-    // Mark that we've drawn the cell.
-    needsRedraw = false;
-}
-
-void Cell::drawNormal(lv_obj_t* /* parent */, uint32_t /* x */, uint32_t /* y */)
-{
-    lv_color_t brown = lv_color_hex(0x8B4513); // Saddle brown color.
-
-    // Calculate opacity based on dirt amount (0.0 to 1.0).
-    lv_opa_t opacity_dirt = static_cast<lv_opa_t>(dirt * static_cast<double>(LV_OPA_COVER));
-    lv_opa_t opacity_water = static_cast<lv_opa_t>(water * static_cast<double>(LV_OPA_COVER));
-
-    lv_layer_t layer;
-    lv_canvas_init_layer(canvas, &layer);
-
-    // Draw black background for all cells.
-    lv_draw_rect_dsc_t bg_rect_dsc;
-    lv_draw_rect_dsc_init(&bg_rect_dsc);
-    bg_rect_dsc.bg_color = lv_color_hex(0x000000); // Black background.
-    bg_rect_dsc.bg_opa = LV_OPA_COVER;
-    bg_rect_dsc.border_width = 0;
-    lv_area_t coords = { 0, 0, static_cast<int32_t>(WIDTH), static_cast<int32_t>(HEIGHT) };
-    lv_draw_rect(&layer, &bg_rect_dsc, &coords);
-
-    // Draw dirt layer.
-    lv_draw_rect_dsc_t rect_dsc;
-    lv_draw_rect_dsc_init(&rect_dsc);
-    rect_dsc.bg_color = brown;
-    rect_dsc.bg_opa = opacity_dirt;
-    rect_dsc.border_color = brown; // Same color as background.
-    rect_dsc.border_opa =
-        static_cast<lv_opa_t>(opacity_dirt * 0.3); // 30% of dirt opacity for softer look.
-    rect_dsc.border_width = 1;
-    rect_dsc.radius = 1;
-    lv_draw_rect(&layer, &rect_dsc, &coords);
-
-    // Draw water layer on top.
-    lv_draw_rect_dsc_t rect_dsc_water;
-    lv_draw_rect_dsc_init(&rect_dsc_water);
-    rect_dsc_water.bg_color = lv_color_hex(0x0000FF);
-    rect_dsc_water.bg_opa = opacity_water;
-    rect_dsc_water.border_color = lv_color_hex(0x0000FF); // Same blue color as water.
-    rect_dsc_water.border_opa =
-        static_cast<lv_opa_t>(opacity_water * 0.3); // 30% of water opacity for softer look.
-    rect_dsc_water.border_width = 1;
-    rect_dsc_water.radius = 1;
-    lv_draw_rect(&layer, &rect_dsc_water, &coords);
-
-    lv_canvas_finish_layer(canvas, &layer);
-}
-
-void Cell::drawDebug(lv_obj_t* /* parent */, uint32_t /* x */, uint32_t /* y */)
-{
-    lv_color_t brown = lv_color_hex(0x8B4513); // Saddle brown color.
-
-    // Calculate opacity based on dirt amount (0.0 to 1.0).
-    lv_opa_t opacity_dirt = static_cast<lv_opa_t>(dirt * static_cast<double>(LV_OPA_COVER));
-    lv_opa_t opacity_water = static_cast<lv_opa_t>(water * static_cast<double>(LV_OPA_COVER));
-
-    lv_layer_t layer;
-    lv_canvas_init_layer(canvas, &layer);
-
-    // Draw black background for all cells.
-    lv_draw_rect_dsc_t bg_rect_dsc;
-    lv_draw_rect_dsc_init(&bg_rect_dsc);
-    bg_rect_dsc.bg_color = lv_color_hex(0x000000); // Black background.
-    bg_rect_dsc.bg_opa = LV_OPA_COVER;
-    bg_rect_dsc.border_width = 0;
-    lv_area_t bg_coords = { 0, 0, static_cast<int32_t>(WIDTH), static_cast<int32_t>(HEIGHT) };
-    lv_draw_rect(&layer, &bg_rect_dsc, &bg_coords);
-
-    // Draw dirt background with enhanced border.
-    lv_draw_rect_dsc_t rect_dsc;
-    lv_draw_rect_dsc_init(&rect_dsc);
-    rect_dsc.bg_color = brown;
-    rect_dsc.bg_opa = static_cast<lv_opa_t>(opacity_dirt * 0.7); // More transparent for overlay.
-    rect_dsc.border_color = lv_color_hex(0x5D2A0A);              // Darker brown border.
-    rect_dsc.border_opa = opacity_dirt;
-    rect_dsc.border_width = 2;
-    rect_dsc.radius = 2;
-    lv_area_t coords = { 0, 0, static_cast<int32_t>(WIDTH), static_cast<int32_t>(HEIGHT) };
-    lv_draw_rect(&layer, &rect_dsc, &coords);
-
-    // Draw water layer with enhanced visualization.
-    if (opacity_water > 0) {
-        lv_draw_rect_dsc_t rect_dsc_water;
-        lv_draw_rect_dsc_init(&rect_dsc_water);
-        rect_dsc_water.bg_color = lv_color_hex(0x0066FF);
-        rect_dsc_water.bg_opa = static_cast<lv_opa_t>(opacity_water * 0.8);
-        rect_dsc_water.border_color = lv_color_hex(0x0044BB);
-        rect_dsc_water.border_opa = opacity_water;
-        rect_dsc_water.border_width = 2;
-        rect_dsc_water.radius = 3;
-        lv_draw_rect(&layer, &rect_dsc_water, &coords);
-    }
-
-    // Calculate center of mass pixel position.
-    int pixel_x = static_cast<int>((com.x + 1.0) * (WIDTH - 1) / 2.0);
-    int pixel_y = static_cast<int>((com.y + 1.0) * (HEIGHT - 1) / 2.0);
-
-    // Draw center of mass circle.
-    lv_draw_arc_dsc_t arc_dsc;
-    lv_draw_arc_dsc_init(&arc_dsc);
-    arc_dsc.color = lv_color_hex(0xFFFF00); // Bright yellow for better visibility.
-    arc_dsc.center.x = pixel_x;
-    arc_dsc.center.y = pixel_y;
-    arc_dsc.width = 1;
-    arc_dsc.radius = static_cast<int>(COM_VISUALIZATION_RADIUS);
-    arc_dsc.start_angle = 0;
-    arc_dsc.end_angle = 360;
-    lv_draw_arc(&layer, &arc_dsc);
-
-    // Draw velocity vector with enhanced visualization.
-    if (v.mag() > 0.01) {
-        lv_draw_line_dsc_t velocity_line_dsc;
-        lv_draw_line_dsc_init(&velocity_line_dsc);
-        velocity_line_dsc.color = lv_color_hex(0x00FF00); // Bright green.
-        velocity_line_dsc.width = 3;
-        velocity_line_dsc.opa = LV_OPA_COVER;
-        velocity_line_dsc.p1.x = pixel_x;
-        velocity_line_dsc.p1.y = pixel_y;
-        velocity_line_dsc.p2.x = pixel_x + static_cast<int>(v.x * VELOCITY_VISUALIZATION_SCALE);
-        velocity_line_dsc.p2.y = pixel_y + static_cast<int>(v.y * VELOCITY_VISUALIZATION_SCALE);
-        lv_draw_line(&layer, &velocity_line_dsc);
-
-        // Add arrowhead for velocity direction.
-        int arrow_x = velocity_line_dsc.p2.x;
-        int arrow_y = velocity_line_dsc.p2.y;
-        double angle = atan2(v.y, v.x);
-        int arrow_len = 8;
-
-        lv_draw_line_dsc_t arrow_dsc = velocity_line_dsc;
-        arrow_dsc.width = 2;
-
-        // Left arrowhead line.
-        arrow_dsc.p1.x = arrow_x;
-        arrow_dsc.p1.y = arrow_y;
-        arrow_dsc.p2.x = arrow_x - arrow_len * cos(angle - M_PI / 6);
-        arrow_dsc.p2.y = arrow_y - arrow_len * sin(angle - M_PI / 6);
-        lv_draw_line(&layer, &arrow_dsc);
-
-        // Right arrowhead line.
-        arrow_dsc.p2.x = arrow_x - arrow_len * cos(angle + M_PI / 6);
-        arrow_dsc.p2.y = arrow_y - arrow_len * sin(angle + M_PI / 6);
-        lv_draw_line(&layer, &arrow_dsc);
-    }
-
-    // Draw flow vector (shows expected material flow direction).
-    if (pressure.mag() > 0.001) {
-        lv_draw_line_dsc_t flow_line_dsc;
-        lv_draw_line_dsc_init(&flow_line_dsc);
-        flow_line_dsc.color = lv_color_hex(0xFF0080); // Magenta for flow vector.
-        flow_line_dsc.width = 3;
-        flow_line_dsc.opa = LV_OPA_COVER;
-        flow_line_dsc.p1.x = WIDTH / 2;
-        flow_line_dsc.p1.y = HEIGHT / 2;
-        // Show pressure direction (material is pushed in this direction).
-        flow_line_dsc.p2.x = WIDTH / 2 + static_cast<int>(pressure.x * FLOW_VISUALIZATION_SCALE);
-        flow_line_dsc.p2.y = HEIGHT / 2 + static_cast<int>(pressure.y * FLOW_VISUALIZATION_SCALE);
-        lv_draw_line(&layer, &flow_line_dsc);
-
-        // Add arrowhead for flow direction.
-        int arrow_x = flow_line_dsc.p2.x;
-        int arrow_y = flow_line_dsc.p2.y;
-        double angle = atan2(pressure.y, pressure.x); // Direction of pressure push.
-        int arrow_len = 8;
-
-        lv_draw_line_dsc_t arrow_dsc = flow_line_dsc;
-        arrow_dsc.width = 2;
-
-        // Left arrowhead line.
-        arrow_dsc.p1.x = arrow_x;
-        arrow_dsc.p1.y = arrow_y;
-        arrow_dsc.p2.x = arrow_x - arrow_len * cos(angle - M_PI / 6);
-        arrow_dsc.p2.y = arrow_y - arrow_len * sin(angle - M_PI / 6);
-        lv_draw_line(&layer, &arrow_dsc);
-
-        // Right arrowhead line.
-        arrow_dsc.p2.x = arrow_x - arrow_len * cos(angle + M_PI / 6);
-        arrow_dsc.p2.y = arrow_y - arrow_len * sin(angle + M_PI / 6);
-        lv_draw_line(&layer, &arrow_dsc);
-    }
-
-    lv_canvas_finish_layer(canvas, &layer);
-}
-
-void Cell::markDirty()
-{
-    needsRedraw = true;
-}
-
-std::string Cell::toString() const
-{
-    return "Cell{dirt=" + std::to_string(dirt) + ", water=" + std::to_string(water)
-        + ", wood=" + std::to_string(wood) + ", leaf=" + std::to_string(leaf) + ", metal="
-        + std::to_string(metal) + ", com=" + com.toString() + ", v=" + v.toString() + "}";
-}
-
-Vector2d Cell::getNormalizedDeflection() const
-{
-    // Assert that COM components are finite and within reasonable bounds.
-    ASSERT(std::isfinite(com.x) && std::isfinite(com.y), "COM contains NaN or infinite values");
-    ASSERT(std::abs(com.x) < 10.0 && std::abs(com.y) < 10.0, "COM values are unreasonably large");
-
-    // Normalize COM by the deflection threshold to get values in [-1, 1] range.
-    // This shows how deflected the COM is relative to the transfer threshold.
-    return Vector2d(com.x / COM_DEFLECTION_THRESHOLD, com.y / COM_DEFLECTION_THRESHOLD);
+    return fill_ratio_ * getMaterialDensity(material_type_);
 }
 
 double Cell::getEffectiveDensity() const
 {
-    double totalMass = dirt + water + wood + leaf + metal;
+    return fill_ratio_ * getMaterialDensity(material_type_);
+}
 
-    // Return zero density for empty cells.
-    if (totalMass < World::MIN_MATTER_THRESHOLD) {
+double Cell::addMaterial(MaterialType type, double amount)
+{
+    if (amount <= 0.0) {
         return 0.0;
     }
 
-    // Calculate weighted average density based on material composition.
-    double weightedDensity =
-        (dirt * DIRT_DENSITY + water * WATER_DENSITY + wood * WOOD_DENSITY + leaf * LEAF_DENSITY
-         + metal * METAL_DENSITY);
-
-    return weightedDensity / totalMass;
-}
-
-void Cell::validateState(const std::string& /* context */) const
-{
-    ASSERT(std::isfinite(dirt), ("Cell dirt is NaN or infinite in " + context).c_str());
-    ASSERT(std::isfinite(water), ("Cell water is NaN or infinite in " + context).c_str());
-    ASSERT(
-        std::isfinite(com.x) && std::isfinite(com.y),
-        ("Cell COM is NaN or infinite in " + context).c_str());
-    ASSERT(
-        std::isfinite(v.x) && std::isfinite(v.y),
-        ("Cell velocity is NaN or infinite in " + context).c_str());
-    ASSERT(
-        std::isfinite(percentFull()),
-        ("Cell percentFull is NaN or infinite in " + context).c_str());
-    ASSERT(dirt >= 0.0, ("Cell dirt is negative in " + context).c_str());
-    ASSERT(water >= 0.0, ("Cell water is negative in " + context).c_str());
-    ASSERT(
-        percentFull() <= 1.10, // Increased tolerance while we tune the density mechanics.
-        ("Cell overfull in " + context).c_str());
-}
-
-Vector2d Cell::calculateWaterCohesion(
-    const Cell& cell,
-    const Cell& neighbor,
-    const World* world,
-    uint32_t cellX,
-    uint32_t cellY) const
-{
-    // Only apply cohesion between water cells.
-    if (cell.water < World::MIN_MATTER_THRESHOLD || neighbor.water < World::MIN_MATTER_THRESHOLD) {
-        return Vector2d(0.0, 0.0);
+    // If we're empty, accept any material type.
+    if (isEmpty()) {
+        material_type_ = type;
+        const double added = std::min(amount, 1.0);
+        fill_ratio_ = added;
+        markDirty();
+        return added;
     }
 
-    // Calculate local water mass in a 2-cell radius for mass-weighted attraction.
-    double localWaterMass = 0.0;
-    const int MASS_RADIUS = 2;
+    // If different material type, no mixing allowed.
+    if (material_type_ != type) {
+        return 0.0;
+    }
 
-    if (world != nullptr) {
-        for (int dy = -MASS_RADIUS; dy <= MASS_RADIUS; dy++) {
-            for (int dx = -MASS_RADIUS; dx <= MASS_RADIUS; dx++) {
-                int nx = static_cast<int>(cellX) + dx;
-                int ny = static_cast<int>(cellY) + dy;
+    // Add to existing material.
+    const double capacity = getCapacity();
+    const double added = std::min(amount, capacity);
+    fill_ratio_ += added;
 
-                // Check bounds.
-                if (nx >= 0 && nx < static_cast<int>(world->getWidth()) && ny >= 0
-                    && ny < static_cast<int>(world->getHeight())) {
-                    localWaterMass += world->at(nx, ny).water;
-                }
-            }
+    if (added > 0.0) {
+        markDirty();
+    }
+
+    return added;
+}
+
+double Cell::addMaterialWithPhysics(
+    MaterialType type,
+    double amount,
+    const Vector2d& source_com,
+    const Vector2d& velocity,
+    const Vector2d& boundary_normal)
+{
+    if (amount <= 0.0) {
+        return 0.0;
+    }
+
+    // If we're empty, accept any material type with trajectory-based COM.
+    if (isEmpty()) {
+        material_type_ = type;
+        const double added = std::min(amount, 1.0);
+        fill_ratio_ = added;
+
+        // Calculate realistic landing position based on boundary crossing.
+        com_ = calculateTrajectoryLanding(source_com, velocity, boundary_normal);
+        velocity_ = velocity; // Preserve velocity through transfer.
+
+        markDirty();
+        return added;
+    }
+
+    // If different material type, no mixing allowed.
+    if (material_type_ != type) {
+        return 0.0;
+    }
+
+    // Add to existing material with momentum conservation.
+    const double capacity = getCapacity();
+    const double added = std::min(amount, capacity);
+
+    if (added > 0.0) {
+        // Enhanced momentum conservation: new_COM = (m1*COM1 + m2*COM2)/(m1+m2).
+        const double existing_mass = getMass();
+        const double added_mass = added * getMaterialProperties(material_type_).density;
+        const double total_mass = existing_mass + added_mass;
+
+        // Calculate incoming material's COM in target cell space.
+        Vector2d incoming_com = calculateTrajectoryLanding(source_com, velocity, boundary_normal);
+
+        if (total_mass > World::MIN_MATTER_THRESHOLD) {
+            // Weighted average of COM positions.
+            com_ = (com_ * existing_mass + incoming_com * added_mass) / total_mass;
+
+            // Momentum conservation for velocity.
+            velocity_ = (velocity_ * existing_mass + velocity * added_mass) / total_mass;
+        }
+
+        fill_ratio_ += added;
+        markDirty();
+    }
+
+    return added;
+}
+
+double Cell::removeMaterial(double amount)
+{
+    if (isEmpty() || amount <= 0.0) {
+        return 0.0;
+    }
+
+    const double removed = std::min(amount, fill_ratio_);
+    fill_ratio_ -= removed;
+
+    // Check if we became empty.
+    if (fill_ratio_ < MIN_FILL_THRESHOLD) {
+        clear();
+    }
+
+    return removed;
+}
+
+double Cell::transferTo(Cell& target, double amount)
+{
+    if (isEmpty() || amount <= 0.0) {
+        return 0.0;
+    }
+
+    // Calculate how much we can actually transfer.
+    const double available = std::min(amount, fill_ratio_);
+    const double accepted = target.addMaterial(material_type_, available);
+
+    // Remove the accepted amount from this cell.
+    if (accepted > 0.0) {
+        removeMaterial(accepted);
+    }
+
+    return accepted;
+}
+
+double Cell::transferToWithPhysics(Cell& target, double amount, const Vector2d& boundary_normal)
+{
+    if (isEmpty() || amount <= 0.0) {
+        return 0.0;
+    }
+
+    // Calculate how much we can actually transfer.
+    const double available = std::min(amount, fill_ratio_);
+
+    // Use physics-aware method with current COM and velocity.
+    const double accepted =
+        target.addMaterialWithPhysics(material_type_, available, com_, velocity_, boundary_normal);
+
+    // Remove the accepted amount from this cell.
+    if (accepted > 0.0) {
+        removeMaterial(accepted);
+    }
+
+    return accepted;
+}
+
+void Cell::replaceMaterial(MaterialType type, double fill_ratio)
+{
+    material_type_ = type;
+    setFillRatio(fill_ratio);
+
+    // Reset physics state when replacing material.
+    velocity_ = Vector2d(0.0, 0.0);
+    com_ = Vector2d(0.0, 0.0);
+}
+
+void Cell::clear()
+{
+    material_type_ = MaterialType::AIR;
+    fill_ratio_ = 0.0;
+    velocity_ = Vector2d(0.0, 0.0);
+    com_ = Vector2d(0.0, 0.0);
+
+    // Clear all pressure values when cell becomes empty.
+    pressure_ = 0.0;
+    hydrostatic_component_ = 0.0;
+    dynamic_component_ = 0.0;
+    pressure_gradient_ = Vector2d(0.0, 0.0);
+
+    markDirty();
+}
+
+void Cell::limitVelocity(
+    double max_velocity_per_timestep,
+    double damping_threshold_per_timestep,
+    double damping_factor_per_timestep,
+    double /* deltaTime */)
+{
+    const double speed = velocity_.mag();
+
+    // Apply velocity limits directly (parameters are already per-timestep).
+    // The parameters define absolute velocity limits per physics timestep.
+
+    // Apply maximum velocity limit.
+    if (speed > max_velocity_per_timestep) {
+        velocity_ = velocity_ * (max_velocity_per_timestep / speed);
+    }
+
+    // Apply damping when above threshold.
+    if (speed > damping_threshold_per_timestep) {
+        // Apply damping factor directly (parameters already account for timestep).
+        velocity_ = velocity_ * (1.0 - damping_factor_per_timestep);
+    }
+}
+
+void Cell::clampCOM()
+{
+    com_.x = std::clamp(com_.x, COM_MIN, COM_MAX);
+    com_.y = std::clamp(com_.y, COM_MIN, COM_MAX);
+}
+
+bool Cell::shouldTransfer() const
+{
+    if (isEmpty() || isWall()) {
+        return false;
+    }
+
+    // Transfer only when COM reaches cell boundaries (±1.0) per GridMechanics.md.
+    return std::abs(com_.x) >= 1.0 || std::abs(com_.y) >= 1.0;
+}
+
+Vector2d Cell::getTransferDirection() const
+{
+    // Determine primary transfer direction based on COM position at boundaries.
+    Vector2d direction(0.0, 0.0);
+
+    if (com_.x >= 1.0) {
+        direction.x = 1.0; // Transfer right when COM reaches right boundary.
+    }
+    else if (com_.x <= -1.0) {
+        direction.x = -1.0; // Transfer left when COM reaches left boundary.
+    }
+
+    if (com_.y >= 1.0) {
+        direction.y = 1.0; // Transfer down when COM reaches bottom boundary.
+    }
+    else if (com_.y <= -1.0) {
+        direction.y = -1.0; // Transfer up when COM reaches top boundary.
+    }
+
+    return direction;
+}
+
+Vector2d Cell::calculateTrajectoryLanding(
+    const Vector2d& source_com, const Vector2d& velocity, const Vector2d& boundary_normal) const
+{
+    // Calculate where material actually crosses the boundary.
+    Vector2d boundary_crossing_point = source_com;
+
+    // Determine which boundary was crossed and calculate intersection.
+    if (std::abs(boundary_normal.x) > 0.5) {
+        // Crossing left/right boundary.
+        double boundary_x = (boundary_normal.x > 0) ? 1.0 : -1.0;
+        double crossing_ratio = (boundary_x - source_com.x) / velocity.x;
+        if (std::abs(velocity.x) > 1e-6) {
+            boundary_crossing_point.x = boundary_x;
+            boundary_crossing_point.y = source_com.y + velocity.y * crossing_ratio;
+        }
+    }
+    else if (std::abs(boundary_normal.y) > 0.5) {
+        // Crossing top/bottom boundary.
+        double boundary_y = (boundary_normal.y > 0) ? 1.0 : -1.0;
+        double crossing_ratio = (boundary_y - source_com.y) / velocity.y;
+        if (std::abs(velocity.y) > 1e-6) {
+            boundary_crossing_point.y = boundary_y;
+            boundary_crossing_point.x = source_com.x + velocity.x * crossing_ratio;
         }
     }
 
-    // Mass attraction bonus: logarithmic scaling to prevent excessive forces.
-    // More water nearby = stronger attraction, but with diminishing returns.
-    static constexpr double MASS_ATTRACTION_FACTOR = 0.5;
-    double massAttractionBonus = std::log(1.0 + localWaterMass) * MASS_ATTRACTION_FACTOR;
+    // Transform crossing point to target cell coordinate space.
+    Vector2d target_com = boundary_crossing_point;
 
-    // Enhanced cohesion strength with mass weighting.
-    double enhancedCohesionStrength = COHESION_STRENGTH + massAttractionBonus;
-
-    // Calculate force based on water amounts and enhanced cohesion.
-    double force = enhancedCohesionStrength * cell.water * neighbor.water;
-
-    // Calculate direction vector between cells.
-    Vector2d direction = neighbor.com - cell.com;
-    double distance = direction.mag();
-
-    // Normalize and scale by force.
-    if (distance > 0.0) {
-        return direction.normalize() * force;
+    // Wrap coordinates across boundary.
+    if (std::abs(boundary_normal.x) > 0.5) {
+        // Material crossed left/right - wrap X coordinate.
+        target_com.x = (boundary_normal.x > 0) ? -1.0 : 1.0;
     }
-    return Vector2d(0.0, 0.0);
+    if (std::abs(boundary_normal.y) > 0.5) {
+        // Material crossed top/bottom - wrap Y coordinate.
+        target_com.y = (boundary_normal.y > 0) ? -1.0 : 1.0;
+    }
+
+    // Clamp to valid COM bounds.
+    target_com.x = std::clamp(target_com.x, COM_MIN, COM_MAX);
+    target_com.y = std::clamp(target_com.y, COM_MIN, COM_MAX);
+
+    return target_com;
 }
 
-void Cell::applyViscosity(const Cell& neighbor)
+std::string Cell::toString() const
 {
-    if (water < World::MIN_MATTER_THRESHOLD || neighbor.water < World::MIN_MATTER_THRESHOLD) {
-        return;
-    }
-
-    // Average velocities based on water amounts.
-    double totalMass = water + neighbor.water;
-    if (totalMass > 0) {
-        Vector2d avgVelocity = (v * water + neighbor.v * neighbor.water) / totalMass;
-        v = v + (avgVelocity - v) * VISCOSITY_FACTOR;
-    }
-}
-
-Vector2d Cell::calculateBuoyancy(
-    const Cell& cell, const Cell& neighbor, const Vector2i& offset) const
-{
-    // Get effective densities of both cells.
-    double cellDensity = cell.getEffectiveDensity();
-    double neighborDensity = neighbor.getEffectiveDensity();
-
-    // Skip if either cell is effectively empty.
-    if (cellDensity <= 0.0 || neighborDensity <= 0.0) {
-        return Vector2d(0.0, 0.0);
-    }
-
-    // Buoyancy only occurs when denser material is surrounded by less dense material.
-    // If this cell is not denser than the neighbor, no buoyancy force.
-    if (cellDensity <= neighborDensity) {
-        return Vector2d(0.0, 0.0);
-    }
-
-    // Calculate density difference - foundation of Archimedes' principle.
-    double densityDiff = cellDensity - neighborDensity;
-
-    // Buoyant force proportional to density difference and displaced volume.
-    // The cell.percentFull() represents the volume of material experiencing buoyancy.
-    double buoyantForce = BUOYANCY_STRENGTH * cell.percentFull() * densityDiff;
-
-    Vector2d buoyancyForce = Vector2d(0.0, 0.0);
-
-    // Apply upward buoyancy if neighbor is below (offset.y > 0).
-    // This simulates denser material being pushed up by less dense material below.
-    if (offset.y > 0) {
-        buoyancyForce.y = -buoyantForce; // Upward force (negative y).
-    }
-
-    // Apply lateral buoyancy for horizontal displacement.
-    // Weaker effect for side-to-side movement, but still helps with separation.
-    if (offset.x != 0) {
-        double lateralForce = buoyantForce * 0.3;   // Reduced lateral effect.
-        buoyancyForce.x = -offset.x * lateralForce; // Push away from denser neighbor.
-    }
-
-    return buoyancyForce;
+    std::ostringstream oss;
+    oss << getMaterialName(material_type_) << "(fill=" << fill_ratio_ << ", com=[" << com_.x << ","
+        << com_.y << "]" << ", vel=[" << velocity_.x << "," << velocity_.y << "]" << ")";
+    return oss.str();
 }
 
 // =================================================================.
@@ -521,100 +447,574 @@ Vector2d Cell::calculateBuoyancy(
 void Cell::addDirt(double amount)
 {
     if (amount <= 0.0) return;
-    safeAddMaterial(dirt, amount);
-    markDirty();
+    addMaterial(MaterialType::DIRT, amount);
 }
 
 void Cell::addWater(double amount)
 {
     if (amount <= 0.0) return;
-    safeAddMaterial(water, amount);
-    markDirty();
+    addMaterial(MaterialType::WATER, amount);
 }
 
 void Cell::addDirtWithVelocity(double amount, const Vector2d& velocity)
 {
     if (amount <= 0.0) return;
-    safeAddMaterial(dirt, amount);
 
-    // Update velocity based on momentum conservation.
-    double totalMaterial = getTotalMaterial();
-    if (totalMaterial > 0.0) {
-        // Weighted average of existing velocity and new velocity.
-        v = (v * (totalMaterial - amount) + velocity * amount) / totalMaterial;
+    // Store current fill ratio to calculate momentum.
+    double oldFill = fill_ratio_;
+    double actualAdded = addMaterial(MaterialType::DIRT, amount);
+
+    if (actualAdded > 0.0) {
+        // Update velocity based on momentum conservation.
+        double newFill = fill_ratio_;
+        if (newFill > 0.0) {
+            // Weighted average of existing velocity and new velocity.
+            velocity_ = (velocity_ * oldFill + velocity * actualAdded) / newFill;
+        }
+        else {
+            velocity_ = velocity;
+        }
     }
-    else {
-        v = velocity;
-    }
-    markDirty();
 }
 
 void Cell::addWaterWithVelocity(double amount, const Vector2d& velocity)
 {
     if (amount <= 0.0) return;
-    safeAddMaterial(water, amount);
 
-    // Update velocity based on momentum conservation.
-    double totalMaterial = getTotalMaterial();
-    if (totalMaterial > 0.0) {
-        // Weighted average of existing velocity and new velocity.
-        v = (v * (totalMaterial - amount) + velocity * amount) / totalMaterial;
+    // Store current fill ratio to calculate momentum.
+    double oldFill = fill_ratio_;
+    double actualAdded = addMaterial(MaterialType::WATER, amount);
+
+    if (actualAdded > 0.0) {
+        // Update velocity based on momentum conservation.
+        double newFill = fill_ratio_;
+        if (newFill > 0.0) {
+            // Weighted average of existing velocity and new velocity.
+            velocity_ = (velocity_ * oldFill + velocity * actualAdded) / newFill;
+        }
+        else {
+            velocity_ = velocity;
+        }
     }
-    else {
-        v = velocity;
-    }
-    markDirty();
 }
 
-void Cell::addDirtWithCOM(double amount, const Vector2d& comOffset, const Vector2d& velocity)
+void Cell::addDirtWithCOM(double amount, const Vector2d& com, const Vector2d& velocity)
 {
     if (amount <= 0.0) return;
-    safeAddMaterial(dirt, amount);
 
-    // Update center of mass based on weighted average.
-    double totalMaterial = getTotalMaterial();
-    if (totalMaterial > 0.0) {
-        // Weighted average of existing COM and new COM offset.
-        com = (com * (totalMaterial - amount) + comOffset * amount) / totalMaterial;
-        // Clamp COM to valid bounds [-1, 1].
-        com.x = std::max(-1.0, std::min(1.0, com.x));
-        com.y = std::max(-1.0, std::min(1.0, com.y));
-    }
-    else {
-        com = comOffset;
-    }
+    // Store current state to calculate weighted averages.
+    double oldFill = fill_ratio_;
+    Vector2d oldCOM = com_;
+    Vector2d oldVelocity = velocity_;
 
-    // Update velocity as well.
-    if (totalMaterial > 0.0) {
-        v = (v * (totalMaterial - amount) + velocity * amount) / totalMaterial;
+    double actualAdded = addMaterial(MaterialType::DIRT, amount);
+
+    if (actualAdded > 0.0) {
+        double newFill = fill_ratio_;
+        if (newFill > 0.0) {
+            // Weighted average of existing COM and new COM.
+            com_ = (oldCOM * oldFill + com * actualAdded) / newFill;
+            clampCOM(); // Ensure COM stays in bounds.
+
+            // Weighted average of existing velocity and new velocity.
+            velocity_ = (oldVelocity * oldFill + velocity * actualAdded) / newFill;
+        }
+        else {
+            com_ = com;
+            velocity_ = velocity;
+        }
     }
-    else {
-        v = velocity;
-    }
-    markDirty();
 }
 
-void Cell::clear()
+void Cell::markDirty()
 {
-    dirt = 0.0;
-    water = 0.0;
-    wood = 0.0;
-    leaf = 0.0;
-    metal = 0.0;
-    com = Vector2d(0.0, 0.0);
-    v = Vector2d(0.0, 0.0);
-    pressure = Vector2d(0.0, 0.0);
-    markDirty();
+    needs_redraw_ = true;
 }
 
 double Cell::getTotalMaterial() const
 {
-    return percentFull();
+    return fill_ratio_;
 }
 
-bool Cell::isEmpty() const
+// =================================================================.
+// RENDERING METHODS.
+// =================================================================.
+
+void Cell::draw(lv_obj_t* parent, uint32_t x, uint32_t y, bool debugDraw)
 {
-    return getTotalMaterial() < 0.001; // Use small threshold for "empty".
+    if (!needs_redraw_) {
+        return; // Skip redraw if not needed.
+    }
+
+    // Use debug mode from parameter.
+    spdlog::trace(
+        "[RENDER] Cell::draw() called for cell ({},{}) - debugDraw={}, hydrostatic={}, dynamic={}",
+        x,
+        y,
+        debugDraw,
+        hydrostatic_component_,
+        dynamic_component_);
+    if (debugDraw) {
+        spdlog::trace("[RENDER] Entering drawDebug() mode");
+        drawDebug(parent, x, y);
+    }
+    else {
+        spdlog::trace("[RENDER] Entering drawNormal() mode");
+        drawNormal(parent, x, y);
+    }
+
+    needs_redraw_ = false;
+}
+
+void Cell::drawNormal(lv_obj_t* parent, uint32_t x, uint32_t y)
+{
+    // Create canvas if it doesn't exist.
+    if (canvas_ == nullptr) {
+        canvas_ = lv_canvas_create(parent);
+        lv_obj_set_size(canvas_, Cell::WIDTH, Cell::HEIGHT);
+        lv_obj_set_pos(canvas_, x * Cell::WIDTH, y * Cell::HEIGHT);
+
+        // Calculate buffer size for ARGB8888 format (4 bytes per pixel).
+        const size_t buffer_size = Cell::WIDTH * Cell::HEIGHT * 4;
+        buffer_.resize(buffer_size);
+
+        lv_canvas_set_buffer(
+            canvas_, buffer_.data(), Cell::WIDTH, Cell::HEIGHT, LV_COLOR_FORMAT_ARGB8888);
+    }
+
+    // Zero buffer.
+    std::fill(buffer_.begin(), buffer_.end(), 0);
+
+    // Position the canvas.
+    lv_obj_set_pos(canvas_, x * Cell::WIDTH, y * Cell::HEIGHT);
+
+    lv_layer_t layer;
+    lv_canvas_init_layer(canvas_, &layer);
+
+    // Draw black background for consistency with debug mode.
+    lv_draw_rect_dsc_t bg_rect_dsc;
+    lv_draw_rect_dsc_init(&bg_rect_dsc);
+    bg_rect_dsc.bg_color = lv_color_hex(0x000000); // Black background.
+    bg_rect_dsc.bg_opa = LV_OPA_COVER;
+    bg_rect_dsc.border_width = 0;
+    lv_area_t bg_coords = {
+        0, 0, static_cast<int32_t>(Cell::WIDTH - 1), static_cast<int32_t>(Cell::HEIGHT - 1)
+    };
+    lv_draw_rect(&layer, &bg_rect_dsc, &bg_coords);
+
+    // Render material if not empty.
+    if (!isEmpty()) {
+        lv_color_t material_color;
+
+        // Use same material color mapping as debug mode.
+        switch (material_type_) {
+            case MaterialType::DIRT:
+                material_color = lv_color_hex(0xA0522D); // Sienna brown.
+                break;
+            case MaterialType::WATER:
+                material_color = lv_color_hex(0x00BFFF); // Deep sky blue.
+                break;
+            case MaterialType::WOOD:
+                material_color = lv_color_hex(0xDEB887); // Burlywood.
+                break;
+            case MaterialType::SAND:
+                material_color = lv_color_hex(0xFFB347); // Sandy orange.
+                break;
+            case MaterialType::METAL:
+                material_color = lv_color_hex(0xC0C0C0); // Silver.
+                break;
+            case MaterialType::LEAF:
+                material_color = lv_color_hex(0x00FF32); // Bright lime green.
+                break;
+            case MaterialType::WALL:
+                material_color = lv_color_hex(0x808080); // Gray.
+                break;
+            case MaterialType::AIR:
+            default:
+                // Air is transparent - already has black background.
+                lv_canvas_finish_layer(canvas_, &layer);
+                return;
+        }
+
+        // Calculate opacity based on fill ratio.
+        lv_opa_t opacity = static_cast<lv_opa_t>(fill_ratio_ * static_cast<double>(LV_OPA_COVER));
+
+        // Draw material layer with enhanced border to match debug mode.
+        lv_draw_rect_dsc_t rect_dsc;
+        lv_draw_rect_dsc_init(&rect_dsc);
+        rect_dsc.bg_color = material_color;
+        rect_dsc.bg_opa =
+            static_cast<lv_opa_t>(opacity * 0.7); // More transparent to match debug mode.
+        rect_dsc.border_color = material_color;
+        rect_dsc.border_opa = opacity;
+        rect_dsc.border_width = 2;
+        rect_dsc.radius = 2;
+
+        // Draw full cell area.
+        lv_area_t coords = {
+            0, 0, static_cast<int32_t>(Cell::WIDTH - 1), static_cast<int32_t>(Cell::HEIGHT - 1)
+        };
+
+        lv_draw_rect(&layer, &rect_dsc, &coords);
+    }
+    // Empty cells remain transparent - no rendering needed.
+
+    lv_canvas_finish_layer(canvas_, &layer);
+}
+
+void Cell::drawDebug(lv_obj_t* parent, uint32_t x, uint32_t y)
+{
+    // Create canvas if it doesn't exist.
+    if (canvas_ == nullptr) {
+        canvas_ = lv_canvas_create(parent);
+        lv_obj_set_size(canvas_, Cell::WIDTH, Cell::HEIGHT);
+        lv_obj_set_pos(canvas_, x * Cell::WIDTH, y * Cell::HEIGHT);
+
+        // Calculate buffer size for ARGB8888 format (4 bytes per pixel).
+        const size_t buffer_size = Cell::WIDTH * Cell::HEIGHT * 4;
+        buffer_.resize(buffer_size);
+
+        lv_canvas_set_buffer(
+            canvas_, buffer_.data(), Cell::WIDTH, Cell::HEIGHT, LV_COLOR_FORMAT_ARGB8888);
+    }
+
+    // Zero buffer.
+    std::fill(buffer_.begin(), buffer_.end(), 0);
+
+    // Position the canvas.
+    lv_obj_set_pos(canvas_, x * Cell::WIDTH, y * Cell::HEIGHT);
+
+    lv_layer_t layer;
+    lv_canvas_init_layer(canvas_, &layer);
+
+    // Draw black background for all cells.
+    lv_draw_rect_dsc_t bg_rect_dsc;
+    lv_draw_rect_dsc_init(&bg_rect_dsc);
+    bg_rect_dsc.bg_color = lv_color_hex(0x000000); // Black background.
+    bg_rect_dsc.bg_opa = LV_OPA_COVER;
+    bg_rect_dsc.border_width = 0;
+    lv_area_t coords = {
+        0, 0, static_cast<int32_t>(Cell::WIDTH - 1), static_cast<int32_t>(Cell::HEIGHT - 1)
+    };
+    lv_draw_rect(&layer, &bg_rect_dsc, &coords);
+
+    // Render material if not empty.
+    if (!isEmpty()) {
+        lv_color_t material_color;
+
+        // Enhanced material color mapping (debug mode with brighter variants).
+        switch (material_type_) {
+            case MaterialType::DIRT:
+                material_color = lv_color_hex(0xA0522D); // Brighter sienna brown for debug.
+                break;
+            case MaterialType::WATER:
+                material_color = lv_color_hex(0x00BFFF); // Deep sky blue for debug.
+                break;
+            case MaterialType::WOOD:
+                material_color =
+                    lv_color_hex(0xDEB887); // Burlywood (lighter for debug visibility).
+                break;
+            case MaterialType::SAND:
+                material_color = lv_color_hex(0xFFB347); // Brighter sandy orange.
+                break;
+            case MaterialType::METAL:
+                material_color = lv_color_hex(0xC0C0C0); // Silver (unchanged - already visible).
+                break;
+            case MaterialType::LEAF:
+                material_color = lv_color_hex(0x00FF32); // Bright lime green for debug.
+                break;
+            case MaterialType::WALL:
+                material_color = lv_color_hex(0x808080); // Gray (unchanged for solid appearance).
+                break;
+            case MaterialType::AIR:
+            default:
+                // Air gets black background only - continue to debug overlay.
+                break;
+        }
+
+        if (material_type_ != MaterialType::AIR) {
+            // Calculate opacity based on fill ratio.
+            lv_opa_t opacity =
+                static_cast<lv_opa_t>(fill_ratio_ * static_cast<double>(LV_OPA_COVER));
+
+            // Draw material layer with enhanced border for debug.
+            lv_draw_rect_dsc_t rect_dsc;
+            lv_draw_rect_dsc_init(&rect_dsc);
+            rect_dsc.bg_color = material_color;
+            rect_dsc.bg_opa = static_cast<lv_opa_t>(opacity * 0.7); // More transparent for overlay.
+            rect_dsc.border_color = material_color;
+            rect_dsc.border_opa = opacity;
+            rect_dsc.border_width = 2;
+            rect_dsc.radius = 2;
+            lv_draw_rect(&layer, &rect_dsc, &coords);
+        }
+
+        // Draw velocity vector as green line starting from COM position.
+        if (velocity_.mag() > 0.01) {
+            // Calculate COM pixel position (same as COM indicator calculation).
+            int com_pixel_x = static_cast<int>((com_.x + 1.0) * (Cell::WIDTH - 1) / 2.0);
+            int com_pixel_y = static_cast<int>((com_.y + 1.0) * (Cell::HEIGHT - 1) / 2.0);
+
+            // Scale velocity for visualization.
+            double scale = 20.0;
+            int end_x = com_pixel_x + static_cast<int>(velocity_.x * scale);
+            int end_y = com_pixel_y + static_cast<int>(velocity_.y * scale);
+
+            // NO clamping - allow velocity vector to extend beyond cell bounds.
+            // This shows the true trajectory and projected target location.
+
+            lv_draw_line_dsc_t line_dsc;
+            lv_draw_line_dsc_init(&line_dsc);
+            line_dsc.color = lv_color_hex(0x00FF00); // Bright green.
+            line_dsc.width = 2;
+            line_dsc.p1.x = com_pixel_x;
+            line_dsc.p1.y = com_pixel_y;
+            line_dsc.p2.x = end_x;
+            line_dsc.p2.y = end_y;
+            lv_draw_line(&layer, &line_dsc);
+        }
+
+        // Draw force vectors from COM position.
+        int com_pixel_x = static_cast<int>((com_.x + 1.0) * (Cell::WIDTH - 1) / 2.0);
+        int com_pixel_y = static_cast<int>((com_.y + 1.0) * (Cell::HEIGHT - 1) / 2.0);
+
+        // Draw viscosity damping effect as a colored circle.
+        // accumulated_cohesion_force_.x = motion_multiplier (0-1)
+        // accumulated_cohesion_force_.y = damping_factor (1+)
+        if (accumulated_cohesion_force_.y > 1.01) { // Only show if significant damping.
+            double damping_factor = accumulated_cohesion_force_.y;
+            double motion_multiplier = accumulated_cohesion_force_.x;
+
+            // Circle radius based on damping strength (1.0 = no damping, higher = more).
+            int radius = static_cast<int>((damping_factor - 1.0) * 20.0);     // Scale factor of 20.
+            radius = std::min(radius, static_cast<int>(Cell::WIDTH / 2 - 2)); // Limit to cell size.
+
+            if (radius > 1) {
+                // Color based on motion state (red=static, yellow=sliding, green=falling).
+                lv_color_t color;
+                if (motion_multiplier > 0.9) {
+                    color = lv_color_hex(0xFF0000); // Red for static (high damping).
+                }
+                else if (motion_multiplier > 0.4) {
+                    color = lv_color_hex(0xFFFF00); // Yellow for sliding.
+                }
+                else {
+                    color = lv_color_hex(0x00FF00); // Green for falling/turbulent.
+                }
+
+                lv_draw_arc_dsc_t arc_dsc;
+                lv_draw_arc_dsc_init(&arc_dsc);
+                arc_dsc.color = color;
+                arc_dsc.width = 2;
+                arc_dsc.start_angle = 0;
+                arc_dsc.end_angle = 360;
+                arc_dsc.center.x = com_pixel_x;
+                arc_dsc.center.y = com_pixel_y;
+                arc_dsc.radius = radius;
+
+                lv_draw_arc(&layer, &arc_dsc);
+            }
+        }
+
+        // Draw adhesion force as orange line (only if adhesion drawing is enabled).
+        if (false && accumulated_adhesion_force_.mag() > 0.01) {  // TODO: Add adhesionDrawEnabled flag.
+            double scale = 15.0;
+            int end_x = com_pixel_x + static_cast<int>(accumulated_adhesion_force_.x * scale);
+            int end_y = com_pixel_y + static_cast<int>(accumulated_adhesion_force_.y * scale);
+
+            lv_draw_line_dsc_t adhesion_line_dsc;
+            lv_draw_line_dsc_init(&adhesion_line_dsc);
+            adhesion_line_dsc.color = lv_color_hex(0xFF8000); // Orange for adhesion.
+            adhesion_line_dsc.width = 2;
+            adhesion_line_dsc.p1.x = com_pixel_x;
+            adhesion_line_dsc.p1.y = com_pixel_y;
+            adhesion_line_dsc.p2.x = end_x;
+            adhesion_line_dsc.p2.y = end_y;
+            lv_draw_line(&layer, &adhesion_line_dsc);
+        }
+
+        // Draw COM cohesion force as cyan line.
+        if (accumulated_com_cohesion_force_.mag() > 0.01) {
+            double scale = 15.0;
+            int end_x = com_pixel_x + static_cast<int>(accumulated_com_cohesion_force_.x * scale);
+            int end_y = com_pixel_y + static_cast<int>(accumulated_com_cohesion_force_.y * scale);
+
+            lv_draw_line_dsc_t com_cohesion_line_dsc;
+            lv_draw_line_dsc_init(&com_cohesion_line_dsc);
+            com_cohesion_line_dsc.color = lv_color_hex(0x00FFFF); // Cyan for COM cohesion.
+            com_cohesion_line_dsc.width = 2;
+            com_cohesion_line_dsc.p1.x = com_pixel_x;
+            com_cohesion_line_dsc.p1.y = com_pixel_y;
+            com_cohesion_line_dsc.p2.x = end_x;
+            com_cohesion_line_dsc.p2.y = end_y;
+            lv_draw_line(&layer, &com_cohesion_line_dsc);
+        }
+
+        // Draw pressure visualization as dual-layer border.
+        // Inner border: hydrostatic pressure (red).
+        // Outer border: dynamic pressure (magenta).
+
+        // Calculate border widths based on pressure values.
+        // Use log scale for better visualization of pressure ranges.
+        const double MAX_BORDER_WIDTH = 8.0; // Maximum border width in pixels.
+
+        int hydrostatic_border_width = 0;
+        int dynamic_border_width = 0;
+
+        if (hydrostatic_component_ > 0.01) {
+            // Map hydrostatic pressure to border width (1-8 pixels).
+            hydrostatic_border_width = static_cast<int>(
+                std::min(MAX_BORDER_WIDTH, 1.0 + std::log1p(hydrostatic_component_ * 10) * 2.0));
+        }
+
+        if (dynamic_component_ > 0.01) {
+            // Map dynamic pressure to border width (1-8 pixels).
+            dynamic_border_width = static_cast<int>(
+                std::min(MAX_BORDER_WIDTH, 1.0 + std::log1p(dynamic_component_ * 10) * 2.0));
+        }
+
+        spdlog::trace(
+            "[RENDER DEBUG] Cell hydrostatic_component_={}, dynamic_component_={}, "
+            "hydrostatic_border_width={}, dynamic_border_width={}",
+            hydrostatic_component_,
+            dynamic_component_,
+            hydrostatic_border_width,
+            dynamic_border_width);
+
+        // Draw outer border first (dynamic pressure - magenta).
+        if (dynamic_border_width > 0) {
+            lv_draw_rect_dsc_t dynamic_border_dsc;
+            lv_draw_rect_dsc_init(&dynamic_border_dsc);
+            dynamic_border_dsc.bg_opa = LV_OPA_TRANSP;                // Transparent background.
+            dynamic_border_dsc.border_color = lv_color_hex(0xFF00FF); // Magenta.
+            dynamic_border_dsc.border_opa = LV_OPA_COVER;
+            dynamic_border_dsc.border_width = dynamic_border_width;
+            dynamic_border_dsc.radius = 0;
+
+            lv_area_t dynamic_border_area = coords; // Full cell area.
+            lv_draw_rect(&layer, &dynamic_border_dsc, &dynamic_border_area);
+        }
+
+        // Draw inner border (hydrostatic pressure - red).
+        if (hydrostatic_border_width > 0) {
+            lv_draw_rect_dsc_t hydrostatic_border_dsc;
+            lv_draw_rect_dsc_init(&hydrostatic_border_dsc);
+            hydrostatic_border_dsc.bg_opa = LV_OPA_TRANSP;                // Transparent background.
+            hydrostatic_border_dsc.border_color = lv_color_hex(0xFF0000); // Red.
+            hydrostatic_border_dsc.border_opa = LV_OPA_COVER;
+            hydrostatic_border_dsc.border_width = hydrostatic_border_width;
+            hydrostatic_border_dsc.radius = 0;
+
+            // Inset the hydrostatic border by the dynamic border width.
+            lv_area_t hydrostatic_border_area;
+            hydrostatic_border_area.x1 = dynamic_border_width;
+            hydrostatic_border_area.y1 = dynamic_border_width;
+            hydrostatic_border_area.x2 = Cell::WIDTH - 1 - dynamic_border_width;
+            hydrostatic_border_area.y2 = Cell::HEIGHT - 1 - dynamic_border_width;
+            lv_draw_rect(&layer, &hydrostatic_border_dsc, &hydrostatic_border_area);
+        }
+
+        // Draw pressure gradient vector as magenta line.
+        if (pressure_gradient_.magnitude() > 0.001) {
+            int center_x = Cell::WIDTH / 2;
+            int center_y = Cell::HEIGHT / 2;
+
+            const double GRADIENT_SCALE = 30.0;
+
+            int end_x = center_x + static_cast<int>(pressure_gradient_.x * GRADIENT_SCALE);
+            int end_y = center_y + static_cast<int>(pressure_gradient_.y * GRADIENT_SCALE);
+
+            // Draw gradient line.
+            lv_draw_line_dsc_t gradient_line_dsc;
+            lv_draw_line_dsc_init(&gradient_line_dsc);
+            gradient_line_dsc.color = lv_color_hex(0xFF0080); // Magenta.
+            gradient_line_dsc.width = 3;
+            gradient_line_dsc.opa = LV_OPA_COVER;
+            gradient_line_dsc.p1.x = center_x;
+            gradient_line_dsc.p1.y = center_y;
+            gradient_line_dsc.p2.x = end_x;
+            gradient_line_dsc.p2.y = end_y;
+            lv_draw_line(&layer, &gradient_line_dsc);
+        }
+
+        // Draw friction state as inner square.
+        if (!isMaterialFluid(material_type_) && material_type_ != MaterialType::WALL) {
+            const MaterialProperties& props = getMaterialProperties(material_type_);
+
+            // Determine friction state color based on cached coefficient.
+            lv_color_t friction_color;
+
+            // Calculate how far we are from static to kinetic friction.
+            double friction_range =
+                props.static_friction_coefficient - props.kinetic_friction_coefficient;
+            double normalized_friction = 1.0;
+            if (friction_range > 0.001) {
+                normalized_friction =
+                    (cached_friction_coefficient_ - props.kinetic_friction_coefficient)
+                    / friction_range;
+                normalized_friction = std::min(1.0, std::max(0.0, normalized_friction));
+            }
+
+            if (normalized_friction > 0.8) {
+                // Static friction - green.
+                friction_color = lv_color_hex(0x00FF00);
+            }
+            else if (normalized_friction > 0.2) {
+                // Transitioning - yellow.
+                friction_color = lv_color_hex(0xFFFF00);
+            }
+            else {
+                // Kinetic friction - red.
+                friction_color = lv_color_hex(0xFF0000);
+            }
+
+            // Draw friction indicator as inner square.
+            const int margin = 8; // Margin from cell edges.
+            lv_draw_rect_dsc_t friction_rect_dsc;
+            lv_draw_rect_dsc_init(&friction_rect_dsc);
+            friction_rect_dsc.bg_color = friction_color;
+            friction_rect_dsc.bg_opa =
+                static_cast<lv_opa_t>(0.5 * static_cast<double>(LV_OPA_COVER)); // Semi-transparent.
+            friction_rect_dsc.border_width = 0;
+            friction_rect_dsc.radius = 1;
+
+            lv_area_t friction_coords = { margin,
+                                          margin,
+                                          static_cast<int32_t>(Cell::WIDTH - 1 - margin),
+                                          static_cast<int32_t>(Cell::HEIGHT - 1 - margin) };
+
+            lv_draw_rect(&layer, &friction_rect_dsc, &friction_coords);
+        }
+
+        // Draw Center of Mass as yellow square.
+        {
+            // Calculate center of mass pixel position.
+            int pixel_x = static_cast<int>((com_.x + 1.0) * (Cell::WIDTH - 1) / 2.0);
+            int pixel_y = static_cast<int>((com_.y + 1.0) * (Cell::HEIGHT - 1) / 2.0);
+
+            // Draw small square centered at COM position.
+            const int square_size = 6; // Size of the COM indicator square.
+            const int half_size = square_size / 2;
+
+            lv_draw_rect_dsc_t com_rect_dsc;
+            lv_draw_rect_dsc_init(&com_rect_dsc);
+            com_rect_dsc.bg_color = lv_color_hex(0xFFFF00); // Bright yellow.
+            com_rect_dsc.bg_opa = LV_OPA_COVER;
+            com_rect_dsc.border_color = lv_color_hex(0xCC9900); // Darker yellow border.
+            com_rect_dsc.border_opa = LV_OPA_COVER;
+            com_rect_dsc.border_width = 1;
+            com_rect_dsc.radius = 0; // Sharp corners for square.
+
+            lv_area_t com_coords = { pixel_x - half_size,
+                                     pixel_y - half_size,
+                                     pixel_x + half_size - 1,
+                                     pixel_y + half_size - 1 };
+
+            lv_draw_rect(&layer, &com_rect_dsc, &com_coords);
+        }
+    }
+
+    lv_canvas_finish_layer(canvas_, &layer);
 }
 
 std::string Cell::toAsciiCharacter() const
@@ -623,34 +1023,39 @@ std::string Cell::toAsciiCharacter() const
         return "  "; // Two spaces for empty cells (2x1 format).
     }
 
-    // Find the dominant material in this cell.
-    double max_amount = 0.0;
-    char material_char = ' ';
+    // Choose character based on material type.
+    char material_char;
+    switch (material_type_) {
+        case MaterialType::AIR:
+            return "  "; // Two spaces for air.
+        case MaterialType::DIRT:
+            material_char = '#';
+            break;
+        case MaterialType::WATER:
+            material_char = '~';
+            break;
+        case MaterialType::WOOD:
+            material_char = 'W';
+            break;
+        case MaterialType::SAND:
+            material_char = '.';
+            break;
+        case MaterialType::METAL:
+            material_char = 'M';
+            break;
+        case MaterialType::LEAF:
+            material_char = 'L';
+            break;
+        case MaterialType::WALL:
+            material_char = '|';
+            break;
+        default:
+            material_char = '?';
+            break;
+    }
 
-    if (dirt > max_amount) {
-        max_amount = dirt;
-        material_char = '#'; // Dirt.
-    }
-    if (water > max_amount) {
-        max_amount = water;
-        material_char = '~'; // Water.
-    }
-    if (wood > max_amount) {
-        max_amount = wood;
-        material_char = 'W'; // Wood.
-    }
-    if (leaf > max_amount) {
-        max_amount = leaf;
-        material_char = 'L'; // Leaf.
-    }
-    if (metal > max_amount) {
-        max_amount = metal;
-        material_char = 'M'; // Metal.
-    }
-
-    // Convert total material to 0-9 scale.
-    double total_material = getTotalMaterial();
-    int fill_level = static_cast<int>(std::round(total_material * 9.0));
+    // Convert fill ratio to 0-9 scale.
+    int fill_level = static_cast<int>(std::round(fill_ratio_ * 9.0));
     fill_level = std::clamp(fill_level, 0, 9);
 
     // Return 2-character representation: material + fill level.

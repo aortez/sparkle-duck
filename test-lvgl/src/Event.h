@@ -70,7 +70,7 @@ struct UIUpdateEvent {
 
     // World state.
     MaterialType selectedMaterial = MaterialType::DIRT; ///< Currently selected material.
-    std::string worldType;                              ///< "WorldA" or "WorldB".
+    std::string worldType;                              ///< "WorldA" or "World".
 
     // Timing.
     std::chrono::steady_clock::time_point timestamp; ///< When update was created.
@@ -142,14 +142,6 @@ struct AdvanceSimulationCommand {
  */
 struct ResetSimulationCommand {
     static constexpr const char* name() { return "ResetSimulationCommand"; }
-};
-
-/**
- * @brief Switch between WorldA and WorldB.
- */
-struct SwitchWorldTypeCommand {
-    WorldType worldType;
-    static constexpr const char* name() { return "SwitchWorldTypeCommand"; }
 };
 
 /**
@@ -309,7 +301,7 @@ struct SetPressureScaleCommand {
 };
 
 /**
- * @brief Set WorldB pressure scale factor.
+ * @brief Set World pressure scale factor.
  */
 struct SetPressureScaleWorldBCommand {
     double scale;
@@ -583,7 +575,6 @@ using Event = std::variant<
     StartSimulationCommand,
     AdvanceSimulationCommand,
     ResetSimulationCommand,
-    SwitchWorldTypeCommand,
     SaveWorldCommand,
     LoadWorldCommand,
     StepBackwardCommand,

@@ -167,7 +167,7 @@ private:
 
     /**
      * Get display color for material type (temporary implementation).
-     * TODO: Replace with actual CellB rendering integration
+     * TODO: Replace with actual Cell rendering integration
      * @param type Material type to get color for.
      * @return LVGL color for the material.
      */

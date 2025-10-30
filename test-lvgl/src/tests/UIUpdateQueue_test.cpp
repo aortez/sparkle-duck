@@ -17,7 +17,7 @@ protected:
         event.stepCount = 1000;
         event.isPaused = false;
         event.selectedMaterial = MaterialType::DIRT;
-        event.worldType = "WorldB";
+        event.worldType = "World";
         event.timestamp = std::chrono::steady_clock::now();
         return event;
     }

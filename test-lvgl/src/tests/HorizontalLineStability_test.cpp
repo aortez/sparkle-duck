@@ -1,7 +1,7 @@
 #include "visual_test_runner.h"
-#include "../WorldB.h"
+#include "../World.h"
 #include "../MaterialType.h"
-#include "../WorldBCohesionCalculator.h"
+#include "../WorldCohesionCalculator.h"
 #include "spdlog/spdlog.h"
 #include <thread>
 #include <chrono>
@@ -18,7 +18,7 @@ protected:
         
         // Create a small 4x2 world for testing horizontal line stability.
         // Pass the UI draw area if in visual mode, otherwise nullptr.
-        world = std::make_unique<WorldB>(4, 2);
+        world = std::make_unique<World>(4, 2);
         
         // Disable walls to prevent boundary interference with our test setup.
         world->setWallsEnabled(false);
@@ -49,8 +49,8 @@ protected:
     }
     
     void logCellDetails(uint32_t x, uint32_t y, const std::string& description) {
-        const CellB& cell = world->at(x, y);
-        auto cohesion = WorldBCohesionCalculator(*world).calculateCohesionForce(x, y);
+        const Cell& cell = world->at(x, y);
+        auto cohesion = WorldCohesionCalculator(*world).calculateCohesionForce(x, y);
         auto adhesion = world->getAdhesionCalculator().calculateAdhesionForce(x, y);
         
         spdlog::info("Cell ({},{}) - {}: material={}, fill={:.1f}, neighbors={}, cohesion_resistance={:.3f}, adhesion_magnitude={:.3f}",
@@ -63,8 +63,8 @@ protected:
     }
     
     void logForceAnalysis(uint32_t x, uint32_t y, double deltaTime = 0.016) {
-        const CellB& cell = world->at(x, y);
-        auto cohesion = WorldBCohesionCalculator(*world).calculateCohesionForce(x, y);
+        const Cell& cell = world->at(x, y);
+        auto cohesion = WorldCohesionCalculator(*world).calculateCohesionForce(x, y);
         auto adhesion = world->getAdhesionCalculator().calculateAdhesionForce(x, y);
         
         // Calculate forces as done in queueMaterialMoves.
@@ -90,7 +90,7 @@ protected:
     
     bool isDirtAtPosition(uint32_t x, uint32_t y) {
         if (x >= world->getWidth() || y >= world->getHeight()) return false;
-        const CellB& cell = world->at(x, y);
+        const Cell& cell = world->at(x, y);
         return cell.getMaterialType() == MaterialType::DIRT && cell.getFillRatio() > 0.1;
     }
     
@@ -103,7 +103,7 @@ protected:
         }
     }
     
-    std::unique_ptr<WorldB> world;
+    std::unique_ptr<World> world;
 };
 
 TEST_F(HorizontalLineStabilityTest, CantileverDirtShouldFall) {
@@ -199,7 +199,7 @@ TEST_F(HorizontalLineStabilityTest, CantileverDirtShouldFall) {
     spdlog::info("Final positions:");
     for (uint32_t y = 0; y < 2; y++) {
         for (uint32_t x = 0; x < 4; x++) {
-            const CellB& cell = world->at(x, y);
+            const Cell& cell = world->at(x, y);
             if (!cell.isEmpty()) {
                 spdlog::info("  ({},{}): {} fill={:.1f} velocity=({:.3f},{:.3f})",
                            x, y, getMaterialName(cell.getMaterialType()), 
@@ -371,7 +371,7 @@ TEST_F(HorizontalLineStabilityTest, FloatingLShapeShouldCollapse) {
     spdlog::info("Final positions:");
     for (uint32_t y = 0; y < 4; y++) {
         for (uint32_t x = 0; x < 4; x++) {
-            const CellB& cell = world->at(x, y);
+            const Cell& cell = world->at(x, y);
             if (!cell.isEmpty()) {
                 spdlog::info("  ({},{}): {} fill={:.1f} velocity=({:.3f},{:.3f})",
                            x, y, getMaterialName(cell.getMaterialType()), 

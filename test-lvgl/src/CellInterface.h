@@ -4,7 +4,7 @@
 
 /**
  * CellInterface provides a common interface for material addition operations
- * that works with both Cell (mixed materials) and CellB (pure materials).
+ * that works with both Cell (mixed materials) and Cell (pure materials).
  *
  * This allows WorldSetup to work polymorphically with different cell types
  * without needing to know the specific implementation details.

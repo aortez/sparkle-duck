@@ -2,13 +2,13 @@
 #include "EventRouter.h"
 #include "SimulatorUI.h"
 #include "SparkleAssert.h"
+#include "World.h"
 #include "WorldSetup.h"
 #include "scenarios/Scenario.h"
 #include "scenarios/ScenarioRegistry.h"
 #include "spdlog/spdlog.h"
 
 SimulationManager::SimulationManager(
-    WorldType initialType,
     uint32_t width,
     uint32_t height,
     lv_obj_t* screen,
@@ -20,17 +20,17 @@ SimulationManager::SimulationManager(
       width_(width),
       height_(height),
       default_width_(width),
-      default_height_(height),
-      initial_world_type_(initialType)
+      default_height_(height)
 {
     spdlog::info("Creating SimulationManager with {}x{} grid", width, height);
 
-    // Create the world first (without draw_area).
-    world_ = createWorld(initial_world_type_);
+    // Create the world.
+    world_ = std::make_unique<World>(width, height);
     if (!world_) {
-        throw std::runtime_error("Failed to create initial world");
+        throw std::runtime_error("Failed to create world");
     }
-    spdlog::info("Created {} physics system", getWorldTypeName(initial_world_type_));
+    world_->setWallsEnabled(false); // Default to walls disabled.
+    spdlog::info("Created World physics system");
 
     // Create UI if screen is provided.
     if (screen) {
@@ -77,58 +77,6 @@ void SimulationManager::initialize()
     spdlog::info("SimulationManager initialization complete");
 }
 
-bool SimulationManager::switchWorldType(WorldType newType)
-{
-    if (!world_) {
-        spdlog::error("Cannot switch world type - no world exists");
-        return false;
-    }
-
-    WorldType currentType = world_->getWorldType();
-    if (currentType == newType) {
-        spdlog::info("Already using {} - no switch needed", getWorldTypeName(newType));
-        return true;
-    }
-
-    spdlog::info(
-        "Switching from {} to {}", getWorldTypeName(currentType), getWorldTypeName(newType));
-
-    // Step 1: Preserve current world state.
-    WorldState state;
-    world_->preserveState(state);
-    spdlog::info("State preserved - grid: {}x{}, mass: {:.2f}", state.width, state.height, [&]() {
-        double total = 0.0;
-        for (const auto& row : state.grid_data) {
-            for (const auto& cell : row) {
-                total += cell.material_mass;
-            }
-        }
-        return total;
-    }());
-
-    // Step 2: Create new world.
-    auto newWorld = createWorld(newType);
-    if (!newWorld) {
-        spdlog::error("Failed to create new world of type {}", getWorldTypeName(newType));
-        return false;
-    }
-
-    // Step 3: Restore state to new world.
-    newWorld->restoreState(state);
-    spdlog::info("State restored to new world");
-
-    // Step 4: Replace current world (this automatically cleans up old world).
-    world_ = std::move(newWorld);
-
-    // Step 5: Reconnect UI to new world.
-    if (ui_) {
-        connectUIAndWorld();
-        updateUIWorldType();
-    }
-
-    spdlog::info("World type switch completed successfully to {}", getWorldTypeName(newType));
-    return true;
-}
 
 bool SimulationManager::resizeWorldIfNeeded(uint32_t requiredWidth, uint32_t requiredHeight)
 {
@@ -150,24 +98,21 @@ bool SimulationManager::resizeWorldIfNeeded(uint32_t requiredWidth, uint32_t req
         requiredWidth,
         requiredHeight);
 
-    // Preserve current world type and any necessary state
-    WorldType currentType = world_ ? world_->getWorldType() : initial_world_type_;
-
     // Update dimensions
     width_ = requiredWidth;
     height_ = requiredHeight;
 
     // Create new world with new dimensions
-    world_ = createWorld(currentType);
+    world_ = std::make_unique<World>(width_, height_);
     if (!world_) {
         spdlog::error("Failed to create resized world");
         return false;
     }
+    world_->setWallsEnabled(false); // Default to walls disabled.
 
     // Reconnect UI if it exists
     if (ui_) {
         connectUIAndWorld();
-        updateUIWorldType();
     }
 
     spdlog::info("World resized successfully to {}x{}", requiredWidth, requiredHeight);
@@ -196,25 +141,6 @@ void SimulationManager::draw()
     }
 }
 
-WorldType SimulationManager::getCurrentWorldType() const
-{
-    return world_ ? world_->getWorldType() : WorldType::RulesB;
-}
-
-void SimulationManager::preserveState(WorldState& state) const
-{
-    if (world_) {
-        world_->preserveState(state);
-    }
-}
-
-void SimulationManager::restoreState(const WorldState& state)
-{
-    if (world_) {
-        world_->restoreState(state);
-    }
-}
-
 void SimulationManager::dumpTimerStats() const
 {
     if (world_) {
@@ -228,12 +154,6 @@ bool SimulationManager::shouldExit() const
         throw std::runtime_error("SimulationManager::shouldExit() called without EventRouter");
     }
     return eventRouter_->getSharedSimState().getShouldExit();
-}
-
-std::unique_ptr<WorldInterface> SimulationManager::createWorld(WorldType type)
-{
-    spdlog::info("Creating world of type {}", getWorldTypeName(type));
-    return ::createWorld(type, width_, height_); // No draw_area parameter needed anymore.
 }
 
 void SimulationManager::connectUIAndWorld()
@@ -257,15 +177,4 @@ void SimulationManager::connectUIAndWorld()
 
     // Populate UI controls with values from the world.
     ui_->populateFromWorld();
-}
-
-void SimulationManager::updateUIWorldType()
-{
-    if (!ui_ || !world_) {
-        return;
-    }
-
-    // This would update UI elements like button matrix to reflect current world type.
-    // For now, we'll rely on the UI's internal update mechanisms.
-    spdlog::debug("UI world type updated");
 }

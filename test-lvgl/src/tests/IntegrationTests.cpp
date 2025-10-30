@@ -248,11 +248,7 @@ TEST_F(IntegrationTests, EventFactory_MouseEventConversion) {
 }
 
 TEST_F(IntegrationTests, EventFactory_ButtonMatrixConversion) {
-    auto& router = dsm->getEventRouter();
-    
-    // Simulate button matrix selection (like world type selection).
-    // User selects WorldB (RulesB).
-    router.routeEvent(Event{SwitchWorldTypeCommand{WorldType::RulesB}});
+    // World type switching removed - only one world type now.
     processEvents();
     
     // Note: SharedSimState doesn't track world type, so we can't verify this.

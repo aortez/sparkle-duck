@@ -1,14 +1,14 @@
 #include <gtest/gtest.h>
-#include "../WorldB.h"
-#include "../WorldBPressureCalculator.h"
+#include "../World.h"
+#include "../WorldPressureCalculator.h"
 #include "../MaterialType.h"
 #include <spdlog/spdlog.h>
 
-class WorldBPressureCalculatorTest : public ::testing::Test {
+class WorldPressureCalculatorTest : public ::testing::Test {
 protected:
     void SetUp() override {
         // Create a 6x6 world.
-        world = std::make_unique<WorldB>(6, 6);
+        world = std::make_unique<World>(6, 6);
         
         // Enable dynamic pressure for these tests.
         world->setPressureSystem(WorldInterface::PressureSystem::TopDown);
@@ -20,8 +20,8 @@ protected:
         pressureCalc = &world->getPressureCalculator();
     }
     
-    std::unique_ptr<WorldB> world;
-    WorldBPressureCalculator* pressureCalc;
+    std::unique_ptr<World> world;
+    WorldPressureCalculator* pressureCalc;
 };
 
 // 3. Processing Logic Tests.
@@ -34,7 +34,7 @@ struct BlockedTransferTestCase {
     std::string expectedBehavior;
 };
 
-class ProcessBlockedTransfersTest : public WorldBPressureCalculatorTest,
+class ProcessBlockedTransfersTest : public WorldPressureCalculatorTest,
                                    public ::testing::WithParamInterface<BlockedTransferTestCase> {
 };
 
@@ -44,14 +44,14 @@ TEST_P(ProcessBlockedTransfersTest, ProcessBlockedTransfers_HandlesTargetMateria
     // Setup: Create target cell with specified material.
     const int targetX = 2, targetY = 2;
     world->addMaterialAtCell(targetX, targetY, testCase.targetMaterial, 1.0);
-    CellB& targetCell = world->at(targetX, targetY);
+    Cell& targetCell = world->at(targetX, targetY);
     
     // Record initial pressure (should be 0).
     double initialPressure = targetCell.getDynamicPressure();
     EXPECT_EQ(0.0, initialPressure) << "Initial pressure should be zero";
     
     // Create a blocked transfer TO the target cell.
-    WorldBPressureCalculator::BlockedTransfer transfer{};
+    WorldPressureCalculator::BlockedTransfer transfer{};
     transfer.fromX = 1;
     transfer.fromY = 2;
     transfer.toX = targetX;
@@ -128,7 +128,7 @@ INSTANTIATE_TEST_SUITE_P(
     }
 );
 
-TEST_F(WorldBPressureCalculatorTest, DISABLED_ProcessBlockedTransfers_IgnoresTransfersToEmptyCells) {
+TEST_F(WorldPressureCalculatorTest, DISABLED_ProcessBlockedTransfers_IgnoresTransfersToEmptyCells) {
     // Queue transfer to empty (AIR) cell.
     // Process and verify no pressure accumulation.
     
@@ -136,7 +136,7 @@ TEST_F(WorldBPressureCalculatorTest, DISABLED_ProcessBlockedTransfers_IgnoresTra
     FAIL() << "Test not yet implemented";
 }
 
-TEST_F(WorldBPressureCalculatorTest, DISABLED_ProcessBlockedTransfers_AccumulatesPressureInNonEmptyTargets) {
+TEST_F(WorldPressureCalculatorTest, DISABLED_ProcessBlockedTransfers_AccumulatesPressureInNonEmptyTargets) {
     // Queue transfer to WATER/DIRT/etc cell.
     // Verify pressure increases by expected amount.
     
@@ -146,7 +146,7 @@ TEST_F(WorldBPressureCalculatorTest, DISABLED_ProcessBlockedTransfers_Accumulate
 
 // 4. Material Weight Tests.
 
-TEST_F(WorldBPressureCalculatorTest, DISABLED_ProcessBlockedTransfers_AppliesMaterialSpecificWeights) {
+TEST_F(WorldPressureCalculatorTest, DISABLED_ProcessBlockedTransfers_AppliesMaterialSpecificWeights) {
     // Queue same energy transfer to different materials.
     // Verify DIRT (weight=1.0) gets more pressure than METAL (weight=0.5).
     
@@ -156,7 +156,7 @@ TEST_F(WorldBPressureCalculatorTest, DISABLED_ProcessBlockedTransfers_AppliesMat
 
 // 5. Pressure Vector Tests.
 
-TEST_F(WorldBPressureCalculatorTest, DISABLED_ProcessBlockedTransfers_UpdatesPressureVector) {
+TEST_F(WorldPressureCalculatorTest, DISABLED_ProcessBlockedTransfers_UpdatesPressureVector) {
     // Queue transfer with specific velocity direction.
     // Verify pressure vector aligns with blocked velocity.
     
@@ -164,7 +164,7 @@ TEST_F(WorldBPressureCalculatorTest, DISABLED_ProcessBlockedTransfers_UpdatesPre
     FAIL() << "Test not yet implemented";
 }
 
-TEST_F(WorldBPressureCalculatorTest, DISABLED_ProcessBlockedTransfers_CombinesPressureVectors) {
+TEST_F(WorldPressureCalculatorTest, DISABLED_ProcessBlockedTransfers_CombinesPressureVectors) {
     // Multiple transfers to same cell.
     // Verify weighted average of pressure vectors.
     
@@ -174,7 +174,7 @@ TEST_F(WorldBPressureCalculatorTest, DISABLED_ProcessBlockedTransfers_CombinesPr
 
 // 6. Edge Cases.
 
-TEST_F(WorldBPressureCalculatorTest, DISABLED_BlockedTransfers_ZeroEnergyTransfer) {
+TEST_F(WorldPressureCalculatorTest, DISABLED_BlockedTransfers_ZeroEnergyTransfer) {
     // Transfer with zero velocity or amount.
     // Should not create pressure.
     
@@ -182,7 +182,7 @@ TEST_F(WorldBPressureCalculatorTest, DISABLED_BlockedTransfers_ZeroEnergyTransfe
     FAIL() << "Test not yet implemented";
 }
 
-TEST_F(WorldBPressureCalculatorTest, DISABLED_BlockedTransfers_MaxPressureLimit) {
+TEST_F(WorldPressureCalculatorTest, DISABLED_BlockedTransfers_MaxPressureLimit) {
     // Queue many high-energy transfers.
     // Does pressure have a cap? Should it?
     
@@ -190,7 +190,7 @@ TEST_F(WorldBPressureCalculatorTest, DISABLED_BlockedTransfers_MaxPressureLimit)
     FAIL() << "Test not yet implemented";
 }
 
-TEST_F(WorldBPressureCalculatorTest, DISABLED_BlockedTransfers_SimultaneousTransfersToSameCell) {
+TEST_F(WorldPressureCalculatorTest, DISABLED_BlockedTransfers_SimultaneousTransfersToSameCell) {
     // Multiple sources transferring to same target.
     // All should accumulate.
     

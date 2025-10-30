@@ -20,7 +20,7 @@ protected:
         event.adhesionEnabled = true;
         event.timeHistoryEnabled = false;
         event.selectedMaterial = MaterialType::DIRT;
-        event.worldType = "WorldB";
+        event.worldType = "World";
         event.timestamp = std::chrono::steady_clock::now();
         return event;
     }
@@ -134,8 +134,8 @@ TEST_F(UIUpdateEventTest, WorldTypeString) {
     event.worldType = "WorldA";
     EXPECT_EQ(event.worldType, "WorldA");
     
-    event.worldType = "WorldB";
-    EXPECT_EQ(event.worldType, "WorldB");
+    event.worldType = "World";
+    EXPECT_EQ(event.worldType, "World");
     
     event.worldType = "None";
     EXPECT_EQ(event.worldType, "None");

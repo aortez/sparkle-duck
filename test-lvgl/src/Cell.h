@@ -1,60 +1,230 @@
 #pragma once
 
 #include "CellInterface.h"
+#include "MaterialType.h"
 #include "Vector2d.h"
-#include "Vector2i.h"
 
-#include <array>
 #include <cstdint>
 #include <string>
 #include <vector>
 
-// Forward declare LVGL types.
-typedef struct _lv_obj_t lv_obj_t;
+#include "lvgl/lvgl.h"
 
-// Forward declare World class
-class World;
+/**
+ * \file
+ * Cell represents a single cell in the World pure-material physics system.
+ * Unlike Cell (mixed dirt/water), Cell contains a single material type with
+ * a fill ratio [0,1] indicating how much of the cell is occupied.
+ */
 
-// A cell in grid-based simulation.
 class Cell : public CellInterface {
 public:
-    static bool adhesionDrawEnabled;
-    static uint32_t WIDTH;
-    static uint32_t HEIGHT;
+    // Material fill threshold constants.
+    static constexpr double MIN_FILL_THRESHOLD = 0.001; // Minimum matter to consider
+    static constexpr double MAX_FILL_THRESHOLD = 0.999; // Maximum fill before "full"
 
-    // COM deflection threshold for triggering transfers
-    static constexpr double COM_DEFLECTION_THRESHOLD = 0.6;
+    // COM bounds (matches original World system).
+    static constexpr double COM_MIN = -1.0;
+    static constexpr double COM_MAX = 1.0;
 
-    // Water physics constants - now configurable
-    static double COHESION_STRENGTH;
-    static double VISCOSITY_FACTOR;
-    static double BUOYANCY_STRENGTH;
+    // Cell rendering dimensions (pixels).
+    static constexpr uint32_t WIDTH = 30;
+    static constexpr uint32_t HEIGHT = 30;
 
-    // Density constants for different materials (moderate differences for stability)
-    static constexpr double DIRT_DENSITY = 1.3;  // Slightly denser than water
-    static constexpr double WATER_DENSITY = 1.0; // Reference density
-    static constexpr double WOOD_DENSITY = 0.8;  // Wood floats
-    static constexpr double LEAF_DENSITY = 0.7;  // Leaves float
-    static constexpr double METAL_DENSITY = 2.0; // Moderately heavy
+    // Default constructor - creates empty air cell.
+    Cell();
 
-    // Setters for water physics constants
-    static void setCohesionStrength(double strength) { COHESION_STRENGTH = strength; }
-    static void setViscosityFactor(double factor) { VISCOSITY_FACTOR = factor; }
-    static void setBuoyancyStrength(double strength) { BUOYANCY_STRENGTH = strength; }
+    // Constructor with material type and fill ratio.
+    Cell(MaterialType type, double fill = 1.0);
 
-    // Getters for water physics constants
-    static double getCohesionStrength() { return COHESION_STRENGTH; }
-    static double getViscosityFactor() { return VISCOSITY_FACTOR; }
-    static double getBuoyancyStrength() { return BUOYANCY_STRENGTH; }
+    // Destructor - cleanup LVGL canvas.
+    ~Cell();
 
-    static void setSize(uint32_t newSize)
+    // Copy constructor and assignment - handle LVGL canvas properly.
+    Cell(const Cell& other);
+    Cell& operator=(const Cell& other);
+
+    // =================================================================
+    // MATERIAL PROPERTIES
+    // =================================================================
+
+    // Get/set material type.
+    MaterialType getMaterialType() const { return material_type_; }
+    void setMaterialType(MaterialType type) { material_type_ = type; }
+
+    // Get/set fill ratio [0,1].
+    double getFillRatio() const { return fill_ratio_; }
+    void setFillRatio(double ratio);
+
+    // =================================================================
+    // FORCE ACCUMULATION (for visualization)
+    // =================================================================
+
+    // Get accumulated forces from last physics calculation.
+    // Note: Cohesion force repurposed to store viscosity damping info (X=motion_mult, Y=damping).
+    const Vector2d& getAccumulatedCohesionForce() const { return accumulated_cohesion_force_; }
+    const Vector2d& getAccumulatedAdhesionForce() const { return accumulated_adhesion_force_; }
+    const Vector2d& getAccumulatedCOMCohesionForce() const
     {
-        WIDTH = newSize;
-        HEIGHT = newSize;
+        return accumulated_com_cohesion_force_;
     }
 
-    static uint32_t getSize() { return WIDTH; }
+    // Set accumulated forces (called during physics calculation).
+    // Note: Cohesion force repurposed to store viscosity damping info (X=motion_mult, Y=damping).
+    void setAccumulatedCohesionForce(const Vector2d& force) { accumulated_cohesion_force_ = force; }
+    void setAccumulatedAdhesionForce(const Vector2d& force) { accumulated_adhesion_force_ = force; }
+    void setAccumulatedCOMCohesionForce(const Vector2d& force)
+    {
+        accumulated_com_cohesion_force_ = force;
+    }
 
+    // Clear accumulated forces (for initialization).
+    void clearAccumulatedForces()
+    {
+        accumulated_cohesion_force_ = Vector2d(0, 0);
+        accumulated_adhesion_force_ = Vector2d(0, 0);
+        accumulated_com_cohesion_force_ = Vector2d(0, 0);
+    }
+
+    // Get/set cached friction coefficient for visualization.
+    double getCachedFrictionCoefficient() const { return cached_friction_coefficient_; }
+    void setCachedFrictionCoefficient(double coeff) { cached_friction_coefficient_ = coeff; }
+
+    // =================================================================
+    // PHYSICS FORCE ACCUMULATION
+    // =================================================================
+
+    // Get/set pending forces to be applied during force resolution.
+    const Vector2d& getPendingForce() const { return pending_force_; }
+    void setPendingForce(const Vector2d& force) { pending_force_ = force; }
+    void addPendingForce(const Vector2d& force) { pending_force_ = pending_force_ + force; }
+    void clearPendingForce() { pending_force_ = Vector2d(0, 0); }
+
+    // Material state queries.
+    bool isEmpty() const override { return fill_ratio_ < MIN_FILL_THRESHOLD; }
+    bool isFull() const { return fill_ratio_ > MAX_FILL_THRESHOLD; }
+    bool isAir() const { return material_type_ == MaterialType::AIR; }
+    bool isWall() const { return material_type_ == MaterialType::WALL; }
+
+    // =================================================================
+    // PHYSICS PROPERTIES
+    // =================================================================
+
+    // Center of mass position [-1,1] within cell.
+    const Vector2d& getCOM() const { return com_; }
+    void setCOM(const Vector2d& com);
+    void setCOM(double x, double y) { setCOM(Vector2d(x, y)); }
+
+    // Velocity vector.
+    const Vector2d& getVelocity() const { return velocity_; }
+    void setVelocity(const Vector2d& velocity)
+    {
+        velocity_ = velocity;
+        markDirty();
+    }
+    void setVelocity(double x, double y)
+    {
+        velocity_ = Vector2d(x, y);
+        markDirty();
+    }
+
+    // Unified pressure system with component tracking for debugging.
+    // Primary interface - use these for physics calculations.
+    double getPressure() const { return pressure_; }
+    void setPressure(double pressure) { pressure_ = pressure; }
+    void addPressure(double pressure) { pressure_ += pressure; }
+
+    // Legacy interface - now uses components directly.
+    // Maintained for backward compatibility.
+    double getHydrostaticPressure() const { return hydrostatic_component_; }
+    void setHydrostaticPressure(double pressure) { hydrostatic_component_ = pressure; }
+
+    double getDynamicPressure() const { return dynamic_component_; }
+    void setDynamicPressure(double pressure) { dynamic_component_ = pressure; }
+    void addDynamicPressure(double pressure) { dynamic_component_ += pressure; }
+
+    // Debug/visualization interface - for understanding pressure sources.
+    double getHydrostaticComponent() const { return hydrostatic_component_; }
+    double getDynamicComponent() const { return dynamic_component_; }
+    void setComponents(double hydrostatic, double dynamic)
+    {
+        hydrostatic_component_ = hydrostatic;
+        dynamic_component_ = dynamic;
+        // Note: This doesn't update the unified pressure - use for visualization only.
+    }
+
+    // Pressure gradient for debug visualization.
+    void setPressureGradient(const Vector2d& gradient) { pressure_gradient_ = gradient; }
+    const Vector2d& getPressureGradient() const { return pressure_gradient_; }
+
+    // =================================================================
+    // CALCULATED PROPERTIES
+    // =================================================================
+
+    // Available capacity for more material
+    double getCapacity() const { return 1.0 - fill_ratio_; }
+
+    // Effective mass (fill_ratio * material_density)
+    double getMass() const;
+
+    // Effective density
+    double getEffectiveDensity() const;
+
+    // =================================================================
+    // MATERIAL OPERATIONS
+    // =================================================================
+
+    // Add material to this cell (returns amount actually added)
+    double addMaterial(MaterialType type, double amount);
+
+    // Add material with physics context for realistic COM placement
+    double addMaterialWithPhysics(
+        MaterialType type,
+        double amount,
+        const Vector2d& source_com,
+        const Vector2d& velocity,
+        const Vector2d& boundary_normal);
+
+    // Remove material from this cell (returns amount actually removed)
+    double removeMaterial(double amount);
+
+    // Transfer material to another cell (returns amount transferred)
+    double transferTo(Cell& target, double amount);
+
+    // Physics-aware transfer with boundary crossing information
+    double transferToWithPhysics(Cell& target, double amount, const Vector2d& boundary_normal);
+
+    // Replace all material with new type and amount
+    void replaceMaterial(MaterialType type, double fill_ratio = 1.0);
+
+    // Clear cell (set to empty air)
+    void clear() override;
+
+    // =================================================================
+    // PHYSICS UTILITIES
+    // =================================================================
+
+    // Apply velocity limiting per GridMechanics.md (per-timestep values)
+    void limitVelocity(
+        double max_velocity_per_timestep,
+        double damping_threshold_per_timestep,
+        double damping_factor_per_timestep,
+        double deltaTime);
+
+    // Clamp COM to valid bounds
+    void clampCOM();
+
+    // Check if COM indicates transfer should occur
+    bool shouldTransfer() const;
+
+    // Get transfer direction based on COM position
+    Vector2d getTransferDirection() const;
+
+    // =================================================================
+    // RENDERING
+    // =================================================================
+
+    // Main drawing method (called by World::draw)
     void draw(lv_obj_t* parent, uint32_t x, uint32_t y, bool debugDraw);
 
     // Separate drawing methods for different modes
@@ -64,86 +234,12 @@ public:
     // Mark the cell as needing to be redrawn
     void markDirty() override;
 
-    // Update cell properties and mark dirty
-    void update(double newDirty, const Vector2d& newCom, const Vector2d& newV);
+    // =================================================================
+    // DEBUGGING
+    // =================================================================
 
-    // Calculate total percentage of cell filled with elements
-    double percentFull() const
-    {
-        double total = dirt + water + wood + leaf + metal;
-        return total;
-    }
-
-    // Safe version that clamps overfill and logs warnings
-    double safePercentFull() const
-    {
-        double total = percentFull();
-        if (total > 1.10) {
-            // Log the overfill for debugging - but don't crash
-            // Use std::cout since LOG_DEBUG might not be available everywhere
-            return 1.10; // Clamp to safe limit
-        }
-        return total;
-    }
-
-    // Method to safely add material while respecting capacity
-    // Returns the actual amount added (may be less than requested)
-    double safeAddMaterial(double& material, double amount, double maxCapacity = 1.10)
-    {
-        // Calculate current total WITHOUT the material we're about to modify
-        double currentTotal = percentFull() - material;
-        double availableSpace = maxCapacity - currentTotal;
-        double actualAmount = std::min(amount, std::max(0.0, availableSpace));
-        material += actualAmount;
-        return actualAmount;
-    }
-
-    // Get normalized COM deflection in range [-1, 1]
-    // Returns COM normalized by the deflection threshold
-    Vector2d getNormalizedDeflection() const;
-
-    // Calculate effective density based on material composition
-    double getEffectiveDensity() const;
-
-    // Validate cell state for debugging
-    void validateState(const std::string& context) const;
-
-    // Element amounts in cell [0,1]
-    double dirt;
-    double water;
-    double wood;
-    double leaf;
-    double metal;
-
-    // Center of mass of elements, range [-1,1].
-    Vector2d com;
-
-    // Velocity of elements.
-    Vector2d v;
-
-    // Pressure force vector
-    Vector2d pressure;
-
-    Cell();
-    ~Cell(); // Add destructor to clean up buffer
-
-    // Copy constructor and assignment operator to handle LVGL objects properly
-    Cell(const Cell& other);
-    Cell& operator=(const Cell& other);
-
+    // Debug string representation
     std::string toString() const;
-
-    Vector2d calculateWaterCohesion(
-        const Cell& cell,
-        const Cell& neighbor,
-        const class World* world,
-        uint32_t cellX,
-        uint32_t cellY) const;
-
-    void applyViscosity(const Cell& neighbor);
-
-    Vector2d calculateBuoyancy(
-        const Cell& cell, const Cell& neighbor, const Vector2i& offset) const;
 
     // =================================================================
     // CELLINTERFACE IMPLEMENTATION
@@ -153,24 +249,58 @@ public:
     void addDirt(double amount) override;
     void addWater(double amount) override;
 
-    // Advanced material addition with physics
+    // Advanced material addition with physics.
     void addDirtWithVelocity(double amount, const Vector2d& velocity) override;
     void addWaterWithVelocity(double amount, const Vector2d& velocity) override;
     void addDirtWithCOM(double amount, const Vector2d& com, const Vector2d& velocity) override;
 
-    // Cell state management (markDirty already declared above with override)
-    void clear() override;
+    // Cell state management (markDirty declared above in rendering section).
 
-    // Material properties
+    // Material properties.
     double getTotalMaterial() const override;
-    bool isEmpty() const override;
 
-    // ASCII visualization
+    // ASCII visualization.
     std::string toAsciiCharacter() const override;
 
 private:
-    std::vector<uint8_t> buffer; // Use vector instead of array for dynamic sizing
+    MaterialType material_type_; // Type of material in this cell.
+    double fill_ratio_;          // How full the cell is [0,1].
+    Vector2d com_;               // Center of mass position [-1,1].
+    Vector2d velocity_;          // 2D velocity vector.
 
-    lv_obj_t* canvas;
-    bool needsRedraw = true; // Flag to track if cell needs redrawing
+    // Unified pressure system.
+    double pressure_;              // Total pressure for physics calculations.
+    double hydrostatic_component_; // Hydrostatic contribution (for debugging/visualization).
+    double dynamic_component_;     // Dynamic contribution (for debugging/visualization).
+
+    Vector2d pressure_gradient_; // Pressure gradient for debug visualization.
+
+    // Force accumulation for visualization.
+    Vector2d accumulated_cohesion_force_;     // Repurposed: X=motion_multiplier, Y=damping_factor.
+    Vector2d accumulated_adhesion_force_;     // Last calculated adhesion force.
+    Vector2d accumulated_com_cohesion_force_; // Last calculated COM cohesion force.
+
+    // Physics force accumulation.
+    Vector2d pending_force_; // Forces to be applied during resolution phase.
+
+    // Cached physics values for visualization.
+    double cached_friction_coefficient_; // Current friction coefficient for rendering.
+
+    // Rendering state.
+    std::vector<uint8_t> buffer_; // Buffer for LVGL canvas pixel data.
+    lv_obj_t* canvas_;            // LVGL canvas object.
+    bool needs_redraw_;           // Flag to track if cell needs redrawing.
+
+    // =================================================================
+    // PHYSICS HELPERS
+    // =================================================================
+
+    // Calculate realistic landing position for transferred material.
+    Vector2d calculateTrajectoryLanding(
+        const Vector2d& source_com,
+        const Vector2d& velocity,
+        const Vector2d& boundary_normal) const;
+
+    // Helper to update unified pressure from components.
+    void updateUnifiedPressure() { pressure_ = hydrostatic_component_ + dynamic_component_; }
 };

@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 #include "visual_test_runner.h"
 #include <cmath>
-#include "../WorldB.h"
+#include "../World.h"
 #include "../MaterialType.h"
 #include <spdlog/spdlog.h>
 #include <spdlog/fmt/fmt.h>
@@ -38,7 +38,7 @@ protected:
         return world.get();
     }
     
-    std::unique_ptr<WorldB> world;
+    std::unique_ptr<World> world;
 };
 
 TEST_F(PressureDynamicTest, BlockedTransferAccumulatesDynamicPressure) {
@@ -66,8 +66,8 @@ TEST_F(PressureDynamicTest, BlockedTransferAccumulatesDynamicPressure) {
         world->addMaterialAtCell(0, 1, MaterialType::WATER, 1.0);   // Full WATER source.
         world->addMaterialAtCell(1, 1, MaterialType::WATER, 0.95);  // Nearly full WATER target.
         
-        CellB& sourceCell = world->at(0, 1);
-        CellB& targetCell = world->at(1, 1);
+        Cell& sourceCell = world->at(0, 1);
+        Cell& targetCell = world->at(1, 1);
         
         // Set COM positions AFTER adding material to override defaults.
         sourceCell.setCOM(Vector2d(0.8, 0.0));       // COM near right boundary for transfer.
@@ -248,7 +248,7 @@ TEST_F(PressureDynamicTest, BlockedTransferAccumulatesDynamicPressure) {
     
     for (uint32_t y = 0; y < world->getHeight(); y++) {
         for (uint32_t x = 0; x < world->getWidth(); x++) {
-            const CellB& cell = world->at(x, y);
+            const Cell& cell = world->at(x, y);
             double dynamicPressure = cell.getDynamicPressure();
             double debugPressure = cell.getDynamicPressure();
             
@@ -316,7 +316,7 @@ TEST_F(PressureDynamicTest, DynamicPressureDrivesHorizontalFlow) {
     // All cells left empty.
     
     // Give top water some initial downward velocity to ensure collision.
-    CellB& topWater = world->at(0, 0);
+    Cell& topWater = world->at(0, 0);
     topWater.setVelocity(Vector2d(0.0, 2.0));  // Falling downward.
     
     // Enable gravity to drive the collision.
@@ -349,9 +349,9 @@ TEST_F(PressureDynamicTest, DynamicPressureDrivesHorizontalFlow) {
     // Use unified simulation loop to eliminate duplication.
     runSimulationLoop(maxTimesteps, [&](int timestep) {
         // Record state before simulation step.
-        CellB& middleCell = world->at(0, 1);
-        CellB& centerCell = world->at(1, 1);
-        CellB& lowerRightCell = world->at(2, 2);
+        Cell& middleCell = world->at(0, 1);
+        Cell& centerCell = world->at(1, 1);
+        Cell& lowerRightCell = world->at(2, 2);
         
         middlePressureHistory.push_back(middleCell.getDynamicPressure());
         centerFillHistory.push_back(centerCell.getFillRatio());

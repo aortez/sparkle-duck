@@ -32,7 +32,7 @@ protected:
     // Helper function to add dirt directly to cells (bypassing pixel coordinate conversion).
     void addDirtToCell(uint32_t x, uint32_t y, double amount) {
         if (x < world->getWidth() && y < world->getHeight()) {
-            world->at(x, y).dirt = amount;
+            world->addMaterialAtCell(x, y, MaterialType::DIRT, amount);
         }
     }
     
@@ -41,7 +41,7 @@ protected:
         double total = 0.0;
         for (uint32_t y = 0; y < world->getHeight(); ++y) {
             for (uint32_t x = 0; x < world->getWidth(); ++x) {
-                total += world->at(x, y).pressure.mag();
+                total += world->at(x, y).getPressure();
             }
         }
         return total;
@@ -142,7 +142,7 @@ TEST_F(PressureSystemTest, PressureSystemComparison) {
         
         for (uint32_t y = 0; y < world->getHeight(); ++y) {
             for (uint32_t x = 0; x < world->getWidth(); ++x) {
-                double pressure_mag = world->at(x, y).pressure.mag();
+                double pressure_mag = world->at(x, y).getPressure();
                 total_pressure += pressure_mag;
                 max_pressure = std::max(max_pressure, pressure_mag);
             }
@@ -244,7 +244,7 @@ TEST_F(PressureSystemTest, TopDownPressureAccumulation) {
     for (uint32_t y = 0; y < world->getHeight(); ++y) {
         double row_pressure = 0.0;
         for (uint32_t x = 0; x < world->getWidth(); ++x) {
-            row_pressure += world->at(x, y).pressure.mag();
+            row_pressure += world->at(x, y).getPressure();
         }
         pressures_by_row.push_back(row_pressure);
         if (row_pressure > 0.0001) {  // Only print significant pressures.

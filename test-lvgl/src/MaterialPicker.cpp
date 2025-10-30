@@ -1,5 +1,5 @@
 #include "MaterialPicker.h"
-#include "CellB.h"
+#include "Cell.h"
 #include "Event.h"
 #include "EventRouter.h"
 #include "SimulatorUI.h"
@@ -203,7 +203,7 @@ void MaterialPicker::createMaterialIcon(lv_obj_t* button, MaterialType type)
     spdlog::trace("Creating material icon for {}", getMaterialName(type));
 
     // For now, create a simple colored rectangle as material icon.
-    // TODO: Integrate with CellB rendering system for consistent visuals.
+    // TODO: Integrate with Cell rendering system for consistent visuals.
 
     // Create label as material icon (simpler than canvas for now).
     lv_obj_t* icon = lv_label_create(button);
@@ -287,11 +287,11 @@ int MaterialPicker::calculatePickerHeight() const
 
 /**
  * Get display color for material type.
- * TODO: This should eventually use CellB's actual rendering system.
+ * TODO: This should eventually use Cell's actual rendering system.
  */
 lv_color_t MaterialPicker::getMaterialDisplayColor(MaterialType type)
 {
-    // Use the same enhanced colors as CellB for consistency.
+    // Use the same enhanced colors as Cell for consistency.
     switch (type) {
         case MaterialType::DIRT:
             return lv_color_hex(0x8B4513); // Rich saddle brown.

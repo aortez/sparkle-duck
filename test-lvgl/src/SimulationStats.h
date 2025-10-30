@@ -17,7 +17,7 @@ struct SimulationStats {
     uint32_t activeCells = 0; ///< Cells with material (non-empty).
     uint32_t emptyCells = 0;  ///< Cells without material.
 
-    // Material counts (for WorldB)
+    // Material counts (for World)
     uint32_t airCells = 0;   ///< Cells with AIR material.
     uint32_t dirtCells = 0;  ///< Cells with DIRT material.
     uint32_t waterCells = 0; ///< Cells with WATER material.

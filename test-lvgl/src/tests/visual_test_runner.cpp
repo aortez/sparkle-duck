@@ -5,7 +5,7 @@
 #include <spdlog/sinks/basic_file_sink.h>
 #include <sstream>
 #include <iomanip>
-#include "../WorldB.h"
+#include "../World.h"
 #include "../WorldInterface.h"
 
 // External global settings used by the backend system.
@@ -244,11 +244,7 @@ void VisualTestBase::TearDown() {
     
     // Log final world state if ASCII logging enabled and we have a UI with a world.
     if (VisualTestEnvironment::isAsciiLoggingEnabled() && ui_ && ui_->getWorld()) {
-        if (ui_->getWorld()->getWorldType() == WorldType::RulesB) {
-            logWorldStateAscii(static_cast<const WorldB*>(ui_->getWorld()), "Final world state");
-        } else {
-            logWorldStateAscii(static_cast<const World*>(ui_->getWorld()), "Final world state");
-        }
+        logWorldStateAscii(static_cast<const World*>(ui_->getWorld()), "Final world state");
     }
     
     if (visual_mode_ && ui_) {
@@ -285,23 +281,23 @@ std::unique_ptr<World> VisualTestBase::createWorld(uint32_t width, uint32_t heig
     return world;
 }
 
-std::unique_ptr<WorldB> VisualTestBase::createWorldB(uint32_t width, uint32_t height) {
+std::unique_ptr<World> VisualTestBase::createWorldB(uint32_t width, uint32_t height) {
     // Apply auto-scaling before world creation.
     if (visual_mode_ && auto_scaling_enabled_) {
         scaleDrawingAreaForWorld(width, height);
     }
     
-    std::unique_ptr<WorldB> world;
+    std::unique_ptr<World> world;
     if (visual_mode_) {
         auto& coordinator = VisualTestCoordinator::getInstance();
         coordinator.postTaskSync([&] {
-            world = std::make_unique<WorldB>(width, height);
+            world = std::make_unique<World>(width, height);
             if (ui_) {
                 ui_->setWorld(world.get());
             }
         });
     } else {
-        world = std::make_unique<WorldB>(width, height);
+        world = std::make_unique<World>(width, height);
     }
     
     // Apply universal physics defaults.
@@ -674,25 +670,20 @@ void VisualTestBase::scaleDrawingAreaForWorld(uint32_t world_width, uint32_t wor
     std::cout << "Auto-scaling: World " << world_width << "x" << world_height 
               << " → Cell size " << optimal_cell_size << " pixels\n";
     
-    auto& coordinator = VisualTestCoordinator::getInstance();
-    coordinator.postTaskSync([optimal_cell_size] {
-        Cell::setSize(optimal_cell_size);
-    });
+    // TODO: Cell size is now constant (Cell::WIDTH/HEIGHT).
+    // Scaling functionality needs to be reimplemented differently.
+    spdlog::debug("scaleDrawingAreaForWorld: cell size is now constant at {}px", Cell::WIDTH);
 }
 
 void VisualTestBase::restoreOriginalCellSize() {
-    if (original_cell_size_ != -1) {
-        auto& coordinator = VisualTestCoordinator::getInstance();
-        coordinator.postTaskSync([this] {
-            Cell::setSize(original_cell_size_);
-        });
-    }
+    // TODO: Cell size is now constant - no restoration needed.
+    spdlog::debug("restoreOriginalCellSize: no-op (cell size is constant)");
 }
 
-void VisualTestBase::applyUniversalPhysicsDefaults(WorldB* world) {
+void VisualTestBase::applyUniversalPhysicsDefaults(World* world) {
     if (!world) return;
     
-    spdlog::debug("[TEST] Applying universal physics defaults to WorldB");
+    spdlog::debug("[TEST] Applying universal physics defaults to World");
     
     // Apply adhesion defaults.
     if (VisualTestEnvironment::isAdhesionDisabledByDefault()) {
@@ -719,26 +710,11 @@ void VisualTestBase::applyUniversalPhysicsDefaults(WorldB* world) {
     }
 }
 
-void VisualTestBase::logWorldStateAscii(const WorldB* world, const std::string& description) {
-    if (!world || !VisualTestEnvironment::isAsciiLoggingEnabled()) return;
-    
-    std::string ascii = world->toAsciiDiagram();
-    spdlog::debug("[TEST ASCII] {}\n{}", description, ascii);
-}
-
 void VisualTestBase::logWorldStateAscii(const World* world, const std::string& description) {
     if (!world || !VisualTestEnvironment::isAsciiLoggingEnabled()) return;
-    
+
     std::string ascii = world->toAsciiDiagram();
     spdlog::debug("[TEST ASCII] {}\n{}", description, ascii);
-}
-
-void VisualTestBase::logInitialTestState(const WorldB* world, const std::string& test_description) {
-    if (!world || !VisualTestEnvironment::isAsciiLoggingEnabled()) return;
-    
-    std::string description = test_description.empty() ? "Initial test state" : test_description;
-    std::string ascii = world->toAsciiDiagram();
-    spdlog::info("[TEST SETUP] {}\n{}", description, ascii);
 }
 
 void VisualTestBase::logInitialTestState(const World* world, const std::string& test_description) {
@@ -751,16 +727,14 @@ void VisualTestBase::logInitialTestState(const World* world, const std::string& 
 
 void VisualTestBase::logInitialTestState(const WorldInterface* world, const std::string& test_description) {
     if (!world || !VisualTestEnvironment::isAsciiLoggingEnabled()) return;
-    
-    // Try to cast to specific implementations to get ASCII diagram.
-    if (auto* worldB = dynamic_cast<const WorldB*>(world)) {
-        logInitialTestState(worldB, test_description);
-    } else if (auto* worldA = dynamic_cast<const World*>(world)) {
-        logInitialTestState(worldA, test_description);
+
+    // Cast to World to get ASCII diagram.
+    if (auto* worldImpl = dynamic_cast<const World*>(world)) {
+        logInitialTestState(worldImpl, test_description);
     }
 }
 
-void VisualTestBase::logWorldState(const WorldB* world, const std::string& context) {
+void VisualTestBase::logWorldState(const World* world, const std::string& context) {
     if (!world) return;
     
     spdlog::debug("=== World State: {} ===", context);
@@ -770,7 +744,7 @@ void VisualTestBase::logWorldState(const WorldB* world, const std::string& conte
     
     for (uint32_t y = 0; y < world->getHeight(); y++) {
         for (uint32_t x = 0; x < world->getWidth(); x++) {
-            const CellB& cell = world->at(x, y);
+            const Cell& cell = world->at(x, y);
             if (cell.getFillRatio() > 0.001) {  // Only log cells with meaningful mass.
                 // Build the log message dynamically based on what's present.
                 std::stringstream ss;
@@ -820,45 +794,6 @@ void VisualTestBase::logWorldState(const WorldB* world, const std::string& conte
                 
                 spdlog::debug(ss.str());
                 totalMass += cell.getFillRatio();
-            }
-        }
-    }
-    spdlog::debug("  Total mass in world: {:.6f}", totalMass);
-}
-
-void VisualTestBase::logWorldState(const World* world, const std::string& context) {
-    if (!world) return;
-    
-    spdlog::debug("=== World State: {} ===", context);
-    double totalMass = 0.0;
-    const double PRESSURE_LOG_THRESHOLD = 0.0001;  // Very small threshold for pressure logging.
-    
-    for (uint32_t y = 0; y < world->getHeight(); y++) {
-        for (uint32_t x = 0; x < world->getWidth(); x++) {
-            const Cell& cell = world->at(x, y);
-            double cellMass = cell.percentFull();
-            if (cellMass > 0.001) {  // Only log cells with meaningful mass.
-                // Check if cell has any significant pressure.
-                Vector2d pressureVector = cell.pressure;
-                double pressureMagnitude = pressureVector.magnitude();
-                
-                if (pressureMagnitude > PRESSURE_LOG_THRESHOLD) {
-                    // Log with pressure information.
-                    spdlog::debug("  Cell({},{}) - Dirt: {:.3f}, Water: {:.3f}, Wood: {:.3f}, Leaf: {:.3f}, Metal: {:.3f}, Velocity: ({:.3f},{:.3f}), COM: ({:.3f},{:.3f}), Pressure: ({:.6f},{:.6f})",
-                                 x, y, 
-                                 cell.dirt, cell.water, cell.wood, cell.leaf, cell.metal,
-                                 cell.v.x, cell.v.y,
-                                 cell.com.x, cell.com.y,
-                                 pressureVector.x, pressureVector.y);
-                } else {
-                    // Log without pressure (original format).
-                    spdlog::debug("  Cell({},{}) - Dirt: {:.3f}, Water: {:.3f}, Wood: {:.3f}, Leaf: {:.3f}, Metal: {:.3f}, Velocity: ({:.3f},{:.3f}), COM: ({:.3f},{:.3f})",
-                                 x, y, 
-                                 cell.dirt, cell.water, cell.wood, cell.leaf, cell.metal,
-                                 cell.v.x, cell.v.y,
-                                 cell.com.x, cell.com.y);
-                }
-                totalMass += cellMass;
             }
         }
     }

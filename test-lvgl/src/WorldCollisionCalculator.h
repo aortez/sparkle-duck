@@ -4,15 +4,15 @@
 #include "MaterialType.h"
 #include "Vector2d.h"
 #include "Vector2i.h"
-#include "WorldBCalculatorBase.h"
-#include "WorldBCohesionCalculator.h"
+#include "WorldCalculatorBase.h"
+#include "WorldCohesionCalculator.h"
 #include <vector>
 
-class CellB;
-class WorldB;
+class Cell;
+class World;
 
 /**
- * @brief Calculator for collision detection and response in WorldB
+ * @brief Calculator for collision detection and response in World
  *
  * This calculator handles all collision-related physics including:
  * - Collision detection between materials
@@ -24,13 +24,13 @@ class WorldB;
  * The collision system implements material-specific interaction behaviors
  * based on physical properties like density, elasticity, and brittleness.
  */
-class WorldBCollisionCalculator : public WorldBCalculatorBase {
+class WorldCollisionCalculator : public WorldCalculatorBase {
 public:
     /**
      * @brief Constructor.
      * @param world Non-const reference since collisions modify world state.
      */
-    explicit WorldBCollisionCalculator(WorldB& world);
+    explicit WorldCollisionCalculator(World& world);
 
     // ===== COLLISION DETECTION =====
 
@@ -53,13 +53,13 @@ public:
      * @return MaterialMove with collision physics data.
      */
     MaterialMove createCollisionAwareMove(
-        const CellB& fromCell,
-        const CellB& toCell,
+        const Cell& fromCell,
+        const Cell& toCell,
         const Vector2i& fromPos,
         const Vector2i& toPos,
         const Vector2i& direction,
         double deltaTime,
-        const WorldBCohesionCalculator::COMCohesionForce& com_cohesion) const;
+        const WorldCohesionCalculator::COMCohesionForce& com_cohesion) const;
 
     /**
      * @brief Determine collision type based on materials and energy.
@@ -79,14 +79,14 @@ public:
      * @return Collision energy in physics units.
      */
     double calculateCollisionEnergy(
-        const MaterialMove& move, const CellB& fromCell, const CellB& toCell) const;
+        const MaterialMove& move, const Cell& fromCell, const Cell& toCell) const;
 
     /**
      * @brief Calculate mass of material in a cell.
      * @param cell Cell to calculate mass for.
      * @return Mass based on material density and fill ratio.
      */
-    double calculateMaterialMass(const CellB& cell) const;
+    double calculateMaterialMass(const Cell& cell) const;
 
     /**
      * @brief Check if floating particle collides with target cell.
@@ -95,7 +95,7 @@ public:
      * @param floating_particle The floating particle.
      * @return True if collision occurs.
      */
-    bool checkFloatingParticleCollision(int cellX, int cellY, const CellB& floating_particle) const;
+    bool checkFloatingParticleCollision(int cellX, int cellY, const Cell& floating_particle) const;
 
     // ===== COLLISION RESPONSE =====
 
@@ -105,7 +105,7 @@ public:
      * @param toCell Target cell.
      * @param move Material move data.
      */
-    void handleTransferMove(CellB& fromCell, CellB& toCell, const MaterialMove& move);
+    void handleTransferMove(Cell& fromCell, Cell& toCell, const MaterialMove& move);
 
     /**
      * @brief Handle elastic collision between materials.
@@ -113,7 +113,7 @@ public:
      * @param toCell Target cell.
      * @param move Material move data.
      */
-    void handleElasticCollision(CellB& fromCell, CellB& toCell, const MaterialMove& move);
+    void handleElasticCollision(Cell& fromCell, Cell& toCell, const MaterialMove& move);
 
     /**
      * @brief Handle inelastic collision with momentum transfer.
@@ -121,7 +121,7 @@ public:
      * @param toCell Target cell.
      * @param move Material move data.
      */
-    void handleInelasticCollision(CellB& fromCell, CellB& toCell, const MaterialMove& move);
+    void handleInelasticCollision(Cell& fromCell, Cell& toCell, const MaterialMove& move);
 
     /**
      * @brief Handle material fragmentation on high-energy impact.
@@ -129,7 +129,7 @@ public:
      * @param toCell Target cell.
      * @param move Material move data.
      */
-    void handleFragmentation(CellB& fromCell, CellB& toCell, const MaterialMove& move);
+    void handleFragmentation(Cell& fromCell, Cell& toCell, const MaterialMove& move);
 
     /**
      * @brief Handle material absorption (e.g., water into dirt).
@@ -137,7 +137,7 @@ public:
      * @param toCell Target cell.
      * @param move Material move data.
      */
-    void handleAbsorption(CellB& fromCell, CellB& toCell, const MaterialMove& move);
+    void handleAbsorption(Cell& fromCell, Cell& toCell, const MaterialMove& move);
 
     /**
      * @brief Handle floating particle collision response.
@@ -147,7 +147,7 @@ public:
      * @param targetCell Target cell to modify.
      */
     void handleFloatingParticleCollision(
-        int cellX, int cellY, const CellB& floating_particle, CellB& targetCell);
+        int cellX, int cellY, const Cell& floating_particle, Cell& targetCell);
 
     // ===== BOUNDARY REFLECTIONS =====
 
@@ -156,7 +156,7 @@ public:
      * @param cell Cell to apply reflection to.
      * @param direction Direction of boundary hit.
      */
-    void applyBoundaryReflection(CellB& cell, const Vector2i& direction);
+    void applyBoundaryReflection(Cell& cell, const Vector2i& direction);
 
     /**
      * @brief Apply reflection when cell-to-cell transfer fails.
@@ -164,7 +164,7 @@ public:
      * @param direction Direction of failed transfer.
      * @param material Material type for elasticity calculation.
      */
-    void applyCellBoundaryReflection(CellB& cell, const Vector2i& direction, MaterialType material);
+    void applyCellBoundaryReflection(Cell& cell, const Vector2i& direction, MaterialType material);
 
     // ===== UTILITY METHODS =====
 
@@ -194,7 +194,7 @@ public:
     static bool isMaterialRigid(MaterialType material);
 
 private:
-    WorldB& world_; // Non-const reference for modifying world state.
+    World& world_; // Non-const reference for modifying world state.
 
     // Physics constants.
     static constexpr double FRAGMENTATION_THRESHOLD = 15.0;

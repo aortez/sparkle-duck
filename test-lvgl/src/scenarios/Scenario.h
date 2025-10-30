@@ -21,7 +21,7 @@ struct ScenarioMetadata {
     
     // Compatibility flags
     bool supportsWorldA = true;  // Works with RulesA/World
-    bool supportsWorldB = true;  // Works with RulesB/WorldB
+    bool supportsWorldB = true;  // Works with RulesB/World
     
     // Required world dimensions (0 = any size is acceptable)
     uint32_t requiredWidth = 0;   // Required world width, 0 for flexible

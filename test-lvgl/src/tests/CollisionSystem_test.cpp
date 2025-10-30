@@ -1,6 +1,6 @@
 #include "visual_test_runner.h"
-#include "../WorldB.h"
-#include "../CellB.h"
+#include "../World.h"
+#include "../Cell.h"
 #include "../MaterialType.h"
 #include "../Vector2d.h"
 #include "spdlog/spdlog.h"
@@ -52,7 +52,7 @@ protected:
     void cleanWorldForTesting() {
         for (uint32_t y = 0; y < world->getHeight(); ++y) {
             for (uint32_t x = 0; x < world->getWidth(); ++x) {
-                CellB& cell = world->at(x, y);
+                Cell& cell = world->at(x, y);
                 cell.clear(); // Set to AIR with no velocity/COM.
             }
         }
@@ -63,14 +63,14 @@ protected:
     // Helper to set up a cell with specific properties.
     void setupCell(uint32_t x, uint32_t y, MaterialType material, double fillRatio, 
                    Vector2d com = Vector2d(0.0, 0.0), Vector2d velocity = Vector2d(0.0, 0.0)) {
-        CellB& cell = world->at(x, y);
+        Cell& cell = world->at(x, y);
         cell.setMaterialType(material);
         cell.setFillRatio(fillRatio);
         cell.setCOM(com);
         cell.setVelocity(velocity);
     }
     
-    std::unique_ptr<WorldB> world;
+    std::unique_ptr<World> world;
 };
 
 TEST_F(CollisionSystemTest, ParticleCrossesCellBoundaries) {

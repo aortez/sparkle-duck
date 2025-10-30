@@ -1,17 +1,17 @@
-#include "WorldBPressureCalculator.h"
-#include "CellB.h"
-#include "WorldB.h"
+#include "WorldPressureCalculator.h"
+#include "Cell.h"
+#include "World.h"
 #include "WorldInterface.h"
 
 #include <algorithm>
 #include <cmath>
 #include <spdlog/spdlog.h>
 
-WorldBPressureCalculator::WorldBPressureCalculator(WorldB& world)
-    : WorldBCalculatorBase(world), world_ref_(world)
+WorldPressureCalculator::WorldPressureCalculator(World& world)
+    : WorldCalculatorBase(world), world_ref_(world)
 {}
 
-void WorldBPressureCalculator::calculateHydrostaticPressure()
+void WorldPressureCalculator::calculateHydrostaticPressure()
 {
     // Skip if hydrostatic pressure is disabled.
     if (!world_ref_.isHydrostaticPressureEnabled()) {
@@ -35,7 +35,7 @@ void WorldBPressureCalculator::calculateHydrostaticPressure()
         std::vector<bool> cell_has_support(world_ref_.getHeight());
 
         for (int y = world_ref_.getHeight() - 1; y >= 0; --y) {
-            CellB& cell = world_ref_.at(x, y);
+            Cell& cell = world_ref_.at(x, y);
 
             if (cell.isEmpty()) {
                 // Empty cells break support chain.
@@ -55,7 +55,7 @@ void WorldBPressureCalculator::calculateHydrostaticPressure()
         double accumulated_pressure = 0.0;
 
         for (uint32_t y = 0; y < world_ref_.getHeight(); ++y) {
-            CellB& cell = world_ref_.at(x, y);
+            Cell& cell = world_ref_.at(x, y);
 
             if (cell.isEmpty()) {
                 // Empty cells: reset accumulation, no pressure.
@@ -84,12 +84,12 @@ void WorldBPressureCalculator::calculateHydrostaticPressure()
     }
 }
 
-void WorldBPressureCalculator::queueBlockedTransfer(const BlockedTransfer& transfer)
+void WorldPressureCalculator::queueBlockedTransfer(const BlockedTransfer& transfer)
 {
     blocked_transfers_.push_back(transfer);
 }
 
-void WorldBPressureCalculator::processBlockedTransfers(
+void WorldPressureCalculator::processBlockedTransfers(
     const std::vector<BlockedTransfer>& blocked_transfers)
 {
     // Process each blocked transfer.
@@ -99,13 +99,13 @@ void WorldBPressureCalculator::processBlockedTransfers(
 
         // Check if target cell is valid for pressure transmission.
         if (isValidCell(transfer.toX, transfer.toY)) {
-            CellB& target_cell = world_ref_.at(transfer.toX, transfer.toY);
+            Cell& target_cell = world_ref_.at(transfer.toX, transfer.toY);
 
             // Check target cell type.
             if (target_cell.isWall()) {
                 // Walls reflect pressure back to source.
                 if (isValidCell(transfer.fromX, transfer.fromY)) {
-                    CellB& source_cell = world_ref_.at(transfer.fromX, transfer.fromY);
+                    Cell& source_cell = world_ref_.at(transfer.fromX, transfer.fromY);
 
                     // Get material-specific dynamic weight for source.
                     double material_weight = getDynamicWeight(source_cell.getMaterialType());
@@ -168,7 +168,7 @@ void WorldBPressureCalculator::processBlockedTransfers(
 
         if (apply_to_target) {
             // Apply pressure to target cell.
-            CellB& target_cell = world_ref_.at(transfer.toX, transfer.toY);
+            Cell& target_cell = world_ref_.at(transfer.toX, transfer.toY);
 
             // Get material-specific dynamic weight.
             double material_weight = getDynamicWeight(target_cell.getMaterialType());
@@ -202,7 +202,7 @@ void WorldBPressureCalculator::processBlockedTransfers(
     }
 }
 
-double WorldBPressureCalculator::getHydrostaticWeight(MaterialType type) const
+double WorldPressureCalculator::getHydrostaticWeight(MaterialType type) const
 {
     // Material-specific hydrostatic pressure sensitivity.
     switch (type) {
@@ -225,7 +225,7 @@ double WorldBPressureCalculator::getHydrostaticWeight(MaterialType type) const
     }
 }
 
-double WorldBPressureCalculator::getDynamicWeight(MaterialType type) const
+double WorldPressureCalculator::getDynamicWeight(MaterialType type) const
 {
     // Material-specific dynamic pressure sensitivity.
     switch (type) {
@@ -246,10 +246,10 @@ double WorldBPressureCalculator::getDynamicWeight(MaterialType type) const
     }
 }
 
-Vector2d WorldBPressureCalculator::calculatePressureGradient(uint32_t x, uint32_t y) const
+Vector2d WorldPressureCalculator::calculatePressureGradient(uint32_t x, uint32_t y) const
 {
     // Get center cell total pressure.
-    const CellB& center = world_ref_.at(x, y);
+    const Cell& center = world_ref_.at(x, y);
     double center_pressure = center.getPressure();
 
     // Skip if no significant pressure.
@@ -288,7 +288,7 @@ Vector2d WorldBPressureCalculator::calculatePressureGradient(uint32_t x, uint32_
             bool is_wall = false;
 
             if (isValidCell(nx, ny)) {
-                const CellB& neighbor = world_ref_.at(nx, ny);
+                const Cell& neighbor = world_ref_.at(nx, ny);
 
                 if (neighbor.isWall()) {
                     is_wall = true;
@@ -384,7 +384,7 @@ Vector2d WorldBPressureCalculator::calculatePressureGradient(uint32_t x, uint32_
             bool is_wall = false;
 
             if (isValidCell(nx, ny)) {
-                const CellB& neighbor = world_ref_.at(nx, ny);
+                const Cell& neighbor = world_ref_.at(nx, ny);
 
                 if (neighbor.isWall()) {
                     is_wall = true;
@@ -487,9 +487,9 @@ Vector2d WorldBPressureCalculator::calculatePressureGradient(uint32_t x, uint32_
     return gradient;
 }
 
-Vector2d WorldBPressureCalculator::calculateGravityGradient(uint32_t x, uint32_t y) const
+Vector2d WorldPressureCalculator::calculateGravityGradient(uint32_t x, uint32_t y) const
 {
-    const CellB& center = world_ref_.at(x, y);
+    const Cell& center = world_ref_.at(x, y);
     double center_density = center.getEffectiveDensity();
 
     // Get gravity vector and magnitude.
@@ -514,7 +514,7 @@ Vector2d WorldBPressureCalculator::calculateGravityGradient(uint32_t x, uint32_t
         int ny = static_cast<int>(y) + dy;
 
         if (isValidCell(nx, ny)) {
-            const CellB& neighbor = world_ref_.at(nx, ny);
+            const Cell& neighbor = world_ref_.at(nx, ny);
 
             // Skip walls - they don't contribute to gravity gradient.
             if (neighbor.isWall()) {
@@ -545,12 +545,12 @@ Vector2d WorldBPressureCalculator::calculateGravityGradient(uint32_t x, uint32_t
     return gravity_gradient;
 }
 
-void WorldBPressureCalculator::applyPressureDecay(double deltaTime)
+void WorldPressureCalculator::applyPressureDecay(double deltaTime)
 {
     // Apply decay to unified pressure values.
     for (uint32_t y = 0; y < world_ref_.getHeight(); ++y) {
         for (uint32_t x = 0; x < world_ref_.getWidth(); ++x) {
-            CellB& cell = world_ref_.at(x, y);
+            Cell& cell = world_ref_.at(x, y);
 
             // Apply pressure decay to the unified pressure.
             double pressure = cell.getPressure();
@@ -584,7 +584,7 @@ void WorldBPressureCalculator::applyPressureDecay(double deltaTime)
     }
 }
 
-void WorldBPressureCalculator::generateVirtualGravityTransfers(double deltaTime)
+void WorldPressureCalculator::generateVirtualGravityTransfers(double deltaTime)
 {
     const Vector2d gravity = world_ref_.getGravityVector();
     const double gravity_magnitude = gravity.magnitude();
@@ -596,7 +596,7 @@ void WorldBPressureCalculator::generateVirtualGravityTransfers(double deltaTime)
     // Process all cells to generate virtual gravity transfers.
     for (uint32_t y = 0; y < world_ref_.getHeight(); ++y) {
         for (uint32_t x = 0; x < world_ref_.getWidth(); ++x) {
-            CellB& cell = world_ref_.at(x, y);
+            Cell& cell = world_ref_.at(x, y);
 
             // Skip empty cells and walls.
             if (cell.getFillRatio() < MIN_MATTER_THRESHOLD || cell.isWall()) {
@@ -618,7 +618,7 @@ void WorldBPressureCalculator::generateVirtualGravityTransfers(double deltaTime)
 
             bool would_be_blocked = false;
             if (isValidCell(below_x, below_y)) {
-                const CellB& cell_below = world_ref_.at(below_x, below_y);
+                const Cell& cell_below = world_ref_.at(below_x, below_y);
                 // Consider blocked if cell below is nearly full or is a wall.
                 if (cell_below.getFillRatio() > 0.8 || cell_below.isWall()) {
                     would_be_blocked = true;
@@ -654,7 +654,7 @@ void WorldBPressureCalculator::generateVirtualGravityTransfers(double deltaTime)
     }
 }
 
-double WorldBPressureCalculator::calculateReflectionCoefficient(
+double WorldPressureCalculator::calculateReflectionCoefficient(
     MaterialType materialType, double impactEnergy) const
 {
     // Get material elasticity from properties.
@@ -689,7 +689,7 @@ double WorldBPressureCalculator::calculateReflectionCoefficient(
     return reflection_coefficient;
 }
 
-double WorldBPressureCalculator::calculateDiffusionReflectionCoefficient(
+double WorldPressureCalculator::calculateDiffusionReflectionCoefficient(
     MaterialType material, double blocked_flux) const
 {
     // Base reflection depends on material properties.
@@ -719,7 +719,7 @@ double WorldBPressureCalculator::calculateDiffusionReflectionCoefficient(
     return reflection_coefficient;
 }
 
-bool WorldBPressureCalculator::isRigidSupport(MaterialType type) const
+bool WorldPressureCalculator::isRigidSupport(MaterialType type) const
 {
     // Materials that can support weight above them.
     switch (type) {
@@ -736,7 +736,7 @@ bool WorldBPressureCalculator::isRigidSupport(MaterialType type) const
     }
 }
 
-void WorldBPressureCalculator::applyPressureDiffusion(double deltaTime)
+void WorldPressureCalculator::applyPressureDiffusion(double deltaTime)
 {
     // Create a temporary copy of pressure values to avoid order-dependent updates.
     const uint32_t width = world_ref_.getWidth();
@@ -751,7 +751,7 @@ void WorldBPressureCalculator::applyPressureDiffusion(double deltaTime)
     for (uint32_t y = 0; y < height; ++y) {
         for (uint32_t x = 0; x < width; ++x) {
             size_t idx = y * width + x;
-            const CellB& cell = world_ref_.at(x, y);
+            const Cell& cell = world_ref_.at(x, y);
             new_pressure[idx] = cell.getPressure();
         }
     }
@@ -765,7 +765,7 @@ void WorldBPressureCalculator::applyPressureDiffusion(double deltaTime)
     for (uint32_t y = 0; y < height; ++y) {
         for (uint32_t x = 0; x < width; ++x) {
             size_t idx = y * width + x;
-            const CellB& cell = world_ref_.at(x, y);
+            const Cell& cell = world_ref_.at(x, y);
 
             // Skip empty cells and walls.
             if (cell.isEmpty() || cell.getMaterialType() == MaterialType::WALL) {
@@ -801,7 +801,7 @@ void WorldBPressureCalculator::applyPressureDiffusion(double deltaTime)
                         neighbor_diffusion = diffusion_rate; // Same material properties.
                     }
                     else {
-                        const CellB& neighbor = world_ref_.at(nx, ny);
+                        const Cell& neighbor = world_ref_.at(nx, ny);
 
                         // Walls reflect pressure back.
                         if (neighbor.getMaterialType() == MaterialType::WALL) {
@@ -870,7 +870,7 @@ void WorldBPressureCalculator::applyPressureDiffusion(double deltaTime)
                         neighbor_diffusion = diffusion_rate; // Same material properties.
                     }
                     else {
-                        const CellB& neighbor = world_ref_.at(nx, ny);
+                        const Cell& neighbor = world_ref_.at(nx, ny);
 
                         // Walls reflect pressure back.
                         if (neighbor.getMaterialType() == MaterialType::WALL) {
@@ -940,7 +940,7 @@ void WorldBPressureCalculator::applyPressureDiffusion(double deltaTime)
             }
 
             size_t idx = y * width + x;
-            const CellB& cell = world_ref_.at(x, y);
+            const Cell& cell = world_ref_.at(x, y);
 
             // Calculate reflection coefficient based on material.
             double reflection_coeff = calculateDiffusionReflectionCoefficient(
@@ -971,7 +971,7 @@ void WorldBPressureCalculator::applyPressureDiffusion(double deltaTime)
     for (uint32_t y = 0; y < height; ++y) {
         for (uint32_t x = 0; x < width; ++x) {
             size_t idx = y * width + x;
-            CellB& cell = world_ref_.at(x, y);
+            Cell& cell = world_ref_.at(x, y);
             double old_pressure = cell.getPressure();
             double new_unified_pressure = new_pressure[idx];
             cell.setPressure(new_unified_pressure);

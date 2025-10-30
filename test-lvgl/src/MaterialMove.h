@@ -7,7 +7,7 @@
  * @brief Types of collisions that can occur during material transfer
  *
  * This enum defines how materials interact when they collide during
- * movement in the WorldB physics simulation.
+ * movement in the World physics simulation.
  */
 enum class CollisionType {
     TRANSFER_ONLY,       // Material moves between cells (default behavior)

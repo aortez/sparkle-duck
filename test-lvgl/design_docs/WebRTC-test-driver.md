@@ -12,6 +12,7 @@ This document outlines the plan for a WebRTC-based client/test driver for the Sp
 3. **Debugging Interface**: Step-by-step simulation control and state inspection.
 
 ### Key Features
+- Fluent CLI interface.
 - JSON data format.
 - Advance simulation by N frames.
 - Capture complete grid state dumps.
@@ -72,15 +73,14 @@ Create a shared library that both executables link against:
 src/
 ├── core/                              # Shared simulation core
 │   ├── World.{cpp,h}
-│   ├── WorldB.{cpp,h}
-│   ├── Cell.{cpp,h}, CellB.{cpp,h}
+│   ├── Cell.{cpp,h}
 │   ├── WorldInterface.{cpp,h}
-│   ├── WorldFactory.{cpp,h}
 │   ├── SimulationController.{cpp,h}   # NEW: headless simulation control
 │   ├── All physics calculators
 │   ├── Vector2d, MaterialType, etc.
 │   └── serialization/
-│       ├── WorldStateSerializer.{cpp,h}
+│       ├── WorldJSON.{cpp,h}
+│       ├── CellJSON.{cpp,h}
 │       ├── MaterialTypeJSON.{cpp,h}
 │       └── ...
 │
@@ -150,8 +150,7 @@ int main(int argc, char** argv) {
     auto backend = parse_backend(argc, argv);
 
     // Create core simulation.
-    auto sim_controller = std::make_unique<SimulationController>(
-        WorldType::RulesB, 200, 150);
+    auto sim_controller = std::make_unique<SimulationController>(200, 150);
 
     // Create UI that wraps the controller.
     auto sim_manager = std::make_unique<SimulationManager>(
@@ -189,7 +188,7 @@ int main(int argc, char** argv) {
 # Core library (no UI dependencies).
 add_library(sparkle_core STATIC
     src/core/World.cpp
-    src/core/WorldB.cpp
+    src/core/Cell.cpp
     src/core/SimulationController.cpp
     # ... all physics code
 )

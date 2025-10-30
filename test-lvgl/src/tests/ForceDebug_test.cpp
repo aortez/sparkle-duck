@@ -1,18 +1,18 @@
 #include <gtest/gtest.h>
 #include <cmath>
-#include "../WorldB.h"
-#include "../WorldBCohesionCalculator.h"
+#include "../World.h"
+#include "../WorldCohesionCalculator.h"
 #include "../MaterialType.h"
 
 class ForceDebugTest : public ::testing::Test {
 protected:
     void SetUp() override {
-        world = std::make_unique<WorldB>(5, 5);
+        world = std::make_unique<World>(5, 5);
         world->setWallsEnabled(false);
         world->reset();
     }
     
-    std::unique_ptr<WorldB> world;
+    std::unique_ptr<World> world;
 };
 
 TEST_F(ForceDebugTest, DebugWaterForces) {
@@ -20,11 +20,11 @@ TEST_F(ForceDebugTest, DebugWaterForces) {
     world->addMaterialAtCell(2, 2, MaterialType::WATER, 1.0);
     
     // Set initial velocity.
-    CellB& waterCell = world->at(2, 2);
+    Cell& waterCell = world->at(2, 2);
     waterCell.setVelocity(Vector2d(0.0, 0.5));
     
     // Calculate forces directly.
-    auto cohesion = WorldBCohesionCalculator(*world).calculateCohesionForce(2, 2);
+    auto cohesion = WorldCohesionCalculator(*world).calculateCohesionForce(2, 2);
     auto adhesion = world->getAdhesionCalculator().calculateAdhesionForce(2, 2);
     
     std::cout << "=== WATER FORCE DEBUG ===" << std::endl;

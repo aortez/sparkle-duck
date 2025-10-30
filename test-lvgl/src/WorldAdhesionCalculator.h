@@ -3,19 +3,19 @@
 
 #include "MaterialType.h"
 #include "Vector2d.h"
-#include "WorldBCalculatorBase.h"
+#include "WorldCalculatorBase.h"
 
-class WorldB;
+class World;
 
 /**
- * Calculator for adhesion forces between cells in WorldB.
+ * Calculator for adhesion forces between cells in World.
  *
  * Adhesion forces create attractive forces between neighboring cells of
  * different material types. The force strength is based on the geometric
  * mean of the materials' adhesion properties, weighted by fill ratios
  * and distance.
  */
-class WorldBAdhesionCalculator : public WorldBCalculatorBase {
+class WorldAdhesionCalculator : public WorldCalculatorBase {
 public:
     // Data structure for adhesion force results.
     struct AdhesionForce {
@@ -26,7 +26,7 @@ public:
     };
 
     // Constructor.
-    explicit WorldBAdhesionCalculator(const WorldB& world);
+    explicit WorldAdhesionCalculator(const World& world);
 
     // Main calculation method.
     AdhesionForce calculateAdhesionForce(uint32_t x, uint32_t y) const;

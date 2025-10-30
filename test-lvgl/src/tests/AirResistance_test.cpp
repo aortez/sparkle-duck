@@ -1,5 +1,5 @@
 #include "visual_test_runner.h"
-#include "../WorldB.h"
+#include "../World.h"
 #include "../MaterialType.h"
 #include <spdlog/spdlog.h>
 #include <spdlog/fmt/fmt.h>
@@ -43,7 +43,7 @@ TEST_F(AirResistanceTest, AirResistanceSlowsMovement) {
     world->addMaterialAtCell(metalX, metalY, MaterialType::METAL, 1.0);
     
     // Give them the same initial velocity.
-    WorldB* worldB = dynamic_cast<WorldB*>(world.get());
+    World* worldB = dynamic_cast<World*>(world.get());
     ASSERT_NE(worldB, nullptr);
     
     Vector2d initialVelocity(0.0, 5.0);  // Fast downward velocity.
@@ -75,8 +75,8 @@ TEST_F(AirResistanceTest, AirResistanceSlowsMovement) {
     
     for (int step = 0; step < 10; ++step) {
         // Record current velocities and positions for both particles.
-        CellB& sandCell = worldB->at(currentSandX, currentSandY);
-        CellB& metalCell = worldB->at(currentMetalX, currentMetalY);
+        Cell& sandCell = worldB->at(currentSandX, currentSandY);
+        Cell& metalCell = worldB->at(currentMetalX, currentMetalY);
         
         sandVelocities.push_back(sandCell.getVelocity().y);
         metalVelocities.push_back(metalCell.getVelocity().y);
@@ -97,7 +97,7 @@ TEST_F(AirResistanceTest, AirResistanceSlowsMovement) {
         // Search for SAND.
         for (uint32_t y = 0; y < 5 && !foundSand; ++y) {
             for (uint32_t x = 0; x < 5; ++x) {
-                CellB& cell = worldB->at(x, y);
+                Cell& cell = worldB->at(x, y);
                 if (!cell.isEmpty() && cell.getMaterialType() == MaterialType::SAND) {
                     currentSandX = x;
                     currentSandY = y;
@@ -110,7 +110,7 @@ TEST_F(AirResistanceTest, AirResistanceSlowsMovement) {
         // Search for METAL.
         for (uint32_t y = 0; y < 5 && !foundMetal; ++y) {
             for (uint32_t x = 0; x < 5; ++x) {
-                CellB& cell = worldB->at(x, y);
+                Cell& cell = worldB->at(x, y);
                 if (!cell.isEmpty() && cell.getMaterialType() == MaterialType::METAL) {
                     currentMetalX = x;
                     currentMetalY = y;
@@ -169,7 +169,7 @@ TEST_F(AirResistanceTest, DenserMaterialsLessAffected) {
     world->addMaterialAtCell(1, 0, MaterialType::WATER, 1.0);  // Density 1.0.
     world->addMaterialAtCell(3, 0, MaterialType::METAL, 1.0);  // Density 8.0.
     
-    WorldB* worldB = dynamic_cast<WorldB*>(world.get());
+    World* worldB = dynamic_cast<World*>(world.get());
     ASSERT_NE(worldB, nullptr);
     
     // Give them the same initial velocity.
@@ -188,7 +188,7 @@ TEST_F(AirResistanceTest, DenserMaterialsLessAffected) {
     
     for (uint32_t y = 0; y < 5; ++y) {
         for (uint32_t x = 0; x < 5; ++x) {
-            CellB& cell = worldB->at(x, y);
+            Cell& cell = worldB->at(x, y);
             if (!cell.isEmpty()) {
                 if (cell.getMaterialType() == MaterialType::WATER) {
                     waterVelocity = cell.getVelocity().mag();
@@ -215,7 +215,7 @@ TEST_F(AirResistanceTest, AirResistanceCanBeDisabled) {
     world->setAirResistanceEnabled(true);
     
     world->addMaterialAtCell(2, 0, MaterialType::SAND, 1.0);
-    WorldB* worldB = dynamic_cast<WorldB*>(world.get());
+    World* worldB = dynamic_cast<World*>(world.get());
     worldB->at(2, 0).setVelocity(Vector2d(3.0, 0.0));  // Horizontal velocity.
     
     // Run for a few steps.
@@ -228,7 +228,7 @@ TEST_F(AirResistanceTest, AirResistanceCanBeDisabled) {
     bool foundSand = false;
     for (uint32_t y = 0; y < 5 && !foundSand; ++y) {
         for (uint32_t x = 0; x < 5; ++x) {
-            CellB& cell = worldB->at(x, y);
+            Cell& cell = worldB->at(x, y);
             if (!cell.isEmpty() && cell.getMaterialType() == MaterialType::SAND) {
                 velocityWithResistance = cell.getVelocity().x;
                 foundSand = true;
@@ -255,7 +255,7 @@ TEST_F(AirResistanceTest, AirResistanceCanBeDisabled) {
     foundSand = false;
     for (uint32_t y = 0; y < 5 && !foundSand; ++y) {
         for (uint32_t x = 0; x < 5; ++x) {
-            CellB& cell = worldB->at(x, y);
+            Cell& cell = worldB->at(x, y);
             if (!cell.isEmpty() && cell.getMaterialType() == MaterialType::SAND) {
                 velocityWithoutResistance = cell.getVelocity().x;
                 foundSand = true;

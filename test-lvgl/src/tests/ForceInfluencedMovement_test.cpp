@@ -1,8 +1,8 @@
 #include "visual_test_runner.h"
 #include <cmath>
-#include "../WorldB.h"
+#include "../World.h"
 #include "../MaterialType.h"
-#include "../CellB.h"
+#include "../Cell.h"
 #include "../Vector2d.h"
 #include "spdlog/spdlog.h"
 #include <sstream>
@@ -48,7 +48,7 @@ protected:
         }
         
         // Check if material is still at original position with same amount.
-        const CellB& cell = world->at(x, y);
+        const Cell& cell = world->at(x, y);
         bool stillPresent = (cell.getMaterialType() == expectedType && 
                            cell.getFillRatio() > 0.5);
         
@@ -69,14 +69,14 @@ protected:
         }
         
         // Both cells should still contain the material.
-        const CellB& cell1 = world->at(x1, y1);
-        const CellB& cell2 = world->at(x2, y2);
+        const Cell& cell1 = world->at(x1, y1);
+        const Cell& cell2 = world->at(x2, y2);
         
         return (cell1.getMaterialType() == expectedType && cell1.getFillRatio() > 0.5) &&
                (cell2.getMaterialType() == expectedType && cell2.getFillRatio() > 0.5);
     }
     
-    std::unique_ptr<WorldB> world;
+    std::unique_ptr<World> world;
 };
 
 TEST_F(ForceInfluencedMovementTest, IsolatedWaterMovesFreely) {
@@ -262,7 +262,7 @@ TEST_F(ForceInfluencedMovementTest, HighlyConnectedMetalStaysFixed) {
         for (int dx = 0; dx < 3; dx++) {
             int x = 4 + dx;
             int y = 4 + dy;
-            const CellB& cell = world->at(x, y);
+            const Cell& cell = world->at(x, y);
             
             if (cell.getMaterialType() != MaterialType::METAL || cell.getFillRatio() < 0.9) {
                 allCellsStillMetal = false;

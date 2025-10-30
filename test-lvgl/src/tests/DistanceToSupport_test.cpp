@@ -1,14 +1,14 @@
 #include <gtest/gtest.h>
-#include "../WorldB.h"
+#include "../World.h"
 #include "../MaterialType.h"
-#include "../WorldBCohesionCalculator.h"
+#include "../WorldCohesionCalculator.h"
 #include "spdlog/spdlog.h"
 
 class DistanceToSupportTest : public ::testing::Test {
 protected:
     void SetUp() override {
         // Use a larger world for better testing.
-        world = std::make_unique<WorldB>(6, 6);
+        world = std::make_unique<World>(6, 6);
         world->setWallsEnabled(false);  // Disable walls to test pure ground support.
         
         spdlog::info("=== Distance to Support Test Setup ===");
@@ -16,7 +16,7 @@ protected:
     }
     
     void logDistanceDetails(uint32_t x, uint32_t y, const std::string& description) {
-        const CellB& cell = world->at(x, y);
+        const Cell& cell = world->at(x, y);
         if (cell.isEmpty()) {
             spdlog::info("Cell ({},{}) - {}: EMPTY", x, y, description);
             return;
@@ -24,7 +24,7 @@ protected:
         
         double distance = world->getSupportCalculator().calculateDistanceToSupport(x, y);
         bool hasSupport = world->getSupportCalculator().hasStructuralSupport(x, y);
-        auto cohesion = WorldBCohesionCalculator(*world).calculateCohesionForce(x, y);
+        auto cohesion = WorldCohesionCalculator(*world).calculateCohesionForce(x, y);
         
         spdlog::info("Cell ({},{}) - {}: material={}, distance={:.1f}, hasSupport={}, cohesion={:.3f}",
                      x, y, description, 
@@ -32,7 +32,7 @@ protected:
                      distance, hasSupport, cohesion.resistance_magnitude);
     }
     
-    std::unique_ptr<WorldB> world;
+    std::unique_ptr<World> world;
 };
 
 TEST_F(DistanceToSupportTest, SingleFloatingCell) {
@@ -49,7 +49,7 @@ TEST_F(DistanceToSupportTest, SingleFloatingCell) {
     
     // Expected: distance should be 4, cohesion should be minimum (0.04).
     double distance = world->getSupportCalculator().calculateDistanceToSupport(3, 1);
-    auto cohesion = WorldBCohesionCalculator(*world).calculateCohesionForce(3, 1);
+    auto cohesion = WorldCohesionCalculator(*world).calculateCohesionForce(3, 1);
     
     spdlog::info("Expected distance: 4, Actual distance: {:.1f}", distance);
     spdlog::info("Expected cohesion: ~0.04, Actual cohesion: {:.3f}", cohesion.resistance_magnitude);
@@ -122,8 +122,8 @@ TEST_F(DistanceToSupportTest, FloatingLShapeDetailed) {
     EXPECT_GT(vertical_dist, 2.5) << "Vertical arm should be far from support";
     
     // Check cohesion reduction.
-    auto corner_cohesion = WorldBCohesionCalculator(*world).calculateCohesionForce(0, 1);
-    auto end_cohesion = WorldBCohesionCalculator(*world).calculateCohesionForce(2, 1);
+    auto corner_cohesion = WorldCohesionCalculator(*world).calculateCohesionForce(0, 1);
+    auto end_cohesion = WorldCohesionCalculator(*world).calculateCohesionForce(2, 1);
     
     EXPECT_LT(corner_cohesion.resistance_magnitude, 0.15) << "L-corner should have reduced cohesion";
     EXPECT_LT(end_cohesion.resistance_magnitude, 0.15) << "Horizontal end should have reduced cohesion";
@@ -159,8 +159,8 @@ TEST_F(DistanceToSupportTest, VerticalTowerShouldTopple) {
     EXPECT_LT(bottom_distance, 1.5) << "Tower bottom should be close to support";
     
     // Top should have much less cohesion than bottom.
-    auto top_cohesion = WorldBCohesionCalculator(*world).calculateCohesionForce(2, 0);
-    auto bottom_cohesion = WorldBCohesionCalculator(*world).calculateCohesionForce(2, 4);
+    auto top_cohesion = WorldCohesionCalculator(*world).calculateCohesionForce(2, 0);
+    auto bottom_cohesion = WorldCohesionCalculator(*world).calculateCohesionForce(2, 4);
     
     EXPECT_LT(top_cohesion.resistance_magnitude, bottom_cohesion.resistance_magnitude) 
         << "Tower top should have less cohesion than bottom";
@@ -196,8 +196,8 @@ TEST_F(DistanceToSupportTest, FloatingIsland) {
     EXPECT_GT(dist2, 3.5) << "Island 2 should be far from support";
     EXPECT_GT(dist3, 1.5) << "Island 3 should be moderately far from support";
     
-    auto cohesion1 = WorldBCohesionCalculator(*world).calculateCohesionForce(0, 1);
-    auto cohesion2 = WorldBCohesionCalculator(*world).calculateCohesionForce(2, 1);
+    auto cohesion1 = WorldCohesionCalculator(*world).calculateCohesionForce(0, 1);
+    auto cohesion2 = WorldCohesionCalculator(*world).calculateCohesionForce(2, 1);
     
     // These have 0 neighbors, so cohesion should be minimal regardless.
     EXPECT_LT(cohesion1.resistance_magnitude, 0.1) << "Isolated cells should have minimal cohesion";
@@ -242,8 +242,8 @@ TEST_F(DistanceToSupportTest, DiagonalStaircase) {
     EXPECT_GT(step3_dist, bottom_dist) << "Step 3 should be farther than bottom step";
     
     // All should have reduced cohesion since they're disconnected.
-    auto top_cohesion = WorldBCohesionCalculator(*world).calculateCohesionForce(0, 1);
-    auto bottom_cohesion = WorldBCohesionCalculator(*world).calculateCohesionForce(3, 4);
+    auto top_cohesion = WorldCohesionCalculator(*world).calculateCohesionForce(0, 1);
+    auto bottom_cohesion = WorldCohesionCalculator(*world).calculateCohesionForce(3, 4);
     
     // These have 0 neighbors each, so cohesion should be 0 regardless of distance.
     EXPECT_LT(top_cohesion.resistance_magnitude, 0.1) << "Isolated diagonal cells should have minimal cohesion";
@@ -276,6 +276,6 @@ TEST_F(DistanceToSupportTest, MetalAnchorSupport) {
     EXPECT_EQ(cantilever_dist, 2.0) << "Cantilever should be distance 2 from metal";
     
     // Cantilever should have reduced cohesion.
-    auto cantilever_cohesion = WorldBCohesionCalculator(*world).calculateCohesionForce(2, 2);
+    auto cantilever_cohesion = WorldCohesionCalculator(*world).calculateCohesionForce(2, 2);
     EXPECT_LT(cantilever_cohesion.resistance_magnitude, 0.15) << "Cantilever should have reduced cohesion";
 }
