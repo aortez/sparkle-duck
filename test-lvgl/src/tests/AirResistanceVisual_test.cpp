@@ -1,5 +1,5 @@
 #include "visual_test_runner.h"
-#include "../WorldB.h"
+#include "../World.h"
 #include "../MaterialType.h"
 #include <spdlog/spdlog.h>
 
@@ -43,7 +43,7 @@ TEST_F(AirResistanceVisualTest, CompareMaterialsWithAndWithoutAirResistance) {
     world->addMaterialAtCell(7, 1, MaterialType::SAND, 1.0);
     world->addMaterialAtCell(8, 1, MaterialType::METAL, 1.0);
     
-    WorldB* worldB = dynamic_cast<WorldB*>(world.get());
+    World* worldB = dynamic_cast<World*>(world.get());
     ASSERT_NE(worldB, nullptr);
     
     // Give all materials the same initial horizontal velocity.
@@ -75,9 +75,9 @@ TEST_F(AirResistanceVisualTest, CompareMaterialsWithAndWithoutAirResistance) {
             // After first step, disable air resistance for right side.
             if (step == 1) {
                 // Move right side materials to temporary storage.
-                CellB rightWater = worldB->at(6, 1);
-                CellB rightSand = worldB->at(7, 1);
-                CellB rightMetal = worldB->at(8, 1);
+                Cell rightWater = worldB->at(6, 1);
+                Cell rightSand = worldB->at(7, 1);
+                Cell rightMetal = worldB->at(8, 1);
                 
                 // Clear right side.
                 worldB->at(6, 1).clear();
@@ -107,7 +107,7 @@ TEST_F(AirResistanceVisualTest, CompareMaterialsWithAndWithoutAirResistance) {
             // Check left side.
             for (uint32_t y = 0; y < 10; ++y) {
                 for (uint32_t x = 0; x < 5; ++x) {
-                    CellB& cell = worldB->at(x, y);
+                    Cell& cell = worldB->at(x, y);
                     if (!cell.isEmpty() && cell.getMaterialType() != MaterialType::WALL) {
                         foundMaterials = true;
                         if (cell.getMaterialType() == MaterialType::METAL) {
@@ -121,7 +121,7 @@ TEST_F(AirResistanceVisualTest, CompareMaterialsWithAndWithoutAirResistance) {
             // Check right side.
             for (uint32_t y = 0; y < 10; ++y) {
                 for (uint32_t x = 6; x < 10; ++x) {
-                    CellB& cell = worldB->at(x, y);
+                    Cell& cell = worldB->at(x, y);
                     if (!cell.isEmpty() && cell.getMaterialType() != MaterialType::WALL) {
                         if (cell.getMaterialType() == MaterialType::METAL) {
                             ss << "R-Metal: vel=" << std::fixed << std::setprecision(2) 
@@ -146,7 +146,7 @@ TEST_F(AirResistanceVisualTest, CompareMaterialsWithAndWithoutAirResistance) {
                 // Find and log left side materials (with air resistance).
                 for (uint32_t y = 0; y < 10; ++y) {
                     for (uint32_t x = 0; x < 5; ++x) {
-                        CellB& cell = worldB->at(x, y);
+                        Cell& cell = worldB->at(x, y);
                         if (!cell.isEmpty() && cell.getMaterialType() != MaterialType::WALL) {
                             spdlog::info("  LEFT (air resist ON) - {} at ({},{}) velocity=({:.2f},{:.2f})",
                                          getMaterialName(cell.getMaterialType()), x, y,
@@ -158,7 +158,7 @@ TEST_F(AirResistanceVisualTest, CompareMaterialsWithAndWithoutAirResistance) {
                 // Find and log right side materials (without air resistance).
                 for (uint32_t y = 0; y < 10; ++y) {
                     for (uint32_t x = 6; x < 10; ++x) {
-                        CellB& cell = worldB->at(x, y);
+                        Cell& cell = worldB->at(x, y);
                         if (!cell.isEmpty() && cell.getMaterialType() != MaterialType::WALL) {
                             spdlog::info("  RIGHT (air resist OFF) - {} at ({},{}) velocity=({:.2f},{:.2f})",
                                          getMaterialName(cell.getMaterialType()), x, y,
@@ -184,9 +184,9 @@ TEST_F(AirResistanceVisualTest, CompareMaterialsWithAndWithoutAirResistance) {
             // After first step, disable air resistance for right side.
             if (step == 1) {
                 // Move right side materials to temporary storage.
-                CellB rightWater = worldB->at(6, 1);
-                CellB rightSand = worldB->at(7, 1);
-                CellB rightMetal = worldB->at(8, 1);
+                Cell rightWater = worldB->at(6, 1);
+                Cell rightSand = worldB->at(7, 1);
+                Cell rightMetal = worldB->at(8, 1);
                 
                 // Clear right side.
                 worldB->at(6, 1).clear();
@@ -210,7 +210,7 @@ TEST_F(AirResistanceVisualTest, CompareMaterialsWithAndWithoutAirResistance) {
                 // Find and log left side materials (with air resistance).
                 for (uint32_t y = 0; y < 10; ++y) {
                     for (uint32_t x = 0; x < 5; ++x) {
-                        CellB& cell = worldB->at(x, y);
+                        Cell& cell = worldB->at(x, y);
                         if (!cell.isEmpty() && cell.getMaterialType() != MaterialType::WALL) {
                             spdlog::info("  LEFT (air resist ON) - {} at ({},{}) velocity=({:.2f},{:.2f})",
                                          getMaterialName(cell.getMaterialType()), x, y,
@@ -222,7 +222,7 @@ TEST_F(AirResistanceVisualTest, CompareMaterialsWithAndWithoutAirResistance) {
                 // Find and log right side materials (without air resistance).
                 for (uint32_t y = 0; y < 10; ++y) {
                     for (uint32_t x = 6; x < 10; ++x) {
-                        CellB& cell = worldB->at(x, y);
+                        Cell& cell = worldB->at(x, y);
                         if (!cell.isEmpty() && cell.getMaterialType() != MaterialType::WALL) {
                             spdlog::info("  RIGHT (air resist OFF) - {} at ({},{}) velocity=({:.2f},{:.2f})",
                                          getMaterialName(cell.getMaterialType()), x, y,

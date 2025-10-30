@@ -125,21 +125,18 @@ add_executable(sparkle-duck
     src/UIUpdateConsumer.cpp
     src/SimulationManager.cpp
     src/UIManager.cpp
+    src/network/CommandProcessor.cpp
     src/MaterialType.cpp
-    src/CellB.cpp
-    src/WorldB.cpp
     src/WorldInterface.cpp
-    src/WorldBCalculatorBase.cpp
-    src/WorldBCohesionCalculator.cpp
-    src/WorldBSupportCalculator.cpp
-    src/WorldBPressureCalculator.cpp
-    src/WorldBAirResistanceCalculator.cpp
-    src/WorldBCollisionCalculator.cpp
-    src/WorldBAdhesionCalculator.cpp
+    src/WorldCalculatorBase.cpp
+    src/WorldCohesionCalculator.cpp
+    src/WorldSupportCalculator.cpp
+    src/WorldPressureCalculator.cpp
+    src/WorldAirResistanceCalculator.cpp
+    src/WorldCollisionCalculator.cpp
+    src/WorldAdhesionCalculator.cpp
     src/WorldDiagramGeneratorEmoji.cpp
-    src/WorldFactory.cpp
     src/MaterialPicker.cpp
-    src/WorldState.cpp
     src/CrashDumpHandler.cpp
     src/WorldInterpolationTool.cpp
     src/ui/LVGLBuilder.cpp
@@ -187,21 +184,19 @@ add_custom_target (run COMMAND ${EXECUTABLE_OUTPUT_PATH}/sparkle-duck DEPENDS sp
 add_executable(sparkle-duck-tests
     src/tests/Vector2d_test.cpp
     src/tests/Vector2dJSON_test.cpp
+    src/tests/CellJSON_test.cpp
     src/tests/MaterialTypeJSON_test.cpp
-    src/tests/WorldStateJSON_test.cpp
+    src/tests/WorldJSON_test.cpp
+    src/tests/CommandProcessor_test.cpp
     src/tests/CrashDumpHandler_test.cpp
     src/tests/Vector2i_test.cpp
     src/tests/WorldVisual_test.cpp
-    src/tests/WorldBVisual_test.cpp
     src/tests/ScenarioSystem_test.cpp
     src/tests/ScenarioSwitching_test.cpp
     src/tests/AirResistance_test.cpp
     src/tests/AirResistanceVisual_test.cpp
-    src/tests/InterfaceCompatibility_test.cpp
-    src/tests/WaterPressure180_test.cpp
     src/tests/PressureSystemVisual_test.cpp
     src/tests/PressureSystem_test.cpp
-    src/tests/DensityMechanics_test.cpp
     src/tests/CollisionSystem_test.cpp
     src/tests/ForceCalculation_test.cpp
     src/tests/ForceInfluencedMovement_test.cpp
@@ -216,7 +211,7 @@ add_executable(sparkle-duck-tests
     src/tests/PressureSimple_test.cpp
     src/tests/PressureTransmission_test.cpp
     src/tests/PressureClassicFlow_test.cpp
-    src/tests/WorldBPressureCalculator_test.cpp
+    src/tests/WorldPressureCalculator_test.cpp
     src/tests/TestUI.cpp
     src/tests/visual_test_runner.cpp
     src/tests/ResultTest.cpp
@@ -249,21 +244,20 @@ add_executable(sparkle-duck-tests
     src/UIUpdateConsumer.cpp
     src/SimulationManager.cpp
     src/UIManager.cpp
+    src/network/CommandProcessor.cpp
     src/MaterialType.cpp
-    src/CellB.cpp
-    src/WorldB.cpp
+    src/Cell.cpp
+    src/World.cpp
     src/WorldInterface.cpp
-    src/WorldBCalculatorBase.cpp
-    src/WorldBCohesionCalculator.cpp
-    src/WorldBSupportCalculator.cpp
-    src/WorldBPressureCalculator.cpp
-    src/WorldBAirResistanceCalculator.cpp
-    src/WorldBCollisionCalculator.cpp
-    src/WorldBAdhesionCalculator.cpp
+    src/WorldCalculatorBase.cpp
+    src/WorldCohesionCalculator.cpp
+    src/WorldSupportCalculator.cpp
+    src/WorldPressureCalculator.cpp
+    src/WorldAirResistanceCalculator.cpp
+    src/WorldCollisionCalculator.cpp
+    src/WorldAdhesionCalculator.cpp
     src/WorldDiagramGeneratorEmoji.cpp
-    src/WorldFactory.cpp
     src/MaterialPicker.cpp
-    src/WorldState.cpp
     src/CrashDumpHandler.cpp
     src/WorldInterpolationTool.cpp
     src/ui/LVGLBuilder.cpp

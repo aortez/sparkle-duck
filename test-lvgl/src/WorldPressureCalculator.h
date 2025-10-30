@@ -3,32 +3,32 @@
 #include "MaterialMove.h"
 #include "MaterialType.h"
 #include "Vector2d.h"
-#include "WorldBCalculatorBase.h"
+#include "WorldCalculatorBase.h"
 #include "WorldInterface.h"
 
 #include <cstdint>
 #include <vector>
 
-class CellB;
-class WorldB;
+class Cell;
+class World;
 
 /**
- * @brief Calculates pressure forces for WorldB physics.
+ * @brief Calculates pressure forces for World physics.
  *
  * See GridMechanics.md for more info.
  *
  */
-class WorldBPressureCalculator : public WorldBCalculatorBase {
+class WorldPressureCalculator : public WorldCalculatorBase {
 public:
     /**
      * @brief Enum for pressure gradient calculation directions.
      */
     enum class PressureGradientDirections { Four, Eight };
     /**
-     * @brief Constructor takes a WorldB for accessing and modifying world data.
-     * @param world WorldB providing access to grid and cells (non-const for modifications).
+     * @brief Constructor takes a World for accessing and modifying world data.
+     * @param world World providing access to grid and cells (non-const for modifications).
      */
-    explicit WorldBPressureCalculator(WorldB& world);
+    explicit WorldPressureCalculator(World& world);
 
     // Blocked transfer data for dynamic pressure accumulation.
     struct BlockedTransfer {
@@ -150,7 +150,7 @@ public:
     std::vector<BlockedTransfer> blocked_transfers_;
 
 private:
-    WorldB& world_ref_; // Non-const reference for modifying cells.
+    World& world_ref_; // Non-const reference for modifying cells.
 
     // Configuration for pressure gradient calculation.
     PressureGradientDirections gradient_directions_ = PressureGradientDirections::Eight;

@@ -110,7 +110,8 @@ void EventRouter::processImmediateEvent(const SetCellSizeCommand& cmd)
     auto* world = sharedState_.getCurrentWorld();
     if (world) {
         spdlog::info("Processing SetCellSizeCommand - Setting cell size to {}", cmd.size);
-        Cell::setSize(static_cast<uint32_t>(cmd.size));
+        // TODO: Cell sizing works differently in new system.
+        // Cell::setSize(static_cast<uint32_t>(cmd.size));
 
         // Recalculate grid dimensions based on new cell size.
         const int DRAW_AREA_SIZE = 850;

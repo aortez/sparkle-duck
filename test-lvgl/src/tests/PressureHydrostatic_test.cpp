@@ -1,9 +1,9 @@
 #include <gtest/gtest.h>
 #include "visual_test_runner.h"
 #include <cmath>
-#include "../WorldB.h"
+#include "../World.h"
 #include "../MaterialType.h"
-#include "../WorldBPressureCalculator.h"
+#include "../WorldPressureCalculator.h"
 #include <spdlog/spdlog.h>
 
 class PressureHydrostaticTest : public VisualTestBase {
@@ -30,7 +30,7 @@ protected:
         spdlog::debug("[TEST] PressureHydrostatic test settings: dynamic_pressure=disabled, hydrostatic_pressure=enabled, walls=disabled");
     }
     
-    std::unique_ptr<WorldB> world;
+    std::unique_ptr<World> world;
 };
 
 TEST_F(PressureHydrostaticTest, ColumnOfWaterCreatesHydrostaticPressure) {
@@ -49,9 +49,9 @@ TEST_F(PressureHydrostaticTest, ColumnOfWaterCreatesHydrostaticPressure) {
     world->addMaterialAtCell(2, 2, MaterialType::WATER, 1.0);  // Middle water.
     world->addMaterialAtCell(2, 3, MaterialType::WATER, 1.0);  // Bottom water.
     
-    CellB& topWater = world->at(2, 1);
-    CellB& middleWater = world->at(2, 2);
-    CellB& bottomWater = world->at(2, 3);
+    Cell& topWater = world->at(2, 1);
+    Cell& middleWater = world->at(2, 2);
+    Cell& bottomWater = world->at(2, 3);
     
     // Initialize all with zero pressure and velocity.
     topWater.setVelocity(Vector2d(0.0, 0.0));
@@ -174,12 +174,12 @@ TEST_F(PressureHydrostaticTest, HydrostaticPressureDrivesMovement) {
     world->addMaterialAtCell(2, 2, MaterialType::WATER, 1.0);  // Full middle.
     // Leave [2,3] empty - this is where pressure should push water.
     
-    CellB& leftHigh = world->at(1, 1);
-    CellB& leftMid = world->at(1, 2);
-    CellB& leftLow = world->at(1, 3);
-    CellB& rightHigh = world->at(2, 1);
-    CellB& rightMid = world->at(2, 2);
-    CellB& rightLow = world->at(2, 3);  // Empty, should receive flow.
+    Cell& leftHigh = world->at(1, 1);
+    Cell& leftMid = world->at(1, 2);
+    Cell& leftLow = world->at(1, 3);
+    Cell& rightHigh = world->at(2, 1);
+    Cell& rightMid = world->at(2, 2);
+    Cell& rightLow = world->at(2, 3);  // Empty, should receive flow.
     
     spdlog::info("Initial L-shaped water configuration:");
     spdlog::info("  Left column: [1,1]={:.2f} [1,2]={:.2f} [1,3]={:.2f}", 
@@ -277,9 +277,9 @@ TEST_F(PressureHydrostaticTest, SliceBasedHydrostaticCalculation) {
     world->addMaterialAtCell(2, 2, MaterialType::WATER, 1.0);  // Middle.
     world->addMaterialAtCell(2, 3, MaterialType::WATER, 1.0);  // Bottom.
     
-    CellB& topWater = world->at(2, 1);
-    CellB& middleWater = world->at(2, 2);
-    CellB& bottomWater = world->at(2, 3);
+    Cell& topWater = world->at(2, 1);
+    Cell& middleWater = world->at(2, 2);
+    Cell& bottomWater = world->at(2, 3);
     
     // Clear any existing pressure values.
     topWater.setHydrostaticPressure(0.0);
@@ -298,7 +298,7 @@ TEST_F(PressureHydrostaticTest, SliceBasedHydrostaticCalculation) {
                  bottomWater.getHydrostaticPressure(), bottomWater.getEffectiveDensity());
     
     // Manually trigger hydrostatic pressure calculation using the pressure calculator.
-    WorldBPressureCalculator pressureCalc(*world);
+    WorldPressureCalculator pressureCalc(*world);
     pressureCalc.calculateHydrostaticPressure();
     
     spdlog::info("After pressure calculation:");
@@ -364,9 +364,9 @@ TEST_F(PressureHydrostaticTest, MixedMaterialHydrostaticPressure) {
     world->addMaterialAtCell(2, 2, MaterialType::WATER, 1.0);  // Middle.
     world->addMaterialAtCell(2, 3, MaterialType::DIRT, 1.0);   // Bottom - lightest.
     
-    CellB& metalCell = world->at(2, 1);
-    CellB& waterCell = world->at(2, 2);
-    CellB& dirtCell = world->at(2, 3);
+    Cell& metalCell = world->at(2, 1);
+    Cell& waterCell = world->at(2, 2);
+    Cell& dirtCell = world->at(2, 3);
     
     // Clear any existing pressure values.
     metalCell.setHydrostaticPressure(0.0);
@@ -382,7 +382,7 @@ TEST_F(PressureHydrostaticTest, MixedMaterialHydrostaticPressure) {
     spdlog::info("  DIRT [2,3]: effective_density={:.3f}", dirtCell.getEffectiveDensity());
     
     // Calculate hydrostatic pressure using the pressure calculator.
-    WorldBPressureCalculator pressureCalc(*world);
+    WorldPressureCalculator pressureCalc(*world);
     pressureCalc.calculateHydrostaticPressure();
     
     spdlog::info("After pressure calculation:");
@@ -464,12 +464,12 @@ TEST_F(PressureHydrostaticTest, WaterColumnWithEmptySpace) {
     world->addMaterialAtCell(0, 2, MaterialType::WATER, 1.0);  // Row 2: water.
     // Leave [1,2] empty (air) as specified by -0.
     
-    CellB& topWater = world->at(0, 0);
-    CellB& topWall = world->at(1, 0);
-    CellB& middleWater = world->at(0, 1);
-    CellB& middleWall = world->at(1, 1);
-    CellB& bottomWater = world->at(0, 2);
-    CellB& bottomEmpty = world->at(1, 2);
+    Cell& topWater = world->at(0, 0);
+    Cell& topWall = world->at(1, 0);
+    Cell& middleWater = world->at(0, 1);
+    Cell& middleWall = world->at(1, 1);
+    Cell& bottomWater = world->at(0, 2);
+    Cell& bottomEmpty = world->at(1, 2);
     
     // Initialize with zero velocities and pressures.
     topWater.setVelocity(Vector2d(0.0, 0.0));

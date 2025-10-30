@@ -21,10 +21,8 @@ void WorldSetup::fillLowerRightQuadrant(WorldInterface& world)
 
     for (uint32_t y = startY; y < world.getHeight(); ++y) {
         for (uint32_t x = startX; x < world.getWidth(); ++x) {
-            // Convert cell coordinates to pixel coordinates for material addition.
-            int pixelX = x * Cell::WIDTH + Cell::WIDTH / 2;
-            int pixelY = y * Cell::HEIGHT + Cell::HEIGHT / 2;
-            world.addDirtAtPixel(pixelX, pixelY);
+            // Use cell coordinates directly.
+            world.addMaterialAtCell(x, y, MaterialType::DIRT, 1.0);
         }
     }
 }
@@ -32,7 +30,7 @@ void WorldSetup::fillLowerRightQuadrant(WorldInterface& world)
 void WorldSetup::makeWalls(WorldInterface& world)
 {
     // Wall creation is now handled by each world implementation internally.
-    // World and WorldB have their own wall systems (different material types).
+    // World and World have their own wall systems (different material types).
     // This method is kept for interface compatibility but delegates to world implementation.
     spdlog::info(
         "World walls handled by implementation ({}x{} boundary)",
@@ -44,16 +42,14 @@ void WorldSetup::makeWalls(WorldInterface& world)
 
 void WorldSetup::makeMiddleMetalWall(WorldInterface& world)
 {
-    // Add metal wall from top middle to center (WorldB-specific feature).
+    // Add metal wall from top middle to center (World-specific feature).
     uint32_t middle_x = world.getWidth() / 2;
     uint32_t wall_height = world.getHeight() / 2;
     spdlog::info("Adding metal wall at x={} from top to y={}", middle_x, wall_height);
 
     for (uint32_t y = 0; y < wall_height; y++) {
-        // Convert cell coordinates to pixel coordinates using actual cell dimensions.
-        int pixelX = middle_x * Cell::WIDTH + Cell::WIDTH / 2; // Cell center.
-        int pixelY = y * Cell::HEIGHT + Cell::HEIGHT / 2;      // Cell center.
-        world.addMaterialAtPixel(pixelX, pixelY, MaterialType::METAL, 1.0);
+        // Use cell coordinates directly.
+        world.addMaterialAtCell(middle_x, y, MaterialType::METAL, 1.0);
     }
 }
 
@@ -63,10 +59,8 @@ void WorldSetup::fillWithDirt(WorldInterface& world)
         "Filling entire world with dirt ({}x{} cells)", world.getWidth(), world.getHeight());
     for (uint32_t y = 0; y < world.getHeight(); y++) {
         for (uint32_t x = 0; x < world.getWidth(); x++) {
-            // Convert cell coordinates to pixel coordinates for material addition.
-            int pixelX = x * Cell::WIDTH + Cell::WIDTH / 2;
-            int pixelY = y * Cell::HEIGHT + Cell::HEIGHT / 2;
-            world.addDirtAtPixel(pixelX, pixelY);
+            // Use cell coordinates directly.
+            world.addMaterialAtCell(x, y, MaterialType::DIRT, 1.0);
         }
     }
 }

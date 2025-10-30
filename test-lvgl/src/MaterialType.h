@@ -5,7 +5,7 @@
 
 /**
  * \file
- * Material type definitions for the pure-material WorldB physics system.
+ * Material type definitions for the pure-material World physics system.
  * Each cell contains one material type with a fill ratio [0,1].
  */
 

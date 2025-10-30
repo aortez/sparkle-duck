@@ -1,14 +1,14 @@
 #pragma once
 
 #include "Vector2d.h"
-#include "WorldBCalculatorBase.h"
+#include "WorldCalculatorBase.h"
 #include <cstdint>
 
-class CellB;
-class WorldB;
+class Cell;
+class World;
 
 /**
- * @brief Calculates air resistance forces for WorldB physics
+ * @brief Calculates air resistance forces for World physics
  *
  * This class implements air resistance (drag) forces that oppose motion.
  * The drag force is proportional to velocity squared (F = k*v²), creating
@@ -18,13 +18,13 @@ class WorldB;
  * - Denser materials are naturally less affected during integration (a = F/m)
  * - The effect is non-linear (quadratic with velocity)
  */
-class WorldBAirResistanceCalculator : public WorldBCalculatorBase {
+class WorldAirResistanceCalculator : public WorldCalculatorBase {
 public:
     /**
-     * @brief Constructor takes a WorldB for accessing world data.
-     * @param world WorldB providing access to grid and cells.
+     * @brief Constructor takes a World for accessing world data.
+     * @param world World providing access to grid and cells.
      */
-    explicit WorldBAirResistanceCalculator(const WorldB& world);
+    explicit WorldAirResistanceCalculator(const World& world);
 
     /**
      * @brief Default air resistance scaling factor.

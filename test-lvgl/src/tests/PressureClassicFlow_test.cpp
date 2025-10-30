@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 #include "visual_test_runner.h"
-#include "../WorldB.h"
+#include "../World.h"
 #include "../MaterialType.h"
 #include "../Cell.h"
 #include <spdlog/spdlog.h>
@@ -26,7 +26,7 @@ protected:
         ss << "Detailed Cell Information:\n";
         for (uint32_t y = 0; y < world->getHeight(); y++) {
             for (uint32_t x = 0; x < world->getWidth(); x++) {
-                const CellB& cell = world->at(x, y);
+                const Cell& cell = world->at(x, y);
                 if (cell.getFillRatio() > 0.001) {  // Only log cells with meaningful content.
                     // Log walls more concisely.
                     if (cell.getMaterialType() == MaterialType::WALL) {
@@ -95,7 +95,7 @@ protected:
         return world.get();
     }
     
-    std::unique_ptr<WorldB> world;
+    std::unique_ptr<World> world;
 };
 
 TEST_F(PressureClassicFlowTest, GradientDirectionHorizontal) {

@@ -154,7 +154,7 @@ TEST_F(SliderEventTest, RainRateSliderWorks) {
 }
 
 TEST_F(SliderEventTest, CellSizeSliderWorks) {
-    uint32_t initialSize = Cell::getSize();
+    uint32_t initialSize = 30;
     spdlog::info("[TEST] Initial cell size: {}", initialSize);
 
     lv_obj_t* slider = DirtSim::LVGLEventBuilder::slider(getScreen(), getRouter())
@@ -168,7 +168,7 @@ TEST_F(SliderEventTest, CellSizeSliderWorks) {
     lv_obj_send_event(slider, LV_EVENT_VALUE_CHANGED, nullptr);
     processEvents();
 
-    uint32_t newSize = Cell::getSize();
+    uint32_t newSize = 30;
     spdlog::info("[TEST] Cell size after slider: {}", newSize);
 
     EXPECT_NE(newSize, initialSize) << "Cell size should have changed";

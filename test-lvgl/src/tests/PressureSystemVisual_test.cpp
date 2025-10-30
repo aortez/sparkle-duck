@@ -71,8 +71,8 @@ TEST_F(PressureSystemVisualTest, PressureSystemSwitching) {
         double total_pressure = 0.0;
         for (uint32_t y = 0; y < world->getHeight(); ++y) {
             for (uint32_t x = 0; x < world->getWidth(); ++x) {
-                Vector2d pressure = world->at(x, y).pressure;
-                total_pressure += pressure.mag();
+                double pressure = world->at(x, y).getPressure();
+                total_pressure += pressure;
             }
         }
         
@@ -146,7 +146,7 @@ TEST_F(PressureSystemVisualTest, PressureSystemComparison) {
         
         for (uint32_t y = 0; y < world->getHeight(); ++y) {
             for (uint32_t x = 0; x < world->getWidth(); ++x) {
-                double pressure_mag = world->at(x, y).pressure.mag();
+                double pressure_mag = world->at(x, y).getPressure();
                 total_pressure += pressure_mag;
                 max_pressure = std::max(max_pressure, pressure_mag);
             }
@@ -245,7 +245,7 @@ TEST_F(PressureSystemVisualTest, TopDownPressureAccumulation) {
     for (uint32_t y = 0; y < world->getHeight(); ++y) {
         double row_pressure = 0.0;
         for (uint32_t x = 0; x < world->getWidth(); ++x) {
-            row_pressure += world->at(x, y).pressure.mag();
+            row_pressure += world->at(x, y).getPressure();
         }
         pressures_by_row.push_back(row_pressure);
         if (row_pressure > 0.001) {  // Only print significant pressures.

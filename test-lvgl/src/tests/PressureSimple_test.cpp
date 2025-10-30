@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 #include "visual_test_runner.h"
-#include "../WorldB.h"
+#include "../World.h"
 #include "../MaterialType.h"
 #include <spdlog/spdlog.h>
 
@@ -25,7 +25,7 @@ protected:
         spdlog::info("[TEST] Simple pressure test - both systems enabled, scale=10.0");
     }
     
-    std::unique_ptr<WorldB> world;
+    std::unique_ptr<World> world;
 };
 
 TEST_F(PressureSimpleTest, HydrostaticPressureDrivesMovement) {

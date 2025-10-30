@@ -2,15 +2,15 @@
 
 #include "MaterialType.h"
 #include "Vector2d.h"
-#include "WorldBCalculatorBase.h"
+#include "WorldCalculatorBase.h"
 #include <cstdint>
 
 // Forward declarations
-class CellB;
-class WorldB;
+class Cell;
+class World;
 
 /**
- * @brief Calculates structural support for WorldB physics
+ * @brief Calculates structural support for World physics
  *
  * This class encapsulates all structural support calculations including:
  * - Vertical support analysis (continuous material to ground)
@@ -22,13 +22,13 @@ class WorldB;
  * require structural foundation (vertical) or rigid connections (horizontal)
  * to maintain cohesion and resist movement.
  */
-class WorldBSupportCalculator : public WorldBCalculatorBase {
+class WorldSupportCalculator : public WorldCalculatorBase {
 public:
     /**
-     * @brief Constructor takes a WorldB for accessing world data.
-     * @param world WorldB providing access to grid and cells.
+     * @brief Constructor takes a World for accessing world data.
+     * @param world World providing access to grid and cells.
      */
-    explicit WorldBSupportCalculator(const WorldB& world);
+    explicit WorldSupportCalculator(const World& world);
 
     // Support-specific constants.
     static constexpr uint32_t MAX_VERTICAL_SUPPORT_DISTANCE =

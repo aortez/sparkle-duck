@@ -1,11 +1,10 @@
 #include "State.h"
 #include "../Cell.h"
-#include "../CellB.h"
+#include "../Cell.h"
 #include "../DirtSimStateMachine.h"
 #include "../SimulationManager.h"
 #include "../SimulatorUI.h"
-#include "../WorldB.h"
-#include "../WorldFactory.h"
+#include "../World.h"
 #include "../WorldSetup.h"
 #include <spdlog/spdlog.h>
 
@@ -134,13 +133,13 @@ State::Any SimRunning::onEvent(const ToggleTimeReversalCommand& /*cmd*/, DirtSim
 }
 
 State::Any SimRunning::onEvent(const SetWaterCohesionCommand& cmd, DirtSimStateMachine& /*dsm*/) {
-    Cell::setCohesionStrength(cmd.cohesion_value);
+    // Cell::setCohesionStrength(cmd.cohesion_value);
     spdlog::info("SimRunning: Set water cohesion to {}", cmd.cohesion_value);
     return *this;
 }
 
 State::Any SimRunning::onEvent(const SetWaterViscosityCommand& cmd, DirtSimStateMachine& /*dsm*/) {
-    Cell::setViscosityFactor(cmd.viscosity_value);
+    // Cell::setViscosityFactor(cmd.viscosity_value);
     spdlog::info("SimRunning: Set water viscosity to {}", cmd.viscosity_value);
     return *this;
 }
@@ -156,7 +155,7 @@ State::Any SimRunning::onEvent(const SetWaterPressureThresholdCommand& cmd, Dirt
 }
 
 State::Any SimRunning::onEvent(const SetWaterBuoyancyCommand& cmd, DirtSimStateMachine& /*dsm*/) {
-    Cell::setBuoyancyStrength(cmd.buoyancy_value);
+    // Cell::setBuoyancyStrength(cmd.buoyancy_value);
     spdlog::info("SimRunning: Set water buoyancy to {}", cmd.buoyancy_value);
     return *this;
 }
@@ -275,10 +274,8 @@ State::Any SimRunning::onEvent(const SetDynamicStrengthCommand& cmd, DirtSimStat
     // Update world directly (source of truth).
     if (auto* simMgr = dsm.getSimulationManager()) {
         if (auto* world = simMgr->getWorld()) {
-            if (world->getWorldType() == WorldType::RulesB) {
-                world->setDynamicPressureStrength(cmd.strength);
-                spdlog::info("SimRunning: Set dynamic strength to {:.1f}", cmd.strength);
-            }
+            world->setDynamicPressureStrength(cmd.strength);
+            spdlog::info("SimRunning: Set dynamic strength to {:.1f}", cmd.strength);
         }
     }
     return *this;
@@ -315,7 +312,7 @@ State::Any SimRunning::onEvent(const SetPressureScaleWorldBCommand& cmd, DirtSim
         }
     }
 
-    spdlog::debug("SimRunning: Set WorldB pressure scale to {}", cmd.scale);
+    spdlog::debug("SimRunning: Set World pressure scale to {}", cmd.scale);
     return *this;
 }
 
@@ -592,15 +589,15 @@ State::Any SimRunning::onEvent(const ToggleWaterColumnCommand& /*cmd*/, DirtSimS
             bool newValue = !world->isWaterColumnEnabled();
             world->setWaterColumnEnabled(newValue);
 
-            // For WorldB, we can manipulate cells directly.
-            WorldB* worldB = dynamic_cast<WorldB*>(world);
+            // For World, we can manipulate cells directly.
+            World* worldB = dynamic_cast<World*>(world);
             if (worldB) {
                 if (newValue) {
                     // Add water column (5 wide × 20 tall) on left side.
                     spdlog::info("SimRunning: Adding water column (5 wide × 20 tall) at runtime");
                     for (uint32_t y = 0; y < 20 && y < worldB->getHeight(); ++y) {
                         for (uint32_t x = 1; x <= 5 && x < worldB->getWidth(); ++x) {
-                            CellB& cell = worldB->at(x, y);
+                            Cell& cell = worldB->at(x, y);
                             // Only add water to non-wall cells.
                             if (!cell.isWall()) {
                                 cell.setMaterialType(MaterialType::WATER);
@@ -616,7 +613,7 @@ State::Any SimRunning::onEvent(const ToggleWaterColumnCommand& /*cmd*/, DirtSimS
                     spdlog::info("SimRunning: Removing water from water column area at runtime");
                     for (uint32_t y = 0; y < 20 && y < worldB->getHeight(); ++y) {
                         for (uint32_t x = 1; x <= 5 && x < worldB->getWidth(); ++x) {
-                            CellB& cell = worldB->at(x, y);
+                            Cell& cell = worldB->at(x, y);
                             // Only clear water cells, leave walls and other materials.
                             if (cell.getMaterialType() == MaterialType::WATER && !cell.isWall()) {
                                 cell.setMaterialType(MaterialType::AIR);
@@ -664,8 +661,8 @@ State::Any SimRunning::onEvent(const ToggleQuadrantCommand& /*cmd*/, DirtSimStat
             bool newValue = !world->isLowerRightQuadrantEnabled();
             world->setLowerRightQuadrantEnabled(newValue);
 
-            // For WorldB, manipulate cells directly for immediate feedback.
-            WorldB* worldB = dynamic_cast<WorldB*>(world);
+            // For World, manipulate cells directly for immediate feedback.
+            World* worldB = dynamic_cast<World*>(world);
             if (worldB) {
                 uint32_t startX = worldB->getWidth() / 2;
                 uint32_t startY = worldB->getHeight() / 2;
@@ -676,7 +673,7 @@ State::Any SimRunning::onEvent(const ToggleQuadrantCommand& /*cmd*/, DirtSimStat
                                  worldB->getWidth() - startX, worldB->getHeight() - startY);
                     for (uint32_t y = startY; y < worldB->getHeight(); ++y) {
                         for (uint32_t x = startX; x < worldB->getWidth(); ++x) {
-                            CellB& cell = worldB->at(x, y);
+                            Cell& cell = worldB->at(x, y);
                             // Only add dirt to non-wall cells.
                             if (!cell.isWall()) {
                                 cell.setMaterialType(MaterialType::DIRT);
@@ -692,7 +689,7 @@ State::Any SimRunning::onEvent(const ToggleQuadrantCommand& /*cmd*/, DirtSimStat
                     spdlog::info("SimRunning: Removing dirt from lower right quadrant at runtime");
                     for (uint32_t y = startY; y < worldB->getHeight(); ++y) {
                         for (uint32_t x = startX; x < worldB->getWidth(); ++x) {
-                            CellB& cell = worldB->at(x, y);
+                            Cell& cell = worldB->at(x, y);
                             // Only clear dirt cells, leave walls and other materials.
                             if (cell.getMaterialType() == MaterialType::DIRT && !cell.isWall()) {
                                 cell.setMaterialType(MaterialType::AIR);

@@ -18,7 +18,7 @@
 #include <spdlog/spdlog.h>
 
 #include "../World.h"
-#include "../WorldB.h"
+#include "../World.h"
 #include "../Cell.h"
 #include "TestUI.h"
 #include "lvgl/lvgl.h"
@@ -99,8 +99,8 @@ protected:
     // Helper to create a world with or without UI.
     std::unique_ptr<World> createWorld(uint32_t width, uint32_t height);
     
-    // Helper to create a WorldB with universal defaults applied.
-    std::unique_ptr<WorldB> createWorldB(uint32_t width, uint32_t height);
+    // Helper to create a World with universal defaults applied.
+    std::unique_ptr<World> createWorldB(uint32_t width, uint32_t height);
     
     // Helper method to run visual simulation if enabled, otherwise just advance time.
     void runSimulation(World* world, int steps = 60, const std::string& description = "");
@@ -185,18 +185,15 @@ protected:
     void restoreOriginalCellSize();
     
     // Universal test configuration helpers.
-    void applyUniversalPhysicsDefaults(WorldB* world);
-    void logWorldStateAscii(const WorldB* world, const std::string& description = "");
+    void applyUniversalPhysicsDefaults(World* world);
     void logWorldStateAscii(const World* world, const std::string& description = "");
     
     // Test setup completion - call this after setting up initial test conditions.
     // Usage pattern: 1) createWorldB(), 2) setup materials/conditions, 3) logInitialTestState().
-    void logInitialTestState(const WorldB* world, const std::string& test_description = "");
     void logInitialTestState(const World* world, const std::string& test_description = "");
     void logInitialTestState(const WorldInterface* world, const std::string& test_description = "");
     
     // Log current world state including material positions, velocities, and total mass.
-    void logWorldState(const WorldB* world, const std::string& context = "");
     void logWorldState(const World* world, const std::string& context = "");
     
     // New unified simulation loop that eliminates visual/non-visual duplication.
@@ -250,7 +247,7 @@ protected:
     }
     
     // Virtual method for derived tests to provide their world interface.
-    // Tests using WorldB should override this to return world.get().
+    // Tests using World should override this to return world.get().
     virtual WorldInterface* getWorldInterface() {
         return nullptr; // Base implementation - tests must override.
     }

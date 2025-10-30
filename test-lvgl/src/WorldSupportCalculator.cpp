@@ -1,8 +1,8 @@
-#include "WorldBSupportCalculator.h"
-#include "CellB.h"
+#include "WorldSupportCalculator.h"
+#include "Cell.h"
 #include "MaterialType.h"
 #include "Vector2i.h"
-#include "WorldB.h"
+#include "World.h"
 #include "spdlog/spdlog.h"
 #include <algorithm>
 #include <array>
@@ -10,17 +10,17 @@
 #include <queue>
 #include <set>
 
-WorldBSupportCalculator::WorldBSupportCalculator(const WorldB& world) : WorldBCalculatorBase(world)
+WorldSupportCalculator::WorldSupportCalculator(const World& world) : WorldCalculatorBase(world)
 {}
 
-bool WorldBSupportCalculator::hasVerticalSupport(uint32_t x, uint32_t y) const
+bool WorldSupportCalculator::hasVerticalSupport(uint32_t x, uint32_t y) const
 {
     if (!isValidCell(static_cast<int>(x), static_cast<int>(y))) {
         spdlog::trace("hasVerticalSupport({},{}) = false (invalid cell)", x, y);
         return false;
     }
 
-    const CellB& cell = getCellAt(x, y);
+    const Cell& cell = getCellAt(x, y);
     if (cell.isEmpty()) {
         spdlog::trace("hasVerticalSupport({},{}) = false (empty cell)", x, y);
         return false;
@@ -47,7 +47,7 @@ bool WorldBSupportCalculator::hasVerticalSupport(uint32_t x, uint32_t y) const
             break;
         }
 
-        const CellB& below = getCellAt(x, support_y);
+        const Cell& below = getCellAt(x, support_y);
         if (!below.isEmpty()) {
             // RECURSIVE SUPPORT CHECK: Supporting block must itself be supported.
             bool supporting_block_supported = hasVerticalSupport(x, support_y);
@@ -92,14 +92,14 @@ bool WorldBSupportCalculator::hasVerticalSupport(uint32_t x, uint32_t y) const
     return false;
 }
 
-bool WorldBSupportCalculator::hasHorizontalSupport(uint32_t x, uint32_t y) const
+bool WorldSupportCalculator::hasHorizontalSupport(uint32_t x, uint32_t y) const
 {
     if (!isValidCell(static_cast<int>(x), static_cast<int>(y))) {
         spdlog::trace("hasHorizontalSupport({},{}) = false (invalid cell)", x, y);
         return false;
     }
 
-    const CellB& cell = getCellAt(x, y);
+    const Cell& cell = getCellAt(x, y);
     if (cell.isEmpty()) {
         spdlog::trace("hasHorizontalSupport({},{}) = false (empty cell)", x, y);
         return false;
@@ -117,7 +117,7 @@ bool WorldBSupportCalculator::hasHorizontalSupport(uint32_t x, uint32_t y) const
 
             if (!isValidCell(nx, ny)) continue;
 
-            const CellB& neighbor = getCellAt(nx, ny);
+            const Cell& neighbor = getCellAt(nx, ny);
             if (neighbor.isEmpty()) continue;
 
             const MaterialProperties& neighbor_props =
@@ -147,14 +147,14 @@ bool WorldBSupportCalculator::hasHorizontalSupport(uint32_t x, uint32_t y) const
     return false;
 }
 
-bool WorldBSupportCalculator::hasStructuralSupport(uint32_t x, uint32_t y) const
+bool WorldSupportCalculator::hasStructuralSupport(uint32_t x, uint32_t y) const
 {
     //    if (!isValidCell(static_cast<int>(x), static_cast<int>(y))) {
     //        spdlog::error("hasStructuralSupport({},{}) = false (invalid cell)", x, y);
     //        return false;
     //    }
 
-    const CellB& cell = getCellAt(x, y);
+    const Cell& cell = getCellAt(x, y);
 
     // Empty cells provide no support.
     if (cell.isEmpty()) {
@@ -210,7 +210,7 @@ bool WorldBSupportCalculator::hasStructuralSupport(uint32_t x, uint32_t y) const
                 }
 
                 visited.insert({ nx, ny });
-                const CellB& neighbor = getCellAt(nx, ny);
+                const Cell& neighbor = getCellAt(nx, ny);
 
                 // Skip empty cells.
                 if (neighbor.isEmpty()) {
@@ -264,10 +264,10 @@ bool WorldBSupportCalculator::hasStructuralSupport(uint32_t x, uint32_t y) const
     return false;
 }
 
-double WorldBSupportCalculator::calculateDistanceToSupport(uint32_t x, uint32_t y) const
+double WorldSupportCalculator::calculateDistanceToSupport(uint32_t x, uint32_t y) const
 {
     spdlog::info("calculateDistanceToSupport({},{}) called", x, y);
-    const CellB& cell = getCellAt(x, y);
+    const Cell& cell = getCellAt(x, y);
     if (cell.isEmpty()) {
         spdlog::info(
             "calculateDistanceToSupport({},{}) = {} (empty cell)", x, y, MAX_SUPPORT_DISTANCE);
@@ -317,7 +317,7 @@ double WorldBSupportCalculator::calculateDistanceToSupport(uint32_t x, uint32_t 
                 && ny < static_cast<int>(world_.getHeight())
                 && distances[nx][ny] == -1) { // Not visited.
 
-                const CellB& nextCell = getCellAt(nx, ny);
+                const Cell& nextCell = getCellAt(nx, ny);
 
                 // Follow paths through connected material.
                 // Either same material, or structural support material (metal, walls)

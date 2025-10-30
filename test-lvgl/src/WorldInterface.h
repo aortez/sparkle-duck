@@ -8,18 +8,15 @@
 // Forward declarations
 class SimulatorUI;
 class CellInterface;
-struct WorldState;
-enum class WorldType;
 class WorldDiagramGenerator;
 class WorldSetup;
 
 /**
  * \file
- * Abstract interface for world physics systems to enable polymorphic switching
- * between different physics implementations (World/RulesA and WorldB/RulesB).
+ * Abstract interface for the world physics system.
  *
- * This interface provides a unified API for the UI and other components while
- * allowing different underlying physics systems and cell types.
+ * This interface provides a unified API for the UI and other components.
+ * Currently implemented by World (pure-material physics system).
  */
 class WorldInterface {
 public:
@@ -36,7 +33,8 @@ public:
     virtual uint32_t getTimestep() const = 0;
 
     // Draw the world to the screen.
-    virtual void draw() = 0;
+    // The drawArea parameter is the LVGL canvas to render to.
+    virtual void draw(lv_obj_t& drawArea) = 0;
 
     // Reset the world to empty state (clear all cells, reset timestep, etc.).
     virtual void reset() = 0;
@@ -52,12 +50,6 @@ public:
     // Get grid dimensions.
     virtual uint32_t getWidth() const = 0;
     virtual uint32_t getHeight() const = 0;
-
-    // Get the LVGL drawing area object.
-    virtual lv_obj_t* getDrawArea() const = 0;
-
-    // Set the LVGL drawing area object (for delayed initialization).
-    virtual void setDrawArea(lv_obj_t* drawArea) = 0;
 
     // Access cells through CellInterface for material operations.
     virtual CellInterface& getCellInterface(uint32_t x, uint32_t y) = 0;
@@ -93,7 +85,7 @@ public:
     virtual void addWaterAtPixel(int pixelX, int pixelY) = 0;
 
     // Universal material addition for any material type.
-    // Works with both WorldA (mapped to dirt/water) and WorldB (direct support).
+    // Works with both WorldA (mapped to dirt/water) and World (direct support).
     virtual void addMaterialAtPixel(
         int pixelX, int pixelY, MaterialType type, double amount = 1.0) = 0;
 
@@ -189,11 +181,11 @@ public:
     virtual void setDynamicPressureEnabled(bool enabled) = 0;
     virtual bool isDynamicPressureEnabled() const = 0;
 
-    // Set strength of hydrostatic pressure system (WorldB only).
+    // Set strength of hydrostatic pressure system (World only).
     virtual void setHydrostaticPressureStrength(double strength) = 0;
     virtual double getHydrostaticPressureStrength() const = 0;
 
-    // Set strength of dynamic pressure system (WorldB only).
+    // Set strength of dynamic pressure system (World only).
     virtual void setDynamicPressureStrength(double strength) = 0;
     virtual double getDynamicPressureStrength() const = 0;
 
@@ -384,19 +376,6 @@ public:
     virtual SimulatorUI* getUI() const = 0;
 
     // =================================================================
-    // WORLD TYPE MANAGEMENT
-    // =================================================================
-
-    // Get the type of this world implementation.
-    virtual WorldType getWorldType() const = 0;
-
-    // Preserve current world state for cross-world switching.
-    virtual void preserveState(WorldState& state) const = 0;
-
-    // Restore world state from cross-world switching.
-    virtual void restoreState(const WorldState& state) = 0;
-
-    // =================================================================
     // WORLD SETUP MANAGEMENT
     // =================================================================
 
@@ -410,9 +389,6 @@ public:
 protected:
     // Shared WorldSetup instance for all world implementations.
     std::unique_ptr<WorldSetup> worldSetup_;
-
-    // Helper method for world type naming in logging.
-    virtual const char* getWorldTypeName() const = 0;
 
     // Initialize WorldSetup - should be called by concrete class constructors.
     void initializeWorldSetup();

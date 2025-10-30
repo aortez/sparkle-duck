@@ -1,18 +1,18 @@
-#include "WorldBAirResistanceCalculator.h"
-#include "CellB.h"
+#include "WorldAirResistanceCalculator.h"
+#include "Cell.h"
 #include "MaterialType.h"
-#include "WorldB.h"
+#include "World.h"
 #include <cmath>
 #include <spdlog/spdlog.h>
 
-WorldBAirResistanceCalculator::WorldBAirResistanceCalculator(const WorldB& world)
-    : WorldBCalculatorBase(world)
+WorldAirResistanceCalculator::WorldAirResistanceCalculator(const World& world)
+    : WorldCalculatorBase(world)
 {}
 
-Vector2d WorldBAirResistanceCalculator::calculateAirResistance(
+Vector2d WorldAirResistanceCalculator::calculateAirResistance(
     uint32_t x, uint32_t y, double strength) const
 {
-    const CellB& cell = getCellAt(x, y);
+    const Cell& cell = getCellAt(x, y);
 
     // No air resistance for empty or wall cells.
     if (cell.isEmpty() || cell.isWall()) {

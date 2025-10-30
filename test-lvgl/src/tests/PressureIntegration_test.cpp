@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 #include "visual_test_runner.h"
-#include "../WorldB.h"
+#include "../World.h"
 #include "../MaterialType.h"
 #include <spdlog/spdlog.h>
 
@@ -25,7 +25,7 @@ protected:
         spdlog::info("[TEST] Pressure integration test - both systems enabled");
     }
     
-    std::unique_ptr<WorldB> world;
+    std::unique_ptr<World> world;
 };
 
 TEST_F(PressureIntegrationTest, DamBreakScenario) {

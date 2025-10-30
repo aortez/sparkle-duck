@@ -7,10 +7,9 @@
 #include "SimulationManager.h"
 #include "SparkleAssert.h"
 #include "UIUpdateConsumer.h"
-#include "WorldB.h"
-#include "WorldFactory.h"
+#include "World.h"
+
 #include "WorldInterface.h"
-#include "WorldState.h"
 #include "lvgl/lvgl.h"
 #include "lvgl/src/misc/lv_timer.h"
 #include "lvgl/src/others/snapshot/lv_snapshot.h"
@@ -52,7 +51,6 @@ SimulatorUI::SimulatorUI(lv_obj_t* screen, EventRouter* eventRouter)
       mass_label_(nullptr),
       fps_label_(nullptr),
       pause_label_(nullptr),
-      world_type_btnm_(nullptr),
       timescale_(1.0),
       is_paused_(false),
       frame_limiting_enabled_(true), // Default to frame limiting enabled.
@@ -143,15 +141,10 @@ void SimulatorUI::initialize()
 
     createDrawArea();
     createLabels();
-    createWorldTypeColumn();
+    createScenarioDropdown();
     createMaterialPicker();
     createControlButtons();
     createSliders();
-
-    // Set initial button matrix state based on current world type.
-    if (world_) {
-        updateWorldTypeButtonMatrix(world_->getWorldType());
-    }
 
     // Initialize push-based UI update system (always enabled for thread safety).
     if (event_router_) {
@@ -185,7 +178,7 @@ void SimulatorUI::createLabels()
     mass_label_ = lv_label_create(screen_);
     lv_label_set_text(mass_label_, "Total Mass: 0.00");
     lv_obj_set_style_text_color(mass_label_, lv_color_hex(0xFFFFFF), 0);  // White text.
-    lv_obj_align(mass_label_, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 10);
+    lv_obj_align(mass_label_, LV_ALIGN_TOP_LEFT, RIGHT_COLUMN_X, 10);
 
     // Create FPS label - positioned over the world area.
     fps_label_ = lv_label_create(screen_);
@@ -202,58 +195,19 @@ void SimulatorUI::createLabels()
         .buildOrLog();
 }
 
-void SimulatorUI::createWorldTypeColumn()
+void SimulatorUI::createScenarioDropdown()
 {
-    // Create world type label.
-    lv_obj_t* world_type_label = lv_label_create(screen_);
-    lv_label_set_text(world_type_label, "World Type:");
-    lv_obj_set_style_text_color(world_type_label, lv_color_hex(0xFFFFFF), 0);  // White text.
-    lv_obj_set_style_bg_opa(world_type_label, LV_OPA_TRANSP, 0);  // Transparent background.
-    lv_obj_align(world_type_label, LV_ALIGN_TOP_LEFT, WORLD_TYPE_COLUMN_X, 10);
-
-    // Create world type button matrix with vertical stack.
-    static const char* world_btnm_map[] = { "WorldA", "\n", "WorldB", "" };
-
-    world_type_btnm_ =
-        LVGLEventBuilder::buttonMatrix(screen_, event_router_)
-            .map(world_btnm_map)
-            .size(WORLD_TYPE_COLUMN_WIDTH, 100)
-            .position(WORLD_TYPE_COLUMN_X, 30, LV_ALIGN_TOP_LEFT)
-            .oneChecked(true)
-            .buttonCtrl(0, LV_BUTTONMATRIX_CTRL_CHECKABLE)
-            .buttonCtrl(1, LV_BUTTONMATRIX_CTRL_CHECKABLE)
-            .selectedButton(1) // WorldB is default.
-            .style(
-                LV_PART_MAIN,
-                [](lv_style_t* style) {
-                    lv_style_set_bg_color(style, lv_color_hex(0x000000));  // Black background.
-                    lv_style_set_bg_opa(style, LV_OPA_COVER);  // Fully opaque.
-                })
-            .style(
-                LV_PART_ITEMS,
-                [](lv_style_t* style) {
-                    lv_style_set_bg_color(style, lv_color_hex(0x404040));
-                    lv_style_set_text_color(style, lv_color_white());
-                })
-            .style(
-                static_cast<lv_style_selector_t>(
-                    static_cast<int>(LV_PART_ITEMS) | static_cast<int>(LV_STATE_CHECKED)),
-                [](lv_style_t* style) { lv_style_set_bg_color(style, lv_color_hex(0x0080FF)); })
-            .onWorldTypeSelect()
-            .buildOrLog();
-
-    // Create scenario controls after world type buttons.
     // Scenario label.
     lv_obj_t* scenario_label = lv_label_create(screen_);
     lv_label_set_text(scenario_label, "Scenario:");
     lv_obj_set_style_text_color(scenario_label, lv_color_hex(0xFFFFFF), 0);  // White text.
     lv_obj_set_style_bg_opa(scenario_label, LV_OPA_TRANSP, 0);  // Transparent background.
-    lv_obj_align(scenario_label, LV_ALIGN_TOP_LEFT, WORLD_TYPE_COLUMN_X, 135);
+    lv_obj_align(scenario_label, LV_ALIGN_TOP_LEFT, LEFT_COLUMN_X, 10);
 
     // Scenario dropdown.
     scenario_dropdown_ = lv_dropdown_create(screen_);
-    lv_obj_set_size(scenario_dropdown_, WORLD_TYPE_COLUMN_WIDTH, 30);
-    lv_obj_align(scenario_dropdown_, LV_ALIGN_TOP_LEFT, WORLD_TYPE_COLUMN_X, 155);
+    lv_obj_set_size(scenario_dropdown_, CONTROL_WIDTH, 30);
+    lv_obj_align(scenario_dropdown_, LV_ALIGN_TOP_LEFT, LEFT_COLUMN_X, 30);
 
     // Dark mode styling for dropdown.
     lv_obj_set_style_bg_color(scenario_dropdown_, lv_color_hex(0x404040), 0);  // Dark background.
@@ -282,13 +236,13 @@ void SimulatorUI::createMaterialPicker()
     lv_obj_set_style_text_color(material_label, lv_color_hex(0xFFFFFF), 0);  // White text.
     lv_obj_set_style_bg_opa(material_label, LV_OPA_TRANSP, 0);  // Transparent background.
     lv_obj_align(
-        material_label, LV_ALIGN_TOP_LEFT, WORLD_TYPE_COLUMN_X, 195); // Below scenario dropdown.
+        material_label, LV_ALIGN_TOP_LEFT, LEFT_COLUMN_X, 70); // Below scenario dropdown.
 
     // Create material picker container.
     lv_obj_t* picker_container = lv_obj_create(screen_);
     lv_obj_set_size(
-        picker_container, WORLD_TYPE_COLUMN_WIDTH, 320); // Give enough space for 4x2 grid.
-    lv_obj_align(picker_container, LV_ALIGN_TOP_LEFT, WORLD_TYPE_COLUMN_X, 215); // Below label.
+        picker_container, CONTROL_WIDTH, 320); // Give enough space for 4x2 grid.
+    lv_obj_align(picker_container, LV_ALIGN_TOP_LEFT, LEFT_COLUMN_X, 90); // Below label.
     lv_obj_set_style_pad_all(picker_container, 5, 0);
     lv_obj_set_style_border_width(picker_container, 1, 0);
     lv_obj_set_style_border_color(picker_container, lv_color_hex(0x606060), 0);
@@ -324,7 +278,7 @@ void SimulatorUI::createControlButtons()
         debug_btn_ = LVGLEventBuilder::button(screen_, event_router_)
                          .onDebugToggle()
                          .size(CONTROL_WIDTH, 50)
-                         .position(MAIN_CONTROLS_X, 10)
+                         .position(RIGHT_COLUMN_X, 10)
                          .text("Debug: Off")
                          .buildOrLog();
     }
@@ -333,19 +287,19 @@ void SimulatorUI::createControlButtons()
     lv_obj_t* worldA_pressure_header = lv_label_create(screen_);
     lv_label_set_text(worldA_pressure_header, "=== WorldA Pressure ===");
     lv_obj_set_style_text_color(worldA_pressure_header, lv_color_hex(0xFFFFFF), 0);  // White text.
-    lv_obj_align(worldA_pressure_header, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 70);
+    lv_obj_align(worldA_pressure_header, LV_ALIGN_TOP_LEFT, RIGHT_COLUMN_X, 70);
 
     // Create pressure system dropdown.
     lv_obj_t* pressure_label = lv_label_create(screen_);
     lv_label_set_text(pressure_label, "System:");
     lv_obj_set_style_text_color(pressure_label, lv_color_hex(0xFFFFFF), 0);  // White text.
     lv_obj_set_style_bg_opa(pressure_label, LV_OPA_TRANSP, 0);  // Transparent background.
-    lv_obj_align(pressure_label, LV_ALIGN_TOP_LEFT, MAIN_CONTROLS_X, 95);
+    lv_obj_align(pressure_label, LV_ALIGN_TOP_LEFT, RIGHT_COLUMN_X, 95);
 
     lv_obj_t* pressure_dropdown = LVGLEventBuilder::dropdown(screen_, event_router_)
                                        .onPressureSystemChange()
                                        .size(CONTROL_WIDTH, 40)
-                                       .position(MAIN_CONTROLS_X, 115, LV_ALIGN_TOP_LEFT)
+                                       .position(RIGHT_COLUMN_X, 115, LV_ALIGN_TOP_LEFT)
                                        .options("Original (COM)\nTop-Down Hydrostatic\nIterative Settling")
                                        .selected(0)
                                        .buildOrLog();
@@ -366,7 +320,7 @@ void SimulatorUI::createControlButtons()
     // Pressure scale slider (WorldA only).
     LVGLEventBuilder::slider(screen_, event_router_)
         .onPressureScaleChange()
-        .position(MAIN_CONTROLS_X, 185, LV_ALIGN_TOP_LEFT)
+        .position(RIGHT_COLUMN_X, 185, LV_ALIGN_TOP_LEFT)
         .size(CONTROL_WIDTH, 10)
         .range(0, 1000)
         .value(100)
@@ -377,7 +331,7 @@ void SimulatorUI::createControlButtons()
     // Create gravity slider (-10x to +10x Earth gravity).
     LVGLEventBuilder::slider(screen_, event_router_)
         .onGravityChange()
-        .position(MAIN_CONTROLS_X, 245, LV_ALIGN_TOP_LEFT)
+        .position(RIGHT_COLUMN_X, 245, LV_ALIGN_TOP_LEFT)
         .size(CONTROL_WIDTH, 10)
         .range(-1000, 1000) // -10x to +10x.
         .value(100)         // 1x Earth gravity (9.81).
@@ -388,7 +342,7 @@ void SimulatorUI::createControlButtons()
     // Create viscosity strength slider.
     LVGLEventBuilder::slider(screen_, event_router_)
         .onViscosityStrengthChange()
-        .position(MAIN_CONTROLS_X, 285, LV_ALIGN_TOP_LEFT)
+        .position(RIGHT_COLUMN_X, 285, LV_ALIGN_TOP_LEFT)
         .size(CONTROL_WIDTH, 10)
         .range(0, 200)
         .value(100)
@@ -399,7 +353,7 @@ void SimulatorUI::createControlButtons()
     // Create cohesion force toggle slider (integrated switch + slider).
     cohesion_switch_ = LVGLEventBuilder::toggleSlider(screen_, event_router_)
                            .label("Cohesion Force")
-                           .position(MAIN_CONTROLS_X, 320, LV_ALIGN_TOP_LEFT)
+                           .position(RIGHT_COLUMN_X, 320, LV_ALIGN_TOP_LEFT)
                            .sliderWidth(CONTROL_WIDTH)
                            .range(0, 30000)
                            .value(15000)
@@ -416,7 +370,7 @@ void SimulatorUI::createControlButtons()
     // Create COM cohesion range slider.
     LVGLEventBuilder::slider(screen_, event_router_)
         .onCOMCohesionRangeChange()
-        .position(MAIN_CONTROLS_X, 405, LV_ALIGN_TOP_LEFT)
+        .position(RIGHT_COLUMN_X, 405, LV_ALIGN_TOP_LEFT)
         .size(CONTROL_WIDTH, 10)
         .range(1, 5)
         .value(1)
@@ -427,7 +381,7 @@ void SimulatorUI::createControlButtons()
     // Create friction toggle slider (integrated switch + slider).
     LVGLEventBuilder::toggleSlider(screen_, event_router_)
         .label("Friction")
-        .position(MAIN_CONTROLS_X, 450, LV_ALIGN_TOP_LEFT)
+        .position(RIGHT_COLUMN_X, 450, LV_ALIGN_TOP_LEFT)
         .sliderWidth(CONTROL_WIDTH)
         .range(0, 100)
         .value(100)
@@ -443,7 +397,7 @@ void SimulatorUI::createControlButtons()
     // Create adhesion toggle slider (integrated switch + slider).
     adhesion_switch_ = LVGLEventBuilder::toggleSlider(screen_, event_router_)
                            .label("Adhesion")
-                           .position(MAIN_CONTROLS_X, 530, LV_ALIGN_TOP_LEFT)
+                           .position(RIGHT_COLUMN_X, 530, LV_ALIGN_TOP_LEFT)
                            .sliderWidth(CONTROL_WIDTH)
                            .range(0, 1000)
                            .value(500)
@@ -460,7 +414,7 @@ void SimulatorUI::createControlButtons()
     // Create left throw toggle.
     LVGLEventBuilder::labeledSwitch(screen_, event_router_)
         .label("Left Throw")
-        .position(MAIN_CONTROLS_X, 610, LV_ALIGN_TOP_LEFT)
+        .position(RIGHT_COLUMN_X, 610, LV_ALIGN_TOP_LEFT)
         .onLeftThrowToggle()
         .checked(false)
         .buildOrLog();
@@ -468,7 +422,7 @@ void SimulatorUI::createControlButtons()
     // Create right throw toggle.
     LVGLEventBuilder::labeledSwitch(screen_, event_router_)
         .label("Right Throw")
-        .position(MAIN_CONTROLS_X, 640, LV_ALIGN_TOP_LEFT)
+        .position(RIGHT_COLUMN_X, 640, LV_ALIGN_TOP_LEFT)
         .onRightThrowToggle()
         .checked(true)
         .buildOrLog();
@@ -476,7 +430,7 @@ void SimulatorUI::createControlButtons()
     // Create quadrant toggle.
     LVGLEventBuilder::labeledSwitch(screen_, event_router_)
         .label("Quadrant")
-        .position(MAIN_CONTROLS_X, 670, LV_ALIGN_TOP_LEFT)
+        .position(RIGHT_COLUMN_X, 670, LV_ALIGN_TOP_LEFT)
         .onQuadrantToggle()
         .checked(true)
         .buildOrLog();
@@ -484,7 +438,7 @@ void SimulatorUI::createControlButtons()
     // Create water column toggle.
     LVGLEventBuilder::labeledSwitch(screen_, event_router_)
         .label("Water Column")
-        .position(MAIN_CONTROLS_X, 700, LV_ALIGN_TOP_LEFT)
+        .position(RIGHT_COLUMN_X, 700, LV_ALIGN_TOP_LEFT)
         .onWaterColumnToggle()
         .checked(true)
         .buildOrLog();
@@ -493,7 +447,7 @@ void SimulatorUI::createControlButtons()
     LVGLEventBuilder::button(screen_, event_router_)
         .onScreenshot() // Call event method first.
         .size(CONTROL_WIDTH, 50)
-        .position(MAIN_CONTROLS_X, 730, LV_ALIGN_TOP_LEFT)
+        .position(RIGHT_COLUMN_X, 730, LV_ALIGN_TOP_LEFT)
         .text("Screenshot")
         .buildOrLog();
 
@@ -501,7 +455,7 @@ void SimulatorUI::createControlButtons()
     LVGLEventBuilder::button(screen_, event_router_)
         .onPrintAscii()
         .size(CONTROL_WIDTH, 50)
-        .position(MAIN_CONTROLS_X, 790, LV_ALIGN_TOP_LEFT)
+        .position(RIGHT_COLUMN_X, 790, LV_ALIGN_TOP_LEFT)
         .text("Print ASCII")
         .buildOrLog();
 
@@ -509,7 +463,7 @@ void SimulatorUI::createControlButtons()
     LVGLEventBuilder::button(screen_, event_router_)
         .onSpawnDirtBall()
         .size(CONTROL_WIDTH, 50)
-        .position(MAIN_CONTROLS_X, 850, LV_ALIGN_TOP_LEFT)
+        .position(RIGHT_COLUMN_X, 850, LV_ALIGN_TOP_LEFT)
         .text("Spawn ball")
         .buildOrLog();
 
@@ -530,7 +484,7 @@ void SimulatorUI::createControlButtons()
 void SimulatorUI::createSliders()
 {
     // Position sliders to the right of the main control buttons.
-    const int SLIDER_COLUMN_X = MAIN_CONTROLS_X + CONTROL_WIDTH + 10;
+    const int SLIDER_COLUMN_X = RIGHT_COLUMN_X + CONTROL_WIDTH + 10;
 
     // Move Pause/Resume button to top of slider column.
     pause_btn_ = LVGLEventBuilder::button(screen_, event_router_)
@@ -615,13 +569,13 @@ void SimulatorUI::createSliders()
         .buildOrLog();
 
     // Cell size slider.
-    spdlog::info("Creating cell size slider - Cell::getSize() returns: {}", Cell::getSize());
+    spdlog::info("Creating cell size slider - 30 returns: {}", 30);
     LVGLEventBuilder::slider(screen_, event_router_)
         .onCellSizeChange()
         .position(SLIDER_COLUMN_X, 350, LV_ALIGN_TOP_LEFT)
         .size(CONTROL_WIDTH, 10)
         .range(10, 100)
-        .value(Cell::getSize())
+        .value(30)
         .label("Cell Size", 0, -20)
         .valueLabel("%.0f", 110, -20)
         .buildOrLog();
@@ -681,9 +635,9 @@ void SimulatorUI::createSliders()
         .valueLabel("%.3f", 150, -20)
         .buildOrLog();
 
-    // === WorldB Pressure Controls ===.
+    // === World Pressure Controls ===.
     lv_obj_t* worldB_pressure_header = lv_label_create(screen_);
-    lv_label_set_text(worldB_pressure_header, "=== WorldB Pressure ===");
+    lv_label_set_text(worldB_pressure_header, "=== World Pressure ===");
     lv_obj_set_style_text_color(worldB_pressure_header, lv_color_hex(0xFFFFFF), 0);  // White text.
     lv_obj_align(worldB_pressure_header, LV_ALIGN_TOP_LEFT, SLIDER_COLUMN_X, 620);
 
@@ -739,7 +693,7 @@ void SimulatorUI::createSliders()
         .valueLabel("%.2f", 120, -20)
         .buildOrLog();
 
-    // Pressure scale slider for WorldB.
+    // Pressure scale slider for World.
     LVGLEventBuilder::slider(screen_, event_router_)
         .onPressureScaleWorldBChange()
         .position(SLIDER_COLUMN_X, 915, LV_ALIGN_TOP_LEFT)
@@ -773,7 +727,6 @@ void SimulatorUI::populateFromWorld()
     updateMassLabel(world_->getTotalMass());
 
     // Update world type button matrix
-    updateWorldTypeButtonMatrix(world_->getWorldType());
 
     // Update material selection
     if (material_picker_) {
@@ -812,7 +765,7 @@ void SimulatorUI::populateFromWorld()
     }
 
     // Update sliders based on world properties
-    WorldType worldType = world_->getWorldType();
+    
 
     // Update pressure scale slider (WorldA only)
     // Note: WorldInterface doesn't expose getPressureScale(), so we can't update this
@@ -821,8 +774,8 @@ void SimulatorUI::populateFromWorld()
     // Update gravity button state
     // Note: WorldInterface doesn't expose getGravity(), so we can't update this
 
-    // Update pressure strength sliders (WorldB only)
-    if (worldType == WorldType::RulesB) {
+    // Update pressure strength sliders (World only)
+    if (world_) {
         if (hydrostatic_strength_slider_) {
             float strength = world_->getHydrostaticPressureStrength();
             int slider_value = static_cast<int>(strength * 100.0f); // Convert 0.0-3.0 to 0-300
@@ -986,14 +939,6 @@ void SimulatorUI::applyUpdate(const UIUpdateEvent& update)
 
     // Update world state if it changed.
     if (update.dirty.worldState) {
-        // Update world type button matrix.
-        if (update.worldType == "WorldA") {
-            updateWorldTypeButtonMatrix(WorldType::RulesA);
-        }
-        else if (update.worldType == "WorldB") {
-            updateWorldTypeButtonMatrix(WorldType::RulesB);
-        }
-
         // Update material picker if selected material changed.
         if (material_picker_ && world_) {
             // Check if the selected material actually changed.
@@ -1175,12 +1120,8 @@ void SimulatorUI::pressureSystemDropdownEventCb(lv_event_t* e)
     if (lv_event_get_code(e) == LV_EVENT_VALUE_CHANGED) {
         CallbackData* data = static_cast<CallbackData*>(lv_event_get_user_data(e));
         if (data && data->world) {
-            // Only apply pressure system changes to WorldA (RulesA).
-            if (data->world->getWorldType() != WorldType::RulesA) {
-                spdlog::info("Pressure system dropdown only affects WorldA (RulesA) - current "
-                             "world is WorldB (RulesB)");
-                return;
-            }
+            // Only apply pressure system changes to WorldA WorldA.
+            // World-only mode - no conditional needed.
 
             lv_obj_t* dropdown = static_cast<lv_obj_t*>(lv_event_get_target(e));
             uint16_t selected = lv_dropdown_get_selected(dropdown);
@@ -1267,7 +1208,7 @@ void SimulatorUI::adhesionBtnEventCb(lv_event_t* e)
             bool current_state = data->world->isAdhesionEnabled();
             bool new_state = !current_state;
             data->world->setAdhesionEnabled(new_state);
-            Cell::adhesionDrawEnabled = new_state; // Also control vector display.
+            // TODO: Re-add adhesion visualization toggle.
             const lv_obj_t* btn = static_cast<const lv_obj_t*>(lv_event_get_target(e));
             lv_obj_t* label = lv_obj_get_child(btn, 0);
             lv_label_set_text(label, new_state ? "Adhesion: On" : "Adhesion: Off");
@@ -1332,10 +1273,10 @@ void SimulatorUI::pressureScaleSliderEventCb(lv_event_t* e)
         int32_t value = lv_slider_get_value(slider);
         double pressure_scale = value / 100.0;
         if (data->world) {
-            // Only apply pressure scale changes to WorldA (RulesA).
-            if (data->world->getWorldType() != WorldType::RulesA) {
-                spdlog::debug("Pressure scale slider only affects WorldA (RulesA) - current world "
-                              "is WorldB (RulesB)");
+            // Only apply pressure scale changes to WorldA WorldA.
+            if (false) {  // World-only mode now.
+                spdlog::debug("Pressure scale slider only affects WorldA WorldA - current world "
+                              "is World (RulesB)");
                 // Still update the label to show the value for consistency.
                 char buf[16];
                 snprintf(buf, sizeof(buf), "%.1f", pressure_scale);
@@ -1357,7 +1298,8 @@ void SimulatorUI::cellSizeSliderEventCb(lv_event_t* e)
     if (lv_event_get_code(e) == LV_EVENT_VALUE_CHANGED && data) {
         int32_t value = lv_slider_get_value(slider);
         spdlog::info("Setting cell size to {}", value);
-        Cell::setSize(value);
+        // TODO: Cell size is now constant.
+        // Cell::setSize(value);
 
         // Recalculate grid dimensions based on new cell size.
         // (One fewer than would fit perfectly, same logic as main.cpp).
@@ -1387,19 +1329,8 @@ void SimulatorUI::pressureScaleWorldBSliderEventCb(lv_event_t* e)
         int32_t value = lv_slider_get_value(slider);
         double pressure_scale = value / 100.0;
         if (data->world) {
-            // Only apply pressure scale changes to WorldB (RulesB).
-            if (data->world->getWorldType() != WorldType::RulesB) {
-                spdlog::debug(
-                    "Pressure scale slider (WorldB) only affects WorldB (RulesB) - current world "
-                    "is WorldA (RulesA)");
-                // Still update the label to show the value for consistency.
-                char buf[16];
-                snprintf(buf, sizeof(buf), "%.1f", pressure_scale);
-                lv_label_set_text(data->associated_label, buf);
-                return;
-            }
             data->world->setPressureScale(pressure_scale);
-            spdlog::info("Pressure scale (WorldB) slider changed to: {:.1f}", pressure_scale);
+            spdlog::info("Pressure scale (World) slider changed to: {:.1f}", pressure_scale);
         }
         char buf[16];
         snprintf(buf, sizeof(buf), "%.1f", pressure_scale);
@@ -1488,9 +1419,10 @@ void SimulatorUI::waterCohesionSliderEventCb(lv_event_t* e)
         double cohesion = value / 1000.0; // Map 0-1000 to 0.0-1.0.
 
         // Update WorldA cohesion (legacy system).
-        Cell::setCohesionStrength(cohesion);
+        // TODO: Cohesion is per-material now.
+        // // Cell::setCohesionStrength(cohesion);
 
-        // Update WorldB water cohesion (pure-material system).
+        // Update World water cohesion (pure-material system).
         setMaterialCohesion(MaterialType::WATER, cohesion);
 
         char buf[16];
@@ -1506,7 +1438,8 @@ void SimulatorUI::waterViscositySliderEventCb(lv_event_t* e)
     if (lv_event_get_code(e) == LV_EVENT_VALUE_CHANGED && data) {
         int32_t value = lv_slider_get_value(slider);
         double viscosity = value / 1000.0; // Map 0-1000 to 0.0-1.0.
-        Cell::setViscosityFactor(viscosity);
+        // TODO: Viscosity is per-material now.
+        // // Cell::setViscosityFactor(viscosity);
         char buf[16];
         snprintf(buf, sizeof(buf), "%.3f", viscosity);
         lv_label_set_text(data->associated_label, buf);
@@ -1536,7 +1469,8 @@ void SimulatorUI::waterBuoyancySliderEventCb(lv_event_t* e)
     if (lv_event_get_code(e) == LV_EVENT_VALUE_CHANGED && data) {
         int32_t value = lv_slider_get_value(slider);
         double buoyancy = value / 1000.0; // Map 0-1000 to 0.0-1.0.
-        Cell::setBuoyancyStrength(buoyancy);
+        // TODO: Buoyancy is per-material now.
+        // // Cell::setBuoyancyStrength(buoyancy);
         char buf[16];
         snprintf(buf, sizeof(buf), "%.3f", buoyancy);
         lv_label_set_text(data->associated_label, buf);
@@ -1606,11 +1540,8 @@ void SimulatorUI::hydrostaticPressureStrengthSliderEventCb(lv_event_t* e)
         int32_t value = lv_slider_get_value(slider);
         double strength = value / 100.0; // Map 0-300 to 0.0-3.0.
         if (data->world) {
-            // Only apply to WorldB (RulesB).
-            if (data->world->getWorldType() == WorldType::RulesB) {
-                data->world->setHydrostaticPressureStrength(strength);
-                spdlog::debug("Hydrostatic pressure strength set to {:.2f}", strength);
-            }
+            data->world->setHydrostaticPressureStrength(strength);
+            spdlog::debug("Hydrostatic pressure strength set to {:.2f}", strength);
         }
         char buf[16];
         snprintf(buf, sizeof(buf), "%.1f", strength);
@@ -1626,12 +1557,9 @@ void SimulatorUI::dynamicPressureStrengthSliderEventCb(lv_event_t* e)
         int32_t value = lv_slider_get_value(slider);
         double strength = value / 100.0; // Map 0-300 to 0.0-3.0.
         if (data->world) {
-            // Only apply to WorldB (RulesB).
-            if (data->world->getWorldType() == WorldType::RulesB) {
-                data->world->setDynamicPressureStrength(strength);
-                spdlog::info(
-                    "Dynamic Strength slider changed to: {:.1f} (via old callback)", strength);
-            }
+            data->world->setDynamicPressureStrength(strength);
+            spdlog::info(
+                "Dynamic Strength slider changed to: {:.1f} (via old callback)", strength);
         }
         char buf[16];
         snprintf(buf, sizeof(buf), "%.1f", strength);
@@ -1848,75 +1776,14 @@ void SimulatorUI::forwardBtnEventCb(lv_event_t* e)
     }
 }
 
-void SimulatorUI::worldTypeButtonMatrixEventCb(lv_event_t* e)
-{
-    if (lv_event_get_code(e) == LV_EVENT_VALUE_CHANGED) {
-        CallbackData* data = static_cast<CallbackData*>(lv_event_get_user_data(e));
-        if (data && data->ui) {
-            lv_obj_t* btnm = static_cast<lv_obj_t*>(lv_event_get_target(e));
-            uint32_t selected = lv_buttonmatrix_get_selected_button(btnm);
-
-            // Convert button selection to WorldType.
-            WorldType newType = (selected == 0) ? WorldType::RulesA : WorldType::RulesB;
-
-            printf(
-                "World type switch requested: %s\n",
-                newType == WorldType::RulesA ? "WorldA (RulesA)" : "WorldB (RulesB)");
-
-            // Request the world switch from the simulation manager.
-            data->ui->requestWorldTypeSwitch(newType);
-        }
-    }
-}
-
-void SimulatorUI::requestWorldTypeSwitch(WorldType newType)
-{
-    if (!manager_) {
-        spdlog::error("Cannot switch world type - no simulation manager set");
-        return;
-    }
-
-    spdlog::info("Requesting world type switch to {}", getWorldTypeName(newType));
-
-    if (manager_->switchWorldType(newType)) {
-        // Update UI to reflect the switch.
-        updateWorldTypeButtonMatrix(newType);
-        updateScenarioDropdown(); // Update scenarios for the new world type.
-        spdlog::info("World type switch request completed successfully");
-    }
-    else {
-        spdlog::error("World type switch request failed");
-    }
-}
-
-void SimulatorUI::updateWorldTypeButtonMatrix(WorldType currentType)
-{
-    if (world_type_btnm_) {
-        uint32_t buttonIndex = (currentType == WorldType::RulesA) ? 0 : 1;
-        lv_buttonmatrix_set_selected_button(world_type_btnm_, buttonIndex);
-    }
-}
-
 void SimulatorUI::updateScenarioDropdown()
 {
     SPARKLE_ASSERT(
         scenario_dropdown_, "updateScenarioDropdown called before scenario_dropdown_ is created");
 
-    // Get current world type from manager.
-    WorldType currentWorldType = WorldType::RulesB;
-    if (manager_ && manager_->getWorld()) {
-        currentWorldType = manager_->getWorld()->getWorldType();
-    }
-    else {
-        // During initialization, use the default world type (WorldB).
-        // This matches the initial button matrix selection (line 224 and 252).
-        spdlog::debug("updateScenarioDropdown: manager_ is null, using default WorldType::RulesB");
-    }
-
-    // Get scenarios from registry filtered by current world type.
+    // Get scenarios from registry (World supports all scenarios now).
     auto& registry = ScenarioRegistry::getInstance();
-    bool isWorldB = (currentWorldType == WorldType::RulesB);
-    auto scenarioIds = registry.getScenariosForWorldType(isWorldB);
+    auto scenarioIds = registry.getScenariosForWorldType(true); // true = World (was RulesB)
 
     // Clear existing options.
     lv_dropdown_clear_options(scenario_dropdown_);
@@ -1963,16 +1830,9 @@ void SimulatorUI::onScenarioChanged(lv_event_t* e)
 
     uint16_t selected = lv_dropdown_get_selected(ui->scenario_dropdown_);
 
-    // Get current world type.
-    WorldType currentWorldType = WorldType::RulesB;
-    if (ui->manager_->getWorld()) {
-        currentWorldType = ui->manager_->getWorld()->getWorldType();
-    }
-
     // Get the selected scenario.
     auto& registry = ScenarioRegistry::getInstance();
-    bool isWorldB = (currentWorldType == WorldType::RulesB);
-    auto scenarioIds = registry.getScenariosForWorldType(isWorldB);
+    auto scenarioIds = registry.getScenariosForWorldType(true); // true = World
 
     if (selected < scenarioIds.size()) {
         const auto& id = scenarioIds[selected];

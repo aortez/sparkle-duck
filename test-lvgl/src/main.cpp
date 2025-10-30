@@ -4,7 +4,7 @@
 #include "SimulationManager.h"
 #include "SimulatorUI.h"
 #include "World.h"
-#include "WorldFactory.h"
+
 #include "args.hxx"
 #include "src/lib/driver_backends.h"
 #include "src/lib/simulator_loop.h"
@@ -167,10 +167,10 @@ int main(int argc, char** argv)
     if (max_steps) settings.max_steps = args::get(max_steps);
 
     // Note: World type selection via command-line is not yet implemented in the event system.
-    // The state machine currently uses WorldB by default.
+    // The state machine currently uses World by default.
     // TODO: Pass world type to state machine constructor when implementing world type selection.
     if (world_type) {
-        spdlog::warn("--world flag is not yet implemented in event system (always uses WorldB)");
+        spdlog::warn("--world flag is not yet implemented in event system (always uses World)");
     }
 
     /* Initialize LVGL. */

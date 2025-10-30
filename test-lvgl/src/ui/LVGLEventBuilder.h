@@ -136,7 +136,7 @@ public:
         SliderBuilder& onPressureScaleChange();
 
         /**
-         * @brief Convenience method for pressure scale sliders (WorldB).
+         * @brief Convenience method for pressure scale sliders (World).
          * Automatically converts slider value (0-200) to scale (0.0-2.0)
          */
         SliderBuilder& onPressureScaleWorldBChange();

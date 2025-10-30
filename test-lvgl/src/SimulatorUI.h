@@ -68,7 +68,6 @@ private:
     lv_obj_t* fps_label_;
     lv_obj_t* pause_label_;
     lv_obj_t* pause_btn_ = nullptr; // Store pause button reference for state sync.
-    lv_obj_t* world_type_btnm_;
     lv_obj_t* debug_btn_ = nullptr;
     lv_obj_t* scenario_dropdown_ = nullptr;
     lv_obj_t* left_throw_label_ = nullptr;
@@ -124,10 +123,8 @@ private:
     // Layout dimensions.
     static constexpr int CONTROL_WIDTH = 200;
     static constexpr int DRAW_AREA_SIZE = 850;
-    static constexpr int WORLD_TYPE_COLUMN_WIDTH = 150;
-    static constexpr int WORLD_TYPE_COLUMN_X = DRAW_AREA_SIZE + 10; // 10px margin from draw area.
-    static constexpr int MAIN_CONTROLS_X =
-        WORLD_TYPE_COLUMN_X + WORLD_TYPE_COLUMN_WIDTH + 10; // 10px margin from world type column.
+    static constexpr int LEFT_COLUMN_X = DRAW_AREA_SIZE + 10;  // First column: scenarios + materials.
+    static constexpr int RIGHT_COLUMN_X = LEFT_COLUMN_X + CONTROL_WIDTH + 10;  // Second column: controls.
 
     // Storage for callback data to keep them alive.
     std::vector<std::unique_ptr<CallbackData>> callback_data_storage_;
@@ -139,7 +136,7 @@ private:
     // Private methods for creating UI elements.
     void createDrawArea();
     void createLabels();
-    void createWorldTypeColumn();
+    void createScenarioDropdown();
     void createMaterialPicker();
     void createControlButtons();
     void createSliders();
@@ -152,7 +149,6 @@ private:
     static void resetBtnEventCb(lv_event_t* e);
     static void debugBtnEventCb(lv_event_t* e);
     static void pressureSystemDropdownEventCb(lv_event_t* e);
-    static void worldTypeButtonMatrixEventCb(lv_event_t* e);
     static void gravityBtnEventCb(lv_event_t* e);
     static void cohesionBtnEventCb(lv_event_t* e);
     static void cohesionForceBtnEventCb(lv_event_t* e);
@@ -176,7 +172,7 @@ private:
     static void pressureDiffusionToggleEventCb(lv_event_t* e);
     static void airResistanceSliderEventCb(lv_event_t* e);
 
-    // WorldB pressure strength sliders.
+    // World pressure strength sliders.
     static void hydrostaticPressureStrengthSliderEventCb(lv_event_t* e);
     static void dynamicPressureStrengthSliderEventCb(lv_event_t* e);
 
@@ -205,10 +201,6 @@ private:
 
     // Helper to create callback data.
     CallbackData* createCallbackData(lv_obj_t* label = nullptr);
-
-    // World type switching methods (delegates to manager).
-    void requestWorldTypeSwitch(WorldType newType);
-    void updateWorldTypeButtonMatrix(WorldType currentType);
 
     // Scenario dropdown methods.
     void updateScenarioDropdown();

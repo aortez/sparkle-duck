@@ -254,7 +254,9 @@ void TestUI::run10ButtonEventHandler(lv_event_t* e)
                 
                 // Thread-safe drawing.
                 coordinator.postTaskSync([ui] {
-                    ui->world_->draw();
+                    if (ui->draw_area_) {
+                        ui->world_->draw(*ui->draw_area_);
+                    }
                 });
                 
                 std::this_thread::sleep_for(std::chrono::milliseconds(50));

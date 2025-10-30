@@ -2,16 +2,16 @@
 
 #include "MaterialType.h"
 #include "Vector2d.h"
-#include "WorldBCalculatorBase.h"
+#include "WorldCalculatorBase.h"
 #include <cstdint>
 #include <memory>
 
-class CellB;
-class WorldB;
-class WorldBSupportCalculator;
+class Cell;
+class World;
+class WorldSupportCalculator;
 
 /**
- * @brief Calculates cohesion forces for WorldB physics
+ * @brief Calculates cohesion forces for World physics
  *
  * This class encapsulates all cohesion-related calculations including:
  * - Traditional resistance-based cohesion (movement threshold)
@@ -19,18 +19,18 @@ class WorldBSupportCalculator;
  *
  * The cohesion system implements dual physics:
  * 1. Resistance cohesion: Prevents material movement when neighboring support exists (uses
- * WorldBSupportCalculator)
+ * WorldSupportCalculator)
  * 2. Force cohesion: Adds attractive forces toward connected material clusters
  */
-class WorldBCohesionCalculator : public WorldBCalculatorBase {
+class WorldCohesionCalculator : public WorldCalculatorBase {
 public:
     /**
-     * @brief Constructor takes a WorldB for accessing world data.
-     * @param world WorldB providing access to grid and cells.
+     * @brief Constructor takes a World for accessing world data.
+     * @param world World providing access to grid and cells.
      */
-    explicit WorldBCohesionCalculator(const WorldB& world);
+    explicit WorldCohesionCalculator(const World& world);
 
-    // Force calculation structures for cohesion physics (moved from WorldB).
+    // Force calculation structures for cohesion physics (moved from World).
     struct CohesionForce {
         double resistance_magnitude;  // Strength of cohesive resistance.
         uint32_t connected_neighbors; // Number of same-material neighbors.
@@ -56,5 +56,5 @@ public:
         uint32_t x, uint32_t y, uint32_t com_cohesion_range) const;
 
 private:
-    mutable std::unique_ptr<WorldBSupportCalculator> support_calculator_; // Support calculations.
+    mutable std::unique_ptr<WorldSupportCalculator> support_calculator_; // Support calculations.
 };

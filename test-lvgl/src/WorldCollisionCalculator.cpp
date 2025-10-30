@@ -1,22 +1,22 @@
-#include "WorldBCollisionCalculator.h"
-#include "CellB.h"
+#include "WorldCollisionCalculator.h"
+#include "Cell.h"
 #include "MaterialMove.h"
-#include "WorldB.h"
-#include "WorldBCohesionCalculator.h"
-#include "WorldBPressureCalculator.h"
+#include "World.h"
+#include "WorldCohesionCalculator.h"
+#include "WorldPressureCalculator.h"
 #include "spdlog/spdlog.h"
 #include <algorithm>
 #include <cmath>
 
-WorldBCollisionCalculator::WorldBCollisionCalculator(WorldB& world)
-    : WorldBCalculatorBase(world), world_(world)
+WorldCollisionCalculator::WorldCollisionCalculator(World& world)
+    : WorldCalculatorBase(world), world_(world)
 {}
 
 // =================================================================
 // COLLISION DETECTION.
 // =================================================================
 
-std::vector<Vector2i> WorldBCollisionCalculator::getAllBoundaryCrossings(
+std::vector<Vector2i> WorldCollisionCalculator::getAllBoundaryCrossings(
     const Vector2d& newCOM) const
 {
     std::vector<Vector2i> crossings;
@@ -30,14 +30,14 @@ std::vector<Vector2i> WorldBCollisionCalculator::getAllBoundaryCrossings(
     return crossings;
 }
 
-MaterialMove WorldBCollisionCalculator::createCollisionAwareMove(
-    const CellB& fromCell,
-    const CellB& toCell,
+MaterialMove WorldCollisionCalculator::createCollisionAwareMove(
+    const Cell& fromCell,
+    const Cell& toCell,
     const Vector2i& fromPos,
     const Vector2i& toPos,
     const Vector2i& direction,
     double /* deltaTime. */,
-    const WorldBCohesionCalculator::COMCohesionForce& com_cohesion) const
+    const WorldCohesionCalculator::COMCohesionForce& com_cohesion) const
 {
     MaterialMove move;
 
@@ -122,7 +122,7 @@ MaterialMove WorldBCollisionCalculator::createCollisionAwareMove(
     return move;
 }
 
-CollisionType WorldBCollisionCalculator::determineCollisionType(
+CollisionType WorldCollisionCalculator::determineCollisionType(
     MaterialType from, MaterialType to, double collision_energy) const
 {
     // Get material properties for both materials.
@@ -193,8 +193,8 @@ CollisionType WorldBCollisionCalculator::determineCollisionType(
     return CollisionType::INELASTIC_COLLISION;
 }
 
-double WorldBCollisionCalculator::calculateCollisionEnergy(
-    const MaterialMove& move, const CellB& fromCell, const CellB& toCell) const
+double WorldCollisionCalculator::calculateCollisionEnergy(
+    const MaterialMove& move, const Cell& fromCell, const Cell& toCell) const
 {
     // Kinetic energy: KE = 0.5 × m × v²
     double movingMass = calculateMaterialMass(fromCell) * move.amount;
@@ -212,7 +212,7 @@ double WorldBCollisionCalculator::calculateCollisionEnergy(
     return 0.5 * effective_mass * velocity_magnitude * velocity_magnitude;
 }
 
-double WorldBCollisionCalculator::calculateMaterialMass(const CellB& cell) const
+double WorldCollisionCalculator::calculateMaterialMass(const Cell& cell) const
 {
     if (cell.isEmpty()) return 0.0;
 
@@ -223,14 +223,14 @@ double WorldBCollisionCalculator::calculateMaterialMass(const CellB& cell) const
     return density * volume;
 }
 
-bool WorldBCollisionCalculator::checkFloatingParticleCollision(
-    int cellX, int cellY, const CellB& floating_particle) const
+bool WorldCollisionCalculator::checkFloatingParticleCollision(
+    int cellX, int cellY, const Cell& floating_particle) const
 {
     if (!isValidCell(cellX, cellY)) {
         return false;
     }
 
-    const CellB& targetCell = getCellAt(cellX, cellY);
+    const Cell& targetCell = getCellAt(cellX, cellY);
 
     // Check if there's material to collide with.
     if (!targetCell.isEmpty()) {
@@ -259,8 +259,8 @@ bool WorldBCollisionCalculator::checkFloatingParticleCollision(
 // COLLISION RESPONSE.
 // =================================================================
 
-void WorldBCollisionCalculator::handleTransferMove(
-    CellB& fromCell, CellB& toCell, const MaterialMove& move)
+void WorldCollisionCalculator::handleTransferMove(
+    Cell& fromCell, Cell& toCell, const MaterialMove& move)
 {
     // Log pre-transfer state.
     spdlog::debug(
@@ -353,8 +353,8 @@ void WorldBCollisionCalculator::handleTransferMove(
     }
 }
 
-void WorldBCollisionCalculator::handleElasticCollision(
-    CellB& fromCell, CellB& toCell, const MaterialMove& move)
+void WorldCollisionCalculator::handleElasticCollision(
+    Cell& fromCell, Cell& toCell, const MaterialMove& move)
 {
     Vector2d incident_velocity = move.momentum;
     Vector2d surface_normal = move.boundary_normal.normalize();
@@ -472,8 +472,8 @@ void WorldBCollisionCalculator::handleElasticCollision(
     // Material stays in original cell with new velocity.
 }
 
-void WorldBCollisionCalculator::handleInelasticCollision(
-    CellB& fromCell, CellB& toCell, const MaterialMove& move)
+void WorldCollisionCalculator::handleInelasticCollision(
+    Cell& fromCell, Cell& toCell, const MaterialMove& move)
 {
     // Physics-correct component-based collision handling.
     Vector2d incident_velocity = move.momentum;
@@ -572,8 +572,8 @@ void WorldBCollisionCalculator::handleInelasticCollision(
         actual_transfer);
 }
 
-void WorldBCollisionCalculator::handleFragmentation(
-    CellB& fromCell, CellB& toCell, const MaterialMove& move)
+void WorldCollisionCalculator::handleFragmentation(
+    Cell& fromCell, Cell& toCell, const MaterialMove& move)
 {
     // TODO: Implement fragmentation mechanics.
     // For now, treat as inelastic collision with complete material transfer.
@@ -586,8 +586,8 @@ void WorldBCollisionCalculator::handleFragmentation(
     handleInelasticCollision(fromCell, toCell, move);
 }
 
-void WorldBCollisionCalculator::handleAbsorption(
-    CellB& fromCell, CellB& toCell, const MaterialMove& move)
+void WorldCollisionCalculator::handleAbsorption(
+    Cell& fromCell, Cell& toCell, const MaterialMove& move)
 {
     // One material absorbs the other - implement absorption logic.
     if (move.material == MaterialType::WATER && toCell.getMaterialType() == MaterialType::DIRT) {
@@ -607,8 +607,8 @@ void WorldBCollisionCalculator::handleAbsorption(
     }
 }
 
-void WorldBCollisionCalculator::handleFloatingParticleCollision(
-    int cellX, int cellY, const CellB& floating_particle, CellB& targetCell)
+void WorldCollisionCalculator::handleFloatingParticleCollision(
+    int cellX, int cellY, const Cell& floating_particle, Cell& targetCell)
 {
     Vector2d particleVelocity = floating_particle.getVelocity();
 
@@ -650,7 +650,7 @@ void WorldBCollisionCalculator::handleFloatingParticleCollision(
 // BOUNDARY REFLECTIONS.
 // =================================================================
 
-void WorldBCollisionCalculator::applyBoundaryReflection(CellB& cell, const Vector2i& direction)
+void WorldCollisionCalculator::applyBoundaryReflection(Cell& cell, const Vector2i& direction)
 {
     Vector2d velocity = cell.getVelocity();
     Vector2d com = cell.getCOM();
@@ -690,8 +690,8 @@ void WorldBCollisionCalculator::applyBoundaryReflection(CellB& cell, const Vecto
         com.y);
 }
 
-void WorldBCollisionCalculator::applyCellBoundaryReflection(
-    CellB& cell, const Vector2i& direction, MaterialType material)
+void WorldCollisionCalculator::applyCellBoundaryReflection(
+    Cell& cell, const Vector2i& direction, MaterialType material)
 {
     Vector2d velocity = cell.getVelocity();
     Vector2d com = cell.getCOM();
@@ -732,7 +732,7 @@ void WorldBCollisionCalculator::applyCellBoundaryReflection(
 // UTILITY METHODS.
 // =================================================================
 
-WorldBCollisionCalculator::VelocityComponents WorldBCollisionCalculator::decomposeVelocity(
+WorldCollisionCalculator::VelocityComponents WorldCollisionCalculator::decomposeVelocity(
     const Vector2d& velocity, const Vector2d& surface_normal) const
 {
     VelocityComponents components;
@@ -743,7 +743,7 @@ WorldBCollisionCalculator::VelocityComponents WorldBCollisionCalculator::decompo
     return components;
 }
 
-bool WorldBCollisionCalculator::isMaterialRigid(MaterialType material)
+bool WorldCollisionCalculator::isMaterialRigid(MaterialType material)
 {
     switch (material) {
         case MaterialType::METAL:

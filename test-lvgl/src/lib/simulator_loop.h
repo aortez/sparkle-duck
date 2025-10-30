@@ -81,9 +81,9 @@ inline void processFrame(SimulationManager& manager, LoopState& state, uint32_t 
 
     // Advance simulation
     world->advanceTime(delta_time_ms * world->getTimescale() * 0.001);
-    
+
     // Always draw every frame to avoid flicker
-    world->draw();
+    manager.draw();
 
     // Mass label is now updated automatically by the World through its UI
 

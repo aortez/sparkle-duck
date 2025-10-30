@@ -1,7 +1,7 @@
 #include "visual_test_runner.h"
 #include <cmath>
-#include "../WorldB.h"
-#include "../WorldBCohesionCalculator.h"
+#include "../World.h"
+#include "../WorldCohesionCalculator.h"
 #include "../MaterialType.h"
 #include <spdlog/spdlog.h>
 #include <thread>
@@ -22,8 +22,7 @@ protected:
         
         // Create a 5x5 world for testing force calculations.
         // Pass the UI draw area if in visual mode, otherwise nullptr.
-        lv_obj_t* draw_area = (visual_mode_ && ui_) ? ui_->getDrawArea() : nullptr;
-        world = std::make_unique<WorldB>(5, 5, draw_area);
+        world = std::make_unique<World>(5, 5);
         world->setWallsEnabled(false); // Disable walls for clean testing.
         world->setAddParticlesEnabled(false); // Disable automatic particle addition for clean testing.
         
@@ -46,7 +45,7 @@ protected:
         if (visual_mode_ && world) {
             auto& coordinator = VisualTestCoordinator::getInstance();
             coordinator.postTaskSync([this] {
-                world->draw();
+                if (ui_) { world->draw(*ui_->getDrawArea()); }
             });
         }
     }
@@ -58,7 +57,7 @@ protected:
     }
     
     // Helper method for manual simulation control.
-    void manualSimulationSteps(WorldB* world, int max_steps, const std::string& description) {
+    void manualSimulationSteps(World* world, int max_steps, const std::string& description) {
         if (!world) return;
         
         if (visual_mode_) {
@@ -70,8 +69,8 @@ protected:
                 world->advanceTime(0.016);
                 
                 auto& coordinator = VisualTestCoordinator::getInstance();
-                coordinator.postTaskSync([world] {
-                    world->draw();
+                coordinator.postTaskSync([world, this] {
+                    if (ui_) { world->draw(*ui_->getDrawArea()); }
                 });
                 
                 spdlog::info("Step {}/{} completed", step + 1, max_steps);
@@ -84,11 +83,11 @@ protected:
         }
     }
     
-    std::unique_ptr<WorldB> world;
+    std::unique_ptr<World> world;
 };
 
 TEST_F(ForceCalculationTest, EmptyCellHasZeroForces) {
-    auto cohesion = WorldBCohesionCalculator(*world).calculateCohesionForce(2, 2);
+    auto cohesion = WorldCohesionCalculator(*world).calculateCohesionForce(2, 2);
     auto adhesion = world->getAdhesionCalculator().calculateAdhesionForce(2, 2);
     
     EXPECT_EQ(cohesion.resistance_magnitude, 0.0);
@@ -100,7 +99,7 @@ TEST_F(ForceCalculationTest, EmptyCellHasZeroForces) {
 TEST_F(ForceCalculationTest, IsolatedWaterHasNoForces) {
     world->addMaterialAtCell(2, 2, MaterialType::WATER, 1.0);
     
-    auto cohesion = WorldBCohesionCalculator(*world).calculateCohesionForce(2, 2);
+    auto cohesion = WorldCohesionCalculator(*world).calculateCohesionForce(2, 2);
     auto adhesion = world->getAdhesionCalculator().calculateAdhesionForce(2, 2);
     
     // No same-material neighbors = no cohesion resistance.
@@ -136,7 +135,7 @@ TEST_F(ForceCalculationTest, WaterWithWaterNeighborsHasCohesion) {
         waitForNext();
         
         spdlog::info("[TEST] Calculating cohesion forces");
-        auto cohesion = WorldBCohesionCalculator(*world).calculateCohesionForce(2, 2);
+        auto cohesion = WorldCohesionCalculator(*world).calculateCohesionForce(2, 2);
         
         // Should have cohesion resistance from 2 same-material neighbors.
         EXPECT_GT(cohesion.resistance_magnitude, 0.0);
@@ -190,15 +189,15 @@ TEST_F(ForceCalculationTest, MetalHasHighCohesion) {
     world->addMaterialAtCell(2, 2, MaterialType::METAL, 1.0);
     world->addMaterialAtCell(2, 1, MaterialType::METAL, 1.0); // Above (2,2).
     
-    auto cohesion_metal = WorldBCohesionCalculator(*world).calculateCohesionForce(2, 2);
+    auto cohesion_metal = WorldCohesionCalculator(*world).calculateCohesionForce(2, 2);
     
     // Create new world for WATER test to avoid interference.
-    auto water_world = std::make_unique<WorldB>(5, 5, nullptr);
+    auto water_world = std::make_unique<World>(5, 5);
     water_world->setAddParticlesEnabled(false);
     water_world->addMaterialAtCell(2, 2, MaterialType::WATER, 1.0);
     water_world->addMaterialAtCell(2, 1, MaterialType::WATER, 1.0); // Above (2,2).
     
-    auto cohesion_water = WorldBCohesionCalculator(*water_world).calculateCohesionForce(2, 2);
+    auto cohesion_water = WorldCohesionCalculator(*water_world).calculateCohesionForce(2, 2);
     
     // With same neighbor count (1), METAL should have higher resistance due to higher cohesion property.
     EXPECT_GT(cohesion_metal.resistance_magnitude, cohesion_water.resistance_magnitude);
@@ -237,7 +236,7 @@ TEST_F(ForceCalculationTest, PartialCellsFillRatioWeighting) {
     world->addMaterialAtCell(2, 2, MaterialType::WATER, 0.5); // Half-filled.
     world->addMaterialAtCell(2, 1, MaterialType::WATER, 0.8); // Above, 80% filled.
     
-    auto cohesion = WorldBCohesionCalculator(*world).calculateCohesionForce(2, 2);
+    auto cohesion = WorldCohesionCalculator(*world).calculateCohesionForce(2, 2);
     
     // Expected: cohesion_property * connected_neighbors * own_fill_ratio * support_factor.
     // Note: connected_neighbors is count (1), not weighted by fill ratio.
@@ -258,8 +257,7 @@ TEST_F(ForceCalculationTest, MetalParticlesCohesionResistance) {
         scaleDrawingAreaForWorld(7, 7);
     }
     
-    lv_obj_t* draw_area = (visual_mode_ && ui_) ? ui_->getDrawArea() : nullptr;
-    auto large_world = std::make_unique<WorldB>(7, 7, draw_area);
+    auto large_world = std::make_unique<World>(7, 7);
     large_world->setWallsEnabled(false); // Disable walls for clean test.
     large_world->setAddParticlesEnabled(false); // Disable automatic particle addition.
     
@@ -284,8 +282,8 @@ TEST_F(ForceCalculationTest, MetalParticlesCohesionResistance) {
     // Give initial velocity toward the gap to test cohesion resistance.
     // Without cohesion, particles should continue moving apart.
     // With cohesion, they should slow down or reverse direction.
-    CellB& left_cell = large_world->at(2, 3);
-    CellB& right_cell = large_world->at(4, 3);
+    Cell& left_cell = large_world->at(2, 3);
+    Cell& right_cell = large_world->at(4, 3);
     
     // Set initial velocities pointing away from each other.
     left_cell.setVelocity(Vector2d(-0.5, 0.0));  // Moving left (away from gap).
@@ -294,8 +292,8 @@ TEST_F(ForceCalculationTest, MetalParticlesCohesionResistance) {
     // Show initial setup in visual mode.
     if (visual_mode_) {
         auto& coordinator = VisualTestCoordinator::getInstance();
-        coordinator.postTaskSync([&large_world] {
-            large_world->draw();
+        coordinator.postTaskSync([&large_world, this] {
+            if (ui_) { large_world->draw(*ui_->getDrawArea()); }
         });
         spdlog::info("Showing initial metal droplet setup...");
         waitForNext();
@@ -331,8 +329,8 @@ TEST_F(ForceCalculationTest, MetalParticlesCohesionResistance) {
         // Update visual display.
         if (visual_mode_) {
             auto& coordinator = VisualTestCoordinator::getInstance();
-            coordinator.postTaskSync([&large_world] {
-                large_world->draw();
+            coordinator.postTaskSync([&large_world, this] {
+                if (ui_) { large_world->draw(*ui_->getDrawArea()); }
             });
         }
         
@@ -382,8 +380,8 @@ TEST_F(ForceCalculationTest, MetalParticlesCohesionResistance) {
     }
     
     // If no velocity changes detected, verify cohesion forces are at least being calculated.
-    auto cohesion_left = WorldBCohesionCalculator(*large_world).calculateCohesionForce(2, 3);
-    auto cohesion_right = WorldBCohesionCalculator(*large_world).calculateCohesionForce(4, 3);
+    auto cohesion_left = WorldCohesionCalculator(*large_world).calculateCohesionForce(2, 3);
+    auto cohesion_right = WorldCohesionCalculator(*large_world).calculateCohesionForce(4, 3);
     
     // Even if movement wasn't detected, cohesion forces should exist.
     EXPECT_GT(cohesion_left.resistance_magnitude, 0.0) 
@@ -398,8 +396,7 @@ TEST_F(ForceCalculationTest, MetalParticlesCohesionResistance) {
 
 TEST_F(ForceCalculationTest, DebugMaterialTransfer) {
     // Debug test to understand material duplication and floating block behavior.
-    lv_obj_t* draw_area = (visual_mode_ && ui_) ? ui_->getDrawArea() : nullptr;
-    world = std::make_unique<WorldB>(3, 3, draw_area);
+    world = std::make_unique<World>(3, 3);
     world->setWallsEnabled(false);
     
     // Simple test: single particle at top should fall straight down.
@@ -459,8 +456,7 @@ TEST_F(ForceCalculationTest, FloatingBlocksFallToNextCellSameSpeed) {
         scaleDrawingAreaForWorld(6, 4);
     }
     
-    lv_obj_t* draw_area = (visual_mode_ && ui_) ? ui_->getDrawArea() : nullptr;
-    world = std::make_unique<WorldB>(6, 4, draw_area);
+    world = std::make_unique<World>(6, 4);
     world->setWallsEnabled(false); // Disable walls for clean test.
     world->setAddParticlesEnabled(false); // Disable automatic particle addition.
     
@@ -501,7 +497,7 @@ TEST_F(ForceCalculationTest, FloatingBlocksFallToNextCellSameSpeed) {
     if (visual_mode_) {
         auto& coordinator = VisualTestCoordinator::getInstance();
         coordinator.postTaskSync([this] {
-            world->draw();
+            if (ui_) { world->draw(*ui_->getDrawArea()); }
         });
         spdlog::info("Initial setup: 2x2 block vs isolated reference particle");
         
@@ -550,7 +546,7 @@ TEST_F(ForceCalculationTest, FloatingBlocksFallToNextCellSameSpeed) {
         if (visual_mode_) {
             auto& coordinator = VisualTestCoordinator::getInstance();
             coordinator.postTaskSync([this] {
-                world->draw();
+                if (ui_) { world->draw(*ui_->getDrawArea()); }
             });
         }
         
@@ -678,8 +674,7 @@ TEST_F(ForceCalculationTest, SupportedVsFloatingStructures) {
         scaleDrawingAreaForWorld(8, 8);
     }
     
-    lv_obj_t* draw_area = (visual_mode_ && ui_) ? ui_->getDrawArea() : nullptr;
-    auto large_world = std::make_unique<WorldB>(8, 8, draw_area);
+    auto large_world = std::make_unique<World>(8, 8);
     large_world->setWallsEnabled(false); // Disable walls for clean test.
     large_world->setAddParticlesEnabled(false); // Disable automatic particle addition.
     
@@ -699,20 +694,20 @@ TEST_F(ForceCalculationTest, SupportedVsFloatingStructures) {
     // Show the supported vs floating structures in visual mode.
     if (visual_mode_) {
         auto& coordinator = VisualTestCoordinator::getInstance();
-        coordinator.postTaskSync([&large_world] {
-            large_world->draw();
+        coordinator.postTaskSync([&large_world, this] {
+            if (ui_) { large_world->draw(*ui_->getDrawArea()); }
         });
         spdlog::info("Showing supported tower vs floating structure...");
         waitForNext();
     }
     
     // Calculate cohesion forces for comparison.
-    auto cohesion_ground_base = WorldBCohesionCalculator(*large_world).calculateCohesionForce(1, 7);      // Ground level.
-    auto cohesion_ground_middle = WorldBCohesionCalculator(*large_world).calculateCohesionForce(1, 6);    // Middle of tower.
-    auto cohesion_ground_top = WorldBCohesionCalculator(*large_world).calculateCohesionForce(1, 5);       // Top of tower.
+    auto cohesion_ground_base = WorldCohesionCalculator(*large_world).calculateCohesionForce(1, 7);      // Ground level.
+    auto cohesion_ground_middle = WorldCohesionCalculator(*large_world).calculateCohesionForce(1, 6);    // Middle of tower.
+    auto cohesion_ground_top = WorldCohesionCalculator(*large_world).calculateCohesionForce(1, 5);       // Top of tower.
     
-    auto cohesion_floating_bottom = WorldBCohesionCalculator(*large_world).calculateCohesionForce(6, 2);  // Bottom of floating pair.
-    auto cohesion_floating_top = WorldBCohesionCalculator(*large_world).calculateCohesionForce(6, 3);     // Top of floating pair.
+    auto cohesion_floating_bottom = WorldCohesionCalculator(*large_world).calculateCohesionForce(6, 2);  // Bottom of floating pair.
+    auto cohesion_floating_top = WorldCohesionCalculator(*large_world).calculateCohesionForce(6, 3);     // Top of floating pair.
     
     // Ground-connected structure should have MUCH higher cohesion resistance.
     // (BFS should find ground support through connected materials).

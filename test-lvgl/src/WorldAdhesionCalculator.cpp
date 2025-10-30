@@ -1,16 +1,16 @@
-#include "WorldBAdhesionCalculator.h"
-#include "CellB.h"
-#include "WorldB.h"
+#include "WorldAdhesionCalculator.h"
+#include "Cell.h"
+#include "World.h"
 #include <cmath>
 
-WorldBAdhesionCalculator::WorldBAdhesionCalculator(const WorldB& world)
-    : WorldBCalculatorBase(world)
+WorldAdhesionCalculator::WorldAdhesionCalculator(const World& world)
+    : WorldCalculatorBase(world)
 {}
 
-WorldBAdhesionCalculator::AdhesionForce WorldBAdhesionCalculator::calculateAdhesionForce(
+WorldAdhesionCalculator::AdhesionForce WorldAdhesionCalculator::calculateAdhesionForce(
     uint32_t x, uint32_t y) const
 {
-    const CellB& cell = getCellAt(x, y);
+    const Cell& cell = getCellAt(x, y);
     if (cell.isEmpty()) {
         return { { 0.0, 0.0 }, 0.0, MaterialType::AIR, 0 };
     }
@@ -30,7 +30,7 @@ WorldBAdhesionCalculator::AdhesionForce WorldBAdhesionCalculator::calculateAdhes
             int ny = static_cast<int>(y) + dy;
 
             if (isValidCell(nx, ny)) {
-                const CellB& neighbor = getCellAt(nx, ny);
+                const Cell& neighbor = getCellAt(nx, ny);
 
                 if (neighbor.getMaterialType() != cell.getMaterialType()
                     && neighbor.getFillRatio() > MIN_MATTER_THRESHOLD) {

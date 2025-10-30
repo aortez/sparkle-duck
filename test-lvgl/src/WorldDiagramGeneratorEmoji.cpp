@@ -1,6 +1,6 @@
 #include "WorldDiagramGeneratorEmoji.h"
 #include "Cell.h"
-#include "CellB.h"
+#include "Cell.h"
 #include "CellInterface.h"
 #include "MaterialType.h"
 #include "WorldInterface.h"
@@ -34,7 +34,7 @@ std::string WorldDiagramGeneratorEmoji::generateEmojiDiagram(const WorldInterfac
             }
             else {
                 // Get material type and fill ratio.
-                auto cellB = dynamic_cast<const CellB*>(&cell);
+                auto cellB = dynamic_cast<const Cell*>(&cell);
                 if (cellB) {
                     switch (cellB->getMaterialType()) {
                         case MaterialType::AIR:
@@ -64,18 +64,6 @@ std::string WorldDiagramGeneratorEmoji::generateEmojiDiagram(const WorldInterfac
                         default:
                             diagram << "❓";
                             break;
-                    }
-                }
-                else {
-                    // WorldA cells - check dirt/water content.
-                    auto cellA = dynamic_cast<const Cell*>(&cell);
-                    if (cellA) {
-                        if (cellA->water > cellA->dirt) {
-                            diagram << "💧";
-                        }
-                        else {
-                            diagram << "🟫";
-                        }
                     }
                 }
             }
@@ -126,7 +114,7 @@ std::string WorldDiagramGeneratorEmoji::generateMixedDiagram(const WorldInterfac
             }
             else {
                 // Get material type and fill ratio.
-                auto cellB = dynamic_cast<const CellB*>(&cell);
+                auto cellB = dynamic_cast<const Cell*>(&cell);
                 if (cellB) {
                     float fill = cellB->getFillRatio();
 

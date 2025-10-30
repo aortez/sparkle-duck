@@ -1,8 +1,28 @@
 # WebRTC Test Driver Implementation Plan
 
+## Status: In Progress
+
+**Completed:**
+- ✅ Draw area refactoring (World is headless, draw area passed as parameter)
+- ✅ Removed RulesA/WorldType (single World implementation now)
+- ✅ Removed WorldState (replaced with native JSON serialization)
+- ✅ Cell JSON serialization (17 tests passing)
+- ✅ World JSON serialization (21 tests passing)
+- ✅ CommandProcessor with Result-based API (17 tests passing)
+- ✅ JSON command protocol defined
+
+**In Progress:**
+- ⏳ WebSocket server implementation
+
+**TODO:**
+- WebRTC video streaming
+- mDNS service discovery
+- Python test client
+- Network client examples
+
 ## Overview
 
-This document outlines the plan for a WebRTC-based client/test driver for the Sparkle Duck physics simulation. The client will provide real-time bidirectional communication between clients and the simulation, enabling automated testing, remote control, live monitoring capabilities, and shared access to a single simulation.
+This document outlines the plan for a WebSocket/WebRTC-based test driver for the Sparkle Duck physics simulation. The driver provides real-time bidirectional communication between clients and the simulation, enabling automated testing, remote control, and live monitoring capabilities.
 
 ## Goals
 
@@ -12,6 +32,7 @@ This document outlines the plan for a WebRTC-based client/test driver for the Sp
 3. **Debugging Interface**: Step-by-step simulation control and state inspection.
 
 ### Key Features
+- Fluent CLI interface.
 - JSON data format.
 - Advance simulation by N frames.
 - Capture complete grid state dumps.
@@ -25,17 +46,18 @@ This document outlines the plan for a WebRTC-based client/test driver for the Sp
 
 ### Network Protocol: WebSocket + WebRTC Hybrid
 
-**WebSocket** (websocketpp or Boost.Beast):
-- Command/control protocol (JSON-based).
+**WebSocket via libdatachannel** (Current implementation):
+- Command/control protocol (JSON-based Result responses).
 - Simple request/response for simulation control.
-- WebRTC signaling channel (offer/answer exchange).
-- No NAT traversal needed on LAN.
+- libdatachannel chosen because it provides both WebSocket and WebRTC.
+- Single dependency for current WebSocket and future WebRTC features.
+- No Boost dependency needed.
 
-**WebRTC** (libdatachannel):
+**WebRTC via libdatachannel** (Future):
 - Real-time video streaming of LVGL framebuffer.
 - Efficient compression (H.264/VP8) - ~500KB/s vs 5MB/s for PNG.
 - Low latency (~50-100ms) for smooth remote viewing.
-- Data channels for large binary state dumps.
+- Uses WebSocket for signaling (offer/answer exchange).
 
 ### Discovery: Multi-Backend Architecture
 
@@ -62,124 +84,181 @@ This document outlines the plan for a WebRTC-based client/test driver for the Sp
 3. **LVGL native client**: WebSocket commands + WebRTC video rendering.
 4. **Command-line tools**: websocat, curl for simple testing.
 
-## Proposed Architecture
+## Current Architecture
 
-### 1. Core Library Refactoring
+### Directory Structure
 
-Create a shared library that both executables link against:
-
+**Current (minimal reorganization):**
 ```
 src/
-├── core/                              # Shared simulation core
-│   ├── World.{cpp,h}
-│   ├── WorldB.{cpp,h}
-│   ├── Cell.{cpp,h}, CellB.{cpp,h}
-│   ├── WorldInterface.{cpp,h}
-│   ├── WorldFactory.{cpp,h}
-│   ├── SimulationController.{cpp,h}   # NEW: headless simulation control
-│   ├── All physics calculators
-│   ├── Vector2d, MaterialType, etc.
-│   └── serialization/
-│       ├── WorldStateSerializer.{cpp,h}
-│       ├── MaterialTypeJSON.{cpp,h}
-│       └── ...
-│
-├── ui/                                # UI-specific code
-│   ├── SimulatorUI.{cpp,h}
-│   ├── MaterialPicker.{cpp,h}
-│   ├── SimulationManager.{cpp,h}      # UI + Simulation coordinator
-│   ├── lib/                           # LVGL backends
-│   └── LVGLEventBuilder.{cpp,h}
-│
-├── network/                           # Server-specific code
-│   ├── WebRTCServer.{cpp,h}
-│   ├── NetworkController.{cpp,h}      # Network + Simulation coordinator
-│   ├── ClientConnection.{cpp,h}
-│   ├── CommandProcessor.{cpp,h}
-│   └── DiscoveryService.{cpp,h}
-│
-└── bin/
-    ├── main.cpp                       # UI app entry point
-    ├── server_main.cpp                # Server app entry point
-    └── test_main.cpp                  # Tests (already exists)
+├── World.{h,cpp}                      # Pure-material physics (formerly WorldB)
+├── Cell.{h,cpp}                       # Pure-material cell (formerly CellB)
+├── World*Calculator.{h,cpp}           # Physics calculators (8 files)
+├── SimulationManager.{h,cpp}          # Coordinates UI + World (headless-capable)
+├── SimulatorUI.{h,cpp}                # LVGL-based UI (optional)
+├── MaterialType, Vector2d, etc.       # Core types with JSON
+├── Result.h                           # Result<T,E> type for error handling
+├── network/                           # ✅ NEW: Network layer
+│   ├── CommandProcessor.{h,cpp}       # ✅ DONE: JSON command handler
+│   ├── CommandResult.h                # ✅ DONE: Result wrapper
+│   ├── WebSocketServer.{h,cpp}        # TODO: WebSocket server
+│   └── NetworkController.{h,cpp}      # TODO: Server coordinator
+├── main.cpp                           # UI app entry point
+└── tests/                             # Comprehensive test suite
+    ├── CellJSON_test.cpp              # ✅ NEW: 17 tests
+    ├── WorldJSON_test.cpp             # ✅ NEW: 21 tests
+    ├── CommandProcessor_test.cpp      # ✅ NEW: 17 tests
+    └── ... (other tests)
+
+# Future reorganization (when needed):
+# - Create src/core/ for physics when building separate server executable
+# - Move UI-specific code to src/ui/ if it becomes cluttered
 ```
 
-### 2. Key Abstraction: SimulationController
+### Key Simplifications
 
-This is the piece that both UI and server would use:
+**Removed complexity:**
+- ❌ No dual physics systems (RulesA removed)
+- ❌ No WorldType enum (only one World now)
+- ❌ No WorldState struct (direct JSON serialization instead)
+- ❌ No WorldFactory (just `new World(w, h)`)
+- ❌ No preserveState/restoreState (use toJSON/fromJSON)
+
+**Result: Simpler, cleaner codebase focused on single physics system.**
+
+### Simulation Control: Using SimulationManager Directly
+
+**Decision:** Keep using `SimulationManager` directly rather than creating a separate `SimulationController`.
+
+**Rationale:**
+- SimulationManager already supports headless mode (`screen=nullptr, eventRouter=nullptr`)
+- Thin delegation layer - no business logic to extract
+- Adding another abstraction layer would be unnecessary complexity
+- Network code can use SimulationManager directly
 
 ```cpp
-// src/core/SimulationController.h
-class SimulationController {
-    std::unique_ptr<WorldInterface> world_;
-    bool paused_ = false;
-    int frame_count_ = 0;
+// Server usage (headless)
+auto manager = std::make_unique<SimulationManager>(
+    200, 150,      // Grid dimensions
+    nullptr,       // No screen (headless)
+    nullptr        // No event router
+);
+manager->initialize();
 
-public:
-    // Construction.
-    SimulationController(WorldType type, int width, int height);
-
-    // Control interface.
-    void step(int frames = 1);
-    void pause() { paused_ = true; }
-    void resume() { paused_ = false; }
-    void reset();
-
-    // State access (const, thread-safe).
-    const WorldInterface& getWorld() const { return *world_; }
-    WorldStateSnapshot captureState() const;
-    std::vector<uint8_t> captureScreenshot() const;
-
-    // Parameter modification.
-    void setGravity(const Vector2d& gravity);
-    void setCellMaterial(int x, int y, MaterialType type, double fill);
-    // ... other setters
-
-    // Query.
-    int getFrameCount() const { return frame_count_; }
-    bool isPaused() const { return paused_; }
-};
+// Network layer uses it directly
+CommandProcessor processor(manager.get());
+processor.processCommand(R"({"command": "step", "frames": 10})");
 ```
 
-### 3. UI App Structure
+### JSON Serialization (Completed)
+
+**Cell serialization:**
+```cpp
+rapidjson::Value Cell::toJson(allocator) const;
+static Cell Cell::fromJson(const rapidjson::Value& json);
+```
+
+**World serialization:**
+```cpp
+rapidjson::Document World::toJSON() const;  // Lossless, complete state
+void World::fromJSON(const rapidjson::Document& doc);
+```
+
+**Format:**
+- Grid metadata (width, height, timestep)
+- All physics parameters (~20 fields)
+- Sparse cell encoding (only non-empty cells)
+- Hierarchical JSON structure
+
+### JSON Command Protocol (Completed)
+
+**All responses use Result-based format:**
+```json
+// Success response
+{"value": {...response data...}}
+
+// Error response
+{"error": "error message"}
+```
+
+**Supported Commands:**
+
+```json
+// Step simulation
+{"command": "step", "frames": 10}
+→ {"value": {"timestep": 1234}}
+
+// Place material
+{"command": "place_material", "x": 50, "y": 75, "material": "WATER", "fill": 1.0}
+→ {"value": {}}
+
+// Get full world state
+{"command": "get_state"}
+→ {"value": {...complete World JSON...}}
+
+// Get specific cell
+{"command": "get_cell", "x": 10, "y": 20}
+→ {"value": {...Cell JSON...}}
+
+// Set gravity
+{"command": "set_gravity", "value": 9.8}
+→ {"value": {}}
+
+// Reset world
+{"command": "reset"}
+→ {"value": {}}
+```
+
+**Implementation:** `src/network/CommandProcessor.{h,cpp}` (226 lines, 17 tests passing)
+
+### UI App (Current - Unchanged)
 
 ```cpp
-// src/bin/main.cpp
+// src/main.cpp (existing, works as before)
 int main(int argc, char** argv) {
-    // Parse display backend args.
-    auto backend = parse_backend(argc, argv);
+    // Create state machine with UI
+    auto stateMachine = std::make_unique<DirtSimStateMachine>(lv_disp_get_default());
 
-    // Create core simulation.
-    auto sim_controller = std::make_unique<SimulationController>(
-        WorldType::RulesB, 200, 150);
+    // Get SimulationManager from state machine
+    auto* simManager = stateMachine->getSimulationManager();
 
-    // Create UI that wraps the controller.
-    auto sim_manager = std::make_unique<SimulationManager>(
-        std::move(sim_controller), backend);
-
-    // Run UI event loop.
-    sim_manager->run();
+    // Run LVGL event loop
+    // ... (existing code)
 }
 ```
 
-### 4. Server App Structure
+### Server App (Planned)
 
 ```cpp
-// src/bin/server_main.cpp
+// Future: src/network/main_server.cpp
 int main(int argc, char** argv) {
-    // Parse server args (port, world size, physics system).
-    auto config = parse_server_config(argc, argv);
+    // Parse server args.
+    auto config = parseServerArgs(argc, argv);
 
-    // Create core simulation.
-    auto sim_controller = std::make_unique<SimulationController>(
-        config.world_type, config.width, config.height);
+    // Create headless simulation.
+    auto manager = std::make_unique<SimulationManager>(
+        config.width, config.height,
+        nullptr,  // No screen (headless)
+        nullptr   // No event router
+    );
+    manager->initialize();
 
-    // Create network controller that wraps the simulation.
-    auto network_controller = std::make_unique<NetworkController>(
-        std::move(sim_controller), config.port);
+    // Create command processor.
+    CommandProcessor processor(manager.get());
 
-    // Run server event loop (WebRTC, command processing).
-    network_controller->run();
+    // Create WebSocket server.
+    WebSocketServer server(config.port);
+    server.onMessage([&processor](const std::string& msg) {
+        auto result = processor.processCommand(msg);
+        if (result.isValue()) {
+            return std::string("{\"value\":") + result.value() + "}";
+        } else {
+            return std::string("{\"error\":\"") + result.error().message + "\"}";
+        }
+    });
+
+    // Run server.
+    server.run();
 }
 ```
 
@@ -189,7 +268,7 @@ int main(int argc, char** argv) {
 # Core library (no UI dependencies).
 add_library(sparkle_core STATIC
     src/core/World.cpp
-    src/core/WorldB.cpp
+    src/core/Cell.cpp
     src/core/SimulationController.cpp
     # ... all physics code
 )
@@ -251,67 +330,134 @@ int main() {
 - Multiple future LVGL clients.
 - All seeing the same simulation state in real-time!
 
-### 7. Migration Path
+### Implementation Roadmap
 
-1. **Phase 1a**: Extract `SimulationController` from existing `SimulationManager`.
-   - Create new `SimulationController` class in existing location.
-   - Refactor `SimulationManager` to use `SimulationController` internally.
-   - Keep all files in current locations.
+**Phase 1: Foundation (COMPLETED ✅)**
+1. Make World headless - pass draw area as parameter
+2. Remove dual world system (RulesA/RulesB)
+3. Add JSON serialization to Cell and World
+4. Create CommandProcessor with Result-based API
+5. Comprehensive testing (55 JSON tests)
 
-2. **Phase 1b**: Verify UI still works.
-   - Build and run existing `sparkle-duck` executable.
-   - Test all UI interactions (material selection, simulation controls, etc.).
-   - Run existing visual tests to ensure physics unchanged.
+**Phase 2: WebSocket Server (IN PROGRESS ⏳)**
+1. Add libdatachannel dependency
+2. Implement WebSocketServer.{h,cpp}
+3. Implement NetworkController (owns SimulationManager + WebSocketServer)
+4. Create main_server.cpp entry point
+5. Design and create C++ CLI client.
 
-3. **Phase 2a**: Reorganize directories (core/, ui/, network/).
-   - Move files to new directory structure.
-   - Update CMakeLists.txt to create `sparkle_core` library.
-   - Update includes and build dependencies.
+**Phase 3: Test Automation (NEXT 🎯)**
+1. Extend Test client
+2. Automated test scenarios
+3. CI/CD integration
+4. Performance benchmarking
 
-4. **Phase 2b**: Verify UI still works after reorganization.
-   - Build and run `sparkle-duck` with new structure.
-   - Ensure no regressions from directory reorganization.
+**Phase 4: WebRTC Video (FUTURE)**
+1. Integrate libdatachannel WebRTC
+2. Stream LVGL framebuffer as H.264/VP8
+3. WebSocket for signaling (offer/answer)
+4. Low-latency video for remote monitoring
 
-5. **Phase 3**: Create basic `server_main.cpp` with WebSocket command protocol.
-   - Implement JSON-based command/response protocol (step, pause, query state).
-   - Add mDNS/Avahi service announcement for LAN discovery.
-   - Test with simple command-line client (websocat, Python script).
-   - WebSocket signaling will be reused for WebRTC negotiation later.
+**Phase 5: Discovery & Polish (FUTURE)**
+1. mDNS/Avahi service discovery
+2. Connection management (multiple clients)
+3. Authentication/rate limiting
+4. Documentation and examples
 
-6. **Phase 4**: Add WebRTC video streaming.
-   - Integrate libdatachannel for WebRTC support.
-   - Use existing WebSocket for WebRTC signaling (offer/answer).
-   - Add video track for real-time framebuffer streaming (H.264/VP8).
-   - Add data channel for efficient binary state dumps.
-   - Keep WebSocket commands alongside WebRTC for control.
+## Example Usage
 
-7. **Phase 5**: Build LVGL network client.
-   - Create `client_main.cpp` that connects to server.
-   - Render simulation state from network in LVGL UI.
-   - Test with local server first, then remote.
+### Python Test Client
 
-### 8. Refactoring SimulationManager
+```python
+import websocket
+import json
 
-Currently `SimulationManager` does both simulation control AND UI coordination. We'd split it:
+ws = websocket.create_connection("ws://localhost:8080")
 
-```cpp
-// Before: SimulationManager does everything.
-class SimulationManager {
-    WorldInterface* world_;        // Simulation.
-    SimulatorUI* ui_;              // UI.
-    void advanceSimulation();      // Mixed concerns.
-    void updateUI();
-};
+# Step simulation
+response = json.loads(ws.send(json.dumps({"command": "step", "frames": 100})))
+print(f"Timestep: {response['value']['timestep']}")
 
-// After: Clean separation.
-class SimulationController {
-    WorldInterface* world_;
-    void step(int frames);         // Pure simulation control.
-};
+# Place water
+ws.send(json.dumps({
+    "command": "place_material",
+    "x": 50, "y": 75,
+    "material": "WATER",
+    "fill": 1.0
+}))
 
-class SimulationManager {
-    SimulationController controller_;  // Owns simulation.
-    SimulatorUI* ui_;                  // Owns UI.
-    void syncUIToSimulation();         // UI coordination only.
-};
+# Get world state
+ws.send(json.dumps({"command": "get_state"}))
+state = json.loads(ws.recv())
+print(f"World: {state['value']['grid']['width']}x{state['value']['grid']['height']}")
+print(f"Cells: {len(state['value']['cells'])}")
 ```
+
+### Command-line (websocat)
+
+```bash
+# Connect to server
+websocat ws://localhost:8080
+
+# Send commands
+{"command": "step", "frames": 5}
+{"command": "set_gravity", "value": 15.0}
+{"command": "get_state"}
+```
+
+
+## Summary: What We Built
+
+### Architecture Achievements
+
+**Headless World:**
+- World can run without any LVGL dependencies.
+- `draw(lv_obj_t& drawArea)` only called when rendering needed.
+- Perfect for server deployment.
+
+**Single Physics System:**
+- Removed RulesA (mixed materials) entirely.
+- WorldB → World (pure materials, fill ratios).
+- Eliminated WorldType enum, WorldFactory, WorldState complexity.
+- Result: ~3000 lines of code removed, cleaner architecture.
+
+**Lossless JSON Serialization:**
+- Cell: Serialize material, fill, COM, velocity, pressure.
+- World: Complete state - grid, physics, all parameters, cells.
+- Sparse encoding (only non-empty cells).
+- 38 comprehensive tests validate round-trip accuracy.
+
+**Command Processing Layer:**
+- CommandProcessor translates JSON → SimulationManager method calls.
+- Result<string, CommandError> for type-safe error handling.
+- 6 commands: step, place_material, get_state, get_cell, set_gravity, reset.
+- 17 tests validate command parsing, execution, and error handling.
+
+### Next Steps
+
+**Immediate (WebSocket Server):**
+1. Add libdatachannel to CMakeLists.txt.
+2. Create WebSocketServer wrapper around libdatachannel.
+3. Create main_server.cpp using CommandProcessor.
+4. Test with websocat or Python client.
+
+**Near-term (Test Automation):**
+1. Python library for test automation.
+2. Automated test scenarios.
+3. Network-based CI/CD testing.
+
+**Long-term (WebRTC Video):**
+1. Add video track to libdatachannel.
+2. Stream LVGL framebuffer as H.264.
+3. Enable real-time remote viewing.
+
+### Testing Summary
+
+| Test Suite | Tests | Status |
+|------------|-------|--------|
+| CellJSON_test | 17 | ✅ All passing |
+| WorldJSON_test | 21 | ✅ All passing |  
+| CommandProcessor_test | 17 | ✅ All passing |
+| **Total** | **55** | **✅ All passing** |
+
+The foundation is solid and ready for network layer implementation.

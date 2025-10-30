@@ -2,7 +2,6 @@
 #include "src/CrashDumpHandler.h"
 #include "src/SparkleAssert.h"
 #include "src/SimulationManager.h"
-#include "src/WorldFactory.h"
 #include "src/WorldSetup.h"
 #include <fstream>
 #include <filesystem>
@@ -17,7 +16,7 @@ protected:
         std::filesystem::create_directories(test_dir_);
         
         // Create a small simulation for testing.
-        manager_ = std::make_unique<SimulationManager>(WorldType::RulesB, 10, 10, nullptr, nullptr);
+        manager_ = std::make_unique<SimulationManager>(10, 10, nullptr, nullptr);
         manager_->initialize();
         
         // Install crash dump handler.
@@ -146,8 +145,8 @@ TEST_F(CrashDumpHandlerTest, DumpContainsWorldState) {
     ASSERT_NE(world, nullptr);
     
     // Add some material to make the dump more interesting.
-    if (world->getWorldType() == WorldType::RulesB) {
-        // Add material at a few locations for RulesB.
+    if (std::string("World") == "World") {
+        // Add material at a few locations for "World".
         world->addMaterialAtPixel(50, 50, MaterialType::DIRT);
         world->addMaterialAtPixel(100, 100, MaterialType::WATER);
     }
@@ -175,7 +174,7 @@ TEST_F(CrashDumpHandlerTest, DumpContainsWorldState) {
         EXPECT_TRUE(content.find("\"height\":10") != std::string::npos);
         
         // Check for physics system type.
-        EXPECT_TRUE(content.find("RulesB") != std::string::npos);
+        EXPECT_TRUE(content.find("World") != std::string::npos);
         
         // Check for timestep advancement (should be 5 after running 5 timesteps).
         EXPECT_TRUE(content.find("\"timestep\":5") != std::string::npos);

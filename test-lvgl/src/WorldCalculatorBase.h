@@ -3,13 +3,13 @@
 #include <cstdint>
 
 // Forward declarations.
-class CellB;
-class WorldB;
+class Cell;
+class World;
 
 /**
- * @brief Base class for WorldB calculator classes.
+ * @brief Base class for World calculator classes.
  *
- * This abstract base class provides common functionality for all WorldB
+ * This abstract base class provides common functionality for all World
  * calculator classes including:
  * - Grid access and boundary checking
  * - Common constants and thresholds
@@ -18,31 +18,31 @@ class WorldB;
  * Derived calculator classes should inherit from this base and implement
  * their specific calculation logic while reusing the common infrastructure.
  */
-class WorldBCalculatorBase {
+class WorldCalculatorBase {
 public:
     /**
-     * @brief Constructor takes a WorldB for accessing world data.
-     * @param world WorldB providing access to grid and cells
+     * @brief Constructor takes a World for accessing world data.
+     * @param world World providing access to grid and cells
      */
-    explicit WorldBCalculatorBase(const WorldB& world);
+    explicit WorldCalculatorBase(const World& world);
 
     // Disable copy construction and assignment.
-    WorldBCalculatorBase(const WorldBCalculatorBase&) = delete;
-    WorldBCalculatorBase& operator=(const WorldBCalculatorBase&) = delete;
+    WorldCalculatorBase(const WorldCalculatorBase&) = delete;
+    WorldCalculatorBase& operator=(const WorldCalculatorBase&) = delete;
 
     // Allow move construction and assignment.
-    WorldBCalculatorBase(WorldBCalculatorBase&&) = default;
-    WorldBCalculatorBase& operator=(WorldBCalculatorBase&&) = default;
+    WorldCalculatorBase(WorldCalculatorBase&&) = default;
+    WorldCalculatorBase& operator=(WorldCalculatorBase&&) = default;
 
     // Virtual destructor for proper cleanup.
-    virtual ~WorldBCalculatorBase() = default;
+    virtual ~WorldCalculatorBase() = default;
 
     // Common constants used across calculator classes.
     static constexpr double MIN_MATTER_THRESHOLD = 0.001; // Minimum matter to process.
 
 protected:
     // Reference to the world for accessing grid data.
-    const WorldB& world_;
+    const World& world_;
 
     /**
      * @brief Get cell at specific coordinates.
@@ -50,7 +50,7 @@ protected:
      * @param y Row coordinate
      * @return Reference to cell at (x,y)
      */
-    const CellB& getCellAt(uint32_t x, uint32_t y) const;
+    const Cell& getCellAt(uint32_t x, uint32_t y) const;
 
     /**
      * @brief Check if coordinates are valid for the grid.

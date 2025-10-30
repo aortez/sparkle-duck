@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 #include "visual_test_runner.h"
-#include "../WorldB.h"
+#include "../World.h"
 #include "../MaterialType.h"
 #include <spdlog/spdlog.h>
 
@@ -25,8 +25,8 @@ TEST_F(PressureTransmissionTest, PressureGoesToTargetNotSource) {
     world->addMaterialAtCell(0, 1, MaterialType::WATER, 1.0);
     world->addMaterialAtCell(1, 1, MaterialType::DIRT, 0.9); // 90% full.
     
-    CellB& water = world->at(0, 1);
-    CellB& dirt = world->at(1, 1);
+    Cell& water = world->at(0, 1);
+    Cell& dirt = world->at(1, 1);
     
     // Give water rightward velocity.
     water.setVelocity(Vector2d(5.0, 0.0));
@@ -70,8 +70,8 @@ TEST_F(PressureTransmissionTest, WallsEliminatePressure) {
     world->addMaterialAtCell(0, 1, MaterialType::WATER, 1.0);
     world->addMaterialAtCell(1, 1, MaterialType::WALL, 1.0);
     
-    CellB& water = world->at(0, 1);
-    CellB& wall = world->at(1, 1);
+    Cell& water = world->at(0, 1);
+    Cell& wall = world->at(1, 1);
     
     // Give water rightward velocity.
     water.setVelocity(Vector2d(5.0, 0.0));
@@ -99,8 +99,8 @@ TEST_F(PressureTransmissionTest, MaterialResistanceAffectsPressure) {
     world->addMaterialAtCell(0, 0, MaterialType::WATER, 1.0);
     world->addMaterialAtCell(1, 0, MaterialType::WATER, 0.9);
     
-    CellB& water1 = world->at(0, 0);
-    CellB& water2 = world->at(1, 0);
+    Cell& water1 = world->at(0, 0);
+    Cell& water2 = world->at(1, 0);
     water1.setVelocity(Vector2d(5.0, 0.0));
     water1.setCOM(Vector2d(0.9, 0.0));
     
@@ -108,8 +108,8 @@ TEST_F(PressureTransmissionTest, MaterialResistanceAffectsPressure) {
     world->addMaterialAtCell(0, 2, MaterialType::WATER, 1.0);
     world->addMaterialAtCell(1, 2, MaterialType::DIRT, 0.9);
     
-    CellB& water3 = world->at(0, 2);
-    CellB& dirt = world->at(1, 2);
+    Cell& water3 = world->at(0, 2);
+    Cell& dirt = world->at(1, 2);
     water3.setVelocity(Vector2d(5.0, 0.0));
     water3.setCOM(Vector2d(0.9, 0.0));
     

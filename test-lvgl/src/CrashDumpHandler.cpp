@@ -1,7 +1,6 @@
 #include "CrashDumpHandler.h"
 #include "SimulationManager.h"
 #include "WorldInterface.h"
-#include "WorldState.h"
 #include "lvgl/src/libs/thorvg/rapidjson/document.h"
 #include "lvgl/src/libs/thorvg/rapidjson/stringbuffer.h"
 #include "lvgl/src/libs/thorvg/rapidjson/writer.h"
@@ -165,23 +164,17 @@ void CrashDumpHandler::writeWorldStateToFile(
         worldInfo.AddMember("removed_mass", world->getRemovedMass(), allocator);
 
         // Add world type information.
-        const char* worldTypeName = "";
-        switch (world->getWorldType()) {
-            case WorldType::RulesA:
-                worldTypeName = "RulesA";
-                break;
-            case WorldType::RulesB:
-                worldTypeName = "RulesB";
-                break;
-        }
-        worldInfo.AddMember("world_type", rapidjson::Value(worldTypeName, allocator), allocator);
+        worldInfo.AddMember("world_type", "World", allocator);
 
         doc.AddMember("world_info", worldInfo, allocator);
 
-        // Preserve complete world state.
-        WorldState state;
-        world->preserveState(state);
-        doc.AddMember("world_state", state.toJson(allocator), allocator);
+        // TODO: Serialize complete world state using world->toJSON()
+        // For now, just save basic info.
+        rapidjson::Value worldState(rapidjson::kObjectType);
+        worldState.AddMember("width", world->getWidth(), allocator);
+        worldState.AddMember("height", world->getHeight(), allocator);
+        worldState.AddMember("timestep", world->getTimestep(), allocator);
+        doc.AddMember("world_state", worldState, allocator);
 
         // Write to file.
         std::ofstream file_stream(filename);
@@ -227,7 +220,7 @@ void CrashDumpHandler::logDumpSummary(const std::string& filename, const char* r
     spdlog::info(
         "Mass: {:.3f} total, {:.3f} removed", world->getTotalMass(), world->getRemovedMass());
 
-    const char* worldTypeName = (world->getWorldType() == WorldType::RulesA) ? "RulesA" : "RulesB";
+    const char* worldTypeName = "World";
     spdlog::info("Physics: {}", worldTypeName);
     spdlog::info("=========================");
 }

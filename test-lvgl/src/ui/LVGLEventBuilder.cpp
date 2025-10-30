@@ -570,11 +570,9 @@ LVGLEventBuilder::ButtonMatrixBuilder& LVGLEventBuilder::ButtonMatrixBuilder::on
 }
 
 LVGLEventBuilder::ButtonMatrixBuilder& LVGLEventBuilder::ButtonMatrixBuilder::onWorldTypeSelect() {
-    return onSelect([](uint32_t index) {
-        // Map button index to WorldType.
-        ::WorldType type = (index == 0) ? ::WorldType::RulesA : ::WorldType::RulesB;
-        return Event{SwitchWorldTypeCommand{type}};
-    });
+    // World type switching removed - single world type now.
+    spdlog::debug("onWorldTypeSelect called (no-op)");
+    return *this;
 }
 
 // Builder configuration methods.
