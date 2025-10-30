@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "lvgl/lvgl.h"
+#include "lvgl/src/libs/thorvg/rapidjson/document.h"
 
 /**
  * \file
@@ -261,6 +262,16 @@ public:
 
     // ASCII visualization.
     std::string toAsciiCharacter() const override;
+
+    // =================================================================
+    // JSON SERIALIZATION
+    // =================================================================
+
+    // Serialize cell state to JSON.
+    rapidjson::Value toJson(rapidjson::Document::AllocatorType& allocator) const;
+
+    // Deserialize cell state from JSON.
+    static Cell fromJson(const rapidjson::Value& json);
 
 private:
     MaterialType material_type_; // Type of material in this cell.

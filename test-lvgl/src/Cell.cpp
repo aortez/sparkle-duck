@@ -1061,3 +1061,70 @@ std::string Cell::toAsciiCharacter() const
     // Return 2-character representation: material + fill level.
     return std::string(1, material_char) + std::to_string(fill_level);
 }
+
+// =================================================================
+// JSON SERIALIZATION
+// =================================================================
+
+rapidjson::Value Cell::toJson(rapidjson::Document::AllocatorType& allocator) const
+{
+    rapidjson::Value json(rapidjson::kObjectType);
+
+    // Material state.
+    json.AddMember("material_type", materialTypeToJson(material_type_, allocator), allocator);
+    json.AddMember("fill_ratio", fill_ratio_, allocator);
+
+    // Physics state.
+    json.AddMember("com", com_.toJson(allocator), allocator);
+    json.AddMember("velocity", velocity_.toJson(allocator), allocator);
+    json.AddMember("pressure", pressure_, allocator);
+
+    // Optional: Include pressure components for debugging/visualization.
+    json.AddMember("hydrostatic_component", hydrostatic_component_, allocator);
+    json.AddMember("dynamic_component", dynamic_component_, allocator);
+
+    return json;
+}
+
+Cell Cell::fromJson(const rapidjson::Value& json)
+{
+    if (!json.IsObject()) {
+        throw std::runtime_error("Cell::fromJson: JSON value must be an object");
+    }
+
+    // Validate required fields.
+    if (!json.HasMember("material_type") || !json.HasMember("fill_ratio")) {
+        throw std::runtime_error("Cell::fromJson: Missing required fields 'material_type' or 'fill_ratio'");
+    }
+
+    // Parse material type and fill ratio.
+    MaterialType material_type = materialTypeFromJson(json["material_type"]);
+    double fill_ratio = json["fill_ratio"].GetDouble();
+
+    // Create cell with material and fill.
+    Cell cell(material_type, fill_ratio);
+
+    // Parse optional physics state.
+    if (json.HasMember("com")) {
+        cell.com_ = Vector2d::fromJson(json["com"]);
+    }
+
+    if (json.HasMember("velocity")) {
+        cell.velocity_ = Vector2d::fromJson(json["velocity"]);
+    }
+
+    if (json.HasMember("pressure")) {
+        cell.pressure_ = json["pressure"].GetDouble();
+    }
+
+    // Parse optional pressure components.
+    if (json.HasMember("hydrostatic_component")) {
+        cell.hydrostatic_component_ = json["hydrostatic_component"].GetDouble();
+    }
+
+    if (json.HasMember("dynamic_component")) {
+        cell.dynamic_component_ = json["dynamic_component"].GetDouble();
+    }
+
+    return cell;
+}

@@ -18,6 +18,8 @@
 #include <memory>
 #include <vector>
 
+#include "lvgl/src/libs/thorvg/rapidjson/document.h"
+
 // Forward declarations
 class SimulatorUI;
 
@@ -340,6 +342,16 @@ public:
 
     // Material transfer computation - computes moves without processing them
     std::vector<MaterialMove> computeMaterialMoves(double deltaTime);
+
+    // =================================================================
+    // JSON SERIALIZATION
+    // =================================================================
+
+    // Serialize complete world state to JSON (lossless).
+    rapidjson::Document toJSON() const;
+
+    // Deserialize world state from JSON.
+    void fromJSON(const rapidjson::Document& doc);
 
 protected:
     // WorldInterface hook implementations

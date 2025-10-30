@@ -183,7 +183,9 @@ add_custom_target (run COMMAND ${EXECUTABLE_OUTPUT_PATH}/sparkle-duck DEPENDS sp
 add_executable(sparkle-duck-tests
     src/tests/Vector2d_test.cpp
     src/tests/Vector2dJSON_test.cpp
+    src/tests/CellJSON_test.cpp
     src/tests/MaterialTypeJSON_test.cpp
+    src/tests/WorldJSON_test.cpp
     src/tests/CrashDumpHandler_test.cpp
     src/tests/Vector2i_test.cpp
     src/tests/WorldVisual_test.cpp
