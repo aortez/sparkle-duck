@@ -1,4 +1,4 @@
-#include "core/Result.h"
+#include "../Result.h"
 #include <cassert>
 #include <iostream>
 #include <spdlog/spdlog.h>

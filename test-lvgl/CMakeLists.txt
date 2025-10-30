@@ -125,6 +125,7 @@ add_executable(sparkle-duck
     src/UIUpdateConsumer.cpp
     src/SimulationManager.cpp
     src/UIManager.cpp
+    src/network/CommandProcessor.cpp
     src/MaterialType.cpp
     src/WorldInterface.cpp
     src/WorldCalculatorBase.cpp
@@ -186,6 +187,7 @@ add_executable(sparkle-duck-tests
     src/tests/CellJSON_test.cpp
     src/tests/MaterialTypeJSON_test.cpp
     src/tests/WorldJSON_test.cpp
+    src/tests/CommandProcessor_test.cpp
     src/tests/CrashDumpHandler_test.cpp
     src/tests/Vector2i_test.cpp
     src/tests/WorldVisual_test.cpp
@@ -242,6 +244,7 @@ add_executable(sparkle-duck-tests
     src/UIUpdateConsumer.cpp
     src/SimulationManager.cpp
     src/UIManager.cpp
+    src/network/CommandProcessor.cpp
     src/MaterialType.cpp
     src/Cell.cpp
     src/World.cpp
