@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ApiCommands.h"
 #include "MaterialType.h"
 #include "SimulationStats.h"
 #include "WorldInterface.h"
@@ -640,6 +641,14 @@ using Event = std::variant<
     PrintAsciiDiagramCommand,
     SpawnDirtBallCommand,
     SelectMaterialCommand,
+
+    // API commands (network/remote control).
+    DirtSim::Api::CellGet::Cwc,
+    DirtSim::Api::CellSet::Cwc,
+    DirtSim::Api::GravitySet::Cwc,
+    DirtSim::Api::Reset::Cwc,
+    DirtSim::Api::StateGet::Cwc,
+    DirtSim::Api::StepN::Cwc,
 
     // State transitions
     OpenConfigCommand,

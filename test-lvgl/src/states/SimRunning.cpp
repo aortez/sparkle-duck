@@ -59,6 +59,148 @@ State::Any SimRunning::onEvent(const AdvanceSimulationCommand& /*cmd. */, DirtSi
     return *this;  // Stay in SimRunning.
 }
 
+State::Any SimRunning::onEvent(const Api::CellGet::Cwc& cwc, DirtSimStateMachine& dsm) {
+    using Response = Api::CellGet::Response;
+
+    // Validate coordinates.
+    if (!dsm.simulationManager || !dsm.simulationManager->getWorld()) {
+        cwc.sendResponse(Response::error(ApiError("No world available")));
+        return *this;
+    }
+
+    auto* world = dynamic_cast<World*>(dsm.simulationManager->getWorld());
+    if (!world) {
+        cwc.sendResponse(Response::error(ApiError("World type mismatch")));
+        return *this;
+    }
+
+    if (cwc.command.x < 0 || cwc.command.y < 0 ||
+        static_cast<uint32_t>(cwc.command.x) >= world->getWidth() ||
+        static_cast<uint32_t>(cwc.command.y) >= world->getHeight()) {
+        cwc.sendResponse(Response::error(ApiError("Invalid coordinates")));
+        return *this;
+    }
+
+    // Get cell and serialize.
+    rapidjson::Document cellJson(rapidjson::kObjectType);
+    auto& allocator = cellJson.GetAllocator();
+    const Cell& cell = world->at(cwc.command.x, cwc.command.y);
+    cellJson.CopyFrom(cell.toJson(allocator), allocator);
+
+    cwc.sendResponse(Response::okay({std::move(cellJson)}));
+    return *this;
+}
+
+State::Any SimRunning::onEvent(const Api::CellSet::Cwc& cwc, DirtSimStateMachine& dsm) {
+    using Response = Api::CellSet::Response;
+
+    // Validate world availability.
+    if (!dsm.simulationManager || !dsm.simulationManager->getWorld()) {
+        cwc.sendResponse(Response::error(ApiError("No world available")));
+        return *this;
+    }
+
+    WorldInterface* worldInterface = dsm.simulationManager->getWorld();
+
+    // Validate coordinates.
+    if (cwc.command.x < 0 || cwc.command.y < 0 ||
+        static_cast<uint32_t>(cwc.command.x) >= worldInterface->getWidth() ||
+        static_cast<uint32_t>(cwc.command.y) >= worldInterface->getHeight()) {
+        cwc.sendResponse(Response::error(ApiError("Invalid coordinates")));
+        return *this;
+    }
+
+    // Validate fill ratio.
+    if (cwc.command.fill < 0.0 || cwc.command.fill > 1.0) {
+        cwc.sendResponse(Response::error(ApiError("Fill must be between 0.0 and 1.0")));
+        return *this;
+    }
+
+    // Place material.
+    worldInterface->addMaterialAtCell(cwc.command.x, cwc.command.y, cwc.command.material, cwc.command.fill);
+
+    cwc.sendResponse(Response::okay(std::monostate{}));
+    return *this;
+}
+
+State::Any SimRunning::onEvent(const Api::GravitySet::Cwc& cwc, DirtSimStateMachine& dsm) {
+    using Response = Api::GravitySet::Response;
+
+    if (!dsm.simulationManager || !dsm.simulationManager->getWorld()) {
+        cwc.sendResponse(Response::error(ApiError("No world available")));
+        return *this;
+    }
+
+    dsm.simulationManager->getWorld()->setGravity(cwc.command.gravity);
+    spdlog::info("SimRunning: API set gravity to {}", cwc.command.gravity);
+
+    cwc.sendResponse(Response::okay(std::monostate{}));
+    return *this;
+}
+
+State::Any SimRunning::onEvent(const Api::Reset::Cwc& cwc, DirtSimStateMachine& dsm) {
+    using Response = Api::Reset::Response;
+
+    spdlog::info("SimRunning: API reset simulation");
+
+    if (dsm.simulationManager) {
+        dsm.simulationManager->reset();
+    }
+
+    stepCount = 0;
+    dsm.getSharedState().setCurrentStep(0);
+
+    cwc.sendResponse(Response::okay(std::monostate{}));
+    return *this;
+}
+
+State::Any SimRunning::onEvent(const Api::StateGet::Cwc& cwc, DirtSimStateMachine& dsm) {
+    using Response = Api::StateGet::Response;
+
+    if (!dsm.simulationManager || !dsm.simulationManager->getWorld()) {
+        cwc.sendResponse(Response::error(ApiError("No world available")));
+        return *this;
+    }
+
+    auto* world = dynamic_cast<World*>(dsm.simulationManager->getWorld());
+    if (!world) {
+        cwc.sendResponse(Response::error(ApiError("World type mismatch")));
+        return *this;
+    }
+
+    // Serialize complete world state.
+    rapidjson::Document worldJson = world->toJSON();
+
+    cwc.sendResponse(Response::okay({std::move(worldJson)}));
+    return *this;
+}
+
+State::Any SimRunning::onEvent(const Api::StepN::Cwc& cwc, DirtSimStateMachine& dsm) {
+    using Response = Api::StepN::Response;
+
+    if (!dsm.simulationManager || !dsm.simulationManager->getWorld()) {
+        cwc.sendResponse(Response::error(ApiError("No world available")));
+        return *this;
+    }
+
+    // Validate frames parameter.
+    if (cwc.command.frames <= 0) {
+        cwc.sendResponse(Response::error(ApiError("Frames must be positive")));
+        return *this;
+    }
+
+    // Step simulation.
+    for (int i = 0; i < cwc.command.frames; ++i) {
+        dsm.simulationManager->advanceTime(0.016); // ~60 FPS timestep.
+    }
+
+    uint32_t timestep = dsm.simulationManager->getWorld()->getTimestep();
+    spdlog::debug("SimRunning: API stepped {} frames, timestep now {}", cwc.command.frames, timestep);
+
+    cwc.sendResponse(Response::okay({timestep}));
+    return *this;
+}
+
 State::Any SimRunning::onEvent(const PauseCommand& /*cmd*/, DirtSimStateMachine& /*dsm. */) {
     spdlog::info("SimRunning: Pausing at step {}", stepCount);
     
