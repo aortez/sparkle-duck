@@ -356,6 +356,19 @@ State::Any SimRunning::onEvent(const SetFrictionStrengthCommand& cmd, DirtSimSta
     return *this;
 }
 
+State::Any SimRunning::onEvent(const SetContactFrictionStrengthCommand& cmd, DirtSimStateMachine& dsm) {
+    if (auto* simMgr = dsm.getSimulationManager()) {
+        if (auto* worldInterface = simMgr->getWorld()) {
+            // Cast to World to access friction calculator.
+            if (auto* world = dynamic_cast<World*>(worldInterface)) {
+                world->getFrictionCalculator().setFrictionStrength(cmd.strength);
+                spdlog::info("SimRunning: Set contact friction strength to {}", cmd.strength);
+            }
+        }
+    }
+    return *this;
+}
+
 State::Any SimRunning::onEvent(const SetCOMCohesionRangeCommand& cmd, DirtSimStateMachine& dsm) {
     if (auto* simMgr = dsm.getSimulationManager()) {
         if (auto* world = simMgr->getWorld()) {

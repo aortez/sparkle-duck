@@ -8,6 +8,7 @@
 #include "WorldAdhesionCalculator.h"
 #include "WorldCohesionCalculator.h"
 #include "WorldCollisionCalculator.h"
+#include "WorldFrictionCalculator.h"
 #include "WorldPressureCalculator.h"
 #include "WorldSupportCalculator.h"
 
@@ -241,7 +242,7 @@ public:
     void setViscosityStrength(double strength) override { viscosity_strength_ = strength; }
     double getViscosityStrength() const override { return viscosity_strength_; }
 
-    // Friction control.
+    // Friction control (velocity-dependent viscosity).
     void setFrictionStrength(double strength) { friction_strength_ = strength; }
     double getFrictionStrength() const { return friction_strength_; }
 
@@ -336,9 +337,13 @@ public:
     WorldSupportCalculator& getSupportCalculator() { return support_calculator_; }
     const WorldSupportCalculator& getSupportCalculator() const { return support_calculator_; }
 
-    // Adhesion calculation methods moved to WorldAdhesionCalculator
+    // Adhesion calculation methods moved to WorldAdhesionCalculator.
     WorldAdhesionCalculator& getAdhesionCalculator() { return adhesion_calculator_; }
     const WorldAdhesionCalculator& getAdhesionCalculator() const { return adhesion_calculator_; }
+
+    // Friction calculation methods moved to WorldFrictionCalculator.
+    WorldFrictionCalculator& getFrictionCalculator() { return friction_calculator_; }
+    const WorldFrictionCalculator& getFrictionCalculator() const { return friction_calculator_; }
 
     // Material transfer computation - computes moves without processing them
     std::vector<MaterialMove> computeMaterialMoves(double deltaTime);
@@ -479,6 +484,9 @@ private:
 
     // Adhesion calculation.
     mutable WorldAdhesionCalculator adhesion_calculator_;
+
+    // Friction calculation.
+    mutable WorldFrictionCalculator friction_calculator_;
 
     // UI interface.
     std::unique_ptr<SimulatorUI> ui_; // Owned UI (legacy architecture)

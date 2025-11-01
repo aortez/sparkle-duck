@@ -378,26 +378,42 @@ void SimulatorUI::createControlButtons()
         .valueLabel("%.0f", 120, -20)
         .buildOrLog();
 
-    // Create friction toggle slider (integrated switch + slider).
+    // Create friction toggle slider (velocity-dependent viscosity).
     LVGLEventBuilder::toggleSlider(screen_, event_router_)
         .label("Friction")
-        .position(RIGHT_COLUMN_X, 450, LV_ALIGN_TOP_LEFT)
+        .position(RIGHT_COLUMN_X, 440, LV_ALIGN_TOP_LEFT)
         .sliderWidth(CONTROL_WIDTH)
-        .range(0, 100)
+        .range(0, 1000)
         .value(100)
         .defaultValue(100)
         .valueScale(0.01)
-        .valueFormat("%.2f")
+        .valueFormat("%.1f")
         .initiallyEnabled(true)
         .onValueChange([](double value) {
             return Event{SetFrictionStrengthCommand{value}};
         })
         .buildOrLog();
 
+    // Create contact friction toggle slider (surface-to-surface friction).
+    LVGLEventBuilder::toggleSlider(screen_, event_router_)
+        .label("Contact")
+        .position(RIGHT_COLUMN_X, 520, LV_ALIGN_TOP_LEFT)
+        .sliderWidth(CONTROL_WIDTH)
+        .range(0, 1000)
+        .value(100)
+        .defaultValue(100)
+        .valueScale(0.01)
+        .valueFormat("%.1f")
+        .initiallyEnabled(true)
+        .onValueChange([](double value) {
+            return Event{SetContactFrictionStrengthCommand{value}};
+        })
+        .buildOrLog();
+
     // Create adhesion toggle slider (integrated switch + slider).
     adhesion_switch_ = LVGLEventBuilder::toggleSlider(screen_, event_router_)
                            .label("Adhesion")
-                           .position(RIGHT_COLUMN_X, 530, LV_ALIGN_TOP_LEFT)
+                           .position(RIGHT_COLUMN_X, 600, LV_ALIGN_TOP_LEFT)
                            .sliderWidth(CONTROL_WIDTH)
                            .range(0, 1000)
                            .value(500)
@@ -411,26 +427,10 @@ void SimulatorUI::createControlButtons()
                            })
                            .buildOrLog();
 
-    // Create left throw toggle.
-    LVGLEventBuilder::labeledSwitch(screen_, event_router_)
-        .label("Left Throw")
-        .position(RIGHT_COLUMN_X, 610, LV_ALIGN_TOP_LEFT)
-        .onLeftThrowToggle()
-        .checked(false)
-        .buildOrLog();
-
-    // Create right throw toggle.
-    LVGLEventBuilder::labeledSwitch(screen_, event_router_)
-        .label("Right Throw")
-        .position(RIGHT_COLUMN_X, 640, LV_ALIGN_TOP_LEFT)
-        .onRightThrowToggle()
-        .checked(true)
-        .buildOrLog();
-
     // Create quadrant toggle.
     LVGLEventBuilder::labeledSwitch(screen_, event_router_)
         .label("Quadrant")
-        .position(RIGHT_COLUMN_X, 670, LV_ALIGN_TOP_LEFT)
+        .position(RIGHT_COLUMN_X, 680, LV_ALIGN_TOP_LEFT)
         .onQuadrantToggle()
         .checked(true)
         .buildOrLog();
@@ -438,8 +438,24 @@ void SimulatorUI::createControlButtons()
     // Create water column toggle.
     LVGLEventBuilder::labeledSwitch(screen_, event_router_)
         .label("Water Column")
-        .position(RIGHT_COLUMN_X, 700, LV_ALIGN_TOP_LEFT)
+        .position(RIGHT_COLUMN_X, 710, LV_ALIGN_TOP_LEFT)
         .onWaterColumnToggle()
+        .checked(true)
+        .buildOrLog();
+
+    // Create left throw toggle.
+    LVGLEventBuilder::labeledSwitch(screen_, event_router_)
+        .label("Left Throw")
+        .position(RIGHT_COLUMN_X, 740, LV_ALIGN_TOP_LEFT)
+        .onLeftThrowToggle()
+        .checked(false)
+        .buildOrLog();
+
+    // Create right throw toggle.
+    LVGLEventBuilder::labeledSwitch(screen_, event_router_)
+        .label("Right Throw")
+        .position(RIGHT_COLUMN_X, 770, LV_ALIGN_TOP_LEFT)
+        .onRightThrowToggle()
         .checked(true)
         .buildOrLog();
 
@@ -447,7 +463,7 @@ void SimulatorUI::createControlButtons()
     LVGLEventBuilder::button(screen_, event_router_)
         .onScreenshot() // Call event method first.
         .size(CONTROL_WIDTH, 50)
-        .position(RIGHT_COLUMN_X, 730, LV_ALIGN_TOP_LEFT)
+        .position(RIGHT_COLUMN_X, 800, LV_ALIGN_TOP_LEFT)
         .text("Screenshot")
         .buildOrLog();
 
@@ -455,7 +471,7 @@ void SimulatorUI::createControlButtons()
     LVGLEventBuilder::button(screen_, event_router_)
         .onPrintAscii()
         .size(CONTROL_WIDTH, 50)
-        .position(RIGHT_COLUMN_X, 790, LV_ALIGN_TOP_LEFT)
+        .position(RIGHT_COLUMN_X, 860, LV_ALIGN_TOP_LEFT)
         .text("Print ASCII")
         .buildOrLog();
 
@@ -463,7 +479,7 @@ void SimulatorUI::createControlButtons()
     LVGLEventBuilder::button(screen_, event_router_)
         .onSpawnDirtBall()
         .size(CONTROL_WIDTH, 50)
-        .position(RIGHT_COLUMN_X, 850, LV_ALIGN_TOP_LEFT)
+        .position(RIGHT_COLUMN_X, 920, LV_ALIGN_TOP_LEFT)
         .text("Spawn ball")
         .buildOrLog();
 

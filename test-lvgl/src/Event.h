@@ -333,11 +333,19 @@ struct SetViscosityStrengthCommand {
 };
 
 /**
- * @brief Set friction strength factor.
+ * @brief Set friction strength factor (velocity-dependent viscosity).
  */
 struct SetFrictionStrengthCommand {
     double strength;
     static constexpr const char* name() { return "SetFrictionStrengthCommand"; }
+};
+
+/**
+ * @brief Set contact friction strength factor (surface-to-surface friction).
+ */
+struct SetContactFrictionStrengthCommand {
+    double strength;
+    static constexpr const char* name() { return "SetContactFrictionStrengthCommand"; }
 };
 
 /**
@@ -602,6 +610,7 @@ using Event = std::variant<
     SetAdhesionStrengthCommand,
     SetViscosityStrengthCommand,
     SetFrictionStrengthCommand,
+    SetContactFrictionStrengthCommand,
     SetCOMCohesionRangeCommand,
     SetAirResistanceCommand,
     ToggleHydrostaticPressureCommand,

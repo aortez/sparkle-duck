@@ -153,17 +153,17 @@ static std::array<MaterialProperties, 8> MATERIAL_PROPERTIES = { {
     // Zero pressure diffusion, acts as barrier and reflector.
     {
         .density                      = 1000.0, // Effectively infinite.
-        .elasticity                   = 0.9,    // High bounce for collisions.
-        .cohesion                     = 1.0,    // Maximum (immobile).
-        .adhesion                     = 1.0,    // Everything sticks to walls.
+        .elasticity                   = 0.9,
+        .cohesion                     = 1.0,
+        .adhesion                     = 0.5,
         .com_mass_constant            = 0.0,    // N/A (immobile).
         .pressure_diffusion           = 0.0,    // Complete barrier.
-        .viscosity                    = 1.0,    // Infinite (never flows).
-        .motion_sensitivity           = 0.0,    // N/A (immobile).
-        .static_friction_coefficient  = 1.0,    // N/A (immobile).
-        .kinetic_friction_coefficient = 1.0,    // N/A (immobile).
-        .stick_velocity               = 0.0,    // N/A (immobile).
-        .friction_transition_width    = 0.01,   // N/A (immobile).
+        .viscosity                    = 1.0,
+        .motion_sensitivity           = 0.0,
+        .static_friction_coefficient  = 1.0,
+        .kinetic_friction_coefficient = 1.0,
+        .stick_velocity               = 0.0,
+        .friction_transition_width    = 0.01,
         .is_fluid                     = false,
         .is_rigid                     = true
     }

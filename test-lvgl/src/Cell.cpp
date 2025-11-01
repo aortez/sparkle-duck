@@ -546,20 +546,10 @@ void Cell::draw(lv_obj_t* parent, uint32_t x, uint32_t y, bool debugDraw)
         return; // Skip redraw if not needed.
     }
 
-    // Use debug mode from parameter.
-    spdlog::trace(
-        "[RENDER] Cell::draw() called for cell ({},{}) - debugDraw={}, hydrostatic={}, dynamic={}",
-        x,
-        y,
-        debugDraw,
-        hydrostatic_component_,
-        dynamic_component_);
     if (debugDraw) {
-        spdlog::trace("[RENDER] Entering drawDebug() mode");
         drawDebug(parent, x, y);
     }
     else {
-        spdlog::trace("[RENDER] Entering drawNormal() mode");
         drawNormal(parent, x, y);
     }
 
@@ -591,10 +581,10 @@ void Cell::drawNormal(lv_obj_t* parent, uint32_t x, uint32_t y)
     lv_layer_t layer;
     lv_canvas_init_layer(canvas_, &layer);
 
-    // Draw black background for consistency with debug mode.
+    // Draw black background.
     lv_draw_rect_dsc_t bg_rect_dsc;
     lv_draw_rect_dsc_init(&bg_rect_dsc);
-    bg_rect_dsc.bg_color = lv_color_hex(0x000000); // Black background.
+    bg_rect_dsc.bg_color = lv_color_hex(0x000000);
     bg_rect_dsc.bg_opa = LV_OPA_COVER;
     bg_rect_dsc.border_width = 0;
     lv_area_t bg_coords = {
@@ -607,6 +597,7 @@ void Cell::drawNormal(lv_obj_t* parent, uint32_t x, uint32_t y)
         lv_color_t material_color;
 
         // Use same material color mapping as debug mode.
+        // TODO: If this is true, then we should dedup this.
         switch (material_type_) {
             case MaterialType::DIRT:
                 material_color = lv_color_hex(0xA0522D); // Sienna brown.
@@ -639,12 +630,12 @@ void Cell::drawNormal(lv_obj_t* parent, uint32_t x, uint32_t y)
         // Calculate opacity based on fill ratio.
         lv_opa_t opacity = static_cast<lv_opa_t>(fill_ratio_ * static_cast<double>(LV_OPA_COVER));
 
-        // Draw material layer with enhanced border to match debug mode.
+        // Draw material layer border.
         lv_draw_rect_dsc_t rect_dsc;
         lv_draw_rect_dsc_init(&rect_dsc);
         rect_dsc.bg_color = material_color;
         rect_dsc.bg_opa =
-            static_cast<lv_opa_t>(opacity * 0.7); // More transparent to match debug mode.
+            static_cast<lv_opa_t>(opacity * 0.7);
         rect_dsc.border_color = material_color;
         rect_dsc.border_opa = opacity;
         rect_dsc.border_width = 2;
@@ -737,11 +728,11 @@ void Cell::drawDebug(lv_obj_t* parent, uint32_t x, uint32_t y)
             lv_opa_t opacity =
                 static_cast<lv_opa_t>(fill_ratio_ * static_cast<double>(LV_OPA_COVER));
 
-            // Draw material layer with enhanced border for debug.
+            // Draw material layer border.
             lv_draw_rect_dsc_t rect_dsc;
             lv_draw_rect_dsc_init(&rect_dsc);
             rect_dsc.bg_color = material_color;
-            rect_dsc.bg_opa = static_cast<lv_opa_t>(opacity * 0.7); // More transparent for overlay.
+            rect_dsc.bg_opa = static_cast<lv_opa_t>(opacity * 0.7);
             rect_dsc.border_color = material_color;
             rect_dsc.border_opa = opacity;
             rect_dsc.border_width = 2;
@@ -969,12 +960,18 @@ void Cell::drawDebug(lv_obj_t* parent, uint32_t x, uint32_t y)
             }
 
             // Draw friction indicator as inner square.
-            const int margin = 8; // Margin from cell edges.
+            // Scale square size based on friction coefficient.
+            // When normalized_friction = 1.0 (static), margin = 8 (large square).
+            // When normalized_friction = 0.0 (kinetic), margin = Cell::WIDTH/2 (zero size square).
+            const int min_margin = 8;
+            const int max_margin = Cell::WIDTH / 2;
+            int margin = static_cast<int>(max_margin - (max_margin - min_margin) * normalized_friction);
+
             lv_draw_rect_dsc_t friction_rect_dsc;
             lv_draw_rect_dsc_init(&friction_rect_dsc);
             friction_rect_dsc.bg_color = friction_color;
             friction_rect_dsc.bg_opa =
-                static_cast<lv_opa_t>(0.5 * static_cast<double>(LV_OPA_COVER)); // Semi-transparent.
+                static_cast<lv_opa_t>(0.5 * static_cast<double>(LV_OPA_COVER));
             friction_rect_dsc.border_width = 0;
             friction_rect_dsc.radius = 1;
 

@@ -2,6 +2,8 @@
 
 ## Status: In Progress
 
+NOTE: we need to add an intermediate layer for commands - they should be deserilized from Json into a command, _then_ fed to the state machine for processing.  I don't know if we need CommandProcessor, let's discuss.
+
 **Completed:**
 - ✅ Draw area refactoring (World is headless, draw area passed as parameter)
 - ✅ Removed RulesA/WorldType (single World implementation now)

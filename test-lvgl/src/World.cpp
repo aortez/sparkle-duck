@@ -62,6 +62,7 @@ World::World(uint32_t width, uint32_t height)
       pressure_calculator_(*this),
       collision_calculator_(*this),
       adhesion_calculator_(*this),
+      friction_calculator_(*this),
       ui_ref_(nullptr)
 {
     spdlog::info("Creating World: {}x{} grid with pure-material physics", width_, height_);
@@ -803,6 +804,9 @@ void World::resolveForces(double deltaTime)
 
     // Apply cohesion and adhesion forces.
     applyCohesionForces();
+
+    // Apply contact-based friction forces.
+    friction_calculator_.calculateAndApplyFrictionForces(deltaTime);
 
     // Now resolve all accumulated forces using viscosity model.
     WorldSupportCalculator support_calc(*this);

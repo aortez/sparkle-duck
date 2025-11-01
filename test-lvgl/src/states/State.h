@@ -105,6 +105,7 @@ struct SimRunning {
     Any onEvent(const SetAdhesionStrengthCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const SetViscosityStrengthCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const SetFrictionStrengthCommand& cmd, DirtSimStateMachine& dsm);
+    Any onEvent(const SetContactFrictionStrengthCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const SetCOMCohesionRangeCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const SetAirResistanceCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const ToggleHydrostaticPressureCommand& cmd, DirtSimStateMachine& dsm);

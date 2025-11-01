@@ -135,6 +135,7 @@ add_executable(sparkle-duck
     src/WorldAirResistanceCalculator.cpp
     src/WorldCollisionCalculator.cpp
     src/WorldAdhesionCalculator.cpp
+    src/WorldFrictionCalculator.cpp
     src/WorldDiagramGeneratorEmoji.cpp
     src/MaterialPicker.cpp
     src/CrashDumpHandler.cpp
@@ -256,6 +257,7 @@ add_executable(sparkle-duck-tests
     src/WorldAirResistanceCalculator.cpp
     src/WorldCollisionCalculator.cpp
     src/WorldAdhesionCalculator.cpp
+    src/WorldFrictionCalculator.cpp
     src/WorldDiagramGeneratorEmoji.cpp
     src/MaterialPicker.cpp
     src/CrashDumpHandler.cpp
