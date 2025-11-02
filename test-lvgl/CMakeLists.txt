@@ -193,7 +193,7 @@ add_executable(sparkle-duck-server
     src/server/states/Startup.cpp
     src/server/states/Idle.cpp
     src/server/states/SimRunning.cpp
-    src/server/states/Paused.cpp
+    src/server/states/SimPaused.cpp
     src/server/states/Shutdown.cpp
     src/server/scenarios/ScenarioWorldEventGenerator.cpp
     src/server/scenarios/ScenarioRegistry.cpp
@@ -295,10 +295,9 @@ add_executable(sparkle-duck-tests
     src/server/StateMachine.cpp
     src/server/EventProcessor.cpp
     src/server/states/Startup.cpp
-    src/server/states/MainMenu.cpp
+    src/server/states/Idle.cpp
     src/server/states/SimRunning.cpp
     src/server/states/SimPaused.cpp
-    src/server/states/Config.cpp
     src/server/states/Shutdown.cpp
     src/server/scenarios/ScenarioWorldEventGenerator.cpp
     src/server/scenarios/ScenarioRegistry.cpp

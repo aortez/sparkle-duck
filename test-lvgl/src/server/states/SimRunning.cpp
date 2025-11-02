@@ -217,7 +217,7 @@ State::Any SimRunning::onEvent(const PauseCommand& /*cmd*/, StateMachine& /*dsm.
     spdlog::info("SimRunning: Pausing at step {}", stepCount);
     
     // Move the current state into SimPaused.
-    return Paused{std::move(*this)};
+    return SimPaused{std::move(*this)};
 }
 
 State::Any SimRunning::onEvent(const ResetSimulationCommand& /*cmd*/, StateMachine& dsm)

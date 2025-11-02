@@ -19,14 +19,14 @@ namespace State {
 struct Startup;
 struct Idle;
 struct SimRunning;
-struct Paused;
+struct SimPaused;
 struct Shutdown;
 
 using Any = std::variant<
     Startup,
     Idle,
     SimRunning,
-    Paused,
+    SimPaused,
     Shutdown
 >;
 
@@ -134,16 +134,15 @@ struct SimRunning {
 /**
  * @brief Paused simulation state - preserves SimRunning context.
  */
-struct Paused {
-    SimRunning previousState;  // Preserves World, stepCount, etc.
+struct SimPaused {
+    SimRunning previousState;  // Preserves World, stepCount, run parameters.
 
     void onEnter(StateMachine& dsm);
     void onExit(StateMachine& dsm);
 
     Any onEvent(const Api::Exit::Cwc& cwc, StateMachine& dsm);
-    // Future: SimRun (resume), SimStop (destroy world → Idle), query commands.
 
-    static constexpr const char* name() { return "Paused"; }
+    static constexpr const char* name() { return "SimPaused"; }
 };
 
 /**
