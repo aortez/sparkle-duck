@@ -744,15 +744,15 @@ void VisualTestBase::logWorldState(const World* world, const std::string& contex
     for (uint32_t y = 0; y < world->getHeight(); y++) {
         for (uint32_t x = 0; x < world->getWidth(); x++) {
             const Cell& cell = world->at(x, y);
-            if (cell.getFillRatio() > 0.001) {  // Only log cells with meaningful mass.
+            if (cell.fill_ratio > 0.001) {  // Only log cells with meaningful mass.
                 // Build the log message dynamically based on what's present.
                 std::stringstream ss;
                 ss << "  Cell(" << x << "," << y << ") - "
-                   << "Material: " << getMaterialName(cell.getMaterialType())
-                   << ", Fill: " << std::fixed << std::setprecision(6) << cell.getFillRatio();
+                   << "Material: " << getMaterialName(cell.material_type)
+                   << ", Fill: " << std::fixed << std::setprecision(6) << cell.fill_ratio;
                 
                 // Only log velocity if it's non-zero.
-                const Vector2d& velocity = cell.getVelocity();
+                const Vector2d& velocity = cell.velocity;
                 if (std::abs(velocity.x) > VELOCITY_LOG_THRESHOLD || 
                     std::abs(velocity.y) > VELOCITY_LOG_THRESHOLD) {
                     ss << ", Velocity: (" << std::fixed << std::setprecision(3) 
@@ -761,13 +761,13 @@ void VisualTestBase::logWorldState(const World* world, const std::string& contex
                 
                 // Always log COM.
                 ss << ", COM: (" << std::fixed << std::setprecision(3) 
-                   << cell.getCOM().x << "," << cell.getCOM().y << ")";
+                   << cell.com.x << "," << cell.com.y << ")";
                 
                 // Check if cell has any significant pressure components.
                 double hydrostaticPressure = cell.getHydrostaticPressure();
                 double dynamicPressure = cell.getDynamicPressure();
                 double debugPressure = cell.getDynamicPressure();
-                const Vector2d& gradient = cell.getPressureGradient();
+                const Vector2d& gradient = cell.pressure_gradient;
                 
                 bool hasPressure = (hydrostaticPressure > PRESSURE_LOG_THRESHOLD || 
                                    dynamicPressure > PRESSURE_LOG_THRESHOLD ||
@@ -792,7 +792,7 @@ void VisualTestBase::logWorldState(const World* world, const std::string& contex
                 }
                 
                 spdlog::debug(ss.str());
-                totalMass += cell.getFillRatio();
+                totalMass += cell.fill_ratio;
             }
         }
     }

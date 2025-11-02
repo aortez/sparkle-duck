@@ -20,7 +20,7 @@ WorldCohesionCalculator::CohesionForce WorldCohesionCalculator::calculateCohesio
         return { 0.0, 0 };
     }
 
-    const MaterialProperties& props = getMaterialProperties(cell.getMaterialType());
+    const MaterialProperties& props = getMaterialProperties(cell.material_type);
     double material_cohesion = props.cohesion;
     uint32_t connected_neighbors = 0;
 
@@ -34,8 +34,8 @@ WorldCohesionCalculator::CohesionForce WorldCohesionCalculator::calculateCohesio
 
             if (isValidCell(nx, ny)) {
                 const Cell& neighbor = getCellAt(nx, ny);
-                if (neighbor.getMaterialType() == cell.getMaterialType()
-                    && neighbor.getFillRatio() > MIN_MATTER_THRESHOLD) {
+                if (neighbor.material_type == cell.material_type
+                    && neighbor.fill_ratio > MIN_MATTER_THRESHOLD) {
 
                     // Weight by neighbor's fill ratio for partial cells.
                     connected_neighbors += 1; // Count as 1 neighbor.
@@ -46,7 +46,7 @@ WorldCohesionCalculator::CohesionForce WorldCohesionCalculator::calculateCohesio
 
     // Check for metal neighbors that provide structural support.
     uint32_t metal_neighbors = 0;
-    if (cell.getMaterialType() == MaterialType::METAL) {
+    if (cell.material_type == MaterialType::METAL) {
         // Count metal neighbors for structural support.
         for (int dx = -1; dx <= 1; dx++) {
             for (int dy = -1; dy <= 1; dy++) {
@@ -57,8 +57,8 @@ WorldCohesionCalculator::CohesionForce WorldCohesionCalculator::calculateCohesio
 
                 if (isValidCell(nx, ny)) {
                     const Cell& neighbor = getCellAt(nx, ny);
-                    if (neighbor.getMaterialType() == MaterialType::METAL
-                        && neighbor.getFillRatio() > 0.5) {
+                    if (neighbor.material_type == MaterialType::METAL
+                        && neighbor.fill_ratio > 0.5) {
                         metal_neighbors++;
                     }
                 }
@@ -79,7 +79,7 @@ WorldCohesionCalculator::CohesionForce WorldCohesionCalculator::calculateCohesio
         support_factor = 1.0;
         spdlog::trace(
             "Metal structural network support for {} at ({},{}) with {} metal neighbors",
-            getMaterialName(cell.getMaterialType()),
+            getMaterialName(cell.material_type),
             x,
             y,
             metal_neighbors);
@@ -89,7 +89,7 @@ WorldCohesionCalculator::CohesionForce WorldCohesionCalculator::calculateCohesio
         support_factor = 1.0;
         spdlog::trace(
             "Full vertical support for {} at ({},{})",
-            getMaterialName(cell.getMaterialType()),
+            getMaterialName(cell.material_type),
             x,
             y);
     }
@@ -98,7 +98,7 @@ WorldCohesionCalculator::CohesionForce WorldCohesionCalculator::calculateCohesio
         support_factor = 0.5;
         spdlog::trace(
             "Horizontal support only for {} at ({},{})",
-            getMaterialName(cell.getMaterialType()),
+            getMaterialName(cell.material_type),
             x,
             y);
     }
@@ -107,19 +107,19 @@ WorldCohesionCalculator::CohesionForce WorldCohesionCalculator::calculateCohesio
         support_factor = World::MIN_SUPPORT_FACTOR; // 0.05.
         spdlog::trace(
             "No structural support for {} at ({},{})",
-            getMaterialName(cell.getMaterialType()),
+            getMaterialName(cell.material_type),
             x,
             y);
     }
 
     // Resistance magnitude = cohesion × connection strength × own fill ratio × support factor.
     double resistance =
-        material_cohesion * connected_neighbors * cell.getFillRatio() * support_factor;
+        material_cohesion * connected_neighbors * cell.fill_ratio * support_factor;
 
     spdlog::trace(
         "Cohesion calculation for {} at ({},{}): neighbors={}, vertical_support={}, "
         "horizontal_support={}, support_factor={:.2f}, resistance={:.3f}",
-        getMaterialName(cell.getMaterialType()),
+        getMaterialName(cell.material_type),
         x,
         y,
         connected_neighbors,
@@ -143,14 +143,14 @@ WorldCohesionCalculator::COMCohesionForce WorldCohesionCalculator::calculateCOMC
     const double cell_mass = cell.getMass();
 
     // Check if COM is in outer 25% area (beyond ±0.5) for mass-based mode.
-    const Vector2d com = cell.getCOM();
+    const Vector2d com = cell.com;
     bool in_outer_zone =
         (std::abs(com.x) > World::COM_COHESION_INNER_THRESHOLD
          || std::abs(com.y) > World::COM_COHESION_INNER_THRESHOLD);
 
     // Calculate cell world position including COM offset.
     const Vector2d cell_world_pos(
-        static_cast<double>(x) + cell.getCOM().x, static_cast<double>(y) + cell.getCOM().y);
+        static_cast<double>(x) + cell.com.x, static_cast<double>(y) + cell.com.y);
     Vector2d neighbor_center_sum(0.0, 0.0);
     double total_weight = 0.0;
     double total_neighbor_mass = 0.0;
@@ -167,14 +167,14 @@ WorldCohesionCalculator::COMCohesionForce WorldCohesionCalculator::calculateCOMC
 
             if (isValidCell(nx, ny)) {
                 const Cell& neighbor = getCellAt(nx, ny);
-                if (neighbor.getMaterialType() == cell.getMaterialType()
-                    && neighbor.getFillRatio() > MIN_MATTER_THRESHOLD) {
+                if (neighbor.material_type == cell.material_type
+                    && neighbor.fill_ratio > MIN_MATTER_THRESHOLD) {
 
                     // Get neighbor's world position including its COM offset.
                     Vector2d neighbor_world_pos(
-                        static_cast<double>(nx) + neighbor.getCOM().x,
-                        static_cast<double>(ny) + neighbor.getCOM().y);
-                    double weight = neighbor.getFillRatio();
+                        static_cast<double>(nx) + neighbor.com.x,
+                        static_cast<double>(ny) + neighbor.com.y);
+                    double weight = neighbor.fill_ratio;
                     double neighbor_mass = neighbor.getMass();
 
                     neighbor_center_sum += neighbor_world_pos * weight;
@@ -213,7 +213,7 @@ WorldCohesionCalculator::COMCohesionForce WorldCohesionCalculator::calculateCOMC
     }
 
     // Force magnitude calculation
-    const MaterialProperties& props = getMaterialProperties(cell.getMaterialType());
+    const MaterialProperties& props = getMaterialProperties(cell.material_type);
     double base_cohesion = props.cohesion;
     double force_magnitude;
 
@@ -224,7 +224,7 @@ WorldCohesionCalculator::COMCohesionForce WorldCohesionCalculator::calculateCOMC
         double max_connections = static_cast<double>((2 * range + 1) * (2 * range + 1) - 1);
         double connection_factor =
             static_cast<double>(connection_count) / max_connections; // Normalize to [0,1]
-        force_magnitude = base_cohesion * connection_factor * distance_factor * cell.getFillRatio();
+        force_magnitude = base_cohesion * connection_factor * distance_factor * cell.fill_ratio;
 
         // Prevent excessive COM forces.
         double max_com_force = base_cohesion * 2.0; // Cap at 2x base cohesion.
@@ -236,7 +236,7 @@ WorldCohesionCalculator::COMCohesionForce WorldCohesionCalculator::calculateCOMC
     spdlog::trace(
         "COM cohesion for {} at ({},{}): connections={}, distance={:.3f}, force_mag={:.3f}, "
         "direction=({:.3f},{:.3f})",
-        getMaterialName(cell.getMaterialType()),
+        getMaterialName(cell.material_type),
         x,
         y,
         connection_count,

@@ -765,10 +765,10 @@ State::Any SimRunning::onEvent(const ToggleWaterColumnCommand& /*cmd*/, StateMac
                         Cell& cell = worldB->at(x, y);
                         // Only add water to non-wall cells.
                         if (!cell.isWall()) {
-                            cell.setMaterialType(MaterialType::WATER);
+                            cell.material_type = MaterialType::WATER;
                             cell.setFillRatio(1.0);
                             cell.setCOM(Vector2d{0.0, 0.0});
-                            cell.setVelocity(Vector2d{0.0, 0.0});
+                            cell.velocity = Vector2d{0.0, 0.0};
                         }
                     }
                 }
@@ -780,11 +780,11 @@ State::Any SimRunning::onEvent(const ToggleWaterColumnCommand& /*cmd*/, StateMac
                     for (uint32_t x = 1; x <= 5 && x < worldB->getWidth(); ++x) {
                         Cell& cell = worldB->at(x, y);
                         // Only clear water cells, leave walls and other materials.
-                        if (cell.getMaterialType() == MaterialType::WATER && !cell.isWall()) {
-                            cell.setMaterialType(MaterialType::AIR);
+                        if (cell.material_type == MaterialType::WATER && !cell.isWall()) {
+                            cell.material_type = MaterialType::AIR;
                             cell.setFillRatio(0.0);
                             cell.setCOM(Vector2d{0.0, 0.0});
-                            cell.setVelocity(Vector2d{0.0, 0.0});
+                            cell.velocity = Vector2d{0.0, 0.0};
                         }
                     }
                 }
@@ -839,10 +839,10 @@ State::Any SimRunning::onEvent(const ToggleQuadrantCommand& /*cmd*/, StateMachin
                         Cell& cell = worldB->at(x, y);
                         // Only add dirt to non-wall cells.
                         if (!cell.isWall()) {
-                            cell.setMaterialType(MaterialType::DIRT);
+                            cell.material_type = MaterialType::DIRT;
                             cell.setFillRatio(1.0);
                             cell.setCOM(Vector2d{0.0, 0.0});
-                            cell.setVelocity(Vector2d{0.0, 0.0});
+                            cell.velocity = Vector2d{0.0, 0.0};
                         }
                     }
                 }
@@ -854,11 +854,11 @@ State::Any SimRunning::onEvent(const ToggleQuadrantCommand& /*cmd*/, StateMachin
                     for (uint32_t x = startX; x < worldB->getWidth(); ++x) {
                         Cell& cell = worldB->at(x, y);
                         // Only clear dirt cells, leave walls and other materials.
-                        if (cell.getMaterialType() == MaterialType::DIRT && !cell.isWall()) {
-                            cell.setMaterialType(MaterialType::AIR);
+                        if (cell.material_type == MaterialType::DIRT && !cell.isWall()) {
+                            cell.material_type = MaterialType::AIR;
                             cell.setFillRatio(0.0);
                             cell.setCOM(Vector2d{0.0, 0.0});
-                            cell.setVelocity(Vector2d{0.0, 0.0});
+                            cell.velocity = Vector2d{0.0, 0.0};
                         }
                     }
                 }

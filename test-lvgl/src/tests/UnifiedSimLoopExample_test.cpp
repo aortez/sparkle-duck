@@ -126,8 +126,8 @@ TEST_F(UnifiedSimLoopExampleTest, SimpleFallingWaterTracking) {
             Cell* waterCell = nullptr;
             for (uint32_t y = 0; y < world->getHeight(); y++) {
                 for (uint32_t x = 0; x < world->getWidth(); x++) {
-                    if (world->at(x, y).getMaterialType() == MaterialType::WATER &&
-                        world->at(x, y).getFillRatio() > 0.5) {
+                    if (world->at(x, y).material_type == MaterialType::WATER &&
+                        world->at(x, y).fill_ratio > 0.5) {
                         waterCell = &world->at(x, y);
                         lowestY = y;
                         break;
@@ -198,8 +198,8 @@ TEST_F(UnifiedSimLoopExampleTest, PressureTrackingExample) {
     Cell& cell2 = world->at(2, 1);
     
     // Give them opposing velocities for collision.
-    cell1.setVelocity(Vector2d{2.0, 0.0});
-    cell2.setVelocity(Vector2d{-2.0, 0.0});
+    cell1.velocity = Vector2d{2.0, 0.0};
+    cell2.velocity = Vector2d{-2.0, 0.0};
     
     showInitialState(world.get(), "Two water cells colliding");
     
@@ -280,8 +280,8 @@ TEST_F(UnifiedSimLoopExampleTest, StageProgressionExample) {
             for (uint32_t y = 0; y < world->getHeight(); y++) {
                 for (uint32_t x = 0; x < world->getWidth(); x++) {
                     auto& cell = world->at(x, y);
-                    if (cell.getMaterialType() == MaterialType::WATER &&
-                        cell.getVelocity().magnitude() > 0.1) {
+                    if (cell.material_type == MaterialType::WATER &&
+                        cell.velocity.magnitude() > 0.1) {
                         stages[0].completed = true;
                         stages[0].completedAtStep = step;
                         spdlog::info("Stage 1 complete at step {}: {}", 
@@ -294,7 +294,7 @@ TEST_F(UnifiedSimLoopExampleTest, StageProgressionExample) {
         
         if (!stages[1].completed) {
             // Check if water at hole position.
-            if (world->at(1, 2).getMaterialType() == MaterialType::WATER) {
+            if (world->at(1, 2).material_type == MaterialType::WATER) {
                 stages[1].completed = true;
                 stages[1].completedAtStep = step;
                 spdlog::info("Stage 2 complete at step {}: {}", 
@@ -306,7 +306,7 @@ TEST_F(UnifiedSimLoopExampleTest, StageProgressionExample) {
             // Check if water past the wall (x > 1).
             for (uint32_t x = 2; x < world->getWidth(); x++) {
                 for (uint32_t y = 0; y < world->getHeight(); y++) {
-                    if (world->at(x, y).getMaterialType() == MaterialType::WATER) {
+                    if (world->at(x, y).material_type == MaterialType::WATER) {
                         stages[2].completed = true;
                         stages[2].completedAtStep = step;
                         spdlog::info("Stage 3 complete at step {}: {}", 
@@ -381,8 +381,8 @@ TEST_F(UnifiedSimLoopExampleTest, RestartableTestExample) {
             // Find sand.
             for (uint32_t y = 0; y < world->getHeight(); ++y) {
                 for (uint32_t x = 0; x < world->getWidth(); ++x) {
-                    if (world->at(x, y).getMaterialType() == MaterialType::SAND &&
-                        world->at(x, y).getFillRatio() > 0.5) {
+                    if (world->at(x, y).material_type == MaterialType::SAND &&
+                        world->at(x, y).fill_ratio > 0.5) {
                         if (y >= world->getHeight() - 1) {
                             hitBottom = true;
                         }

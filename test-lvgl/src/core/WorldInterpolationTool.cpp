@@ -138,35 +138,35 @@ Cell WorldInterpolationTool::createInterpolatedCellB(
 {
     // Interpolate material type (choose dominant).
     MaterialType materialType = interpolateMaterialType(
-        cell00.getMaterialType(), cell10.getMaterialType(),
-        cell01.getMaterialType(), cell11.getMaterialType(), fx, fy);
+        cell00.material_type, cell10.material_type,
+        cell01.material_type, cell11.material_type, fx, fy);
 
     // Interpolate fill ratio.
     double fillRatio = bilinearInterpolateDouble(
-        cell00.getFillRatio(),
-        cell10.getFillRatio(),
-        cell01.getFillRatio(),
-        cell11.getFillRatio(),
+        cell00.fill_ratio,
+        cell10.fill_ratio,
+        cell01.fill_ratio,
+        cell11.fill_ratio,
         fx,
         fy);
 
     // Interpolate center of mass.
     Vector2d com = bilinearInterpolateVector2d(
-        cell00.getCOM(), cell10.getCOM(), cell01.getCOM(), cell11.getCOM(), fx, fy);
+        cell00.com, cell10.com, cell01.com, cell11.com, fx, fy);
 
     // Interpolate velocity.
     Vector2d velocity = bilinearInterpolateVector2d(
-        cell00.getVelocity(),
-        cell10.getVelocity(),
-        cell01.getVelocity(),
-        cell11.getVelocity(),
+        cell00.velocity,
+        cell10.velocity,
+        cell01.velocity,
+        cell11.velocity,
         fx,
         fy);
 
     // Create the interpolated cell.
     Cell result(materialType, std::max(0.0, std::min(1.0, fillRatio)));
     result.setCOM(com);
-    result.setVelocity(velocity);
+    result.velocity = velocity;
 
     return result;
 }

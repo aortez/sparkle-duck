@@ -57,7 +57,7 @@ bool WorldSupportCalculator::hasVerticalSupport(uint32_t x, uint32_t y) const
                     "supported)",
                     x,
                     y,
-                    getMaterialName(below.getMaterialType()),
+                    getMaterialName(below.material_type),
                     dy);
                 return true;
             }
@@ -67,7 +67,7 @@ bool WorldSupportCalculator::hasVerticalSupport(uint32_t x, uint32_t y) const
                     "unsupported)",
                     x,
                     y,
-                    getMaterialName(below.getMaterialType()),
+                    getMaterialName(below.material_type),
                     dy);
                 return false;
             }
@@ -105,7 +105,7 @@ bool WorldSupportCalculator::hasHorizontalSupport(uint32_t x, uint32_t y) const
         return false;
     }
 
-    const MaterialProperties& cell_props = getMaterialProperties(cell.getMaterialType());
+    const MaterialProperties& cell_props = getMaterialProperties(cell.material_type);
 
     // Check immediate neighbors only (no BFS for horizontal support)
     for (int dx = -1; dx <= 1; dx++) {
@@ -121,7 +121,7 @@ bool WorldSupportCalculator::hasHorizontalSupport(uint32_t x, uint32_t y) const
             if (neighbor.isEmpty()) continue;
 
             const MaterialProperties& neighbor_props =
-                getMaterialProperties(neighbor.getMaterialType());
+                getMaterialProperties(neighbor.material_type);
 
             // Check for rigid support: high-density neighbor with strong adhesion.
             if (neighbor_props.density > RIGID_DENSITY_THRESHOLD) {
@@ -134,7 +134,7 @@ bool WorldSupportCalculator::hasHorizontalSupport(uint32_t x, uint32_t y) const
                         "{:.3f})",
                         x,
                         y,
-                        getMaterialName(neighbor.getMaterialType()),
+                        getMaterialName(neighbor.material_type),
                         mutual_adhesion);
                     return true;
                 }
@@ -164,7 +164,7 @@ bool WorldSupportCalculator::hasStructuralSupport(uint32_t x, uint32_t y) const
     // Support conditions (in order of priority):
 
     // 1. WALL material is always considered structurally supported.
-    if (cell.getMaterialType() == MaterialType::WALL) {
+    if (cell.material_type == MaterialType::WALL) {
         return true;
     }
 
@@ -175,7 +175,7 @@ bool WorldSupportCalculator::hasStructuralSupport(uint32_t x, uint32_t y) const
 
     // 3. High-density materials provide structural support.
     // METAL has density 7.8, so it acts as structural anchor.
-    const MaterialProperties& props = getMaterialProperties(cell.getMaterialType());
+    const MaterialProperties& props = getMaterialProperties(cell.material_type);
     if (props.density > 5.0) {
         return true;
     }
@@ -219,10 +219,10 @@ bool WorldSupportCalculator::hasStructuralSupport(uint32_t x, uint32_t y) const
 
                 // Check for immediate structural support.
                 // Walls only provide support to rigid materials, not fluids.
-                if (neighbor.getMaterialType() == MaterialType::WALL) {
+                if (neighbor.material_type == MaterialType::WALL) {
                     // Only rigid materials can be structurally supported by walls.
                     const MaterialProperties& cell_props =
-                        getMaterialProperties(cell.getMaterialType());
+                        getMaterialProperties(cell.material_type);
                     if (cell_props.is_rigid) {
                         return true;
                     }
@@ -235,21 +235,21 @@ bool WorldSupportCalculator::hasStructuralSupport(uint32_t x, uint32_t y) const
 
                 // High-density materials act as anchors.
                 const MaterialProperties& neighbor_props =
-                    getMaterialProperties(neighbor.getMaterialType());
+                    getMaterialProperties(neighbor.material_type);
                 if (neighbor_props.density > 5.0) {
                     spdlog::trace(
                         "hasStructuralSupport({},{}) = true (found high-density {} at distance {})",
                         x,
                         y,
-                        getMaterialName(neighbor.getMaterialType()),
+                        getMaterialName(neighbor.material_type),
                         distance + 1);
                     return true;
                 }
 
                 // Continue BFS only through connected materials (same type)
                 // This prevents "floating through air" false positives.
-                if (neighbor.getMaterialType() == cell.getMaterialType()
-                    && neighbor.getFillRatio() > MIN_MATTER_THRESHOLD) {
+                if (neighbor.material_type == cell.material_type
+                    && neighbor.fill_ratio > MIN_MATTER_THRESHOLD) {
                     search_queue.push({ { nx, ny }, distance + 1 });
                 }
             }
@@ -274,7 +274,7 @@ double WorldSupportCalculator::calculateDistanceToSupport(uint32_t x, uint32_t y
         return MAX_SUPPORT_DISTANCE; // No material = no support needed.
     }
 
-    MaterialType material = cell.getMaterialType();
+    MaterialType material = cell.material_type;
 
     // Use simpler 2D array for distance tracking (avoid Vector2i comparisons)
     std::vector<std::vector<int>> distances(
@@ -322,8 +322,8 @@ double WorldSupportCalculator::calculateDistanceToSupport(uint32_t x, uint32_t y
                 // Follow paths through connected material.
                 // Either same material, or structural support material (metal, walls)
                 bool canConnect = false;
-                if (nextCell.getMaterialType() == material
-                    && nextCell.getFillRatio() > MIN_MATTER_THRESHOLD) {
+                if (nextCell.material_type == material
+                    && nextCell.fill_ratio > MIN_MATTER_THRESHOLD) {
                     canConnect = true; // Same material connection.
                 }
                 else if (!nextCell.isEmpty() && hasStructuralSupport(nx, ny)) {

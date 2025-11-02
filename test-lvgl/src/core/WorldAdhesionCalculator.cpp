@@ -15,7 +15,7 @@ WorldAdhesionCalculator::AdhesionForce WorldAdhesionCalculator::calculateAdhesio
         return { { 0.0, 0.0 }, 0.0, MaterialType::AIR, 0 };
     }
 
-    const MaterialProperties& props = getMaterialProperties(cell.getMaterialType());
+    const MaterialProperties& props = getMaterialProperties(cell.material_type);
     Vector2d total_force(0.0, 0.0);
     uint32_t contact_count = 0;
     MaterialType strongest_attractor = MaterialType::AIR;
@@ -32,12 +32,12 @@ WorldAdhesionCalculator::AdhesionForce WorldAdhesionCalculator::calculateAdhesio
             if (isValidCell(nx, ny)) {
                 const Cell& neighbor = getCellAt(nx, ny);
 
-                if (neighbor.getMaterialType() != cell.getMaterialType()
-                    && neighbor.getFillRatio() > MIN_MATTER_THRESHOLD) {
+                if (neighbor.material_type != cell.material_type
+                    && neighbor.fill_ratio > MIN_MATTER_THRESHOLD) {
 
                     // Calculate mutual adhesion (geometric mean)
                     const MaterialProperties& neighbor_props =
-                        getMaterialProperties(neighbor.getMaterialType());
+                        getMaterialProperties(neighbor.material_type);
                     double mutual_adhesion = std::sqrt(props.adhesion * neighbor_props.adhesion);
 
                     // Direction vector toward neighbor (normalized)
@@ -47,15 +47,15 @@ WorldAdhesionCalculator::AdhesionForce WorldAdhesionCalculator::calculateAdhesio
                     // Force strength weighted by fill ratios and distance.
                     double distance_weight =
                         (std::abs(dx) + std::abs(dy) == 1) ? 1.0 : 0.707; // Adjacent vs diagonal.
-                    double force_strength = mutual_adhesion * neighbor.getFillRatio()
-                        * cell.getFillRatio() * distance_weight;
+                    double force_strength = mutual_adhesion * neighbor.fill_ratio
+                        * cell.fill_ratio * distance_weight;
 
                     total_force += direction * force_strength;
                     contact_count++;
 
                     if (mutual_adhesion > max_adhesion) {
                         max_adhesion = mutual_adhesion;
-                        strongest_attractor = neighbor.getMaterialType();
+                        strongest_attractor = neighbor.material_type;
                     }
                 }
             }

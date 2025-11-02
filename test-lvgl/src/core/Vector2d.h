@@ -1,7 +1,6 @@
 #pragma once
 
-#include "lvgl/src/libs/thorvg/rapidjson/document.h"
-#include "lvgl/src/libs/thorvg/rapidjson/writer.h"
+#include <nlohmann/json.hpp>
 #include <string>
 
 struct Vector2d {
@@ -25,9 +24,9 @@ struct Vector2d {
     Vector2d rotateBy(double radians) const;
     Vector2d perpendicular() const;
 
-    // JSON serialization support
-    rapidjson::Value toJson(rapidjson::Document::AllocatorType& allocator) const;
-    static Vector2d fromJson(const rapidjson::Value& json);
+    // JSON serialization.
+    nlohmann::json toJson() const;
+    static Vector2d fromJson(const nlohmann::json& json);
 
     // Operator overloads for more natural syntax.
     Vector2d operator+(const Vector2d& other) const;

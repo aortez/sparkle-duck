@@ -53,7 +53,7 @@ World::World(uint32_t width, uint32_t height)
       last_drag_cell_x_(-1),
       last_drag_cell_y_(-1),
       has_floating_particle_(false),
-      floating_particle_(MaterialType::AIR, 0.0),
+      floating_particle_{MaterialType::AIR, 0.0},
       floating_particle_pixel_x_(0.0),
       floating_particle_pixel_y_(0.0),
       dragged_velocity_(0.0, 0.0),
@@ -73,7 +73,7 @@ World::World(uint32_t width, uint32_t height)
 
     // Initialize with air.
     for (auto& cell : cells_) {
-        cell = Cell(MaterialType::AIR, 0.0);
+        cell = Cell{MaterialType::AIR, 0.0};
     }
 
     // Set up boundary walls if enabled.
@@ -125,7 +125,7 @@ World::World(const World& other)
       last_drag_cell_x_(-1),
       last_drag_cell_y_(-1),
       has_floating_particle_(false),
-      floating_particle_(MaterialType::AIR, 0.0),
+      floating_particle_{MaterialType::AIR, 0.0},
       floating_particle_pixel_x_(0.0),
       floating_particle_pixel_y_(0.0),
       dragged_velocity_(0.0, 0.0),
@@ -361,8 +361,8 @@ void World::startDragging(int pixelX, int pixelY)
         is_dragging_ = true;
         drag_start_x_ = cellX;
         drag_start_y_ = cellY;
-        dragged_material_ = cell.getMaterialType();
-        dragged_amount_ = cell.getFillRatio();
+        dragged_material_ = cell.material_type;
+        dragged_amount_ = cell.fill_ratio;
 
         // Initialize drag position tracking.
         last_drag_cell_x_ = -1;
@@ -380,10 +380,10 @@ void World::startDragging(int pixelX, int pixelY)
 
         // Create floating particle for drag interaction.
         has_floating_particle_ = true;
-        floating_particle_.setMaterialType(dragged_material_);
+        floating_particle_.material_type = dragged_material_;
         floating_particle_.setFillRatio(dragged_amount_);
         floating_particle_.setCOM(dragged_com_);
-        floating_particle_.setVelocity(dragged_velocity_);
+        floating_particle_.velocity = dragged_velocity_;
         floating_particle_pixel_x_ = static_cast<double>(pixelX);
         floating_particle_pixel_y_ = static_cast<double>(pixelY);
 
@@ -431,7 +431,7 @@ void World::updateDrag(int pixelX, int pixelY)
             const auto& prev = recent_positions_[recent_positions_.size() - 2];
             double dx = static_cast<double>(pixelX - prev.first) / Cell::WIDTH;
             double dy = static_cast<double>(pixelY - prev.second) / Cell::HEIGHT;
-            floating_particle_.setVelocity(Vector2d{dx, dy});
+            floating_particle_.velocity = Vector2d{dx, dy};
 
             // Check for collisions with the target cell.
             if (collision_calculator_.checkFloatingParticleCollision(
@@ -486,10 +486,10 @@ void World::endDragging(int pixelX, int pixelY)
     if (isValidCell(cellX, cellY)) {
         // Place the material with calculated velocity and COM.
         Cell& targetCell = at(cellX, cellY);
-        targetCell.setMaterialType(dragged_material_);
+        targetCell.material_type = dragged_material_;
         targetCell.setFillRatio(dragged_amount_);
         targetCell.setCOM(dragged_com_);
-        targetCell.setVelocity(dragged_velocity_);
+        targetCell.velocity = dragged_velocity_;
 
         spdlog::debug(
             "Ended drag: placed {} at cell ({},{}) with velocity ({:.2f},{:.2f})",
@@ -528,7 +528,7 @@ void World::restoreLastDragCell()
     // Restore material to the original drag start location.
     if (isValidCell(drag_start_x_, drag_start_y_)) {
         Cell& originCell = at(drag_start_x_, drag_start_y_);
-        originCell.setMaterialType(dragged_material_);
+        originCell.material_type = dragged_material_;
         originCell.setFillRatio(dragged_amount_);
         spdlog::debug("Restored dragged material to origin ({},{})", drag_start_x_, drag_start_y_);
     }
@@ -639,8 +639,8 @@ double World::getTotalMass() const
                     "DEBUGGING: Cell {} has mass={:.3f} material={} fill_ratio={:.3f}",
                     cellCount - 1,
                     cellMass,
-                    static_cast<int>(cell.getMaterialType()),
-                    cell.getFillRatio());
+                    static_cast<int>(cell.material_type),
+                    cell.fill_ratio);
             }
         }
     }
@@ -753,7 +753,7 @@ void World::applyPressureForces()
             }
 
             // Get total pressure for this cell.
-            double total_pressure = cell.getPressure();
+            double total_pressure = cell.pressure;
             if (total_pressure < MIN_MATTER_THRESHOLD) {
                 continue;
             }
@@ -841,10 +841,10 @@ void World::resolveForces(double deltaTime)
             }
 
             // Get the total pending force (net driving force).
-            Vector2d net_driving_force = cell.getPendingForce();
+            Vector2d net_driving_force = cell.pending_force;
 
             // Get material properties.
-            const MaterialProperties& props = getMaterialProperties(cell.getMaterialType());
+            const MaterialProperties& props = getMaterialProperties(cell.material_type);
 
             // Calculate support factor (1.0 if supported, 0.0 if not).
             double support_factor = support_calc.hasStructuralSupport(x, y) ? 1.0 : 0.0;
@@ -859,14 +859,14 @@ void World::resolveForces(double deltaTime)
                 getMotionStateMultiplier(motion_state, props.motion_sensitivity);
 
             // Calculate velocity-dependent friction coefficient.
-            double velocity_magnitude = cell.getVelocity().magnitude();
+            double velocity_magnitude = cell.velocity.magnitude();
             double friction_coefficient = getFrictionCoefficient(velocity_magnitude, props);
 
             // Apply global friction strength multiplier.
             friction_coefficient = 1.0 + (friction_coefficient - 1.0) * friction_strength_;
 
             // Cache the friction coefficient for visualization.
-            cell.setCachedFrictionCoefficient(friction_coefficient);
+            cell.cached_friction_coefficient = friction_coefficient;
 
             // Combine viscosity with friction and motion state.
             double effective_viscosity =
@@ -874,7 +874,7 @@ void World::resolveForces(double deltaTime)
 
             // Apply continuous damping with friction (no thresholds).
             double damping_factor = 1.0
-                + (effective_viscosity * viscosity_strength_ * cell.getFillRatio()
+                + (effective_viscosity * viscosity_strength_ * cell.fill_ratio
                    * support_factor);
 
             // Ensure damping factor is never zero or negative to prevent division by zero.
@@ -885,19 +885,18 @@ void World::resolveForces(double deltaTime)
             // Store damping info for visualization (X=friction_coefficient, Y=damping_factor).
             // Only store if viscosity is actually enabled and having an effect.
             if (viscosity_strength_ > 0.0 && props.viscosity > 0.0) {
-                cell.setAccumulatedCohesionForce(Vector2d{friction_coefficient, damping_factor});
+                cell.accumulated_cohesion_force = Vector2d{friction_coefficient, damping_factor};
             }
             else {
-                cell.setAccumulatedCohesionForce(
-                    Vector2d{0.0, 0.0}); // Clear when viscosity is off.
+                cell.accumulated_cohesion_force = {}; // Clear when viscosity is off.
             }
 
             // Calculate velocity change from forces.
             Vector2d velocity_change = net_driving_force / damping_factor * deltaTime;
 
             // Update velocity.
-            Vector2d new_velocity = cell.getVelocity() + velocity_change;
-            cell.setVelocity(new_velocity);
+            Vector2d new_velocity = cell.velocity + velocity_change;
+            cell.velocity = new_velocity;
 
             // Debug logging.
             if (net_driving_force.mag() > 0.001) {
@@ -907,7 +906,7 @@ void World::resolveForces(double deltaTime)
                     "vel_change: ({:.3f},{:.3f}), new_vel: ({:.3f},{:.3f})",
                     x,
                     y,
-                    getMaterialName(cell.getMaterialType()),
+                    getMaterialName(cell.material_type),
                     net_driving_force.x,
                     net_driving_force.y,
                     props.viscosity,
@@ -992,24 +991,22 @@ std::vector<MaterialMove> World::computeMaterialMoves(double deltaTime)
 
             // Store forces in cell for visualization.
             // Note: Cohesion force field is now repurposed in resolveForces() for damping info.
-            cell.setAccumulatedAdhesionForce(
-                adhesion.force_direction * effective_adhesion_magnitude);
-            cell.setAccumulatedCOMCohesionForce(
-                com_cohesion.force_direction * effective_com_cohesion_magnitude);
+            cell.accumulated_adhesion_force = adhesion.force_direction * effective_adhesion_magnitude;
+            cell.accumulated_com_cohesion_force = com_cohesion.force_direction * effective_com_cohesion_magnitude;
 
             // NOTE: Force calculation and resistance checking now handled in resolveForces().
             // This method only needs to handle material movement based on COM positions.
 
             // Debug: Check if cell has any velocity or interesting COM.
-            Vector2d current_velocity = cell.getVelocity();
-            Vector2d oldCOM = cell.getCOM();
+            Vector2d current_velocity = cell.velocity;
+            Vector2d oldCOM = cell.com;
             if (current_velocity.length() > 0.01 || std::abs(oldCOM.x) > 0.5
                 || std::abs(oldCOM.y) > 0.5) {
                 spdlog::debug(
                     "Cell ({},{}) {} - Velocity: ({:.3f},{:.3f}), COM: ({:.3f},{:.3f})",
                     x,
                     y,
-                    getMaterialName(cell.getMaterialType()),
+                    getMaterialName(cell.material_type),
                     current_velocity.x,
                     current_velocity.y,
                     oldCOM.x,
@@ -1017,7 +1014,7 @@ std::vector<MaterialMove> World::computeMaterialMoves(double deltaTime)
             }
 
             // Update COM based on velocity (with proper deltaTime integration).
-            Vector2d newCOM = cell.getCOM() + cell.getVelocity() * deltaTime;
+            Vector2d newCOM = cell.com + cell.velocity * deltaTime;
 
             // Enhanced: Check if COM crosses any boundary [-1,1] for universal collision detection.
             std::vector<Vector2i> crossed_boundaries =
@@ -1027,7 +1024,7 @@ std::vector<MaterialMove> World::computeMaterialMoves(double deltaTime)
                 spdlog::debug(
                     "Boundary crossings detected for {} at ({},{}) with COM ({:.2f},{:.2f}) -> {} "
                     "crossings",
-                    getMaterialName(cell.getMaterialType()),
+                    getMaterialName(cell.material_type),
                     x,
                     y,
                     newCOM.x,
@@ -1057,7 +1054,7 @@ std::vector<MaterialMove> World::computeMaterialMoves(double deltaTime)
                             "Collision detected: {} vs {} at ({},{}) -> ({},{}) - Type: {}, "
                             "Energy: {:.3f}",
                             getMaterialName(move.material),
-                            getMaterialName(at(targetPos).getMaterialType()),
+                            getMaterialName(at(targetPos).material_type),
                             x,
                             y,
                             targetPos.x,
@@ -1072,7 +1069,7 @@ std::vector<MaterialMove> World::computeMaterialMoves(double deltaTime)
                     // Hit world boundary - apply elastic reflection immediately.
                     spdlog::debug(
                         "World boundary hit: {} at ({},{}) direction=({},{}) - applying reflection",
-                        getMaterialName(cell.getMaterialType()),
+                        getMaterialName(cell.material_type),
                         x,
                         y,
                         direction.x,
@@ -1091,7 +1088,7 @@ std::vector<MaterialMove> World::computeMaterialMoves(double deltaTime)
             }
             else {
                 // Reflections occurred. Update non-reflected components.
-                Vector2d currentCOM = cell.getCOM();
+                Vector2d currentCOM = cell.com;
                 Vector2d updatedCOM = currentCOM;
 
                 // Check which boundaries were NOT crossed and update those components.
@@ -1135,9 +1132,9 @@ void World::processMaterialMoves()
         // Apply any pressure from excess that couldn't transfer.
         if (move.pressure_from_excess > 0.0) {
             // If target is a wall, pressure reflects back to source.
-            if (toCell.getMaterialType() == MaterialType::WALL) {
+            if (toCell.material_type == MaterialType::WALL) {
                 fromCell.setDynamicPressure(
-                    fromCell.getDynamicPressure() + move.pressure_from_excess);
+                    fromCell.dynamic_component + move.pressure_from_excess);
 
                 spdlog::debug(
                     "Wall blocked transfer: source cell({},{}) pressure increased by {:.3f}",
@@ -1147,7 +1144,7 @@ void World::processMaterialMoves()
             }
             else {
                 // Normal materials receive the pressure.
-                toCell.setDynamicPressure(toCell.getDynamicPressure() + move.pressure_from_excess);
+                toCell.setDynamicPressure(toCell.dynamic_component + move.pressure_from_excess);
 
                 spdlog::debug(
                     "Applied pressure from excess: cell({},{}) pressure increased by {:.3f}",
@@ -1162,7 +1159,7 @@ void World::processMaterialMoves()
             spdlog::debug(
                 "Processing collision: {} vs {} at ({},{}) -> ({},{}) - Type: {}",
                 getMaterialName(move.material),
-                getMaterialName(toCell.getMaterialType()),
+                getMaterialName(toCell.material_type),
                 move.fromX,
                 move.fromY,
                 move.toX,
@@ -1293,8 +1290,8 @@ void World::setHydrostaticPressureEnabled(bool enabled)
     spdlog::info("Clearing all pressure values");
     for (auto& cell : cells_) {
         cell.setHydrostaticPressure(0.0);
-        if (cell.getDynamicPressure() < MIN_MATTER_THRESHOLD) {
-            cell.setPressureGradient(Vector2d{0.0, 0.0});
+        if (cell.dynamic_component < MIN_MATTER_THRESHOLD) {
+            cell.pressure_gradient = Vector2d{0.0, 0.0};
         }
     }
 }
@@ -1307,8 +1304,8 @@ void World::setDynamicPressureEnabled(bool enabled)
     spdlog::info("Clearing all pressure values");
     for (auto& cell : cells_) {
         cell.setDynamicPressure(0.0);
-        if (cell.getHydrostaticPressure() < MIN_MATTER_THRESHOLD) {
-            cell.setPressureGradient(Vector2d{0.0, 0.0});
+        if (cell.hydrostatic_component < MIN_MATTER_THRESHOLD) {
+            cell.pressure_gradient = Vector2d{0.0, 0.0};
         }
     }
 
@@ -1443,8 +1440,8 @@ rapidjson::Document World::toJSON() const
         for (uint32_t x = 0; x < width_; ++x) {
             const Cell& cell = at(x, y);
             // Only serialize cells with material.
-            if (cell.getFillRatio() > Cell::MIN_FILL_THRESHOLD ||
-                cell.getMaterialType() != MaterialType::AIR) {
+            if (cell.fill_ratio > Cell::MIN_FILL_THRESHOLD ||
+                cell.material_type != MaterialType::AIR) {
                 rapidjson::Value cellEntry(rapidjson::kObjectType);
                 cellEntry.AddMember("x", x, allocator);
                 cellEntry.AddMember("y", y, allocator);

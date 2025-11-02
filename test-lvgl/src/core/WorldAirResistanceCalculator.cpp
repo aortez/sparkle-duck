@@ -20,7 +20,7 @@ Vector2d WorldAirResistanceCalculator::calculateAirResistance(
     }
 
     // Get cell velocity.
-    Vector2d velocity = cell.getVelocity();
+    Vector2d velocity = cell.velocity;
     double velocity_magnitude = velocity.mag();
 
     // No resistance if not moving.
@@ -29,7 +29,7 @@ Vector2d WorldAirResistanceCalculator::calculateAirResistance(
     }
 
     // Get material properties for logging.
-    MaterialType material = cell.getMaterialType();
+    MaterialType material = cell.material_type;
     double density = getMaterialDensity(material);
 
     // Calculate air resistance force using proper physics.

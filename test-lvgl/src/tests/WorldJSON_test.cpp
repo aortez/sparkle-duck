@@ -70,17 +70,17 @@ protected:
                 const Cell& origCell = original.at(x, y);
                 const Cell& restCell = restored.at(x, y);
 
-                EXPECT_EQ(origCell.getMaterialType(), restCell.getMaterialType())
+                EXPECT_EQ(origCell.material_type, restCell.material_type)
                     << "Mismatch at (" << x << "," << y << ")";
-                EXPECT_DOUBLE_EQ(origCell.getFillRatio(), restCell.getFillRatio())
+                EXPECT_DOUBLE_EQ(origCell.fill_ratio, restCell.fill_ratio)
                     << "Mismatch at (" << x << "," << y << ")";
-                EXPECT_DOUBLE_EQ(origCell.getCOM().x, restCell.getCOM().x)
+                EXPECT_DOUBLE_EQ(origCell.com.x, restCell.com.x)
                     << "Mismatch at (" << x << "," << y << ")";
-                EXPECT_DOUBLE_EQ(origCell.getCOM().y, restCell.getCOM().y)
+                EXPECT_DOUBLE_EQ(origCell.com.y, restCell.com.y)
                     << "Mismatch at (" << x << "," << y << ")";
-                EXPECT_DOUBLE_EQ(origCell.getVelocity().x, restCell.getVelocity().x)
+                EXPECT_DOUBLE_EQ(origCell.velocity.x, restCell.velocity.x)
                     << "Mismatch at (" << x << "," << y << ")";
-                EXPECT_DOUBLE_EQ(origCell.getVelocity().y, restCell.getVelocity().y)
+                EXPECT_DOUBLE_EQ(origCell.velocity.y, restCell.velocity.y)
                     << "Mismatch at (" << x << "," << y << ")";
             }
         }
@@ -297,8 +297,8 @@ TEST_F(WorldJSONTest, ResizeOnDeserialize) {
     EXPECT_EQ(world2.getHeight(), 10u);
 
     // Cell data should be preserved.
-    EXPECT_EQ(world2.at(5, 5).getMaterialType(), MaterialType::WATER);
-    EXPECT_DOUBLE_EQ(world2.at(5, 5).getFillRatio(), 1.0);
+    EXPECT_EQ(world2.at(5, 5).material_type, MaterialType::WATER);
+    EXPECT_DOUBLE_EQ(world2.at(5, 5).fill_ratio, 1.0);
 }
 
 TEST_F(WorldJSONTest, ComplexWorldState) {
@@ -359,15 +359,15 @@ TEST_F(WorldJSONTest, CellVelocitiesPreserved) {
 
     // Add cell with initial velocity.
     world.addMaterialAtCell(5, 2, MaterialType::WATER, 1.0);
-    world.at(5, 2).setVelocity(Vector2d{0.3, -0.5});
+    world.at(5, 2).velocity = Vector2d{0.3, -0.5};
 
     auto json = world.toJSON();
     World world2(10, 10);
     world2.fromJSON(json);
 
     const Cell& restored_cell = world2.at(5, 2);
-    EXPECT_DOUBLE_EQ(restored_cell.getVelocity().x, 0.3);
-    EXPECT_DOUBLE_EQ(restored_cell.getVelocity().y, -0.5);
+    EXPECT_DOUBLE_EQ(restored_cell.velocity.x, 0.3);
+    EXPECT_DOUBLE_EQ(restored_cell.velocity.y, -0.5);
 }
 
 TEST_F(WorldJSONTest, CellCOMPreserved) {
@@ -383,8 +383,8 @@ TEST_F(WorldJSONTest, CellCOMPreserved) {
     world2.fromJSON(json);
 
     const Cell& restored_cell = world2.at(7, 3);
-    EXPECT_DOUBLE_EQ(restored_cell.getCOM().x, 0.25);
-    EXPECT_DOUBLE_EQ(restored_cell.getCOM().y, -0.15);
+    EXPECT_DOUBLE_EQ(restored_cell.com.x, 0.25);
+    EXPECT_DOUBLE_EQ(restored_cell.com.y, -0.15);
 }
 
 TEST_F(WorldJSONTest, PressureStatePreserved) {
@@ -393,7 +393,7 @@ TEST_F(WorldJSONTest, PressureStatePreserved) {
 
     // Add cells with pressure.
     world.addMaterialAtCell(4, 4, MaterialType::WATER, 1.0);
-    world.at(4, 4).setPressure(15.3);
+    world.at(4, 4).pressure = 15.3;
     world.at(4, 4).setHydrostaticPressure(10.0);
     world.at(4, 4).setDynamicPressure(5.3);
 
@@ -402,7 +402,7 @@ TEST_F(WorldJSONTest, PressureStatePreserved) {
     world2.fromJSON(json);
 
     const Cell& restored_cell = world2.at(4, 4);
-    EXPECT_DOUBLE_EQ(restored_cell.getPressure(), 15.3);
+    EXPECT_DOUBLE_EQ(restored_cell.pressure, 15.3);
     EXPECT_DOUBLE_EQ(restored_cell.getHydrostaticComponent(), 10.0);
     EXPECT_DOUBLE_EQ(restored_cell.getDynamicComponent(), 5.3);
 }
@@ -427,8 +427,8 @@ TEST_F(WorldJSONTest, AllMaterialTypesPreserved) {
     world2.fromJSON(json);
 
     for (size_t i = 0; i < materials.size(); ++i) {
-        EXPECT_EQ(world2.at(i, i).getMaterialType(), materials[i]);
-        EXPECT_DOUBLE_EQ(world2.at(i, i).getFillRatio(), 0.9);
+        EXPECT_EQ(world2.at(i, i).material_type, materials[i]);
+        EXPECT_DOUBLE_EQ(world2.at(i, i).fill_ratio, 0.9);
     }
 }
 

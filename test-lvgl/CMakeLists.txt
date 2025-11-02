@@ -29,6 +29,8 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(nlohmann_json)
 
+# qlibs/reflect is header-only, downloaded to src/core/reflect
+
 set(CONF_PATH "${PROJECT_SOURCE_DIR}/lv_conf.h")
 
 foreach(BACKEND_NAME "SDL" "LINUX_DRM" "LINUX_FBDEV" "X11" "WAYLAND" "OPENGLES")

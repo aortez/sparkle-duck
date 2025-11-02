@@ -50,20 +50,46 @@
   - ✅ sparkle-duck renamed to sparkle-duck-ui (client-only)
   - ⏳ Final issue: rapidjson → nlohmann/json migration
 
-**Next Task: nlohmann/json Migration**
+**Completed (2025-11-02): Aggregate Types + Reflection-Based Serialization**
 
-**Problem:** Server currently uses LVGL's bundled rapidjson which depends on `lv_malloc/lv_free`. This prevents true headless operation.
+**Phase 1: Remove Obsolete Abstractions** ✅
+- ✅ Removed CellInterface (only 1 implementation)
+- ✅ Removed WorldInterface (only 1 implementation)
+- ✅ Removed PressureSystem enum (WorldA legacy)
+- ✅ Result: -688 lines of code
 
-**Solution:** Migrate to nlohmann/json (modern, header-only, no dependencies).
+**Phase 2: Convert to Aggregate Types** ✅
+- ✅ Vector2d: Converted to struct with default initializers (x=0.0, y=0.0)
+- ✅ Cell: Converted to struct with 13 public members
+  - Removed 2 constructors, destructor, copy/assignment (~84 lines)
+  - Removed ~40 trivial getters/setters
+  - Kept helpers with invariants (setFillRatio, setCOM, pressure helpers)
+- ✅ Updated ~100 Vector2d call sites: `Vector2d(x,y)` → `Vector2d{x,y}`
+- ✅ Fixed parameter shadowing in Cell methods
 
-**Files Requiring Changes:**
-1. **core/Cell.{h,cpp}** - toJson/fromJson methods (~50 lines)
-2. **core/MaterialType.{h,cpp}** - Material serialization (~30 lines)
-3. **core/World.{h,cpp}** - World serialization (~80 lines)
-4. **server/network/CommandDeserializerJson.{h,cpp}** - Command parsing (~150 lines)
-5. **server/network/ResponseSerializerJson.h** - Response formatting (templated, ~80 lines)
+**Phase 3: Reflection-Based Serialization** ✅
+- ✅ Added qlibs/reflect v1.3.1 (header-only, C++20 reflection)
+- ✅ Created ReflectSerializer.h (generic JSON serialization)
+- ✅ Vector2d: 24 lines manual code → 3 lines automatic
+- ✅ Cell: 62 lines manual code → 3 lines automatic
+- ✅ Uses nlohmann/json (no LVGL dependencies)
 
-**API Comparison:**
+**Benefits:**
+- Aggregate types enable qlibs/reflect automatic serialization
+- Vector2d and Cell serialize themselves with zero boilerplate
+- Adding new members to structs automatically includes them in JSON
+- Clean separation: data (public members) vs behavior (helper methods)
+
+**Next Task: Complete nlohmann/json Migration**
+
+**Remaining Files:**
+1. **CommandDeserializerJson.cpp** - JSON → Command parsing (164 lines)
+2. **ResponseSerializerJson.h** - Response → JSON serialization (~80 lines)
+3. **World.cpp** - World toJSON/fromJSON (~200 lines)
+4. **MaterialType.cpp** - Material serialization (~30 lines)
+5. **CrashDumpHandler.cpp** - Crash dump JSON (~50 lines)
+
+**Migration Pattern:**
 ```cpp
 // OLD (rapidjson):
 rapidjson::Document doc;
@@ -75,12 +101,7 @@ auto doc = nlohmann::json::parse(json_string);
 double val = doc["field"].get<double>();
 ```
 
-**Setup:**
-- nlohmann/json already added to CMakeLists.txt (line 24-30)
-- Already linked to sparkle-duck-server (line 229)
-- Include: `#include <nlohmann/json.hpp>`
-
-**Estimated Time:** 30-45 minutes
+**Estimated Time:** 20-30 minutes remaining
 
 **Success Criteria:** `sparkle-duck-server` builds and links without LVGL dependencies.
 

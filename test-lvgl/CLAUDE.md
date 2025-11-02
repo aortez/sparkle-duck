@@ -261,7 +261,6 @@ Can be found here:
 
 **Next Steps:**
 - Integrate qlibs/reflect for automatic serialization
-- Upgrade to C++20 to support qlibs/reflect
 - Python test client for network API
 - WebRTC video streaming for remote UI
 

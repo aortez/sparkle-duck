@@ -34,7 +34,7 @@ std::string WorldDiagramGeneratorEmoji::generateEmojiDiagram(const World& world)
                 // Get material type and fill ratio.
                 auto cellB = dynamic_cast<const Cell*>(&cell);
                 if (cellB) {
-                    switch (cellB->getMaterialType()) {
+                    switch (cellB->material_type) {
                         case MaterialType::AIR:
                             diagram << "⬜";
                             break;
@@ -114,10 +114,10 @@ std::string WorldDiagramGeneratorEmoji::generateMixedDiagram(const World& world)
                 // Get material type and fill ratio.
                 auto cellB = dynamic_cast<const Cell*>(&cell);
                 if (cellB) {
-                    float fill = cellB->getFillRatio();
+                    float fill = cellB->fill_ratio;
 
                     // Material emoji.
-                    switch (cellB->getMaterialType()) {
+                    switch (cellB->material_type) {
                         case MaterialType::AIR:
                             diagram << " ";
                             break;

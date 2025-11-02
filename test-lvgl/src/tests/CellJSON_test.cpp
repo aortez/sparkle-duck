@@ -29,13 +29,13 @@ protected:
         Cell restored = Cell::fromJson(json);
 
         // Validate equality.
-        EXPECT_EQ(original.getMaterialType(), restored.getMaterialType());
-        EXPECT_DOUBLE_EQ(original.getFillRatio(), restored.getFillRatio());
-        EXPECT_DOUBLE_EQ(original.getCOM().x, restored.getCOM().x);
-        EXPECT_DOUBLE_EQ(original.getCOM().y, restored.getCOM().y);
-        EXPECT_DOUBLE_EQ(original.getVelocity().x, restored.getVelocity().x);
-        EXPECT_DOUBLE_EQ(original.getVelocity().y, restored.getVelocity().y);
-        EXPECT_DOUBLE_EQ(original.getPressure(), restored.getPressure());
+        EXPECT_EQ(original.material_type, restored.material_type);
+        EXPECT_DOUBLE_EQ(original.fill_ratio, restored.fill_ratio);
+        EXPECT_DOUBLE_EQ(original.com.x, restored.com.x);
+        EXPECT_DOUBLE_EQ(original.com.y, restored.com.y);
+        EXPECT_DOUBLE_EQ(original.velocity.x, restored.velocity.x);
+        EXPECT_DOUBLE_EQ(original.velocity.y, restored.velocity.y);
+        EXPECT_DOUBLE_EQ(original.pressure, restored.pressure);
     }
 
     // Helper to convert JSON value to string for debugging.
@@ -64,7 +64,7 @@ TEST_F(CellJSONTest, PartialDirtCellSerialization) {
 
 TEST_F(CellJSONTest, CellWithVelocitySerialization) {
     Cell cell(MaterialType::SAND, 0.75);
-    cell.setVelocity(Vector2d{1.5, -2.3});
+    cell.velocity = Vector2d{1.5, -2.3};
     validateRoundTrip(cell);
 }
 
@@ -76,15 +76,15 @@ TEST_F(CellJSONTest, CellWithCOMSerialization) {
 
 TEST_F(CellJSONTest, CellWithPressureSerialization) {
     Cell cell(MaterialType::WATER, 0.9);
-    cell.setPressure(12.5);
+    cell.pressure = 12.5;
     validateRoundTrip(cell);
 }
 
 TEST_F(CellJSONTest, ComplexCellState) {
     Cell cell(MaterialType::DIRT, 0.65);
     cell.setCOM(Vector2d{-0.2, 0.8});
-    cell.setVelocity(Vector2d{0.5, -1.2});
-    cell.setPressure(8.3);
+    cell.velocity = Vector2d{0.5, -1.2};
+    cell.pressure = 8.3;
     validateRoundTrip(cell);
 }
 
@@ -110,7 +110,7 @@ TEST_F(CellJSONTest, AllMaterialTypes) {
 TEST_F(CellJSONTest, JSONStructureValidation) {
     Cell cell(MaterialType::WATER, 0.75);
     cell.setCOM(Vector2d{0.1, -0.2});
-    cell.setVelocity(Vector2d{1.0, -0.5});
+    cell.velocity = Vector2d{1.0, -0.5};
 
     rapidjson::Document doc;
     auto& allocator = doc.GetAllocator();
@@ -157,7 +157,7 @@ TEST_F(CellJSONTest, ExtremeCOMValues) {
 
 TEST_F(CellJSONTest, HighVelocitySerialization) {
     Cell cell(MaterialType::WATER, 1.0);
-    cell.setVelocity(Vector2d{0.9, -0.9}); // Near velocity limit.
+    cell.velocity = Vector2d{0.9, -0.9}; // Near velocity limit.
     validateRoundTrip(cell);
 }
 

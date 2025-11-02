@@ -113,29 +113,16 @@ Vector2d Vector2d::operator+() const
     return Vector2d{x, y};
 }
 
-rapidjson::Value Vector2d::toJson(rapidjson::Document::AllocatorType& allocator) const
+#include "ReflectSerializer.h"
+
+nlohmann::json Vector2d::toJson() const
 {
-    rapidjson::Value json(rapidjson::kObjectType);
-    json.AddMember("x", x, allocator);
-    json.AddMember("y", y, allocator);
-    return json;
+    return ReflectSerializer::to_json(*this);
 }
 
-Vector2d Vector2d::fromJson(const rapidjson::Value& json)
+Vector2d Vector2d::fromJson(const nlohmann::json& json)
 {
-    if (!json.IsObject()) {
-        throw std::runtime_error("Vector2d::fromJson: JSON value must be an object");
-    }
-
-    if (!json.HasMember("x") || !json.HasMember("y")) {
-        throw std::runtime_error("Vector2d::fromJson: JSON object must have 'x' and 'y' members");
-    }
-
-    if (!json["x"].IsNumber() || !json["y"].IsNumber()) {
-        throw std::runtime_error("Vector2d::fromJson: 'x' and 'y' members must be numbers");
-    }
-
-    return Vector2d{json["x"].GetDouble(), json["y"].GetDouble()};
+    return ReflectSerializer::from_json<Vector2d>(json);
 }
 
 // Collision physics operations.

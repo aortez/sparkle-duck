@@ -88,7 +88,7 @@ WorldFrictionCalculator::detectContactInterfaces() const
                     }
 
                     // Calculate relative velocity.
-                    contact.relative_velocity = cellA.getVelocity() - cellB.getVelocity();
+                    contact.relative_velocity = cellA.velocity - cellB.velocity;
 
                     // Calculate tangential velocity.
                     contact.tangential_velocity =
@@ -102,8 +102,8 @@ WorldFrictionCalculator::detectContactInterfaces() const
                     }
 
                     // Calculate friction coefficient.
-                    const MaterialProperties& propsA = getMaterialProperties(cellA.getMaterialType());
-                    const MaterialProperties& propsB = getMaterialProperties(cellB.getMaterialType());
+                    const MaterialProperties& propsA = getMaterialProperties(cellA.material_type);
+                    const MaterialProperties& propsB = getMaterialProperties(cellB.material_type);
                     contact.friction_coefficient = calculateFrictionCoefficient(tangential_speed, propsA, propsB);
 
                     contacts.push_back(contact);
@@ -127,13 +127,13 @@ double WorldFrictionCalculator::calculateNormalForce(
 
     // Source 1: Pressure difference across interface.
     // Higher pressure in A pushes against B.
-    double pressureA = cellA.getHydrostaticPressure() + cellA.getDynamicPressure();
-    double pressureB = cellB.getHydrostaticPressure() + cellB.getDynamicPressure();
+    double pressureA = cellA.hydrostatic_component + cellA.dynamic_component;
+    double pressureB = cellB.hydrostatic_component + cellB.dynamic_component;
     double pressure_difference = pressureA - pressureB;
 
     if (pressure_difference > 0.0) {
         // Scale pressure to force (pressure is already in force-like units in our system).
-        normal_force += pressure_difference * cellA.getFillRatio();
+        normal_force += pressure_difference * cellA.fill_ratio;
     }
 
     // Source 2: Weight for vertical contacts.
