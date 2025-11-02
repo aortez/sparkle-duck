@@ -1,3 +1,5 @@
+// TODO: Redesign for client/server architecture
+#if 0 // Temporarily disabled
 /**
  * @file fbdev.c
  *
@@ -147,3 +149,4 @@ static void run_loop_fbdev(DirtSim::DirtSimStateMachine& dsm)
 }
 
 #endif /*LV_USE_LINUX_FBDEV. */
+#endif

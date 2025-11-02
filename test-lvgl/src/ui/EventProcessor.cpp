@@ -23,7 +23,7 @@ void EventProcessor::processEvent(StateMachine& sm, const Event& eventVariant)
 void EventProcessor::processEventsFromQueue(StateMachine& sm)
 {
     while (!eventQueue->queue.empty()) {
-        auto event = eventQueue->queue.dequeue();
+        auto event = eventQueue->queue.tryPop();
         if (event.has_value()) {
             spdlog::trace("Ui::EventProcessor: Processing event: {}", getEventName(event.value()));
             processEvent(sm, event.value());
@@ -34,7 +34,7 @@ void EventProcessor::processEventsFromQueue(StateMachine& sm)
 void EventProcessor::enqueueEvent(const Event& event)
 {
     spdlog::debug("Ui::EventProcessor: Enqueuing event: {}", getEventName(event));
-    eventQueue->queue.enqueue(event);
+    eventQueue->queue.push(event);
 }
 
 bool EventProcessor::hasEvents() const

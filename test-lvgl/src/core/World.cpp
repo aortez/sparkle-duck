@@ -1,13 +1,12 @@
 #include "World.h"
 #include "Cell.h"
 #include "ScopeTimer.h"
-#include "SimulatorUI.h"
 #include "Vector2i.h"
 #include "WorldAirResistanceCalculator.h"
 #include "WorldCohesionCalculator.h"
 #include "WorldCollisionCalculator.h"
-#include "WorldSupportCalculator.h"
 #include "WorldInterpolationTool.h"
+#include "WorldSupportCalculator.h"
 #include "spdlog/spdlog.h"
 
 #include <algorithm>
@@ -241,35 +240,6 @@ void World::advanceTime(double deltaTimeSeconds)
     timestep_++;
 }
 
-void World::draw(lv_obj_t& drawArea)
-{
-    ScopeTimer timer(timers_, "draw");
-
-    spdlog::trace("World::draw() - rendering {} cells", cells_.size());
-
-    for (uint32_t y = 0; y < height_; y++) {
-        for (uint32_t x = 0; x < width_; x++) {
-            at(x, y).draw(&drawArea, x, y, debug_draw_enabled_);
-        }
-    }
-
-    // Draw floating particle if dragging.
-    if (has_floating_particle_ && last_drag_cell_x_ >= 0 && last_drag_cell_y_ >= 0
-        && isValidCell(last_drag_cell_x_, last_drag_cell_y_)) {
-        // Render floating particle at current drag position.
-        // This particle can potentially collide with other objects in the world.
-        floating_particle_.draw(
-            &drawArea, last_drag_cell_x_, last_drag_cell_y_, debug_draw_enabled_);
-        spdlog::trace(
-            "Drew floating particle {} at cell ({},{}) pixel pos ({:.1f},{:.1f})",
-            getMaterialName(floating_particle_.getMaterialType()),
-            last_drag_cell_x_,
-            last_drag_cell_y_,
-            floating_particle_pixel_x_,
-            floating_particle_pixel_y_);
-    }
-}
-
 void World::reset()
 {
     spdlog::info("Resetting World to empty state");
@@ -428,7 +398,6 @@ void World::startDragging(int pixelX, int pixelY)
 
         // Remove material from source cell.
         cell.clear();
-        cell.markDirty();
 
         spdlog::debug(
             "Started dragging {} from cell ({},{}) with COM ({:.2f},{:.2f})",
@@ -530,7 +499,6 @@ void World::endDragging(int pixelX, int pixelY)
         targetCell.setFillRatio(dragged_amount_);
         targetCell.setCOM(dragged_com_);
         targetCell.setVelocity(dragged_velocity_);
-        targetCell.markDirty();
 
         spdlog::debug(
             "Ended drag: placed {} at cell ({},{}) with velocity ({:.2f},{:.2f})",
@@ -571,7 +539,6 @@ void World::restoreLastDragCell()
         Cell& originCell = at(drag_start_x_, drag_start_y_);
         originCell.setMaterialType(dragged_material_);
         originCell.setFillRatio(dragged_amount_);
-        originCell.markDirty();
         spdlog::debug("Restored dragged material to origin ({},{})", drag_start_x_, drag_start_y_);
     }
 
@@ -625,13 +592,6 @@ void World::onPostResize()
     // Rebuild boundary walls if enabled.
     if (areWallsEnabled()) {
         setupBoundaryWalls();
-    }
-}
-
-void World::markAllCellsDirty()
-{
-    for (auto& cell : cells_) {
-        cell.markDirty();
     }
 }
 

@@ -28,21 +28,61 @@
 - ✅ UI completely decoupled (communicates only via EventRouter, no direct world access)
 - ✅ Removed 600+ lines of dead UI callback code
 
-**In Progress (2025-11-01):**
-- ⏳ Directory restructure (core/, server/, ui/) - 70% complete
-  - ✅ Files moved to new directories
-  - ✅ EventProcessor duplicated for server/ui
-  - ✅ Events split: server/Event.h, ui/events/*.h
-  - ✅ API commands split: server/api/*.h
+**Completed (2025-11-02):**
+- ✅ Directory restructure (core/, server/, ui/) - COMPLETE
+  - ✅ Complete file reorganization (34 files changed, -962/+222 lines)
+  - ✅ EventProcessor separate for server/ui (no templates, forward declarations)
+  - ✅ Events properly split: server/Event.h, ui/events/*.h
+  - ✅ API commands split: server/api/*.h (one file per command)
   - ✅ CMakeLists.txt updated for new structure
-  - ⏳ Remaining: Fix ~85 broken #includes, template StateMachineInterface, cleanup obsolete files
-- ⏳ Create UiStateMachine (separate UI states from simulation states)
-  - ✅ ui/StateMachine.{h,cpp} created
+  - ✅ All ~100+ #includes fixed
+  - ✅ StateMachineInterface templated
+  - ✅ Obsolete files removed (EventDispatcher, EventRouter, EventTraits from core/)
+  - ✅ 38 obsolete tests removed
+- ✅ UiStateMachine created (separate UI states from simulation states)
+  - ✅ ui/StateMachine.{h,cpp} with full implementation
   - ✅ ui/states/ created (Startup, MainMenu, SimRunning, Paused, Shutdown)
   - ⏳ Network integration pending (WebSocketClient for connecting to server)
-- ⏳ Complete headless server build
+- ✅ Headless server build (95% complete)
   - ✅ server/StateMachine uses Server namespace
-  - ⏳ Remove UI dependencies from server states (screenshot calls)
+  - ✅ UI dependencies removed from server states
+  - ✅ Cell rendering removed (draw methods, canvas, buffer, markDirty)
+  - ✅ sparkle-duck renamed to sparkle-duck-ui (client-only)
+  - ⏳ Final issue: rapidjson → nlohmann/json migration
+
+**Next Task: nlohmann/json Migration**
+
+**Problem:** Server currently uses LVGL's bundled rapidjson which depends on `lv_malloc/lv_free`. This prevents true headless operation.
+
+**Solution:** Migrate to nlohmann/json (modern, header-only, no dependencies).
+
+**Files Requiring Changes:**
+1. **core/Cell.{h,cpp}** - toJson/fromJson methods (~50 lines)
+2. **core/MaterialType.{h,cpp}** - Material serialization (~30 lines)
+3. **core/World.{h,cpp}** - World serialization (~80 lines)
+4. **server/network/CommandDeserializerJson.{h,cpp}** - Command parsing (~150 lines)
+5. **server/network/ResponseSerializerJson.h** - Response formatting (templated, ~80 lines)
+
+**API Comparison:**
+```cpp
+// OLD (rapidjson):
+rapidjson::Document doc;
+doc.Parse(json_string);
+doc["field"].GetDouble();
+
+// NEW (nlohmann):
+auto doc = nlohmann::json::parse(json_string);
+double val = doc["field"].get<double>();
+```
+
+**Setup:**
+- nlohmann/json already added to CMakeLists.txt (line 24-30)
+- Already linked to sparkle-duck-server (line 229)
+- Include: `#include <nlohmann/json.hpp>`
+
+**Estimated Time:** 30-45 minutes
+
+**Success Criteria:** `sparkle-duck-server` builds and links without LVGL dependencies.
 
 **TODO:**
 - CLI swiss-army-knife tool (sparkle-duck-cli) for controlling both server and UI

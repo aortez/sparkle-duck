@@ -68,7 +68,7 @@ int main(int argc, char** argv)
     std::signal(SIGTERM, signalHandler);
 
     // Create WebSocket server.
-    WebSocketServer server(*stateMachine, port);
+    Server::WebSocketServer server(*stateMachine, port);
     server.start();
 
     spdlog::info("WebSocket server listening on port {}", server.getPort());

@@ -5,10 +5,11 @@
 #include <spdlog/spdlog.h>
 
 namespace DirtSim {
+namespace Server {
 namespace State {
 
-// Extend Startup with event handlers.
-State::Any Startup::onEvent(const InitCompleteEvent& /*evt. */, DirtSimStateMachine& dsm) {
+State::Any Startup::onEvent(const InitCompleteEvent& /*evt*/, StateMachine& dsm)
+{
     spdlog::info("Startup: Initialization complete, creating world");
     
     // Create default world (World/"World")
@@ -27,5 +28,6 @@ State::Any Startup::onEvent(const InitCompleteEvent& /*evt. */, DirtSimStateMach
     return MainMenu{};
 }
 
-} // namespace State.
-} // namespace DirtSim.
+} // namespace State
+} // namespace Server
+} // namespace DirtSim

@@ -1,7 +1,7 @@
 #include "LVGLEventBuilder.h"
-#include "../World.h"  // For PressureMode enum.
+#include "../../core/World.h"
+#include <cmath> // For pow()
 #include <spdlog/spdlog.h>
-#include <cmath>  // For pow()
 
 namespace DirtSim {
 

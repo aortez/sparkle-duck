@@ -112,7 +112,12 @@ void StateMachine::mainLoopRun()
 
 void StateMachine::queueEvent(const Event& event)
 {
-    eventProcessor.queueEvent(event);
+    eventProcessor.enqueueEvent(event);
+}
+
+void StateMachine::processEvents()
+{
+    eventProcessor.processEventsFromQueue(*this);
 }
 
 void StateMachine::processImmediateEvent(const Event& event, SharedSimState& shared)
@@ -140,22 +145,30 @@ void StateMachine::processImmediateEvent(const Event& event, SharedSimState& sha
 
 void StateMachine::handleEvent(const Event& event)
 {
-    // Save the current state index before moving.
-    std::size_t oldStateIndex = fsmState.index();
+    spdlog::debug("Server::StateMachine: Handling event: {}", getEventName(event));
 
-    // Use EventDispatcher to route to current state.
-    // Move the current state to dispatch.
-    State::Any newState = EventDispatcher::dispatch(std::move(fsmState), event, *this);
+    std::visit(
+        [this](auto&& evt) {
+            std::visit(
+                [this, &evt](auto&& state) -> void {
+                    using StateType = std::decay_t<decltype(state)>;
 
-    // Check if the state type changed.
-    if (newState.index() != oldStateIndex) {
-        // State type changed - use transitionTo to handle lifecycle.
-        transitionTo(std::move(newState));
-    }
-    else {
-        // Same state type - just update without lifecycle calls.
-        fsmState = std::move(newState);
-    }
+                    if constexpr (requires { state.onEvent(evt, *this); }) {
+                        auto newState = state.onEvent(evt, *this);
+                        if (!std::holds_alternative<StateType>(newState)) {
+                            transitionTo(std::move(newState));
+                        }
+                    }
+                    else {
+                        spdlog::warn(
+                            "Server::StateMachine: State {} does not handle event {}",
+                            State::getCurrentStateName(fsmState),
+                            getEventName(Event{ evt }));
+                    }
+                },
+                fsmState);
+        },
+        event);
 }
 
 void StateMachine::transitionTo(State::Any newState)
@@ -175,7 +188,7 @@ void StateMachine::transitionTo(State::Any newState)
     std::visit([this](auto& state) { callOnEnter(state); }, fsmState);
 
     // Push UI update on state transitions (always enabled for thread safety).
-    UIUpdateEvent update = buildUIUpdate();
+    UiUpdateEvent update = buildUIUpdate();
     sharedState.pushUIUpdate(std::move(update));
 }
 
@@ -214,11 +227,11 @@ State::Any StateMachine::onEvent(const GetSimStatsCommand& /*cmd.*/)
         fsmState);
 }
 
-UIUpdateEvent StateMachine::buildUIUpdate()
+UiUpdateEvent StateMachine::buildUIUpdate()
 {
     assert(world && "World must exist when building UI update");
 
-    UIUpdateEvent update;
+    UiUpdateEvent update;
 
     // Sequence tracking.
     update.sequenceNum = sharedState.getNextUpdateSequence();

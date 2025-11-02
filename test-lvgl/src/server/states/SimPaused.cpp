@@ -3,9 +3,11 @@
 #include <spdlog/spdlog.h>
 
 namespace DirtSim {
+namespace Server {
 namespace State {
 
-void SimPaused::onEnter(DirtSimStateMachine& dsm) {
+void SimPaused::onEnter(StateMachine& dsm)
+{
     spdlog::info("SimPaused: Entered pause state from SimRunning at step {}", previousState.stepCount);
 
     // Set the pause flag.
@@ -20,12 +22,13 @@ void SimPaused::onEnter(DirtSimStateMachine& dsm) {
     }
 
     // Push UI update to change pause button label to "Resume".
-    UIUpdateEvent update = dsm.buildUIUpdate();
+    UiUpdateEvent update = dsm.buildUIUpdate();
     update.isPaused = true;
     dsm.getSharedState().pushUIUpdate(std::move(update));
 }
 
-void SimPaused::onExit(DirtSimStateMachine& dsm) {
+void SimPaused::onExit(StateMachine& dsm)
+{
     spdlog::info("SimPaused: Exiting pause state");
 
     // Clear the pause flag.
@@ -38,18 +41,20 @@ void SimPaused::onExit(DirtSimStateMachine& dsm) {
     }
 
     // Push UI update to change pause button label back to "Pause".
-    UIUpdateEvent update = dsm.buildUIUpdate();
+    UiUpdateEvent update = dsm.buildUIUpdate();
     update.isPaused = false;
     dsm.getSharedState().pushUIUpdate(std::move(update));
 }
 
-State::Any SimPaused::onEvent(const ResumeCommand& /*cmd*/, DirtSimStateMachine& /*dsm. */) {
+State::Any SimPaused::onEvent(const ResumeCommand& /*cmd*/, StateMachine& /*dsm. */)
+{
     spdlog::info("SimPaused: Resuming to SimRunning at step {}", previousState.stepCount);
     
     return std::move(previousState);
 }
 
-State::Any SimPaused::onEvent(const ResetSimulationCommand& /*cmd. */, DirtSimStateMachine& dsm) {
+State::Any SimPaused::onEvent(const ResetSimulationCommand& /*cmd. */, StateMachine& dsm)
+{
     spdlog::info("SimPaused: Resetting simulation");
 
     if (dsm.world) {
@@ -60,7 +65,8 @@ State::Any SimPaused::onEvent(const ResetSimulationCommand& /*cmd. */, DirtSimSt
     return SimRunning{};
 }
 
-State::Any SimPaused::onEvent(const AdvanceSimulationCommand& /*cmd. */, DirtSimStateMachine& dsm) {
+State::Any SimPaused::onEvent(const AdvanceSimulationCommand& /*cmd. */, StateMachine& dsm)
+{
     // In paused state, we can still advance one step (for frame-by-frame debugging)
     if (dsm.world) {
         dsm.world->advanceTime(1.0 / 60.0); // Single step.
@@ -76,7 +82,8 @@ State::Any SimPaused::onEvent(const AdvanceSimulationCommand& /*cmd. */, DirtSim
     return *this;  // Stay paused.
 }
 
-State::Any SimPaused::onEvent(const MouseDownEvent& evt, DirtSimStateMachine& dsm) {
+State::Any SimPaused::onEvent(const MouseDownEvent& evt, StateMachine& dsm)
+{
     if (!dsm.world) {
         return *this;
     }
@@ -102,7 +109,8 @@ State::Any SimPaused::onEvent(const MouseDownEvent& evt, DirtSimStateMachine& ds
     return *this;
 }
 
-State::Any SimPaused::onEvent(const MouseMoveEvent& evt, DirtSimStateMachine& dsm) {
+State::Any SimPaused::onEvent(const MouseMoveEvent& evt, StateMachine& dsm)
+{
     if (!dsm.world) {
         return *this;
     }
@@ -117,7 +125,8 @@ State::Any SimPaused::onEvent(const MouseMoveEvent& evt, DirtSimStateMachine& ds
     return *this;
 }
 
-State::Any SimPaused::onEvent(const MouseUpEvent& evt, DirtSimStateMachine& dsm) {
+State::Any SimPaused::onEvent(const MouseUpEvent& evt, StateMachine& dsm)
+{
     if (!dsm.world) {
         return *this;
     }
@@ -136,76 +145,82 @@ State::Any SimPaused::onEvent(const MouseUpEvent& evt, DirtSimStateMachine& dsm)
     return *this;
 }
 
-State::Any SimPaused::onEvent(const SelectMaterialCommand& cmd, DirtSimStateMachine& dsm) {
+State::Any SimPaused::onEvent(const SelectMaterialCommand& cmd, StateMachine& dsm)
+{
     dsm.getSharedState().setSelectedMaterial(cmd.material);
     return *this;
 }
 
 // Handle immediate events routed through push system.
-State::Any SimPaused::onEvent(const GetFPSCommand& /*cmd. */, DirtSimStateMachine& dsm) {
+State::Any SimPaused::onEvent(const GetFPSCommand& /*cmd. */, StateMachine& dsm)
+{
     // FPS is already tracked in shared state and will be in next push update.
     spdlog::debug("SimPaused: GetFPSCommand - FPS will be in next update");
 
     // Force a push update with FPS dirty flag.
-    UIUpdateEvent update = dsm.buildUIUpdate();
+    UiUpdateEvent update = dsm.buildUIUpdate();
     dsm.getSharedState().pushUIUpdate(std::move(update));
 
     return *this;
 }
 
-State::Any SimPaused::onEvent(const GetSimStatsCommand& /*cmd. */, DirtSimStateMachine& dsm) {
+State::Any SimPaused::onEvent(const GetSimStatsCommand& /*cmd. */, StateMachine& dsm)
+{
     // Stats are already tracked and will be in next push update.
     spdlog::debug("SimPaused: GetSimStatsCommand - Stats will be in next update");
 
     // Force a push update with stats dirty flag.
-    UIUpdateEvent update = dsm.buildUIUpdate();
+    UiUpdateEvent update = dsm.buildUIUpdate();
     dsm.getSharedState().pushUIUpdate(std::move(update));
 
     return *this;
 }
 
-State::Any SimPaused::onEvent(const ToggleDebugCommand& /*cmd. */, DirtSimStateMachine& dsm) {
+State::Any SimPaused::onEvent(const ToggleDebugCommand& /*cmd. */, StateMachine& dsm)
+{
     // Toggle debug draw state in world (source of truth).
     if (dsm.world) {
         auto* world = dsm.world.get();
         bool newValue = !world->isDebugDrawEnabled();
         world->setDebugDrawEnabled(newValue);
-        world->markAllCellsDirty();
         spdlog::info("SimPaused: ToggleDebugCommand - Debug draw now: {}", newValue);
 
         // Push UI update with uiState dirty flag.
-        UIUpdateEvent update = dsm.buildUIUpdate();
+        UiUpdateEvent update = dsm.buildUIUpdate();
         dsm.getSharedState().pushUIUpdate(std::move(update));
     }
 
     return *this;
 }
 
-State::Any SimPaused::onEvent(const ToggleCohesionForceCommand& /*cmd. */, DirtSimStateMachine& dsm) {
+State::Any SimPaused::onEvent(const ToggleCohesionForceCommand& /*cmd. */, StateMachine& dsm)
+{
     if (auto* world = dsm.world.get()) {
         bool newValue = !world->isCohesionComForceEnabled();
         world->setCohesionComForceEnabled(newValue);
         spdlog::info("SimPaused: ToggleCohesionForceCommand - Cohesion force now: {}", newValue);
 
-        UIUpdateEvent update = dsm.buildUIUpdate();
+        UiUpdateEvent update = dsm.buildUIUpdate();
         dsm.getSharedState().pushUIUpdate(std::move(update));
     }
     return *this;
 }
 
-State::Any SimPaused::onEvent(const ToggleTimeHistoryCommand& /*cmd. */, DirtSimStateMachine& dsm) {
+State::Any SimPaused::onEvent(const ToggleTimeHistoryCommand& /*cmd. */, StateMachine& dsm)
+{
     if (auto* world = dsm.world.get()) {
         bool newValue = !world->isTimeReversalEnabled();
         world->enableTimeReversal(newValue);
         spdlog::info("SimPaused: ToggleTimeHistoryCommand - Time history now: {}", newValue);
 
-        UIUpdateEvent update = dsm.buildUIUpdate();
+        UiUpdateEvent update = dsm.buildUIUpdate();
         dsm.getSharedState().pushUIUpdate(std::move(update));
     }
     return *this;
 }
 
-State::Any SimPaused::onEvent(const PrintAsciiDiagramCommand& /*cmd. */, DirtSimStateMachine& dsm) {
+State::Any SimPaused::onEvent(const PrintAsciiDiagramCommand& /*cmd. */, StateMachine& dsm)
+{
     // Get the current world and print ASCII diagram.
     if (dsm.world) {
         std::string ascii_diagram = dsm.world->toAsciiDiagram();
@@ -218,7 +233,8 @@ State::Any SimPaused::onEvent(const PrintAsciiDiagramCommand& /*cmd. */, DirtSim
     return *this;
 }
 
-State::Any SimPaused::onEvent(const SpawnDirtBallCommand& /*cmd. */, DirtSimStateMachine& dsm) {
+State::Any SimPaused::onEvent(const SpawnDirtBallCommand& /*cmd. */, StateMachine& dsm)
+{
     // Get the current world and spawn a 5x5 ball at top center.
     if (dsm.world) {
         auto* world = dsm.world.get();
@@ -238,15 +254,16 @@ State::Any SimPaused::onEvent(const SpawnDirtBallCommand& /*cmd. */, DirtSimStat
     return *this;
 }
 
-State::Any SimPaused::onEvent(const QuitApplicationCommand& /*cmd*/, DirtSimStateMachine& /*dsm*/) {
-    spdlog::info("SimPaused: Quit application requested");
+State::Any SimPaused::onEvent(const QuitApplicationCommand& /*cmd*/, StateMachine& /*dsm*/)
+{
+    spdlog::info("Server::SimPaused: Quit application requested");
 
-    // Take exit screenshot before quitting.
-    SimulatorUI::takeExitScreenshot();
+    // TODO: Screenshots are UI concerns, not server concerns.
 
     // Transition to Shutdown state.
     return Shutdown{};
 }
 
-} // namespace State.
-} // namespace DirtSim.
+} // namespace State
+} // namespace Server
+} // namespace DirtSim

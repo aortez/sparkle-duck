@@ -118,16 +118,8 @@ public:
 
     // Velocity vector.
     const Vector2d& getVelocity() const { return velocity_; }
-    void setVelocity(const Vector2d& velocity)
-    {
-        velocity_ = velocity;
-        markDirty();
-    }
-    void setVelocity(double x, double y)
-    {
-        velocity_ = Vector2d(x, y);
-        markDirty();
-    }
+    void setVelocity(const Vector2d& velocity) { velocity_ = velocity; }
+    void setVelocity(double x, double y) { velocity_ = Vector2d(x, y); }
 
     // Unified pressure system with component tracking for debugging.
     // Primary interface - use these for physics calculations.
@@ -222,18 +214,6 @@ public:
     Vector2d getTransferDirection() const;
 
     // =================================================================
-    // RENDERING
-    // =================================================================
-
-    // Main drawing method (called by World::draw)
-    void draw(lv_obj_t* parent, uint32_t x, uint32_t y, bool debugDraw);
-
-    // Separate drawing methods for different modes
-    void drawNormal(lv_obj_t* parent, uint32_t x, uint32_t y);
-    void drawDebug(lv_obj_t* parent, uint32_t x, uint32_t y);
-
-    // Mark the cell as needing to be redrawn
-    void markDirty() override;
 
     // =================================================================
     // DEBUGGING
@@ -295,12 +275,7 @@ private:
     Vector2d pending_force_; // Forces to be applied during resolution phase.
 
     // Cached physics values for visualization.
-    double cached_friction_coefficient_; // Current friction coefficient for rendering.
-
-    // Rendering state.
-    std::vector<uint8_t> buffer_; // Buffer for LVGL canvas pixel data.
-    lv_obj_t* canvas_;            // LVGL canvas object.
-    bool needs_redraw_;           // Flag to track if cell needs redrawing.
+    double cached_friction_coefficient_;
 
     // =================================================================
     // PHYSICS HELPERS

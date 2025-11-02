@@ -1,7 +1,7 @@
 #pragma once
 
+#include "../../core/Result.h"
 #include "lvgl/lvgl.h"
-#include "../Result.h"
 #include <cmath>
 #include <functional>
 #include <string>

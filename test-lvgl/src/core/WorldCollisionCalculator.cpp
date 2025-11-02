@@ -637,7 +637,6 @@ void WorldCollisionCalculator::handleFloatingParticleCollision(
         Vector2d combinedMomentum = particleVelocity * floatingMass + currentVelocity * targetMass;
         Vector2d newVelocity = combinedMomentum / (floatingMass + targetMass);
         targetCell.setVelocity(newVelocity);
-        targetCell.markDirty();
 
         spdlog::debug(
             "Applied collision momentum: new velocity ({:.2f},{:.2f})",

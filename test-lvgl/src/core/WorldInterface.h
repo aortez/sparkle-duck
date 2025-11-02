@@ -37,11 +37,6 @@ public:
     // Get the current simulation timestep.
     virtual uint32_t getTimestep() const = 0;
 
-    // Draw the world to the screen.
-    // The drawArea parameter is the LVGL canvas to render to.
-    virtual void draw(lv_obj_t& drawArea) = 0;
-
-    // Reset the world to empty state (clear all cells, reset timestep, etc.).
     virtual void reset() = 0;
 
     // Setup the world with initial materials (calls reset() first).
@@ -341,9 +336,6 @@ public:
 
     // Resize the simulation grid.
     virtual void resizeGrid(uint32_t newWidth, uint32_t newHeight) = 0;
-
-    // Mark all cells as dirty (needing redraw).
-    virtual void markAllCellsDirty() = 0;
 
     // =================================================================
     // PERFORMANCE AND DEBUGGING

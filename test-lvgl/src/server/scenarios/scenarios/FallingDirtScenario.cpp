@@ -1,5 +1,5 @@
-#include "../../MaterialType.h"
-#include "../../WorldInterface.h"
+#include "../../../core/MaterialType.h"
+#include "../../../core/WorldInterface.h"
 #include "../Scenario.h"
 #include "../ScenarioRegistry.h"
 #include "../ScenarioWorldEventGenerator.h"

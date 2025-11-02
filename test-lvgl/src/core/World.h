@@ -57,7 +57,6 @@ public:
 
     void advanceTime(double deltaTimeSeconds) override;
     uint32_t getTimestep() const override { return timestep_; }
-    void draw(lv_obj_t& drawArea) override;
     void reset() override;
     void setup() override;
 
@@ -257,7 +256,6 @@ public:
 
     // WORLDINTERFACE IMPLEMENTATION - GRID MANAGEMENT
     void resizeGrid(uint32_t newWidth, uint32_t newHeight) override;
-    void markAllCellsDirty() override;
 
     // WORLDINTERFACE IMPLEMENTATION - PERFORMANCE AND DEBUGGING
     void dumpTimerStats() const override { timers_.dumpTimerStats(); }

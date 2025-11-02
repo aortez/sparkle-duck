@@ -1,3 +1,5 @@
+// TODO: Redesign for client/server architecture
+#if 0 // Temporarily disabled
 /**
  * @file wayland.c
  *
@@ -171,3 +173,4 @@ static void run_loop_wayland(DirtSim::DirtSimStateMachine& dsm)
 }
 
 #endif /*#if LV_USE_WAYLAND. */
+#endif

@@ -1,3 +1,5 @@
+// TODO: Redesign for client/server architecture
+#if 0 // Temporarily disabled
 /**
  * @file x11.c
  *
@@ -154,3 +156,4 @@ void run_loop_x11(DirtSim::DirtSimStateMachine& dsm)
 }
 
 #endif /*#if LV_USE_X11. */
+#endif

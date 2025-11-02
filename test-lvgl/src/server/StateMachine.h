@@ -13,19 +13,12 @@
 namespace DirtSim {
 namespace Server {
 
-class StateMachine : public StateMachineBase, public StateMachineInterface {
+class StateMachine : public StateMachineBase, public StateMachineInterface<Event> {
 public:
     StateMachine();
     ~StateMachine();
 
-    /**
-     * @brief Initialize and run the main event loop.
-     */
     void mainLoopRun();
-
-    /**
-     * @brief Queue an event for processing on the simulation thread.
-     */
     void queueEvent(const Event& event) override;
 
     /**
@@ -45,6 +38,7 @@ public:
 
     SharedSimState& getSharedState() { return sharedState; }
     bool resizeWorldIfNeeded(uint32_t requiredWidth, uint32_t requiredHeight);
+    UiUpdateEvent buildUIUpdate();
 
     std::unique_ptr<WorldInterface> world;
     EventProcessor eventProcessor;

@@ -1,3 +1,5 @@
+// TODO: Redesign for client/server architecture
+#if 0 // Temporarily disabled
 /**
  * @file sdl.c
  *
@@ -147,3 +149,4 @@ static void run_loop_sdl(DirtSim::DirtSimStateMachine& dsm)
     SimulatorUI::takeExitScreenshot();
 }
 #endif /*#if LV_USE_SDL. */
+#endif

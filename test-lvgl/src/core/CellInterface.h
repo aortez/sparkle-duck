@@ -40,10 +40,6 @@ public:
     // CELL STATE MANAGEMENT
     // =================================================================
 
-    // Mark cell as needing visual update.
-    virtual void markDirty() = 0;
-
-    // Clear all materials from cell.
     virtual void clear() = 0;
 
     // =================================================================

@@ -37,36 +37,7 @@ concept HasEventName = requires {
     { T::name() } -> std::convertible_to<const char*>;
 };
 
-// =================================================================
-// PUSH-BASED UI UPDATE SYSTEM
-// =================================================================
-
-/**
- * @brief Comprehensive UI update event for push-based updates.
- *
- * Contains a complete World snapshot for the UI to render.
- * The UI compares control values against the World state and
- * updates only what differs.
- */
-struct UIUpdateEvent {
-    // Sequence tracking.
-    uint64_t sequenceNum = 0;
-
-    // Complete world state for rendering.
-    World world;
-
-    // Simulation metadata (not in World).
-    uint32_t fps = 0;
-    uint64_t stepCount = 0;
-
-    // UI-only state (not in World).
-    bool isPaused = false;
-
-    // Timing.
-    std::chrono::steady_clock::time_point timestamp;
-
-    static constexpr const char* name() { return "UIUpdateEvent"; }
-};
+// Note: UiUpdateEvent is defined in core/api/UiUpdateEvent.h (shared between server and UI).
 
 // =================================================================
 // IMMEDIATE EVENTS (UI Thread, Low Latency)
@@ -565,12 +536,9 @@ struct InitCompleteEvent {
 // =================================================================
 
 /**
- * @brief Variant containing all event types needed for UI integration.
+ * @brief Variant containing all server event types.
  */
 using Event = std::variant<
-    // Push-based UI updates
-    UIUpdateEvent,
-
     // Immediate events
     GetFPSCommand,
     GetSimStatsCommand,

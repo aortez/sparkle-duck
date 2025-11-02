@@ -21,6 +21,14 @@ set(NO_EXAMPLES ON CACHE BOOL "" FORCE)
 set(NO_TESTS ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(libdatachannel)
 
+# Add nlohmann/json for JSON serialization.
+FetchContent_Declare(
+    nlohmann_json
+    GIT_REPOSITORY https://github.com/nlohmann/json.git
+    GIT_TAG v3.11.3
+)
+FetchContent_MakeAvailable(nlohmann_json)
+
 set(CONF_PATH "${PROJECT_SOURCE_DIR}/lv_conf.h")
 
 foreach(BACKEND_NAME "SDL" "LINUX_DRM" "LINUX_FBDEV" "X11" "WAYLAND" "OPENGLES")
@@ -218,7 +226,7 @@ add_executable(sparkle-duck-server
     src/core/WorldInterpolationTool.cpp
     src/core/WorldDiagramGeneratorEmoji.cpp
     src/core/StateMachineBase.cpp)
-target_link_libraries(sparkle-duck-server lvgl_linux lvgl lvgl::thorvg spdlog::spdlog datachannel-static m pthread ${PKG_CONFIG_LIB} ${SDL2_LIBRARIES} ${SDL2_IMAGE_LIBRARIES})
+target_link_libraries(sparkle-duck-server nlohmann_json::nlohmann_json spdlog::spdlog datachannel-static m pthread)
 target_include_directories(sparkle-duck-server PRIVATE ${CMAKE_SOURCE_DIR}/external/args)
 
 # Enable warnings and treat them as errors for server executable.

@@ -1,10 +1,8 @@
 #pragma once
 
 #include "LVGLBuilder.h"
-#include "../Event.h"
-#include "../EventRouter.h"
-#include <memory>
 #include <functional>
+#include <memory>
 #include <optional>
 #include <vector>
 

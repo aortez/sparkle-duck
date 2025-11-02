@@ -24,9 +24,7 @@ Cell::Cell()
       accumulated_adhesion_force_(0.0, 0.0),
       accumulated_com_cohesion_force_(0.0, 0.0),
       pending_force_(0.0, 0.0),
-      cached_friction_coefficient_(1.0),
-      canvas_(nullptr),
-      needs_redraw_(true)
+      cached_friction_coefficient_(1.0)
 {}
 
 Cell::Cell(MaterialType type, double fill)
@@ -42,21 +40,11 @@ Cell::Cell(MaterialType type, double fill)
       accumulated_adhesion_force_(0.0, 0.0),
       accumulated_com_cohesion_force_(0.0, 0.0),
       pending_force_(0.0, 0.0),
-      cached_friction_coefficient_(1.0),
-      canvas_(nullptr),
-      needs_redraw_(true)
+      cached_friction_coefficient_(1.0)
 {}
 
-Cell::~Cell()
-{
-    // Clean up the LVGL canvas object if it exists.
-    if (canvas_ != nullptr) {
-        lv_obj_del(canvas_);
-        canvas_ = nullptr;
-    }
-}
+Cell::~Cell() = default;
 
-// Copy constructor - don't copy LVGL objects, they'll be recreated on demand.
 Cell::Cell(const Cell& other)
     : material_type_(other.material_type_),
       fill_ratio_(other.fill_ratio_),
@@ -70,25 +58,13 @@ Cell::Cell(const Cell& other)
       accumulated_adhesion_force_(other.accumulated_adhesion_force_),
       accumulated_com_cohesion_force_(other.accumulated_com_cohesion_force_),
       pending_force_(other.pending_force_),
-      cached_friction_coefficient_(other.cached_friction_coefficient_),
-      buffer_(other.buffer_.size()), // Create new buffer with same size.
-      canvas_(nullptr),              // Don't copy LVGL object.
-      needs_redraw_(true)            // New copy needs redraw.
-{
-    // Buffer contents will be regenerated when drawn.
-}
+      cached_friction_coefficient_(other.cached_friction_coefficient_)
+{}
 
 // Assignment operator - don't copy LVGL objects, they'll be recreated on demand.
 Cell& Cell::operator=(const Cell& other)
 {
     if (this != &other) {
-        // Clean up existing canvas before assignment.
-        if (canvas_ != nullptr) {
-            lv_obj_del(canvas_);
-            canvas_ = nullptr;
-        }
-
-        // Copy the physics state.
         material_type_ = other.material_type_;
         fill_ratio_ = other.fill_ratio_;
         com_ = other.com_;
@@ -102,13 +78,6 @@ Cell& Cell::operator=(const Cell& other)
         accumulated_com_cohesion_force_ = other.accumulated_com_cohesion_force_;
         pending_force_ = other.pending_force_;
         cached_friction_coefficient_ = other.cached_friction_coefficient_;
-
-        // Resize buffer if needed but don't copy contents.
-        buffer_.resize(other.buffer_.size());
-
-        // Don't copy LVGL object - keep canvas_ as nullptr.
-        // canvas_ stays as nullptr.
-        needs_redraw_ = true; // Assignment means we need redraw.
     }
     return *this;
 }
@@ -130,14 +99,11 @@ void Cell::setFillRatio(double ratio)
         dynamic_component_ = 0.0;
         pressure_gradient_ = Vector2d(0.0, 0.0);
     }
-
-    markDirty();
 }
 
 void Cell::setCOM(const Vector2d& com)
 {
     com_ = Vector2d(std::clamp(com.x, COM_MIN, COM_MAX), std::clamp(com.y, COM_MIN, COM_MAX));
-    markDirty(); // Ensure visual updates when COM changes.
 }
 
 double Cell::getMass() const
@@ -164,7 +130,6 @@ double Cell::addMaterial(MaterialType type, double amount)
         material_type_ = type;
         const double added = std::min(amount, 1.0);
         fill_ratio_ = added;
-        markDirty();
         return added;
     }
 
@@ -179,7 +144,6 @@ double Cell::addMaterial(MaterialType type, double amount)
     fill_ratio_ += added;
 
     if (added > 0.0) {
-        markDirty();
     }
 
     return added;
@@ -206,7 +170,6 @@ double Cell::addMaterialWithPhysics(
         com_ = calculateTrajectoryLanding(source_com, velocity, boundary_normal);
         velocity_ = velocity; // Preserve velocity through transfer.
 
-        markDirty();
         return added;
     }
 
@@ -237,7 +200,6 @@ double Cell::addMaterialWithPhysics(
         }
 
         fill_ratio_ += added;
-        markDirty();
     }
 
     return added;
@@ -321,8 +283,6 @@ void Cell::clear()
     hydrostatic_component_ = 0.0;
     dynamic_component_ = 0.0;
     pressure_gradient_ = Vector2d(0.0, 0.0);
-
-    markDirty();
 }
 
 void Cell::limitVelocity(
@@ -526,11 +486,6 @@ void Cell::addDirtWithCOM(double amount, const Vector2d& com, const Vector2d& ve
     }
 }
 
-void Cell::markDirty()
-{
-    needs_redraw_ = true;
-}
-
 double Cell::getTotalMaterial() const
 {
     return fill_ratio_;
@@ -539,480 +494,6 @@ double Cell::getTotalMaterial() const
 // =================================================================.
 // RENDERING METHODS.
 // =================================================================.
-
-void Cell::draw(lv_obj_t* parent, uint32_t x, uint32_t y, bool debugDraw)
-{
-    if (!needs_redraw_) {
-        return; // Skip redraw if not needed.
-    }
-
-    if (debugDraw) {
-        drawDebug(parent, x, y);
-    }
-    else {
-        drawNormal(parent, x, y);
-    }
-
-    needs_redraw_ = false;
-}
-
-void Cell::drawNormal(lv_obj_t* parent, uint32_t x, uint32_t y)
-{
-    // Create canvas if it doesn't exist.
-    if (canvas_ == nullptr) {
-        canvas_ = lv_canvas_create(parent);
-        lv_obj_set_size(canvas_, Cell::WIDTH, Cell::HEIGHT);
-        lv_obj_set_pos(canvas_, x * Cell::WIDTH, y * Cell::HEIGHT);
-
-        // Calculate buffer size for ARGB8888 format (4 bytes per pixel).
-        const size_t buffer_size = Cell::WIDTH * Cell::HEIGHT * 4;
-        buffer_.resize(buffer_size);
-
-        lv_canvas_set_buffer(
-            canvas_, buffer_.data(), Cell::WIDTH, Cell::HEIGHT, LV_COLOR_FORMAT_ARGB8888);
-    }
-
-    // Zero buffer.
-    std::fill(buffer_.begin(), buffer_.end(), 0);
-
-    // Position the canvas.
-    lv_obj_set_pos(canvas_, x * Cell::WIDTH, y * Cell::HEIGHT);
-
-    lv_layer_t layer;
-    lv_canvas_init_layer(canvas_, &layer);
-
-    // Draw black background.
-    lv_draw_rect_dsc_t bg_rect_dsc;
-    lv_draw_rect_dsc_init(&bg_rect_dsc);
-    bg_rect_dsc.bg_color = lv_color_hex(0x000000);
-    bg_rect_dsc.bg_opa = LV_OPA_COVER;
-    bg_rect_dsc.border_width = 0;
-    lv_area_t bg_coords = {
-        0, 0, static_cast<int32_t>(Cell::WIDTH - 1), static_cast<int32_t>(Cell::HEIGHT - 1)
-    };
-    lv_draw_rect(&layer, &bg_rect_dsc, &bg_coords);
-
-    // Render material if not empty.
-    if (!isEmpty()) {
-        lv_color_t material_color;
-
-        // Use same material color mapping as debug mode.
-        // TODO: If this is true, then we should dedup this.
-        switch (material_type_) {
-            case MaterialType::DIRT:
-                material_color = lv_color_hex(0xA0522D); // Sienna brown.
-                break;
-            case MaterialType::WATER:
-                material_color = lv_color_hex(0x00BFFF); // Deep sky blue.
-                break;
-            case MaterialType::WOOD:
-                material_color = lv_color_hex(0xDEB887); // Burlywood.
-                break;
-            case MaterialType::SAND:
-                material_color = lv_color_hex(0xFFB347); // Sandy orange.
-                break;
-            case MaterialType::METAL:
-                material_color = lv_color_hex(0xC0C0C0); // Silver.
-                break;
-            case MaterialType::LEAF:
-                material_color = lv_color_hex(0x00FF32); // Bright lime green.
-                break;
-            case MaterialType::WALL:
-                material_color = lv_color_hex(0x808080); // Gray.
-                break;
-            case MaterialType::AIR:
-            default:
-                // Air is transparent - already has black background.
-                lv_canvas_finish_layer(canvas_, &layer);
-                return;
-        }
-
-        // Calculate opacity based on fill ratio.
-        lv_opa_t opacity = static_cast<lv_opa_t>(fill_ratio_ * static_cast<double>(LV_OPA_COVER));
-
-        // Draw material layer border.
-        lv_draw_rect_dsc_t rect_dsc;
-        lv_draw_rect_dsc_init(&rect_dsc);
-        rect_dsc.bg_color = material_color;
-        rect_dsc.bg_opa =
-            static_cast<lv_opa_t>(opacity * 0.7);
-        rect_dsc.border_color = material_color;
-        rect_dsc.border_opa = opacity;
-        rect_dsc.border_width = 2;
-        rect_dsc.radius = 2;
-
-        // Draw full cell area.
-        lv_area_t coords = {
-            0, 0, static_cast<int32_t>(Cell::WIDTH - 1), static_cast<int32_t>(Cell::HEIGHT - 1)
-        };
-
-        lv_draw_rect(&layer, &rect_dsc, &coords);
-    }
-    // Empty cells remain transparent - no rendering needed.
-
-    lv_canvas_finish_layer(canvas_, &layer);
-}
-
-void Cell::drawDebug(lv_obj_t* parent, uint32_t x, uint32_t y)
-{
-    // Create canvas if it doesn't exist.
-    if (canvas_ == nullptr) {
-        canvas_ = lv_canvas_create(parent);
-        lv_obj_set_size(canvas_, Cell::WIDTH, Cell::HEIGHT);
-        lv_obj_set_pos(canvas_, x * Cell::WIDTH, y * Cell::HEIGHT);
-
-        // Calculate buffer size for ARGB8888 format (4 bytes per pixel).
-        const size_t buffer_size = Cell::WIDTH * Cell::HEIGHT * 4;
-        buffer_.resize(buffer_size);
-
-        lv_canvas_set_buffer(
-            canvas_, buffer_.data(), Cell::WIDTH, Cell::HEIGHT, LV_COLOR_FORMAT_ARGB8888);
-    }
-
-    // Zero buffer.
-    std::fill(buffer_.begin(), buffer_.end(), 0);
-
-    // Position the canvas.
-    lv_obj_set_pos(canvas_, x * Cell::WIDTH, y * Cell::HEIGHT);
-
-    lv_layer_t layer;
-    lv_canvas_init_layer(canvas_, &layer);
-
-    // Draw black background for all cells.
-    lv_draw_rect_dsc_t bg_rect_dsc;
-    lv_draw_rect_dsc_init(&bg_rect_dsc);
-    bg_rect_dsc.bg_color = lv_color_hex(0x000000); // Black background.
-    bg_rect_dsc.bg_opa = LV_OPA_COVER;
-    bg_rect_dsc.border_width = 0;
-    lv_area_t coords = {
-        0, 0, static_cast<int32_t>(Cell::WIDTH - 1), static_cast<int32_t>(Cell::HEIGHT - 1)
-    };
-    lv_draw_rect(&layer, &bg_rect_dsc, &coords);
-
-    // Render material if not empty.
-    if (!isEmpty()) {
-        lv_color_t material_color;
-
-        // Enhanced material color mapping (debug mode with brighter variants).
-        switch (material_type_) {
-            case MaterialType::DIRT:
-                material_color = lv_color_hex(0xA0522D); // Brighter sienna brown for debug.
-                break;
-            case MaterialType::WATER:
-                material_color = lv_color_hex(0x00BFFF); // Deep sky blue for debug.
-                break;
-            case MaterialType::WOOD:
-                material_color =
-                    lv_color_hex(0xDEB887); // Burlywood (lighter for debug visibility).
-                break;
-            case MaterialType::SAND:
-                material_color = lv_color_hex(0xFFB347); // Brighter sandy orange.
-                break;
-            case MaterialType::METAL:
-                material_color = lv_color_hex(0xC0C0C0); // Silver (unchanged - already visible).
-                break;
-            case MaterialType::LEAF:
-                material_color = lv_color_hex(0x00FF32); // Bright lime green for debug.
-                break;
-            case MaterialType::WALL:
-                material_color = lv_color_hex(0x808080); // Gray (unchanged for solid appearance).
-                break;
-            case MaterialType::AIR:
-            default:
-                // Air gets black background only - continue to debug overlay.
-                break;
-        }
-
-        if (material_type_ != MaterialType::AIR) {
-            // Calculate opacity based on fill ratio.
-            lv_opa_t opacity =
-                static_cast<lv_opa_t>(fill_ratio_ * static_cast<double>(LV_OPA_COVER));
-
-            // Draw material layer border.
-            lv_draw_rect_dsc_t rect_dsc;
-            lv_draw_rect_dsc_init(&rect_dsc);
-            rect_dsc.bg_color = material_color;
-            rect_dsc.bg_opa = static_cast<lv_opa_t>(opacity * 0.7);
-            rect_dsc.border_color = material_color;
-            rect_dsc.border_opa = opacity;
-            rect_dsc.border_width = 2;
-            rect_dsc.radius = 2;
-            lv_draw_rect(&layer, &rect_dsc, &coords);
-        }
-
-        // Draw velocity vector as green line starting from COM position.
-        if (velocity_.mag() > 0.01) {
-            // Calculate COM pixel position (same as COM indicator calculation).
-            int com_pixel_x = static_cast<int>((com_.x + 1.0) * (Cell::WIDTH - 1) / 2.0);
-            int com_pixel_y = static_cast<int>((com_.y + 1.0) * (Cell::HEIGHT - 1) / 2.0);
-
-            // Scale velocity for visualization.
-            double scale = 20.0;
-            int end_x = com_pixel_x + static_cast<int>(velocity_.x * scale);
-            int end_y = com_pixel_y + static_cast<int>(velocity_.y * scale);
-
-            // NO clamping - allow velocity vector to extend beyond cell bounds.
-            // This shows the true trajectory and projected target location.
-
-            lv_draw_line_dsc_t line_dsc;
-            lv_draw_line_dsc_init(&line_dsc);
-            line_dsc.color = lv_color_hex(0x00FF00); // Bright green.
-            line_dsc.width = 2;
-            line_dsc.p1.x = com_pixel_x;
-            line_dsc.p1.y = com_pixel_y;
-            line_dsc.p2.x = end_x;
-            line_dsc.p2.y = end_y;
-            lv_draw_line(&layer, &line_dsc);
-        }
-
-        // Draw force vectors from COM position.
-        int com_pixel_x = static_cast<int>((com_.x + 1.0) * (Cell::WIDTH - 1) / 2.0);
-        int com_pixel_y = static_cast<int>((com_.y + 1.0) * (Cell::HEIGHT - 1) / 2.0);
-
-        // Draw viscosity damping effect as a colored circle.
-        // accumulated_cohesion_force_.x = motion_multiplier (0-1)
-        // accumulated_cohesion_force_.y = damping_factor (1+)
-        if (accumulated_cohesion_force_.y > 1.01) { // Only show if significant damping.
-            double damping_factor = accumulated_cohesion_force_.y;
-            double motion_multiplier = accumulated_cohesion_force_.x;
-
-            // Circle radius based on damping strength (1.0 = no damping, higher = more).
-            int radius = static_cast<int>((damping_factor - 1.0) * 20.0);     // Scale factor of 20.
-            radius = std::min(radius, static_cast<int>(Cell::WIDTH / 2 - 2)); // Limit to cell size.
-
-            if (radius > 1) {
-                // Color based on motion state (red=static, yellow=sliding, green=falling).
-                lv_color_t color;
-                if (motion_multiplier > 0.9) {
-                    color = lv_color_hex(0xFF0000); // Red for static (high damping).
-                }
-                else if (motion_multiplier > 0.4) {
-                    color = lv_color_hex(0xFFFF00); // Yellow for sliding.
-                }
-                else {
-                    color = lv_color_hex(0x00FF00); // Green for falling/turbulent.
-                }
-
-                lv_draw_arc_dsc_t arc_dsc;
-                lv_draw_arc_dsc_init(&arc_dsc);
-                arc_dsc.color = color;
-                arc_dsc.width = 2;
-                arc_dsc.start_angle = 0;
-                arc_dsc.end_angle = 360;
-                arc_dsc.center.x = com_pixel_x;
-                arc_dsc.center.y = com_pixel_y;
-                arc_dsc.radius = radius;
-
-                lv_draw_arc(&layer, &arc_dsc);
-            }
-        }
-
-        // Draw adhesion force as orange line (only if adhesion drawing is enabled).
-        if (false && accumulated_adhesion_force_.mag() > 0.01) {  // TODO: Add adhesionDrawEnabled flag.
-            double scale = 15.0;
-            int end_x = com_pixel_x + static_cast<int>(accumulated_adhesion_force_.x * scale);
-            int end_y = com_pixel_y + static_cast<int>(accumulated_adhesion_force_.y * scale);
-
-            lv_draw_line_dsc_t adhesion_line_dsc;
-            lv_draw_line_dsc_init(&adhesion_line_dsc);
-            adhesion_line_dsc.color = lv_color_hex(0xFF8000); // Orange for adhesion.
-            adhesion_line_dsc.width = 2;
-            adhesion_line_dsc.p1.x = com_pixel_x;
-            adhesion_line_dsc.p1.y = com_pixel_y;
-            adhesion_line_dsc.p2.x = end_x;
-            adhesion_line_dsc.p2.y = end_y;
-            lv_draw_line(&layer, &adhesion_line_dsc);
-        }
-
-        // Draw COM cohesion force as cyan line.
-        if (accumulated_com_cohesion_force_.mag() > 0.01) {
-            double scale = 15.0;
-            int end_x = com_pixel_x + static_cast<int>(accumulated_com_cohesion_force_.x * scale);
-            int end_y = com_pixel_y + static_cast<int>(accumulated_com_cohesion_force_.y * scale);
-
-            lv_draw_line_dsc_t com_cohesion_line_dsc;
-            lv_draw_line_dsc_init(&com_cohesion_line_dsc);
-            com_cohesion_line_dsc.color = lv_color_hex(0x00FFFF); // Cyan for COM cohesion.
-            com_cohesion_line_dsc.width = 2;
-            com_cohesion_line_dsc.p1.x = com_pixel_x;
-            com_cohesion_line_dsc.p1.y = com_pixel_y;
-            com_cohesion_line_dsc.p2.x = end_x;
-            com_cohesion_line_dsc.p2.y = end_y;
-            lv_draw_line(&layer, &com_cohesion_line_dsc);
-        }
-
-        // Draw pressure visualization as dual-layer border.
-        // Inner border: hydrostatic pressure (red).
-        // Outer border: dynamic pressure (magenta).
-
-        // Calculate border widths based on pressure values.
-        // Use log scale for better visualization of pressure ranges.
-        const double MAX_BORDER_WIDTH = 8.0; // Maximum border width in pixels.
-
-        int hydrostatic_border_width = 0;
-        int dynamic_border_width = 0;
-
-        if (hydrostatic_component_ > 0.01) {
-            // Map hydrostatic pressure to border width (1-8 pixels).
-            hydrostatic_border_width = static_cast<int>(
-                std::min(MAX_BORDER_WIDTH, 1.0 + std::log1p(hydrostatic_component_ * 10) * 2.0));
-        }
-
-        if (dynamic_component_ > 0.01) {
-            // Map dynamic pressure to border width (1-8 pixels).
-            dynamic_border_width = static_cast<int>(
-                std::min(MAX_BORDER_WIDTH, 1.0 + std::log1p(dynamic_component_ * 10) * 2.0));
-        }
-
-        spdlog::trace(
-            "[RENDER DEBUG] Cell hydrostatic_component_={}, dynamic_component_={}, "
-            "hydrostatic_border_width={}, dynamic_border_width={}",
-            hydrostatic_component_,
-            dynamic_component_,
-            hydrostatic_border_width,
-            dynamic_border_width);
-
-        // Draw outer border first (dynamic pressure - magenta).
-        if (dynamic_border_width > 0) {
-            lv_draw_rect_dsc_t dynamic_border_dsc;
-            lv_draw_rect_dsc_init(&dynamic_border_dsc);
-            dynamic_border_dsc.bg_opa = LV_OPA_TRANSP;                // Transparent background.
-            dynamic_border_dsc.border_color = lv_color_hex(0xFF00FF); // Magenta.
-            dynamic_border_dsc.border_opa = LV_OPA_COVER;
-            dynamic_border_dsc.border_width = dynamic_border_width;
-            dynamic_border_dsc.radius = 0;
-
-            lv_area_t dynamic_border_area = coords; // Full cell area.
-            lv_draw_rect(&layer, &dynamic_border_dsc, &dynamic_border_area);
-        }
-
-        // Draw inner border (hydrostatic pressure - red).
-        if (hydrostatic_border_width > 0) {
-            lv_draw_rect_dsc_t hydrostatic_border_dsc;
-            lv_draw_rect_dsc_init(&hydrostatic_border_dsc);
-            hydrostatic_border_dsc.bg_opa = LV_OPA_TRANSP;                // Transparent background.
-            hydrostatic_border_dsc.border_color = lv_color_hex(0xFF0000); // Red.
-            hydrostatic_border_dsc.border_opa = LV_OPA_COVER;
-            hydrostatic_border_dsc.border_width = hydrostatic_border_width;
-            hydrostatic_border_dsc.radius = 0;
-
-            // Inset the hydrostatic border by the dynamic border width.
-            lv_area_t hydrostatic_border_area;
-            hydrostatic_border_area.x1 = dynamic_border_width;
-            hydrostatic_border_area.y1 = dynamic_border_width;
-            hydrostatic_border_area.x2 = Cell::WIDTH - 1 - dynamic_border_width;
-            hydrostatic_border_area.y2 = Cell::HEIGHT - 1 - dynamic_border_width;
-            lv_draw_rect(&layer, &hydrostatic_border_dsc, &hydrostatic_border_area);
-        }
-
-        // Draw pressure gradient vector as magenta line.
-        if (pressure_gradient_.magnitude() > 0.001) {
-            int center_x = Cell::WIDTH / 2;
-            int center_y = Cell::HEIGHT / 2;
-
-            const double GRADIENT_SCALE = 30.0;
-
-            int end_x = center_x + static_cast<int>(pressure_gradient_.x * GRADIENT_SCALE);
-            int end_y = center_y + static_cast<int>(pressure_gradient_.y * GRADIENT_SCALE);
-
-            // Draw gradient line.
-            lv_draw_line_dsc_t gradient_line_dsc;
-            lv_draw_line_dsc_init(&gradient_line_dsc);
-            gradient_line_dsc.color = lv_color_hex(0xFF0080); // Magenta.
-            gradient_line_dsc.width = 3;
-            gradient_line_dsc.opa = LV_OPA_COVER;
-            gradient_line_dsc.p1.x = center_x;
-            gradient_line_dsc.p1.y = center_y;
-            gradient_line_dsc.p2.x = end_x;
-            gradient_line_dsc.p2.y = end_y;
-            lv_draw_line(&layer, &gradient_line_dsc);
-        }
-
-        // Draw friction state as inner square.
-        if (!isMaterialFluid(material_type_) && material_type_ != MaterialType::WALL) {
-            const MaterialProperties& props = getMaterialProperties(material_type_);
-
-            // Determine friction state color based on cached coefficient.
-            lv_color_t friction_color;
-
-            // Calculate how far we are from static to kinetic friction.
-            double friction_range =
-                props.static_friction_coefficient - props.kinetic_friction_coefficient;
-            double normalized_friction = 1.0;
-            if (friction_range > 0.001) {
-                normalized_friction =
-                    (cached_friction_coefficient_ - props.kinetic_friction_coefficient)
-                    / friction_range;
-                normalized_friction = std::min(1.0, std::max(0.0, normalized_friction));
-            }
-
-            if (normalized_friction > 0.8) {
-                // Static friction - green.
-                friction_color = lv_color_hex(0x00FF00);
-            }
-            else if (normalized_friction > 0.2) {
-                // Transitioning - yellow.
-                friction_color = lv_color_hex(0xFFFF00);
-            }
-            else {
-                // Kinetic friction - red.
-                friction_color = lv_color_hex(0xFF0000);
-            }
-
-            // Draw friction indicator as inner square.
-            // Scale square size based on friction coefficient.
-            // When normalized_friction = 1.0 (static), margin = 8 (large square).
-            // When normalized_friction = 0.0 (kinetic), margin = Cell::WIDTH/2 (zero size square).
-            const int min_margin = 8;
-            const int max_margin = Cell::WIDTH / 2;
-            int margin = static_cast<int>(max_margin - (max_margin - min_margin) * normalized_friction);
-
-            lv_draw_rect_dsc_t friction_rect_dsc;
-            lv_draw_rect_dsc_init(&friction_rect_dsc);
-            friction_rect_dsc.bg_color = friction_color;
-            friction_rect_dsc.bg_opa =
-                static_cast<lv_opa_t>(0.5 * static_cast<double>(LV_OPA_COVER));
-            friction_rect_dsc.border_width = 0;
-            friction_rect_dsc.radius = 1;
-
-            lv_area_t friction_coords = { margin,
-                                          margin,
-                                          static_cast<int32_t>(Cell::WIDTH - 1 - margin),
-                                          static_cast<int32_t>(Cell::HEIGHT - 1 - margin) };
-
-            lv_draw_rect(&layer, &friction_rect_dsc, &friction_coords);
-        }
-
-        // Draw Center of Mass as yellow square.
-        {
-            // Calculate center of mass pixel position.
-            int pixel_x = static_cast<int>((com_.x + 1.0) * (Cell::WIDTH - 1) / 2.0);
-            int pixel_y = static_cast<int>((com_.y + 1.0) * (Cell::HEIGHT - 1) / 2.0);
-
-            // Draw small square centered at COM position.
-            const int square_size = 6; // Size of the COM indicator square.
-            const int half_size = square_size / 2;
-
-            lv_draw_rect_dsc_t com_rect_dsc;
-            lv_draw_rect_dsc_init(&com_rect_dsc);
-            com_rect_dsc.bg_color = lv_color_hex(0xFFFF00); // Bright yellow.
-            com_rect_dsc.bg_opa = LV_OPA_COVER;
-            com_rect_dsc.border_color = lv_color_hex(0xCC9900); // Darker yellow border.
-            com_rect_dsc.border_opa = LV_OPA_COVER;
-            com_rect_dsc.border_width = 1;
-            com_rect_dsc.radius = 0; // Sharp corners for square.
-
-            lv_area_t com_coords = { pixel_x - half_size,
-                                     pixel_y - half_size,
-                                     pixel_x + half_size - 1,
-                                     pixel_y + half_size - 1 };
-
-            lv_draw_rect(&layer, &com_rect_dsc, &com_coords);
-        }
-    }
-
-    lv_canvas_finish_layer(canvas_, &layer);
-}
 
 std::string Cell::toAsciiCharacter() const
 {
