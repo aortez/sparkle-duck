@@ -14,7 +14,7 @@ void signalHandler(int signum)
 {
     spdlog::info("Interrupt signal ({}) received, shutting down...", signum);
     if (g_stateMachine) {
-        g_stateMachine->getSharedState().setShouldExit(true);
+        g_stateMachine->setShouldExit(true);
     }
 }
 

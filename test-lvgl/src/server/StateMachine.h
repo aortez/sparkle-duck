@@ -2,7 +2,6 @@
 
 #include "Event.h"
 #include "EventProcessor.h"
-#include "../core/SharedSimState.h"
 #include "../core/StateMachineBase.h"
 #include "../core/StateMachineInterface.h"
 #include "states/State.h"
@@ -20,11 +19,6 @@ public:
     void mainLoopRun();
     void queueEvent(const Event& event);
 
-    /**
-     * @brief Process an event immediately (for immediate events).
-     * Should only be called from EventRouter.
-     */
-    void processImmediateEvent(const Event& event, SharedSimState& shared);
 
     /**
      * @brief Handle an event by dispatching to current state.
@@ -35,10 +29,6 @@ public:
     std::string getCurrentStateName() const override { return State::getCurrentStateName(fsmState); }
     void processEvents();
 
-    SharedSimState& getSharedState() { return sharedState; }
-    bool resizeWorldIfNeeded(uint32_t requiredWidth, uint32_t requiredHeight);
-    UiUpdateEvent buildUIUpdate();
-
     EventProcessor eventProcessor;
 
     uint32_t defaultWidth = 28;
@@ -46,7 +36,6 @@ public:
 
 private:
     State::Any fsmState{ State::Startup{} };
-    SharedSimState sharedState;
 
     /**
      * @brief Transition to a new state.

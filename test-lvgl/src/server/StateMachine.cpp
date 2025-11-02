@@ -11,7 +11,7 @@
 namespace DirtSim {
 namespace Server {
 
-StateMachine::StateMachine() : eventProcessor(), sharedState()
+StateMachine::StateMachine() : eventProcessor()
 {
     spdlog::info("Server::StateMachine initialized in headless mode in state: {}", getCurrentStateName());
     // Note: World will be created by SimRunning state when simulation starts.
@@ -22,12 +22,6 @@ StateMachine::~StateMachine()
     spdlog::info("Server::StateMachine shutting down from state: {}", getCurrentStateName());
 }
 
-bool StateMachine::resizeWorldIfNeeded(uint32_t /*requiredWidth*/, uint32_t /*requiredHeight*/)
-{
-    // TODO: Resize logic needs to be moved to SimRunning state.
-    spdlog::warn("StateMachine::resizeWorldIfNeeded called but not implemented (World owned by SimRunning)");
-    return false;
-}
 
 void StateMachine::mainLoopRun()
 {
@@ -65,29 +59,6 @@ void StateMachine::queueEvent(const Event& event)
 void StateMachine::processEvents()
 {
     eventProcessor.processEventsFromQueue(*this);
-}
-
-void StateMachine::processImmediateEvent(const Event& event, SharedSimState& shared)
-{
-    // Immediate events are processed directly without state dispatch.
-    std::visit(
-        [this, &shared](const auto& e) {
-            using T = std::decay_t<decltype(e)>;
-
-            if constexpr (std::is_same_v<T, GetFPSCommand>) {
-                // Already handled by EventRouter.
-            }
-            else if constexpr (std::is_same_v<T, GetSimStatsCommand>) {
-                // Already handled by EventRouter.
-            }
-            else if constexpr (std::is_same_v<T, PauseCommand>) {
-                // Already handled by EventRouter.
-            }
-            else if constexpr (std::is_same_v<T, ResumeCommand>) {
-                // Already handled by EventRouter.
-            }
-        },
-        event);
 }
 
 void StateMachine::handleEvent(const Event& event)
@@ -133,10 +104,6 @@ void StateMachine::transitionTo(State::Any newState)
 
     // Call onEnter for new state.
     std::visit([this](auto& state) { callOnEnter(state); }, fsmState);
-
-    // Push UI update on state transitions (always enabled for thread safety).
-    UiUpdateEvent update = buildUIUpdate();
-    sharedState.pushUIUpdate(std::move(update));
 }
 
 // Global event handlers.
@@ -144,7 +111,7 @@ void StateMachine::transitionTo(State::Any newState)
 State::Any StateMachine::onEvent(const QuitApplicationCommand& /*cmd.*/)
 {
     spdlog::info("Global handler: QuitApplicationCommand received");
-    sharedState.setShouldExit(true);
+    setShouldExit(true);
     return State::Shutdown{};
 }
 
@@ -174,13 +141,6 @@ State::Any StateMachine::onEvent(const GetSimStatsCommand& /*cmd.*/)
         fsmState);
 }
 
-UiUpdateEvent StateMachine::buildUIUpdate()
-{
-    // TODO: UI update logic needs to be rethought for new architecture.
-    // World is owned by SimRunning state, not StateMachine.
-    spdlog::warn("StateMachine::buildUIUpdate called but not implemented (World owned by SimRunning)");
-    return UiUpdateEvent{};
-}
 
 } // namespace Server
 } // namespace DirtSim

@@ -45,7 +45,7 @@ State::Any SimRunning::onEvent(const AdvanceSimulationCommand& /*cmd*/, StateMac
     return std::move(*this);  // Stay in SimRunning (move because unique_ptr).
 }
 
-State::Any SimRunning::onEvent(const ApplyScenarioCommand& cmd, StateMachine& dsm)
+State::Any SimRunning::onEvent(const ApplyScenarioCommand& cmd, StateMachine& /*dsm*/)
 {
     spdlog::info("SimRunning: Applying scenario: {}", cmd.scenarioName);
 
@@ -57,15 +57,7 @@ State::Any SimRunning::onEvent(const ApplyScenarioCommand& cmd, StateMachine& ds
         return std::move(*this);
     }
 
-    const auto& metadata = scenario->getMetadata();
-
-    // Resize world if needed.
-    if (metadata.requiredWidth > 0 && metadata.requiredHeight > 0) {
-        dsm.resizeWorldIfNeeded(metadata.requiredWidth, metadata.requiredHeight);
-    }
-    else {
-        dsm.resizeWorldIfNeeded(0, 0); // Restore defaults.
-    }
+    // TODO: Handle scenario-specific world resizing if needed.
 
     // Apply scenario's WorldEventGenerator.
     auto setup = scenario->createWorldEventGenerator();
@@ -76,10 +68,10 @@ State::Any SimRunning::onEvent(const ApplyScenarioCommand& cmd, StateMachine& ds
     return std::move(*this);
 }
 
-State::Any SimRunning::onEvent(const ResizeWorldCommand& cmd, StateMachine& dsm)
+State::Any SimRunning::onEvent(const ResizeWorldCommand& cmd, StateMachine& /*dsm*/)
 {
     spdlog::info("SimRunning: Resizing world to {}x{}", cmd.width, cmd.height);
-    dsm.resizeWorldIfNeeded(cmd.width, cmd.height);
+    // TODO: Implement world resizing (world->resize or recreate world).
     return std::move(*this);
 }
 
@@ -154,7 +146,7 @@ State::Any SimRunning::onEvent(const Api::GravitySet::Cwc& cwc, StateMachine& /*
     return std::move(*this);
 }
 
-State::Any SimRunning::onEvent(const Api::Reset::Cwc& cwc, StateMachine& dsm)
+State::Any SimRunning::onEvent(const Api::Reset::Cwc& cwc, StateMachine& /*dsm*/)
 {
     using Response = Api::Reset::Response;
 
@@ -165,7 +157,6 @@ State::Any SimRunning::onEvent(const Api::Reset::Cwc& cwc, StateMachine& dsm)
     }
 
     stepCount = 0;
-    dsm.getSharedState().setCurrentStep(0);
 
     cwc.sendResponse(Response::okay(std::monostate{}));
     return std::move(*this);
@@ -220,7 +211,7 @@ State::Any SimRunning::onEvent(const PauseCommand& /*cmd*/, StateMachine& /*dsm.
     return SimPaused{std::move(*this)};
 }
 
-State::Any SimRunning::onEvent(const ResetSimulationCommand& /*cmd*/, StateMachine& dsm)
+State::Any SimRunning::onEvent(const ResetSimulationCommand& /*cmd*/, StateMachine& /*dsm*/)
 {
     spdlog::info("SimRunning: Resetting simulation");
 
@@ -229,8 +220,7 @@ State::Any SimRunning::onEvent(const ResetSimulationCommand& /*cmd*/, StateMachi
     }
 
     stepCount = 0;
-    dsm.getSharedState().setCurrentStep(0);
-    
+
     return std::move(*this);  // Stay in SimRunning (move because unique_ptr).
 }
 
@@ -344,13 +334,12 @@ State::Any SimRunning::onEvent(const MouseUpEvent& /*evt*/, StateMachine& /*dsm*
     return std::move(*this);
 }
 
-State::Any SimRunning::onEvent(const SelectMaterialCommand& cmd, StateMachine& dsm)
+State::Any SimRunning::onEvent(const SelectMaterialCommand& cmd, StateMachine& /*dsm*/)
 {
-    dsm.getSharedState().setSelectedMaterial(cmd.material);
     if (world) {
         world->setSelectedMaterial(cmd.material);
+        spdlog::debug("SimRunning: Selected material {}", static_cast<int>(cmd.material));
     }
-    spdlog::debug("SimRunning: Selected material {}", static_cast<int>(cmd.material));
     return std::move(*this);
 }
 
@@ -541,68 +530,48 @@ State::Any SimRunning::onEvent(const SetRainRateCommand& cmd, StateMachine& /*ds
 }
 
 // Handle immediate events routed through push system.
-State::Any SimRunning::onEvent(const GetFPSCommand& /*cmd*/, StateMachine& dsm)
+State::Any SimRunning::onEvent(const GetFPSCommand& /*cmd*/, StateMachine& /*dsm*/)
 {
-    // FPS is already tracked in shared state and will be in next push update.
-    spdlog::debug("SimRunning: GetFPSCommand - FPS will be in next update");
-
-    // Force a push update with FPS dirty flag.
-    UiUpdateEvent update = dsm.buildUIUpdate();
-    dsm.getSharedState().pushUIUpdate(std::move(update));
-
+    spdlog::debug("SimRunning: GetFPSCommand not implemented in headless server");
+    // TODO: Track FPS if needed for headless operation.
     return std::move(*this);
 }
 
-State::Any SimRunning::onEvent(const GetSimStatsCommand& /*cmd*/, StateMachine& dsm)
+State::Any SimRunning::onEvent(const GetSimStatsCommand& /*cmd*/, StateMachine& /*dsm*/)
 {
-    // Stats are already tracked and will be in next push update.
-    spdlog::debug("SimRunning: GetSimStatsCommand - Stats will be in next update");
-
-    // Force a push update with stats dirty flag.
-    UiUpdateEvent update = dsm.buildUIUpdate();
-    dsm.getSharedState().pushUIUpdate(std::move(update));
-
+    spdlog::debug("SimRunning: GetSimStatsCommand not implemented in headless server");
+    // TODO: Return simulation statistics if needed.
     return std::move(*this);
 }
 
-State::Any SimRunning::onEvent(const ToggleDebugCommand& /*cmd*/, StateMachine& dsm)
+State::Any SimRunning::onEvent(const ToggleDebugCommand& /*cmd*/, StateMachine& /*dsm*/)
 {
-    // Toggle debug draw state in world (source of truth).
+    // Toggle debug draw state in world.
     if (world) {
         bool newValue = !world->isDebugDrawEnabled();
         world->setDebugDrawEnabled(newValue);
-        spdlog::info("SimRunning: ToggleDebugCommand - Debug draw now: {}", newValue);
-
-        // Push UI update with uiState dirty flag.
-        UiUpdateEvent update = dsm.buildUIUpdate();
-        dsm.getSharedState().pushUIUpdate(std::move(update));
+        spdlog::info("SimRunning: Debug draw now: {}", newValue);
     }
 
     return std::move(*this);
 }
 
-State::Any SimRunning::onEvent(const ToggleCohesionForceCommand& /*cmd*/, StateMachine& dsm)
+State::Any SimRunning::onEvent(const ToggleCohesionForceCommand& /*cmd*/, StateMachine& /*dsm*/)
 {
     if (world) {
         bool newValue = !world->isCohesionComForceEnabled();
         world->setCohesionComForceEnabled(newValue);
-        spdlog::info("SimRunning: ToggleCohesionForceCommand - Cohesion force now: {}", newValue);
-
-        UiUpdateEvent update = dsm.buildUIUpdate();
-        dsm.getSharedState().pushUIUpdate(std::move(update));
+        spdlog::info("SimRunning: Cohesion force now: {}", newValue);
     }
     return std::move(*this);
 }
 
-State::Any SimRunning::onEvent(const ToggleTimeHistoryCommand& /*cmd*/, StateMachine& dsm)
+State::Any SimRunning::onEvent(const ToggleTimeHistoryCommand& /*cmd*/, StateMachine& /*dsm*/)
 {
     if (world) {
         bool newValue = !world->isTimeReversalEnabled();
         world->enableTimeReversal(newValue);
-        spdlog::info("SimRunning: ToggleTimeHistoryCommand - Time history now: {}", newValue);
-
-        UiUpdateEvent update = dsm.buildUIUpdate();
-        dsm.getSharedState().pushUIUpdate(std::move(update));
+        spdlog::info("SimRunning: Time history now: {}", newValue);
     }
     return std::move(*this);
 }
