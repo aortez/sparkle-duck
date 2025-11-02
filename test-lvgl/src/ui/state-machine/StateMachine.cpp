@@ -1,19 +1,32 @@
 #include "StateMachine.h"
 #include "states/State.h"
+#include "network/WebSocketServer.h"
 #include <spdlog/spdlog.h>
 
 namespace DirtSim {
 namespace Ui {
 
-StateMachine::StateMachine(_lv_display_t* disp)
+StateMachine::StateMachine(_lv_display_t* disp, uint16_t wsPort)
     : display(disp)
 {
     spdlog::info("Ui::StateMachine initialized in state: {}", getCurrentStateName());
+
+    // Create WebSocket server for accepting remote commands.
+    wsServer_ = new WebSocketServer(*this, wsPort);
+    wsServer_->start();
+    spdlog::info("Ui::StateMachine: WebSocket server listening on port {}", wsPort);
 }
 
 StateMachine::~StateMachine()
 {
     spdlog::info("Ui::StateMachine shutting down from state: {}", getCurrentStateName());
+
+    // Stop and clean up WebSocket server.
+    if (wsServer_) {
+        wsServer_->stop();
+        delete wsServer_;
+        wsServer_ = nullptr;
+    }
 }
 
 void StateMachine::mainLoopRun()

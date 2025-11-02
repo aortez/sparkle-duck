@@ -146,6 +146,15 @@ add_executable(sparkle-duck-ui
     src/ui/state-machine/states/SimRunning.cpp
     src/ui/state-machine/states/StartMenu.cpp
     src/ui/state-machine/states/Startup.cpp
+    src/ui/state-machine/network/CommandDeserializerJson.cpp
+    src/ui/state-machine/network/WebSocketServer.cpp
+    src/ui/state-machine/api/Exit.cpp
+    src/ui/state-machine/api/MouseDown.cpp
+    src/ui/state-machine/api/MouseMove.cpp
+    src/ui/state-machine/api/MouseUp.cpp
+    src/ui/state-machine/api/Screenshot.cpp
+    src/ui/state-machine/api/SimPause.cpp
+    src/ui/state-machine/api/SimRun.cpp
     # TODO: Re-enable these after fixing includes:
     # src/ui/SimulatorUI.cpp
     # src/ui/UIUpdateConsumer.cpp

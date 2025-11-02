@@ -16,7 +16,7 @@ namespace Ui {
 
 class StateMachine : public StateMachineBase, public StateMachineInterface<Event> {
 public:
-    explicit StateMachine(_lv_display_t* display);
+    explicit StateMachine(_lv_display_t* display, uint16_t wsPort = 7070);
     ~StateMachine();
 
     void mainLoopRun();
@@ -30,9 +30,9 @@ public:
     EventProcessor eventProcessor;
 
     // TODO: Add WebSocket client (to connect to DSSM server).
-    // TODO: Add WebSocket server (to accept remote commands).
 
 private:
+    class WebSocketServer* wsServer_ = nullptr; // Owned WebSocket server for remote commands.
     State::Any fsmState{ State::Startup{} };
 
     void transitionTo(State::Any newState);
