@@ -1,6 +1,7 @@
 #pragma once
 
-#include "State.h"
+#include "StateForward.h"
+#include "../Event.h"
 
 namespace DirtSim {
 namespace Server {
@@ -20,7 +21,7 @@ struct Idle {
     void onExit(StateMachine& dsm);
 
     Any onEvent(const Api::Exit::Cwc& cwc, StateMachine& dsm);
-    // Future: SimRun command will create world and transition to SimRunning.
+    Any onEvent(const Api::SimRun::Cwc& cwc, StateMachine& dsm);
 
     static constexpr const char* name() { return "Idle"; }
 };

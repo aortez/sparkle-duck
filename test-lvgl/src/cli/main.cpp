@@ -7,6 +7,44 @@
 
 using namespace DirtSim;
 
+// Command registry for help text and validation.
+struct CommandInfo {
+    std::string name;
+    std::string description;
+    std::string example_params;
+};
+
+static const std::vector<CommandInfo> AVAILABLE_COMMANDS = {
+    {"cell_get", "Get cell state at coordinates", R"({"x": 10, "y": 20})"},
+    {"cell_set", "Place material at coordinates", R"({"x": 50, "y": 50, "material": "WATER", "fill": 1.0})"},
+    {"diagram_get", "Get emoji visualization of world", ""},
+    {"exit", "Shutdown server", ""},
+    {"gravity_set", "Set gravity value", R"({"gravity": 15.0})"},
+    {"reset", "Reset simulation to initial state", ""},
+    {"sim_run", "Start autonomous simulation", R"({"timestep": 0.016, "max_steps": 100})"},
+    {"state_get", "Get complete world state as JSON", ""},
+};
+
+std::string getCommandListHelp() {
+    std::string help = "Available commands:\n";
+    for (const auto& cmd : AVAILABLE_COMMANDS) {
+        help += "  " + cmd.name + " - " + cmd.description + "\n";
+    }
+    return help;
+}
+
+std::string getExamplesHelp() {
+    std::string examples = "Examples:\n";
+    for (const auto& cmd : AVAILABLE_COMMANDS) {
+        if (!cmd.example_params.empty()) {
+            examples += "  cli ws://localhost:8080 " + cmd.name + " '" + cmd.example_params + "'\n";
+        } else {
+            examples += "  cli ws://localhost:8080 " + cmd.name + "\n";
+        }
+    }
+    return examples;
+}
+
 std::string buildCommand(const std::string& commandName, const std::string& jsonParams)
 {
     nlohmann::json cmd;
@@ -35,14 +73,7 @@ int main(int argc, char** argv)
     // Parse command line arguments.
     args::ArgumentParser parser(
         "Sparkle Duck CLI Client",
-        "Send commands to Sparkle Duck server or UI via WebSocket.\n\n"
-        "Examples:\n"
-        "  cli ws://localhost:8080 get_state\n"
-        "  cli ws://localhost:8080 step '{\"frames\": 100}'\n"
-        "  cli ws://localhost:8080 get_cell '{\"x\": 10, \"y\": 20}'\n"
-        "  cli ws://localhost:8080 place_material '{\"x\": 50, \"y\": 50, \"material\": \"WATER\", \"fill\": 1.0}'\n"
-        "  cli ws://localhost:8080 set_gravity '{\"value\": 15.0}'\n"
-        "  cli ws://localhost:8080 reset");
+        "Send commands to Sparkle Duck server or UI via WebSocket.\n\n" + getExamplesHelp());
 
     args::HelpFlag help(parser, "help", "Display this help menu", { 'h', "help" });
     args::Flag verbose(parser, "verbose", "Enable debug logging", { 'v', "verbose" });
@@ -54,7 +85,7 @@ int main(int argc, char** argv)
     args::Positional<std::string> command(
         parser,
         "command",
-        "Command name: step, get_cell, place_material, get_state, set_gravity, reset");
+        getCommandListHelp());
     args::Positional<std::string> params(
         parser, "params", "Optional JSON object with command parameters");
 
@@ -109,8 +140,31 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    // Output response to stdout.
-    std::cout << response << std::endl;
+    // Special handling for diagram_get - extract and display just the diagram.
+    std::string commandName = args::get(command);
+    if (commandName == "diagram_get") {
+        try {
+            nlohmann::json responseJson = nlohmann::json::parse(response);
+            spdlog::debug("Parsed response JSON: {}", responseJson.dump(2));
+
+            if (responseJson.contains("value") && responseJson["value"].contains("diagram")) {
+                std::cout << responseJson["value"]["diagram"].get<std::string>() << std::endl;
+            }
+            else {
+                // Fallback: display raw response.
+                spdlog::warn("Response doesn't contain expected diagram structure");
+                std::cout << response << std::endl;
+            }
+        }
+        catch (const nlohmann::json::parse_error& e) {
+            spdlog::error("JSON parse error: {}", e.what());
+            std::cout << response << std::endl;
+        }
+    }
+    else {
+        // Output response to stdout.
+        std::cout << response << std::endl;
+    }
 
     client.disconnect();
     return 0;

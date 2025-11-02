@@ -76,6 +76,10 @@ void StateMachine::handleEvent(const Event& event)
                         if (!std::holds_alternative<StateType>(newState)) {
                             transitionTo(std::move(newState));
                         }
+                        else {
+                            // Same state type - move it back into variant to preserve state.
+                            fsmState = std::move(newState);
+                        }
                     }
                     else {
                         spdlog::warn(

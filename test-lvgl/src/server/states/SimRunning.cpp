@@ -34,13 +34,14 @@ void SimRunning::onExit(StateMachine& /*dsm. */)
 
 State::Any SimRunning::onEvent(const AdvanceSimulationCommand& /*cmd*/, StateMachine& /*dsm*/)
 {
-    // NOTE: When in SimRunning state, the simulation is advanced by the UI thread's
-    // processFrame loop (simulator_loop.h:83). We should NOT call advanceTime here
-    // because that would create a race condition with two threads advancing physics
-    // simultaneously. This handler exists for compatibility but is a no-op in SimRunning.
-    // The UI loop handles step counting and stat updates automatically.
+    // Headless server: advance physics simulation by one timestep.
+    assert(world && "World must exist in SimRunning state");
 
-    spdlog::trace("SimRunning: AdvanceSimulationCommand received but ignored (UI loop drives simulation)");
+    // Advance physics by one timestep (~60 FPS).
+    world->advanceTime(0.016);
+    stepCount++;
+
+    spdlog::debug("SimRunning: Advanced simulation (step {})", stepCount);
 
     return std::move(*this);  // Stay in SimRunning (move because unique_ptr).
 }
@@ -96,6 +97,21 @@ State::Any SimRunning::onEvent(const Api::CellGet::Cwc& cwc, StateMachine& /*dsm
     const Cell& cell = world->at(cwc.command.x, cwc.command.y);
 
     cwc.sendResponse(Response::okay({ cell }));
+    return std::move(*this);
+}
+
+State::Any SimRunning::onEvent(const Api::DiagramGet::Cwc& cwc, StateMachine& /*dsm*/)
+{
+    using Response = Api::DiagramGet::Response;
+
+    assert(world && "World must exist in SimRunning state");
+
+    // Get ASCII diagram from world.
+    std::string diagram = world->toAsciiDiagram();
+
+    spdlog::info("DiagramGet: Generated diagram ({} bytes):\n{}", diagram.size(), diagram);
+
+    cwc.sendResponse(Response::okay({diagram}));
     return std::move(*this);
 }
 
@@ -176,14 +192,29 @@ State::Any SimRunning::onEvent(const Api::StateGet::Cwc& cwc, StateMachine& /*ds
     return std::move(*this);
 }
 
+State::Any SimRunning::onEvent(const Api::SimRun::Cwc& cwc, StateMachine& /*dsm*/)
+{
+    using Response = Api::SimRun::Response;
+
+    assert(world && "World must exist in SimRunning state");
+
+    // Store run parameters.
+    stepDurationMs = cwc.command.timestep * 1000.0;  // Convert seconds to milliseconds.
+    targetSteps = cwc.command.max_steps > 0 ? static_cast<uint32_t>(cwc.command.max_steps) : 0;
+
+    spdlog::info("SimRunning: Starting autonomous simulation (timestep={}ms, max_steps={})",
+                 stepDurationMs, cwc.command.max_steps);
+
+    // Send response indicating simulation is running.
+    cwc.sendResponse(Response::okay({true, stepCount}));
+    return std::move(*this);
+}
+
 State::Any SimRunning::onEvent(const Api::StepN::Cwc& cwc, StateMachine& /*dsm*/)
 {
     using Response = Api::StepN::Response;
 
-    if (!world) {
-        cwc.sendResponse(Response::error(ApiError("No world available")));
-        return std::move(*this);
-    }
+    assert(world && "World must exist in SimRunning state");
 
     // Validate frames parameter.
     if (cwc.command.frames <= 0) {
@@ -194,6 +225,7 @@ State::Any SimRunning::onEvent(const Api::StepN::Cwc& cwc, StateMachine& /*dsm*/
     // Step simulation.
     for (int i = 0; i < cwc.command.frames; ++i) {
         world->advanceTime(0.016); // ~60 FPS timestep.
+        stepCount++;
     }
 
     uint32_t timestep = world->getTimestep();

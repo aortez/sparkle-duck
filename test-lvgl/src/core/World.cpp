@@ -5,6 +5,7 @@
 #include "WorldAirResistanceCalculator.h"
 #include "WorldCohesionCalculator.h"
 #include "WorldCollisionCalculator.h"
+#include "WorldDiagramGeneratorEmoji.h"
 #include "WorldInterpolationTool.h"
 #include "WorldSupportCalculator.h"
 #include "spdlog/spdlog.h"
@@ -93,6 +94,11 @@ World::~World()
     spdlog::info("Destroying World: {}x{} grid", width_, height_);
     timers_.stopTimer("total_simulation");
     timers_.dumpTimerStats();
+}
+
+std::string World::toAsciiDiagram() const
+{
+    return WorldDiagramGeneratorEmoji::generateEmojiDiagram(*this);
 }
 
 World::World(const World& other)

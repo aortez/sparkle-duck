@@ -3,9 +3,11 @@
 #include "../api/ApiCommand.h"
 #include "../api/CellGet.h"
 #include "../api/CellSet.h"
+#include "../api/DiagramGet.h"
 #include "../api/Exit.h"
 #include "../api/GravitySet.h"
 #include "../api/Reset.h"
+#include "../api/SimRun.h"
 #include "../api/StateGet.h"
 #include "../api/StepN.h"
 #include <nlohmann/json.hpp>
@@ -45,6 +47,12 @@ public:
             if constexpr (std::is_same_v<T, Api::CellGet::Response>) {
                 doc["value"] = response.value().toJson();
             }
+            else if constexpr (std::is_same_v<T, Api::DiagramGet::Response>) {
+                doc["value"] = response.value().toJson();
+            }
+            else if constexpr (std::is_same_v<T, Api::SimRun::Response>) {
+                doc["value"] = response.value().toJson();
+            }
             else if constexpr (std::is_same_v<T, Api::StateGet::Response>) {
                 doc["value"] = response.value().toJson();
             }
@@ -58,6 +66,10 @@ public:
                 || std::is_same_v<T, Api::Reset::Response>) {
                 // Empty object for commands with no response data.
                 doc["value"] = nlohmann::json::object();
+            }
+            else {
+                // Compile-time error for unhandled response types.
+                static_assert(sizeof(T) == 0, "ResponseSerializerJson: Unhandled response type - add it to serialize()");
             }
         }
 

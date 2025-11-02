@@ -63,11 +63,12 @@ void WebSocketServer::onClientConnected(std::shared_ptr<rtc::WebSocket> ws)
 
 void WebSocketServer::onMessage(std::shared_ptr<rtc::WebSocket> ws, const std::string& message)
 {
-    spdlog::debug("WebSocket received: {}", message);
+    spdlog::info("WebSocket received command: {}", message);
 
     // Deserialize JSON → Command.
     auto cmdResult = deserializer_.deserialize(message);
     if (cmdResult.isError()) {
+        spdlog::error("Command deserialization failed: {}", cmdResult.error().message);
         // Send error response back immediately.
         std::string errorJson = R"({"error": ")" + cmdResult.error().message + R"("})";
         ws->send(errorJson);
@@ -107,6 +108,16 @@ Event WebSocketServer::createCwcForCommand(
                 };
                 return cwc;
             }
+            else if constexpr (std::is_same_v<CommandType, Api::DiagramGet::Command>) {
+                Api::DiagramGet::Cwc cwc;
+                cwc.command = cmd;
+                cwc.callback = [this, ws](Api::DiagramGet::Response&& response) {
+                    std::string jsonResponse = serializer_.serialize(std::move(response));
+                    spdlog::info("DiagramGet: Sending response ({} bytes)", jsonResponse.size());
+                    ws->send(jsonResponse);
+                };
+                return cwc;
+            }
             else if constexpr (std::is_same_v<CommandType, Api::GravitySet::Command>) {
                 Api::GravitySet::Cwc cwc;
                 cwc.command = cmd;
@@ -129,6 +140,15 @@ Event WebSocketServer::createCwcForCommand(
                 Api::StateGet::Cwc cwc;
                 cwc.command = cmd;
                 cwc.callback = [this, ws](Api::StateGet::Response&& response) {
+                    std::string jsonResponse = serializer_.serialize(std::move(response));
+                    ws->send(jsonResponse);
+                };
+                return cwc;
+            }
+            else if constexpr (std::is_same_v<CommandType, Api::SimRun::Command>) {
+                Api::SimRun::Cwc cwc;
+                cwc.command = cmd;
+                cwc.callback = [this, ws](Api::SimRun::Response&& response) {
                     std::string jsonResponse = serializer_.serialize(std::move(response));
                     ws->send(jsonResponse);
                 };

@@ -2,9 +2,11 @@
 
 #include "api/CellGet.h"
 #include "api/CellSet.h"
+#include "api/DiagramGet.h"
 #include "api/Exit.h"
 #include "api/GravitySet.h"
 #include "api/Reset.h"
+#include "api/SimRun.h"
 #include "api/StateGet.h"
 #include "api/StepN.h"
 #include "../core/MaterialType.h"
@@ -603,9 +605,11 @@ using Event = std::variant<
     // API commands (network/remote control).
     DirtSim::Api::CellGet::Cwc,
     DirtSim::Api::CellSet::Cwc,
+    DirtSim::Api::DiagramGet::Cwc,
     DirtSim::Api::Exit::Cwc,
     DirtSim::Api::GravitySet::Cwc,
     DirtSim::Api::Reset::Cwc,
+    DirtSim::Api::SimRun::Cwc,
     DirtSim::Api::StateGet::Cwc,
     DirtSim::Api::StepN::Cwc,
 

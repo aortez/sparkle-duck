@@ -19,6 +19,9 @@ std::string WorldDiagramGeneratorEmoji::generateEmojiDiagram(const World& world)
     diagram << "✨";
     for (uint32_t x = 0; x < width; ++x) {
         diagram << "━━";
+        if (x < width - 1) {
+            diagram << "━";  // Extra for spacing between cells.
+        }
     }
     diagram << "✨\n";
 
@@ -80,6 +83,9 @@ std::string WorldDiagramGeneratorEmoji::generateEmojiDiagram(const World& world)
     diagram << "✨";
     for (uint32_t x = 0; x < width; ++x) {
         diagram << "━━";
+        if (x < width - 1) {
+            diagram << "━";  // Extra for spacing between cells.
+        }
     }
     diagram << "✨\n";
 

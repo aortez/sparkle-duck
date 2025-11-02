@@ -10,9 +10,6 @@ namespace State {
 void SimRunning::onEnter(StateMachine& /*sm*/)
 {
     spdlog::info("Ui::SimRunning: Entered simulation running state");
-
-    // Server was already told to start in MainMenu (blocking call succeeded).
-    // Now we just render and request world state as needed.
 }
 
 State::Any SimRunning::onEvent(const QuitApplicationCommand& /*cmd*/, StateMachine& sm)

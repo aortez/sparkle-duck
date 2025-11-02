@@ -1,9 +1,11 @@
 #include "CommandDeserializerJson.h"
 #include "../api/CellGet.h"
 #include "../api/CellSet.h"
+#include "../api/DiagramGet.h"
 #include "../api/Exit.h"
 #include "../api/GravitySet.h"
 #include "../api/Reset.h"
+#include "../api/SimRun.h"
 #include "../api/StateGet.h"
 #include "../api/StepN.h"
 #include <spdlog/spdlog.h>
@@ -40,23 +42,42 @@ Result<ApiCommand, ApiError> CommandDeserializerJson::deserialize(const std::str
         if (commandName == "step") {
             return Result<ApiCommand, ApiError>::okay(Api::StepN::Command::fromJson(cmd));
         }
-        else if (commandName == "place_material") {
-            return Result<ApiCommand, ApiError>::okay(Api::CellSet::Command::fromJson(cmd));
-        }
-        else if (commandName == "get_state") {
-            return Result<ApiCommand, ApiError>::okay(Api::StateGet::Command::fromJson(cmd));
-        }
-        else if (commandName == "get_cell") {
+        else if (commandName == "cell_get") {
             return Result<ApiCommand, ApiError>::okay(Api::CellGet::Command::fromJson(cmd));
         }
-        else if (commandName == "set_gravity") {
+        else if (commandName == "cell_set") {
+            return Result<ApiCommand, ApiError>::okay(Api::CellSet::Command::fromJson(cmd));
+        }
+        else if (commandName == "diagram_get") {
+            return Result<ApiCommand, ApiError>::okay(Api::DiagramGet::Command::fromJson(cmd));
+        }
+        else if (commandName == "exit") {
+            return Result<ApiCommand, ApiError>::okay(Api::Exit::Command::fromJson(cmd));
+        }
+        else if (commandName == "gravity_set") {
             return Result<ApiCommand, ApiError>::okay(Api::GravitySet::Command::fromJson(cmd));
         }
         else if (commandName == "reset") {
             return Result<ApiCommand, ApiError>::okay(Api::Reset::Command::fromJson(cmd));
         }
-        else if (commandName == "exit") {
-            return Result<ApiCommand, ApiError>::okay(Api::Exit::Command::fromJson(cmd));
+        else if (commandName == "sim_run") {
+            return Result<ApiCommand, ApiError>::okay(Api::SimRun::Command::fromJson(cmd));
+        }
+        else if (commandName == "state_get") {
+            return Result<ApiCommand, ApiError>::okay(Api::StateGet::Command::fromJson(cmd));
+        }
+        // Legacy aliases for backward compatibility.
+        else if (commandName == "place_material") {
+            return Result<ApiCommand, ApiError>::okay(Api::CellSet::Command::fromJson(cmd));
+        }
+        else if (commandName == "get_cell") {
+            return Result<ApiCommand, ApiError>::okay(Api::CellGet::Command::fromJson(cmd));
+        }
+        else if (commandName == "get_state") {
+            return Result<ApiCommand, ApiError>::okay(Api::StateGet::Command::fromJson(cmd));
+        }
+        else if (commandName == "set_gravity") {
+            return Result<ApiCommand, ApiError>::okay(Api::GravitySet::Command::fromJson(cmd));
         }
         else {
             return Result<ApiCommand, ApiError>::error(ApiError("Unknown command: " + commandName));

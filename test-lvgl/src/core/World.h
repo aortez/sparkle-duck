@@ -362,7 +362,7 @@ public:
     bool isRightThrowEnabled() const { return false; }
     void setLowerRightQuadrantEnabled(bool enabled) { (void)enabled; }
     bool isLowerRightQuadrantEnabled() const { return false; }
-    std::string toAsciiDiagram() const { return ""; }
+    std::string toAsciiDiagram() const;
     void spawnMaterialBall(MaterialType type, uint32_t x, uint32_t y, uint32_t radius) {
         (void)type; (void)x; (void)y; (void)radius;
     }

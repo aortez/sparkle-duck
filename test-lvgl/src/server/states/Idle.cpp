@@ -1,4 +1,5 @@
 #include "../StateMachine.h"
+#include "../../core/World.h"
 #include "State.h"
 #include <spdlog/spdlog.h>
 
@@ -26,6 +27,32 @@ State::Any Idle::onEvent(const Api::Exit::Cwc& cwc, StateMachine& /*dsm*/)
 
     // Transition to Shutdown state (Shutdown.onEnter will set shouldExit flag).
     return Shutdown{};
+}
+
+State::Any Idle::onEvent(const Api::SimRun::Cwc& cwc, StateMachine& dsm)
+{
+    spdlog::info("Idle: SimRun command received, creating world and starting simulation");
+
+    // Create new SimRunning state with world.
+    SimRunning newState;
+
+    // Create world immediately.
+    spdlog::info("Idle: Creating new World {}x{}", dsm.defaultWidth, dsm.defaultHeight);
+    newState.world = std::make_unique<World>(dsm.defaultWidth, dsm.defaultHeight);
+
+    // Set run parameters.
+    newState.stepDurationMs = cwc.command.timestep * 1000.0;  // Convert seconds to milliseconds.
+    newState.targetSteps = cwc.command.max_steps > 0 ? static_cast<uint32_t>(cwc.command.max_steps) : 0;
+    newState.stepCount = 0;
+
+    spdlog::info("Idle: World created, transitioning to SimRunning (timestep={}ms, max_steps={})",
+                 newState.stepDurationMs, cwc.command.max_steps);
+
+    // Send response immediately (before transition).
+    cwc.sendResponse(Api::SimRun::Response::okay({true, 0}));
+
+    // Transition to SimRunning.
+    return newState;
 }
 
 } // namespace State

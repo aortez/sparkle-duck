@@ -89,7 +89,7 @@
 2. ✅ **CommandDeserializerJson** - 164 lines → 67 lines (reflection-based)
 3. ✅ **ResponseSerializerJson** - Template-based serialization with ADL
 4. ✅ **World.cpp** - toJSON/fromJSON methods migrated (cleaner, no allocators)
-5. ✅ **CrashDumpHandler** - Now uses nlohmann::json with complete state dumps
+5. ✅ **CrashDumpHandler** - Removed (was using nlohmann::json, no longer needed)
 6. ✅ **API Command Structs** - All 6 commands use ReflectSerializer (zero boilerplate)
 7. ✅ **Type Support** - ADL functions for Cell, Vector2d, MaterialType, World::MotionState
 
@@ -106,10 +106,21 @@
 ✅ sparkle-duck-server links without LVGL dependencies
 ✅ No lv_malloc, lv_free, lv_log_add references
 ✅ Ready for headless deployment
+✅ CLI client built and functional (build/bin/cli)
 ```
 
-**TODO:**
-- CLI swiss-army-knife tool (sparkle-duck-cli) for controlling both server and UI
+**Current Status (2025-11-02 - Evening):**
+- ✅ Server builds cleanly (stale object file issue resolved)
+- ✅ CLI client fully functional
+- ⏳ UI build blocked (CrashDumpHandler.h removed, ui/main.cpp needs update)
+- ⏳ SimRun command needed for autonomous simulation execution
+
+**TODO (Immediate):**
+- Add SimRun command (start/stop autonomous simulation with specified timestep/duration)
+- Test server + CLI end-to-end workflow
+- Fix UI build (remove CrashDumpHandler include, update architecture references)
+
+**TODO (Next):**
 - WebRTC video streaming
 - mDNS service discovery
 - Network client examples
@@ -728,7 +739,7 @@ websocat ws://localhost:8080
 4. Test with websocat or Python client.
 
 **Near-term (Test Automation):**
-1. Python library for test automation.
+1. C++ CLI for test automation.
 2. Automated test scenarios.
 3. Network-based CI/CD testing.
 
@@ -750,4 +761,30 @@ The foundation is solid and ready for network layer implementation.
 
 
 Misc thoughts:
-* It might be cool to both allow the server to run fully headlessly and for it to require a UI connection before starting the sim.
+
+* It would be nice to modify WorldEventGenerator so that the sandbox world is the one with most of those events - as they don't apply to the other scenarios nearly as much.
+
+
+* Are we using boost?  Could we use their optional instead?     
+
+
+* What is the "UIUpdateConsumer" for?
+
+
+* On the server side, what about running as fast as possible and using the last frame time as the amount of time to simulate for the next timestep?
+
+
+* Can we avoid needing to pass the state machine to each onEvent handle?
+
+* Server States need their own header files.
+
+* Do we have unit tests for state machine?
+       78                            }
+       79 +                          else {
+       80 +                              // Same state type - move it back into variant to preserve state.
+       81 +                              fsmState = std::move(newState);
+       82 +                          }
+       83                        }
+?
+
+* Print out response time in cli client?
