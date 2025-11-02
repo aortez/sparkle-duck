@@ -1,6 +1,6 @@
-#include "DirtSimStateMachine.h"
+#include "StateMachine.h"
 #include "network/WebSocketServer.h"
-#include "spdlog/spdlog.h"
+#include <spdlog/spdlog.h>
 #include <args.hxx>
 #include <csignal>
 #include <memory>
@@ -8,7 +8,7 @@
 using namespace DirtSim;
 
 // Global pointer for signal handler.
-static DirtSimStateMachine* g_stateMachine = nullptr;
+static Server::StateMachine* g_stateMachine = nullptr;
 
 void signalHandler(int signum)
 {
@@ -59,8 +59,8 @@ int main(int argc, char** argv)
         spdlog::info("Running indefinitely (Ctrl+C to stop)");
     }
 
-    // Create headless state machine (no display).
-    auto stateMachine = std::make_unique<DirtSimStateMachine>(nullptr);
+    // Create headless state machine.
+    auto stateMachine = std::make_unique<Server::StateMachine>();
     g_stateMachine = stateMachine.get();
 
     // Set up signal handler for graceful shutdown.

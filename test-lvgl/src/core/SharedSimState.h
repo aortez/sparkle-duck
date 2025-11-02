@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Event.h"
+#include "api/UiUpdateEvent.h"
 #include "MaterialType.h"
 #include "SimulationStats.h"
 #include <atomic>

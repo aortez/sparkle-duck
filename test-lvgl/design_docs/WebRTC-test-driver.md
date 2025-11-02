@@ -28,14 +28,26 @@
 - ✅ UI completely decoupled (communicates only via EventRouter, no direct world access)
 - ✅ Removed 600+ lines of dead UI callback code
 
-**In Progress:**
-- ⏳ Create UIStateMachine (separate UI states from simulation states)
-- ⏳ Complete headless server build (remove remaining UI dependencies)
+**In Progress (2025-11-01):**
+- ⏳ Directory restructure (core/, server/, ui/) - 70% complete
+  - ✅ Files moved to new directories
+  - ✅ EventProcessor duplicated for server/ui
+  - ✅ Events split: server/Event.h, ui/events/*.h
+  - ✅ API commands split: server/api/*.h
+  - ✅ CMakeLists.txt updated for new structure
+  - ⏳ Remaining: Fix ~85 broken #includes, template StateMachineInterface, cleanup obsolete files
+- ⏳ Create UiStateMachine (separate UI states from simulation states)
+  - ✅ ui/StateMachine.{h,cpp} created
+  - ✅ ui/states/ created (Startup, MainMenu, SimRunning, Paused, Shutdown)
+  - ⏳ Network integration pending (WebSocketClient for connecting to server)
+- ⏳ Complete headless server build
+  - ✅ server/StateMachine uses Server namespace
+  - ⏳ Remove UI dependencies from server states (screenshot calls)
 
 **TODO:**
+- CLI swiss-army-knife tool (sparkle-duck-cli) for controlling both server and UI
 - WebRTC video streaming
 - mDNS service discovery
-- Python test client
 - Network client examples
 
 **Long-term TODO:**
@@ -51,6 +63,27 @@ This document outlines the plan for a WebSocket/WebRTC-based test driver for the
 1. **Automated Test Driver**: Execute test sequences, capture world state, validate simulation behavior.
 2. **Remote UI**: Real-time display/control of simulation from web browser.
 3. **Debugging Interface**: Step-by-step simulation control and state inspection.
+
+## Simulation Control Architecture
+
+### Server-Driven Simulation with UI-Controlled Rendering
+
+The UI and server are separate processes communicating via WebSocket. The server runs the simulation autonomously while the UI controls its own rendering rate:
+
+**Flow:**
+1. UI connects to server via WebSocket
+2. UI sends `StartSimulation{timestep, duration}` command
+3. Server runs simulation autonomously, sending lightweight `StepCompleted{stepNum, timestamp}` notifications
+4. UI tracks server FPS from notifications
+5. UI requests `GetState{}` when ready to render (adaptive to UI performance)
+6. UI renders received world state while server continues computing
+
+**Benefits:**
+- Server runs at full speed independently
+- UI controls rendering rate (can skip frames if slow, render all if fast)
+- Decoupled: simulation rate ≠ rendering rate
+- Lightweight notifications (step number + timestamp only)
+- Adaptive performance
 
 ### Key Features
 - Fluent CLI interface.
@@ -223,33 +256,82 @@ Current DirtSimStateMachine mixes simulation and UI concerns:
 
 ### Directory Structure
 
-**Current Architecture:**
+**New Architecture (Phase 3 - In Progress):**
 ```
 src/
-├── main.cpp                           # UI application entry point
-├── main_server.cpp                    # Headless WebSocket server entry point
-├── World.{h,cpp}                      # Physics system (copyable, headless)
-├── Cell.{h,cpp}                       # Pure-material cell with JSON serialization
-├── World*Calculator.{h,cpp}           # Physics calculators (8 modular files)
-├── WorldEventGenerator.{h,cpp}        # World setup & particle generation strategies
-├── DirtSimStateMachine.{h,cpp}        # Event-driven state machine (owns World)
-├── StateMachineInterface.h            # Interface for dependency inversion
-├── Event.h                            # All event/command types
-├── ApiCommands.h                      # Network API command/response definitions
-├── CommandWithCallback.h              # Template for async command handling
-├── SimulatorUI.{h,cpp}                # LVGL UI (event-based, no direct world access)
-├── network/                           # Network layer (fully decoupled)
-│   ├── CommandDeserializerJson        # Pure JSON → Command deserialization
-│   ├── ResponseSerializerJson         # Pure Response → JSON serialization
-│   └── WebSocketServer                # WebSocket server (libdatachannel)
-├── states/                            # State machine states
-├── scenarios/                         # Scenario system with WorldEventGenerator
-├── ui/                                # LVGL event builders
-└── tests/                             # Comprehensive test suite
+├── core/                              # Shared headless components
+│   ├── World.{h,cpp}                  # Physics system
+│   ├── Cell.{h,cpp}                   # Cell with JSON serialization
+│   ├── World*Calculator.{h,cpp}       # Physics calculators (8 files)
+│   ├── WorldEventGenerator.{h,cpp}    # World setup & particle generation
+│   ├── EventProcessor.{h,cpp}         # Event queue processing
+│   ├── EventRouter.{h,cpp}            # Dual-path event routing
+│   ├── SharedSimState.h               # Thread-safe shared state
+│   ├── SynchronizedQueue.h            # Thread-safe queue
+│   ├── StateMachineBase.{h,cpp}       # Base class for state machines
+│   └── serialization/                 # Shared JSON serialization
+│       ├── CommandSerializer.h        # Command → JSON (for clients)
+│       ├── CommandDeserializer.h      # JSON → Command (for servers)
+│       ├── ResponseSerializer.h       # Response → JSON (for servers)
+│       └── ResponseDeserializer.h     # JSON → Response (for clients)
+│
+├── server/                            # Headless server
+│   ├── main_server.cpp                # Server entry point
+│   ├── StateMachine.{h,cpp}           # Server state machine (owns World)
+│   ├── Event.h                        # Server events (physics, API)
+│   ├── ApiCommands.h                  # API command/response types
+│   ├── states/                        # Server states (Startup, SimRunning, Shutdown)
+│   ├── scenarios/                     # Scenario system
+│   └── network/
+│       └── WebSocketServer.{h,cpp}    # WebSocket server
+│
+├── ui/                                # UI application
+│   ├── main.cpp                       # UI entry point
+│   ├── StateMachine.{h,cpp}           # UI state machine (lifecycle, screenshots)
+│   ├── Event.h                        # UI events (start, quit, screenshot)
+│   ├── SimulatorUI.{h,cpp}            # LVGL UI rendering
+│   ├── states/                        # UI states (Startup, MainMenu, SimRunning, Paused, Config, Shutdown)
+│   ├── ui_builders/                   # LVGL widget builders
+│   ├── network/                       # UI remote control
+│   │   └── WebSocketServer.{h,cpp}    # WebSocket server for UI commands
+│   └── lib/                           # LVGL backends (wayland, x11, etc.)
+│
+├── cli/                               # CLI control tool
+│   ├── main_cli.cpp                   # CLI entry point
+│   ├── WebSocketClient.{h,cpp}        # WebSocket client
+│   └── CommandBuilder.h               # Build commands from CLI args
+│
+└── tests/                             # Test suite
     ├── CellJSON_test.cpp              # 17 tests passing
     ├── WorldJSON_test.cpp             # 21 tests passing
-    └── ... (physics, integration tests)
+    └── ... (core utilities)
 ```
+
+### Phase 3 Refactoring Notes (2025-11-01)
+
+**Refactor Checkpoint - Before Include Fixes:**
+
+Current directory structure successfully reorganized:
+- core/: 45+ files (World, Cell, physics, event infrastructure, StateMachineBase)
+- server/: StateMachine, states/, scenarios/, network/, api/
+- ui/: StateMachine, states/, events/, ui_builders/, lib/
+- Tests reduced to 12 core tests (38 obsolete tests removed)
+
+**Known Issues (Build Breaking):**
+1. StateMachineInterface references non-existent Event.h (needs templating)
+2. ~85 files with broken #includes (old paths)
+3. Obsolete files in core/ (EventDispatcher, EventRouter, EventTraits - reference old DirtSimStateMachine)
+4. ui/lib/ files incorrectly include server/StateMachine.h (architectural violation)
+
+**Next Steps:**
+1. Delete obsolete core/ event files
+2. Template StateMachineInterface
+3. Fix network layer includes
+4. Systematic include path fixes (~85 files)
+
+**Rollback Point:** Git status shows all moves staged, easy to reset if needed.
+
+---
 
 ### Key Simplifications
 

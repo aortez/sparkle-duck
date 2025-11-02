@@ -1,7 +1,7 @@
-#include "DirtSimStateMachine.h"
-#include "EventDispatcher.h"
-#include "World.h"
-#include "WorldEventGenerator.h"
+#include "StateMachine.h"
+#include "../core/EventDispatcher.h"
+#include "../core/World.h"
+#include "../core/WorldEventGenerator.h"
 #include "scenarios/Scenario.h"
 #include "scenarios/ScenarioRegistry.h"
 #include <cassert>
@@ -10,28 +10,21 @@
 #include <thread>
 
 namespace DirtSim {
+namespace Server {
 
-DirtSimStateMachine::DirtSimStateMachine(lv_disp_t* display)
-    : display(display),
-      eventProcessor(),
+StateMachine::StateMachine()
+    : eventProcessor(),
       sharedState(),
       eventRouter(std::make_unique<EventRouter>(*this, sharedState, eventProcessor.getEventQueue()))
 {
-    if (display) {
-        spdlog::info(
-            "DirtSimStateMachine initialized with UI support in state: {}", getCurrentStateName());
-    }
-    else {
-        spdlog::info(
-            "DirtSimStateMachine initialized in headless mode in state: {}", getCurrentStateName());
-    }
+    spdlog::info("Server::StateMachine initialized in headless mode in state: {}", getCurrentStateName());
 
     // Create World directly.
     world = std::make_unique<World>(defaultWidth, defaultHeight);
     if (!world) {
         throw std::runtime_error("Failed to create world");
     }
-    spdlog::info("DirtSimStateMachine: Created {}x{} World", defaultWidth, defaultHeight);
+    spdlog::info("Server::StateMachine: Created {}x{} World", defaultWidth, defaultHeight);
 
     // Apply default Sandbox scenario if available.
     auto& registry = ScenarioRegistry::getInstance();
@@ -51,15 +44,15 @@ DirtSimStateMachine::DirtSimStateMachine(lv_disp_t* display)
 
     // Set world in SharedSimState for immediate event handlers.
     sharedState.setCurrentWorld(world.get());
-    spdlog::info("DirtSimStateMachine: World registered in SharedSimState");
+    spdlog::info("Server::StateMachine: World registered in SharedSimState");
 }
 
-DirtSimStateMachine::~DirtSimStateMachine()
+StateMachine::~StateMachine()
 {
-    spdlog::info("DirtSimStateMachine shutting down from state: {}", getCurrentStateName());
+    spdlog::info("Server::StateMachine shutting down from state: {}", getCurrentStateName());
 }
 
-bool DirtSimStateMachine::resizeWorldIfNeeded(uint32_t requiredWidth, uint32_t requiredHeight)
+bool StateMachine::resizeWorldIfNeeded(uint32_t requiredWidth, uint32_t requiredHeight)
 {
     // If no specific dimensions required, restore default dimensions.
     if (requiredWidth == 0 || requiredHeight == 0) {
@@ -93,7 +86,7 @@ bool DirtSimStateMachine::resizeWorldIfNeeded(uint32_t requiredWidth, uint32_t r
     return true;
 }
 
-void DirtSimStateMachine::mainLoopRun()
+void StateMachine::mainLoopRun()
 {
     spdlog::info("Starting main event loop");
 
@@ -121,12 +114,12 @@ void DirtSimStateMachine::mainLoopRun()
     spdlog::info("Main event loop exiting");
 }
 
-void DirtSimStateMachine::queueEvent(const Event& event)
+void StateMachine::queueEvent(const Event& event)
 {
     eventProcessor.queueEvent(event);
 }
 
-void DirtSimStateMachine::processImmediateEvent(const Event& event, SharedSimState& shared)
+void StateMachine::processImmediateEvent(const Event& event, SharedSimState& shared)
 {
     // Immediate events are processed directly without state dispatch.
     std::visit(
@@ -149,7 +142,7 @@ void DirtSimStateMachine::processImmediateEvent(const Event& event, SharedSimSta
         event);
 }
 
-void DirtSimStateMachine::handleEvent(const Event& event)
+void StateMachine::handleEvent(const Event& event)
 {
     // Save the current state index before moving.
     std::size_t oldStateIndex = fsmState.index();
@@ -169,7 +162,7 @@ void DirtSimStateMachine::handleEvent(const Event& event)
     }
 }
 
-void DirtSimStateMachine::transitionTo(State::Any newState)
+void StateMachine::transitionTo(State::Any newState)
 {
     std::string oldStateName = getCurrentStateName();
 
@@ -192,14 +185,14 @@ void DirtSimStateMachine::transitionTo(State::Any newState)
 
 // Global event handlers.
 
-State::Any DirtSimStateMachine::onEvent(const QuitApplicationCommand& /*cmd.*/)
+State::Any StateMachine::onEvent(const QuitApplicationCommand& /*cmd.*/)
 {
     spdlog::info("Global handler: QuitApplicationCommand received");
     sharedState.setShouldExit(true);
     return State::Shutdown{};
 }
 
-State::Any DirtSimStateMachine::onEvent(const GetFPSCommand& /*cmd.*/)
+State::Any StateMachine::onEvent(const GetFPSCommand& /*cmd.*/)
 {
     // This is an immediate event, should not reach here.
     spdlog::warn("GetFPSCommand reached global handler - should be immediate");
@@ -212,7 +205,7 @@ State::Any DirtSimStateMachine::onEvent(const GetFPSCommand& /*cmd.*/)
         fsmState);
 }
 
-State::Any DirtSimStateMachine::onEvent(const GetSimStatsCommand& /*cmd.*/)
+State::Any StateMachine::onEvent(const GetSimStatsCommand& /*cmd.*/)
 {
     // This is an immediate event, should not reach here.
     spdlog::warn("GetSimStatsCommand reached global handler - should be immediate");
@@ -225,7 +218,7 @@ State::Any DirtSimStateMachine::onEvent(const GetSimStatsCommand& /*cmd.*/)
         fsmState);
 }
 
-UIUpdateEvent DirtSimStateMachine::buildUIUpdate()
+UIUpdateEvent StateMachine::buildUIUpdate()
 {
     assert(world && "World must exist when building UI update");
 
@@ -250,4 +243,5 @@ UIUpdateEvent DirtSimStateMachine::buildUIUpdate()
     return update;
 }
 
-} // namespace DirtSim.
+} // namespace Server
+} // namespace DirtSim

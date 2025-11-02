@@ -21,8 +21,8 @@
 #include <unistd.h>
 #include <iostream>
 
-#include "../../DirtSimStateMachine.h"
-#include "../WorldInterface.h"
+#include "../../../server/StateMachine.h"
+#include "../../../core/WorldInterface.h"
 #include "lvgl/lvgl.h"
 #include "simulator_loop.h"
 

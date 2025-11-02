@@ -32,7 +32,7 @@ Trees are living organisms in the WorldB physics simulation that grow from seeds
 **Nutrients**
 - Stored in DIRT cells as a nutrient level [0.0-1.0]
 - ROOT cells extract nutrients, depleting the soil
-- Nutrients regenerate slowly over time (soil recovery)
+- Nutrients regenerate slowly over time (recovery)
 - Nutrient levels will be stored as metadata attached to DIRT cells
 - Nutrient data persists with the cell through movement and interactions
 - Careful analysis of movement systems will need to be done to ensure nutrients
@@ -85,17 +85,18 @@ Growth Cost = Base Cost + (Target Density × Displacement Factor) + Depth Penalt
 ```
 
 #### Underground Growth
-- ROOT growth temporarily "locks" surrounding DIRT
+- ROOT growth temporarily "locks" surrounding DIRT (how to fit into current architecture?)
 - Prevents soil collapse during growth operation
 - Creates stable tunnels for root networks
 - Higher energy cost than above-ground growth
 
 ## Architecture
 
-### TreeManager
+### Nursery
 
 ```cpp
-class TreeManager {
+/// Manages lifecycles of plants in the sim.
+class Nursery {
 public:
     // Lifecycle
     void update(WorldB& world, double deltaTime);
@@ -115,7 +116,7 @@ public:
 
 private:
     std::unordered_map<TreeId, Tree> trees_;
-    std::unordered_map<Vector2i, TreeId> cell_to_tree_;  // Track which cells belong to which tree
+    std::unordered_map<Vector2i, TreeId> cell_to_tree_;  // Track which cells belong to which tree.
     std::vector<std::vector<float>> light_map_;
     uint32_t next_tree_id_ = 1;
 };

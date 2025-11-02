@@ -1,9 +1,14 @@
 #pragma once
 
-#include "ApiCommands.h"
-#include "MaterialType.h"
-#include "SimulationStats.h"
-#include "WorldInterface.h"
+#include "api/CellGet.h"
+#include "api/CellSet.h"
+#include "api/GravitySet.h"
+#include "api/Reset.h"
+#include "api/StateGet.h"
+#include "api/StepN.h"
+#include "../core/MaterialType.h"
+#include "../core/SimulationStats.h"
+#include "../core/WorldInterface.h"
 #include <chrono>
 #include <concepts>
 #include <cstdint>
@@ -11,10 +16,13 @@
 #include <string>
 #include <variant>
 
+namespace DirtSim {
+namespace Server {
+
 /**
- * @brief Event definitions for the dual-path event system.
+ * @brief Event definitions for the server state machine.
  *
- * Includes events needed to connect the state machine to current UI callbacks.
+ * Includes all simulation control, physics parameters, and API commands.
  */
 
 // =================================================================
@@ -652,3 +660,6 @@ inline std::string getEventName(const Event& event)
 {
     return std::visit([](auto&& e) { return std::string(e.name()); }, event);
 }
+
+} // namespace Server
+} // namespace DirtSim

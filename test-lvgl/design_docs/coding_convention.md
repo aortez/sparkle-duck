@@ -11,6 +11,14 @@ none of this:
 ```
 thingDoIt(); // Do the thing.
 ```
+And none of this:
+```
+/**
+ * @brief Get current state name.
+ */
+virtual std::string getCurrentStateName() const = 0;
+```
+If the comment almost entirely matches the function name and it doesn't provide any additional information, then it's a bad comment and it just makes it harder to read the code.
 
 Name for Methods, struct, objects, etc should go in order of domain to action,
 from order of bigger to smaller context. E.g. `DirtSimStateMachine` and it's

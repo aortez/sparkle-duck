@@ -1,7 +1,7 @@
 #pragma once
 
-#include "../DirtSimStateMachine.h"
-#include "../WorldInterface.h"
+#include "../../server/StateMachine.h"
+#include "../../core/WorldInterface.h"
 #include "lvgl/lvgl.h"
 #include "lvgl/src/misc/lv_timer.h"
 #include <chrono>

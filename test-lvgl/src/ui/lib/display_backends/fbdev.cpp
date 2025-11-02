@@ -1,9 +1,9 @@
 /**
- * @file x11.c
+ * @file fbdev.c
  *
- * The backend for the X11 windowing system
+ * Legacy framebuffer device
  *
- * Based on the original file from the repository.
+ * Based on the original file from the repository
  *
  * Move to a separate file
  * 2025 EDGEMTech Ltd.
@@ -15,17 +15,16 @@
 /*********************
  *      INCLUDES
  *********************/
-
 #include <stdbool.h>
 #include <stdlib.h>
 #include <unistd.h>
 
-#include "../../DirtSimStateMachine.h"
-#include "../SimulatorUI.h"
-#include "../WorldInterface.h"
+#include "../../../server/StateMachine.h"
+#include "../../SimulatorUI.h"
+#include "../../../core/WorldInterface.h"
 #include "lvgl/lvgl.h"
 #include "simulator_loop.h"
-#if LV_USE_X11
+#if LV_USE_LINUX_FBDEV
 #include "../backends.h"
 #include "../simulator_settings.h"
 #include "../simulator_util.h"
@@ -39,20 +38,22 @@
  **********************/
 
 /**********************
- *  EXTERNAL VARIABLES
- **********************/
-extern simulator_settings_t settings;
-
-/**********************
  *  STATIC PROTOTYPES
  **********************/
-static lv_display_t* init_x11(void);
-static void run_loop_x11(DirtSim::DirtSimStateMachine& dsm);
+
+static lv_display_t* init_fbdev(void);
+static void run_loop_fbdev(DirtSim::DirtSimStateMachine& dsm);
 
 /**********************
  *  STATIC VARIABLES
  **********************/
-static const char* backend_name = "X11";
+
+static const char* backend_name = "FBDEV";
+
+/**********************
+ *  EXTERNAL VARIABLES
+ **********************/
+extern simulator_settings_t settings;
 
 /**********************
  *      MACROS
@@ -68,15 +69,16 @@ static const char* backend_name = "X11";
  * @param backend the backend descriptor
  * @description configures the descriptor
  */
-int backend_init_x11(backend_t* backend)
+int backend_init_fbdev(backend_t* backend)
 {
     LV_ASSERT_NULL(backend);
+
     backend->handle->display = static_cast<display_backend_t*>(malloc(sizeof(display_backend_t)));
     LV_ASSERT_NULL(backend->handle->display);
 
+    backend->handle->display->init_display = init_fbdev;
+    backend->handle->display->run_loop = run_loop_fbdev;
     backend->name = backend_name;
-    backend->handle->display->init_display = init_x11;
-    backend->handle->display->run_loop = run_loop_x11;
     backend->type = BACKEND_DISPLAY;
 
     return 0;
@@ -87,32 +89,28 @@ int backend_init_x11(backend_t* backend)
  **********************/
 
 /**
- * Initialize the X11 display driver
+ * Initialize the fbdev driver
  *
  * @return the LVGL display
  */
-static lv_display_t* init_x11(void)
+static lv_display_t* init_fbdev(void)
 {
-    lv_display_t* disp;
-    LV_IMG_DECLARE(mouse_cursor_icon);
-
-    disp = lv_x11_window_create("Dirt Sim", settings.window_width, settings.window_height);
-
-    disp = lv_display_get_default();
+    const char* device = getenv_default("LV_LINUX_FBDEV_DEVICE", "/dev/fb0");
+    lv_display_t* disp = lv_linux_fbdev_create();
 
     if (disp == NULL) {
         return NULL;
     }
 
-    lv_x11_inputs_create(disp, &mouse_cursor_icon);
+    lv_linux_fbdev_set_file(disp, device);
 
     return disp;
 }
 
 /**
- * The run loop of the X11 driver
+ * The run loop of the fbdev driver
  */
-void run_loop_x11(DirtSim::DirtSimStateMachine& dsm)
+static void run_loop_fbdev(DirtSim::DirtSimStateMachine& dsm)
 {
     // Initialize simulation loop state for step counting.
     SimulatorLoop::LoopState state;
@@ -136,12 +134,7 @@ void run_loop_x11(DirtSim::DirtSimStateMachine& dsm)
 
         /* Returns the time to the next timer execution. */
         idle_time = lv_timer_handler();
-        
-        bool frame_limiting_enabled = true; // Default to enabled.
-        // TODO: Get frame limiting from settings or config.
-        if (frame_limiting_enabled) {
-            usleep(idle_time * 1000);
-        }
+        usleep(idle_time * 1000);
     }
     
     // Process any final UI updates before taking screenshot.
@@ -153,4 +146,4 @@ void run_loop_x11(DirtSim::DirtSimStateMachine& dsm)
     SimulatorUI::takeExitScreenshot();
 }
 
-#endif /*#if LV_USE_X11. */
+#endif /*LV_USE_LINUX_FBDEV. */

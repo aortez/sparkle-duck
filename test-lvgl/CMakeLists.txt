@@ -50,7 +50,7 @@ if (LV_USE_SDL)
     list(APPEND PKG_CONFIG_LIB ${SDL2_LIBRARIES} ${SDL2_IMAGE_LIBRARIES})
     list(APPEND PKG_CONFIG_INC ${SDL2_INCLUDE_DIRS} ${SDL2_IMAGE_INCLUDE_DIRS})
 
-    list(APPEND LV_LINUX_BACKEND_SRC src/lib/display_backends/sdl.cpp)
+    list(APPEND LV_LINUX_BACKEND_SRC src/ui/lib/display_backends/sdl.cpp)
 endif()
 
 
@@ -74,7 +74,7 @@ if (LV_USE_WAYLAND)
     execute_process(COMMAND "scripts/gen_wl_protocols.sh" OUTPUT_VARIABLE WAYLAND_PROTOCOLS_SRC)
 
     list(APPEND PKG_CONFIG_INC "${PROJECT_SOURCE_DIR}/wl_protocols")
-    list(APPEND LV_LINUX_BACKEND_SRC src/lib/display_backends/wayland.cpp wl_protocols/wayland_xdg_shell.c)
+    list(APPEND LV_LINUX_BACKEND_SRC src/ui/lib/display_backends/wayland.cpp wl_protocols/wayland_xdg_shell.c)
 
 endif()
 
@@ -87,7 +87,7 @@ if (LV_USE_X11)
 
     list(APPEND PKG_CONFIG_INC ${X11_INCLUDE_DIRS})
     list(APPEND PKG_CONFIG_LIB ${X11_LIBRARIES})
-    list(APPEND LV_LINUX_BACKEND_SRC src/lib/display_backends/x11.cpp)
+    list(APPEND LV_LINUX_BACKEND_SRC src/ui/lib/display_backends/x11.cpp)
 
 endif()
 
@@ -95,7 +95,7 @@ if (LV_USE_LINUX_FBDEV)
 
     # FBDEV has no dependencies
     message("Including FBDEV support")
-    list(APPEND LV_LINUX_BACKEND_SRC src/lib/display_backends/fbdev.cpp)
+    list(APPEND LV_LINUX_BACKEND_SRC src/ui/lib/display_backends/fbdev.cpp)
 
 endif()
 
@@ -105,8 +105,8 @@ endforeach()
 
 string(APPEND LVGL_PKG_CONFIG_LIB "-llvgl_linux")
 
-file(GLOB LV_LINUX_SRC src/lib/*.c src/lib/*.cpp)
-set(LV_LINUX_INC src/lib)
+file(GLOB LV_LINUX_SRC src/ui/lib/*.c src/ui/lib/*.cpp)
+set(LV_LINUX_INC src/ui/lib)
 
 set(CONFIG_LV_BUILD_DEMOS OFF CACHE BOOL "" FORCE)
 set(CONFIG_LV_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
@@ -122,53 +122,67 @@ set(ARGS_BUILD_UNITTESTS OFF CACHE BOOL "Build unit tests" FORCE)
 add_subdirectory(./external/args ${CMAKE_BINARY_DIR}/args)
 
 add_library(lvgl_linux STATIC ${LV_LINUX_SRC} ${LV_LINUX_BACKEND_SRC})
-target_include_directories(lvgl_linux PRIVATE ${LV_LINUX_INC} ${PROJECT_SOURCE_DIR})
+target_include_directories(lvgl_linux PRIVATE ${LV_LINUX_INC} ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/src/ui/lib)
 target_link_libraries(lvgl_linux PRIVATE spdlog::spdlog)
 
 add_executable(sparkle-duck
-    src/main.cpp
-    src/Cell.cpp
-    src/Vector2d.cpp
-    src/Vector2i.cpp
-    src/World.cpp
-    src/Timers.cpp
-    src/WorldEventGenerator.cpp
-    src/SimulatorUI.cpp
-    src/UIUpdateConsumer.cpp
-    src/UIManager.cpp
-    src/MaterialType.cpp
-    src/WorldInterface.cpp
-    src/WorldCalculatorBase.cpp
-    src/WorldCohesionCalculator.cpp
-    src/WorldSupportCalculator.cpp
-    src/WorldPressureCalculator.cpp
-    src/WorldAirResistanceCalculator.cpp
-    src/WorldCollisionCalculator.cpp
-    src/WorldAdhesionCalculator.cpp
-    src/WorldFrictionCalculator.cpp
-    src/WorldDiagramGeneratorEmoji.cpp
-    src/MaterialPicker.cpp
-    src/CrashDumpHandler.cpp
-    src/WorldInterpolationTool.cpp
-    src/ui/LVGLBuilder.cpp
-    src/ui/LVGLEventBuilder.cpp
-    src/EventProcessor.cpp
-    src/EventRouter.cpp
-    src/DirtSimStateMachine.cpp
-    src/states/Startup.cpp
-    src/states/MainMenu.cpp
-    src/states/SimRunning.cpp
-    src/states/SimPaused.cpp
-    src/states/Config.cpp
-    src/states/Shutdown.cpp
-    src/scenarios/ScenarioWorldEventGenerator.cpp
-    src/scenarios/ScenarioRegistry.cpp
-    src/scenarios/scenarios/EmptyScenario.cpp
-    src/scenarios/scenarios/SandboxScenario.cpp
-    src/scenarios/scenarios/RainingScenario.cpp
-    src/scenarios/scenarios/DamBreakScenario.cpp
-    src/scenarios/scenarios/WaterEqualizationScenario.cpp
-    src/scenarios/scenarios/FallingDirtScenario.cpp
+    # UI application.
+    src/ui/main.cpp
+    src/ui/StateMachine.cpp
+    src/ui/EventProcessor.cpp
+    src/ui/states/Startup.cpp
+    src/ui/states/MainMenu.cpp
+    src/ui/states/SimRunning.cpp
+    src/ui/states/Paused.cpp
+    src/ui/states/Shutdown.cpp
+    src/ui/SimulatorUI.cpp
+    src/ui/UIUpdateConsumer.cpp
+    src/ui/UIManager.cpp
+    src/ui/MaterialPicker.cpp
+    src/ui/ui_builders/LVGLBuilder.cpp
+    src/ui/ui_builders/LVGLEventBuilder.cpp
+
+    # Core components (shared with server).
+    src/core/Cell.cpp
+    src/core/Vector2d.cpp
+    src/core/Vector2i.cpp
+    src/core/World.cpp
+    src/core/Timers.cpp
+    src/core/WorldEventGenerator.cpp
+    src/core/MaterialType.cpp
+    src/core/WorldInterface.cpp
+    src/core/WorldCalculatorBase.cpp
+    src/core/WorldCohesionCalculator.cpp
+    src/core/WorldSupportCalculator.cpp
+    src/core/WorldPressureCalculator.cpp
+    src/core/WorldAirResistanceCalculator.cpp
+    src/core/WorldCollisionCalculator.cpp
+    src/core/WorldAdhesionCalculator.cpp
+    src/core/WorldFrictionCalculator.cpp
+    src/core/WorldDiagramGeneratorEmoji.cpp
+    src/core/CrashDumpHandler.cpp
+    src/core/WorldInterpolationTool.cpp
+    src/core/EventRouter.cpp
+    src/core/StateMachineBase.cpp
+
+    # Server components (for local simulation).
+    src/server/StateMachine.cpp
+    src/server/states/Startup.cpp
+    src/server/states/MainMenu.cpp
+    src/server/states/SimRunning.cpp
+    src/server/states/SimPaused.cpp
+    src/server/states/Config.cpp
+    src/server/states/Shutdown.cpp
+    src/server/scenarios/ScenarioWorldEventGenerator.cpp
+    src/server/scenarios/ScenarioRegistry.cpp
+    src/server/scenarios/scenarios/EmptyScenario.cpp
+    src/server/scenarios/scenarios/SandboxScenario.cpp
+    src/server/scenarios/scenarios/RainingScenario.cpp
+    src/server/scenarios/scenarios/DamBreakScenario.cpp
+    src/server/scenarios/scenarios/WaterEqualizationScenario.cpp
+    src/server/scenarios/scenarios/FallingDirtScenario.cpp
+
+    # LVGL backend.
     ${LV_LINUX_SRC}
     ${LV_LINUX_BACKEND_SRC})
 target_link_libraries(sparkle-duck lvgl_linux lvgl lvgl::thorvg spdlog::spdlog m pthread ${PKG_CONFIG_LIB} ${SDL2_LIBRARIES} ${SDL2_IMAGE_LIBRARIES})
@@ -192,50 +206,49 @@ add_custom_target (run COMMAND ${EXECUTABLE_OUTPUT_PATH}/sparkle-duck DEPENDS sp
 
 # Headless WebSocket server executable.
 add_executable(sparkle-duck-server
-    src/main_server.cpp
-    src/Cell.cpp
-    src/Vector2d.cpp
-    src/Vector2i.cpp
-    src/World.cpp
-    src/Timers.cpp
-    src/WorldEventGenerator.cpp
-    src/MaterialType.cpp
-    src/WorldInterface.cpp
-    src/WorldCalculatorBase.cpp
-    src/WorldCohesionCalculator.cpp
-    src/WorldSupportCalculator.cpp
-    src/WorldPressureCalculator.cpp
-    src/WorldAirResistanceCalculator.cpp
-    src/WorldCollisionCalculator.cpp
-    src/WorldAdhesionCalculator.cpp
-    src/WorldFrictionCalculator.cpp
-    src/CrashDumpHandler.cpp
-    src/WorldInterpolationTool.cpp
-    src/WorldDiagramGeneratorEmoji.cpp
-    src/EventProcessor.cpp
-    src/EventRouter.cpp
-    src/DirtSimStateMachine.cpp
-    src/states/Startup.cpp
-    src/states/MainMenu.cpp
-    src/states/SimRunning.cpp
-    src/states/SimPaused.cpp
-    src/states/Config.cpp
-    src/states/Shutdown.cpp
-    src/scenarios/ScenarioWorldEventGenerator.cpp
-    src/scenarios/ScenarioRegistry.cpp
-    src/scenarios/scenarios/EmptyScenario.cpp
-    src/scenarios/scenarios/SandboxScenario.cpp
-    src/scenarios/scenarios/RainingScenario.cpp
-    src/scenarios/scenarios/DamBreakScenario.cpp
-    src/scenarios/scenarios/WaterEqualizationScenario.cpp
-    src/scenarios/scenarios/FallingDirtScenario.cpp
-    src/network/CommandDeserializerJson.cpp
-    src/network/WebSocketServer.cpp
-    src/SimulatorUI.cpp
-    src/UIUpdateConsumer.cpp
-    src/MaterialPicker.cpp
-    src/ui/LVGLBuilder.cpp
-    src/ui/LVGLEventBuilder.cpp)
+    # Server application.
+    src/server/main_server.cpp
+    src/server/StateMachine.cpp
+    src/server/EventProcessor.cpp
+    src/server/states/Startup.cpp
+    src/server/states/MainMenu.cpp
+    src/server/states/SimRunning.cpp
+    src/server/states/SimPaused.cpp
+    src/server/states/Config.cpp
+    src/server/states/Shutdown.cpp
+    src/server/scenarios/ScenarioWorldEventGenerator.cpp
+    src/server/scenarios/ScenarioRegistry.cpp
+    src/server/scenarios/scenarios/EmptyScenario.cpp
+    src/server/scenarios/scenarios/SandboxScenario.cpp
+    src/server/scenarios/scenarios/RainingScenario.cpp
+    src/server/scenarios/scenarios/DamBreakScenario.cpp
+    src/server/scenarios/scenarios/WaterEqualizationScenario.cpp
+    src/server/scenarios/scenarios/FallingDirtScenario.cpp
+    src/server/network/CommandDeserializerJson.cpp
+    src/server/network/WebSocketServer.cpp
+
+    # Core components.
+    src/core/Cell.cpp
+    src/core/Vector2d.cpp
+    src/core/Vector2i.cpp
+    src/core/World.cpp
+    src/core/Timers.cpp
+    src/core/WorldEventGenerator.cpp
+    src/core/MaterialType.cpp
+    src/core/WorldInterface.cpp
+    src/core/WorldCalculatorBase.cpp
+    src/core/WorldCohesionCalculator.cpp
+    src/core/WorldSupportCalculator.cpp
+    src/core/WorldPressureCalculator.cpp
+    src/core/WorldAirResistanceCalculator.cpp
+    src/core/WorldCollisionCalculator.cpp
+    src/core/WorldAdhesionCalculator.cpp
+    src/core/WorldFrictionCalculator.cpp
+    src/core/CrashDumpHandler.cpp
+    src/core/WorldInterpolationTool.cpp
+    src/core/WorldDiagramGeneratorEmoji.cpp
+    src/core/EventRouter.cpp
+    src/core/StateMachineBase.cpp)
 target_link_libraries(sparkle-duck-server lvgl_linux lvgl lvgl::thorvg spdlog::spdlog datachannel-static m pthread ${PKG_CONFIG_LIB} ${SDL2_LIBRARIES} ${SDL2_IMAGE_LIBRARIES})
 target_include_directories(sparkle-duck-server PRIVATE ${CMAKE_SOURCE_DIR}/external/args)
 
@@ -249,68 +262,71 @@ add_custom_target (run-server COMMAND ${EXECUTABLE_OUTPUT_PATH}/sparkle-duck-ser
 # Note: Removed obsolete physics, UI, and state machine tests.
 # Long-term TODO: Re-implement physics tests for new architecture.
 add_executable(sparkle-duck-tests
-    # JSON Serialization Tests (passing).
+    # Test files.
     src/tests/CellJSON_test.cpp
     src/tests/MaterialTypeJSON_test.cpp
     src/tests/Vector2dJSON_test.cpp
     src/tests/WorldJSON_test.cpp
-
-    # Core Utility Tests.
     src/tests/CrashDumpHandler_test.cpp
     src/tests/ResultTest.cpp
     src/tests/TimersTest.cpp
     src/tests/Vector2d_test.cpp
     src/tests/Vector2i_test.cpp
-
-    # Visual Test Framework Infrastructure.
     src/tests/TestUI.cpp
     src/tests/UnifiedSimLoopExample_test.cpp
     src/tests/visual_test_runner.cpp
-    src/Vector2d.cpp
-    src/Vector2i.cpp
-    src/World.cpp
-    src/Cell.cpp
-    src/Timers.cpp
-    src/WorldEventGenerator.cpp
-    src/SimulatorUI.cpp
-    src/UIUpdateConsumer.cpp
-    src/UIManager.cpp
-    src/MaterialType.cpp
-    src/Cell.cpp
-    src/World.cpp
-    src/WorldInterface.cpp
-    src/WorldCalculatorBase.cpp
-    src/WorldCohesionCalculator.cpp
-    src/WorldSupportCalculator.cpp
-    src/WorldPressureCalculator.cpp
-    src/WorldAirResistanceCalculator.cpp
-    src/WorldCollisionCalculator.cpp
-    src/WorldAdhesionCalculator.cpp
-    src/WorldFrictionCalculator.cpp
-    src/WorldDiagramGeneratorEmoji.cpp
-    src/MaterialPicker.cpp
-    src/CrashDumpHandler.cpp
-    src/WorldInterpolationTool.cpp
-    src/ui/LVGLBuilder.cpp
-    src/ui/LVGLEventBuilder.cpp
-    src/EventProcessor.cpp
-    src/EventRouter.cpp
-    src/DirtSimStateMachine.cpp
-    src/states/Startup.cpp
-    src/states/MainMenu.cpp
-    src/states/SimRunning.cpp
-    src/states/SimPaused.cpp
-    src/states/Config.cpp
-    src/states/Shutdown.cpp
-    src/scenarios/ScenarioWorldEventGenerator.cpp
-    src/scenarios/ScenarioRegistry.cpp
-    src/scenarios/scenarios/EmptyScenario.cpp
-    src/scenarios/scenarios/SandboxScenario.cpp
-    src/scenarios/scenarios/RainingScenario.cpp
-    src/scenarios/scenarios/DamBreakScenario.cpp
-    src/scenarios/scenarios/WaterEqualizationScenario.cpp
-    src/scenarios/scenarios/FallingDirtScenario.cpp
-    ${LV_LINUX_SRC} 
+
+    # Core components.
+    src/core/Cell.cpp
+    src/core/Vector2d.cpp
+    src/core/Vector2i.cpp
+    src/core/World.cpp
+    src/core/Timers.cpp
+    src/core/WorldEventGenerator.cpp
+    src/core/MaterialType.cpp
+    src/core/WorldInterface.cpp
+    src/core/WorldCalculatorBase.cpp
+    src/core/WorldCohesionCalculator.cpp
+    src/core/WorldSupportCalculator.cpp
+    src/core/WorldPressureCalculator.cpp
+    src/core/WorldAirResistanceCalculator.cpp
+    src/core/WorldCollisionCalculator.cpp
+    src/core/WorldAdhesionCalculator.cpp
+    src/core/WorldFrictionCalculator.cpp
+    src/core/WorldDiagramGeneratorEmoji.cpp
+    src/core/CrashDumpHandler.cpp
+    src/core/WorldInterpolationTool.cpp
+    src/core/EventRouter.cpp
+    src/core/StateMachineBase.cpp
+
+    # Server components (for test infrastructure).
+    src/server/StateMachine.cpp
+    src/server/EventProcessor.cpp
+    src/server/states/Startup.cpp
+    src/server/states/MainMenu.cpp
+    src/server/states/SimRunning.cpp
+    src/server/states/SimPaused.cpp
+    src/server/states/Config.cpp
+    src/server/states/Shutdown.cpp
+    src/server/scenarios/ScenarioWorldEventGenerator.cpp
+    src/server/scenarios/ScenarioRegistry.cpp
+    src/server/scenarios/scenarios/EmptyScenario.cpp
+    src/server/scenarios/scenarios/SandboxScenario.cpp
+    src/server/scenarios/scenarios/RainingScenario.cpp
+    src/server/scenarios/scenarios/DamBreakScenario.cpp
+    src/server/scenarios/scenarios/WaterEqualizationScenario.cpp
+    src/server/scenarios/scenarios/FallingDirtScenario.cpp
+
+    # UI components (for visual tests).
+    src/ui/SimulatorUI.cpp
+    src/ui/UIUpdateConsumer.cpp
+    src/ui/UIManager.cpp
+    src/ui/MaterialPicker.cpp
+    src/ui/ui_builders/LVGLBuilder.cpp
+    src/ui/ui_builders/LVGLEventBuilder.cpp
+
+    # LVGL backend.
+    ${LV_LINUX_SRC}
     ${LV_LINUX_BACKEND_SRC}
 )
 target_link_libraries(sparkle-duck-tests

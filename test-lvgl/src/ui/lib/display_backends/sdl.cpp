@@ -19,8 +19,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#include "../../DirtSimStateMachine.h"
-#include "../WorldInterface.h"
+#include "../../../server/StateMachine.h"
+#include "../../../core/WorldInterface.h"
 #include "lvgl/lvgl.h"
 #include "simulator_loop.h"
 #if LV_USE_SDL

@@ -2,33 +2,21 @@
 
 #include "Event.h"
 #include "EventProcessor.h"
-#include "EventRouter.h"
-#include "SharedSimState.h"
-#include "StateMachineInterface.h"
-#include "WorldInterface.h"
+#include "../core/SharedSimState.h"
+#include "../core/StateMachineBase.h"
+#include "../core/StateMachineInterface.h"
+#include "../core/WorldInterface.h"
 #include "states/State.h"
 #include <functional>
 #include <memory>
 
-// Forward declarations.
-class UIManager;
-
 namespace DirtSim {
+namespace Server {
 
-/**
- * @brief Main state machine for the Dirt Sim application.
- *
- * Manages application states, event processing, and coordination between
- * UI and physics simulation.
- */
-class DirtSimStateMachine : public StateMachineInterface {
+class StateMachine : public StateMachineBase, public StateMachineInterface {
 public:
-    /**
-     * @brief Construct with optional display for UI.
-     * @param display LVGL display for UI (can be nullptr for headless)
-     */
-    explicit DirtSimStateMachine(lv_disp_t* display = nullptr);
-    ~DirtSimStateMachine();
+    StateMachine();
+    ~StateMachine();
 
     /**
      * @brief Initialize and run the main event loop.
@@ -52,47 +40,18 @@ public:
      */
     void handleEvent(const Event& event);
 
-    /**
-     * @brief Get the current state name for logging.
-     */
-    std::string getCurrentStateName() const { return State::getCurrentStateName(fsmState); }
+    std::string getCurrentStateName() const override { return State::getCurrentStateName(fsmState); }
+    void processEvents() override;
 
-    /**
-     * @brief Check if we should exit.
-     */
-    bool shouldExit() const { return sharedState.getShouldExit(); }
-
-    /**
-     * @brief Get the event router.
-     */
     EventRouter& getEventRouter() { return *eventRouter; }
-
-    /**
-     * @brief Get the shared state.
-     */
     SharedSimState& getSharedState() { return sharedState; }
-
-    /**
-     * @brief Build a comprehensive UI update event with current state.
-     * @return UIUpdateEvent containing all UI-relevant state
-     */
-    UIUpdateEvent buildUIUpdate();
-
-    /**
-     * @brief Resize world if needed for scenario dimensions.
-     * @param requiredWidth Required width (0 = restore default)
-     * @param requiredHeight Required height (0 = restore default)
-     * @return true if resize was performed
-     */
     bool resizeWorldIfNeeded(uint32_t requiredWidth, uint32_t requiredHeight);
 
-    // Public members for state access.
     std::unique_ptr<WorldInterface> world;
-    lv_disp_t* display = nullptr;
-    EventProcessor eventProcessor;
+    EventProcessor<Event, StateMachine> eventProcessor;
 
-    uint32_t defaultWidth = 28;  // Default grid width.
-    uint32_t defaultHeight = 28; // Default grid height.
+    uint32_t defaultWidth = 28;
+    uint32_t defaultHeight = 28;
 
 private:
     State::Any fsmState{ State::Startup{} };
@@ -132,8 +91,8 @@ private:
     State::Any onEvent(const GetFPSCommand& cmd);
     State::Any onEvent(const GetSimStatsCommand& cmd);
 
-    // Allow EventDispatcher to access private event handlers
     friend class EventDispatcher;
 };
 
+} // namespace Server
 } // namespace DirtSim
