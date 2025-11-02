@@ -21,8 +21,8 @@
 #include <unistd.h>
 #include <iostream>
 
+#include "../../DirtSimStateMachine.h"
 #include "../WorldInterface.h"
-#include "../../SimulationManager.h"
 #include "lvgl/lvgl.h"
 #include "simulator_loop.h"
 
@@ -45,7 +45,7 @@
  *  STATIC PROTOTYPES
  **********************/
 static lv_display_t* init_wayland(void);
-static void run_loop_wayland(SimulationManager& manager);
+static void run_loop_wayland(DirtSim::DirtSimStateMachine& dsm);
 
 /**********************
  *  STATIC VARIABLES
@@ -124,7 +124,7 @@ static lv_display_t* init_wayland(void)
 /**
  * The run loop of the Wayland driver.
  */
-static void run_loop_wayland(SimulationManager& manager)
+static void run_loop_wayland(DirtSim::DirtSimStateMachine& dsm)
 {
     SimulatorLoop::LoopState state;
     SimulatorLoop::initState(state);
@@ -137,7 +137,7 @@ static void run_loop_wayland(SimulationManager& manager)
     /* Handle LVGL tasks. */
     while (state.is_running) {
         // Process one frame of simulation.
-        SimulatorLoop::processFrame(manager, state, 8);
+        SimulatorLoop::processFrame(dsm, state, 8);
 
         // Exit immediately if step limit reached - don't wait for more events.
         if (!state.is_running) {
@@ -151,13 +151,8 @@ static void run_loop_wayland(SimulationManager& manager)
 
         if (completed) {
             /* wait only if the cycle was completed and FPS limiting is enabled. */
-//            bool frame_limiting_enabled = true; // Default to enabled.
-            if (manager.getUI()) {
-//                frame_limiting_enabled = manager.getUI()->isFrameLimitingEnabled();
-            }
-//            if (frame_limiting_enabled) {
-//                usleep(LV_DEF_REFR_PERIOD * 1000);
-//            }
+            // TODO: Get frame limiting from settings or config.
+            //usleep(LV_DEF_REFR_PERIOD * 1000);
         }
 
         /* Run until the last window closes. */

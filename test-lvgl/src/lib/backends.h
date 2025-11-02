@@ -10,14 +10,15 @@
  */
 #pragma once
 
-class WorldInterface;
-class SimulationManager;
+namespace DirtSim {
+class DirtSimStateMachine;
+}
 
 /* Prototype of the display initialization functions */
 typedef lv_display_t *(*display_init_t)(void);
 
 /* Prototype of the run loop */
-typedef void (*run_loop_t)(SimulationManager& manager);
+typedef void (*run_loop_t)(DirtSim::DirtSimStateMachine& dsm);
 
 /* Represents a display driver handle */
 typedef struct {

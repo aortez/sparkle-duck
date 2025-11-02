@@ -1,20 +1,36 @@
 # WebRTC Test Driver Implementation Plan
 
-## Status: In Progress
+## Status: Major Architectural Refactoring Complete
 
-NOTE: we need to add an intermediate layer for commands - they should be deserilized from Json into a command, _then_ fed to the state machine for processing.  I don't know if we need CommandProcessor, let's discuss.
-
-**Completed:**
+**Completed (Phase 1 - Foundation):**
 - ✅ Draw area refactoring (World is headless, draw area passed as parameter)
 - ✅ Removed RulesA/WorldType (single World implementation now)
-- ✅ Removed WorldState (replaced with native JSON serialization)
 - ✅ Cell JSON serialization (17 tests passing)
 - ✅ World JSON serialization (21 tests passing)
-- ✅ CommandProcessor with Result-based API (17 tests passing)
-- ✅ JSON command protocol defined
+- ✅ World is fully copyable (via WorldEventGenerator cloning)
+
+**Completed (Phase 2 - API Architecture):**
+- ✅ DirtSim::Api::* namespace pattern for commands (CellGet, CellSet, GravitySet, Reset, StateGet, StepN)
+- ✅ CommandWithCallback<Command, Response> template for async responses
+- ✅ CommandDeserializerJson (pure JSON → Command deserialization)
+- ✅ ResponseSerializerJson (pure Response → JSON serialization)
+- ✅ StateMachineInterface for dependency inversion
+- ✅ State handlers for all 6 API commands in SimRunning state
+- ✅ WebSocketServer with libdatachannel v0.23.2
+- ✅ ApplyScenarioCommand and ResizeWorldCommand events
+
+**Completed (Phase 3 - Architecture Cleanup):**
+- ✅ WorldSetup → WorldEventGenerator rename (clearer purpose)
+- ✅ Static event generation state → instance members (enables copying)
+- ✅ Eliminated SimulationManager (unnecessary abstraction layer)
+- ✅ DirtSimStateMachine owns World directly
+- ✅ UIUpdateEvent simplified (World + metadata, no dirty flags)
+- ✅ UI completely decoupled (communicates only via EventRouter, no direct world access)
+- ✅ Removed 600+ lines of dead UI callback code
 
 **In Progress:**
-- ⏳ WebSocket server implementation
+- ⏳ Create UIStateMachine (separate UI states from simulation states)
+- ⏳ Complete headless server build (remove remaining UI dependencies)
 
 **TODO:**
 - WebRTC video streaming
@@ -86,35 +102,151 @@ This document outlines the plan for a WebSocket/WebRTC-based test driver for the
 3. **LVGL native client**: WebSocket commands + WebRTC video rendering.
 4. **Command-line tools**: websocat, curl for simple testing.
 
+## Key Architectural Decisions (2025-11-01)
+
+### API Design Pattern
+
+All network API commands follow this namespace pattern:
+
+```cpp
+namespace DirtSim::Api::<CommandName> {
+    struct Command {
+        // Command parameters
+    };
+
+    struct Okay {
+        // Response data (structured types, NOT JSON)
+    };
+    using Response = Result<Okay, ApiError>;
+    using Cwc = CommandWithCallback<Command, Response>;
+}
+```
+
+**Examples:**
+- `DirtSim::Api::CellGet::Command{x, y}` → `Response{Cell}`
+- `DirtSim::Api::StateGet::Command{}` → `Response{World}`
+- `DirtSim::Api::GravitySet::Command{gravity}` → `Response{std::monostate}`
+
+**Key principles:**
+1. API layer returns **structured data** (Cell, World objects), not JSON
+2. JSON serialization happens in network layer (ResponseSerializerJson)
+3. Commands are alphabetically organized (CellGet, CellSet, GravitySet, etc.)
+4. Responses use Result<OkayType, ErrorType> for type-safe error handling
+
+### Event Flow Architecture
+
+```
+WebSocket → JSON → CommandDeserializerJson → ApiCommand → Wrap in Cwc
+                                                              ↓
+                                                          Event Queue
+                                                              ↓
+                                                      State Machine
+                                                              ↓
+                                                      Process & Respond
+                                                              ↓
+                              Response → ResponseSerializerJson → JSON → WebSocket
+```
+
+**Separation of concerns:**
+- **CommandDeserializerJson**: Pure JSON → Command (no callbacks, no state machine knowledge)
+- **WebSocketServer**: Network layer (wraps Commands in Cwc, manages callbacks)
+- **ResponseSerializerJson**: Pure Response → JSON (calls `.toJson()` on structured types)
+- **State Machine**: Processes events, calls `cwc.sendResponse()`
+
+### World Copyability
+
+World is now fully copyable to support:
+1. Sending complete world state over network (StateGet API)
+2. UIUpdateEvent containing World copy for UI rendering
+3. Future save/load functionality
+
+**Implementation:**
+- WorldEventGenerator has virtual `clone()` method for polymorphic copying
+- WorldInterface copy constructor clones worldEventGenerator_
+- World copy constructor chains to base, copies all state
+- Static event generation vars → instance members (enables state preservation)
+
+**Performance:**
+- 50×50 world: ~156 KB (9 MB/sec at 60 FPS)
+- 100×100 world: ~625 KB (37 MB/sec at 60 FPS)
+- 200×150 world: ~1.8 MB (110 MB/sec at 60 FPS)
+- Very practical for network transmission and UI updates
+
+### Automatic Serialization (Planned)
+
+**qlibs/reflect** (https://github.com/qlibs/reflect)
+- Automatic C++20 reflection-based serialization
+- Will replace manual `.toJson()` implementations
+- Requires C++20 upgrade (currently C++23)
+- Use `[[reflect]]` attribute on structs to auto-generate serialization code
+
+### UI/Simulation Separation
+
+**Before:** UI had direct pointers to World and SimulationManager
+**After:** UI communicates ONLY via events
+
+**UI receives:** UIUpdateEvent{World world, fps, stepCount, isPaused}
+**UI sends:** Events via EventRouter (SetGravityCommand, SelectMaterialCommand, etc.)
+**UI stores:** `std::optional<World> lastWorldState_` for rendering/comparison
+
+**Benefits:**
+- UI can run in separate process (future WebRTC client)
+- No tight coupling between UI and simulation
+- Thread-safe by design (event queue between threads)
+
+### SimulationManager Elimination
+
+SimulationManager was unnecessary indirection:
+- Just wrapped World ownership
+- All methods delegated to World
+- Forced UI dependency on headless code
+
+**Replaced with:** DirtSimStateMachine owns World directly via `std::unique_ptr<WorldInterface> world`
+
+### UiStateMachine (Next Step)
+
+Current DirtSimStateMachine mixes simulation and UI concerns:
+- Simulation states: Startup, SimRunning, Shutdown
+- UI states: MainMenu, SimPaused, Config
+
+**Plan:** Split into two state machines:
+- **DirtSimStateMachine**: Pure simulation (headless-compatible)
+- **UiStateMachine**: UI-only states with lifecycle:
+  - **StartUp**: Initialize comms, then graphics layer
+  - **StartMenu**: Let user press start button
+  - **SimRunning**: Rendering simulation, handling user interactions
+  - **Shutdown**: Cleanup, take exit screenshot
+
 ## Current Architecture
 
 ### Directory Structure
 
-**Current (minimal reorganization):**
+**Current Architecture:**
 ```
 src/
-├── World.{h,cpp}                      # Pure-material physics (formerly WorldB)
-├── Cell.{h,cpp}                       # Pure-material cell (formerly CellB)
-├── World*Calculator.{h,cpp}           # Physics calculators (8 files)
-├── SimulationManager.{h,cpp}          # Coordinates UI + World (headless-capable)
-├── SimulatorUI.{h,cpp}                # LVGL-based UI (optional)
-├── MaterialType, Vector2d, etc.       # Core types with JSON
-├── Result.h                           # Result<T,E> type for error handling
-├── network/                           # ✅ NEW: Network layer
-│   ├── CommandProcessor.{h,cpp}       # ✅ DONE: JSON command handler
-│   ├── CommandResult.h                # ✅ DONE: Result wrapper
-│   ├── WebSocketServer.{h,cpp}        # TODO: WebSocket server
-│   └── NetworkController.{h,cpp}      # TODO: Server coordinator
-├── main.cpp                           # UI app entry point
+├── main.cpp                           # UI application entry point
+├── main_server.cpp                    # Headless WebSocket server entry point
+├── World.{h,cpp}                      # Physics system (copyable, headless)
+├── Cell.{h,cpp}                       # Pure-material cell with JSON serialization
+├── World*Calculator.{h,cpp}           # Physics calculators (8 modular files)
+├── WorldEventGenerator.{h,cpp}        # World setup & particle generation strategies
+├── DirtSimStateMachine.{h,cpp}        # Event-driven state machine (owns World)
+├── StateMachineInterface.h            # Interface for dependency inversion
+├── Event.h                            # All event/command types
+├── ApiCommands.h                      # Network API command/response definitions
+├── CommandWithCallback.h              # Template for async command handling
+├── SimulatorUI.{h,cpp}                # LVGL UI (event-based, no direct world access)
+├── network/                           # Network layer (fully decoupled)
+│   ├── CommandDeserializerJson        # Pure JSON → Command deserialization
+│   ├── ResponseSerializerJson         # Pure Response → JSON serialization
+│   └── WebSocketServer                # WebSocket server (libdatachannel)
+├── states/                            # State machine states
+├── scenarios/                         # Scenario system with WorldEventGenerator
+├── ui/                                # LVGL event builders
 └── tests/                             # Comprehensive test suite
-    ├── CellJSON_test.cpp              # ✅ NEW: 17 tests
-    ├── WorldJSON_test.cpp             # ✅ NEW: 21 tests
-    ├── CommandProcessor_test.cpp      # ✅ NEW: 17 tests
-    └── ... (other tests)
-
-# Future reorganization (when needed):
-# - Create src/core/ for physics when building separate server executable
-# - Move UI-specific code to src/ui/ if it becomes cluttered
+    ├── CellJSON_test.cpp              # 17 tests passing
+    ├── WorldJSON_test.cpp             # 21 tests passing
+    └── ... (physics, integration tests)
 ```
 
 ### Key Simplifications
@@ -124,32 +256,30 @@ src/
 - ❌ No WorldType enum (only one World now)
 - ❌ No WorldState struct (direct JSON serialization instead)
 - ❌ No WorldFactory (just `new World(w, h)`)
-- ❌ No preserveState/restoreState (use toJSON/fromJSON)
+- ❌ No SimulationManager (unnecessary abstraction)
+- ❌ No CommandProcessor (replaced with CommandDeserializerJson + event system)
+- ❌ No direct UI→World coupling (all via events now)
 
-**Result: Simpler, cleaner codebase focused on single physics system.**
+**Result: Simpler, cleaner, event-driven architecture with clear separation of concerns.**
 
-### Simulation Control: Using SimulationManager Directly
+### Simulation Control: DirtSimStateMachine
 
-**Decision:** Keep using `SimulationManager` directly rather than creating a separate `SimulationController`.
+**Decision:** DirtSimStateMachine owns World directly. SimulationManager eliminated as unnecessary abstraction.
 
 **Rationale:**
-- SimulationManager already supports headless mode (`screen=nullptr, eventRouter=nullptr`)
-- Thin delegation layer - no business logic to extract
-- Adding another abstraction layer would be unnecessary complexity
-- Network code can use SimulationManager directly
+- SimulationManager was just thin delegation to World
+- Forced UI dependencies on headless code
+- DirtSimStateMachine already existed and is more appropriate owner
 
 ```cpp
 // Server usage (headless)
-auto manager = std::make_unique<SimulationManager>(
-    200, 150,      // Grid dimensions
-    nullptr,       // No screen (headless)
-    nullptr        // No event router
-);
-manager->initialize();
+auto stateMachine = std::make_unique<DirtSimStateMachine>(nullptr); // No display
+stateMachine->world->advanceTime(deltaTime);
 
-// Network layer uses it directly
-CommandProcessor processor(manager.get());
-processor.processCommand(R"({"command": "step", "frames": 10})");
+// Network layer uses state machine
+WebSocketServer server(*stateMachine, 8080);
+server.start();
+// Commands queued as events → state machine processes → responses via callbacks
 ```
 
 ### JSON Serialization (Completed)
@@ -194,11 +324,11 @@ void World::fromJSON(const rapidjson::Document& doc);
 {"command": "place_material", "x": 50, "y": 75, "material": "WATER", "fill": 1.0}
 → {"value": {}}
 
-// Get full world state
+// Get full world state (returns complete World object serialized to JSON)
 {"command": "get_state"}
 → {"value": {...complete World JSON...}}
 
-// Get specific cell
+// Get specific cell (returns Cell object serialized to JSON)
 {"command": "get_cell", "x": 10, "y": 20}
 → {"value": {...Cell JSON...}}
 
@@ -211,7 +341,11 @@ void World::fromJSON(const rapidjson::Document& doc);
 → {"value": {}}
 ```
 
-**Implementation:** `src/network/CommandProcessor.{h,cpp}` (226 lines, 17 tests passing)
+**Implementation:**
+- `CommandDeserializerJson`: Parses JSON into ApiCommand variant
+- `WebSocketServer`: Wraps commands in Cwc with response callbacks
+- `ResponseSerializerJson`: Converts structured Response types to JSON
+- State handlers in `states/SimRunning.cpp` process commands and respond
 
 ### UI App (Current - Unchanged)
 

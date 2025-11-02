@@ -19,8 +19,9 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+#include "../../DirtSimStateMachine.h"
+#include "../../SimulatorUI.h"
 #include "../WorldInterface.h"
-#include "../../SimulationManager.h"
 #include "lvgl/lvgl.h"
 #include "simulator_loop.h"
 #if LV_USE_LINUX_FBDEV
@@ -41,7 +42,7 @@
  **********************/
 
 static lv_display_t* init_fbdev(void);
-static void run_loop_fbdev(SimulationManager& manager);
+static void run_loop_fbdev(DirtSim::DirtSimStateMachine& dsm);
 
 /**********************
  *  STATIC VARIABLES
@@ -109,7 +110,7 @@ static lv_display_t* init_fbdev(void)
 /**
  * The run loop of the fbdev driver
  */
-static void run_loop_fbdev(SimulationManager& manager)
+static void run_loop_fbdev(DirtSim::DirtSimStateMachine& dsm)
 {
     // Initialize simulation loop state for step counting.
     SimulatorLoop::LoopState state;
@@ -123,7 +124,7 @@ static void run_loop_fbdev(SimulationManager& manager)
     /* Handle LVGL tasks. */
     while (state.is_running) {
         // Process one frame of simulation.
-        SimulatorLoop::processFrame(manager, state, 8);
+        SimulatorLoop::processFrame(dsm, state, 8);
 
         // Exit immediately if step limit reached - don't wait for more events.
         if (!state.is_running) {

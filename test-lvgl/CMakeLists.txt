@@ -10,6 +10,17 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(googletest)
 
+# Add libdatachannel for WebSocket/WebRTC support.
+FetchContent_Declare(
+    libdatachannel
+    GIT_REPOSITORY https://github.com/paullouisageneau/libdatachannel.git
+    GIT_TAG v0.23.2
+)
+# Disable tests and examples for libdatachannel.
+set(NO_EXAMPLES ON CACHE BOOL "" FORCE)
+set(NO_TESTS ON CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(libdatachannel)
+
 set(CONF_PATH "${PROJECT_SOURCE_DIR}/lv_conf.h")
 
 foreach(BACKEND_NAME "SDL" "LINUX_DRM" "LINUX_FBDEV" "X11" "WAYLAND" "OPENGLES")
@@ -112,6 +123,7 @@ add_subdirectory(./external/args ${CMAKE_BINARY_DIR}/args)
 
 add_library(lvgl_linux STATIC ${LV_LINUX_SRC} ${LV_LINUX_BACKEND_SRC})
 target_include_directories(lvgl_linux PRIVATE ${LV_LINUX_INC} ${PROJECT_SOURCE_DIR})
+target_link_libraries(lvgl_linux PRIVATE spdlog::spdlog)
 
 add_executable(sparkle-duck 
     src/main.cpp 
@@ -120,7 +132,7 @@ add_executable(sparkle-duck
     src/Vector2i.cpp
     src/World.cpp 
     src/Timers.cpp
-    src/WorldSetup.cpp
+    src/WorldEventGenerator.cpp
     src/SimulatorUI.cpp
     src/UIUpdateConsumer.cpp
     src/SimulationManager.cpp
@@ -151,7 +163,7 @@ add_executable(sparkle-duck
     src/states/SimPaused.cpp
     src/states/Config.cpp
     src/states/Shutdown.cpp
-    src/scenarios/ScenarioWorldSetup.cpp
+    src/scenarios/ScenarioWorldEventGenerator.cpp
     src/scenarios/ScenarioRegistry.cpp
     src/scenarios/scenarios/EmptyScenario.cpp
     src/scenarios/scenarios/SandboxScenario.cpp
@@ -179,6 +191,60 @@ install(TARGETS lvgl_linux
 )
 
 add_custom_target (run COMMAND ${EXECUTABLE_OUTPUT_PATH}/sparkle-duck DEPENDS sparkle-duck)
+
+# Headless WebSocket server executable.
+add_executable(sparkle-duck-server
+    src/main_server.cpp
+    src/Cell.cpp
+    src/Vector2d.cpp
+    src/Vector2i.cpp
+    src/World.cpp
+    src/Timers.cpp
+    src/WorldEventGenerator.cpp
+    src/MaterialType.cpp
+    src/WorldInterface.cpp
+    src/WorldCalculatorBase.cpp
+    src/WorldCohesionCalculator.cpp
+    src/WorldSupportCalculator.cpp
+    src/WorldPressureCalculator.cpp
+    src/WorldAirResistanceCalculator.cpp
+    src/WorldCollisionCalculator.cpp
+    src/WorldAdhesionCalculator.cpp
+    src/WorldFrictionCalculator.cpp
+    src/CrashDumpHandler.cpp
+    src/WorldInterpolationTool.cpp
+    src/WorldDiagramGeneratorEmoji.cpp
+    src/EventProcessor.cpp
+    src/EventRouter.cpp
+    src/DirtSimStateMachine.cpp
+    src/states/Startup.cpp
+    src/states/MainMenu.cpp
+    src/states/SimRunning.cpp
+    src/states/SimPaused.cpp
+    src/states/Config.cpp
+    src/states/Shutdown.cpp
+    src/scenarios/ScenarioWorldEventGenerator.cpp
+    src/scenarios/ScenarioRegistry.cpp
+    src/scenarios/scenarios/EmptyScenario.cpp
+    src/scenarios/scenarios/SandboxScenario.cpp
+    src/scenarios/scenarios/RainingScenario.cpp
+    src/scenarios/scenarios/DamBreakScenario.cpp
+    src/scenarios/scenarios/WaterEqualizationScenario.cpp
+    src/scenarios/scenarios/FallingDirtScenario.cpp
+    src/network/CommandDeserializerJson.cpp
+    src/network/WebSocketServer.cpp
+    src/SimulatorUI.cpp
+    src/UIUpdateConsumer.cpp
+    src/MaterialPicker.cpp
+    src/ui/LVGLBuilder.cpp
+    src/ui/LVGLEventBuilder.cpp)
+target_link_libraries(sparkle-duck-server lvgl_linux lvgl lvgl::thorvg spdlog::spdlog datachannel-static m pthread ${PKG_CONFIG_LIB} ${SDL2_LIBRARIES} ${SDL2_IMAGE_LIBRARIES})
+target_include_directories(sparkle-duck-server PRIVATE ${CMAKE_SOURCE_DIR}/external/args)
+
+# Enable warnings and treat them as errors for server executable.
+target_compile_options(sparkle-duck-server PRIVATE -Wall -Wextra -Werror)
+
+add_custom_target (run-server COMMAND ${EXECUTABLE_OUTPUT_PATH}/sparkle-duck-server DEPENDS sparkle-duck-server)
 
 
 # Add test executable
@@ -240,7 +306,7 @@ add_executable(sparkle-duck-tests
     src/World.cpp
     src/Cell.cpp
     src/Timers.cpp
-    src/WorldSetup.cpp
+    src/WorldEventGenerator.cpp
     src/SimulatorUI.cpp
     src/UIUpdateConsumer.cpp
     src/SimulationManager.cpp
@@ -273,7 +339,7 @@ add_executable(sparkle-duck-tests
     src/states/SimPaused.cpp
     src/states/Config.cpp
     src/states/Shutdown.cpp
-    src/scenarios/ScenarioWorldSetup.cpp
+    src/scenarios/ScenarioWorldEventGenerator.cpp
     src/scenarios/ScenarioRegistry.cpp
     src/scenarios/scenarios/EmptyScenario.cpp
     src/scenarios/scenarios/SandboxScenario.cpp

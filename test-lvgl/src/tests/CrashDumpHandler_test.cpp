@@ -1,12 +1,12 @@
-#include <gtest/gtest.h>
 #include "src/CrashDumpHandler.h"
-#include "src/SparkleAssert.h"
 #include "src/SimulationManager.h"
-#include "src/WorldSetup.h"
-#include <fstream>
-#include <filesystem>
-#include <thread>
+#include "src/SparkleAssert.h"
+#include "src/WorldEventGenerator.h"
 #include <chrono>
+#include <filesystem>
+#include <fstream>
+#include <gtest/gtest.h>
+#include <thread>
 
 class CrashDumpHandlerTest : public ::testing::Test {
 protected:

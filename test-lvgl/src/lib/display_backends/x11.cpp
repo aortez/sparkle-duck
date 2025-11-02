@@ -20,9 +20,9 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#include "../WorldInterface.h"
-#include "../../SimulationManager.h"
+#include "../../DirtSimStateMachine.h"
 #include "../SimulatorUI.h"
+#include "../WorldInterface.h"
 #include "lvgl/lvgl.h"
 #include "simulator_loop.h"
 #if LV_USE_X11
@@ -47,7 +47,7 @@ extern simulator_settings_t settings;
  *  STATIC PROTOTYPES
  **********************/
 static lv_display_t* init_x11(void);
-static void run_loop_x11(SimulationManager& manager);
+static void run_loop_x11(DirtSim::DirtSimStateMachine& dsm);
 
 /**********************
  *  STATIC VARIABLES
@@ -112,7 +112,7 @@ static lv_display_t* init_x11(void)
 /**
  * The run loop of the X11 driver
  */
-void run_loop_x11(SimulationManager& manager)
+void run_loop_x11(DirtSim::DirtSimStateMachine& dsm)
 {
     // Initialize simulation loop state for step counting.
     SimulatorLoop::LoopState state;
@@ -126,7 +126,7 @@ void run_loop_x11(SimulationManager& manager)
     /* Handle LVGL tasks. */
     while (state.is_running) {
         // Process one frame of simulation.
-        SimulatorLoop::processFrame(manager, state, 8);
+        SimulatorLoop::processFrame(dsm, state, 8);
 
         // Exit immediately if step limit reached - don't wait for more events.
         if (!state.is_running) {
@@ -138,9 +138,7 @@ void run_loop_x11(SimulationManager& manager)
         idle_time = lv_timer_handler();
         
         bool frame_limiting_enabled = true; // Default to enabled.
-        if (manager.getUI()) {
-            frame_limiting_enabled = manager.getUI()->isFrameLimitingEnabled();
-        }
+        // TODO: Get frame limiting from settings or config.
         if (frame_limiting_enabled) {
             usleep(idle_time * 1000);
         }

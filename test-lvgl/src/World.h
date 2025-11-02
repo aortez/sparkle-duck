@@ -12,17 +12,14 @@
 #include "WorldPressureCalculator.h"
 #include "WorldSupportCalculator.h"
 
+#include "WorldEventGenerator.h"
 #include "WorldInterface.h"
-#include "WorldSetup.h"
 
 #include <cstdint>
 #include <memory>
 #include <vector>
 
 #include "lvgl/src/libs/thorvg/rapidjson/document.h"
-
-// Forward declarations
-class SimulatorUI;
 
 /**
  * \file
@@ -42,14 +39,15 @@ public:
     };
 
 public:
+    World();
     World(uint32_t width, uint32_t height);
     ~World();
 
-    // World is not copyable due to unique_ptr members.
-    World(const World&) = delete;
-    World& operator=(const World&) = delete;
+    // Copy constructor and assignment - clones worldEventGenerator_.
+    World(const World& other);
+    World& operator=(const World& other);
 
-    // Default move constructor and move assignment operator.
+    // Move constructor and move assignment operator.
     World(World&&) = default;
     World& operator=(World&&) = default;
 
@@ -267,13 +265,8 @@ public:
     std::string settingsToString() const override;
 
     // World setup management
-    void setWorldSetup(std::unique_ptr<WorldSetup> setup) override;
-    WorldSetup* getWorldSetup() const override;
-
-    // WORLDINTERFACE IMPLEMENTATION - UI INTEGRATION
-    void setUI(std::unique_ptr<SimulatorUI> ui) override;
-    void setUIReference(SimulatorUI* ui) override;
-    SimulatorUI* getUI() const override { return ui_ref_ ? ui_ref_ : ui_.get(); }
+    void setWorldEventGenerator(std::unique_ptr<WorldEventGenerator> setup) override;
+    WorldEventGenerator* getWorldEventGenerator() const override;
 
     // =================================================================
     // WORLD-SPECIFIC METHODS
@@ -487,8 +480,4 @@ private:
 
     // Friction calculation.
     mutable WorldFrictionCalculator friction_calculator_;
-
-    // UI interface.
-    std::unique_ptr<SimulatorUI> ui_; // Owned UI (legacy architecture)
-    SimulatorUI* ui_ref_;             // Non-owning reference (SimulationManager architecture)
 };

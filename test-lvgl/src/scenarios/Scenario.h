@@ -5,7 +5,7 @@
 
 // Forward declarations
 class WorldInterface;
-class WorldSetup;
+class WorldEventGenerator;
 
 /**
  * Core types for the scenario system.
@@ -40,7 +40,7 @@ public:
     
     // Get metadata for UI display
     virtual const ScenarioMetadata& getMetadata() const = 0;
-    
-    // Create a WorldSetup instance for this scenario
-    virtual std::unique_ptr<WorldSetup> createWorldSetup() const = 0;
+
+    // Create a WorldEventGenerator instance for this scenario
+    virtual std::unique_ptr<WorldEventGenerator> createWorldEventGenerator() const = 0;
 };

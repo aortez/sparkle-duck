@@ -1,11 +1,11 @@
-#include <gtest/gtest.h>
-#include "../scenarios/ScenarioRegistry.h"
-#include "../scenarios/Scenario.h"
-#include "../scenarios/ScenarioWorldSetup.h"
-#include "../WorldInterface.h"
 #include "../World.h"
-#include "../WorldSetup.h"
+#include "../WorldEventGenerator.h"
+#include "../WorldInterface.h"
+#include "../scenarios/Scenario.h"
+#include "../scenarios/ScenarioRegistry.h"
+#include "../scenarios/ScenarioWorldEventGenerator.h"
 #include "spdlog/spdlog.h"
+#include <gtest/gtest.h>
 
 /**
  * Test suite for the scenario system.
@@ -41,11 +41,12 @@ TEST_F(ScenarioSystemTest, CanRegisterAndRetrieveScenario) {
         const ScenarioMetadata& getMetadata() const override {
             return metadata_;
         }
-        
-        std::unique_ptr<WorldSetup> createWorldSetup() const override {
-            return std::make_unique<DefaultWorldSetup>();
+
+        std::unique_ptr<WorldEventGenerator> createWorldEventGenerator() const override
+        {
+            return std::make_unique<DefaultWorldEventGenerator>();
         }
-        
+
     private:
         ScenarioMetadata metadata_;
     };
@@ -79,11 +80,12 @@ TEST_F(ScenarioSystemTest, FilterByWorldType) {
         const ScenarioMetadata& getMetadata() const override {
             return metadata_;
         }
-        
-        std::unique_ptr<WorldSetup> createWorldSetup() const override {
-            return std::make_unique<DefaultWorldSetup>();
+
+        std::unique_ptr<WorldEventGenerator> createWorldEventGenerator() const override
+        {
+            return std::make_unique<DefaultWorldEventGenerator>();
         }
-        
+
     private:
         ScenarioMetadata metadata_;
     };
@@ -117,16 +119,17 @@ TEST_F(ScenarioSystemTest, CanApplyScenarioToWorld) {
         const ScenarioMetadata& getMetadata() const override {
             return metadata_;
         }
-        
-        std::unique_ptr<WorldSetup> createWorldSetup() const override {
-            auto setup = std::make_unique<ScenarioWorldSetup>();
+
+        std::unique_ptr<WorldEventGenerator> createWorldEventGenerator() const override
+        {
+            auto setup = std::make_unique<ScenarioWorldEventGenerator>();
             setup->setSetupFunction([](WorldInterface& world) {
                 // Disable walls to verify the setup ran
                 world.setWallsEnabled(false);
             });
             return setup;
         }
-        
+
     private:
         ScenarioMetadata metadata_;
     };
@@ -140,17 +143,17 @@ TEST_F(ScenarioSystemTest, CanApplyScenarioToWorld) {
     // Get the scenario and apply it
     auto* scenario = registry.getScenario("simple");
     ASSERT_NE(scenario, nullptr);
-    
-    auto worldSetup = scenario->createWorldSetup();
-    
+
+    auto worldSetup = scenario->createWorldEventGenerator();
+
     // Get initial state before applying scenario
     world->setup(); // Ensure world is in default state
     bool wallsBeforeScenario = world->areWallsEnabled();
     EXPECT_TRUE(wallsBeforeScenario); // Default should have walls enabled
     
     // Apply the scenario
-    world->setWorldSetup(std::move(worldSetup));
-    
+    world->setWorldEventGenerator(std::move(worldSetup));
+
     // Verify the setup was applied (walls should be disabled)
     EXPECT_FALSE(world->areWallsEnabled());
 }

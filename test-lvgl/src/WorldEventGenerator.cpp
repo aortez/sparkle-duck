@@ -1,4 +1,4 @@
-#include "WorldSetup.h"
+#include "WorldEventGenerator.h"
 #include "Cell.h"
 #include "MaterialType.h"
 #include "Vector2d.h"
@@ -10,7 +10,7 @@
 #include <iostream>
 #include <random>
 
-void WorldSetup::fillLowerRightQuadrant(WorldInterface& world)
+void WorldEventGenerator::fillLowerRightQuadrant(WorldInterface& world)
 {
     uint32_t startX = world.getWidth() / 2;
     uint32_t startY = world.getHeight() / 2;
@@ -27,7 +27,7 @@ void WorldSetup::fillLowerRightQuadrant(WorldInterface& world)
     }
 }
 
-void WorldSetup::makeWalls(WorldInterface& world)
+void WorldEventGenerator::makeWalls(WorldInterface& world)
 {
     // Wall creation is now handled by each world implementation internally.
     // World and World have their own wall systems (different material types).
@@ -40,7 +40,7 @@ void WorldSetup::makeWalls(WorldInterface& world)
     // Note: Walls are controlled via setWallsEnabled() and handled in each world's reset/setup.
 }
 
-void WorldSetup::makeMiddleMetalWall(WorldInterface& world)
+void WorldEventGenerator::makeMiddleMetalWall(WorldInterface& world)
 {
     // Add metal wall from top middle to center (World-specific feature).
     uint32_t middle_x = world.getWidth() / 2;
@@ -53,7 +53,7 @@ void WorldSetup::makeMiddleMetalWall(WorldInterface& world)
     }
 }
 
-void WorldSetup::fillWithDirt(WorldInterface& world)
+void WorldEventGenerator::fillWithDirt(WorldInterface& world)
 {
     spdlog::info(
         "Filling entire world with dirt ({}x{} cells)", world.getWidth(), world.getHeight());
@@ -65,74 +65,78 @@ void WorldSetup::fillWithDirt(WorldInterface& world)
     }
 }
 
-void DefaultWorldSetup::setup(WorldInterface& world)
+void DefaultWorldEventGenerator::setup(WorldInterface& world)
 {
     fillLowerRightQuadrant(world);
     makeWalls(world);
 }
 
-void DefaultWorldSetup::addParticles(
+std::unique_ptr<WorldEventGenerator> DefaultWorldEventGenerator::clone() const
+{
+    auto cloned = std::make_unique<DefaultWorldEventGenerator>();
+    cloned->lastSimTime = lastSimTime;
+    cloned->nextTopDrop = nextTopDrop;
+    cloned->nextInitialThrow = nextInitialThrow;
+    cloned->nextPeriodicThrow = nextPeriodicThrow;
+    cloned->nextRightThrow = nextRightThrow;
+    cloned->initialThrowDone = initialThrowDone;
+    cloned->topDropDone = topDropDone;
+    return cloned;
+}
+
+void DefaultWorldEventGenerator::addParticles(
     WorldInterface& world, uint32_t timestep, double deltaTimeSeconds)
 {
     // Now using CellInterface for direct cell access.
-    static double lastSimTime = 0.0;
-    static struct EventState {
-        double nextTopDrop = 0.33;       // First top drop at 0.33s
-        double nextInitialThrow = 0.17;  // First throw at 0.17s
-        double nextPeriodicThrow = 0.83; // First periodic throw at 0.83s
-        double nextRightThrow = 1.0;     // First right throw at 1.0s
-        bool initialThrowDone = false;   // Track if initial throw has happened.
-        bool topDropDone = false;        // Track if top drop has happened.
-    } eventState;
-
     const double simTime = lastSimTime + deltaTimeSeconds;
 
     spdlog::debug(
-        "DefaultWorldSetup timestep {}: simTime={:.3f}, lastSimTime={:.3f}, deltaTime={:.3f}",
+        "DefaultWorldEventGenerator timestep {}: simTime={:.3f}, lastSimTime={:.3f}, "
+        "deltaTime={:.3f}",
         timestep,
         simTime,
         lastSimTime,
         deltaTimeSeconds);
 
     // Drop a dirt from the top.
-    if (!eventState.topDropDone && simTime >= eventState.nextTopDrop) {
+    if (!topDropDone && simTime >= nextTopDrop) {
         spdlog::info("Adding top drop at time {:.3f}s", simTime);
         uint32_t centerX = world.getWidth() / 2;
         CellInterface& cell =
             world.getCellInterface(centerX, 1); // 1 to be just below the top wall.
         cell.addDirt(1.0);
-        eventState.topDropDone = true;
+        topDropDone = true;
     }
 
     // Initial throw from left center.
-    if (!eventState.initialThrowDone && simTime >= eventState.nextInitialThrow) {
+    if (!initialThrowDone && simTime >= nextInitialThrow) {
         spdlog::info("Adding initial throw at time {:.3f}s", simTime);
         uint32_t centerY = world.getHeight() / 2;
         CellInterface& cell = world.getCellInterface(2, centerY); // Against the left wall.
         cell.addDirtWithVelocity(1.0, Vector2d(5, -5));
-        eventState.initialThrowDone = true;
+        initialThrowDone = true;
     }
 
     // Recurring throws every ~0.83 seconds
     const double period = 0.83;
-    if (simTime >= eventState.nextPeriodicThrow) {
+    if (simTime >= nextPeriodicThrow) {
         spdlog::debug("Adding periodic throw at time {:.3f}s", simTime);
         uint32_t centerY = world.getHeight() / 2;
         CellInterface& cell = world.getCellInterface(2, centerY); // Against the left wall.
         cell.addDirtWithVelocity(1.0, Vector2d(10, -10));
         // Schedule next throw.
-        eventState.nextPeriodicThrow += period;
+        nextPeriodicThrow += period;
     }
 
     // Recurring throws from right side every ~0.83 seconds
-    if (simTime >= eventState.nextRightThrow) {
+    if (simTime >= nextRightThrow) {
         spdlog::debug("Adding right periodic throw at time {:.3f}s", simTime);
         uint32_t centerY = world.getHeight() / 2 - 2;
         CellInterface& cell =
             world.getCellInterface(world.getWidth() - 3, centerY); // Against the right wall.
         cell.addDirtWithVelocity(1.0, Vector2d(-10, -10));
         // Schedule next throw.
-        eventState.nextRightThrow += period;
+        nextRightThrow += period;
     }
 
     lastSimTime = simTime;
@@ -246,13 +250,15 @@ void DefaultWorldSetup::addParticles(
     */ // END DISABLED COMPLEX PARTICLE LOGIC.
 }
 
-DefaultWorldSetup::~DefaultWorldSetup()
+DefaultWorldEventGenerator::~DefaultWorldEventGenerator()
 {}
 
-// ConfigurableWorldSetup implementation.
-void ConfigurableWorldSetup::setup(WorldInterface& world)
+// ConfigurableWorldEventGenerator implementation.
+void ConfigurableWorldEventGenerator::setup(WorldInterface& world)
 {
-    spdlog::info("ConfigurableWorldSetup::setup called - waterColumnEnabled={}", waterColumnEnabled);
+    spdlog::info(
+        "ConfigurableWorldEventGenerator::setup called - waterColumnEnabled={}",
+        waterColumnEnabled);
 
     if (lowerRightQuadrantEnabled) {
         fillLowerRightQuadrant(world);
@@ -269,63 +275,77 @@ void ConfigurableWorldSetup::setup(WorldInterface& world)
         for (uint32_t y = 0; y < 20 && y < world.getHeight(); ++y) {
             for (uint32_t x = 1; x <= 5 && x < world.getWidth(); ++x) {
                 CellInterface& cell = world.getCellInterface(x, y);
-                cell.addWater(1.0);  // Add full cell of water.
+                cell.addWater(1.0); // Add full cell of water.
             }
         }
-    } else {
+    }
+    else {
         spdlog::info("Water column NOT enabled - skipping");
     }
 }
 
-void ConfigurableWorldSetup::addParticles(
+std::unique_ptr<WorldEventGenerator> ConfigurableWorldEventGenerator::clone() const
+{
+    auto cloned = std::make_unique<ConfigurableWorldEventGenerator>();
+    // Copy all configuration flags.
+    cloned->lowerRightQuadrantEnabled = lowerRightQuadrantEnabled;
+    cloned->wallsEnabled = wallsEnabled;
+    cloned->middleMetalWallEnabled = middleMetalWallEnabled;
+    cloned->leftThrowEnabled = leftThrowEnabled;
+    cloned->rightThrowEnabled = rightThrowEnabled;
+    cloned->topDropEnabled = topDropEnabled;
+    cloned->sweepEnabled = sweepEnabled;
+    cloned->rainRate = rainRate;
+    cloned->waterColumnEnabled = waterColumnEnabled;
+    // Copy event generation state.
+    cloned->lastSimTime = lastSimTime;
+    cloned->nextTopDrop = nextTopDrop;
+    cloned->nextInitialThrow = nextInitialThrow;
+    cloned->nextPeriodicThrow = nextPeriodicThrow;
+    cloned->nextRightThrow = nextRightThrow;
+    cloned->nextRainDrop = nextRainDrop;
+    cloned->initialThrowDone = initialThrowDone;
+    cloned->topDropDone = topDropDone;
+    return cloned;
+}
+
+void ConfigurableWorldEventGenerator::addParticles(
     WorldInterface& world, uint32_t timestep, double deltaTimeSeconds)
 {
-    // Now using CellInterface for direct cell access.
-    static double lastSimTime = 0.0;
-    static struct EventState {
-        double nextTopDrop = 0.33;       // First top drop at 0.33s
-        double nextInitialThrow = 0.17;  // First throw at 0.17s
-        double nextPeriodicThrow = 0.83; // First periodic throw at 0.83s
-        double nextRightThrow = 1.0;     // First right throw at 1.0s
-        bool initialThrowDone = false;   // Track if initial throw has happened.
-        bool topDropDone = false;        // Track if top drop has happened.
-        double nextRainDrop = 0.0;       // Time for next rain drop.
-    } eventState;
-
     const double simTime = lastSimTime + deltaTimeSeconds;
 
     spdlog::debug(
-        "ConfigurableWorldSetup timestep {}: simTime={:.3f}, lastSimTime={:.3f}, deltaTime={:.3f}",
+        "ConfigurableWorldEventGenerator timestep {}: simTime={:.3f}, lastSimTime={:.3f}, "
+        "deltaTime={:.3f}",
         timestep,
         simTime,
         lastSimTime,
         deltaTimeSeconds);
 
     // Drop a dirt from the top (if enabled).
-    if (topDropEnabled && !eventState.topDropDone && simTime >= eventState.nextTopDrop) {
+    if (topDropEnabled && !topDropDone && simTime >= nextTopDrop) {
         spdlog::info("Adding top drop at time {:.3f}s", simTime);
         uint32_t centerX = world.getWidth() / 2;
         CellInterface& cell =
             world.getCellInterface(centerX, 1); // 1 to be just below the top wall.
         cell.addDirt(1.0);
-        eventState.topDropDone = true;
+        topDropDone = true;
     }
 
     // Initial throw from left center (if enabled).
-    if (leftThrowEnabled && !eventState.initialThrowDone
-        && simTime >= eventState.nextInitialThrow) {
+    if (leftThrowEnabled && !initialThrowDone && simTime >= nextInitialThrow) {
         spdlog::info("Adding initial throw at time {:.3f}s", simTime);
         uint32_t centerY = world.getHeight() / 2;
         if (2 < world.getWidth() && centerY < world.getHeight()) {
             CellInterface& cell = world.getCellInterface(2, centerY); // Against the left wall.
             cell.addDirtWithVelocity(1.0, Vector2d(5, -5));
         }
-        eventState.initialThrowDone = true;
+        initialThrowDone = true;
     }
 
     // Recurring throws every ~0.83 seconds (if left throw enabled)
     const double period = 0.83;
-    if (leftThrowEnabled && simTime >= eventState.nextPeriodicThrow) {
+    if (leftThrowEnabled && simTime >= nextPeriodicThrow) {
         spdlog::debug("Adding periodic throw at time {:.3f}s", simTime);
         uint32_t centerY = world.getHeight() / 2;
         if (2 < world.getWidth() && centerY < world.getHeight()) {
@@ -333,11 +353,11 @@ void ConfigurableWorldSetup::addParticles(
             cell.addDirtWithVelocity(1.0, Vector2d(10, -10));
         }
         // Schedule next throw.
-        eventState.nextPeriodicThrow += period;
+        nextPeriodicThrow += period;
     }
 
     // Recurring throws from right side every ~0.83 seconds (if right throw enabled)
-    if (rightThrowEnabled && simTime >= eventState.nextRightThrow) {
+    if (rightThrowEnabled && simTime >= nextRightThrow) {
         spdlog::debug("Adding right periodic throw at time {:.3f}s", simTime);
         uint32_t rightX = world.getWidth() - 3;
         int32_t centerYSigned = static_cast<int32_t>(world.getHeight()) / 2 - 2;
@@ -348,11 +368,11 @@ void ConfigurableWorldSetup::addParticles(
             cell.addDirtWithVelocity(1.0, Vector2d(-10, -10));
         }
         // Schedule next throw.
-        eventState.nextRightThrow += period;
+        nextRightThrow += period;
     }
 
     // Rain drops at variable rate (if rain rate > 0).
-    if (rainRate > 0.0 && simTime >= eventState.nextRainDrop) {
+    if (rainRate > 0.0 && simTime >= nextRainDrop) {
         spdlog::debug("Adding rain drop at time {:.3f}s (rate: {:.1f}/s)", simTime, rainRate);
 
         // Use normal distribution for horizontal position.
@@ -373,14 +393,14 @@ void ConfigurableWorldSetup::addParticles(
 
         // Schedule next rain drop based on current rate.
         double intervalSeconds = 1.0 / rainRate;
-        eventState.nextRainDrop = simTime + intervalSeconds;
+        nextRainDrop = simTime + intervalSeconds;
     }
 
     lastSimTime = simTime;
 }
 
 // Feature-preserving resize implementation.
-std::vector<WorldSetup::ResizeData> WorldSetup::captureWorldState(
+std::vector<WorldEventGenerator::ResizeData> WorldEventGenerator::captureWorldState(
     const WorldInterface& /* world. */) const
 {
     // Resize functionality not available for WorldInterface - requires direct cell access.
@@ -389,7 +409,7 @@ std::vector<WorldSetup::ResizeData> WorldSetup::captureWorldState(
     return {};
 }
 
-void WorldSetup::applyWorldState(
+void WorldEventGenerator::applyWorldState(
     WorldInterface& world,
     const std::vector<ResizeData>& oldState,
     uint32_t oldWidth,
@@ -427,7 +447,7 @@ void WorldSetup::applyWorldState(
     }
 }
 
-double WorldSetup::calculateEdgeStrength(
+double WorldEventGenerator::calculateEdgeStrength(
     const std::vector<ResizeData>& state,
     uint32_t width,
     uint32_t height,
@@ -478,7 +498,7 @@ double WorldSetup::calculateEdgeStrength(
     return std::min(1.0, edgeMagnitude * 2.0); // Scale and clamp to [0,1]
 }
 
-WorldSetup::ResizeData WorldSetup::interpolateCell(
+WorldEventGenerator::ResizeData WorldEventGenerator::interpolateCell(
     const std::vector<ResizeData>& oldState,
     uint32_t oldWidth,
     uint32_t oldHeight,
@@ -509,7 +529,7 @@ WorldSetup::ResizeData WorldSetup::interpolateCell(
     }
 }
 
-WorldSetup::ResizeData WorldSetup::bilinearInterpolate(
+WorldEventGenerator::ResizeData WorldEventGenerator::bilinearInterpolate(
     const std::vector<ResizeData>& oldState,
     uint32_t oldWidth,
     uint32_t oldHeight,
@@ -549,7 +569,7 @@ WorldSetup::ResizeData WorldSetup::bilinearInterpolate(
     return result;
 }
 
-WorldSetup::ResizeData WorldSetup::nearestNeighborSample(
+WorldEventGenerator::ResizeData WorldEventGenerator::nearestNeighborSample(
     const std::vector<ResizeData>& oldState,
     uint32_t oldWidth,
     uint32_t oldHeight,

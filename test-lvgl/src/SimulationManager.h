@@ -1,6 +1,5 @@
 #pragma once
 
-#include "SimulatorUI.h"
 #include "WorldInterface.h"
 #include "lvgl/lvgl.h"
 
@@ -9,6 +8,7 @@
 
 // Forward declarations
 class EventRouter;
+class SimulatorUI;
 
 /**
  * @brief Central manager for simulation state.
@@ -35,7 +35,7 @@ public:
     /**
      * @brief Destructor.
      */
-    ~SimulationManager() = default;
+    ~SimulationManager();
 
     // =================================================================
     // CORE SIMULATION MANAGEMENT.

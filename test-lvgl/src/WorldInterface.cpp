@@ -1,12 +1,32 @@
 #include "WorldInterface.h"
 #include "MaterialType.h"
 #include "WorldDiagramGeneratorEmoji.h"
-#include "WorldSetup.h"
+#include "WorldEventGenerator.h"
 #include "spdlog/spdlog.h"
 
-void WorldInterface::initializeWorldSetup()
+WorldInterface::WorldInterface(const WorldInterface& other)
 {
-    worldSetup_ = std::make_unique<ConfigurableWorldSetup>();
+    if (other.worldEventGenerator_) {
+        worldEventGenerator_ = other.worldEventGenerator_->clone();
+    }
+}
+
+WorldInterface& WorldInterface::operator=(const WorldInterface& other)
+{
+    if (this != &other) {
+        if (other.worldEventGenerator_) {
+            worldEventGenerator_ = other.worldEventGenerator_->clone();
+        }
+        else {
+            worldEventGenerator_.reset();
+        }
+    }
+    return *this;
+}
+
+void WorldInterface::initializeWorldEventGenerator()
+{
+    worldEventGenerator_ = std::make_unique<ConfigurableWorldEventGenerator>();
 }
 
 void WorldInterface::setup()
@@ -17,11 +37,11 @@ void WorldInterface::setup()
     reset();
 
     // Use the world setup strategy to initialize the world.
-    if (worldSetup_) {
-        worldSetup_->setup(*this);
+    if (worldEventGenerator_) {
+        worldEventGenerator_->setup(*this);
     }
     else {
-        spdlog::warn("WorldSetup is null in {}::setup()", "World");
+        spdlog::warn("WorldEventGenerator is null in {}::setup()", "World");
     }
 }
 
@@ -51,7 +71,8 @@ void WorldInterface::spawnMaterialBall(MaterialType type, uint32_t centerX, uint
 
 void WorldInterface::setLeftThrowEnabled(bool enabled)
 {
-    ConfigurableWorldSetup* configSetup = dynamic_cast<ConfigurableWorldSetup*>(worldSetup_.get());
+    ConfigurableWorldEventGenerator* configSetup =
+        dynamic_cast<ConfigurableWorldEventGenerator*>(worldEventGenerator_.get());
     if (configSetup) {
         configSetup->setLeftThrowEnabled(enabled);
     }
@@ -59,7 +80,8 @@ void WorldInterface::setLeftThrowEnabled(bool enabled)
 
 void WorldInterface::setRightThrowEnabled(bool enabled)
 {
-    ConfigurableWorldSetup* configSetup = dynamic_cast<ConfigurableWorldSetup*>(worldSetup_.get());
+    ConfigurableWorldEventGenerator* configSetup =
+        dynamic_cast<ConfigurableWorldEventGenerator*>(worldEventGenerator_.get());
     if (configSetup) {
         configSetup->setRightThrowEnabled(enabled);
     }
@@ -67,7 +89,8 @@ void WorldInterface::setRightThrowEnabled(bool enabled)
 
 void WorldInterface::setLowerRightQuadrantEnabled(bool enabled)
 {
-    ConfigurableWorldSetup* configSetup = dynamic_cast<ConfigurableWorldSetup*>(worldSetup_.get());
+    ConfigurableWorldEventGenerator* configSetup =
+        dynamic_cast<ConfigurableWorldEventGenerator*>(worldEventGenerator_.get());
     if (configSetup) {
         configSetup->setLowerRightQuadrantEnabled(enabled);
     }
@@ -75,7 +98,8 @@ void WorldInterface::setLowerRightQuadrantEnabled(bool enabled)
 
 void WorldInterface::setWallsEnabled(bool enabled)
 {
-    ConfigurableWorldSetup* configSetup = dynamic_cast<ConfigurableWorldSetup*>(worldSetup_.get());
+    ConfigurableWorldEventGenerator* configSetup =
+        dynamic_cast<ConfigurableWorldEventGenerator*>(worldEventGenerator_.get());
     if (configSetup) {
         configSetup->setWallsEnabled(enabled);
     }
@@ -83,7 +107,8 @@ void WorldInterface::setWallsEnabled(bool enabled)
 
 void WorldInterface::setRainRate(double rate)
 {
-    ConfigurableWorldSetup* configSetup = dynamic_cast<ConfigurableWorldSetup*>(worldSetup_.get());
+    ConfigurableWorldEventGenerator* configSetup =
+        dynamic_cast<ConfigurableWorldEventGenerator*>(worldEventGenerator_.get());
     if (configSetup) {
         configSetup->setRainRate(rate);
     }
@@ -91,54 +116,58 @@ void WorldInterface::setRainRate(double rate)
 
 void WorldInterface::setWaterColumnEnabled(bool enabled)
 {
-    ConfigurableWorldSetup* configSetup = dynamic_cast<ConfigurableWorldSetup*>(worldSetup_.get());
+    ConfigurableWorldEventGenerator* configSetup =
+        dynamic_cast<ConfigurableWorldEventGenerator*>(worldEventGenerator_.get());
     if (configSetup) {
         configSetup->setWaterColumnEnabled(enabled);
-        spdlog::info("WorldInterface: Set water column enabled = {} (ConfigurableWorldSetup found)", enabled);
+        spdlog::info(
+            "WorldInterface: Set water column enabled = {} (ConfigurableWorldEventGenerator found)",
+            enabled);
     } else {
-        spdlog::warn("WorldInterface: Cannot set water column - ConfigurableWorldSetup not available");
+        spdlog::warn("WorldInterface: Cannot set water column - ConfigurableWorldEventGenerator "
+                     "not available");
     }
 }
 
 bool WorldInterface::isLeftThrowEnabled() const
 {
-    const ConfigurableWorldSetup* configSetup =
-        dynamic_cast<const ConfigurableWorldSetup*>(worldSetup_.get());
+    const ConfigurableWorldEventGenerator* configSetup =
+        dynamic_cast<const ConfigurableWorldEventGenerator*>(worldEventGenerator_.get());
     return configSetup ? configSetup->isLeftThrowEnabled() : false;
 }
 
 bool WorldInterface::isRightThrowEnabled() const
 {
-    const ConfigurableWorldSetup* configSetup =
-        dynamic_cast<const ConfigurableWorldSetup*>(worldSetup_.get());
+    const ConfigurableWorldEventGenerator* configSetup =
+        dynamic_cast<const ConfigurableWorldEventGenerator*>(worldEventGenerator_.get());
     return configSetup ? configSetup->isRightThrowEnabled() : false;
 }
 
 bool WorldInterface::isLowerRightQuadrantEnabled() const
 {
-    const ConfigurableWorldSetup* configSetup =
-        dynamic_cast<const ConfigurableWorldSetup*>(worldSetup_.get());
+    const ConfigurableWorldEventGenerator* configSetup =
+        dynamic_cast<const ConfigurableWorldEventGenerator*>(worldEventGenerator_.get());
     return configSetup ? configSetup->isLowerRightQuadrantEnabled() : false;
 }
 
 bool WorldInterface::areWallsEnabled() const
 {
-    const ConfigurableWorldSetup* configSetup =
-        dynamic_cast<const ConfigurableWorldSetup*>(worldSetup_.get());
+    const ConfigurableWorldEventGenerator* configSetup =
+        dynamic_cast<const ConfigurableWorldEventGenerator*>(worldEventGenerator_.get());
     return configSetup ? configSetup->areWallsEnabled() : false;
 }
 
 double WorldInterface::getRainRate() const
 {
-    const ConfigurableWorldSetup* configSetup =
-        dynamic_cast<const ConfigurableWorldSetup*>(worldSetup_.get());
+    const ConfigurableWorldEventGenerator* configSetup =
+        dynamic_cast<const ConfigurableWorldEventGenerator*>(worldEventGenerator_.get());
     return configSetup ? configSetup->getRainRate() : 0.0;
 }
 
 bool WorldInterface::isWaterColumnEnabled() const
 {
-    const ConfigurableWorldSetup* configSetup =
-        dynamic_cast<const ConfigurableWorldSetup*>(worldSetup_.get());
+    const ConfigurableWorldEventGenerator* configSetup =
+        dynamic_cast<const ConfigurableWorldEventGenerator*>(worldEventGenerator_.get());
     return configSetup ? configSetup->isWaterColumnEnabled() : false;
 }
 

@@ -1,13 +1,13 @@
 #pragma once
 
 #include "MaterialPicker.h"
+#include "World.h"
 #include "lvgl/lvgl.h"
 #include <memory>
+#include <optional>
 #include <vector>
 
 // Forward declarations
-class WorldInterface;
-class SimulationManager;
 class EventRouter;
 class UIUpdateConsumer;
 struct UIUpdateEvent;
@@ -15,22 +15,17 @@ enum class WorldType;
 
 class SimulatorUI {
 public:
-    // Callback struct to pass UI, World, and Manager pointers.
+    // Callback struct for LVGL callbacks.
     struct CallbackData {
         SimulatorUI* ui;
-        WorldInterface* world;
-        SimulationManager* manager;
         lv_obj_t* associated_label; // For sliders that need to update labels.
     };
 
-    SimulatorUI(lv_obj_t* screen, EventRouter* eventRouter = nullptr);
+    SimulatorUI(lv_obj_t* screen, EventRouter* eventRouter);
     ~SimulatorUI();
 
-    // Set the world and manager after UI creation.
-    void setWorld(WorldInterface* world);
-    void setSimulationManager(SimulationManager* manager);
-    WorldInterface* getWorld() const { return world_; }
-    SimulationManager* getSimulationManager() const { return manager_; }
+    // Require EventRouter - UI must communicate via events only.
+    EventRouter* getEventRouter() const { return event_router_; }
 
     // UI update methods.
     void updateMassLabel(double totalMass);
@@ -49,19 +44,18 @@ public:
     // Initialize the UI after world is fully constructed.
     void initialize();
 
-    // Populate UI controls with values from the World.
-    void populateFromWorld();
-
-    // Material selection handling.
-    void onMaterialSelectionChanged(MaterialType newMaterial);
+    // Populate UI controls with values from update event.
+    void populateFromUpdate(const UIUpdateEvent& update);
 
     // Static function to take exit screenshot.
     static void takeExitScreenshot();
 
 private:
-    WorldInterface* world_;
-    SimulationManager* manager_; // Manager handles world switching.
-    EventRouter* event_router_;  // Event routing system.
+    EventRouter* event_router_; // Event routing system (send user interactions).
+
+    // Last world state from UIUpdateEvent (for comparison and rendering).
+    std::optional<World> lastWorldState_;
+
     lv_obj_t* screen_;
     lv_obj_t* draw_area_;
     lv_obj_t* mass_label_;

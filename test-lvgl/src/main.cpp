@@ -1,7 +1,6 @@
 #include "CrashDumpHandler.h"
 #include "DirtSimStateMachine.h"
 #include "Event.h"
-#include "SimulationManager.h"
 #include "SimulatorUI.h"
 #include "World.h"
 
@@ -37,9 +36,6 @@ static std::string selected_backend;
 
 /* Global simulator settings, defined in lv_linux_backend.c */
 extern simulator_settings_t settings;
-
-// Global references for the loop.
-static SimulationManager* manager_ptr = nullptr;
 
 // FPS tracking variables.
 uint32_t frame_count = 0;     // Define frame counter.
@@ -206,26 +202,16 @@ int main(int argc, char** argv)
     // Wait a bit for events to be processed by the state machine thread.
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-    // Get the SimulationManager from the state machine.
-    auto* simManager = stateMachine->getSimulationManager();
-    if (!simManager) {
-        spdlog::error("Failed to get SimulationManager from state machine");
-        return 1;
-    }
-
-    manager_ptr = simManager;
-
     spdlog::info(
-        "Using SimulationManager from event system ({}x{} grid)",
-        simManager->getWidth(),
-        simManager->getHeight());
+        "Using DirtSimStateMachine event system ({}x{} grid)",
+        stateMachine->world->getWidth(),
+        stateMachine->world->getHeight());
 
-    // Install crash dump handler.
-    CrashDumpHandler::install(manager_ptr);
-    spdlog::info("Crash dump handler installed - assertions will generate JSON dumps");
+    // TODO: Update CrashDumpHandler to not need SimulationManager.
+    // CrashDumpHandler::install(...);
 
-    // Enter the run loop with the state machine's SimulationManager.
-    driver_backends_run_loop(*simManager);
+    // Enter the run loop with the state machine.
+    driver_backends_run_loop(*stateMachine);
 
     // Signal the state machine to exit.
     stateMachine->getSharedState().setShouldExit(true);

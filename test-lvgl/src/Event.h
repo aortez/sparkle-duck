@@ -34,56 +34,28 @@ concept HasEventName = requires {
 // =================================================================
 
 /**
- * @brief Physics parameters for UI display.
- * Transport struct for UIUpdateEvent (not source of truth).
- */
-struct PhysicsParams {
-    double gravity = 9.81;
-    double elasticity = 0.8;
-    double timescale = 1.0;
-};
-
-/**
  * @brief Comprehensive UI update event for push-based updates.
  *
- * This event is pushed from the simulation thread at controlled points
- * and consumed by the UI thread via LVGL timer at ~60fps. It contains
- * all UI-relevant state in a single, thread-safe snapshot.
+ * Contains a complete World snapshot for the UI to render.
+ * The UI compares control values against the World state and
+ * updates only what differs.
  */
 struct UIUpdateEvent {
     // Sequence tracking.
-    uint64_t sequenceNum = 0; ///< Monotonic sequence number for update ordering.
+    uint64_t sequenceNum = 0;
 
-    // Core simulation data.
-    uint32_t fps = 0;       ///< Current frames per second.
-    uint64_t stepCount = 0; ///< Total simulation steps completed.
-    SimulationStats stats;  ///< Comprehensive simulation statistics.
+    // Complete world state for rendering.
+    World world;
 
-    // Physics parameters.
-    PhysicsParams physicsParams; ///< Current physics settings.
+    // Simulation metadata (not in World).
+    uint32_t fps = 0;
+    uint64_t stepCount = 0;
 
-    // UI state.
-    bool isPaused = false;           ///< Simulation paused state.
-    bool debugEnabled = false;       ///< Debug visualization state.
-    bool cohesionEnabled = true;     ///< Cohesion physics state.
-    bool adhesionEnabled = true;     ///< Adhesion physics state.
-    bool timeHistoryEnabled = false; ///< Time history tracking state.
-
-    // World state.
-    MaterialType selectedMaterial = MaterialType::DIRT; ///< Currently selected material.
-    std::string worldType;                              ///< "WorldA" or "World".
+    // UI-only state (not in World).
+    bool isPaused = false;
 
     // Timing.
-    std::chrono::steady_clock::time_point timestamp; ///< When update was created.
-
-    // Optimization: dirty flags to indicate what changed.
-    struct DirtyFlags {
-        bool fps = false;           ///< FPS value changed.
-        bool stats = false;         ///< Simulation statistics changed.
-        bool physicsParams = false; ///< Physics parameters changed.
-        bool uiState = false;       ///< UI toggles changed.
-        bool worldState = false;    ///< World type or material changed.
-    } dirty;
+    std::chrono::steady_clock::time_point timestamp;
 
     static constexpr const char* name() { return "UIUpdateEvent"; }
 };
@@ -143,6 +115,23 @@ struct AdvanceSimulationCommand {
  */
 struct ResetSimulationCommand {
     static constexpr const char* name() { return "ResetSimulationCommand"; }
+};
+
+/**
+ * @brief Resize world to new dimensions.
+ */
+struct ResizeWorldCommand {
+    uint32_t width;
+    uint32_t height;
+    static constexpr const char* name() { return "ResizeWorldCommand"; }
+};
+
+/**
+ * @brief Apply a scenario to the world.
+ */
+struct ApplyScenarioCommand {
+    std::string scenarioName;
+    static constexpr const char* name() { return "ApplyScenarioCommand"; }
 };
 
 /**
@@ -583,7 +572,9 @@ using Event = std::variant<
     // Simulation control
     StartSimulationCommand,
     AdvanceSimulationCommand,
+    ApplyScenarioCommand,
     ResetSimulationCommand,
+    ResizeWorldCommand,
     SaveWorldCommand,
     LoadWorldCommand,
     StepBackwardCommand,

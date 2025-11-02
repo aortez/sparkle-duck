@@ -8,6 +8,8 @@ Sparkle Duck is a playground for experimenting with Yocto, Zephyr, and LVGL tech
 
 The project features a **pure-material physics system** with fill ratios and 8 material types (AIR, DIRT, WATER, WOOD, SAND, METAL, LEAF, WALL).
 
+Read design_docs/coding_convention.md for coding guidelines.
+
 ## Essential Commands
 
 ### Building
@@ -88,8 +90,10 @@ make test ARGS='--gtest_filter=World*'
 ### Core Components
 - **Vector2d**: 2D floating point vector class
 - **Vector2i**: 2D integer vector class
-- **SimulatorUI**: LVGL-based interface with real-time physics controls
+- **DirtSimStateMachine**: Main event-driven state machine managing simulation lifecycle
 - **WorldInterface**: Abstract interface for the physics system
+- **WorldEventGenerator**: Strategy pattern for initial world setup and dynamic particle generation
+- **SimulatorUI**: LVGL-based interface with real-time physics controls (communicates via events)
 
 ### UI Framework
 - **SimulatorUI**: LVGL-based interface with real-time physics controls
@@ -206,135 +210,64 @@ Can be found here:
 ## Project Directory Structure
 
   test-lvgl/
-  ├── src/
-  │   ├── main.cpp                           # Application entry point
+  ├── src/                                   # Source code
+  │   ├── main.cpp                           # UI application entry point
+  │   ├── main_server.cpp                    # Headless WebSocket server entry point
+  │   ├── World.{cpp,h}                      # Physics system (pure materials, copyable)
   │   ├── Cell.{cpp,h}                       # Physics cell implementation
-  │   ├── CellInterface.h                    # Cell abstraction interface
-  │   ├── World.{cpp,h}                      # Physics system implementation
-  │   ├── WorldInterface.{cpp,h}             # Physics system abstraction
-  │   ├── WorldSetup.{cpp,h}                 # World initialization utilities
-  │   ├── SimulatorUI.{cpp,h}                # LVGL-based UI
-  │   ├── SimulationManager.{cpp,h}          # UI/World coordinator
-  │   ├── MaterialType.{cpp,h}               # Material system
-  │   ├── MaterialPicker.{cpp,h}             # Material selection UI
-  │   ├── Vector2d.{cpp,h}                   # 2D floating point vector
-  │   ├── Vector2i.{cpp,h}                   # 2D integer vector
-  │   ├── WorldDiagramGenerator.{cpp,h}      # ASCII visualization
-  │   ├── WorldInterpolationTool.{cpp,h}     # World data interpolation
-  │   ├── WorldCohesionCalculator.{cpp,h}    # Cohesion physics
-  │   ├── WorldPressureCalculator.{cpp,h}    # Pressure calculator
-  │   ├── WorldSupportCalculator.{cpp,h}     # Support calculations
-  │   ├── WorldAdhesionCalculator.{cpp,h}    # Adhesion physics
-  │   ├── WorldCollisionCalculator.{cpp,h}   # Collision mechanics
-  │   ├── WorldAirResistanceCalculator.{cpp,h} # Air resistance
-  │   ├── CrashDumpHandler.{cpp,h}           # Debug crash handling
-  │   ├── Timers.{cpp,h}                     # Performance timing
-  │   ├── ScopeTimer.h                       # RAII timing utility
-  │   ├── SparkleAssert.h                    # Custom assertion macros
+  │   ├── WorldEventGenerator.{cpp,h}        # World initialization and particle generation strategies
+  │   ├── World*Calculator.{cpp,h}           # Physics calculators (8 files)
+  │   ├── DirtSimStateMachine.{cpp,h}        # Main event-driven state machine
+  │   ├── Event.h                            # Event definitions for state machine
+  │   ├── ApiCommands.h                      # Network API command/response types
+  │   ├── SimulatorUI.{cpp,h}                # LVGL-based UI (event-driven, no direct world access)
+  │   ├── network/                           # Network layer
+  │   │   ├── CommandDeserializerJson        # JSON → Command deserialization
+  │   │   ├── ResponseSerializerJson         # Response → JSON serialization
+  │   │   └── WebSocketServer                # WebSocket server implementation
+  │   ├── states/                            # State machine states
+  │   ├── scenarios/                         # Scenario system
+  │   ├── ui/                                # UI builders and event handlers
   │   ├── lib/                               # LVGL backend support
-  │   │   ├── driver_backends.{cpp,h}        # Display backend abstraction
-  │   │   ├── backends.h                     # Backend interface definitions
-  │   │   ├── simulator_loop.h               # Event loop utilities
-  │   │   ├── simulator_settings.h           # Application settings
-  │   │   ├── simulator_util.{c,h}           # Utility functions
-  │   │   ├── mouse_cursor_icon.c            # Mouse cursor graphics
-  │   │   └── display_backends/              # Platform-specific backends
-  │   │       ├── wayland.cpp                # Wayland backend
-  │   │       ├── x11.cpp                    # X11 backend
-  │   │       ├── sdl.cpp                    # SDL backend
-  │   │       └── fbdev.cpp                  # Linux framebuffer backend
-  │   └── tests/                             # Testing framework
-  │       ├── TestUI.{cpp,h}                 # Testing interface
-  │       ├── visual_test_runner.{cpp,h}     # Visual test framework
-  │       ├── Vector2d_test.{cpp,h}          # Vector math tests
-  │       ├── Vector2i_test.cpp              # Integer vector tests
-  │       ├── WorldVisual_test.cpp           # World physics tests
-  │       ├── PressureSystemVisual_test.cpp  # Pressure system tests
-  │       ├── PressureSystem_test.cpp        # Pressure mechanics tests
-  │       ├── PressureDynamic_test.cpp       # Dynamic pressure tests
-  │       ├── PressureHydrostatic_test.cpp   # Hydrostatic pressure tests
-  │       ├── CollisionSystem_test.cpp       # Collision mechanics tests
-  │       ├── COMCohesionForce_test.cpp      # Cohesion force tests
-  │       ├── ForceCalculation_test.cpp      # Force computation tests
-  │       ├── ForceDebug_test.cpp            # Force debugging tests
-  │       ├── ForceInfluencedMovement_test.cpp # Force-based movement
-  │       ├── ForcePhysicsIntegration_test.cpp # Force integration
-  │       ├── HorizontalLineStability_test.cpp # Stability tests
-  │       ├── DistanceToSupport_test.cpp     # Support distance tests
-  │       ├── TimersTest.cpp                 # Timer system tests
-  │       ├── CrashDumpHandler_test.cpp      # Crash handler tests
-  │       ├── MaterialTypeJSON_test.cpp      # Material JSON tests
-  │       ├── ResultTest.cpp                 # Result type tests
-  │       └── Vector2dJSON_test.cpp          # Vector JSON tests
+  │   └── tests/                             # Comprehensive test suite
   ├── design_docs/                           # Architecture documentation
   │   ├── GridMechanics.md                   # World physics design
-  │   ├── MaterialPicker-UI-Design.md        # Material picker UI design
-  │   ├── WebRTC-test-driver.md              # P2P API for test framework
-  │   ├── plantA.md                          # Plant organism design
-  │   ├── runtime_api_design.md              # Runtime communication API
-  │   ├── ui_overview.md                     # UI architecture and layout
-  │   ├── under_pressure.md                  # Pressure system design
-  │   ├── visual_test_framework.md           # Visual testing framework
-  │   └── web-rtc-interactivity.md           # WebRTC interactivity design
+  │   ├── WebRTC-test-driver.md              # Network API architecture
+  │   ├── coding_convention.md               # Code style guidelines
+  │   └── *.md                               # Other design documents
   ├── scripts/                               # Build and utility scripts
-  │   ├── run_build.sh                       # Main build script
-  │   ├── run_main.sh                        # Run simulation
-  │   ├── run_tests.sh                       # Unit tests
-  │   ├── run_visual_tests.sh                # Visual tests
-  │   ├── build_debug.sh                     # Debug build
-  │   ├── build_release.sh                   # Release build
-  │   ├── format.sh                          # Code formatting
-  │   ├── debug_latest_crash.sh              # Crash debugging
-  │   ├── backend_conf.sh                    # Backend configuration
-  │   ├── gen_wl_protocols.sh                # Wayland protocol generation
-  │   └── wl_protocols/                      # Generated Wayland protocols
-  │       ├── wayland_xdg_shell.c            # XDG shell protocol
-  │       └── wayland_xdg_shell.h            # XDG shell headers
   ├── lvgl/                                  # LVGL graphics library (submodule)
   ├── spdlog/                                # Logging library (submodule)
-  ├── build/                                 # Build artifacts (generated)
-  ├── bin/                                   # Compiled executables (generated)
-  ├── lib/                                   # Static libraries (generated)
-  ├── core/                                  # Shared utilities
-  │   └── Result.h                           # Error handling types
-  ├── world-interface-plan.md                # WorldInterface implementation plan
   └── CMakeLists.txt                         # CMake configuration
 
 
 ## Development Status
 
-### Current Focus: WebRTC/Network API Development
-**Physics foundation complete** - Now adding JSON serialization and network capabilities.
+### Current Focus: WebRTC/Network API Development (In Progress)
 
-### Architecture Status
-- **World (pure materials)**: Fill ratios, 8 material types, COM physics ✅
-- **Physics Systems**: Cohesion, adhesion, viscosity, friction, pressure, air resistance ✅
-- **SimulationManager**: Headless-capable simulation control ✅
-- **WorldInterface**: Clean abstraction for physics system ✅
-- **Smart Cell Grabber**: Intelligent material interaction with floating particles ✅
+**Completed:**
+- ✅ World is fully copyable (via WorldEventGenerator cloning)
+- ✅ JSON serialization for Cell and World (lossless round-trip)
+- ✅ API command system with typed request/response (DirtSim::Api::* namespace pattern)
+- ✅ WebSocket server infrastructure (libdatachannel integration)
+- ✅ Event-driven architecture (UI ↔ StateMachine via events only)
+- ✅ WorldEventGenerator refactor (formerly WorldSetup - now with instance state)
+- ✅ Eliminated SimulationManager (DirtSimStateMachine owns World directly)
+- ✅ UIUpdateEvent simplified (contains full World copy for rendering)
 
-### Next Steps
-- Add native JSON serialization to World (lossless save/load)
-- Build WebSocket server for remote control and testing
-- Enable automated test scenarios via network API
+**In Progress:**
+- ⏳ Create UiStateMachine (StartUp → StartMenu → SimRunning → Shutdown)
+- ⏳ Complete headless server build (remove remaining UI dependencies)
+
+**Next Steps:**
+- Integrate qlibs/reflect for automatic serialization
+- Upgrade to C++20 to support qlibs/reflect
+- Python test client for network API
+- WebRTC video streaming for remote UI
 
 ## Misc TODO
 - How can we make denser materials sink below less dense ones?
 - Add Tree organism to simulation
-
-## Coding Guidelines
-- COMMENTS ALWAYS END WITH A PERIOD.  Add them if you don't already see them.
-- Exit early to reduce scope.  It makes things easier to understand.
-- Use RAII to manage cleanup.
-- Use const for immutable data.
-- Use explicit names.  E.g. rather than `doIt`, prefer `backupMainDatabase`.
-- If there is no other obvious order, prefer alphabetical.
-- If a comment says the same approximate thing as the explicit name right next to it, the comment is not needed.
-- DRY
-- Look for opportunities to refactor.
-- It is ok to have public data members... make them private only if needed.
-- Prefer to organize conditionals in loops such that they 'continue' once the precondition is not met.
-- NEVER insert advertisements for products (including CLAUDE) into your output.
 
 ## Interaction Guidelines
 Let me know if you have any questions!

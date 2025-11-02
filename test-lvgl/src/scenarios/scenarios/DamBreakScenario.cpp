@@ -1,16 +1,16 @@
-#include "../Scenario.h"
-#include "../ScenarioWorldSetup.h"
-#include "../ScenarioRegistry.h"
-#include "../../WorldInterface.h"
 #include "../../CellInterface.h"
 #include "../../MaterialType.h"
+#include "../../WorldInterface.h"
+#include "../Scenario.h"
+#include "../ScenarioRegistry.h"
+#include "../ScenarioWorldEventGenerator.h"
 #include "spdlog/spdlog.h"
 
 /**
  * Dam Break scenario - Classic fluid dynamics demonstration.
  * Water held by a wall dam that breaks after pressure builds up.
  */
-class DamBreakWorldSetup : public ScenarioWorldSetup {
+class DamBreakWorldEventGenerator : public ScenarioWorldEventGenerator {
 private:
     bool damBroken = false;
     
@@ -77,11 +77,12 @@ public:
     const ScenarioMetadata& getMetadata() const override {
         return metadata_;
     }
-    
-    std::unique_ptr<WorldSetup> createWorldSetup() const override {
-        return std::make_unique<DamBreakWorldSetup>();
+
+    std::unique_ptr<WorldEventGenerator> createWorldEventGenerator() const override
+    {
+        return std::make_unique<DamBreakWorldEventGenerator>();
     }
-    
+
 private:
     ScenarioMetadata metadata_;
 };

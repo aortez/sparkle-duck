@@ -5,11 +5,14 @@
 #include "EventRouter.h"
 #include "SharedSimState.h"
 #include "SimulationManager.h"
-#include "UIManager.h"
+#include "StateMachineInterface.h"
 #include "WorldInterface.h"
 #include "states/State.h"
 #include <functional>
 #include <memory>
+
+// Forward declarations.
+class UIManager;
 
 namespace DirtSim {
 
@@ -19,7 +22,7 @@ namespace DirtSim {
  * Manages application states, event processing, and coordination between
  * UI and physics simulation.
  */
-class DirtSimStateMachine {
+class DirtSimStateMachine : public StateMachineInterface {
 public:
     /**
      * @brief Construct with optional display for UI.
@@ -36,7 +39,7 @@ public:
     /**
      * @brief Queue an event for processing on the simulation thread.
      */
-    void queueEvent(const Event& event);
+    void queueEvent(const Event& event) override;
 
     /**
      * @brief Process an event immediately (for immediate events).
@@ -71,23 +74,26 @@ public:
     SharedSimState& getSharedState() { return sharedState; }
 
     /**
-     * @brief Get the current SimulationManager for backend loop integration.
-     * @return Pointer to SimulationManager or nullptr if not in simulation state
-     */
-    SimulationManager* getSimulationManager() { return simulationManager.get(); }
-
-    /**
      * @brief Build a comprehensive UI update event with current state.
      * @return UIUpdateEvent containing all UI-relevant state
      */
     UIUpdateEvent buildUIUpdate();
 
-    // Public members for state access
+    /**
+     * @brief Resize world if needed for scenario dimensions.
+     * @param requiredWidth Required width (0 = restore default)
+     * @param requiredHeight Required height (0 = restore default)
+     * @return true if resize was performed
+     */
+    bool resizeWorldIfNeeded(uint32_t requiredWidth, uint32_t requiredHeight);
+
+    // Public members for state access.
     std::unique_ptr<WorldInterface> world;
     lv_disp_t* display = nullptr;
-    std::unique_ptr<UIManager> uiManager;
-    std::unique_ptr<SimulationManager> simulationManager;
     EventProcessor eventProcessor;
+
+    uint32_t defaultWidth = 28;  // Default grid width.
+    uint32_t defaultHeight = 28; // Default grid height.
 
 private:
     State::Any fsmState{ State::Startup{} };

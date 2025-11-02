@@ -2,24 +2,24 @@
 
 ## Overview
 
-Trees are living organisms in the WorldB physics simulation that grow from seeds, consume resources, and interact with the material physics system. This document defines the complete design for tree-based artificial life in the simulation.
+Trees are living organisms in the WorldB physics simulation that grow from seeds, consume resources, and interact with the material physics system. This document defines the design for tree-based artificial life in the simulation.
 
 ## Design
 
 ### Core Design Decisions
 
 #### Update Timing
-- Trees update every physics timestep alongside regular material physics
+- Trees update every physics timestep alongside regular material physics.
    1. Input data is gathered from the environment into each cell.
    2. Each cell's logic code runs.
    3. The tree's logic code runs, possibly initiating or terminating an existing action.
-   4. Actions take a certain amount of time to complete.
+   4. Actions take a certain amount of time to complete.  Maybe have a way to track the current action.
 
 #### Resource Systems
 
 **Light**
-- Gradient from top of world (intensity 1.0) to bottom (intensity 0.0)
-- Blocked by opaque materials (WALL, METAL have opacity 1.0)
+- cast from top of world down
+- Blocked by opaque materials
 - LEAF cells collect light based on exposure
 - Light drives photosynthesis energy production
 

@@ -19,8 +19,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+#include "../../DirtSimStateMachine.h"
 #include "../WorldInterface.h"
-#include "../../SimulationManager.h"
 #include "lvgl/lvgl.h"
 #include "simulator_loop.h"
 #if LV_USE_SDL
@@ -44,7 +44,7 @@ extern simulator_settings_t settings;
 /**********************
  *  STATIC PROTOTYPES
  **********************/
-static void run_loop_sdl(SimulationManager& manager);
+static void run_loop_sdl(DirtSim::DirtSimStateMachine& dsm);
 static lv_display_t* init_sdl(void);
 
 /**********************
@@ -106,7 +106,7 @@ static lv_display_t* init_sdl(void)
 /**
  * The run loop of the SDL driver
  */
-static void run_loop_sdl(SimulationManager& manager)
+static void run_loop_sdl(DirtSim::DirtSimStateMachine& dsm)
 {
     // Initialize simulation loop state for step counting.
     SimulatorLoop::LoopState state;
@@ -120,7 +120,7 @@ static void run_loop_sdl(SimulationManager& manager)
     /* Handle LVGL tasks. */
     while (state.is_running) {
         // Process one frame of simulation.
-        SimulatorLoop::processFrame(manager, state, 8);
+        SimulatorLoop::processFrame(dsm, state, 8);
 
         // Exit immediately if step limit reached - don't wait for more events.
         if (!state.is_running) {
@@ -132,9 +132,7 @@ static void run_loop_sdl(SimulationManager& manager)
         idle_time = lv_timer_handler();
         
         bool frame_limiting_enabled = true; // Default to enabled.
-        if (manager.getUI()) {
-            frame_limiting_enabled = manager.getUI()->isFrameLimitingEnabled();
-        }
+        // TODO: Get frame limiting from settings or config.
         if (frame_limiting_enabled) {
             usleep(idle_time * 1000);
         }

@@ -79,6 +79,8 @@ struct SimRunning {
     void onExit(DirtSimStateMachine& dsm);
 
     Any onEvent(const AdvanceSimulationCommand& cmd, DirtSimStateMachine& dsm);
+    Any onEvent(const ApplyScenarioCommand& cmd, DirtSimStateMachine& dsm);
+    Any onEvent(const ResizeWorldCommand& cmd, DirtSimStateMachine& dsm);
     Any onEvent(const DirtSim::Api::CellGet::Cwc& cwc, DirtSimStateMachine& dsm);
     Any onEvent(const DirtSim::Api::CellSet::Cwc& cwc, DirtSimStateMachine& dsm);
     Any onEvent(const DirtSim::Api::GravitySet::Cwc& cwc, DirtSimStateMachine& dsm);

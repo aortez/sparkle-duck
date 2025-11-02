@@ -1,11 +1,11 @@
-#include "State.h"
-#include "../Cell.h"
 #include "../Cell.h"
 #include "../DirtSimStateMachine.h"
-#include "../SimulationManager.h"
 #include "../SimulatorUI.h"
 #include "../World.h"
-#include "../WorldSetup.h"
+#include "../WorldEventGenerator.h"
+#include "../scenarios/Scenario.h"
+#include "../scenarios/ScenarioRegistry.h"
+#include "State.h"
 #include <spdlog/spdlog.h>
 
 namespace DirtSim {
@@ -14,10 +14,9 @@ namespace State {
 void SimRunning::onEnter(DirtSimStateMachine& dsm) {
     spdlog::info("SimRunning: Entering simulation state");
 
-    // SimulationManager is now created in DirtSimStateMachine constructor,
-    // so we just need to use it here.
-    if (!dsm.simulationManager) {
-        spdlog::error("SimRunning: No SimulationManager available!");
+    // World is created in DirtSimStateMachine constructor.
+    if (!dsm.world) {
+        spdlog::error("SimRunning: No World available!");
         return;
     }
 
@@ -36,11 +35,6 @@ void SimRunning::onEnter(DirtSimStateMachine& dsm) {
 
 void SimRunning::onExit(DirtSimStateMachine& /*dsm. */) {
     spdlog::info("SimRunning: Exiting state");
-    
-    // Note: We don't destroy SimulationManager here anymore.
-    // It will be destroyed by states that actually need to destroy it.
-    // (like when transitioning to MainMenu or Shutdown).
-    // SimPaused needs the SimulationManager to remain alive.
 }
 
 
@@ -59,16 +53,54 @@ State::Any SimRunning::onEvent(const AdvanceSimulationCommand& /*cmd. */, DirtSi
     return *this;  // Stay in SimRunning.
 }
 
+State::Any SimRunning::onEvent(const ApplyScenarioCommand& cmd, DirtSimStateMachine& dsm)
+{
+    spdlog::info("SimRunning: Applying scenario: {}", cmd.scenarioName);
+
+    auto& registry = ScenarioRegistry::getInstance();
+    auto* scenario = registry.getScenario(cmd.scenarioName);
+
+    if (!scenario) {
+        spdlog::error("Scenario not found: {}", cmd.scenarioName);
+        return *this;
+    }
+
+    const auto& metadata = scenario->getMetadata();
+
+    // Resize world if needed.
+    if (metadata.requiredWidth > 0 && metadata.requiredHeight > 0) {
+        dsm.resizeWorldIfNeeded(metadata.requiredWidth, metadata.requiredHeight);
+    }
+    else {
+        dsm.resizeWorldIfNeeded(0, 0); // Restore defaults.
+    }
+
+    // Apply scenario's WorldEventGenerator.
+    auto setup = scenario->createWorldEventGenerator();
+    if (dsm.world) {
+        dsm.world->setWorldEventGenerator(std::move(setup));
+    }
+
+    return *this;
+}
+
+State::Any SimRunning::onEvent(const ResizeWorldCommand& cmd, DirtSimStateMachine& dsm)
+{
+    spdlog::info("SimRunning: Resizing world to {}x{}", cmd.width, cmd.height);
+    dsm.resizeWorldIfNeeded(cmd.width, cmd.height);
+    return *this;
+}
+
 State::Any SimRunning::onEvent(const Api::CellGet::Cwc& cwc, DirtSimStateMachine& dsm) {
     using Response = Api::CellGet::Response;
 
     // Validate coordinates.
-    if (!dsm.simulationManager || !dsm.simulationManager->getWorld()) {
+    if (!dsm.world) {
         cwc.sendResponse(Response::error(ApiError("No world available")));
         return *this;
     }
 
-    auto* world = dynamic_cast<World*>(dsm.simulationManager->getWorld());
+    auto* world = dynamic_cast<World*>(dsm.world.get());
     if (!world) {
         cwc.sendResponse(Response::error(ApiError("World type mismatch")));
         return *this;
@@ -81,13 +113,10 @@ State::Any SimRunning::onEvent(const Api::CellGet::Cwc& cwc, DirtSimStateMachine
         return *this;
     }
 
-    // Get cell and serialize.
-    rapidjson::Document cellJson(rapidjson::kObjectType);
-    auto& allocator = cellJson.GetAllocator();
+    // Get cell.
     const Cell& cell = world->at(cwc.command.x, cwc.command.y);
-    cellJson.CopyFrom(cell.toJson(allocator), allocator);
 
-    cwc.sendResponse(Response::okay({std::move(cellJson)}));
+    cwc.sendResponse(Response::okay({ cell }));
     return *this;
 }
 
@@ -95,12 +124,12 @@ State::Any SimRunning::onEvent(const Api::CellSet::Cwc& cwc, DirtSimStateMachine
     using Response = Api::CellSet::Response;
 
     // Validate world availability.
-    if (!dsm.simulationManager || !dsm.simulationManager->getWorld()) {
+    if (!dsm.world) {
         cwc.sendResponse(Response::error(ApiError("No world available")));
         return *this;
     }
 
-    WorldInterface* worldInterface = dsm.simulationManager->getWorld();
+    WorldInterface* worldInterface = dsm.world.get();
 
     // Validate coordinates.
     if (cwc.command.x < 0 || cwc.command.y < 0 ||
@@ -126,12 +155,12 @@ State::Any SimRunning::onEvent(const Api::CellSet::Cwc& cwc, DirtSimStateMachine
 State::Any SimRunning::onEvent(const Api::GravitySet::Cwc& cwc, DirtSimStateMachine& dsm) {
     using Response = Api::GravitySet::Response;
 
-    if (!dsm.simulationManager || !dsm.simulationManager->getWorld()) {
+    if (!dsm.world) {
         cwc.sendResponse(Response::error(ApiError("No world available")));
         return *this;
     }
 
-    dsm.simulationManager->getWorld()->setGravity(cwc.command.gravity);
+    dsm.world.get()->setGravity(cwc.command.gravity);
     spdlog::info("SimRunning: API set gravity to {}", cwc.command.gravity);
 
     cwc.sendResponse(Response::okay(std::monostate{}));
@@ -143,8 +172,8 @@ State::Any SimRunning::onEvent(const Api::Reset::Cwc& cwc, DirtSimStateMachine& 
 
     spdlog::info("SimRunning: API reset simulation");
 
-    if (dsm.simulationManager) {
-        dsm.simulationManager->reset();
+    if (dsm.world) {
+        dsm.world->setup();
     }
 
     stepCount = 0;
@@ -157,28 +186,26 @@ State::Any SimRunning::onEvent(const Api::Reset::Cwc& cwc, DirtSimStateMachine& 
 State::Any SimRunning::onEvent(const Api::StateGet::Cwc& cwc, DirtSimStateMachine& dsm) {
     using Response = Api::StateGet::Response;
 
-    if (!dsm.simulationManager || !dsm.simulationManager->getWorld()) {
+    if (!dsm.world) {
         cwc.sendResponse(Response::error(ApiError("No world available")));
         return *this;
     }
 
-    auto* world = dynamic_cast<World*>(dsm.simulationManager->getWorld());
+    auto* world = dynamic_cast<World*>(dsm.world.get());
     if (!world) {
         cwc.sendResponse(Response::error(ApiError("World type mismatch")));
         return *this;
     }
 
-    // Serialize complete world state.
-    rapidjson::Document worldJson = world->toJSON();
-
-    cwc.sendResponse(Response::okay({std::move(worldJson)}));
+    // Return complete world state (copy).
+    cwc.sendResponse(Response::okay({ *world }));
     return *this;
 }
 
 State::Any SimRunning::onEvent(const Api::StepN::Cwc& cwc, DirtSimStateMachine& dsm) {
     using Response = Api::StepN::Response;
 
-    if (!dsm.simulationManager || !dsm.simulationManager->getWorld()) {
+    if (!dsm.world) {
         cwc.sendResponse(Response::error(ApiError("No world available")));
         return *this;
     }
@@ -191,10 +218,10 @@ State::Any SimRunning::onEvent(const Api::StepN::Cwc& cwc, DirtSimStateMachine& 
 
     // Step simulation.
     for (int i = 0; i < cwc.command.frames; ++i) {
-        dsm.simulationManager->advanceTime(0.016); // ~60 FPS timestep.
+        dsm.world->advanceTime(0.016); // ~60 FPS timestep.
     }
 
-    uint32_t timestep = dsm.simulationManager->getWorld()->getTimestep();
+    uint32_t timestep = dsm.world.get()->getTimestep();
     spdlog::debug("SimRunning: API stepped {} frames, timestep now {}", cwc.command.frames, timestep);
 
     cwc.sendResponse(Response::okay({timestep}));
@@ -210,11 +237,11 @@ State::Any SimRunning::onEvent(const PauseCommand& /*cmd*/, DirtSimStateMachine&
 
 State::Any SimRunning::onEvent(const ResetSimulationCommand& /*cmd. */, DirtSimStateMachine& dsm) {
     spdlog::info("SimRunning: Resetting simulation");
-    
-    if (dsm.simulationManager) {
-        dsm.simulationManager->reset();
+
+    if (dsm.world) {
+        dsm.world->setup();
     }
-    
+
     stepCount = 0;
     dsm.getSharedState().setCurrentStep(0);
     
@@ -230,12 +257,12 @@ State::Any SimRunning::onEvent(const SaveWorldCommand& cmd, DirtSimStateMachine&
 State::Any SimRunning::onEvent(const StepBackwardCommand& /*cmd*/, DirtSimStateMachine& dsm) {
     spdlog::debug("SimRunning: Stepping simulation backward by one timestep");
 
-    if (!dsm.simulationManager || !dsm.simulationManager->getWorld()) {
+    if (!dsm.world) {
         spdlog::warn("SimRunning: Cannot step backward - no world available");
         return *this;
     }
 
-    auto world = dsm.simulationManager->getWorld();
+    auto world = dsm.world.get();
 
     // TODO: Implement world->goBackward() method for time reversal.
     (void)world;  // Silence unused variable warning until implemented.
@@ -245,12 +272,12 @@ State::Any SimRunning::onEvent(const StepBackwardCommand& /*cmd*/, DirtSimStateM
 }
 
 State::Any SimRunning::onEvent(const StepForwardCommand& /*cmd*/, DirtSimStateMachine& dsm) {
-    if (!dsm.simulationManager || !dsm.simulationManager->getWorld()) {
+    if (!dsm.world) {
         spdlog::warn("SimRunning: Cannot step forward - no world available");
         return *this;
     }
 
-    auto world = dsm.simulationManager->getWorld();
+    auto world = dsm.world.get();
 
     // TODO: Implement world->goForward() method for time reversal.
     (void)world;  // Silence unused variable warning until implemented.
@@ -260,12 +287,12 @@ State::Any SimRunning::onEvent(const StepForwardCommand& /*cmd*/, DirtSimStateMa
 }
 
 State::Any SimRunning::onEvent(const ToggleTimeReversalCommand& /*cmd*/, DirtSimStateMachine& dsm) {
-    if (!dsm.simulationManager || !dsm.simulationManager->getWorld()) {
+    if (!dsm.world) {
         spdlog::warn("SimRunning: Cannot toggle time reversal - no world available");
         return *this;
     }
 
-    auto world = dsm.simulationManager->getWorld();
+    auto world = dsm.world.get();
 
     // TODO: Implement world->toggleTimeReversal() method.
     (void)world;  // Silence unused variable warning until implemented.
@@ -287,11 +314,9 @@ State::Any SimRunning::onEvent(const SetWaterViscosityCommand& cmd, DirtSimState
 }
 
 State::Any SimRunning::onEvent(const SetWaterPressureThresholdCommand& cmd, DirtSimStateMachine& dsm) {
-    if (auto* simMgr = dsm.getSimulationManager()) {
-        if (auto* world = simMgr->getWorld()) {
-            world->setWaterPressureThreshold(cmd.threshold_value);
-            spdlog::info("SimRunning: Set water pressure threshold to {}", cmd.threshold_value);
-        }
+    if (auto* world = dsm.world.get()) {
+        world->setWaterPressureThreshold(cmd.threshold_value);
+        spdlog::info("SimRunning: Set water pressure threshold to {}", cmd.threshold_value);
     }
     return *this;
 }
@@ -310,22 +335,20 @@ State::Any SimRunning::onEvent(const LoadWorldCommand& cmd, DirtSimStateMachine&
 }
 
 State::Any SimRunning::onEvent(const SetTimestepCommand& cmd, DirtSimStateMachine& dsm) {
-    if (auto* simMgr = dsm.getSimulationManager()) {
-        if (auto* world = simMgr->getWorld()) {
-            // TODO: Implement world->setTimestep() method when available.
-            (void)world;
-        }
+    if (auto* world = dsm.world.get()) {
+        // TODO: Implement world->setTimestep() method when available.
+        (void)world;
     }
     spdlog::debug("SimRunning: Set timestep to {}", cmd.timestep_value);
     return *this;
 }
 
 State::Any SimRunning::onEvent(const MouseDownEvent& evt, DirtSimStateMachine& dsm) {
-    if (!dsm.simulationManager || !dsm.simulationManager->getWorld()) {
+    if (!dsm.world) {
         return *this;
     }
 
-    auto* world = dsm.simulationManager->getWorld();
+    auto* world = dsm.world.get();
 
     // Always enter GRAB_MODE - either grab existing material or create new and grab it.
     interactionMode = InteractionMode::GRAB_MODE;
@@ -347,11 +370,11 @@ State::Any SimRunning::onEvent(const MouseDownEvent& evt, DirtSimStateMachine& d
 }
 
 State::Any SimRunning::onEvent(const MouseMoveEvent& evt, DirtSimStateMachine& dsm) {
-    if (!dsm.simulationManager || !dsm.simulationManager->getWorld()) {
+    if (!dsm.world) {
         return *this;
     }
 
-    auto* world = dsm.simulationManager->getWorld();
+    auto* world = dsm.world.get();
 
     // Only update drag position if we're in GRAB_MODE.
     // No more continuous painting in PAINT_MODE.
@@ -363,11 +386,11 @@ State::Any SimRunning::onEvent(const MouseMoveEvent& evt, DirtSimStateMachine& d
 }
 
 State::Any SimRunning::onEvent(const MouseUpEvent& evt, DirtSimStateMachine& dsm) {
-    if (!dsm.simulationManager || !dsm.simulationManager->getWorld()) {
+    if (!dsm.world) {
         return *this;
     }
 
-    auto* world = dsm.simulationManager->getWorld();
+    auto* world = dsm.world.get();
 
     if (interactionMode == InteractionMode::GRAB_MODE) {
         // End dragging and release material with velocity.
@@ -383,8 +406,8 @@ State::Any SimRunning::onEvent(const MouseUpEvent& evt, DirtSimStateMachine& dsm
 
 State::Any SimRunning::onEvent(const SelectMaterialCommand& cmd, DirtSimStateMachine& dsm) {
     dsm.getSharedState().setSelectedMaterial(cmd.material);
-    if (dsm.simulationManager && dsm.simulationManager->getWorld()) {
-        dsm.simulationManager->getWorld()->setSelectedMaterial(cmd.material);
+    if (dsm.world) {
+        dsm.world.get()->setSelectedMaterial(cmd.material);
     }
     spdlog::debug("SimRunning: Selected material {}", static_cast<int>(cmd.material));
     return *this;
@@ -392,54 +415,44 @@ State::Any SimRunning::onEvent(const SelectMaterialCommand& cmd, DirtSimStateMac
 
 State::Any SimRunning::onEvent(const SetTimescaleCommand& cmd, DirtSimStateMachine& dsm) {
     // Update world directly (source of truth).
-    if (auto* simMgr = dsm.getSimulationManager()) {
-        if (auto* world = simMgr->getWorld()) {
-            world->setTimescale(cmd.timescale);
-            spdlog::info("SimRunning: Set timescale to {}", cmd.timescale);
-        }
+    if (auto* world = dsm.world.get()) {
+        world->setTimescale(cmd.timescale);
+        spdlog::info("SimRunning: Set timescale to {}", cmd.timescale);
     }
     return *this;
 }
 
 State::Any SimRunning::onEvent(const SetElasticityCommand& cmd, DirtSimStateMachine& dsm) {
     // Update world directly (source of truth).
-    if (auto* simMgr = dsm.getSimulationManager()) {
-        if (auto* world = simMgr->getWorld()) {
-            world->setElasticityFactor(cmd.elasticity);
-            spdlog::info("SimRunning: Set elasticity to {}", cmd.elasticity);
-        }
+    if (auto* world = dsm.world.get()) {
+        world->setElasticityFactor(cmd.elasticity);
+        spdlog::info("SimRunning: Set elasticity to {}", cmd.elasticity);
     }
     return *this;
 }
 
 State::Any SimRunning::onEvent(const SetDynamicStrengthCommand& cmd, DirtSimStateMachine& dsm) {
     // Update world directly (source of truth).
-    if (auto* simMgr = dsm.getSimulationManager()) {
-        if (auto* world = simMgr->getWorld()) {
-            world->setDynamicPressureStrength(cmd.strength);
-            spdlog::info("SimRunning: Set dynamic strength to {:.1f}", cmd.strength);
-        }
+    if (auto* world = dsm.world.get()) {
+        world->setDynamicPressureStrength(cmd.strength);
+        spdlog::info("SimRunning: Set dynamic strength to {:.1f}", cmd.strength);
     }
     return *this;
 }
 
 State::Any SimRunning::onEvent(const SetGravityCommand& cmd, DirtSimStateMachine& dsm) {
     // Update world directly (source of truth).
-    if (auto* simMgr = dsm.getSimulationManager()) {
-        if (auto* world = simMgr->getWorld()) {
-            world->setGravity(cmd.gravity);
-            spdlog::info("SimRunning: Set gravity to {}", cmd.gravity);
-        }
+    if (auto* world = dsm.world.get()) {
+        world->setGravity(cmd.gravity);
+        spdlog::info("SimRunning: Set gravity to {}", cmd.gravity);
     }
     return *this;
 }
 
 State::Any SimRunning::onEvent(const SetPressureScaleCommand& cmd, DirtSimStateMachine& dsm) {
     // Apply to world.
-    if (auto* simMgr = dsm.getSimulationManager()) {
-        if (auto* world = simMgr->getWorld()) {
-            world->setPressureScale(cmd.scale);
-        }
+    if (auto* world = dsm.world.get()) {
+        world->setPressureScale(cmd.scale);
     }
 
     spdlog::debug("SimRunning: Set pressure scale to {}", cmd.scale);
@@ -448,10 +461,8 @@ State::Any SimRunning::onEvent(const SetPressureScaleCommand& cmd, DirtSimStateM
 
 State::Any SimRunning::onEvent(const SetPressureScaleWorldBCommand& cmd, DirtSimStateMachine& dsm) {
     // Apply to world.
-    if (auto* simMgr = dsm.getSimulationManager()) {
-        if (auto* world = simMgr->getWorld()) {
-            world->setPressureScale(cmd.scale);
-        }
+    if (auto* world = dsm.world.get()) {
+        world->setPressureScale(cmd.scale);
     }
 
     spdlog::debug("SimRunning: Set World pressure scale to {}", cmd.scale);
@@ -459,129 +470,102 @@ State::Any SimRunning::onEvent(const SetPressureScaleWorldBCommand& cmd, DirtSim
 }
 
 State::Any SimRunning::onEvent(const SetCohesionForceStrengthCommand& cmd, DirtSimStateMachine& dsm) {
-    if (auto* simMgr = dsm.getSimulationManager()) {
-        if (auto* world = simMgr->getWorld()) {
-            world->setCohesionComForceStrength(cmd.strength);
-            spdlog::info("SimRunning: Set cohesion force strength to {}", cmd.strength);
-        }
+    if (auto* world = dsm.world.get()) {
+        world->setCohesionComForceStrength(cmd.strength);
+        spdlog::info("SimRunning: Set cohesion force strength to {}", cmd.strength);
     }
     return *this;
 }
 
 State::Any SimRunning::onEvent(const SetAdhesionStrengthCommand& cmd, DirtSimStateMachine& dsm) {
-    if (auto* simMgr = dsm.getSimulationManager()) {
-        if (auto* world = simMgr->getWorld()) {
-            world->setAdhesionStrength(cmd.strength);
-            spdlog::info("SimRunning: Set adhesion strength to {}", cmd.strength);
-        }
+    if (auto* world = dsm.world.get()) {
+        world->setAdhesionStrength(cmd.strength);
+        spdlog::info("SimRunning: Set adhesion strength to {}", cmd.strength);
     }
     return *this;
 }
 
 State::Any SimRunning::onEvent(const SetViscosityStrengthCommand& cmd, DirtSimStateMachine& dsm) {
-    if (auto* simMgr = dsm.getSimulationManager()) {
-        if (auto* world = simMgr->getWorld()) {
-            world->setViscosityStrength(cmd.strength);
-            spdlog::info("SimRunning: Set viscosity strength to {}", cmd.strength);
-        }
+    if (auto* world = dsm.world.get()) {
+        world->setViscosityStrength(cmd.strength);
+        spdlog::info("SimRunning: Set viscosity strength to {}", cmd.strength);
     }
     return *this;
 }
 
 State::Any SimRunning::onEvent(const SetFrictionStrengthCommand& cmd, DirtSimStateMachine& dsm) {
-    if (auto* simMgr = dsm.getSimulationManager()) {
-        if (auto* world = simMgr->getWorld()) {
-            world->setFrictionStrength(cmd.strength);
-            spdlog::info("SimRunning: Set friction strength to {}", cmd.strength);
-        }
+    if (auto* world = dsm.world.get()) {
+        world->setFrictionStrength(cmd.strength);
+        spdlog::info("SimRunning: Set friction strength to {}", cmd.strength);
     }
     return *this;
 }
 
 State::Any SimRunning::onEvent(const SetContactFrictionStrengthCommand& cmd, DirtSimStateMachine& dsm) {
-    if (auto* simMgr = dsm.getSimulationManager()) {
-        if (auto* worldInterface = simMgr->getWorld()) {
-            // Cast to World to access friction calculator.
-            if (auto* world = dynamic_cast<World*>(worldInterface)) {
-                world->getFrictionCalculator().setFrictionStrength(cmd.strength);
-                spdlog::info("SimRunning: Set contact friction strength to {}", cmd.strength);
-            }
-        }
+    if (auto* world = dynamic_cast<World*>(dsm.world.get())) {
+        world->getFrictionCalculator().setFrictionStrength(cmd.strength);
+        spdlog::info("SimRunning: Set contact friction strength to {}", cmd.strength);
     }
     return *this;
 }
 
 State::Any SimRunning::onEvent(const SetCOMCohesionRangeCommand& cmd, DirtSimStateMachine& dsm) {
-    if (auto* simMgr = dsm.getSimulationManager()) {
-        if (auto* world = simMgr->getWorld()) {
-            world->setCOMCohesionRange(cmd.range);
-            spdlog::info("SimRunning: Set COM cohesion range to {}", cmd.range);
-        }
+    if (auto* world = dsm.world.get()) {
+        world->setCOMCohesionRange(cmd.range);
+        spdlog::info("SimRunning: Set COM cohesion range to {}", cmd.range);
     }
     return *this;
 }
 
 State::Any SimRunning::onEvent(const SetAirResistanceCommand& cmd, DirtSimStateMachine& dsm) {
-    if (auto* simMgr = dsm.getSimulationManager()) {
-        if (auto* world = simMgr->getWorld()) {
-            world->setAirResistanceStrength(cmd.strength);
-            spdlog::info("SimRunning: Set air resistance to {}", cmd.strength);
-        }
+    if (auto* world = dsm.world.get()) {
+        world->setAirResistanceStrength(cmd.strength);
+        spdlog::info("SimRunning: Set air resistance to {}", cmd.strength);
     }
     return *this;
 }
 
 State::Any SimRunning::onEvent(const ToggleHydrostaticPressureCommand& /*cmd*/, DirtSimStateMachine& dsm) {
-    if (auto* simMgr = dsm.getSimulationManager()) {
-        if (auto* world = simMgr->getWorld()) {
-            bool newValue = !world->isHydrostaticPressureEnabled();
-            world->setHydrostaticPressureEnabled(newValue);
-            spdlog::info("SimRunning: Toggle hydrostatic pressure - now: {}", newValue);
-        }
+    if (auto* world = dsm.world.get()) {
+        bool newValue = !world->isHydrostaticPressureEnabled();
+        world->setHydrostaticPressureEnabled(newValue);
+        spdlog::info("SimRunning: Toggle hydrostatic pressure - now: {}", newValue);
     }
     return *this;
 }
 
 State::Any SimRunning::onEvent(const ToggleDynamicPressureCommand& /*cmd*/, DirtSimStateMachine& dsm) {
-    if (auto* simMgr = dsm.getSimulationManager()) {
-        if (auto* world = simMgr->getWorld()) {
-            bool newValue = !world->isDynamicPressureEnabled();
-            world->setDynamicPressureEnabled(newValue);
-            spdlog::info("SimRunning: Toggle dynamic pressure - now: {}", newValue);
-        }
+    if (auto* world = dsm.world.get()) {
+        bool newValue = !world->isDynamicPressureEnabled();
+        world->setDynamicPressureEnabled(newValue);
+        spdlog::info("SimRunning: Toggle dynamic pressure - now: {}", newValue);
     }
     return *this;
 }
 
 State::Any SimRunning::onEvent(const TogglePressureDiffusionCommand& /*cmd*/, DirtSimStateMachine& dsm) {
-    if (auto* simMgr = dsm.getSimulationManager()) {
-        if (auto* world = simMgr->getWorld()) {
-            bool newValue = !world->isPressureDiffusionEnabled();
-            world->setPressureDiffusionEnabled(newValue);
-            spdlog::info("SimRunning: Toggle pressure diffusion - now: {}", newValue);
-        }
+    if (auto* world = dsm.world.get()) {
+        bool newValue = !world->isPressureDiffusionEnabled();
+        world->setPressureDiffusionEnabled(newValue);
+        spdlog::info("SimRunning: Toggle pressure diffusion - now: {}", newValue);
     }
     return *this;
 }
 
 State::Any SimRunning::onEvent(const SetHydrostaticPressureStrengthCommand& cmd, DirtSimStateMachine& dsm) {
-    if (auto* simMgr = dsm.getSimulationManager()) {
-        if (auto* world = simMgr->getWorld()) {
-            world->setHydrostaticPressureStrength(cmd.strength);
-            spdlog::info("SimRunning: Set hydrostatic pressure strength to {}", cmd.strength);
-        }
+    if (auto* world = dsm.world.get()) {
+        world->setHydrostaticPressureStrength(cmd.strength);
+        spdlog::info("SimRunning: Set hydrostatic pressure strength to {}", cmd.strength);
     }
     return *this;
 }
 
 State::Any SimRunning::onEvent(const SetDynamicPressureStrengthCommand& cmd, DirtSimStateMachine& dsm) {
     // Apply to world.
-    if (auto* simMgr = dsm.getSimulationManager()) {
-        if (auto* world = simMgr->getWorld()) {
-            // TODO: Need to add setDynamicPressureStrength method to WorldInterface.
-            // For now, suppress unused warning.
-            (void)world;
-        }
+    if (auto* world = dsm.world.get()) {
+        // TODO: Need to add setDynamicPressureStrength method to WorldInterface.
+        // For now, suppress unused warning.
+        (void)world;
     }
 
     spdlog::debug("SimRunning: Set dynamic pressure strength to {}", cmd.strength);
@@ -589,11 +573,9 @@ State::Any SimRunning::onEvent(const SetDynamicPressureStrengthCommand& cmd, Dir
 }
 
 State::Any SimRunning::onEvent(const SetRainRateCommand& cmd, DirtSimStateMachine& dsm) {
-    if (auto* simMgr = dsm.getSimulationManager()) {
-        if (auto* world = simMgr->getWorld()) {
-            world->setRainRate(cmd.rate);
-            spdlog::info("SimRunning: Set rain rate to {}", cmd.rate);
-        }
+    if (auto* world = dsm.world.get()) {
+        world->setRainRate(cmd.rate);
+        spdlog::info("SimRunning: Set rain rate to {}", cmd.rate);
     }
     return *this;
 }
@@ -605,7 +587,6 @@ State::Any SimRunning::onEvent(const GetFPSCommand& /*cmd. */, DirtSimStateMachi
 
     // Force a push update with FPS dirty flag.
     UIUpdateEvent update = dsm.buildUIUpdate();
-    update.dirty.fps = true;
     dsm.getSharedState().pushUIUpdate(std::move(update));
 
     return *this;
@@ -617,7 +598,6 @@ State::Any SimRunning::onEvent(const GetSimStatsCommand& /*cmd. */, DirtSimState
 
     // Force a push update with stats dirty flag.
     UIUpdateEvent update = dsm.buildUIUpdate();
-    update.dirty.stats = true;
     dsm.getSharedState().pushUIUpdate(std::move(update));
 
     return *this;
@@ -625,8 +605,8 @@ State::Any SimRunning::onEvent(const GetSimStatsCommand& /*cmd. */, DirtSimState
 
 State::Any SimRunning::onEvent(const ToggleDebugCommand& /*cmd. */, DirtSimStateMachine& dsm) {
     // Toggle debug draw state in world (source of truth).
-    if (dsm.simulationManager && dsm.simulationManager->getWorld()) {
-        auto* world = dsm.simulationManager->getWorld();
+    if (dsm.world) {
+        auto* world = dsm.world.get();
         bool newValue = !world->isDebugDrawEnabled();
         world->setDebugDrawEnabled(newValue);
         world->markAllCellsDirty();
@@ -634,7 +614,6 @@ State::Any SimRunning::onEvent(const ToggleDebugCommand& /*cmd. */, DirtSimState
 
         // Push UI update with uiState dirty flag.
         UIUpdateEvent update = dsm.buildUIUpdate();
-        update.dirty.uiState = true;
         dsm.getSharedState().pushUIUpdate(std::move(update));
     }
 
@@ -642,39 +621,33 @@ State::Any SimRunning::onEvent(const ToggleDebugCommand& /*cmd. */, DirtSimState
 }
 
 State::Any SimRunning::onEvent(const ToggleCohesionForceCommand& /*cmd. */, DirtSimStateMachine& dsm) {
-    if (auto* simMgr = dsm.getSimulationManager()) {
-        if (auto* world = simMgr->getWorld()) {
-            bool newValue = !world->isCohesionComForceEnabled();
-            world->setCohesionComForceEnabled(newValue);
-            spdlog::info("SimRunning: ToggleCohesionForceCommand - Cohesion force now: {}", newValue);
+    if (auto* world = dsm.world.get()) {
+        bool newValue = !world->isCohesionComForceEnabled();
+        world->setCohesionComForceEnabled(newValue);
+        spdlog::info("SimRunning: ToggleCohesionForceCommand - Cohesion force now: {}", newValue);
 
-            UIUpdateEvent update = dsm.buildUIUpdate();
-            update.dirty.uiState = true;
-            dsm.getSharedState().pushUIUpdate(std::move(update));
-        }
+        UIUpdateEvent update = dsm.buildUIUpdate();
+        dsm.getSharedState().pushUIUpdate(std::move(update));
     }
     return *this;
 }
 
 State::Any SimRunning::onEvent(const ToggleTimeHistoryCommand& /*cmd. */, DirtSimStateMachine& dsm) {
-    if (auto* simMgr = dsm.getSimulationManager()) {
-        if (auto* world = simMgr->getWorld()) {
-            bool newValue = !world->isTimeReversalEnabled();
-            world->enableTimeReversal(newValue);
-            spdlog::info("SimRunning: ToggleTimeHistoryCommand - Time history now: {}", newValue);
+    if (auto* world = dsm.world.get()) {
+        bool newValue = !world->isTimeReversalEnabled();
+        world->enableTimeReversal(newValue);
+        spdlog::info("SimRunning: ToggleTimeHistoryCommand - Time history now: {}", newValue);
 
-            UIUpdateEvent update = dsm.buildUIUpdate();
-            update.dirty.uiState = true;
-            dsm.getSharedState().pushUIUpdate(std::move(update));
-        }
+        UIUpdateEvent update = dsm.buildUIUpdate();
+        dsm.getSharedState().pushUIUpdate(std::move(update));
     }
     return *this;
 }
 
 State::Any SimRunning::onEvent(const PrintAsciiDiagramCommand& /*cmd. */, DirtSimStateMachine& dsm) {
     // Get the current world and print ASCII diagram.
-    if (dsm.simulationManager && dsm.simulationManager->getWorld()) {
-        std::string ascii_diagram = dsm.simulationManager->getWorld()->toAsciiDiagram();
+    if (dsm.world) {
+        std::string ascii_diagram = dsm.world.get()->toAsciiDiagram();
         spdlog::info("Current world state (ASCII diagram):\n{}", ascii_diagram);
     }
     else {
@@ -686,8 +659,8 @@ State::Any SimRunning::onEvent(const PrintAsciiDiagramCommand& /*cmd. */, DirtSi
 
 State::Any SimRunning::onEvent(const SpawnDirtBallCommand& /*cmd. */, DirtSimStateMachine& dsm) {
     // Get the current world and spawn a 5x5 ball at top center.
-    if (dsm.simulationManager && dsm.simulationManager->getWorld()) {
-        auto* world = dsm.simulationManager->getWorld();
+    if (dsm.world) {
+        auto* world = dsm.world.get();
 
         // Calculate the top center position.
         uint32_t centerX = world->getWidth() / 2;
@@ -705,33 +678,27 @@ State::Any SimRunning::onEvent(const SpawnDirtBallCommand& /*cmd. */, DirtSimSta
 }
 
 State::Any SimRunning::onEvent(const SetFragmentationCommand& cmd, DirtSimStateMachine& dsm) {
-    if (auto* simMgr = dsm.getSimulationManager()) {
-        if (auto* world = simMgr->getWorld()) {
-            world->setDirtFragmentationFactor(cmd.factor);
-            spdlog::info("SimRunning: Set fragmentation factor to {}", cmd.factor);
-        }
+    if (auto* world = dsm.world.get()) {
+        world->setDirtFragmentationFactor(cmd.factor);
+        spdlog::info("SimRunning: Set fragmentation factor to {}", cmd.factor);
     }
     return *this;
 }
 
 State::Any SimRunning::onEvent(const SetPressureSystemCommand& cmd, DirtSimStateMachine& dsm) {
-    if (auto* simMgr = dsm.getSimulationManager()) {
-        if (auto* world = simMgr->getWorld()) {
-            world->setPressureSystem(cmd.system);
-            spdlog::info("SimRunning: Set pressure system to {}", static_cast<int>(cmd.system));
-        }
+    if (auto* world = dsm.world.get()) {
+        world->setPressureSystem(cmd.system);
+        spdlog::info("SimRunning: Set pressure system to {}", static_cast<int>(cmd.system));
     }
     return *this;
 }
 
 State::Any SimRunning::onEvent(const ToggleWallsCommand& /*cmd*/, DirtSimStateMachine& dsm) {
     // Apply to world.
-    if (auto* simMgr = dsm.getSimulationManager()) {
-        if (auto* world = simMgr->getWorld()) {
-            // TODO: Need to add toggleWalls method to WorldInterface.
-            // For now, suppress unused warning.
-            (void)world;
-        }
+    if (auto* world = dsm.world.get()) {
+        // TODO: Need to add toggleWalls method to WorldInterface.
+        // For now, suppress unused warning.
+        (void)world;
     }
 
     spdlog::info("SimRunning: Toggle walls");
@@ -739,139 +706,133 @@ State::Any SimRunning::onEvent(const ToggleWallsCommand& /*cmd*/, DirtSimStateMa
 }
 
 State::Any SimRunning::onEvent(const ToggleWaterColumnCommand& /*cmd*/, DirtSimStateMachine& dsm) {
-    if (auto* simMgr = dsm.getSimulationManager()) {
-        if (auto* world = simMgr->getWorld()) {
-            bool newValue = !world->isWaterColumnEnabled();
-            world->setWaterColumnEnabled(newValue);
+    if (auto* world = dsm.world.get()) {
+        bool newValue = !world->isWaterColumnEnabled();
+        world->setWaterColumnEnabled(newValue);
 
-            // For World, we can manipulate cells directly.
-            World* worldB = dynamic_cast<World*>(world);
-            if (worldB) {
-                if (newValue) {
-                    // Add water column (5 wide × 20 tall) on left side.
-                    spdlog::info("SimRunning: Adding water column (5 wide × 20 tall) at runtime");
-                    for (uint32_t y = 0; y < 20 && y < worldB->getHeight(); ++y) {
-                        for (uint32_t x = 1; x <= 5 && x < worldB->getWidth(); ++x) {
-                            Cell& cell = worldB->at(x, y);
-                            // Only add water to non-wall cells.
-                            if (!cell.isWall()) {
-                                cell.setMaterialType(MaterialType::WATER);
-                                cell.setFillRatio(1.0);
-                                cell.setCOM(Vector2d(0.0, 0.0));
-                                cell.setVelocity(Vector2d(0.0, 0.0));
-                                cell.markDirty();
-                            }
-                        }
-                    }
-                } else {
-                    // Remove water from column area (only water cells).
-                    spdlog::info("SimRunning: Removing water from water column area at runtime");
-                    for (uint32_t y = 0; y < 20 && y < worldB->getHeight(); ++y) {
-                        for (uint32_t x = 1; x <= 5 && x < worldB->getWidth(); ++x) {
-                            Cell& cell = worldB->at(x, y);
-                            // Only clear water cells, leave walls and other materials.
-                            if (cell.getMaterialType() == MaterialType::WATER && !cell.isWall()) {
-                                cell.setMaterialType(MaterialType::AIR);
-                                cell.setFillRatio(0.0);
-                                cell.setCOM(Vector2d(0.0, 0.0));
-                                cell.setVelocity(Vector2d(0.0, 0.0));
-                                cell.markDirty();
-                            }
+        // For World, we can manipulate cells directly.
+        World* worldB = dynamic_cast<World*>(world);
+        if (worldB) {
+            if (newValue) {
+                // Add water column (5 wide × 20 tall) on left side.
+                spdlog::info("SimRunning: Adding water column (5 wide × 20 tall) at runtime");
+                for (uint32_t y = 0; y < 20 && y < worldB->getHeight(); ++y) {
+                    for (uint32_t x = 1; x <= 5 && x < worldB->getWidth(); ++x) {
+                        Cell& cell = worldB->at(x, y);
+                        // Only add water to non-wall cells.
+                        if (!cell.isWall()) {
+                            cell.setMaterialType(MaterialType::WATER);
+                            cell.setFillRatio(1.0);
+                            cell.setCOM(Vector2d(0.0, 0.0));
+                            cell.setVelocity(Vector2d(0.0, 0.0));
+                            cell.markDirty();
                         }
                     }
                 }
             }
-
-            spdlog::info("SimRunning: Water column toggled - now: {}", newValue);
+            else {
+                // Remove water from column area (only water cells).
+                spdlog::info("SimRunning: Removing water from water column area at runtime");
+                for (uint32_t y = 0; y < 20 && y < worldB->getHeight(); ++y) {
+                    for (uint32_t x = 1; x <= 5 && x < worldB->getWidth(); ++x) {
+                        Cell& cell = worldB->at(x, y);
+                        // Only clear water cells, leave walls and other materials.
+                        if (cell.getMaterialType() == MaterialType::WATER && !cell.isWall()) {
+                            cell.setMaterialType(MaterialType::AIR);
+                            cell.setFillRatio(0.0);
+                            cell.setCOM(Vector2d(0.0, 0.0));
+                            cell.setVelocity(Vector2d(0.0, 0.0));
+                            cell.markDirty();
+                        }
+                    }
+                }
+            }
         }
+
+        spdlog::info("SimRunning: Water column toggled - now: {}", newValue);
     }
     return *this;
 }
 
 State::Any SimRunning::onEvent(const ToggleLeftThrowCommand& /*cmd*/, DirtSimStateMachine& dsm) {
-    if (auto* simMgr = dsm.getSimulationManager()) {
-        if (auto* world = simMgr->getWorld()) {
-            bool newValue = !world->isLeftThrowEnabled();
-            world->setLeftThrowEnabled(newValue);
-            spdlog::info("SimRunning: Toggle left throw - now: {}", newValue);
-        }
+    if (auto* world = dsm.world.get()) {
+        bool newValue = !world->isLeftThrowEnabled();
+        world->setLeftThrowEnabled(newValue);
+        spdlog::info("SimRunning: Toggle left throw - now: {}", newValue);
     }
     return *this;
 }
 
 State::Any SimRunning::onEvent(const ToggleRightThrowCommand& /*cmd*/, DirtSimStateMachine& dsm) {
-    if (auto* simMgr = dsm.getSimulationManager()) {
-        if (auto* world = simMgr->getWorld()) {
-            bool newValue = !world->isRightThrowEnabled();
-            world->setRightThrowEnabled(newValue);
-            spdlog::info("SimRunning: Toggle right throw - now: {}", newValue);
-        }
+    if (auto* world = dsm.world.get()) {
+        bool newValue = !world->isRightThrowEnabled();
+        world->setRightThrowEnabled(newValue);
+        spdlog::info("SimRunning: Toggle right throw - now: {}", newValue);
     }
     return *this;
 }
 
 State::Any SimRunning::onEvent(const ToggleQuadrantCommand& /*cmd*/, DirtSimStateMachine& dsm) {
-    if (auto* simMgr = dsm.getSimulationManager()) {
-        if (auto* world = simMgr->getWorld()) {
-            bool newValue = !world->isLowerRightQuadrantEnabled();
-            world->setLowerRightQuadrantEnabled(newValue);
+    if (auto* world = dsm.world.get()) {
+        bool newValue = !world->isLowerRightQuadrantEnabled();
+        world->setLowerRightQuadrantEnabled(newValue);
 
-            // For World, manipulate cells directly for immediate feedback.
-            World* worldB = dynamic_cast<World*>(world);
-            if (worldB) {
-                uint32_t startX = worldB->getWidth() / 2;
-                uint32_t startY = worldB->getHeight() / 2;
+        // For World, manipulate cells directly for immediate feedback.
+        World* worldB = dynamic_cast<World*>(world);
+        if (worldB) {
+            uint32_t startX = worldB->getWidth() / 2;
+            uint32_t startY = worldB->getHeight() / 2;
 
-                if (newValue) {
-                    // Add dirt quadrant immediately.
-                    spdlog::info("SimRunning: Adding lower right quadrant ({}x{}) at runtime",
-                                 worldB->getWidth() - startX, worldB->getHeight() - startY);
-                    for (uint32_t y = startY; y < worldB->getHeight(); ++y) {
-                        for (uint32_t x = startX; x < worldB->getWidth(); ++x) {
-                            Cell& cell = worldB->at(x, y);
-                            // Only add dirt to non-wall cells.
-                            if (!cell.isWall()) {
-                                cell.setMaterialType(MaterialType::DIRT);
-                                cell.setFillRatio(1.0);
-                                cell.setCOM(Vector2d(0.0, 0.0));
-                                cell.setVelocity(Vector2d(0.0, 0.0));
-                                cell.markDirty();
-                            }
-                        }
-                    }
-                } else {
-                    // Remove dirt from quadrant area (only dirt cells).
-                    spdlog::info("SimRunning: Removing dirt from lower right quadrant at runtime");
-                    for (uint32_t y = startY; y < worldB->getHeight(); ++y) {
-                        for (uint32_t x = startX; x < worldB->getWidth(); ++x) {
-                            Cell& cell = worldB->at(x, y);
-                            // Only clear dirt cells, leave walls and other materials.
-                            if (cell.getMaterialType() == MaterialType::DIRT && !cell.isWall()) {
-                                cell.setMaterialType(MaterialType::AIR);
-                                cell.setFillRatio(0.0);
-                                cell.setCOM(Vector2d(0.0, 0.0));
-                                cell.setVelocity(Vector2d(0.0, 0.0));
-                                cell.markDirty();
-                            }
+            if (newValue) {
+                // Add dirt quadrant immediately.
+                spdlog::info(
+                    "SimRunning: Adding lower right quadrant ({}x{}) at runtime",
+                    worldB->getWidth() - startX,
+                    worldB->getHeight() - startY);
+                for (uint32_t y = startY; y < worldB->getHeight(); ++y) {
+                    for (uint32_t x = startX; x < worldB->getWidth(); ++x) {
+                        Cell& cell = worldB->at(x, y);
+                        // Only add dirt to non-wall cells.
+                        if (!cell.isWall()) {
+                            cell.setMaterialType(MaterialType::DIRT);
+                            cell.setFillRatio(1.0);
+                            cell.setCOM(Vector2d(0.0, 0.0));
+                            cell.setVelocity(Vector2d(0.0, 0.0));
+                            cell.markDirty();
                         }
                     }
                 }
             }
-
-            spdlog::info("SimRunning: Toggle quadrant - now: {}", newValue);
+            else {
+                // Remove dirt from quadrant area (only dirt cells).
+                spdlog::info("SimRunning: Removing dirt from lower right quadrant at runtime");
+                for (uint32_t y = startY; y < worldB->getHeight(); ++y) {
+                    for (uint32_t x = startX; x < worldB->getWidth(); ++x) {
+                        Cell& cell = worldB->at(x, y);
+                        // Only clear dirt cells, leave walls and other materials.
+                        if (cell.getMaterialType() == MaterialType::DIRT && !cell.isWall()) {
+                            cell.setMaterialType(MaterialType::AIR);
+                            cell.setFillRatio(0.0);
+                            cell.setCOM(Vector2d(0.0, 0.0));
+                            cell.setVelocity(Vector2d(0.0, 0.0));
+                            cell.markDirty();
+                        }
+                    }
+                }
+            }
         }
+
+        spdlog::info("SimRunning: Toggle quadrant - now: {}", newValue);
     }
     return *this;
 }
 
 State::Any SimRunning::onEvent(const ToggleFrameLimitCommand& /*cmd*/, DirtSimStateMachine& dsm) {
     // Apply to world.
-    if (auto* simMgr = dsm.getSimulationManager()) {
-        if (auto* world = simMgr->getWorld()) {
-            // TODO: Need to add toggleFrameLimit method to WorldInterface.
-            // For now, suppress unused warning.
-            (void)world;
-        }
+    if (auto* world = dsm.world.get()) {
+        // TODO: Need to add toggleFrameLimit method to WorldInterface.
+        // For now, suppress unused warning.
+        (void)world;
     }
 
     spdlog::info("SimRunning: Toggle frame limit");

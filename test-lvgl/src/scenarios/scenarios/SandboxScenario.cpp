@@ -1,8 +1,8 @@
-#include "../Scenario.h"
-#include "../ScenarioWorldSetup.h"
-#include "../ScenarioRegistry.h"
+#include "../../WorldEventGenerator.h"
 #include "../../WorldInterface.h"
-#include "../../WorldSetup.h"
+#include "../Scenario.h"
+#include "../ScenarioRegistry.h"
+#include "../ScenarioWorldEventGenerator.h"
 #include "spdlog/spdlog.h"
 
 /**
@@ -21,10 +21,11 @@ public:
     const ScenarioMetadata& getMetadata() const override {
         return metadata_;
     }
-    
-    std::unique_ptr<WorldSetup> createWorldSetup() const override {
-        // Create a ConfigurableWorldSetup with sandbox-specific defaults.
-        auto configurableSetup = std::make_unique<ConfigurableWorldSetup>();
+
+    std::unique_ptr<WorldEventGenerator> createWorldEventGenerator() const override
+    {
+        // Create a ConfigurableWorldEventGenerator with sandbox-specific defaults.
+        auto configurableSetup = std::make_unique<ConfigurableWorldEventGenerator>();
 
         // Configure sandbox settings.
         configurableSetup->setLowerRightQuadrantEnabled(true);
@@ -38,7 +39,7 @@ public:
 
         return configurableSetup;
     }
-    
+
 private:
     ScenarioMetadata metadata_;
 };

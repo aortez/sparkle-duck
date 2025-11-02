@@ -53,9 +53,12 @@ int driver_backends_is_supported(const char *backend_name);
  */
 int driver_backends_print_supported(void);
 
+namespace DirtSim {
+class DirtSimStateMachine;
+}
+
 /**
- * @brief Enter the run loop with a SimulationManager
+ * @brief Enter the run loop with a DirtSimStateMachine
  * @description enter the run loop of the selected backend
  */
-void driver_backends_run_loop(SimulationManager& manager);
-
+void driver_backends_run_loop(DirtSim::DirtSimStateMachine& dsm);

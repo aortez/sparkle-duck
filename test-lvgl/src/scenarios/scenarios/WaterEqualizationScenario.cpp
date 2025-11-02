@@ -1,16 +1,16 @@
-#include "../Scenario.h"
-#include "../ScenarioWorldSetup.h"
-#include "../ScenarioRegistry.h"
-#include "../../WorldInterface.h"
 #include "../../CellInterface.h"
 #include "../../MaterialType.h"
+#include "../../WorldInterface.h"
+#include "../Scenario.h"
+#include "../ScenarioRegistry.h"
+#include "../ScenarioWorldEventGenerator.h"
 #include "spdlog/spdlog.h"
 
 /**
  * Water Equalization scenario - Demonstrates hydrostatic pressure and flow.
  * Water flows through a small opening to achieve equilibrium between two columns.
  */
-class WaterEqualizationWorldSetup : public ScenarioWorldSetup {
+class WaterEqualizationWorldEventGenerator : public ScenarioWorldEventGenerator {
 private:
     bool wallOpened = false;
     
@@ -78,11 +78,12 @@ public:
     const ScenarioMetadata& getMetadata() const override {
         return metadata_;
     }
-    
-    std::unique_ptr<WorldSetup> createWorldSetup() const override {
-        return std::make_unique<WaterEqualizationWorldSetup>();
+
+    std::unique_ptr<WorldEventGenerator> createWorldEventGenerator() const override
+    {
+        return std::make_unique<WaterEqualizationWorldEventGenerator>();
     }
-    
+
 private:
     ScenarioMetadata metadata_;
 };

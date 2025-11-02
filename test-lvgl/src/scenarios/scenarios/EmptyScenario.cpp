@@ -1,7 +1,7 @@
-#include "../Scenario.h"
-#include "../ScenarioWorldSetup.h"
-#include "../ScenarioRegistry.h"
 #include "../../WorldInterface.h"
+#include "../Scenario.h"
+#include "../ScenarioRegistry.h"
+#include "../ScenarioWorldEventGenerator.h"
 #include "spdlog/spdlog.h"
 
 /**
@@ -20,10 +20,11 @@ public:
     const ScenarioMetadata& getMetadata() const override {
         return metadata_;
     }
-    
-    std::unique_ptr<WorldSetup> createWorldSetup() const override {
-        auto setup = std::make_unique<ScenarioWorldSetup>();
-        
+
+    std::unique_ptr<WorldEventGenerator> createWorldEventGenerator() const override
+    {
+        auto setup = std::make_unique<ScenarioWorldEventGenerator>();
+
         // Setup function - just clear the world
         setup->setSetupFunction([](WorldInterface& /*world*/) {
             spdlog::info("Setting up Empty scenario");
@@ -38,7 +39,7 @@ public:
         
         return setup;
     }
-    
+
 private:
     ScenarioMetadata metadata_;
 };

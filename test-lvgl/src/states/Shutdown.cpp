@@ -1,6 +1,6 @@
-#include "State.h"
 #include "../DirtSimStateMachine.h"
-#include "../WorldSetup.h"
+#include "../WorldEventGenerator.h"
+#include "State.h"
 #include <spdlog/spdlog.h>
 
 namespace DirtSim {
@@ -12,7 +12,7 @@ void Shutdown::onEnter(DirtSimStateMachine& dsm) {
     // Don't touch UI here - let the backend loop handle UI cleanup
     // to avoid LVGL rendering conflicts
 
-    // Don't reset SimulationManager here either - the backend loop
+    // World cleanup is handled by DirtSimStateMachine destructor.
     // is still using it. It will be cleaned up when DirtSimStateMachine
     // is destroyed.
 

@@ -1,7 +1,7 @@
-#include "State.h"
 #include "../DirtSimStateMachine.h"
 #include "../World.h"
-#include "../WorldSetup.h"
+#include "../WorldEventGenerator.h"
+#include "State.h"
 #include <spdlog/spdlog.h>
 
 namespace DirtSim {

@@ -158,13 +158,7 @@ void MaterialPicker::onMaterialButtonClicked(lv_event_t* e)
     picker->setSelectedMaterial(clickedMaterial);
 
     // Route material selection through event system.
-    if (picker->event_router_) {
-        picker->event_router_->routeEvent(Event{ SelectMaterialCommand{ clickedMaterial } });
-    }
-    // Legacy callback for backward compatibility.
-    else if (picker->parent_ui_) {
-        picker->parent_ui_->onMaterialSelectionChanged(clickedMaterial);
-    }
+    picker->event_router_->routeEvent(Event{ SelectMaterialCommand{ clickedMaterial } });
 }
 
 // =================================================================

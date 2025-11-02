@@ -3,7 +3,7 @@
 #include "SimulatorUI.h"
 #include "SparkleAssert.h"
 #include "World.h"
-#include "WorldSetup.h"
+#include "WorldEventGenerator.h"
 #include "scenarios/Scenario.h"
 #include "scenarios/ScenarioRegistry.h"
 #include "spdlog/spdlog.h"
@@ -44,6 +44,8 @@ SimulationManager::SimulationManager(
     spdlog::info("SimulationManager construction complete");
 }
 
+SimulationManager::~SimulationManager() = default;
+
 void SimulationManager::initialize()
 {
     spdlog::info("Initializing SimulationManager");
@@ -66,8 +68,8 @@ void SimulationManager::initialize()
 
     if (sandboxScenario) {
         spdlog::info("Applying default Sandbox scenario");
-        auto setup = sandboxScenario->createWorldSetup();
-        world_->setWorldSetup(std::move(setup));
+        auto setup = sandboxScenario->createWorldEventGenerator();
+        world_->setWorldEventGenerator(std::move(setup));
     }
     else {
         spdlog::warn("Sandbox scenario not found in registry - using default world setup");
@@ -92,23 +94,18 @@ bool SimulationManager::resizeWorldIfNeeded(uint32_t requiredWidth, uint32_t req
     }
 
     spdlog::info(
-        "Resizing world from {}x{} to {}x{} for scenario",
-        width_,
-        height_,
-        requiredWidth,
-        requiredHeight);
+        "Resizing world from {}x{} to {}x{}", width_, height_, requiredWidth, requiredHeight);
 
-    // Update dimensions
+    // Update dimensions.
     width_ = requiredWidth;
     height_ = requiredHeight;
 
-    // Create new world with new dimensions
+    // Create new world with new dimensions.
     world_ = std::make_unique<World>(width_, height_);
     if (!world_) {
         spdlog::error("Failed to create resized world");
         return false;
     }
-    world_->setWallsEnabled(false); // Default to walls disabled.
 
     // Reconnect UI if it exists
     if (ui_) {
@@ -164,14 +161,9 @@ void SimulationManager::connectUIAndWorld()
 
     spdlog::info("Connecting UI and world");
 
-    // Set up bidirectional relationship.
+    // Set up relationship.
     ui_->setWorld(world_.get());
     ui_->setSimulationManager(this);
-
-    // Important: The world needs a reference to the UI for mass/FPS updates
-    // but in our architecture, the SimulationManager owns both, so the world
-    // gets a raw pointer reference (not ownership).
-    world_->setUIReference(ui_.get());
 
     spdlog::info("UI and world connected");
 

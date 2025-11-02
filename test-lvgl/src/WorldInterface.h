@@ -9,7 +9,7 @@
 class SimulatorUI;
 class CellInterface;
 class WorldDiagramGenerator;
-class WorldSetup;
+class WorldEventGenerator;
 
 /**
  * \file
@@ -20,7 +20,12 @@ class WorldSetup;
  */
 class WorldInterface {
 public:
+    WorldInterface() = default;
     virtual ~WorldInterface() = default;
+
+    // Copy constructor - clones worldEventGenerator_.
+    WorldInterface(const WorldInterface& other);
+    WorldInterface& operator=(const WorldInterface& other);
 
     // =================================================================
     // CORE SIMULATION METHODS
@@ -40,7 +45,7 @@ public:
     virtual void reset() = 0;
 
     // Setup the world with initial materials (calls reset() first).
-    // Default implementation uses worldSetup_ strategy pattern.
+    // Default implementation uses worldEventGenerator_ strategy pattern.
     virtual void setup();
 
     // =================================================================
@@ -363,35 +368,22 @@ public:
     // Note: Implementation uses emoji rendering with Unicode box drawing.
 
     // =================================================================
-    // UI INTEGRATION
-    // =================================================================
-
-    // Set the UI component (for bidirectional communication).
-    virtual void setUI(std::unique_ptr<SimulatorUI> ui) = 0;
-
-    // Set UI reference without taking ownership (for SimulationManager architecture).
-    virtual void setUIReference(SimulatorUI* ui) = 0;
-
-    // Get the UI component.
-    virtual SimulatorUI* getUI() const = 0;
-
-    // =================================================================
     // WORLD SETUP MANAGEMENT
     // =================================================================
 
-    // Set a new WorldSetup strategy (takes ownership).
+    // Set a new WorldEventGenerator strategy (takes ownership).
     // Note: This will reset the world and apply the new setup.
-    virtual void setWorldSetup(std::unique_ptr<WorldSetup> setup) = 0;
+    virtual void setWorldEventGenerator(std::unique_ptr<WorldEventGenerator> setup) = 0;
 
-    // Get the current WorldSetup strategy (non-owning pointer).
-    virtual WorldSetup* getWorldSetup() const = 0;
+    // Get the current WorldEventGenerator strategy (non-owning pointer).
+    virtual WorldEventGenerator* getWorldEventGenerator() const = 0;
 
 protected:
-    // Shared WorldSetup instance for all world implementations.
-    std::unique_ptr<WorldSetup> worldSetup_;
+    // Shared WorldEventGenerator instance for all world implementations.
+    std::unique_ptr<WorldEventGenerator> worldEventGenerator_;
 
-    // Initialize WorldSetup - should be called by concrete class constructors.
-    void initializeWorldSetup();
+    // Initialize WorldEventGenerator - should be called by concrete class constructors.
+    void initializeWorldEventGenerator();
 
     // Common resize logic - checks dimensions and logs resize operation.
     // Returns true if resize should proceed, false if dimensions are unchanged.

@@ -1,0 +1,86 @@
+#include "DirtSimStateMachine.h"
+#include "network/WebSocketServer.h"
+#include "spdlog/spdlog.h"
+#include <args.hxx>
+#include <csignal>
+#include <memory>
+
+using namespace DirtSim;
+
+// Global pointer for signal handler.
+static DirtSimStateMachine* g_stateMachine = nullptr;
+
+void signalHandler(int signum)
+{
+    spdlog::info("Interrupt signal ({}) received, shutting down...", signum);
+    if (g_stateMachine) {
+        g_stateMachine->getSharedState().setShouldExit(true);
+    }
+}
+
+int main(int argc, char** argv)
+{
+    // Parse command line arguments.
+    args::ArgumentParser parser(
+        "Sparkle Duck WebSocket Server", "Remote simulation control via WebSocket.");
+    args::HelpFlag help(parser, "help", "Display this help menu", { 'h', "help" });
+    args::ValueFlag<uint16_t> portArg(
+        parser, "port", "WebSocket port (default: 8080)", { 'p', "port" });
+    args::ValueFlag<int> stepsArg(
+        parser,
+        "steps",
+        "Number of simulation steps to run (default: unlimited)",
+        { 's', "steps" });
+
+    try {
+        parser.ParseCLI(argc, argv);
+    }
+    catch (const args::Help&) {
+        std::cout << parser;
+        return 0;
+    }
+    catch (const args::ParseError& e) {
+        std::cerr << e.what() << std::endl;
+        std::cerr << parser;
+        return 1;
+    }
+
+    uint16_t port = portArg ? args::get(portArg) : 8080;
+    int maxSteps = stepsArg ? args::get(stepsArg) : -1;
+
+    // Configure logging.
+    spdlog::set_level(spdlog::level::info);
+    spdlog::info("Starting Sparkle Duck WebSocket Server");
+    spdlog::info("Port: {}", port);
+    if (maxSteps > 0) {
+        spdlog::info("Max steps: {}", maxSteps);
+    }
+    else {
+        spdlog::info("Running indefinitely (Ctrl+C to stop)");
+    }
+
+    // Create headless state machine (no display).
+    auto stateMachine = std::make_unique<DirtSimStateMachine>(nullptr);
+    g_stateMachine = stateMachine.get();
+
+    // Set up signal handler for graceful shutdown.
+    std::signal(SIGINT, signalHandler);
+    std::signal(SIGTERM, signalHandler);
+
+    // Create WebSocket server.
+    WebSocketServer server(*stateMachine, port);
+    server.start();
+
+    spdlog::info("WebSocket server listening on port {}", server.getPort());
+    spdlog::info("Send commands to ws://localhost:{}", server.getPort());
+
+    // Run main event loop.
+    // Note: mainLoopRun() will process events until shouldExit is set.
+    stateMachine->mainLoopRun();
+
+    // Cleanup.
+    server.stop();
+    spdlog::info("Server shut down cleanly");
+
+    return 0;
+}

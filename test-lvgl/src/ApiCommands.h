@@ -1,9 +1,10 @@
 #pragma once
 
+#include "Cell.h"
 #include "CommandWithCallback.h"
 #include "MaterialType.h"
 #include "Result.h"
-#include "lvgl/src/libs/thorvg/rapidjson/document.h"
+#include "World.h"
 #include <cstdint>
 #include <string>
 #include <variant>
@@ -23,28 +24,26 @@ struct ApiError {
 
 namespace Api {
 
-    /**
-     * @brief Get specific cell state as JSON.
-     */
-    namespace CellGet {
-        /// [[serialize]]
-        struct Command {
-            int x;
-            int y;
+/**
+ * @brief Get specific cell state.
+ */
+namespace CellGet {
+struct Command {
+    int x;
+    int y;
         };
 
         struct Okay {
-            rapidjson::Document cellJson;
+            Cell cell;
         };
         using Response = Result<Okay, ApiError>;
         using Cwc = CommandWithCallback<Command, Response>;
-    } // namespace CellGet
+        } // namespace CellGet
 
     /**
      * @brief Set material in a cell.
      */
-    namespace CellSet {
-        /// [[serialize]]
+        namespace CellSet {
         struct Command {
             int x;
             int y;
@@ -54,55 +53,51 @@ namespace Api {
 
         using Response = Result<std::monostate, ApiError>;
         using Cwc = CommandWithCallback<Command, Response>;
-    } // namespace CellSet
+        } // namespace CellSet
 
     /**
      * @brief Set gravity strength.
      */
-    namespace GravitySet {
-        /// [[serialize]]
+        namespace GravitySet {
         struct Command {
             double gravity;
         };
 
         using Response = Result<std::monostate, ApiError>;
         using Cwc = CommandWithCallback<Command, Response>;
-    } // namespace GravitySet
+        } // namespace GravitySet
 
     /**
      * @brief Reset simulation to initial state.
      */
-    namespace Reset {
-        /// [[serialize]]
+        namespace Reset {
         struct Command {
             // No parameters needed.
         };
 
         using Response = Result<std::monostate, ApiError>;
         using Cwc = CommandWithCallback<Command, Response>;
-    } // namespace Reset
+        } // namespace Reset
 
-    /**
-     * @brief Get complete world state as JSON.
-     */
-    namespace StateGet {
-        /// [[serialize]]
+        /**
+         * @brief Get complete world state.
+         */
+        namespace StateGet {
         struct Command {
             // No parameters needed.
         };
 
         struct Okay {
-            rapidjson::Document worldJson;
+            World world;
         };
         using Response = Result<Okay, ApiError>;
         using Cwc = CommandWithCallback<Command, Response>;
-    } // namespace StateGet
+        } // namespace StateGet
 
     /**
      * @brief Advance simulation by N frames.
      */
-    namespace StepN {
-        /// [[serialize]]
+        namespace StepN {
         struct Command {
             int frames = 1;
         };
@@ -112,7 +107,7 @@ namespace Api {
         };
         using Response = Result<Okay, ApiError>;
         using Cwc = CommandWithCallback<Command, Response>;
-    } // namespace StepN
+        } // namespace StepN
 
 } // namespace Api
 

@@ -1,8 +1,10 @@
 #include "DirtSimStateMachine.h"
 #include "EventDispatcher.h"
-#include "SimulationManager.h"
-
-#include "WorldSetup.h"
+#include "World.h"
+#include "WorldEventGenerator.h"
+#include "scenarios/Scenario.h"
+#include "scenarios/ScenarioRegistry.h"
+#include <cassert>
 #include <chrono>
 #include <spdlog/spdlog.h>
 #include <thread>
@@ -15,9 +17,7 @@ DirtSimStateMachine::DirtSimStateMachine(lv_disp_t* display)
       sharedState(),
       eventRouter(std::make_unique<EventRouter>(*this, sharedState, eventProcessor.getEventQueue()))
 {
-    // Initialize UIManager if display is available.
     if (display) {
-        uiManager = std::make_unique<UIManager>(display);
         spdlog::info(
             "DirtSimStateMachine initialized with UI support in state: {}", getCurrentStateName());
     }
@@ -26,33 +26,71 @@ DirtSimStateMachine::DirtSimStateMachine(lv_disp_t* display)
             "DirtSimStateMachine initialized in headless mode in state: {}", getCurrentStateName());
     }
 
-    // Create SimulationManager upfront with default settings.
-    lv_obj_t* screen = nullptr;
-    if (lv_is_initialized() && display) {
-        screen = lv_scr_act();
+    // Create World directly.
+    world = std::make_unique<World>(defaultWidth, defaultHeight);
+    if (!world) {
+        throw std::runtime_error("Failed to create world");
+    }
+    spdlog::info("DirtSimStateMachine: Created {}x{} World", defaultWidth, defaultHeight);
+
+    // Apply default Sandbox scenario if available.
+    auto& registry = ScenarioRegistry::getInstance();
+    auto* sandboxScenario = registry.getScenario("sandbox");
+
+    if (sandboxScenario) {
+        spdlog::info("Applying default Sandbox scenario");
+        auto setup = sandboxScenario->createWorldEventGenerator();
+        world->setWorldEventGenerator(std::move(setup));
+    }
+    else {
+        spdlog::warn("Sandbox scenario not found - using default world setup");
     }
 
-    // Default grid size (matches main.cpp calculation).
-    const int grid_width = 28;               // 850 / 30, where 30 is default Cell::WIDTH.
-    const int grid_height = 28;              // 850 / 30, where 30 is default Cell::HEIGHT.
-
-    simulationManager = std::make_unique<SimulationManager>(
-        grid_width, grid_height, screen, eventRouter.get());
-
-    simulationManager->initialize();
+    // Initialize world.
+    world->setup();
 
     // Set world in SharedSimState for immediate event handlers.
-    if (simulationManager->getWorld()) {
-        sharedState.setCurrentWorld(simulationManager->getWorld());
-        spdlog::info("DirtSimStateMachine: World registered in SharedSimState");
-    }
-
-    spdlog::info("DirtSimStateMachine: SimulationManager created and initialized");
+    sharedState.setCurrentWorld(world.get());
+    spdlog::info("DirtSimStateMachine: World registered in SharedSimState");
 }
 
 DirtSimStateMachine::~DirtSimStateMachine()
 {
     spdlog::info("DirtSimStateMachine shutting down from state: {}", getCurrentStateName());
+}
+
+bool DirtSimStateMachine::resizeWorldIfNeeded(uint32_t requiredWidth, uint32_t requiredHeight)
+{
+    // If no specific dimensions required, restore default dimensions.
+    if (requiredWidth == 0 || requiredHeight == 0) {
+        requiredWidth = defaultWidth;
+        requiredHeight = defaultHeight;
+    }
+
+    // Check if current dimensions match.
+    uint32_t currentWidth = world ? world->getWidth() : 0;
+    uint32_t currentHeight = world ? world->getHeight() : 0;
+
+    if (currentWidth == requiredWidth && currentHeight == requiredHeight) {
+        return false;
+    }
+
+    spdlog::info(
+        "Resizing world from {}x{} to {}x{} for scenario",
+        currentWidth,
+        currentHeight,
+        requiredWidth,
+        requiredHeight);
+
+    // Create new world with new dimensions.
+    world = std::make_unique<World>(requiredWidth, requiredHeight);
+    if (!world) {
+        spdlog::error("Failed to create resized world");
+        return false;
+    }
+
+    spdlog::info("World resized successfully to {}x{}", requiredWidth, requiredHeight);
+    return true;
 }
 
 void DirtSimStateMachine::mainLoopRun()
@@ -148,9 +186,7 @@ void DirtSimStateMachine::transitionTo(State::Any newState)
     std::visit([this](auto& state) { callOnEnter(state); }, fsmState);
 
     // Push UI update on state transitions (always enabled for thread safety).
-    // Build update with uiState dirty flag forced on for state changes.
     UIUpdateEvent update = buildUIUpdate();
-    update.dirty.uiState = true; // Always mark UI state dirty on transitions.
     sharedState.pushUIUpdate(std::move(update));
 }
 
@@ -191,52 +227,25 @@ State::Any DirtSimStateMachine::onEvent(const GetSimStatsCommand& /*cmd.*/)
 
 UIUpdateEvent DirtSimStateMachine::buildUIUpdate()
 {
+    assert(world && "World must exist when building UI update");
+
     UIUpdateEvent update;
 
     // Sequence tracking.
     update.sequenceNum = sharedState.getNextUpdateSequence();
 
-    // Core simulation data.
+    // Copy complete world state.
+    update.world = *dynamic_cast<World*>(world.get());
+
+    // Simulation metadata.
     update.fps = static_cast<uint32_t>(sharedState.getCurrentFPS());
     update.stepCount = sharedState.getCurrentStep();
-    update.stats = sharedState.getStats();
 
-    // Physics parameters - read from world (source of truth).
-    if (simulationManager && simulationManager->getWorld()) {
-        auto* world = simulationManager->getWorld();
-        update.physicsParams.gravity = world->getGravity();
-        update.physicsParams.elasticity = world->getElasticityFactor();
-        update.physicsParams.timescale = world->getTimescale();
-        update.debugEnabled = world->isDebugDrawEnabled();
-        update.cohesionEnabled = world->isCohesionComForceEnabled();
-        update.adhesionEnabled = world->isAdhesionEnabled();
-        update.timeHistoryEnabled = world->isTimeReversalEnabled();
-    }
-
-    // UI state.
+    // UI-only state.
     update.isPaused = sharedState.getIsPaused();
-
-    // World state.
-    update.selectedMaterial = sharedState.getSelectedMaterial();
-
-    // Get world type string.
-    if (simulationManager) {
-        update.worldType = "World";
-    }
-    else {
-        update.worldType = "None";
-    }
 
     // Timestamp.
     update.timestamp = std::chrono::steady_clock::now();
-
-    // TODO: Set dirty flags based on tracking previous state.
-    // For now, mark everything as dirty.
-    update.dirty.fps = true;
-    update.dirty.stats = true;
-    update.dirty.physicsParams = true;
-    update.dirty.uiState = true;
-    update.dirty.worldState = true;
 
     return update;
 }

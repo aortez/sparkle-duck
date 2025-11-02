@@ -1,7 +1,6 @@
-#include "State.h"
 #include "../DirtSimStateMachine.h"
-#include "../SimulationManager.h"
 #include "../SimulatorUI.h"
+#include "State.h"
 #include <spdlog/spdlog.h>
 
 namespace DirtSim {
@@ -14,16 +13,15 @@ void SimPaused::onEnter(DirtSimStateMachine& dsm) {
     dsm.getSharedState().setIsPaused(true);
 
     // Actually pause the simulation by setting timescale to 0.
-    if (dsm.simulationManager && dsm.simulationManager->getWorld()) {
+    if (dsm.world) {
         // Store the current timescale before pausing.
-        previousTimescale = dsm.simulationManager->getWorld()->getTimescale();
-        dsm.simulationManager->getWorld()->setTimescale(0.0);
+        previousTimescale = dsm.world.get()->getTimescale();
+        dsm.world.get()->setTimescale(0.0);
         spdlog::info("SimPaused: Set timescale to 0.0 (was {})", previousTimescale);
     }
 
     // Push UI update to change pause button label to "Resume".
     UIUpdateEvent update = dsm.buildUIUpdate();
-    update.dirty.uiState = true;
     update.isPaused = true;
     dsm.getSharedState().pushUIUpdate(std::move(update));
 }
@@ -35,14 +33,13 @@ void SimPaused::onExit(DirtSimStateMachine& dsm) {
     dsm.getSharedState().setIsPaused(false);
 
     // Restore the timescale to resume simulation.
-    if (dsm.simulationManager && dsm.simulationManager->getWorld()) {
-        dsm.simulationManager->getWorld()->setTimescale(previousTimescale);
+    if (dsm.world) {
+        dsm.world.get()->setTimescale(previousTimescale);
         spdlog::info("SimPaused: Restored timescale to {}", previousTimescale);
     }
 
     // Push UI update to change pause button label back to "Pause".
     UIUpdateEvent update = dsm.buildUIUpdate();
-    update.dirty.uiState = true;
     update.isPaused = false;
     dsm.getSharedState().pushUIUpdate(std::move(update));
 }
@@ -55,19 +52,19 @@ State::Any SimPaused::onEvent(const ResumeCommand& /*cmd*/, DirtSimStateMachine&
 
 State::Any SimPaused::onEvent(const ResetSimulationCommand& /*cmd. */, DirtSimStateMachine& dsm) {
     spdlog::info("SimPaused: Resetting simulation");
-    
-    if (dsm.simulationManager) {
-        dsm.simulationManager->reset();
+
+    if (dsm.world) {
+        dsm.world->setup();
     }
-    
+
     // Return to running state with reset count.
     return SimRunning{};
 }
 
 State::Any SimPaused::onEvent(const AdvanceSimulationCommand& /*cmd. */, DirtSimStateMachine& dsm) {
     // In paused state, we can still advance one step (for frame-by-frame debugging)
-    if (dsm.simulationManager) {
-        dsm.simulationManager->advanceTime(1.0/60.0);  // Single step.
+    if (dsm.world) {
+        dsm.world->advanceTime(1.0 / 60.0); // Single step.
         previousState.stepCount++;
         dsm.getSharedState().setCurrentStep(previousState.stepCount);
 
@@ -81,11 +78,11 @@ State::Any SimPaused::onEvent(const AdvanceSimulationCommand& /*cmd. */, DirtSim
 }
 
 State::Any SimPaused::onEvent(const MouseDownEvent& evt, DirtSimStateMachine& dsm) {
-    if (!dsm.simulationManager || !dsm.simulationManager->getWorld()) {
+    if (!dsm.world) {
         return *this;
     }
 
-    auto* world = dsm.simulationManager->getWorld();
+    auto* world = dsm.world.get();
 
     // Always enter GRAB_MODE - either grab existing material or create new and grab it.
     previousState.interactionMode = SimRunning::InteractionMode::GRAB_MODE;
@@ -107,11 +104,11 @@ State::Any SimPaused::onEvent(const MouseDownEvent& evt, DirtSimStateMachine& ds
 }
 
 State::Any SimPaused::onEvent(const MouseMoveEvent& evt, DirtSimStateMachine& dsm) {
-    if (!dsm.simulationManager || !dsm.simulationManager->getWorld()) {
+    if (!dsm.world) {
         return *this;
     }
 
-    auto* world = dsm.simulationManager->getWorld();
+    auto* world = dsm.world.get();
 
     // Only update drag position if we're in GRAB_MODE.
     if (previousState.interactionMode == SimRunning::InteractionMode::GRAB_MODE) {
@@ -122,11 +119,11 @@ State::Any SimPaused::onEvent(const MouseMoveEvent& evt, DirtSimStateMachine& ds
 }
 
 State::Any SimPaused::onEvent(const MouseUpEvent& evt, DirtSimStateMachine& dsm) {
-    if (!dsm.simulationManager || !dsm.simulationManager->getWorld()) {
+    if (!dsm.world) {
         return *this;
     }
 
-    auto* world = dsm.simulationManager->getWorld();
+    auto* world = dsm.world.get();
 
     if (previousState.interactionMode == SimRunning::InteractionMode::GRAB_MODE) {
         // End dragging and release material with velocity.
@@ -152,7 +149,6 @@ State::Any SimPaused::onEvent(const GetFPSCommand& /*cmd. */, DirtSimStateMachin
 
     // Force a push update with FPS dirty flag.
     UIUpdateEvent update = dsm.buildUIUpdate();
-    update.dirty.fps = true;
     dsm.getSharedState().pushUIUpdate(std::move(update));
 
     return *this;
@@ -164,7 +160,6 @@ State::Any SimPaused::onEvent(const GetSimStatsCommand& /*cmd. */, DirtSimStateM
 
     // Force a push update with stats dirty flag.
     UIUpdateEvent update = dsm.buildUIUpdate();
-    update.dirty.stats = true;
     dsm.getSharedState().pushUIUpdate(std::move(update));
 
     return *this;
@@ -172,8 +167,8 @@ State::Any SimPaused::onEvent(const GetSimStatsCommand& /*cmd. */, DirtSimStateM
 
 State::Any SimPaused::onEvent(const ToggleDebugCommand& /*cmd. */, DirtSimStateMachine& dsm) {
     // Toggle debug draw state in world (source of truth).
-    if (dsm.simulationManager && dsm.simulationManager->getWorld()) {
-        auto* world = dsm.simulationManager->getWorld();
+    if (dsm.world) {
+        auto* world = dsm.world.get();
         bool newValue = !world->isDebugDrawEnabled();
         world->setDebugDrawEnabled(newValue);
         world->markAllCellsDirty();
@@ -181,7 +176,6 @@ State::Any SimPaused::onEvent(const ToggleDebugCommand& /*cmd. */, DirtSimStateM
 
         // Push UI update with uiState dirty flag.
         UIUpdateEvent update = dsm.buildUIUpdate();
-        update.dirty.uiState = true;
         dsm.getSharedState().pushUIUpdate(std::move(update));
     }
 
@@ -189,40 +183,33 @@ State::Any SimPaused::onEvent(const ToggleDebugCommand& /*cmd. */, DirtSimStateM
 }
 
 State::Any SimPaused::onEvent(const ToggleCohesionForceCommand& /*cmd. */, DirtSimStateMachine& dsm) {
-    if (auto* simMgr = dsm.getSimulationManager()) {
-        if (auto* world = simMgr->getWorld()) {
-            bool newValue = !world->isCohesionComForceEnabled();
-            world->setCohesionComForceEnabled(newValue);
-            spdlog::info("SimPaused: ToggleCohesionForceCommand - Cohesion force now: {}", newValue);
-            
-                UIUpdateEvent update = dsm.buildUIUpdate();
-                update.dirty.uiState = true;
-                dsm.getSharedState().pushUIUpdate(std::move(update));
-        }
+    if (auto* world = dsm.world.get()) {
+        bool newValue = !world->isCohesionComForceEnabled();
+        world->setCohesionComForceEnabled(newValue);
+        spdlog::info("SimPaused: ToggleCohesionForceCommand - Cohesion force now: {}", newValue);
+
+        UIUpdateEvent update = dsm.buildUIUpdate();
+        dsm.getSharedState().pushUIUpdate(std::move(update));
     }
     return *this;
 }
 
 State::Any SimPaused::onEvent(const ToggleTimeHistoryCommand& /*cmd. */, DirtSimStateMachine& dsm) {
-    if (auto* simMgr = dsm.getSimulationManager()) {
-        if (auto* world = simMgr->getWorld()) {
-            bool newValue = !world->isTimeReversalEnabled();
-            world->enableTimeReversal(newValue);
-            spdlog::info("SimPaused: ToggleTimeHistoryCommand - Time history now: {}", newValue);
+    if (auto* world = dsm.world.get()) {
+        bool newValue = !world->isTimeReversalEnabled();
+        world->enableTimeReversal(newValue);
+        spdlog::info("SimPaused: ToggleTimeHistoryCommand - Time history now: {}", newValue);
 
-            
-                UIUpdateEvent update = dsm.buildUIUpdate();
-                update.dirty.uiState = true;
-                dsm.getSharedState().pushUIUpdate(std::move(update));
-        }
+        UIUpdateEvent update = dsm.buildUIUpdate();
+        dsm.getSharedState().pushUIUpdate(std::move(update));
     }
     return *this;
 }
 
 State::Any SimPaused::onEvent(const PrintAsciiDiagramCommand& /*cmd. */, DirtSimStateMachine& dsm) {
     // Get the current world and print ASCII diagram.
-    if (dsm.simulationManager && dsm.simulationManager->getWorld()) {
-        std::string ascii_diagram = dsm.simulationManager->getWorld()->toAsciiDiagram();
+    if (dsm.world) {
+        std::string ascii_diagram = dsm.world->toAsciiDiagram();
         spdlog::info("Current world state (ASCII diagram):\n{}", ascii_diagram);
     }
     else {
@@ -234,8 +221,8 @@ State::Any SimPaused::onEvent(const PrintAsciiDiagramCommand& /*cmd. */, DirtSim
 
 State::Any SimPaused::onEvent(const SpawnDirtBallCommand& /*cmd. */, DirtSimStateMachine& dsm) {
     // Get the current world and spawn a 5x5 ball at top center.
-    if (dsm.simulationManager && dsm.simulationManager->getWorld()) {
-        auto* world = dsm.simulationManager->getWorld();
+    if (dsm.world) {
+        auto* world = dsm.world.get();
 
         // Calculate the top center position.
         uint32_t centerX = world->getWidth() / 2;

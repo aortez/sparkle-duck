@@ -19,6 +19,9 @@
 #include <set>
 #include <sstream>
 
+World::World() : World(1, 1)
+{}
+
 World::World(uint32_t width, uint32_t height)
     : width_(width),
       height_(height),
@@ -62,8 +65,7 @@ World::World(uint32_t width, uint32_t height)
       pressure_calculator_(*this),
       collision_calculator_(*this),
       adhesion_calculator_(*this),
-      friction_calculator_(*this),
-      ui_ref_(nullptr)
+      friction_calculator_(*this)
 {
     spdlog::info("Creating World: {}x{} grid with pure-material physics", width_, height_);
 
@@ -82,8 +84,8 @@ World::World(uint32_t width, uint32_t height)
 
     timers_.startTimer("total_simulation");
 
-    // Initialize WorldSetup using base class method.
-    initializeWorldSetup();
+    // Initialize WorldEventGenerator using base class method.
+    initializeWorldEventGenerator();
 
     spdlog::info("World initialization complete");
 }
@@ -93,6 +95,90 @@ World::~World()
     spdlog::info("Destroying World: {}x{} grid", width_, height_);
     timers_.stopTimer("total_simulation");
     timers_.dumpTimerStats();
+}
+
+World::World(const World& other)
+    : WorldInterface(other), // Copy base class (clones worldEventGenerator_).
+      cells_(other.cells_),
+      width_(other.width_),
+      height_(other.height_),
+      timestep_(other.timestep_),
+      timescale_(other.timescale_),
+      removed_mass_(other.removed_mass_),
+      gravity_(other.gravity_),
+      elasticity_factor_(other.elasticity_factor_),
+      pressure_scale_(other.pressure_scale_),
+      water_pressure_threshold_(other.water_pressure_threshold_),
+      pressure_system_(other.pressure_system_),
+      pressure_diffusion_enabled_(other.pressure_diffusion_enabled_),
+      hydrostatic_pressure_strength_(other.hydrostatic_pressure_strength_),
+      dynamic_pressure_strength_(other.dynamic_pressure_strength_),
+      add_particles_enabled_(other.add_particles_enabled_),
+      debug_draw_enabled_(other.debug_draw_enabled_),
+      cohesion_bind_force_enabled_(other.cohesion_bind_force_enabled_),
+      cohesion_com_force_strength_(other.cohesion_com_force_strength_),
+      cohesion_bind_force_strength_(other.cohesion_bind_force_strength_),
+      com_cohesion_range_(other.com_cohesion_range_),
+      viscosity_strength_(other.viscosity_strength_),
+      friction_strength_(other.friction_strength_),
+      air_resistance_enabled_(other.air_resistance_enabled_),
+      air_resistance_strength_(other.air_resistance_strength_),
+      is_dragging_(false), // Don't copy drag state.
+      drag_start_x_(-1),
+      drag_start_y_(-1),
+      dragged_material_(MaterialType::AIR),
+      dragged_amount_(0.0),
+      last_drag_cell_x_(-1),
+      last_drag_cell_y_(-1),
+      has_floating_particle_(false),
+      floating_particle_(MaterialType::AIR, 0.0),
+      floating_particle_pixel_x_(0.0),
+      floating_particle_pixel_y_(0.0),
+      dragged_velocity_(0.0, 0.0),
+      dragged_com_(0.0, 0.0),
+      selected_material_(other.selected_material_),
+      timers_(),
+      support_calculator_(*this),
+      pressure_calculator_(*this),
+      collision_calculator_(*this),
+      adhesion_calculator_(*this),
+      friction_calculator_(*this)
+{
+    spdlog::info("Copied World: {}x{} grid", width_, height_);
+}
+
+World& World::operator=(const World& other)
+{
+    if (this != &other) {
+        WorldInterface::operator=(other); // Copy base class.
+        cells_ = other.cells_;
+        width_ = other.width_;
+        height_ = other.height_;
+        timestep_ = other.timestep_;
+        timescale_ = other.timescale_;
+        removed_mass_ = other.removed_mass_;
+        gravity_ = other.gravity_;
+        elasticity_factor_ = other.elasticity_factor_;
+        pressure_scale_ = other.pressure_scale_;
+        water_pressure_threshold_ = other.water_pressure_threshold_;
+        pressure_system_ = other.pressure_system_;
+        pressure_diffusion_enabled_ = other.pressure_diffusion_enabled_;
+        hydrostatic_pressure_strength_ = other.hydrostatic_pressure_strength_;
+        dynamic_pressure_strength_ = other.dynamic_pressure_strength_;
+        add_particles_enabled_ = other.add_particles_enabled_;
+        debug_draw_enabled_ = other.debug_draw_enabled_;
+        cohesion_bind_force_enabled_ = other.cohesion_bind_force_enabled_;
+        cohesion_com_force_strength_ = other.cohesion_com_force_strength_;
+        cohesion_bind_force_strength_ = other.cohesion_bind_force_strength_;
+        com_cohesion_range_ = other.com_cohesion_range_;
+        viscosity_strength_ = other.viscosity_strength_;
+        friction_strength_ = other.friction_strength_;
+        air_resistance_enabled_ = other.air_resistance_enabled_;
+        air_resistance_strength_ = other.air_resistance_strength_;
+        selected_material_ = other.selected_material_;
+        // Don't copy drag or UI state.
+    }
+    return *this;
 }
 
 // =================================================================.
@@ -111,9 +197,9 @@ void World::advanceTime(double deltaTimeSeconds)
     }
 
     // Add particles if enabled.
-    if (add_particles_enabled_ && worldSetup_) {
+    if (add_particles_enabled_ && worldEventGenerator_) {
         ScopeTimer addParticlesTimer(timers_, "add_particles");
-        worldSetup_->addParticles(*this, timestep_, deltaTimeSeconds);
+        worldEventGenerator_->addParticles(*this, timestep_, deltaTimeSeconds);
     }
 
     // Accumulate and apply all forces based on resistance.
@@ -550,22 +636,6 @@ void World::markAllCellsDirty()
 }
 
 // =================================================================.
-// UI INTEGRATION.
-// =================================================================.
-
-void World::setUI(std::unique_ptr<SimulatorUI> ui)
-{
-    ui_ = std::move(ui);
-    spdlog::debug("UI set for World");
-}
-
-void World::setUIReference(SimulatorUI* ui)
-{
-    ui_ref_ = ui;
-    spdlog::debug("UI reference set for World");
-}
-
-// =================================================================.
 // WORLDB-SPECIFIC METHODS.
 // =================================================================.
 
@@ -764,7 +834,7 @@ void World::applyPressureForces()
 
 double World::getMotionStateMultiplier(MotionState state, double sensitivity) const
 {
-    double base_multiplier;
+    double base_multiplier = 1.0; // Default to STATIC.
     switch (state) {
         case MotionState::STATIC:
             base_multiplier = 1.0;
@@ -1234,7 +1304,8 @@ size_t World::coordToIndex(const Vector2i& pos) const
 
 void World::setWallsEnabled(bool enabled)
 {
-    ConfigurableWorldSetup* configSetup = dynamic_cast<ConfigurableWorldSetup*>(worldSetup_.get());
+    ConfigurableWorldEventGenerator* configSetup =
+        dynamic_cast<ConfigurableWorldEventGenerator*>(worldEventGenerator_.get());
     if (configSetup) {
         configSetup->setWallsEnabled(enabled);
     }
@@ -1258,8 +1329,8 @@ void World::setWallsEnabled(bool enabled)
 
 bool World::areWallsEnabled() const
 {
-    const ConfigurableWorldSetup* configSetup =
-        dynamic_cast<const ConfigurableWorldSetup*>(worldSetup_.get());
+    const ConfigurableWorldEventGenerator* configSetup =
+        dynamic_cast<const ConfigurableWorldEventGenerator*>(worldEventGenerator_.get());
     return configSetup ? configSetup->areWallsEnabled() : false;
 }
 
@@ -1360,18 +1431,18 @@ std::string World::settingsToString() const
 }
 
 // World type management implementation.
-void World::setWorldSetup(std::unique_ptr<WorldSetup> newSetup)
+void World::setWorldEventGenerator(std::unique_ptr<WorldEventGenerator> newSetup)
 {
-    worldSetup_ = std::move(newSetup);
+    worldEventGenerator_ = std::move(newSetup);
     // Reset and apply the new setup.
-    if (worldSetup_) {
+    if (worldEventGenerator_) {
         this->setup();
     }
 }
 
-WorldSetup* World::getWorldSetup() const
+WorldEventGenerator* World::getWorldEventGenerator() const
 {
-    return worldSetup_.get();
+    return worldEventGenerator_.get();
 }
 
 // =================================================================

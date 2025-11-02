@@ -8,10 +8,10 @@
 class WorldInterface;
 
 /**
- * Interface for World setup strategies.
- * This allows different ways of setting up the World's initial state.
+ * Interface for World event generation strategies.
+ * Handles initial world setup and dynamic particle generation during simulation.
  */
-class WorldSetup {
+class WorldEventGenerator {
 public:
     // Struct for storing cell data during resize operations
     struct ResizeData {
@@ -21,7 +21,13 @@ public:
         Vector2d velocity;
     };
 
-    virtual ~WorldSetup() = default;
+    virtual ~WorldEventGenerator() = default;
+
+    /**
+     * @brief Clone this event generator for polymorphic copying.
+     * @return A deep copy of this event generator.
+     */
+    virtual std::unique_ptr<WorldEventGenerator> clone() const = 0;
 
     // Setup the world's initial state.
     virtual void setup(WorldInterface& world) = 0;
@@ -73,24 +79,34 @@ protected:
 };
 
 /**
- * Default implementation of WorldSetup that provides the standard setup behavior.
+ * Default implementation of WorldEventGenerator that provides standard setup behavior.
  */
-class DefaultWorldSetup : public WorldSetup {
+class DefaultWorldEventGenerator : public WorldEventGenerator {
 public:
-    ~DefaultWorldSetup() override;
+    ~DefaultWorldEventGenerator() override;
 
+    std::unique_ptr<WorldEventGenerator> clone() const override;
     void setup(WorldInterface& world) override;
-
     void addParticles(WorldInterface& world, uint32_t timestep, double deltaTimeSeconds) override;
+
+    // Event generation state.
+    double lastSimTime = 0.0;
+    double nextTopDrop = 0.33;
+    double nextInitialThrow = 0.17;
+    double nextPeriodicThrow = 0.83;
+    double nextRightThrow = 1.0;
+    bool initialThrowDone = false;
+    bool topDropDone = false;
 };
 
 /**
- * Configurable WorldSetup that allows toggling features on/off
+ * Configurable WorldEventGenerator that allows toggling features on/off.
  */
-class ConfigurableWorldSetup : public WorldSetup {
+class ConfigurableWorldEventGenerator : public WorldEventGenerator {
 public:
-    ~ConfigurableWorldSetup() override = default;
+    ~ConfigurableWorldEventGenerator() override = default;
 
+    std::unique_ptr<WorldEventGenerator> clone() const override;
     void setup(WorldInterface& world) override;
     void addParticles(WorldInterface& world, uint32_t timestep, double deltaTimeSeconds) override;
 
@@ -124,11 +140,21 @@ private:
     bool wallsEnabled = true;
     bool middleMetalWallEnabled = true;
 
-    // Particle generation control flags
+    // Particle generation control flags.
     bool leftThrowEnabled = true;
     bool rightThrowEnabled = true;
     bool topDropEnabled = true;
-    bool sweepEnabled = false;       // Currently disabled in DefaultWorldSetup
-    double rainRate = 0.0;           // Rain rate in drops per second, 0 = disabled
-    bool waterColumnEnabled = false; // Water column on left side (5 wide × 20 tall)
+    bool sweepEnabled = false;       // Currently disabled.
+    double rainRate = 0.0;           // Rain rate in drops per second, 0 = disabled.
+    bool waterColumnEnabled = false; // Water column on left side (5 wide × 20 tall).
+
+    // Event generation state (moved from static variables).
+    double lastSimTime = 0.0;
+    double nextTopDrop = 0.33;
+    double nextInitialThrow = 0.17;
+    double nextPeriodicThrow = 0.83;
+    double nextRightThrow = 1.0;
+    double nextRainDrop = 0.0;
+    bool initialThrowDone = false;
+    bool topDropDone = false;
 };

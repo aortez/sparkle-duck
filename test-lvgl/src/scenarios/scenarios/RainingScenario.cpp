@@ -1,8 +1,8 @@
-#include "../Scenario.h"
-#include "../ScenarioWorldSetup.h"
-#include "../ScenarioRegistry.h"
-#include "../../WorldInterface.h"
 #include "../../MaterialType.h"
+#include "../../WorldInterface.h"
+#include "../Scenario.h"
+#include "../ScenarioRegistry.h"
+#include "../ScenarioWorldEventGenerator.h"
 #include "spdlog/spdlog.h"
 #include <random>
 
@@ -22,10 +22,11 @@ public:
     const ScenarioMetadata& getMetadata() const override {
         return metadata_;
     }
-    
-    std::unique_ptr<WorldSetup> createWorldSetup() const override {
-        auto setup = std::make_unique<ScenarioWorldSetup>();
-        
+
+    std::unique_ptr<WorldEventGenerator> createWorldEventGenerator() const override
+    {
+        auto setup = std::make_unique<ScenarioWorldEventGenerator>();
+
         // Setup function - configure world size if possible
         setup->setSetupFunction([](WorldInterface& world) {
             spdlog::info("Setting up Raining scenario");
@@ -61,7 +62,7 @@ public:
         
         return setup;
     }
-    
+
 private:
     ScenarioMetadata metadata_;
 };

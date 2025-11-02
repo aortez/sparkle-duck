@@ -1,12 +1,12 @@
-#include <gtest/gtest.h>
-#include "../scenarios/ScenarioRegistry.h"
-#include "../scenarios/ScenarioWorldSetup.h"
-#include "../WorldInterface.h"
-#include "../World.h"
 #include "../SimulationManager.h"
+#include "../World.h"
+#include "../WorldInterface.h"
+#include "../scenarios/ScenarioRegistry.h"
+#include "../scenarios/ScenarioWorldEventGenerator.h"
 #include "spdlog/spdlog.h"
-#include <thread>
 #include <chrono>
+#include <gtest/gtest.h>
+#include <thread>
 
 /**
  * Unit tests specifically for scenario switching segfault debugging.
@@ -41,9 +41,10 @@ private:
             const ScenarioMetadata& getMetadata() const override {
                 return metadata_;
             }
-            
-            std::unique_ptr<WorldSetup> createWorldSetup() const override {
-                auto setup = std::make_unique<ScenarioWorldSetup>();
+
+            std::unique_ptr<WorldEventGenerator> createWorldEventGenerator() const override
+            {
+                auto setup = std::make_unique<ScenarioWorldEventGenerator>();
                 setup->setSetupFunction([](WorldInterface& world) {
                     spdlog::debug("Test scenario setup for World");
                     // Add some material to test state changes
@@ -51,7 +52,7 @@ private:
                 });
                 return setup;
             }
-            
+
         private:
             ScenarioMetadata metadata_;
         };
@@ -62,8 +63,9 @@ private:
     }
 };
 
-// Test basic scenario switching with WorldSetup
-TEST_F(ScenarioSwitchingTest, BasicWorldSetupSwitch) {
+// Test basic scenario switching with WorldEventGenerator
+TEST_F(ScenarioSwitchingTest, BasicWorldEventGeneratorSwitch)
+{
     auto world = std::make_unique<World>(10, 10);
     auto& registry = ScenarioRegistry::getInstance();
     
@@ -73,18 +75,18 @@ TEST_F(ScenarioSwitchingTest, BasicWorldSetupSwitch) {
     // Apply a scenario
     auto* scenario = registry.getScenario("test1");
     ASSERT_NE(scenario, nullptr);
-    
-    auto setup = scenario->createWorldSetup();
-    world->setWorldSetup(std::move(setup));
-    
+
+    auto setup = scenario->createWorldEventGenerator();
+    world->setWorldEventGenerator(std::move(setup));
+
     // Mass should have changed (scenario adds dirt)
     double afterMass = world->getTotalMass();
     EXPECT_GT(afterMass, initialMass) << "Scenario should have added material";
     
     // Switch to another scenario
     auto* scenario2 = registry.getScenario("test2");
-    world->setWorldSetup(scenario2->createWorldSetup());
-    
+    world->setWorldEventGenerator(scenario2->createWorldEventGenerator());
+
     // World should still be valid
     EXPECT_GT(world->getTotalMass(), 0.0);
 }
@@ -94,8 +96,8 @@ TEST_F(ScenarioSwitchingTest, NullSetupHandling) {
     auto world = std::make_unique<World>(10, 10);
     
     // Set null setup shouldn't crash
-    world->setWorldSetup(nullptr);
-    
+    world->setWorldEventGenerator(nullptr);
+
     // World should still be functional
     world->advanceTime(0.016);
     EXPECT_GE(world->getTotalMass(), 0.0);
@@ -110,7 +112,7 @@ TEST_F(ScenarioSwitchingTest, RapidScenarioSwitching) {
     for (int i = 0; i < 10; ++i) {
         auto* scenario = registry.getScenario(i % 2 == 0 ? "test1" : "test2");
         if (scenario) {
-            world->setWorldSetup(scenario->createWorldSetup());
+            world->setWorldEventGenerator(scenario->createWorldEventGenerator());
         }
         world->advanceTime(0.016);
     }
@@ -135,8 +137,8 @@ TEST_F(ScenarioSwitchingTest, ScenarioSwitchDuringPhysics) {
     
     // Switch scenario mid-simulation
     auto* scenario = registry.getScenario("test1");
-    world->setWorldSetup(scenario->createWorldSetup());
-    
+    world->setWorldEventGenerator(scenario->createWorldEventGenerator());
+
     // Continue physics
     for (int i = 0; i < 5; ++i) {
         world->advanceTime(0.016);
@@ -146,19 +148,20 @@ TEST_F(ScenarioSwitchingTest, ScenarioSwitchDuringPhysics) {
     EXPECT_GE(world->getTotalMass(), 0.0);
 }
 
-// Test scenario switching with ConfigurableWorldSetup
-TEST_F(ScenarioSwitchingTest, ConfigurableWorldSetupScenario) {
+// Test scenario switching with ConfigurableWorldEventGenerator
+TEST_F(ScenarioSwitchingTest, ConfigurableWorldEventGeneratorScenario)
+{
     auto world = std::make_unique<World>(10, 10);
-    
-    // Create a ConfigurableWorldSetup
-    auto configurableSetup = std::make_unique<ConfigurableWorldSetup>();
+
+    // Create a ConfigurableWorldEventGenerator
+    auto configurableSetup = std::make_unique<ConfigurableWorldEventGenerator>();
     configurableSetup->setLeftThrowEnabled(true);
     configurableSetup->setRightThrowEnabled(true);
     configurableSetup->setRainRate(0.1);
     
     // Apply it
-    world->setWorldSetup(std::move(configurableSetup));
-    
+    world->setWorldEventGenerator(std::move(configurableSetup));
+
     // Run physics to trigger rain
     for (int i = 0; i < 10; ++i) {
         world->advanceTime(0.016);
@@ -189,7 +192,7 @@ TEST_F(ScenarioSwitchingTest, ConcurrentScenarioSwitchAndPhysics) {
         for (int i = 0; i < 10 && !stop; ++i) {
             auto* scenario = registry.getScenario(i % 2 == 0 ? "test1" : "test2");
             if (scenario) {
-                world->setWorldSetup(scenario->createWorldSetup());
+                world->setWorldEventGenerator(scenario->createWorldEventGenerator());
                 switches++;
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -214,17 +217,17 @@ TEST_F(ScenarioSwitchingTest, MemoryOwnershipDuringSwitch) {
     auto& registry = ScenarioRegistry::getInstance();
     
     // Get current setup pointer before switch
-    auto* oldSetup = world->getWorldSetup();
-    
+    auto* oldSetup = world->getWorldEventGenerator();
+
     // Apply new scenario
     auto* scenario = registry.getScenario("test1");
-    world->setWorldSetup(scenario->createWorldSetup());
-    
+    world->setWorldEventGenerator(scenario->createWorldEventGenerator());
+
     // Old setup should be gone, new one should be valid
-    auto* newSetup = world->getWorldSetup();
+    auto* newSetup = world->getWorldEventGenerator();
     EXPECT_NE(newSetup, nullptr);
-    EXPECT_NE(newSetup, oldSetup) << "Should have new WorldSetup instance";
-    
+    EXPECT_NE(newSetup, oldSetup) << "Should have new WorldEventGenerator instance";
+
     // Try to use the world after switch
     world->advanceTime(0.016);
     EXPECT_GE(world->getTotalMass(), 0.0);
@@ -257,11 +260,12 @@ TEST_F(ScenarioSwitchingTest, DimensionRestorationOnScenarioSwitch) {
         const ScenarioMetadata& getMetadata() const override {
             return metadata_;
         }
-        
-        std::unique_ptr<WorldSetup> createWorldSetup() const override {
-            return std::make_unique<ScenarioWorldSetup>();
+
+        std::unique_ptr<WorldEventGenerator> createWorldEventGenerator() const override
+        {
+            return std::make_unique<ScenarioWorldEventGenerator>();
         }
-        
+
     private:
         ScenarioMetadata metadata_;
     };
