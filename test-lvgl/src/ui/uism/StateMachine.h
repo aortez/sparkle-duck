@@ -1,9 +1,9 @@
 #pragma once
 
-#include "uism/Event.h"
-#include "uism/states/State.h"
-#include "../core/StateMachineBase.h"
-#include "../core/StateMachineInterface.h"
+#include "Event.h"
+#include "states/State.h"
+#include "../../core/StateMachineBase.h"
+#include "../../core/StateMachineInterface.h"
 #include "EventProcessor.h"
 #include <memory>
 #include <string>

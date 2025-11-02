@@ -1,6 +1,6 @@
 #pragma once
 
-#include "uism/Event.h"
+#include "Event.h"
 #include <memory>
 
 namespace DirtSim {

@@ -25,7 +25,7 @@ Headless WebSocket server with autonomous physics simulation and real-time emoji
 
 ## API Commands
 
-All commands use snake_case. Legacy aliases supported for compatibility.
+All commands use snake_case. Legacy aliases supported on accident (remove these please).
 
 | Command | Description | Parameters |
 |---------|-------------|------------|
@@ -96,9 +96,10 @@ src/
 **Cleanup:**
 - Remove obsolete UIUpdateConsumer/SharedSimState
 - Fix UI build (separate from server)
+- Implement WebSocket-based UI stuff
 
 **Features:**
-- Python test client library
+- C++ remote test suite
 - WebRTC video streaming
 - mDNS service discovery
 
