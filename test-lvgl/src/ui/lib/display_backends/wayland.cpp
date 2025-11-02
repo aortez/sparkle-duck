@@ -21,7 +21,7 @@
 #include <unistd.h>
 #include <iostream>
 
-#include "../../uism/StateMachine.h"
+#include "../../state-machine/StateMachine.h"
 #include "lvgl/lvgl.h"
 #include <spdlog/spdlog.h>
 

@@ -1,5 +1,5 @@
 #include "../core/CrashDumpHandler.h"
-#include "uism/StateMachine.h"
+#include "state-machine/StateMachine.h"
 // TODO: Re-enable when integrating UI components:
 // #include "SimulatorUI.h"
 #include "../core/World.h"

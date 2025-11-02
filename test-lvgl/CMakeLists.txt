@@ -138,14 +138,14 @@ target_link_libraries(lvgl_linux PRIVATE nlohmann_json::nlohmann_json spdlog::sp
 add_executable(sparkle-duck-ui
     # UI application (client only).
     src/ui/main.cpp
-    src/ui/uism/StateMachine.cpp
-    src/ui/uism/EventProcessor.cpp
-    src/ui/uism/states/Disconnected.cpp
-    src/ui/uism/states/Paused.cpp
-    src/ui/uism/states/Shutdown.cpp
-    src/ui/uism/states/SimRunning.cpp
-    src/ui/uism/states/StartMenu.cpp
-    src/ui/uism/states/Startup.cpp
+    src/ui/state-machine/StateMachine.cpp
+    src/ui/state-machine/EventProcessor.cpp
+    src/ui/state-machine/states/Disconnected.cpp
+    src/ui/state-machine/states/Paused.cpp
+    src/ui/state-machine/states/Shutdown.cpp
+    src/ui/state-machine/states/SimRunning.cpp
+    src/ui/state-machine/states/StartMenu.cpp
+    src/ui/state-machine/states/Startup.cpp
     # TODO: Re-enable these after fixing includes:
     # src/ui/SimulatorUI.cpp
     # src/ui/UIUpdateConsumer.cpp
