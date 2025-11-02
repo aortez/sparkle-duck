@@ -86,6 +86,14 @@ void StateMachine::handleEvent(const Event& event)
                             "Server::StateMachine: State {} does not handle event {}",
                             State::getCurrentStateName(fsmState),
                             getEventName(Event{ evt }));
+
+                        // If this is an API command with sendResponse, send error.
+                        if constexpr (requires { evt.sendResponse(std::declval<typename std::decay_t<decltype(evt)>::Response>()); }) {
+                            auto errorMsg = std::string("Command not supported in state: ") + State::getCurrentStateName(fsmState);
+                            using EventType = std::decay_t<decltype(evt)>;
+                            using ResponseType = typename EventType::Response;
+                            evt.sendResponse(ResponseType::error(ApiError(errorMsg)));
+                        }
                     }
                 },
                 fsmState);

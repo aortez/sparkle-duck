@@ -12,10 +12,13 @@
  * @tparam Command The command type containing command parameters.
  * @tparam Response The response type (typically Result<OkayType, ErrorType>).
  */
-template <typename Command, typename Response>
+template <typename CommandT, typename ResponseT>
 struct CommandWithCallback {
-    Command command;
-    std::function<void(Response)> callback;
+    using Command = CommandT;
+    using Response = ResponseT;
+
+    CommandT command;
+    std::function<void(ResponseT)> callback;
 
     /**
      * @brief Send a response by invoking the callback.
@@ -23,7 +26,7 @@ struct CommandWithCallback {
      *
      * Asserts if called more than once to prevent double-send bugs.
      */
-    void sendResponse(Response&& response) const
+    void sendResponse(ResponseT&& response) const
     {
         assert(!responseSent && "Response already sent!");
         if (callback) {
