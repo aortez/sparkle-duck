@@ -1,5 +1,4 @@
-#include "../DirtSimStateMachine.h"
-#include "../SimulatorUI.h"
+#include "../StateMachine.h"
 #include "State.h"
 #include <spdlog/spdlog.h>
 

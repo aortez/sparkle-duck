@@ -1,8 +1,9 @@
 #pragma once
 
-#include "ApiError.h"
 #include "../../core/CommandWithCallback.h"
 #include "../../core/Result.h"
+#include "ApiError.h"
+#include <variant>
 
 namespace DirtSim {
 namespace Api {

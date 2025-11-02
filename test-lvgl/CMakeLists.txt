@@ -125,8 +125,8 @@ add_library(lvgl_linux STATIC ${LV_LINUX_SRC} ${LV_LINUX_BACKEND_SRC})
 target_include_directories(lvgl_linux PRIVATE ${LV_LINUX_INC} ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/src/ui/lib)
 target_link_libraries(lvgl_linux PRIVATE spdlog::spdlog)
 
-add_executable(sparkle-duck
-    # UI application.
+add_executable(sparkle-duck-ui
+    # UI application (client only).
     src/ui/main.cpp
     src/ui/StateMachine.cpp
     src/ui/EventProcessor.cpp
@@ -142,54 +142,24 @@ add_executable(sparkle-duck
     src/ui/ui_builders/LVGLBuilder.cpp
     src/ui/ui_builders/LVGLEventBuilder.cpp
 
-    # Core components (shared with server).
+    # Core components (rendering only, no physics).
     src/core/Cell.cpp
     src/core/Vector2d.cpp
     src/core/Vector2i.cpp
     src/core/World.cpp
-    src/core/Timers.cpp
-    src/core/WorldEventGenerator.cpp
     src/core/MaterialType.cpp
-    src/core/WorldInterface.cpp
-    src/core/WorldCalculatorBase.cpp
-    src/core/WorldCohesionCalculator.cpp
-    src/core/WorldSupportCalculator.cpp
-    src/core/WorldPressureCalculator.cpp
-    src/core/WorldAirResistanceCalculator.cpp
-    src/core/WorldCollisionCalculator.cpp
-    src/core/WorldAdhesionCalculator.cpp
-    src/core/WorldFrictionCalculator.cpp
     src/core/WorldDiagramGeneratorEmoji.cpp
     src/core/CrashDumpHandler.cpp
-    src/core/WorldInterpolationTool.cpp
-    src/core/EventRouter.cpp
     src/core/StateMachineBase.cpp
-
-    # Server components (for local simulation).
-    src/server/StateMachine.cpp
-    src/server/states/Startup.cpp
-    src/server/states/MainMenu.cpp
-    src/server/states/SimRunning.cpp
-    src/server/states/SimPaused.cpp
-    src/server/states/Config.cpp
-    src/server/states/Shutdown.cpp
-    src/server/scenarios/ScenarioWorldEventGenerator.cpp
-    src/server/scenarios/ScenarioRegistry.cpp
-    src/server/scenarios/scenarios/EmptyScenario.cpp
-    src/server/scenarios/scenarios/SandboxScenario.cpp
-    src/server/scenarios/scenarios/RainingScenario.cpp
-    src/server/scenarios/scenarios/DamBreakScenario.cpp
-    src/server/scenarios/scenarios/WaterEqualizationScenario.cpp
-    src/server/scenarios/scenarios/FallingDirtScenario.cpp
 
     # LVGL backend.
     ${LV_LINUX_SRC}
     ${LV_LINUX_BACKEND_SRC})
-target_link_libraries(sparkle-duck lvgl_linux lvgl lvgl::thorvg spdlog::spdlog m pthread ${PKG_CONFIG_LIB} ${SDL2_LIBRARIES} ${SDL2_IMAGE_LIBRARIES})
-target_include_directories(sparkle-duck PRIVATE ${SDL2_INCLUDE_DIRS} ${SDL2_IMAGE_INCLUDE_DIRS} ${CMAKE_SOURCE_DIR}/external/args)
+target_link_libraries(sparkle-duck-ui lvgl_linux lvgl lvgl::thorvg spdlog::spdlog datachannel-static m pthread ${PKG_CONFIG_LIB} ${SDL2_LIBRARIES} ${SDL2_IMAGE_LIBRARIES})
+target_include_directories(sparkle-duck-ui PRIVATE ${SDL2_INCLUDE_DIRS} ${SDL2_IMAGE_INCLUDE_DIRS} ${CMAKE_SOURCE_DIR}/external/args)
 
-# Enable warnings and treat them as errors for main executable
-target_compile_options(sparkle-duck PRIVATE -Wall -Wextra -Werror)
+# Enable warnings and treat them as errors for UI executable.
+target_compile_options(sparkle-duck-ui PRIVATE -Wall -Wextra -Werror)
 
 # Install the lvgl_linux library and its headers
 install(DIRECTORY src/lib/
@@ -202,7 +172,7 @@ install(TARGETS lvgl_linux
     ARCHIVE DESTINATION lib
 )
 
-add_custom_target (run COMMAND ${EXECUTABLE_OUTPUT_PATH}/sparkle-duck DEPENDS sparkle-duck)
+add_custom_target (run COMMAND ${EXECUTABLE_OUTPUT_PATH}/sparkle-duck-ui DEPENDS sparkle-duck-ui)
 
 # Headless WebSocket server executable.
 add_executable(sparkle-duck-server
@@ -247,7 +217,6 @@ add_executable(sparkle-duck-server
     src/core/CrashDumpHandler.cpp
     src/core/WorldInterpolationTool.cpp
     src/core/WorldDiagramGeneratorEmoji.cpp
-    src/core/EventRouter.cpp
     src/core/StateMachineBase.cpp)
 target_link_libraries(sparkle-duck-server lvgl_linux lvgl lvgl::thorvg spdlog::spdlog datachannel-static m pthread ${PKG_CONFIG_LIB} ${SDL2_LIBRARIES} ${SDL2_IMAGE_LIBRARIES})
 target_include_directories(sparkle-duck-server PRIVATE ${CMAKE_SOURCE_DIR}/external/args)
@@ -296,7 +265,6 @@ add_executable(sparkle-duck-tests
     src/core/WorldDiagramGeneratorEmoji.cpp
     src/core/CrashDumpHandler.cpp
     src/core/WorldInterpolationTool.cpp
-    src/core/EventRouter.cpp
     src/core/StateMachineBase.cpp
 
     # Server components (for test infrastructure).

@@ -1,5 +1,11 @@
 #pragma once
 
+// TODO: Redesign this for new architecture.
+// Old version ran local physics simulation.
+// New version should request world state from server via WebSocket and render it.
+
+#if 0 // Temporarily disabled - needs redesign for client/server architecture.
+
 #include "../../server/StateMachine.h"
 #include "../../core/WorldInterface.h"
 #include "lvgl/lvgl.h"
@@ -157,4 +163,6 @@ __attribute__((unused)) static void event_handler(lv_event_t * e) {
     }
 }
 
-} // namespace SimulatorLoop 
+} // namespace SimulatorLoop
+
+#endif // Disabled - needs redesign

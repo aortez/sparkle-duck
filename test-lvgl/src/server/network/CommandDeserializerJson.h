@@ -1,10 +1,11 @@
 #pragma once
 
-#include "../ApiCommands.h"
+#include "../api/ApiCommand.h"
 #include "lvgl/src/libs/thorvg/rapidjson/document.h"
 #include <string>
 
 namespace DirtSim {
+namespace Server {
 
 /**
  * @brief Deserializes JSON command strings into API command structs.
@@ -32,4 +33,5 @@ private:
     Result<ApiCommand, ApiError> handleReset(const rapidjson::Document& cmd);
 };
 
+} // namespace Server
 } // namespace DirtSim

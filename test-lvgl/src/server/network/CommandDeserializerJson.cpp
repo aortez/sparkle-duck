@@ -1,8 +1,9 @@
 #include "CommandDeserializerJson.h"
-#include "../MaterialType.h"
-#include "spdlog/spdlog.h"
+#include "../../core/MaterialType.h"
+#include <spdlog/spdlog.h>
 
 namespace DirtSim {
+namespace Server {
 
 Result<ApiCommand, ApiError> CommandDeserializerJson::deserialize(const std::string& commandJson)
 {
@@ -159,4 +160,5 @@ Result<ApiCommand, ApiError> CommandDeserializerJson::handleReset(const rapidjso
     return Result<ApiCommand, ApiError>::okay(command);
 }
 
+} // namespace Server
 } // namespace DirtSim

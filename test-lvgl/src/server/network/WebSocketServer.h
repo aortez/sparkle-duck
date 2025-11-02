@@ -1,6 +1,7 @@
 #pragma once
 
-#include "../StateMachineInterface.h"
+#include "../../core/StateMachineInterface.h"
+#include "../Event.h"
 #include "CommandDeserializerJson.h"
 #include "ResponseSerializerJson.h"
 #include <memory>
@@ -8,22 +9,11 @@
 #include <string>
 
 namespace DirtSim {
+namespace Server {
 
-/**
- * @brief WebSocket server for remote simulation control.
- *
- * Listens for WebSocket connections, deserializes JSON commands,
- * wraps them in Cwcs with response callbacks, and queues them to
- * the state machine for processing.
- */
 class WebSocketServer {
 public:
-    /**
-     * @brief Construct WebSocket server.
-     * @param stateMachine The state machine to send events to.
-     * @param port The port to listen on.
-     */
-    explicit WebSocketServer(StateMachineInterface& stateMachine, uint16_t port = 8080);
+    explicit WebSocketServer(StateMachineInterface<Event>& stateMachine, uint16_t port = 8080);
 
     /**
      * @brief Start the server.
@@ -42,7 +32,7 @@ public:
     uint16_t getPort() const;
 
 private:
-    StateMachineInterface& stateMachine_;
+    StateMachineInterface<Event>& stateMachine_;
     std::unique_ptr<rtc::WebSocketServer> server_;
     CommandDeserializerJson deserializer_;
     ResponseSerializerJson serializer_;
@@ -69,4 +59,5 @@ private:
     Event createCwcForCommand(const ApiCommand& command, std::shared_ptr<rtc::WebSocket> ws);
 };
 
+} // namespace Server
 } // namespace DirtSim

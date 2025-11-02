@@ -6,9 +6,9 @@
 #include "../Event.h"
 
 namespace DirtSim {
+namespace Server {
 
-// Forward declarations
-class DirtSimStateMachine;
+class StateMachine;
 
 namespace State {
 
@@ -43,8 +43,8 @@ using Any = std::variant<
  * @brief Initial startup state - loading resources and initializing systems.
  */
 struct Startup {
-    State::Any onEvent(const InitCompleteEvent& evt, DirtSimStateMachine& dsm);
-    
+    State::Any onEvent(const InitCompleteEvent& evt, StateMachine& dsm);
+
     static constexpr const char* name() { return "Startup"; }
 };
 
@@ -52,13 +52,13 @@ struct Startup {
  * @brief Main menu state - user can start simulation or access settings.
  */
 struct MainMenu {
-    void onEnter(DirtSimStateMachine& dsm);
-    void onExit(DirtSimStateMachine& dsm);
-    
-    State::Any onEvent(const StartSimulationCommand& cmd, DirtSimStateMachine& dsm);
-    State::Any onEvent(const OpenConfigCommand& cmd, DirtSimStateMachine& dsm);
-    State::Any onEvent(const SelectMaterialCommand& cmd, DirtSimStateMachine& dsm);
-    
+    void onEnter(StateMachine& dsm);
+    void onExit(StateMachine& dsm);
+
+    State::Any onEvent(const StartSimulationCommand& cmd, StateMachine& dsm);
+    State::Any onEvent(const OpenConfigCommand& cmd, StateMachine& dsm);
+    State::Any onEvent(const SelectMaterialCommand& cmd, StateMachine& dsm);
+
     static constexpr const char* name() { return "MainMenu"; }
 };
 
@@ -75,71 +75,71 @@ struct SimRunning {
     };
     InteractionMode interactionMode = InteractionMode::NONE;
 
-    void onEnter(DirtSimStateMachine& dsm);
-    void onExit(DirtSimStateMachine& dsm);
+    void onEnter(StateMachine& dsm);
+    void onExit(StateMachine& dsm);
 
-    Any onEvent(const AdvanceSimulationCommand& cmd, DirtSimStateMachine& dsm);
-    Any onEvent(const ApplyScenarioCommand& cmd, DirtSimStateMachine& dsm);
-    Any onEvent(const ResizeWorldCommand& cmd, DirtSimStateMachine& dsm);
-    Any onEvent(const DirtSim::Api::CellGet::Cwc& cwc, DirtSimStateMachine& dsm);
-    Any onEvent(const DirtSim::Api::CellSet::Cwc& cwc, DirtSimStateMachine& dsm);
-    Any onEvent(const DirtSim::Api::GravitySet::Cwc& cwc, DirtSimStateMachine& dsm);
-    Any onEvent(const DirtSim::Api::Reset::Cwc& cwc, DirtSimStateMachine& dsm);
-    Any onEvent(const DirtSim::Api::StateGet::Cwc& cwc, DirtSimStateMachine& dsm);
-    Any onEvent(const DirtSim::Api::StepN::Cwc& cwc, DirtSimStateMachine& dsm);
-    Any onEvent(const PauseCommand& cmd, DirtSimStateMachine& dsm);
-    Any onEvent(const ResetSimulationCommand& cmd, DirtSimStateMachine& dsm);
-    Any onEvent(const SaveWorldCommand& cmd, DirtSimStateMachine& dsm);
-    Any onEvent(const StepBackwardCommand& cmd, DirtSimStateMachine& dsm);
-    Any onEvent(const StepForwardCommand& cmd, DirtSimStateMachine& dsm);
-    Any onEvent(const ToggleTimeReversalCommand& cmd, DirtSimStateMachine& dsm);
-    Any onEvent(const SetWaterCohesionCommand& cmd, DirtSimStateMachine& dsm);
-    Any onEvent(const SetWaterViscosityCommand& cmd, DirtSimStateMachine& dsm);
-    Any onEvent(const SetWaterPressureThresholdCommand& cmd, DirtSimStateMachine& dsm);
-    Any onEvent(const SetWaterBuoyancyCommand& cmd, DirtSimStateMachine& dsm);
-    Any onEvent(const LoadWorldCommand& cmd, DirtSimStateMachine& dsm);
-    Any onEvent(const SetTimestepCommand& cmd, DirtSimStateMachine& dsm);
-    Any onEvent(const MouseDownEvent& evt, DirtSimStateMachine& dsm);
-    Any onEvent(const MouseMoveEvent& evt, DirtSimStateMachine& dsm);
-    Any onEvent(const MouseUpEvent& evt, DirtSimStateMachine& dsm);
-    Any onEvent(const SelectMaterialCommand& cmd, DirtSimStateMachine& dsm);
-    Any onEvent(const SetTimescaleCommand& cmd, DirtSimStateMachine& dsm);
-    Any onEvent(const SetElasticityCommand& cmd, DirtSimStateMachine& dsm);
-    Any onEvent(const SetDynamicStrengthCommand& cmd, DirtSimStateMachine& dsm);
-    Any onEvent(const SetGravityCommand& cmd, DirtSimStateMachine& dsm);
-    Any onEvent(const SetPressureScaleCommand& cmd, DirtSimStateMachine& dsm);
-    Any onEvent(const SetPressureScaleWorldBCommand& cmd, DirtSimStateMachine& dsm);
-    Any onEvent(const SetCohesionForceStrengthCommand& cmd, DirtSimStateMachine& dsm);
-    Any onEvent(const SetAdhesionStrengthCommand& cmd, DirtSimStateMachine& dsm);
-    Any onEvent(const SetViscosityStrengthCommand& cmd, DirtSimStateMachine& dsm);
-    Any onEvent(const SetFrictionStrengthCommand& cmd, DirtSimStateMachine& dsm);
-    Any onEvent(const SetContactFrictionStrengthCommand& cmd, DirtSimStateMachine& dsm);
-    Any onEvent(const SetCOMCohesionRangeCommand& cmd, DirtSimStateMachine& dsm);
-    Any onEvent(const SetAirResistanceCommand& cmd, DirtSimStateMachine& dsm);
-    Any onEvent(const ToggleHydrostaticPressureCommand& cmd, DirtSimStateMachine& dsm);
-    Any onEvent(const ToggleDynamicPressureCommand& cmd, DirtSimStateMachine& dsm);
-    Any onEvent(const TogglePressureDiffusionCommand& cmd, DirtSimStateMachine& dsm);
-    Any onEvent(const SetHydrostaticPressureStrengthCommand& cmd, DirtSimStateMachine& dsm);
-    Any onEvent(const SetDynamicPressureStrengthCommand& cmd, DirtSimStateMachine& dsm);
-    Any onEvent(const SetRainRateCommand& cmd, DirtSimStateMachine& dsm);
+    Any onEvent(const AdvanceSimulationCommand& cmd, StateMachine& dsm);
+    Any onEvent(const ApplyScenarioCommand& cmd, StateMachine& dsm);
+    Any onEvent(const ResizeWorldCommand& cmd, StateMachine& dsm);
+    Any onEvent(const DirtSim::Api::CellGet::Cwc& cwc, StateMachine& dsm);
+    Any onEvent(const DirtSim::Api::CellSet::Cwc& cwc, StateMachine& dsm);
+    Any onEvent(const DirtSim::Api::GravitySet::Cwc& cwc, StateMachine& dsm);
+    Any onEvent(const DirtSim::Api::Reset::Cwc& cwc, StateMachine& dsm);
+    Any onEvent(const DirtSim::Api::StateGet::Cwc& cwc, StateMachine& dsm);
+    Any onEvent(const DirtSim::Api::StepN::Cwc& cwc, StateMachine& dsm);
+    Any onEvent(const PauseCommand& cmd, StateMachine& dsm);
+    Any onEvent(const ResetSimulationCommand& cmd, StateMachine& dsm);
+    Any onEvent(const SaveWorldCommand& cmd, StateMachine& dsm);
+    Any onEvent(const StepBackwardCommand& cmd, StateMachine& dsm);
+    Any onEvent(const StepForwardCommand& cmd, StateMachine& dsm);
+    Any onEvent(const ToggleTimeReversalCommand& cmd, StateMachine& dsm);
+    Any onEvent(const SetWaterCohesionCommand& cmd, StateMachine& dsm);
+    Any onEvent(const SetWaterViscosityCommand& cmd, StateMachine& dsm);
+    Any onEvent(const SetWaterPressureThresholdCommand& cmd, StateMachine& dsm);
+    Any onEvent(const SetWaterBuoyancyCommand& cmd, StateMachine& dsm);
+    Any onEvent(const LoadWorldCommand& cmd, StateMachine& dsm);
+    Any onEvent(const SetTimestepCommand& cmd, StateMachine& dsm);
+    Any onEvent(const MouseDownEvent& evt, StateMachine& dsm);
+    Any onEvent(const MouseMoveEvent& evt, StateMachine& dsm);
+    Any onEvent(const MouseUpEvent& evt, StateMachine& dsm);
+    Any onEvent(const SelectMaterialCommand& cmd, StateMachine& dsm);
+    Any onEvent(const SetTimescaleCommand& cmd, StateMachine& dsm);
+    Any onEvent(const SetElasticityCommand& cmd, StateMachine& dsm);
+    Any onEvent(const SetDynamicStrengthCommand& cmd, StateMachine& dsm);
+    Any onEvent(const SetGravityCommand& cmd, StateMachine& dsm);
+    Any onEvent(const SetPressureScaleCommand& cmd, StateMachine& dsm);
+    Any onEvent(const SetPressureScaleWorldBCommand& cmd, StateMachine& dsm);
+    Any onEvent(const SetCohesionForceStrengthCommand& cmd, StateMachine& dsm);
+    Any onEvent(const SetAdhesionStrengthCommand& cmd, StateMachine& dsm);
+    Any onEvent(const SetViscosityStrengthCommand& cmd, StateMachine& dsm);
+    Any onEvent(const SetFrictionStrengthCommand& cmd, StateMachine& dsm);
+    Any onEvent(const SetContactFrictionStrengthCommand& cmd, StateMachine& dsm);
+    Any onEvent(const SetCOMCohesionRangeCommand& cmd, StateMachine& dsm);
+    Any onEvent(const SetAirResistanceCommand& cmd, StateMachine& dsm);
+    Any onEvent(const ToggleHydrostaticPressureCommand& cmd, StateMachine& dsm);
+    Any onEvent(const ToggleDynamicPressureCommand& cmd, StateMachine& dsm);
+    Any onEvent(const TogglePressureDiffusionCommand& cmd, StateMachine& dsm);
+    Any onEvent(const SetHydrostaticPressureStrengthCommand& cmd, StateMachine& dsm);
+    Any onEvent(const SetDynamicPressureStrengthCommand& cmd, StateMachine& dsm);
+    Any onEvent(const SetRainRateCommand& cmd, StateMachine& dsm);
 
     // Handle immediate events routed through push system
-    Any onEvent(const GetFPSCommand& cmd, DirtSimStateMachine& dsm);
-    Any onEvent(const GetSimStatsCommand& cmd, DirtSimStateMachine& dsm);
-    Any onEvent(const ToggleDebugCommand& cmd, DirtSimStateMachine& dsm);
-    Any onEvent(const ToggleCohesionForceCommand& cmd, DirtSimStateMachine& dsm);
-    Any onEvent(const ToggleTimeHistoryCommand& cmd, DirtSimStateMachine& dsm);
-    Any onEvent(const PrintAsciiDiagramCommand& cmd, DirtSimStateMachine& dsm);
-    Any onEvent(const SpawnDirtBallCommand& cmd, DirtSimStateMachine& dsm);
-    Any onEvent(const SetFragmentationCommand& cmd, DirtSimStateMachine& dsm);
-    Any onEvent(const SetPressureSystemCommand& cmd, DirtSimStateMachine& dsm);
-    Any onEvent(const ToggleWallsCommand& cmd, DirtSimStateMachine& dsm);
-    Any onEvent(const ToggleWaterColumnCommand& cmd, DirtSimStateMachine& dsm);
-    Any onEvent(const ToggleLeftThrowCommand& cmd, DirtSimStateMachine& dsm);
-    Any onEvent(const ToggleRightThrowCommand& cmd, DirtSimStateMachine& dsm);
-    Any onEvent(const ToggleQuadrantCommand& cmd, DirtSimStateMachine& dsm);
-    Any onEvent(const ToggleFrameLimitCommand& cmd, DirtSimStateMachine& dsm);
-    Any onEvent(const QuitApplicationCommand& cmd, DirtSimStateMachine& dsm);
+    Any onEvent(const GetFPSCommand& cmd, StateMachine& dsm);
+    Any onEvent(const GetSimStatsCommand& cmd, StateMachine& dsm);
+    Any onEvent(const ToggleDebugCommand& cmd, StateMachine& dsm);
+    Any onEvent(const ToggleCohesionForceCommand& cmd, StateMachine& dsm);
+    Any onEvent(const ToggleTimeHistoryCommand& cmd, StateMachine& dsm);
+    Any onEvent(const PrintAsciiDiagramCommand& cmd, StateMachine& dsm);
+    Any onEvent(const SpawnDirtBallCommand& cmd, StateMachine& dsm);
+    Any onEvent(const SetFragmentationCommand& cmd, StateMachine& dsm);
+    Any onEvent(const SetPressureSystemCommand& cmd, StateMachine& dsm);
+    Any onEvent(const ToggleWallsCommand& cmd, StateMachine& dsm);
+    Any onEvent(const ToggleWaterColumnCommand& cmd, StateMachine& dsm);
+    Any onEvent(const ToggleLeftThrowCommand& cmd, StateMachine& dsm);
+    Any onEvent(const ToggleRightThrowCommand& cmd, StateMachine& dsm);
+    Any onEvent(const ToggleQuadrantCommand& cmd, StateMachine& dsm);
+    Any onEvent(const ToggleFrameLimitCommand& cmd, StateMachine& dsm);
+    Any onEvent(const QuitApplicationCommand& cmd, StateMachine& dsm);
 
     static constexpr const char* name() { return "SimRunning"; }
 };
@@ -156,26 +156,26 @@ struct SimPaused {
     // Store the timescale before pausing so we can restore it
     double previousTimescale = 1.0;
 
-    void onEnter(DirtSimStateMachine& dsm);
-    void onExit(DirtSimStateMachine& dsm);
+    void onEnter(StateMachine& dsm);
+    void onExit(StateMachine& dsm);
 
-    Any onEvent(const ResumeCommand& cmd, DirtSimStateMachine& dsm);
-    Any onEvent(const ResetSimulationCommand& cmd, DirtSimStateMachine& dsm);
-    Any onEvent(const AdvanceSimulationCommand& cmd, DirtSimStateMachine& dsm);
-    Any onEvent(const MouseDownEvent& evt, DirtSimStateMachine& dsm);
-    Any onEvent(const MouseMoveEvent& evt, DirtSimStateMachine& dsm);
-    Any onEvent(const MouseUpEvent& evt, DirtSimStateMachine& dsm);
-    Any onEvent(const SelectMaterialCommand& cmd, DirtSimStateMachine& dsm);
-    
+    Any onEvent(const ResumeCommand& cmd, StateMachine& dsm);
+    Any onEvent(const ResetSimulationCommand& cmd, StateMachine& dsm);
+    Any onEvent(const AdvanceSimulationCommand& cmd, StateMachine& dsm);
+    Any onEvent(const MouseDownEvent& evt, StateMachine& dsm);
+    Any onEvent(const MouseMoveEvent& evt, StateMachine& dsm);
+    Any onEvent(const MouseUpEvent& evt, StateMachine& dsm);
+    Any onEvent(const SelectMaterialCommand& cmd, StateMachine& dsm);
+
     // Handle immediate events routed through push system
-    Any onEvent(const GetFPSCommand& cmd, DirtSimStateMachine& dsm);
-    Any onEvent(const GetSimStatsCommand& cmd, DirtSimStateMachine& dsm);
-    Any onEvent(const ToggleDebugCommand& cmd, DirtSimStateMachine& dsm);
-    Any onEvent(const ToggleCohesionForceCommand& cmd, DirtSimStateMachine& dsm);
-    Any onEvent(const ToggleTimeHistoryCommand& cmd, DirtSimStateMachine& dsm);
-    Any onEvent(const PrintAsciiDiagramCommand& cmd, DirtSimStateMachine& dsm);
-    Any onEvent(const SpawnDirtBallCommand& cmd, DirtSimStateMachine& dsm);
-    Any onEvent(const QuitApplicationCommand& cmd, DirtSimStateMachine& dsm);
+    Any onEvent(const GetFPSCommand& cmd, StateMachine& dsm);
+    Any onEvent(const GetSimStatsCommand& cmd, StateMachine& dsm);
+    Any onEvent(const ToggleDebugCommand& cmd, StateMachine& dsm);
+    Any onEvent(const ToggleCohesionForceCommand& cmd, StateMachine& dsm);
+    Any onEvent(const ToggleTimeHistoryCommand& cmd, StateMachine& dsm);
+    Any onEvent(const PrintAsciiDiagramCommand& cmd, StateMachine& dsm);
+    Any onEvent(const SpawnDirtBallCommand& cmd, StateMachine& dsm);
+    Any onEvent(const QuitApplicationCommand& cmd, StateMachine& dsm);
 
     static constexpr const char* name() { return "SimPaused"; }
 };
@@ -216,11 +216,11 @@ struct Saving {
  * @brief Configuration/settings state.
  */
 struct Config {
-    void onEnter(DirtSimStateMachine& dsm);
-    void onExit(DirtSimStateMachine& dsm);
-    
-    Any onEvent(const StartSimulationCommand& cmd, DirtSimStateMachine& dsm);
-    
+    void onEnter(StateMachine& dsm);
+    void onExit(StateMachine& dsm);
+
+    Any onEvent(const StartSimulationCommand& cmd, StateMachine& dsm);
+
     static constexpr const char* name() { return "Config"; }
 };
 
@@ -236,8 +236,8 @@ struct Demo {
  * @brief Shutdown state - cleanup and exit.
  */
 struct Shutdown {
-    void onEnter(DirtSimStateMachine& dsm);
-    
+    void onEnter(StateMachine& dsm);
+
     static constexpr const char* name() { return "Shutdown"; }
 };
 
@@ -251,4 +251,5 @@ inline std::string getCurrentStateName(const Any& state) {
 }
 
 } // namespace State
+} // namespace Server
 } // namespace DirtSim

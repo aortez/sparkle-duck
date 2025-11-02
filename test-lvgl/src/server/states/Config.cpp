@@ -1,8 +1,8 @@
+#include "../../ui/ui_builders/LVGLEventBuilder.h"
+#include "../StateMachine.h"
 #include "State.h"
-#include "../DirtSimStateMachine.h"
-#include "../ui/LVGLEventBuilder.h"
-#include <spdlog/spdlog.h>
 #include <memory>
+#include <spdlog/spdlog.h>
 
 namespace DirtSim {
 namespace State {

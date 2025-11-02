@@ -1,5 +1,5 @@
-#include "../DirtSimStateMachine.h"
-#include "../WorldEventGenerator.h"
+#include "../../core/WorldEventGenerator.h"
+#include "../StateMachine.h"
 #include "State.h"
 #include <spdlog/spdlog.h>
 

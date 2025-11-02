@@ -43,12 +43,11 @@ public:
     std::string getCurrentStateName() const override { return State::getCurrentStateName(fsmState); }
     void processEvents() override;
 
-    EventRouter& getEventRouter() { return *eventRouter; }
     SharedSimState& getSharedState() { return sharedState; }
     bool resizeWorldIfNeeded(uint32_t requiredWidth, uint32_t requiredHeight);
 
     std::unique_ptr<WorldInterface> world;
-    EventProcessor<Event, StateMachine> eventProcessor;
+    EventProcessor eventProcessor;
 
     uint32_t defaultWidth = 28;
     uint32_t defaultHeight = 28;
@@ -56,7 +55,6 @@ public:
 private:
     State::Any fsmState{ State::Startup{} };
     SharedSimState sharedState;
-    std::unique_ptr<EventRouter> eventRouter;
 
     /**
      * @brief Transition to a new state.

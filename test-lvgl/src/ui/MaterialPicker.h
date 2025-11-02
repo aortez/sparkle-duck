@@ -1,6 +1,6 @@
 #pragma once
 
-#include "MaterialType.h"
+#include "../core/MaterialType.h"
 #include "lvgl/lvgl.h"
 
 #include <array>

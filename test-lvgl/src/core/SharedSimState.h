@@ -31,7 +31,7 @@ struct UIUpdateMetrics {
 class UIUpdateQueue {
 private:
     mutable std::mutex mutex_;
-    std::optional<UIUpdateEvent> latest_;
+    std::optional<DirtSim::UiUpdateEvent> latest_;
 
     // Metrics.
     std::atomic<uint64_t> pushCount_{ 0 };
@@ -43,7 +43,7 @@ public:
      * @brief Push a new UI update (latest-update-wins).
      * If an update is already pending, it will be replaced.
      */
-    void push(UIUpdateEvent update)
+    void push(DirtSim::UiUpdateEvent update)
     {
         std::lock_guard<std::mutex> lock(mutex_);
         if (latest_.has_value()) {
@@ -57,7 +57,7 @@ public:
      * @brief Pop the latest update if available.
      * @return The latest update or empty optional if none pending.
      */
-    std::optional<UIUpdateEvent> popLatest()
+    std::optional<DirtSim::UiUpdateEvent> popLatest()
     {
         std::lock_guard<std::mutex> lock(mutex_);
         auto result = std::move(latest_);
@@ -222,13 +222,13 @@ public:
     /**
      * @brief Push a UI update from simulation thread.
      */
-    void pushUIUpdate(UIUpdateEvent update) { uiUpdateQueue_.push(std::move(update)); }
+    void pushUIUpdate(DirtSim::UiUpdateEvent update) { uiUpdateQueue_.push(std::move(update)); }
 
     /**
      * @brief Pop the latest UI update for consumption by UI thread.
      * @return Latest update or empty if none pending.
      */
-    std::optional<UIUpdateEvent> popUIUpdate() { return uiUpdateQueue_.popLatest(); }
+    std::optional<DirtSim::UiUpdateEvent> popUIUpdate() { return uiUpdateQueue_.popLatest(); }
 
     /**
      * @brief Get UI update queue metrics for performance monitoring.

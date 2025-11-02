@@ -1,11 +1,12 @@
 #pragma once
 
-#include "../ApiCommands.h"
+#include "../api/ApiCommand.h"
 #include "lvgl/src/libs/thorvg/rapidjson/stringbuffer.h"
 #include "lvgl/src/libs/thorvg/rapidjson/writer.h"
 #include <string>
 
 namespace DirtSim {
+namespace Server {
 
 /**
  * @brief Serializes API response objects into JSON strings.
@@ -78,4 +79,5 @@ public:
     }
 };
 
+} // namespace Server
 } // namespace DirtSim

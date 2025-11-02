@@ -1,9 +1,10 @@
 #include "WebSocketServer.h"
-#include "spdlog/spdlog.h"
+#include <spdlog/spdlog.h>
 
 namespace DirtSim {
+namespace Server {
 
-WebSocketServer::WebSocketServer(StateMachineInterface& stateMachine, uint16_t port)
+WebSocketServer::WebSocketServer(StateMachineInterface<Event>& stateMachine, uint16_t port)
     : stateMachine_(stateMachine)
 {
     // Create WebSocket server configuration.
@@ -150,4 +151,5 @@ Event WebSocketServer::createCwcForCommand(
         command);
 }
 
+} // namespace Server
 } // namespace DirtSim

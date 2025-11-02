@@ -1,5 +1,4 @@
 #include "StateMachine.h"
-#include "../core/EventDispatcher.h"
 #include "../core/World.h"
 #include "../core/WorldEventGenerator.h"
 #include "scenarios/Scenario.h"
@@ -12,10 +11,7 @@
 namespace DirtSim {
 namespace Server {
 
-StateMachine::StateMachine()
-    : eventProcessor(),
-      sharedState(),
-      eventRouter(std::make_unique<EventRouter>(*this, sharedState, eventProcessor.getEventQueue()))
+StateMachine::StateMachine() : eventProcessor(), sharedState()
 {
     spdlog::info("Server::StateMachine initialized in headless mode in state: {}", getCurrentStateName());
 

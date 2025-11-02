@@ -1,14 +1,12 @@
 #pragma once
 
-#include "Event.h"
-
 namespace DirtSim {
 
+template <typename EventType>
 class StateMachineInterface {
 public:
     virtual ~StateMachineInterface() = default;
-
-    virtual void queueEvent(const Event& event) = 0;
+    virtual void queueEvent(const EventType& event) = 0;
 };
 
 } // namespace DirtSim
