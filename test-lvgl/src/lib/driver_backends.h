@@ -18,7 +18,6 @@
 #pragma once
 
 class WorldInterface;
-class SimulationManager;
 
 /*
  * Register all available backends

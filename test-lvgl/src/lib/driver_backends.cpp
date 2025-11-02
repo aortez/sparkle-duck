@@ -23,7 +23,6 @@
 #include "lvgl/lvgl.h"
 
 #include "../WorldInterface.h"
-#include "../SimulationManager.h"
 #include "driver_backends.h"
 #include "simulator_settings.h"
 #include "simulator_util.h"

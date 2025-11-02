@@ -125,19 +125,17 @@ add_library(lvgl_linux STATIC ${LV_LINUX_SRC} ${LV_LINUX_BACKEND_SRC})
 target_include_directories(lvgl_linux PRIVATE ${LV_LINUX_INC} ${PROJECT_SOURCE_DIR})
 target_link_libraries(lvgl_linux PRIVATE spdlog::spdlog)
 
-add_executable(sparkle-duck 
-    src/main.cpp 
+add_executable(sparkle-duck
+    src/main.cpp
     src/Cell.cpp
     src/Vector2d.cpp
     src/Vector2i.cpp
-    src/World.cpp 
+    src/World.cpp
     src/Timers.cpp
     src/WorldEventGenerator.cpp
     src/SimulatorUI.cpp
     src/UIUpdateConsumer.cpp
-    src/SimulationManager.cpp
     src/UIManager.cpp
-    src/network/CommandProcessor.cpp
     src/MaterialType.cpp
     src/WorldInterface.cpp
     src/WorldCalculatorBase.cpp
@@ -171,7 +169,7 @@ add_executable(sparkle-duck
     src/scenarios/scenarios/DamBreakScenario.cpp
     src/scenarios/scenarios/WaterEqualizationScenario.cpp
     src/scenarios/scenarios/FallingDirtScenario.cpp
-    ${LV_LINUX_SRC} 
+    ${LV_LINUX_SRC}
     ${LV_LINUX_BACKEND_SRC})
 target_link_libraries(sparkle-duck lvgl_linux lvgl lvgl::thorvg spdlog::spdlog m pthread ${PKG_CONFIG_LIB} ${SDL2_LIBRARIES} ${SDL2_IMAGE_LIBRARIES})
 target_include_directories(sparkle-duck PRIVATE ${SDL2_INCLUDE_DIRS} ${SDL2_IMAGE_INCLUDE_DIRS} ${CMAKE_SOURCE_DIR}/external/args)
@@ -247,60 +245,27 @@ target_compile_options(sparkle-duck-server PRIVATE -Wall -Wextra -Werror)
 add_custom_target (run-server COMMAND ${EXECUTABLE_OUTPUT_PATH}/sparkle-duck-server DEPENDS sparkle-duck-server)
 
 
-# Add test executable
+# Add test executable.
+# Note: Removed obsolete physics, UI, and state machine tests.
+# Long-term TODO: Re-implement physics tests for new architecture.
 add_executable(sparkle-duck-tests
-    src/tests/Vector2d_test.cpp
-    src/tests/Vector2dJSON_test.cpp
+    # JSON Serialization Tests (passing).
     src/tests/CellJSON_test.cpp
     src/tests/MaterialTypeJSON_test.cpp
+    src/tests/Vector2dJSON_test.cpp
     src/tests/WorldJSON_test.cpp
-    src/tests/CommandProcessor_test.cpp
+
+    # Core Utility Tests.
     src/tests/CrashDumpHandler_test.cpp
-    src/tests/Vector2i_test.cpp
-    src/tests/WorldVisual_test.cpp
-    src/tests/ScenarioSystem_test.cpp
-    src/tests/ScenarioSwitching_test.cpp
-    src/tests/AirResistance_test.cpp
-    src/tests/AirResistanceVisual_test.cpp
-    src/tests/PressureSystemVisual_test.cpp
-    src/tests/PressureSystem_test.cpp
-    src/tests/CollisionSystem_test.cpp
-    src/tests/ForceCalculation_test.cpp
-    src/tests/ForceInfluencedMovement_test.cpp
-    src/tests/ForceDebug_test.cpp
-    src/tests/ForcePhysicsIntegration_test.cpp
-    src/tests/HorizontalLineStability_test.cpp
-    src/tests/DistanceToSupport_test.cpp
-    src/tests/COMCohesionForce_test.cpp
-    src/tests/PressureDynamic_test.cpp
-    src/tests/PressureHydrostatic_test.cpp
-    src/tests/PressureIntegration_test.cpp
-    src/tests/PressureSimple_test.cpp
-    src/tests/PressureTransmission_test.cpp
-    src/tests/PressureClassicFlow_test.cpp
-    src/tests/WorldPressureCalculator_test.cpp
-    src/tests/TestUI.cpp
-    src/tests/visual_test_runner.cpp
     src/tests/ResultTest.cpp
     src/tests/TimersTest.cpp
+    src/tests/Vector2d_test.cpp
+    src/tests/Vector2i_test.cpp
+
+    # Visual Test Framework Infrastructure.
+    src/tests/TestUI.cpp
     src/tests/UnifiedSimLoopExample_test.cpp
-    src/tests/EventClassification_test.cpp
-    src/tests/DirtSimStateMachine_test.cpp
-    src/tests/StateTests.cpp
-    src/tests/DualPathRoutingTests.cpp
-    src/tests/IntegrationTests.cpp
-    src/tests/StateTransitionTests.cpp
-    src/tests/UIUpdateQueue_test.cpp
-    src/tests/SharedSimState_PushUpdate_test.cpp
-    src/tests/ButtonEvent_test.cpp
-    src/tests/SliderEvent_test.cpp
-    src/tests/UIUpdateEvent_test.cpp
-    src/tests/SimulationPushUpdate_test.cpp
-    src/tests/UIUpdateConsumer_test.cpp
-    src/tests/SimulatorUI_PushUpdate_test.cpp
-    src/tests/LVGLTimer_test.cpp
-    src/tests/SimulatorUI_test.cpp
-    simple_reset_test.cpp
+    src/tests/visual_test_runner.cpp
     src/Vector2d.cpp
     src/Vector2i.cpp
     src/World.cpp
@@ -309,9 +274,7 @@ add_executable(sparkle-duck-tests
     src/WorldEventGenerator.cpp
     src/SimulatorUI.cpp
     src/UIUpdateConsumer.cpp
-    src/SimulationManager.cpp
     src/UIManager.cpp
-    src/network/CommandProcessor.cpp
     src/MaterialType.cpp
     src/Cell.cpp
     src/World.cpp

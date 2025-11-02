@@ -1,5 +1,4 @@
 #include "CrashDumpHandler.h"
-#include "SimulationManager.h"
 #include "WorldInterface.h"
 #include "lvgl/src/libs/thorvg/rapidjson/document.h"
 #include "lvgl/src/libs/thorvg/rapidjson/stringbuffer.h"
@@ -14,18 +13,18 @@
 #include <sstream>
 
 // Static member initialization.
-SimulationManager* CrashDumpHandler::manager_ = nullptr;
+WorldInterface* CrashDumpHandler::world_ = nullptr;
 std::string CrashDumpHandler::dump_directory_ = "./";
 bool CrashDumpHandler::installed_ = false;
 
-void CrashDumpHandler::install(SimulationManager* manager)
+void CrashDumpHandler::install(WorldInterface* world)
 {
     if (installed_) {
         spdlog::warn("CrashDumpHandler already installed");
         return;
     }
 
-    manager_ = manager;
+    world_ = world;
     installed_ = true;
 
     spdlog::info("CrashDumpHandler installed - crash dumps will be saved to: {}", dump_directory_);
@@ -37,7 +36,7 @@ void CrashDumpHandler::uninstall()
         return;
     }
 
-    manager_ = nullptr;
+    world_ = nullptr;
     installed_ = false;
 
     spdlog::info("CrashDumpHandler uninstalled");
@@ -55,8 +54,8 @@ void CrashDumpHandler::setDumpDirectory(const std::string& directory)
 
 void CrashDumpHandler::dumpWorldState(const char* reason)
 {
-    if (!installed_ || !manager_) {
-        spdlog::error("CrashDumpHandler not installed or no manager available for dump");
+    if (!installed_ || !world_) {
+        spdlog::error("CrashDumpHandler not installed or no world available for dump");
         return;
     }
 
@@ -68,7 +67,7 @@ void CrashDumpHandler::dumpWorldState(const char* reason)
 void CrashDumpHandler::onAssertionFailure(
     const char* condition, const char* file, int line, const char* message)
 {
-    if (!installed_ || !manager_) {
+    if (!installed_ || !world_) {
         spdlog::error(
             "ASSERTION FAILURE: {} at {}:{} - {}", condition, file, line, message ? message : "");
         spdlog::error("CrashDumpHandler not available for crash dump");
@@ -115,8 +114,7 @@ void CrashDumpHandler::writeWorldStateToFile(
     const char* message)
 {
     try {
-        WorldInterface* world = manager_->getWorld();
-        if (!world) {
+        if (!world_) {
             spdlog::error("No world available for crash dump");
             return;
         }
@@ -157,23 +155,23 @@ void CrashDumpHandler::writeWorldStateToFile(
 
         // Add basic world information.
         rapidjson::Value worldInfo(rapidjson::kObjectType);
-        worldInfo.AddMember("width", world->getWidth(), allocator);
-        worldInfo.AddMember("height", world->getHeight(), allocator);
-        worldInfo.AddMember("timestep", world->getTimestep(), allocator);
-        worldInfo.AddMember("total_mass", world->getTotalMass(), allocator);
-        worldInfo.AddMember("removed_mass", world->getRemovedMass(), allocator);
+        worldInfo.AddMember("width", world_->getWidth(), allocator);
+        worldInfo.AddMember("height", world_->getHeight(), allocator);
+        worldInfo.AddMember("timestep", world_->getTimestep(), allocator);
+        worldInfo.AddMember("total_mass", world_->getTotalMass(), allocator);
+        worldInfo.AddMember("removed_mass", world_->getRemovedMass(), allocator);
 
         // Add world type information.
         worldInfo.AddMember("world_type", "World", allocator);
 
         doc.AddMember("world_info", worldInfo, allocator);
 
-        // TODO: Serialize complete world state using world->toJSON()
+        // TODO: Serialize complete world state using world_->toJSON()
         // For now, just save basic info.
         rapidjson::Value worldState(rapidjson::kObjectType);
-        worldState.AddMember("width", world->getWidth(), allocator);
-        worldState.AddMember("height", world->getHeight(), allocator);
-        worldState.AddMember("timestep", world->getTimestep(), allocator);
+        worldState.AddMember("width", world_->getWidth(), allocator);
+        worldState.AddMember("height", world_->getHeight(), allocator);
+        worldState.AddMember("timestep", world_->getTimestep(), allocator);
         doc.AddMember("world_state", worldState, allocator);
 
         // Write to file.
@@ -203,22 +201,20 @@ void CrashDumpHandler::writeWorldStateToFile(
 
 void CrashDumpHandler::logDumpSummary(const std::string& filename, const char* reason)
 {
-    if (!manager_ || !manager_->getWorld()) {
+    if (!world_) {
         return;
     }
-
-    WorldInterface* world = manager_->getWorld();
 
     spdlog::info("=== CRASH DUMP SUMMARY ===");
     spdlog::info("Reason: {}", reason);
     spdlog::info("File: {}", filename);
     spdlog::info(
         "World: {}x{} cells, {} timesteps",
-        world->getWidth(),
-        world->getHeight(),
-        world->getTimestep());
+        world_->getWidth(),
+        world_->getHeight(),
+        world_->getTimestep());
     spdlog::info(
-        "Mass: {:.3f} total, {:.3f} removed", world->getTotalMass(), world->getRemovedMass());
+        "Mass: {:.3f} total, {:.3f} removed", world_->getTotalMass(), world_->getRemovedMass());
 
     const char* worldTypeName = "World";
     spdlog::info("Physics: {}", worldTypeName);

@@ -197,12 +197,12 @@ void SimulatorUI::createScenarioDropdown()
         lv_obj_set_style_text_color(list, lv_color_hex(0xFFFFFF), 0);  // White text.
     }
 
-    // Populate dropdown with scenarios from registry.
-    updateScenarioDropdown();
+    // TODO: Populate dropdown with scenarios from registry.
+    // updateScenarioDropdown();
 
-    // Set event callback for scenario selection.
-    lv_obj_add_event_cb(
-        scenario_dropdown_, onScenarioChanged, LV_EVENT_VALUE_CHANGED, createCallbackData());
+    // TODO: Set event callback for scenario selection.
+    // lv_obj_add_event_cb(
+    //     scenario_dropdown_, onScenarioChanged, LV_EVENT_VALUE_CHANGED, createCallbackData());
 }
 
 void SimulatorUI::createMaterialPicker()
@@ -891,4 +891,82 @@ void SimulatorUI::updateFPSLabel(uint32_t fps)
         snprintf(buf, sizeof(buf), "FPS: %u", fps);
         lv_label_set_text(fps_label_, buf);
     }
+}
+
+// Get the directory containing the executable.
+std::string get_executable_directory()
+{
+    char path[PATH_MAX];
+    ssize_t count = readlink("/proc/self/exe", path, PATH_MAX);
+    if (count == -1) {
+        printf("Failed to get executable path\n");
+        return ".";
+    }
+    path[count] = '\0';
+    char* dir = dirname(path);
+    return std::string(dir);
+}
+
+// PNG writer using LODEPNG.
+void write_png_file(const char* filename, const uint8_t* rgb_data, uint32_t width, uint32_t height)
+{
+    std::vector<uint8_t> corrected_data(width * height * 3);
+    for (uint32_t i = 0; i < width * height; i++) {
+        uint32_t src_idx = i * 3;
+        uint32_t dst_idx = i * 3;
+        corrected_data[dst_idx + 0] = rgb_data[src_idx + 2];
+        corrected_data[dst_idx + 1] = rgb_data[src_idx + 1];
+        corrected_data[dst_idx + 2] = rgb_data[src_idx + 0];
+    }
+
+    unsigned char* png_data;
+    size_t png_size;
+
+    unsigned error = lodepng_encode24(&png_data, &png_size, corrected_data.data(), width, height);
+
+    if (error) {
+        printf("PNG encoding error %u: %s\n", error, lodepng_error_text(error));
+        return;
+    }
+
+    std::ofstream file(filename, std::ios::binary);
+    if (!file.is_open()) {
+        printf("Failed to open file: %s\n", filename);
+        free(png_data);
+        return;
+    }
+
+    file.write(reinterpret_cast<const char*>(png_data), png_size);
+    file.close();
+    free(png_data);
+
+    printf("Screenshot saved: %s (%zu bytes)\n", filename, png_size);
+}
+
+void SimulatorUI::takeExitScreenshot()
+{
+    lv_obj_t* screen = lv_scr_act();
+    if (!screen) {
+        printf("No active screen found for exit screenshot\n");
+        return;
+    }
+
+    lv_draw_buf_t* snapshot = lv_snapshot_take(screen, LV_COLOR_FORMAT_RGB888);
+    if (!snapshot) {
+        printf("Failed to take exit screenshot\n");
+        return;
+    }
+
+    const std::string exec_dir = get_executable_directory();
+    const std::string filename = exec_dir + "/screenshot-last-exit.png";
+
+    const uint8_t* rgb_data = static_cast<const uint8_t*>(snapshot->data);
+    const uint32_t width = snapshot->header.w;
+    const uint32_t height = snapshot->header.h;
+
+    write_png_file(filename.c_str(), rgb_data, width, height);
+
+    lv_draw_buf_destroy(snapshot);
+
+    printf("Exit screenshot saved as: %s\n", filename.c_str());
 }

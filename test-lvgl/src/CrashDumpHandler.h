@@ -2,11 +2,11 @@
 
 #include <string>
 
-// Forward declarations
-class SimulationManager;
+// Forward declarations.
+class WorldInterface;
 
 /**
- * CrashDumpHandler - Captures complete world state on assertion failures
+ * CrashDumpHandler - Captures complete world state on assertion failures.
  *
  * Provides JSON-based world state dumps for debugging crashes and assertion failures.
  * Hooks into the existing ASSERT macro to automatically capture simulation state.
@@ -17,7 +17,7 @@ public:
      * Install the crash dump handler globally.
      * Should be called once during application startup.
      */
-    static void install(SimulationManager* manager);
+    static void install(WorldInterface* world);
 
     /**
      * Remove the crash dump handler.
@@ -45,7 +45,7 @@ public:
         const char* condition, const char* file, int line, const char* message);
 
 private:
-    static SimulationManager* manager_;
+    static WorldInterface* world_;
     static std::string dump_directory_;
     static bool installed_;
 

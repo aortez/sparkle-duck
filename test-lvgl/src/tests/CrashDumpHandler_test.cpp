@@ -1,6 +1,6 @@
 #include "src/CrashDumpHandler.h"
-#include "src/SimulationManager.h"
 #include "src/SparkleAssert.h"
+#include "src/World.h"
 #include "src/WorldEventGenerator.h"
 #include <chrono>
 #include <filesystem>
@@ -14,20 +14,20 @@ protected:
         // Create a test directory for dumps.
         test_dir_ = "./test_dumps/";
         std::filesystem::create_directories(test_dir_);
-        
-        // Create a small simulation for testing.
-        manager_ = std::make_unique<SimulationManager>(10, 10, nullptr, nullptr);
-        manager_->initialize();
-        
+
+        // Create a small world for testing.
+        world_ = std::make_unique<World>(10, 10);
+        world_->setup();
+
         // Install crash dump handler.
-        CrashDumpHandler::install(manager_.get());
+        CrashDumpHandler::install(world_.get());
         CrashDumpHandler::setDumpDirectory(test_dir_);
     }
-    
+
     void TearDown() override {
         // Uninstall handler.
         CrashDumpHandler::uninstall();
-        
+
         // Clean up test dumps.
         try {
             std::filesystem::remove_all(test_dir_);
@@ -35,7 +35,7 @@ protected:
             // Ignore cleanup errors.
         }
     }
-    
+
     std::vector<std::string> getTestDumpFiles() {
         std::vector<std::string> files;
         for (const auto& entry : std::filesystem::directory_iterator(test_dir_)) {
@@ -45,18 +45,18 @@ protected:
         }
         return files;
     }
-    
+
     bool validateJsonFile(const std::string& filename) {
         std::ifstream file(test_dir_ + filename);
         if (!file.is_open()) {
             return false;
         }
-        
+
         std::string content((std::istreambuf_iterator<char>(file)),
                            std::istreambuf_iterator<char>());
         file.close();
-        
-        // Basic JSON validation - should start with { and end with }
+
+        // Basic JSON validation - should start with { and end with }.
         // and contain expected sections.
         return content.find("{") != std::string::npos &&
                content.find("}") != std::string::npos &&
@@ -64,9 +64,9 @@ protected:
                content.find("world_info") != std::string::npos &&
                content.find("world_state") != std::string::npos;
     }
-    
+
     std::string test_dir_;
-    std::unique_ptr<SimulationManager> manager_;
+    std::unique_ptr<World> world_;
 };
 
 TEST_F(CrashDumpHandlerTest, ManualDumpGeneration) {
@@ -141,19 +141,15 @@ TEST_F(CrashDumpHandlerTest, MultipleSerialDumps) {
 
 TEST_F(CrashDumpHandlerTest, DumpContainsWorldState) {
     // Modify world state before dumping.
-    auto* world = manager_->getWorld();
-    ASSERT_NE(world, nullptr);
-    
+    ASSERT_NE(world_.get(), nullptr);
+
     // Add some material to make the dump more interesting.
-    if (std::string("World") == "World") {
-        // Add material at a few locations for "World".
-        world->addMaterialAtPixel(50, 50, MaterialType::DIRT);
-        world->addMaterialAtPixel(100, 100, MaterialType::WATER);
-    }
-    
+    world_->addMaterialAtPixel(50, 50, MaterialType::DIRT);
+    world_->addMaterialAtPixel(100, 100, MaterialType::WATER);
+
     // Advance a few timesteps.
     for (int i = 0; i < 5; ++i) {
-        world->advanceTime(0.016); // ~60 FPS timestep.
+        world_->advanceTime(0.016); // ~60 FPS timestep.
     }
     
     // Generate dump.
@@ -188,16 +184,16 @@ TEST_F(CrashDumpHandlerTest, DumpContainsWorldState) {
 TEST_F(CrashDumpHandlerTest, HandlerInstallationState) {
     // Test installation/uninstallation behavior.
     CrashDumpHandler::uninstall();
-    
+
     // Should not create dumps when uninstalled.
     CrashDumpHandler::dumpWorldState("should_not_create");
     auto files = getTestDumpFiles();
     EXPECT_EQ(files.size(), 0);
-    
+
     // Reinstall and test.
-    CrashDumpHandler::install(manager_.get());
+    CrashDumpHandler::install(world_.get());
     CrashDumpHandler::setDumpDirectory(test_dir_);
-    
+
     CrashDumpHandler::dumpWorldState("should_create");
     files = getTestDumpFiles();
     EXPECT_EQ(files.size(), 1);

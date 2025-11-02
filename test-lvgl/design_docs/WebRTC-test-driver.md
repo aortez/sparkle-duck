@@ -38,6 +38,9 @@
 - Python test client
 - Network client examples
 
+**Long-term TODO:**
+- Re-implement physics tests for new architecture (removed 38 obsolete tests during Phase 3 cleanup)
+
 ## Overview
 
 This document outlines the plan for a WebSocket/WebRTC-based test driver for the Sparkle Duck physics simulation. The driver provides real-time bidirectional communication between clients and the simulation, enabling automated testing, remote control, and live monitoring capabilities.
@@ -177,8 +180,7 @@ World is now fully copyable to support:
 **qlibs/reflect** (https://github.com/qlibs/reflect)
 - Automatic C++20 reflection-based serialization
 - Will replace manual `.toJson()` implementations
-- Requires C++20 upgrade (currently C++23)
-- Use `[[reflect]]` attribute on structs to auto-generate serialization code
+- Use `[[reflect]]` attribute on structs to auto-generate serialization code? Do we have a reasonable way to do this?
 
 ### UI/Simulation Separation
 
@@ -314,6 +316,8 @@ void World::fromJSON(const rapidjson::Document& doc);
 ```
 
 **Supported Commands:**
+
+Advance Simulation n ms.
 
 ```json
 // Step simulation
@@ -597,3 +601,7 @@ websocat ws://localhost:8080
 | **Total** | **55** | **✅ All passing** |
 
 The foundation is solid and ready for network layer implementation.
+
+
+Misc thoughts:
+* It might be cool to both allow the server to run fully headlessly and for it to require a UI connection before starting the sim.

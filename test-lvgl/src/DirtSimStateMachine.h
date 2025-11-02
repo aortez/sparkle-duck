@@ -4,7 +4,6 @@
 #include "EventProcessor.h"
 #include "EventRouter.h"
 #include "SharedSimState.h"
-#include "SimulationManager.h"
 #include "StateMachineInterface.h"
 #include "WorldInterface.h"
 #include "states/State.h"

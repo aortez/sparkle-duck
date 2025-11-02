@@ -196,7 +196,7 @@ private:
     // Helper to create callback data.
     CallbackData* createCallbackData(lv_obj_t* label = nullptr);
 
-    // Scenario dropdown methods.
-    void updateScenarioDropdown();
-    static void onScenarioChanged(lv_event_t* e);
+    // TODO: Scenario dropdown methods.
+    // void updateScenarioDropdown();
+    // static void onScenarioChanged(lv_event_t* e);
 };
