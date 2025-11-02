@@ -11,9 +11,9 @@
  */
 class ScenarioWorldEventGenerator : public WorldEventGenerator {
 public:
-    using SetupFunction = std::function<void(WorldInterface&)>;
-    using UpdateFunction = std::function<void(WorldInterface&, uint32_t, double)>;
-    using ResetFunction = std::function<void(WorldInterface&)>;
+    using SetupFunction = std::function<void(World&)>;
+    using UpdateFunction = std::function<void(World&, uint32_t, double)>;
+    using ResetFunction = std::function<void(World&)>;
 
     ScenarioWorldEventGenerator() = default;
 
@@ -45,14 +45,14 @@ public:
     }
 
     // WorldEventGenerator interface implementation
-    void setup(WorldInterface& world) override
+    void setup(World& world) override
     {
         if (setup_fn_) {
             setup_fn_(world);
         }
     }
 
-    void addParticles(WorldInterface& world, uint32_t timestep, double deltaTimeSeconds) override
+    void addParticles(World& world, uint32_t timestep, double deltaTimeSeconds) override
     {
         if (update_fn_) {
             update_fn_(world, timestep, deltaTimeSeconds);
@@ -60,7 +60,7 @@ public:
     }
 
     // Additional reset functionality
-    void reset(WorldInterface& world)
+    void reset(World& world)
     {
         if (reset_fn_) {
             reset_fn_(world);

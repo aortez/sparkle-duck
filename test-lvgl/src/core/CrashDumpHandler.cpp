@@ -1,5 +1,5 @@
 #include "CrashDumpHandler.h"
-#include "WorldInterface.h"
+#include "World.h"
 #include "lvgl/src/libs/thorvg/rapidjson/document.h"
 #include "lvgl/src/libs/thorvg/rapidjson/stringbuffer.h"
 #include "lvgl/src/libs/thorvg/rapidjson/writer.h"
@@ -13,11 +13,11 @@
 #include <sstream>
 
 // Static member initialization.
-WorldInterface* CrashDumpHandler::world_ = nullptr;
+World* CrashDumpHandler::world_ = nullptr;
 std::string CrashDumpHandler::dump_directory_ = "./";
 bool CrashDumpHandler::installed_ = false;
 
-void CrashDumpHandler::install(WorldInterface* world)
+void CrashDumpHandler::install(World* world)
 {
     if (installed_) {
         spdlog::warn("CrashDumpHandler already installed");

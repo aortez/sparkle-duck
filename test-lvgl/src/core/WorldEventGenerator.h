@@ -5,7 +5,7 @@
 #include <vector>
 
 // Forward declarations
-class WorldInterface;
+class World;
 
 /**
  * Interface for World event generation strategies.
@@ -30,24 +30,24 @@ public:
     virtual std::unique_ptr<WorldEventGenerator> clone() const = 0;
 
     // Setup the world's initial state.
-    virtual void setup(WorldInterface& world) = 0;
+    virtual void setup(World& world) = 0;
 
     // Add particles to the world during simulation.
     virtual void addParticles(
-        WorldInterface& world, uint32_t timestep, double deltaTimeSeconds) = 0;
+        World& world, uint32_t timestep, double deltaTimeSeconds) = 0;
 
     // Resize functionality - can be overridden by different strategies
-    virtual std::vector<ResizeData> captureWorldState(const WorldInterface& world) const;
+    virtual std::vector<ResizeData> captureWorldState(const World& world) const;
     virtual void applyWorldState(
-        WorldInterface& world,
+        World& world,
         const std::vector<ResizeData>& oldState,
         uint32_t oldWidth,
         uint32_t oldHeight) const;
 
-    virtual void fillLowerRightQuadrant(WorldInterface& world);
-    virtual void makeWalls(WorldInterface& world);
-    virtual void makeMiddleMetalWall(WorldInterface& world);
-    virtual void fillWithDirt(WorldInterface& world);
+    virtual void fillLowerRightQuadrant(World& world);
+    virtual void makeWalls(World& world);
+    virtual void makeMiddleMetalWall(World& world);
+    virtual void fillWithDirt(World& world);
 
 protected:
     // Helper functions for feature-preserving resize
@@ -83,11 +83,11 @@ protected:
  */
 class DefaultWorldEventGenerator : public WorldEventGenerator {
 public:
-    ~DefaultWorldEventGenerator() override;
+    ~DefaultWorldEventGenerator();
 
-    std::unique_ptr<WorldEventGenerator> clone() const override;
-    void setup(WorldInterface& world) override;
-    void addParticles(WorldInterface& world, uint32_t timestep, double deltaTimeSeconds) override;
+    std::unique_ptr<WorldEventGenerator> clone() const;
+    void setup(World& world);
+    void addParticles(World& world, uint32_t timestep, double deltaTimeSeconds);
 
     // Event generation state.
     double lastSimTime = 0.0;
@@ -106,9 +106,9 @@ class ConfigurableWorldEventGenerator : public WorldEventGenerator {
 public:
     ~ConfigurableWorldEventGenerator() override = default;
 
-    std::unique_ptr<WorldEventGenerator> clone() const override;
-    void setup(WorldInterface& world) override;
-    void addParticles(WorldInterface& world, uint32_t timestep, double deltaTimeSeconds) override;
+    std::unique_ptr<WorldEventGenerator> clone() const;
+    void setup(World& world);
+    void addParticles(World& world, uint32_t timestep, double deltaTimeSeconds);
 
     // Control flags for setup features
     void setLowerRightQuadrantEnabled(bool enabled) { lowerRightQuadrantEnabled = enabled; }

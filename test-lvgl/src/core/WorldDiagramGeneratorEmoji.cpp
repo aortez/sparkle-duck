@@ -1,14 +1,12 @@
 #include "WorldDiagramGeneratorEmoji.h"
+#include "World.h"
 #include "Cell.h"
-#include "Cell.h"
-#include "CellInterface.h"
 #include "MaterialType.h"
-#include "WorldInterface.h"
 
 #include <cmath>
 #include <sstream>
 
-std::string WorldDiagramGeneratorEmoji::generateEmojiDiagram(const WorldInterface& world)
+std::string WorldDiagramGeneratorEmoji::generateEmojiDiagram(const World& world)
 {
     std::ostringstream diagram;
 
@@ -27,7 +25,7 @@ std::string WorldDiagramGeneratorEmoji::generateEmojiDiagram(const WorldInterfac
         diagram << "┃";
 
         for (uint32_t x = 0; x < width; ++x) {
-            const auto& cell = world.getCellInterface(x, y);
+            const auto& cell = world.getCell(x, y);
 
             if (cell.isEmpty()) {
                 diagram << "⬜";
@@ -86,7 +84,7 @@ std::string WorldDiagramGeneratorEmoji::generateEmojiDiagram(const WorldInterfac
     return diagram.str();
 }
 
-std::string WorldDiagramGeneratorEmoji::generateMixedDiagram(const WorldInterface& world)
+std::string WorldDiagramGeneratorEmoji::generateMixedDiagram(const World& world)
 {
     std::ostringstream diagram;
 
@@ -107,7 +105,7 @@ std::string WorldDiagramGeneratorEmoji::generateMixedDiagram(const WorldInterfac
         diagram << "│";
 
         for (uint32_t x = 0; x < width; ++x) {
-            const auto& cell = world.getCellInterface(x, y);
+            const auto& cell = world.getCell(x, y);
 
             if (cell.isEmpty()) {
                 diagram << "   ";

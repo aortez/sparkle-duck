@@ -31,7 +31,6 @@ World::World(uint32_t width, uint32_t height)
       elasticity_factor_(0.8),
       pressure_scale_(1.0),
       water_pressure_threshold_(0.0004),
-      pressure_system_(PressureSystem::Original),
       pressure_diffusion_enabled_(false),
       hydrostatic_pressure_strength_(0.0),
       dynamic_pressure_strength_(0.0),
@@ -64,7 +63,8 @@ World::World(uint32_t width, uint32_t height)
       pressure_calculator_(*this),
       collision_calculator_(*this),
       adhesion_calculator_(*this),
-      friction_calculator_(*this)
+      friction_calculator_(*this),
+      worldEventGenerator_(nullptr)
 {
     spdlog::info("Creating World: {}x{} grid with pure-material physics", width_, height_);
 
@@ -83,9 +83,6 @@ World::World(uint32_t width, uint32_t height)
 
     timers_.startTimer("total_simulation");
 
-    // Initialize WorldEventGenerator using base class method.
-    initializeWorldEventGenerator();
-
     spdlog::info("World initialization complete");
 }
 
@@ -97,8 +94,7 @@ World::~World()
 }
 
 World::World(const World& other)
-    : WorldInterface(other), // Copy base class (clones worldEventGenerator_).
-      cells_(other.cells_),
+    : cells_(other.cells_),
       width_(other.width_),
       height_(other.height_),
       timestep_(other.timestep_),
@@ -108,7 +104,6 @@ World::World(const World& other)
       elasticity_factor_(other.elasticity_factor_),
       pressure_scale_(other.pressure_scale_),
       water_pressure_threshold_(other.water_pressure_threshold_),
-      pressure_system_(other.pressure_system_),
       pressure_diffusion_enabled_(other.pressure_diffusion_enabled_),
       hydrostatic_pressure_strength_(other.hydrostatic_pressure_strength_),
       dynamic_pressure_strength_(other.dynamic_pressure_strength_),
@@ -141,7 +136,8 @@ World::World(const World& other)
       pressure_calculator_(*this),
       collision_calculator_(*this),
       adhesion_calculator_(*this),
-      friction_calculator_(*this)
+      friction_calculator_(*this),
+      worldEventGenerator_(other.worldEventGenerator_ ? other.worldEventGenerator_->clone() : nullptr)
 {
     spdlog::info("Copied World: {}x{} grid", width_, height_);
 }
@@ -149,7 +145,6 @@ World::World(const World& other)
 World& World::operator=(const World& other)
 {
     if (this != &other) {
-        WorldInterface::operator=(other); // Copy base class.
         cells_ = other.cells_;
         width_ = other.width_;
         height_ = other.height_;
@@ -160,7 +155,6 @@ World& World::operator=(const World& other)
         elasticity_factor_ = other.elasticity_factor_;
         pressure_scale_ = other.pressure_scale_;
         water_pressure_threshold_ = other.water_pressure_threshold_;
-        pressure_system_ = other.pressure_system_;
         pressure_diffusion_enabled_ = other.pressure_diffusion_enabled_;
         hydrostatic_pressure_strength_ = other.hydrostatic_pressure_strength_;
         dynamic_pressure_strength_ = other.dynamic_pressure_strength_;
@@ -258,9 +252,6 @@ void World::reset()
 
 void World::setup()
 {
-    // Use the base class implementation for standard setup.
-    WorldInterface::setup();
-
     // World-specific: Rebuild boundary walls if enabled.
     if (areWallsEnabled()) {
         setupBoundaryWalls();
@@ -380,12 +371,12 @@ void World::startDragging(int pixelX, int pixelY)
         // Initialize velocity tracking.
         recent_positions_.clear();
         recent_positions_.push_back({ pixelX, pixelY });
-        dragged_velocity_ = Vector2d(0.0, 0.0);
+        dragged_velocity_ = Vector2d{0.0, 0.0};
 
         // Calculate sub-cell COM position.
         double subCellX = (pixelX % Cell::WIDTH) / static_cast<double>(Cell::WIDTH);
         double subCellY = (pixelY % Cell::HEIGHT) / static_cast<double>(Cell::HEIGHT);
-        dragged_com_ = Vector2d(subCellX * 2.0 - 1.0, subCellY * 2.0 - 1.0);
+        dragged_com_ = Vector2d{subCellX * 2.0 - 1.0, subCellY * 2.0 - 1.0};
 
         // Create floating particle for drag interaction.
         has_floating_particle_ = true;
@@ -424,7 +415,7 @@ void World::updateDrag(int pixelX, int pixelY)
     // Update COM based on sub-cell position.
     double subCellX = (pixelX % Cell::WIDTH) / static_cast<double>(Cell::WIDTH);
     double subCellY = (pixelY % Cell::HEIGHT) / static_cast<double>(Cell::HEIGHT);
-    dragged_com_ = Vector2d(subCellX * 2.0 - 1.0, subCellY * 2.0 - 1.0);
+    dragged_com_ = Vector2d{subCellX * 2.0 - 1.0, subCellY * 2.0 - 1.0};
 
     // Update floating particle position and physics properties.
     pixelToCell(pixelX, pixelY, last_drag_cell_x_, last_drag_cell_y_);
@@ -440,7 +431,7 @@ void World::updateDrag(int pixelX, int pixelY)
             const auto& prev = recent_positions_[recent_positions_.size() - 2];
             double dx = static_cast<double>(pixelX - prev.first) / Cell::WIDTH;
             double dy = static_cast<double>(pixelY - prev.second) / Cell::HEIGHT;
-            floating_particle_.setVelocity(Vector2d(dx, dy));
+            floating_particle_.setVelocity(Vector2d{dx, dy});
 
             // Check for collisions with the target cell.
             if (collision_calculator_.checkFloatingParticleCollision(
@@ -469,7 +460,7 @@ void World::endDragging(int pixelX, int pixelY)
     }
 
     // Calculate velocity from recent positions for "toss" behavior.
-    dragged_velocity_ = Vector2d(0.0, 0.0);
+    dragged_velocity_ = Vector2d{0.0, 0.0};
     if (recent_positions_.size() >= 2) {
         const auto& first = recent_positions_[0];
         const auto& last = recent_positions_.back();
@@ -478,7 +469,7 @@ void World::endDragging(int pixelX, int pixelY)
         double dy = static_cast<double>(last.second - first.second);
 
         // Scale velocity based on Cell dimensions (similar to WorldA).
-        dragged_velocity_ = Vector2d(dx / (Cell::WIDTH * 2.0), dy / (Cell::HEIGHT * 2.0));
+        dragged_velocity_ = Vector2d{dx / (Cell::WIDTH * 2.0), dy / (Cell::HEIGHT * 2.0)};
 
         spdlog::debug(
             "Calculated drag velocity: ({:.2f}, {:.2f}) from {} positions",
@@ -524,8 +515,8 @@ void World::endDragging(int pixelX, int pixelY)
     last_drag_cell_x_ = -1;
     last_drag_cell_y_ = -1;
     recent_positions_.clear();
-    dragged_velocity_ = Vector2d(0.0, 0.0);
-    dragged_com_ = Vector2d(0.0, 0.0);
+    dragged_velocity_ = Vector2d{0.0, 0.0};
+    dragged_com_ = Vector2d{0.0, 0.0};
 }
 
 void World::restoreLastDragCell()
@@ -557,8 +548,8 @@ void World::restoreLastDragCell()
     last_drag_cell_x_ = -1;
     last_drag_cell_y_ = -1;
     recent_positions_.clear();
-    dragged_velocity_ = Vector2d(0.0, 0.0);
-    dragged_com_ = Vector2d(0.0, 0.0);
+    dragged_velocity_ = Vector2d{0.0, 0.0};
+    dragged_com_ = Vector2d{0.0, 0.0};
 }
 
 // =================================================================.
@@ -621,12 +612,12 @@ const Cell& World::at(const Vector2i& pos) const
     return at(static_cast<uint32_t>(pos.x), static_cast<uint32_t>(pos.y));
 }
 
-CellInterface& World::getCellInterface(uint32_t x, uint32_t y)
+Cell& World::getCell(uint32_t x, uint32_t y)
 {
     return at(x, y); // Call the existing at() method.
 }
 
-const CellInterface& World::getCellInterface(uint32_t x, uint32_t y) const
+const Cell& World::getCell(uint32_t x, uint32_t y) const
 {
     return at(x, y); // Call the existing at() method.
 }
@@ -894,11 +885,11 @@ void World::resolveForces(double deltaTime)
             // Store damping info for visualization (X=friction_coefficient, Y=damping_factor).
             // Only store if viscosity is actually enabled and having an effect.
             if (viscosity_strength_ > 0.0 && props.viscosity > 0.0) {
-                cell.setAccumulatedCohesionForce(Vector2d(friction_coefficient, damping_factor));
+                cell.setAccumulatedCohesionForce(Vector2d{friction_coefficient, damping_factor});
             }
             else {
                 cell.setAccumulatedCohesionForce(
-                    Vector2d(0.0, 0.0)); // Clear when viscosity is off.
+                    Vector2d{0.0, 0.0}); // Clear when viscosity is off.
             }
 
             // Calculate velocity change from forces.
@@ -1303,7 +1294,7 @@ void World::setHydrostaticPressureEnabled(bool enabled)
     for (auto& cell : cells_) {
         cell.setHydrostaticPressure(0.0);
         if (cell.getDynamicPressure() < MIN_MATTER_THRESHOLD) {
-            cell.setPressureGradient(Vector2d(0.0, 0.0));
+            cell.setPressureGradient(Vector2d{0.0, 0.0});
         }
     }
 }
@@ -1317,7 +1308,7 @@ void World::setDynamicPressureEnabled(bool enabled)
     for (auto& cell : cells_) {
         cell.setDynamicPressure(0.0);
         if (cell.getHydrostaticPressure() < MIN_MATTER_THRESHOLD) {
-            cell.setPressureGradient(Vector2d(0.0, 0.0));
+            cell.setPressureGradient(Vector2d{0.0, 0.0});
         }
     }
 
@@ -1353,19 +1344,6 @@ std::string World::settingsToString() const
     ss << "=== World Settings ===\n";
     ss << "Grid size: " << width_ << "x" << height_ << "\n";
     ss << "Gravity: " << gravity_ << "\n";
-    ss << "Pressure system: ";
-    switch (pressure_system_) {
-        case PressureSystem::Original:
-            ss << "Original";
-            break;
-        case PressureSystem::TopDown:
-            ss << "TopDown";
-            break;
-        case PressureSystem::IterativeSettling:
-            ss << "IterativeSettling";
-            break;
-    }
-    ss << "\n";
     ss << "Hydrostatic pressure enabled: " << (isHydrostaticPressureEnabled() ? "true" : "false")
        << "\n";
     ss << "Dynamic pressure enabled: " << (isDynamicPressureEnabled() ? "true" : "false") << "\n";
@@ -1433,7 +1411,6 @@ rapidjson::Document World::toJSON() const
     physics.AddMember("elasticity_factor", elasticity_factor_, allocator);
     physics.AddMember("pressure_scale", pressure_scale_, allocator);
     physics.AddMember("water_pressure_threshold", water_pressure_threshold_, allocator);
-    physics.AddMember("pressure_system", static_cast<int>(pressure_system_), allocator);
     physics.AddMember("pressure_diffusion_enabled", pressure_diffusion_enabled_, allocator);
     physics.AddMember("hydrostatic_pressure_strength", hydrostatic_pressure_strength_, allocator);
     physics.AddMember("dynamic_pressure_strength", dynamic_pressure_strength_, allocator);
@@ -1527,7 +1504,6 @@ void World::fromJSON(const rapidjson::Document& doc)
         if (physics.HasMember("water_pressure_threshold"))
             water_pressure_threshold_ = physics["water_pressure_threshold"].GetDouble();
         if (physics.HasMember("pressure_system"))
-            pressure_system_ = static_cast<PressureSystem>(physics["pressure_system"].GetInt());
         if (physics.HasMember("pressure_diffusion_enabled"))
             pressure_diffusion_enabled_ = physics["pressure_diffusion_enabled"].GetBool();
         if (physics.HasMember("hydrostatic_pressure_strength"))
@@ -1608,4 +1584,15 @@ void World::fromJSON(const rapidjson::Document& doc)
         height_,
         timestep_,
         cells.Size());
+}
+
+// Stub implementations for WorldInterface methods.
+void World::onPreResize(uint32_t newWidth, uint32_t newHeight)
+{
+    spdlog::debug("World::onPreResize: {}x{} -> {}x{}", width_, height_, newWidth, newHeight);
+}
+
+bool World::shouldResize(uint32_t newWidth, uint32_t newHeight) const
+{
+    return width_ != newWidth || height_ != newHeight;
 }

@@ -64,13 +64,13 @@ TEST_F(CellJSONTest, PartialDirtCellSerialization) {
 
 TEST_F(CellJSONTest, CellWithVelocitySerialization) {
     Cell cell(MaterialType::SAND, 0.75);
-    cell.setVelocity(Vector2d(1.5, -2.3));
+    cell.setVelocity(Vector2d{1.5, -2.3});
     validateRoundTrip(cell);
 }
 
 TEST_F(CellJSONTest, CellWithCOMSerialization) {
     Cell cell(MaterialType::METAL, 1.0);
-    cell.setCOM(Vector2d(0.5, -0.3));
+    cell.setCOM(Vector2d{0.5, -0.3});
     validateRoundTrip(cell);
 }
 
@@ -82,8 +82,8 @@ TEST_F(CellJSONTest, CellWithPressureSerialization) {
 
 TEST_F(CellJSONTest, ComplexCellState) {
     Cell cell(MaterialType::DIRT, 0.65);
-    cell.setCOM(Vector2d(-0.2, 0.8));
-    cell.setVelocity(Vector2d(0.5, -1.2));
+    cell.setCOM(Vector2d{-0.2, 0.8});
+    cell.setVelocity(Vector2d{0.5, -1.2});
     cell.setPressure(8.3);
     validateRoundTrip(cell);
 }
@@ -109,8 +109,8 @@ TEST_F(CellJSONTest, AllMaterialTypes) {
 
 TEST_F(CellJSONTest, JSONStructureValidation) {
     Cell cell(MaterialType::WATER, 0.75);
-    cell.setCOM(Vector2d(0.1, -0.2));
-    cell.setVelocity(Vector2d(1.0, -0.5));
+    cell.setCOM(Vector2d{0.1, -0.2});
+    cell.setVelocity(Vector2d{1.0, -0.5});
 
     rapidjson::Document doc;
     auto& allocator = doc.GetAllocator();
@@ -151,13 +151,13 @@ TEST_F(CellJSONTest, MaximalCellSerialization) {
 
 TEST_F(CellJSONTest, ExtremeCOMValues) {
     Cell cell(MaterialType::METAL, 0.8);
-    cell.setCOM(Vector2d(Cell::COM_MAX, Cell::COM_MIN));
+    cell.setCOM(Vector2d{Cell::COM_MAX, Cell::COM_MIN});
     validateRoundTrip(cell);
 }
 
 TEST_F(CellJSONTest, HighVelocitySerialization) {
     Cell cell(MaterialType::WATER, 1.0);
-    cell.setVelocity(Vector2d(0.9, -0.9)); // Near velocity limit.
+    cell.setVelocity(Vector2d{0.9, -0.9}); // Near velocity limit.
     validateRoundTrip(cell);
 }
 

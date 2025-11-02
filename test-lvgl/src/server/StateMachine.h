@@ -5,7 +5,6 @@
 #include "../core/SharedSimState.h"
 #include "../core/StateMachineBase.h"
 #include "../core/StateMachineInterface.h"
-#include "../core/WorldInterface.h"
 #include "states/State.h"
 #include <functional>
 #include <memory>
@@ -19,7 +18,7 @@ public:
     ~StateMachine();
 
     void mainLoopRun();
-    void queueEvent(const Event& event) override;
+    void queueEvent(const Event& event);
 
     /**
      * @brief Process an event immediately (for immediate events).
@@ -34,13 +33,13 @@ public:
     void handleEvent(const Event& event);
 
     std::string getCurrentStateName() const override { return State::getCurrentStateName(fsmState); }
-    void processEvents() override;
+    void processEvents();
 
     SharedSimState& getSharedState() { return sharedState; }
     bool resizeWorldIfNeeded(uint32_t requiredWidth, uint32_t requiredHeight);
     UiUpdateEvent buildUIUpdate();
 
-    std::unique_ptr<WorldInterface> world;
+    std::unique_ptr<World> world;
     EventProcessor eventProcessor;
 
     uint32_t defaultWidth = 28;

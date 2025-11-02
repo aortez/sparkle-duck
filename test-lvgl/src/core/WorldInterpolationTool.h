@@ -8,7 +8,7 @@
 // Forward declarations
 class Cell;
 class Cell;
-class WorldInterface;
+class World;
 
 /**
  * @brief Tool for bilinear interpolation-based world rescaling
@@ -31,7 +31,7 @@ public:
      * @return true if resize was successful, false otherwise
      */
     static bool resizeWorldWithBilinearFiltering(
-        WorldInterface& world, uint32_t newWidth, uint32_t newHeight);
+        World& world, uint32_t newWidth, uint32_t newHeight);
 
     /**
      * @brief Generate interpolated cells for World without modifying the world

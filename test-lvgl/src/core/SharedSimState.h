@@ -10,7 +10,7 @@
 #include <shared_mutex>
 
 // Forward declaration.
-class WorldInterface;
+class World;
 
 /**
  * @brief Metrics for UI update queue performance monitoring.
@@ -191,7 +191,7 @@ public:
     /**
      * @brief Get current world interface.
      */
-    WorldInterface* getCurrentWorld() const
+    World* getCurrentWorld() const
     {
         std::shared_lock lock(worldMutex_);
         return currentWorld_;
@@ -200,7 +200,7 @@ public:
     /**
      * @brief Set current world interface.
      */
-    void setCurrentWorld(WorldInterface* world)
+    void setCurrentWorld(World* world)
     {
         std::unique_lock lock(worldMutex_);
         currentWorld_ = world;
@@ -253,7 +253,7 @@ private:
     SimulationStats currentStats_;
 
     mutable std::shared_mutex worldMutex_;
-    WorldInterface* currentWorld_ = nullptr;
+    World* currentWorld_ = nullptr;
 
     // Push-based UI update system (always enabled).
     UIUpdateQueue uiUpdateQueue_;

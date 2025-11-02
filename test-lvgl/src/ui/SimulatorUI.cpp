@@ -8,7 +8,6 @@
 #include "UIUpdateConsumer.h"
 #include "World.h"
 
-#include "WorldInterface.h"
 #include "lvgl/lvgl.h"
 #include "lvgl/src/misc/lv_timer.h"
 #include "lvgl/src/others/snapshot/lv_snapshot.h"

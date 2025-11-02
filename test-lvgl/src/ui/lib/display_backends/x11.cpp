@@ -24,7 +24,6 @@
 
 #include "../../../server/StateMachine.h"
 #include "../../SimulatorUI.h"
-#include "../../../core/WorldInterface.h"
 #include "lvgl/lvgl.h"
 #include "simulator_loop.h"
 #if LV_USE_X11

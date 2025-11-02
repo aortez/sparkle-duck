@@ -72,7 +72,7 @@ WorldFrictionCalculator::detectContactInterfaces() const
                     contact.cell_B_pos = Vector2i(nx, ny);
 
                     // Calculate interface normal (from A to B).
-                    contact.interface_normal = Vector2d(static_cast<double>(dx), static_cast<double>(dy));
+                    contact.interface_normal = Vector2d{static_cast<double>(dx), static_cast<double>(dy)};
                     contact.interface_normal = contact.interface_normal.normalize();
 
                     // Calculate contact area (cardinal = 1.0, diagonal = 0.707).

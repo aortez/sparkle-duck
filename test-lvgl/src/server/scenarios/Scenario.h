@@ -4,7 +4,7 @@
 #include <memory>
 
 // Forward declarations
-class WorldInterface;
+class World;
 class WorldEventGenerator;
 
 /**

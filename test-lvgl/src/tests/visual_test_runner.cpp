@@ -6,7 +6,6 @@
 #include <sstream>
 #include <iomanip>
 #include "../World.h"
-#include "../WorldInterface.h"
 
 // External global settings used by the backend system.
 extern simulator_settings_t settings;
@@ -725,7 +724,7 @@ void VisualTestBase::logInitialTestState(const World* world, const std::string& 
     spdlog::info("[TEST SETUP] {}\n{}", description, ascii);
 }
 
-void VisualTestBase::logInitialTestState(const WorldInterface* world, const std::string& test_description) {
+void VisualTestBase::logInitialTestState(const World* world, const std::string& test_description) {
     if (!world || !VisualTestEnvironment::isAsciiLoggingEnabled()) return;
 
     // Cast to World to get ASCII diagram.
@@ -800,7 +799,7 @@ void VisualTestBase::logWorldState(const World* world, const std::string& contex
     spdlog::debug("  Total mass in world: {:.6f}", totalMass);
 }
 
-void VisualTestBase::updateDisplay(WorldInterface* world, const std::string& status) {
+void VisualTestBase::updateDisplay(World* world, const std::string& status) {
     if (!status.empty()) {
         spdlog::info("[STATUS] {}", status);
     }
@@ -819,7 +818,7 @@ void VisualTestBase::updateDisplay(WorldInterface* world, const std::string& sta
 }
 
 
-void VisualTestBase::showInitialState(WorldInterface* world, const std::string& description) {
+void VisualTestBase::showInitialState(World* world, const std::string& description) {
     if (!world) return;
     
     // Log initial state with ASCII diagram.
@@ -846,7 +845,7 @@ void VisualTestBase::showInitialState(WorldInterface* world, const std::string& 
     }
 }
 
-void VisualTestBase::showInitialStateWithStep(WorldInterface* world, const std::string& description) {
+void VisualTestBase::showInitialStateWithStep(World* world, const std::string& description) {
     if (!world) return;
     
     // Log initial state with ASCII diagram.
@@ -882,7 +881,7 @@ void VisualTestBase::showInitialStateWithStep(WorldInterface* world, const std::
     }
 }
 
-void VisualTestBase::stepSimulation(WorldInterface* world, int steps, const std::string& stepDescription) {
+void VisualTestBase::stepSimulation(World* world, int steps, const std::string& stepDescription) {
     if (!world) return;
     
     if (visual_mode_) {
@@ -1013,7 +1012,7 @@ void VisualTestBase::stepSimulation(WorldInterface* world, int steps, const std:
     }
 }
 
-void VisualTestBase::runContinuousSimulation(WorldInterface* world, int steps, const std::string& description) {
+void VisualTestBase::runContinuousSimulation(World* world, int steps, const std::string& description) {
     if (!world) return;
     
     if (visual_mode_) {

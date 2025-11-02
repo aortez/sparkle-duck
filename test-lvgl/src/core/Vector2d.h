@@ -4,13 +4,9 @@
 #include "lvgl/src/libs/thorvg/rapidjson/writer.h"
 #include <string>
 
-class Vector2d {
-public:
-    double x;
-    double y;
-
-    Vector2d();
-    Vector2d(double x, double y);
+struct Vector2d {
+    double x = 0.0;
+    double y = 0.0;
 
     Vector2d add(const Vector2d& other) const;
     Vector2d subtract(const Vector2d& other) const;

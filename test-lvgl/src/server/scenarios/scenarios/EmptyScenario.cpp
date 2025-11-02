@@ -1,5 +1,5 @@
-#include "../../../core/WorldInterface.h"
 #include "../Scenario.h"
+#include "../../../core/World.h"
 #include "../ScenarioRegistry.h"
 #include "../ScenarioWorldEventGenerator.h"
 #include "spdlog/spdlog.h"
@@ -26,14 +26,14 @@ public:
         auto setup = std::make_unique<ScenarioWorldEventGenerator>();
 
         // Setup function - just clear the world
-        setup->setSetupFunction([](WorldInterface& /*world*/) {
+        setup->setSetupFunction([](World& /*world*/) {
             spdlog::info("Setting up Empty scenario");
             // reset() is called before setup(), so world is already empty
             // No additional setup needed
         });
         
         // Update function - no particles added
-        setup->setUpdateFunction([](WorldInterface& /*world*/, uint32_t /*timestep*/, double /*deltaTime*/) {
+        setup->setUpdateFunction([](World& /*world*/, uint32_t /*timestep*/, double /*deltaTime*/) {
             // Intentionally empty - no particles added
         });
         

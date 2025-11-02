@@ -4,7 +4,7 @@
 namespace DirtSim {
 namespace Server {
 
-WebSocketServer::WebSocketServer(StateMachineInterface<Event>& stateMachine, uint16_t port)
+WebSocketServer::WebSocketServer(DirtSim::StateMachineInterface<Event>& stateMachine, uint16_t port)
     : stateMachine_(stateMachine)
 {
     // Create WebSocket server configuration.

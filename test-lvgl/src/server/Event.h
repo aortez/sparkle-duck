@@ -8,7 +8,6 @@
 #include "api/StepN.h"
 #include "../core/MaterialType.h"
 #include "../core/SimulationStats.h"
-#include "../core/WorldInterface.h"
 #include <chrono>
 #include <concepts>
 #include <cstdint>
@@ -420,14 +419,6 @@ struct SetFragmentationCommand {
 };
 
 /**
- * @brief Set pressure system type.
- */
-struct SetPressureSystemCommand {
-    WorldInterface::PressureSystem system;
-    static constexpr const char* name() { return "SetPressureSystemCommand"; }
-};
-
-/**
  * @brief Toggle wall boundaries on/off.
  */
 struct ToggleWallsCommand {
@@ -594,7 +585,6 @@ using Event = std::variant<
     // Material & world controls
     SetCellSizeCommand,
     SetFragmentationCommand,
-    SetPressureSystemCommand,
     ToggleWallsCommand,
     ToggleWaterColumnCommand,
     ToggleLeftThrowCommand,

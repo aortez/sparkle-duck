@@ -1,7 +1,6 @@
-#include "../../../core/CellInterface.h"
 #include "../../../core/MaterialType.h"
-#include "../../../core/WorldInterface.h"
 #include "../Scenario.h"
+#include "../../../core/World.h"
 #include "../ScenarioRegistry.h"
 #include "../ScenarioWorldEventGenerator.h"
 #include "spdlog/spdlog.h"
@@ -15,7 +14,7 @@ private:
     bool damBroken = false;
     
 public:
-    void setup(WorldInterface& world) override {
+    void setup(World& world) override {
         spdlog::info("Setting up Dam Break scenario");
         
         // Reset state
@@ -50,12 +49,12 @@ public:
         spdlog::info("Dam Break setup complete: 6x6 world, water columns at x=0,1, dam at x=2");
     }
     
-    void addParticles(WorldInterface& world, uint32_t timestep, double /*deltaTimeSeconds*/) override {
+    void addParticles(World& world, uint32_t timestep, double /*deltaTimeSeconds*/) override {
         if (!damBroken && timestep == 30) {
             spdlog::info("Breaking the dam at timestep {}", timestep);
             
             // Dam is at x=2, break only the bottom cell for realistic flow
-            world.getCellInterface(2, 5).clear();  // Bottom cell at (2,5)
+            world.getCell(2, 5).clear();  // Bottom cell at (2,5)
             spdlog::info("Dam broken at (2, 5)");
             damBroken = true;
         }

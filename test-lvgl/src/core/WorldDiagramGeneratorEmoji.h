@@ -3,12 +3,12 @@
 
 #include <string>
 
-class WorldInterface;
+class World;
 
 class WorldDiagramGeneratorEmoji {
 public:
-    static std::string generateEmojiDiagram(const WorldInterface& world);
-    static std::string generateMixedDiagram(const WorldInterface& world);
+    static std::string generateEmojiDiagram(const World& world);
+    static std::string generateMixedDiagram(const World& world);
 };
 
 #endif // WORLD_DIAGRAM_GENERATOR_EMOJI_H

@@ -71,8 +71,8 @@ private:
 // Global test environment for proper visual mode coordination.
 class VisualTestEnvironment : public ::testing::Environment {
 public:
-    void SetUp() override;
-    void TearDown() override;
+    void SetUp();
+    void TearDown();
     
     // Universal test configuration settings.
     static bool isDebugLoggingEnabled() { return debug_logging_enabled_; }
@@ -93,8 +93,8 @@ private:
 // Base class for all visual tests.
 class VisualTestBase : public ::testing::Test {
 protected:
-    void SetUp() override;
-    void TearDown() override;
+    void SetUp();
+    void TearDown();
     
     // Helper to create a world with or without UI.
     std::unique_ptr<World> createWorld(uint32_t width, uint32_t height);
@@ -122,19 +122,19 @@ protected:
     void stepSimulation(World* world, int steps = 1);  // Advance N simulation steps.
     TestAction waitForStep();     // Block until Step, Start (continue), or Next is pressed.
     
-    void updateDisplay(WorldInterface* world, const std::string& status = "");
+    void updateDisplay(World* world, const std::string& status = "");
     
     // Show initial state and wait for start.
-    void showInitialState(WorldInterface* world, const std::string& description);
+    void showInitialState(World* world, const std::string& description);
 
     // Show initial state with Start/Step choice.
-    void showInitialStateWithStep(WorldInterface* world, const std::string& description);
+    void showInitialStateWithStep(World* world, const std::string& description);
 
     // Enhanced stepping with status.
-    void stepSimulation(WorldInterface* world, int steps, const std::string& stepDescription);
+    void stepSimulation(World* world, int steps, const std::string& stepDescription);
 
     // Run with rendering every frame.
-    void runContinuousSimulation(WorldInterface* world, int steps, const std::string& description);
+    void runContinuousSimulation(World* world, int steps, const std::string& description);
 
     // Test restart functionality.
     void enableTestRestart() { restart_enabled_ = true; }
@@ -191,7 +191,7 @@ protected:
     // Test setup completion - call this after setting up initial test conditions.
     // Usage pattern: 1) createWorldB(), 2) setup materials/conditions, 3) logInitialTestState().
     void logInitialTestState(const World* world, const std::string& test_description = "");
-    void logInitialTestState(const WorldInterface* world, const std::string& test_description = "");
+    void logInitialTestState(const World* world, const std::string& test_description = "");
     
     // Log current world state including material positions, velocities, and total mass.
     void logWorldState(const World* world, const std::string& context = "");
@@ -248,7 +248,7 @@ protected:
     
     // Virtual method for derived tests to provide their world interface.
     // Tests using World should override this to return world.get().
-    virtual WorldInterface* getWorldInterface() {
+    virtual World* getWorldInterface() {
         return nullptr; // Base implementation - tests must override.
     }
 

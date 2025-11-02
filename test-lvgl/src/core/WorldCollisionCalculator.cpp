@@ -83,7 +83,7 @@ MaterialMove WorldCollisionCalculator::createCollisionAwareMove(
     }
 
     move.momentum = fromCell.getVelocity();
-    move.boundary_normal = Vector2d(direction.x, direction.y);
+    move.boundary_normal = Vector2d{static_cast<double>(direction.x), static_cast<double>(direction.y)};
 
     // Calculate collision physics data.
     move.material_mass = calculateMaterialMass(fromCell);

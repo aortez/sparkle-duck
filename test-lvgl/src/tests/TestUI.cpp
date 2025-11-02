@@ -1,5 +1,4 @@
 #include "TestUI.h"
-#include "../WorldInterface.h"
 #include "visual_test_runner.h"
 #include "lvgl/lvgl.h"
 #include <spdlog/spdlog.h>
@@ -25,7 +24,7 @@ TestUI::TestUI(lv_obj_t* screen, const std::string& test_name)
 
 TestUI::~TestUI() = default;
 
-void TestUI::setWorld(WorldInterface* world)
+void TestUI::setWorld(World* world)
 {
     world_ = world;
 }

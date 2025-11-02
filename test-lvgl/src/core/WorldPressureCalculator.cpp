@@ -1,7 +1,6 @@
 #include "WorldPressureCalculator.h"
 #include "Cell.h"
 #include "World.h"
-#include "WorldInterface.h"
 
 #include <algorithm>
 #include <cmath>
@@ -260,7 +259,7 @@ Vector2d WorldPressureCalculator::calculatePressureGradient(uint32_t x, uint32_t
             y,
             center_pressure,
             MIN_PRESSURE_THRESHOLD);
-        return Vector2d(0, 0);
+        return Vector2d{0, 0};
     }
 
     // First pass: Identify blocked and open directions.
@@ -498,7 +497,7 @@ Vector2d WorldPressureCalculator::calculateGravityGradient(uint32_t x, uint32_t 
 
     // Skip if no gravity.
     if (gravity_magnitude < 0.001) {
-        return Vector2d(0, 0);
+        return Vector2d{0, 0};
     }
 
     Vector2d gravity_gradient(0, 0);
@@ -574,11 +573,11 @@ void WorldPressureCalculator::applyPressureDecay(double deltaTime)
                     cell.setPressureGradient(gradient);
                 }
                 else {
-                    cell.setPressureGradient(Vector2d(0.0, 0.0));
+                    cell.setPressureGradient(Vector2d{0.0, 0.0});
                 }
             }
             else {
-                cell.setPressureGradient(Vector2d(0.0, 0.0));
+                cell.setPressureGradient(Vector2d{0.0, 0.0});
             }
         }
     }

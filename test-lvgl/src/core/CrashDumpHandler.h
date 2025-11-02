@@ -3,7 +3,7 @@
 #include <string>
 
 // Forward declarations.
-class WorldInterface;
+class World;
 
 /**
  * CrashDumpHandler - Captures complete world state on assertion failures.
@@ -17,7 +17,7 @@ public:
      * Install the crash dump handler globally.
      * Should be called once during application startup.
      */
-    static void install(WorldInterface* world);
+    static void install(World* world);
 
     /**
      * Remove the crash dump handler.
@@ -45,7 +45,7 @@ public:
         const char* condition, const char* file, int line, const char* message);
 
 private:
-    static WorldInterface* world_;
+    static World* world_;
     static std::string dump_directory_;
     static bool installed_;
 

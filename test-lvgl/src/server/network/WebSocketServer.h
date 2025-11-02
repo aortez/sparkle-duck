@@ -13,7 +13,7 @@ namespace Server {
 
 class WebSocketServer {
 public:
-    explicit WebSocketServer(StateMachineInterface<Event>& stateMachine, uint16_t port = 8080);
+    explicit WebSocketServer(DirtSim::StateMachineInterface<Event>& stateMachine, uint16_t port = 8080);
 
     /**
      * @brief Start the server.
@@ -32,7 +32,7 @@ public:
     uint16_t getPort() const;
 
 private:
-    StateMachineInterface<Event>& stateMachine_;
+    DirtSim::StateMachineInterface<Event>& stateMachine_;
     std::unique_ptr<rtc::WebSocketServer> server_;
     CommandDeserializerJson deserializer_;
     ResponseSerializerJson serializer_;

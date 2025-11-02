@@ -1,8 +1,8 @@
 #include "WorldEventGenerator.h"
+#include "World.h"
 #include "Cell.h"
 #include "MaterialType.h"
 #include "Vector2d.h"
-#include "WorldInterface.h"
 #include "spdlog/spdlog.h"
 #include <algorithm>
 #include <cmath>
@@ -10,7 +10,7 @@
 #include <iostream>
 #include <random>
 
-void WorldEventGenerator::fillLowerRightQuadrant(WorldInterface& world)
+void WorldEventGenerator::fillLowerRightQuadrant(World& world)
 {
     uint32_t startX = world.getWidth() / 2;
     uint32_t startY = world.getHeight() / 2;
@@ -27,7 +27,7 @@ void WorldEventGenerator::fillLowerRightQuadrant(WorldInterface& world)
     }
 }
 
-void WorldEventGenerator::makeWalls(WorldInterface& world)
+void WorldEventGenerator::makeWalls(World& world)
 {
     // Wall creation is now handled by each world implementation internally.
     // World and World have their own wall systems (different material types).
@@ -40,7 +40,7 @@ void WorldEventGenerator::makeWalls(WorldInterface& world)
     // Note: Walls are controlled via setWallsEnabled() and handled in each world's reset/setup.
 }
 
-void WorldEventGenerator::makeMiddleMetalWall(WorldInterface& world)
+void WorldEventGenerator::makeMiddleMetalWall(World& world)
 {
     // Add metal wall from top middle to center (World-specific feature).
     uint32_t middle_x = world.getWidth() / 2;
@@ -53,7 +53,7 @@ void WorldEventGenerator::makeMiddleMetalWall(WorldInterface& world)
     }
 }
 
-void WorldEventGenerator::fillWithDirt(WorldInterface& world)
+void WorldEventGenerator::fillWithDirt(World& world)
 {
     spdlog::info(
         "Filling entire world with dirt ({}x{} cells)", world.getWidth(), world.getHeight());
@@ -65,7 +65,7 @@ void WorldEventGenerator::fillWithDirt(WorldInterface& world)
     }
 }
 
-void DefaultWorldEventGenerator::setup(WorldInterface& world)
+void DefaultWorldEventGenerator::setup(World& world)
 {
     fillLowerRightQuadrant(world);
     makeWalls(world);
@@ -85,9 +85,9 @@ std::unique_ptr<WorldEventGenerator> DefaultWorldEventGenerator::clone() const
 }
 
 void DefaultWorldEventGenerator::addParticles(
-    WorldInterface& world, uint32_t timestep, double deltaTimeSeconds)
+    World& world, uint32_t timestep, double deltaTimeSeconds)
 {
-    // Now using CellInterface for direct cell access.
+    // Now using Cell for direct cell access.
     const double simTime = lastSimTime + deltaTimeSeconds;
 
     spdlog::debug(
@@ -102,8 +102,8 @@ void DefaultWorldEventGenerator::addParticles(
     if (!topDropDone && simTime >= nextTopDrop) {
         spdlog::info("Adding top drop at time {:.3f}s", simTime);
         uint32_t centerX = world.getWidth() / 2;
-        CellInterface& cell =
-            world.getCellInterface(centerX, 1); // 1 to be just below the top wall.
+        Cell& cell =
+            world.getCell(centerX, 1); // 1 to be just below the top wall.
         cell.addDirt(1.0);
         topDropDone = true;
     }
@@ -112,8 +112,8 @@ void DefaultWorldEventGenerator::addParticles(
     if (!initialThrowDone && simTime >= nextInitialThrow) {
         spdlog::info("Adding initial throw at time {:.3f}s", simTime);
         uint32_t centerY = world.getHeight() / 2;
-        CellInterface& cell = world.getCellInterface(2, centerY); // Against the left wall.
-        cell.addDirtWithVelocity(1.0, Vector2d(5, -5));
+        Cell& cell = world.getCell(2, centerY); // Against the left wall.
+        cell.addDirtWithVelocity(1.0, Vector2d{5, -5});
         initialThrowDone = true;
     }
 
@@ -122,8 +122,8 @@ void DefaultWorldEventGenerator::addParticles(
     if (simTime >= nextPeriodicThrow) {
         spdlog::debug("Adding periodic throw at time {:.3f}s", simTime);
         uint32_t centerY = world.getHeight() / 2;
-        CellInterface& cell = world.getCellInterface(2, centerY); // Against the left wall.
-        cell.addDirtWithVelocity(1.0, Vector2d(10, -10));
+        Cell& cell = world.getCell(2, centerY); // Against the left wall.
+        cell.addDirtWithVelocity(1.0, Vector2d{10, -10});
         // Schedule next throw.
         nextPeriodicThrow += period;
     }
@@ -132,9 +132,9 @@ void DefaultWorldEventGenerator::addParticles(
     if (simTime >= nextRightThrow) {
         spdlog::debug("Adding right periodic throw at time {:.3f}s", simTime);
         uint32_t centerY = world.getHeight() / 2 - 2;
-        CellInterface& cell =
-            world.getCellInterface(world.getWidth() - 3, centerY); // Against the right wall.
-        cell.addDirtWithVelocity(1.0, Vector2d(-10, -10));
+        Cell& cell =
+            world.getCell(world.getWidth() - 3, centerY); // Against the right wall.
+        cell.addDirtWithVelocity(1.0, Vector2d{-10, -10});
         // Schedule next throw.
         nextRightThrow += period;
     }
@@ -202,7 +202,7 @@ void DefaultWorldEventGenerator::addParticles(
 
         // Emit particle at current sweep position.
         Cell& cell = world.at(xPos, 1); // 1 to be just below the top wall.
-        cell.update(dirtAmount, Vector2d(0.0, 0.0), Vector2d(0.0, 0.0));
+        cell.update(dirtAmount, Vector2d{0.0, 0.0}, Vector2d{0.0, 0.0});
         spdlog::debug(
             "Sweep emitter at x={} with dirt={:.2f} (beat {})", xPos, dirtAmount, currentBeat);
     }
@@ -212,7 +212,7 @@ void DefaultWorldEventGenerator::addParticles(
         spdlog::info("Adding top drop at time {:.3f}s", simTime);
         uint32_t centerX = world.getWidth() / 2;
         Cell& cell = world.at(centerX, 1); // 1 to be just below the top wall.
-        cell.update(1.0, Vector2d(0.0, 0.0), Vector2d(0.0, 0.0));
+        cell.update(1.0, Vector2d{0.0, 0.0}, Vector2d{0.0, 0.0});
         eventState.topDropDone = true;
     }
 
@@ -221,7 +221,7 @@ void DefaultWorldEventGenerator::addParticles(
         spdlog::info("Adding initial throw at time {:.3f}s", simTime);
         uint32_t centerY = world.getHeight() / 2;
         Cell& cell = world.at(2, centerY); // Against the left wall.
-        cell.update(1.0, Vector2d(0.0, 0.0), Vector2d(5, -5));
+        cell.update(1.0, Vector2d{0.0, 0.0}, Vector2d{5, -5});
         eventState.initialThrowDone = true;
     }
 
@@ -231,7 +231,7 @@ void DefaultWorldEventGenerator::addParticles(
         spdlog::debug("Adding periodic throw at time {:.3f}s", simTime);
         uint32_t centerY = world.getHeight() / 2;
         Cell& cell = world.at(2, centerY); // Against the left wall.
-        cell.update(1.0, Vector2d(0.0, 0.0), Vector2d(10, -10));
+        cell.update(1.0, Vector2d{0.0, 0.0}, Vector2d{10, -10});
         // Schedule next throw.
         eventState.nextPeriodicThrow += period;
     }
@@ -241,7 +241,7 @@ void DefaultWorldEventGenerator::addParticles(
         spdlog::debug("Adding right periodic throw at time {:.3f}s", simTime);
         uint32_t centerY = world.getHeight() / 2 - 2;
         Cell& cell = world.at(world.getWidth() - 3, centerY); // Against the right wall.
-        cell.update(1.0, Vector2d(0.0, 0.0), Vector2d(-10, -10));
+        cell.update(1.0, Vector2d{0.0, 0.0}, Vector2d{-10, -10});
         // Schedule next throw.
         eventState.nextRightThrow += period;
     }
@@ -254,7 +254,7 @@ DefaultWorldEventGenerator::~DefaultWorldEventGenerator()
 {}
 
 // ConfigurableWorldEventGenerator implementation.
-void ConfigurableWorldEventGenerator::setup(WorldInterface& world)
+void ConfigurableWorldEventGenerator::setup(World& world)
 {
     spdlog::info(
         "ConfigurableWorldEventGenerator::setup called - waterColumnEnabled={}",
@@ -274,7 +274,7 @@ void ConfigurableWorldEventGenerator::setup(WorldInterface& world)
         spdlog::info("Adding water column (5 wide × 20 tall) on left side");
         for (uint32_t y = 0; y < 20 && y < world.getHeight(); ++y) {
             for (uint32_t x = 1; x <= 5 && x < world.getWidth(); ++x) {
-                CellInterface& cell = world.getCellInterface(x, y);
+                Cell& cell = world.getCell(x, y);
                 cell.addWater(1.0); // Add full cell of water.
             }
         }
@@ -310,7 +310,7 @@ std::unique_ptr<WorldEventGenerator> ConfigurableWorldEventGenerator::clone() co
 }
 
 void ConfigurableWorldEventGenerator::addParticles(
-    WorldInterface& world, uint32_t timestep, double deltaTimeSeconds)
+    World& world, uint32_t timestep, double deltaTimeSeconds)
 {
     const double simTime = lastSimTime + deltaTimeSeconds;
 
@@ -326,8 +326,8 @@ void ConfigurableWorldEventGenerator::addParticles(
     if (topDropEnabled && !topDropDone && simTime >= nextTopDrop) {
         spdlog::info("Adding top drop at time {:.3f}s", simTime);
         uint32_t centerX = world.getWidth() / 2;
-        CellInterface& cell =
-            world.getCellInterface(centerX, 1); // 1 to be just below the top wall.
+        Cell& cell =
+            world.getCell(centerX, 1); // 1 to be just below the top wall.
         cell.addDirt(1.0);
         topDropDone = true;
     }
@@ -337,8 +337,8 @@ void ConfigurableWorldEventGenerator::addParticles(
         spdlog::info("Adding initial throw at time {:.3f}s", simTime);
         uint32_t centerY = world.getHeight() / 2;
         if (2 < world.getWidth() && centerY < world.getHeight()) {
-            CellInterface& cell = world.getCellInterface(2, centerY); // Against the left wall.
-            cell.addDirtWithVelocity(1.0, Vector2d(5, -5));
+            Cell& cell = world.getCell(2, centerY); // Against the left wall.
+            cell.addDirtWithVelocity(1.0, Vector2d{5, -5});
         }
         initialThrowDone = true;
     }
@@ -349,8 +349,8 @@ void ConfigurableWorldEventGenerator::addParticles(
         spdlog::debug("Adding periodic throw at time {:.3f}s", simTime);
         uint32_t centerY = world.getHeight() / 2;
         if (2 < world.getWidth() && centerY < world.getHeight()) {
-            CellInterface& cell = world.getCellInterface(2, centerY); // Against the left wall.
-            cell.addDirtWithVelocity(1.0, Vector2d(10, -10));
+            Cell& cell = world.getCell(2, centerY); // Against the left wall.
+            cell.addDirtWithVelocity(1.0, Vector2d{10, -10});
         }
         // Schedule next throw.
         nextPeriodicThrow += period;
@@ -363,9 +363,9 @@ void ConfigurableWorldEventGenerator::addParticles(
         int32_t centerYSigned = static_cast<int32_t>(world.getHeight()) / 2 - 2;
         if (rightX < world.getWidth() && centerYSigned >= 0) {
             uint32_t centerY = static_cast<uint32_t>(centerYSigned);
-            CellInterface& cell =
-                world.getCellInterface(rightX, centerY); // Against the right wall.
-            cell.addDirtWithVelocity(1.0, Vector2d(-10, -10));
+            Cell& cell =
+                world.getCell(rightX, centerY); // Against the right wall.
+            cell.addDirtWithVelocity(1.0, Vector2d{-10, -10});
         }
         // Schedule next throw.
         nextRightThrow += period;
@@ -386,7 +386,7 @@ void ConfigurableWorldEventGenerator::addParticles(
             static_cast<uint32_t>(randomPos * (world.getWidth() - 2)) + 1; // [1, width-2]
 
         if (xPos < world.getWidth() && 1 < world.getHeight()) {
-            CellInterface& cell = world.getCellInterface(xPos, 1); // Just below the top wall.
+            Cell& cell = world.getCell(xPos, 1); // Just below the top wall.
             // Add water instead of dirt for rain.
             cell.addWater(0.8);
         }
@@ -401,7 +401,7 @@ void ConfigurableWorldEventGenerator::addParticles(
 
 // Feature-preserving resize implementation.
 std::vector<WorldEventGenerator::ResizeData> WorldEventGenerator::captureWorldState(
-    const WorldInterface& /* world. */) const
+    const World& /* world. */) const
 {
     // Resize functionality not available for WorldInterface - requires direct cell access.
     // Return empty state for now - TODO: implement resize support if needed.
@@ -410,7 +410,7 @@ std::vector<WorldEventGenerator::ResizeData> WorldEventGenerator::captureWorldSt
 }
 
 void WorldEventGenerator::applyWorldState(
-    WorldInterface& world,
+    World& world,
     const std::vector<ResizeData>& oldState,
     uint32_t oldWidth,
     uint32_t oldHeight) const

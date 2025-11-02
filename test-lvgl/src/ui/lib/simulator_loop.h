@@ -7,7 +7,6 @@
 #if 0 // Temporarily disabled - needs redesign for client/server architecture.
 
 #include "../../server/StateMachine.h"
-#include "../../core/WorldInterface.h"
 #include "lvgl/lvgl.h"
 #include "lvgl/src/misc/lv_timer.h"
 #include <chrono>
@@ -81,7 +80,7 @@ inline void processFrame(
     state.step_count++;
 
     // Get current world.
-    WorldInterface* world = dsm.world.get();
+    World* world = dsm.world.get();
     if (!world) {
         printf("Error: No world available\n");
         state.is_running = false;

@@ -1,6 +1,6 @@
 #include "../../../core/MaterialType.h"
-#include "../../../core/WorldInterface.h"
 #include "../Scenario.h"
+#include "../../../core/World.h"
 #include "../ScenarioRegistry.h"
 #include "../ScenarioWorldEventGenerator.h"
 #include "spdlog/spdlog.h"
@@ -28,7 +28,7 @@ public:
         auto setup = std::make_unique<ScenarioWorldEventGenerator>();
 
         // Setup function - configure world size if possible
-        setup->setSetupFunction([](WorldInterface& world) {
+        setup->setSetupFunction([](World& world) {
             spdlog::info("Setting up Raining scenario");
             // Note: Current interface doesn't support resize, so we work with whatever size we have
             // In the future, we might want to add resize capability to WorldInterface
@@ -41,7 +41,7 @@ public:
         });
         
         // Update function - add rain drops
-        setup->setUpdateFunction([](WorldInterface& world, uint32_t /*timestep*/, double deltaTime) {
+        setup->setUpdateFunction([](World& world, uint32_t /*timestep*/, double deltaTime) {
             static std::mt19937 rng(42); // Deterministic for consistency
             static std::uniform_real_distribution<double> drop_dist(0.0, 1.0);
             static std::uniform_int_distribution<int> x_dist(1, world.getWidth() - 2);

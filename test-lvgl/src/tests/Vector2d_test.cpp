@@ -33,38 +33,38 @@ TEST(Vector2dTest, Operators) {
 
     // Addition.
     Vector2d sum = v1 + v2;
-    EXPECT_TRUE(almostEqual(sum, Vector2d(4.0, 6.0)));
+    EXPECT_TRUE(almostEqual(sum, Vector2d{4.0, 6.0}));
 
     // Subtraction.
     Vector2d diff = v2 - v1;
-    EXPECT_TRUE(almostEqual(diff, Vector2d(2.0, 2.0)));
+    EXPECT_TRUE(almostEqual(diff, Vector2d{2.0, 2.0}));
 
     // Scalar multiplication.
     Vector2d scaled = v1 * 2.0;
-    EXPECT_TRUE(almostEqual(scaled, Vector2d(2.0, 4.0)));
+    EXPECT_TRUE(almostEqual(scaled, Vector2d{2.0, 4.0}));
 
     // Scalar division.
     Vector2d divided = v2 / 2.0;
-    EXPECT_TRUE(almostEqual(divided, Vector2d(1.5, 2.0)));
+    EXPECT_TRUE(almostEqual(divided, Vector2d{1.5, 2.0}));
 
     // In-place addition.
     v1 += v2;
-    EXPECT_TRUE(almostEqual(v1, Vector2d(4.0, 6.0)));
+    EXPECT_TRUE(almostEqual(v1, Vector2d{4.0, 6.0}));
 
     // In-place subtraction.
     v1 -= v2;
-    EXPECT_TRUE(almostEqual(v1, Vector2d(1.0, 2.0)));
+    EXPECT_TRUE(almostEqual(v1, Vector2d{1.0, 2.0}));
 
     // In-place multiplication.
     v1 *= 2.0;
-    EXPECT_TRUE(almostEqual(v1, Vector2d(2.0, 4.0)));
+    EXPECT_TRUE(almostEqual(v1, Vector2d{2.0, 4.0}));
 
     // In-place division.
     v1 /= 2.0;
-    EXPECT_TRUE(almostEqual(v1, Vector2d(1.0, 2.0)));
+    EXPECT_TRUE(almostEqual(v1, Vector2d{1.0, 2.0}));
 
     // Equality.
-    EXPECT_TRUE(v1 == Vector2d(1.0, 2.0));
+    EXPECT_TRUE(v1 == Vector2d{1.0, 2.0});
     EXPECT_FALSE(v1 == v2);
 }
 
@@ -82,19 +82,19 @@ TEST(Vector2dTest, VectorOperations) {
     // Normalization.
     Vector2d normalized = v1.normalize();
     EXPECT_TRUE(almostEqual(normalized.mag(), 1.0));
-    EXPECT_TRUE(almostEqual(normalized, Vector2d(0.6, 0.8)));
+    EXPECT_TRUE(almostEqual(normalized, Vector2d{0.6, 0.8}));
 
     // Add method.
     Vector2d sum = v1.add(v2);
-    EXPECT_TRUE(almostEqual(sum, Vector2d(4.0, 6.0)));
+    EXPECT_TRUE(almostEqual(sum, Vector2d{4.0, 6.0}));
 
     // Subtract method.
     Vector2d diff = v1.subtract(v2);
-    EXPECT_TRUE(almostEqual(diff, Vector2d(2.0, 2.0)));
+    EXPECT_TRUE(almostEqual(diff, Vector2d{2.0, 2.0}));
 
     // Times method.
     Vector2d scaled = v1.times(2.0);
-    EXPECT_TRUE(almostEqual(scaled, Vector2d(6.0, 8.0)));
+    EXPECT_TRUE(almostEqual(scaled, Vector2d{6.0, 8.0}));
 }
 
 TEST(Vector2dTest, EdgeCases) {

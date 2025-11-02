@@ -1,6 +1,6 @@
 #include "../../../core/WorldEventGenerator.h"
-#include "../../../core/WorldInterface.h"
 #include "../Scenario.h"
+#include "../../../core/World.h"
 #include "../ScenarioRegistry.h"
 #include "../ScenarioWorldEventGenerator.h"
 #include "spdlog/spdlog.h"

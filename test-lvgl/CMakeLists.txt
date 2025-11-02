@@ -213,7 +213,6 @@ add_executable(sparkle-duck-server
     src/core/Timers.cpp
     src/core/WorldEventGenerator.cpp
     src/core/MaterialType.cpp
-    src/core/WorldInterface.cpp
     src/core/WorldCalculatorBase.cpp
     src/core/WorldCohesionCalculator.cpp
     src/core/WorldSupportCalculator.cpp
@@ -261,7 +260,6 @@ add_executable(sparkle-duck-tests
     src/core/Timers.cpp
     src/core/WorldEventGenerator.cpp
     src/core/MaterialType.cpp
-    src/core/WorldInterface.cpp
     src/core/WorldCalculatorBase.cpp
     src/core/WorldCohesionCalculator.cpp
     src/core/WorldSupportCalculator.cpp

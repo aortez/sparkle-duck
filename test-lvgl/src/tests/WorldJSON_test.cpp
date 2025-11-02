@@ -359,7 +359,7 @@ TEST_F(WorldJSONTest, CellVelocitiesPreserved) {
 
     // Add cell with initial velocity.
     world.addMaterialAtCell(5, 2, MaterialType::WATER, 1.0);
-    world.at(5, 2).setVelocity(Vector2d(0.3, -0.5));
+    world.at(5, 2).setVelocity(Vector2d{0.3, -0.5});
 
     auto json = world.toJSON();
     World world2(10, 10);
@@ -376,7 +376,7 @@ TEST_F(WorldJSONTest, CellCOMPreserved) {
 
     // Add cell with specific COM.
     world.addMaterialAtCell(7, 3, MaterialType::SAND, 0.7);
-    world.at(7, 3).setCOM(Vector2d(0.25, -0.15));
+    world.at(7, 3).setCOM(Vector2d{0.25, -0.15});
 
     auto json = world.toJSON();
     World world2(10, 10);

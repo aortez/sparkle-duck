@@ -16,7 +16,7 @@ Vector2d WorldAirResistanceCalculator::calculateAirResistance(
 
     // No air resistance for empty or wall cells.
     if (cell.isEmpty() || cell.isWall()) {
-        return Vector2d(0.0, 0.0);
+        return Vector2d{0.0, 0.0};
     }
 
     // Get cell velocity.
@@ -25,7 +25,7 @@ Vector2d WorldAirResistanceCalculator::calculateAirResistance(
 
     // No resistance if not moving.
     if (velocity_magnitude < MIN_MATTER_THRESHOLD) {
-        return Vector2d(0.0, 0.0);
+        return Vector2d{0.0, 0.0};
     }
 
     // Get material properties for logging.

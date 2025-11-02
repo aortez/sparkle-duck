@@ -696,12 +696,12 @@ LVGLEventBuilder::DropdownBuilder& LVGLEventBuilder::DropdownBuilder::onValueCha
 
 LVGLEventBuilder::DropdownBuilder& LVGLEventBuilder::DropdownBuilder::onPressureSystemChange() {
     return onValueChange([](uint16_t selectedIndex) {
-        WorldInterface::PressureSystem system;
+        World::PressureSystem system;
         switch (selectedIndex) {
-            case 0: system = WorldInterface::PressureSystem::Original; break;
-            case 1: system = WorldInterface::PressureSystem::TopDown; break;
-            case 2: system = WorldInterface::PressureSystem::IterativeSettling; break;
-            default: system = WorldInterface::PressureSystem::Original; break;
+            case 0: system = World::PressureSystem::Original; break;
+            case 1: system = World::PressureSystem::TopDown; break;
+            case 2: system = World::PressureSystem::IterativeSettling; break;
+            default: system = World::PressureSystem::Original; break;
         }
         return Event{SetPressureSystemCommand{system}};
     });

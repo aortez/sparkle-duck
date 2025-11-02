@@ -90,20 +90,20 @@ void Cell::setFillRatio(double ratio)
     if (fill_ratio_ < MIN_FILL_THRESHOLD) {
         material_type_ = MaterialType::AIR;
         fill_ratio_ = 0.0;
-        velocity_ = Vector2d(0.0, 0.0);
-        com_ = Vector2d(0.0, 0.0);
+        velocity_ = Vector2d{0.0, 0.0};
+        com_ = Vector2d{0.0, 0.0};
 
         // Clear all pressure values when cell becomes empty.
         pressure_ = 0.0;
         hydrostatic_component_ = 0.0;
         dynamic_component_ = 0.0;
-        pressure_gradient_ = Vector2d(0.0, 0.0);
+        pressure_gradient_ = Vector2d{0.0, 0.0};
     }
 }
 
 void Cell::setCOM(const Vector2d& com)
 {
-    com_ = Vector2d(std::clamp(com.x, COM_MIN, COM_MAX), std::clamp(com.y, COM_MIN, COM_MAX));
+    com_ = Vector2d{std::clamp(com.x, COM_MIN, COM_MAX), std::clamp(com.y, COM_MIN, COM_MAX)};
 }
 
 double Cell::getMass() const
@@ -267,22 +267,22 @@ void Cell::replaceMaterial(MaterialType type, double fill_ratio)
     setFillRatio(fill_ratio);
 
     // Reset physics state when replacing material.
-    velocity_ = Vector2d(0.0, 0.0);
-    com_ = Vector2d(0.0, 0.0);
+    velocity_ = Vector2d{0.0, 0.0};
+    com_ = Vector2d{0.0, 0.0};
 }
 
 void Cell::clear()
 {
     material_type_ = MaterialType::AIR;
     fill_ratio_ = 0.0;
-    velocity_ = Vector2d(0.0, 0.0);
-    com_ = Vector2d(0.0, 0.0);
+    velocity_ = Vector2d{0.0, 0.0};
+    com_ = Vector2d{0.0, 0.0};
 
     // Clear all pressure values when cell becomes empty.
     pressure_ = 0.0;
     hydrostatic_component_ = 0.0;
     dynamic_component_ = 0.0;
-    pressure_gradient_ = Vector2d(0.0, 0.0);
+    pressure_gradient_ = Vector2d{0.0, 0.0};
 }
 
 void Cell::limitVelocity(

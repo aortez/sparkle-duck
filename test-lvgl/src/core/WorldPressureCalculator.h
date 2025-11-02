@@ -4,7 +4,6 @@
 #include "MaterialType.h"
 #include "Vector2d.h"
 #include "WorldCalculatorBase.h"
-#include "WorldInterface.h"
 
 #include <cstdint>
 #include <vector>

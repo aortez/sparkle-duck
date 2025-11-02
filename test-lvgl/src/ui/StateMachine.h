@@ -41,8 +41,8 @@ public:
     void queueEvent(const Event& event);
     void handleEvent(const Event& event);
 
-    std::string getCurrentStateName() const override;
-    void processEvents() override;
+    std::string getCurrentStateName() const;
+    void processEvents();
 
     lv_disp_t* display = nullptr;
     EventProcessor<Event, StateMachine> eventProcessor;

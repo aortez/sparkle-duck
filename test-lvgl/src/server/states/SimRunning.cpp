@@ -133,7 +133,7 @@ State::Any SimRunning::onEvent(const Api::CellSet::Cwc& cwc, StateMachine& dsm)
         return *this;
     }
 
-    WorldInterface* worldInterface = dsm.world.get();
+    World* worldInterface = dsm.world.get();
 
     // Validate coordinates.
     if (cwc.command.x < 0 || cwc.command.y < 0 ||
@@ -735,15 +735,6 @@ State::Any SimRunning::onEvent(const SetFragmentationCommand& cmd, StateMachine&
     return *this;
 }
 
-State::Any SimRunning::onEvent(const SetPressureSystemCommand& cmd, StateMachine& dsm)
-{
-    if (auto* world = dsm.world.get()) {
-        world->setPressureSystem(cmd.system);
-        spdlog::info("SimRunning: Set pressure system to {}", static_cast<int>(cmd.system));
-    }
-    return *this;
-}
-
 State::Any SimRunning::onEvent(const ToggleWallsCommand& /*cmd*/, StateMachine& dsm)
 {
     // Apply to world.
@@ -776,8 +767,8 @@ State::Any SimRunning::onEvent(const ToggleWaterColumnCommand& /*cmd*/, StateMac
                         if (!cell.isWall()) {
                             cell.setMaterialType(MaterialType::WATER);
                             cell.setFillRatio(1.0);
-                            cell.setCOM(Vector2d(0.0, 0.0));
-                            cell.setVelocity(Vector2d(0.0, 0.0));
+                            cell.setCOM(Vector2d{0.0, 0.0});
+                            cell.setVelocity(Vector2d{0.0, 0.0});
                         }
                     }
                 }
@@ -792,8 +783,8 @@ State::Any SimRunning::onEvent(const ToggleWaterColumnCommand& /*cmd*/, StateMac
                         if (cell.getMaterialType() == MaterialType::WATER && !cell.isWall()) {
                             cell.setMaterialType(MaterialType::AIR);
                             cell.setFillRatio(0.0);
-                            cell.setCOM(Vector2d(0.0, 0.0));
-                            cell.setVelocity(Vector2d(0.0, 0.0));
+                            cell.setCOM(Vector2d{0.0, 0.0});
+                            cell.setVelocity(Vector2d{0.0, 0.0});
                         }
                     }
                 }
@@ -850,8 +841,8 @@ State::Any SimRunning::onEvent(const ToggleQuadrantCommand& /*cmd*/, StateMachin
                         if (!cell.isWall()) {
                             cell.setMaterialType(MaterialType::DIRT);
                             cell.setFillRatio(1.0);
-                            cell.setCOM(Vector2d(0.0, 0.0));
-                            cell.setVelocity(Vector2d(0.0, 0.0));
+                            cell.setCOM(Vector2d{0.0, 0.0});
+                            cell.setVelocity(Vector2d{0.0, 0.0});
                         }
                     }
                 }
@@ -866,8 +857,8 @@ State::Any SimRunning::onEvent(const ToggleQuadrantCommand& /*cmd*/, StateMachin
                         if (cell.getMaterialType() == MaterialType::DIRT && !cell.isWall()) {
                             cell.setMaterialType(MaterialType::AIR);
                             cell.setFillRatio(0.0);
-                            cell.setCOM(Vector2d(0.0, 0.0));
-                            cell.setVelocity(Vector2d(0.0, 0.0));
+                            cell.setCOM(Vector2d{0.0, 0.0});
+                            cell.setVelocity(Vector2d{0.0, 0.0});
                         }
                     }
                 }

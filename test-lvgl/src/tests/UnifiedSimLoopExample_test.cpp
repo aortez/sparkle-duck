@@ -35,7 +35,7 @@ protected:
     
     // PATTERN: Override this to provide world interface for the unified loop.
     // This allows runSimulationLoop to work with your world.
-    WorldInterface* getWorldInterface() override {
+    World* getWorldInterface() override {
         return world.get();
     }
     
@@ -198,8 +198,8 @@ TEST_F(UnifiedSimLoopExampleTest, PressureTrackingExample) {
     Cell& cell2 = world->at(2, 1);
     
     // Give them opposing velocities for collision.
-    cell1.setVelocity(Vector2d(2.0, 0.0));
-    cell2.setVelocity(Vector2d(-2.0, 0.0));
+    cell1.setVelocity(Vector2d{2.0, 0.0});
+    cell2.setVelocity(Vector2d{-2.0, 0.0});
     
     showInitialState(world.get(), "Two water cells colliding");
     

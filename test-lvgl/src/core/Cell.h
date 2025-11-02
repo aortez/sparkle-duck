@@ -1,6 +1,5 @@
 #pragma once
 
-#include "CellInterface.h"
 #include "MaterialType.h"
 #include "Vector2d.h"
 
@@ -18,7 +17,7 @@
  * a fill ratio [0,1] indicating how much of the cell is occupied.
  */
 
-class Cell : public CellInterface {
+class Cell {
 public:
     // Material fill threshold constants.
     static constexpr double MIN_FILL_THRESHOLD = 0.001; // Minimum matter to consider
@@ -82,9 +81,9 @@ public:
     // Clear accumulated forces (for initialization).
     void clearAccumulatedForces()
     {
-        accumulated_cohesion_force_ = Vector2d(0, 0);
-        accumulated_adhesion_force_ = Vector2d(0, 0);
-        accumulated_com_cohesion_force_ = Vector2d(0, 0);
+        accumulated_cohesion_force_ = Vector2d{0, 0};
+        accumulated_adhesion_force_ = Vector2d{0, 0};
+        accumulated_com_cohesion_force_ = Vector2d{0, 0};
     }
 
     // Get/set cached friction coefficient for visualization.
@@ -99,10 +98,10 @@ public:
     const Vector2d& getPendingForce() const { return pending_force_; }
     void setPendingForce(const Vector2d& force) { pending_force_ = force; }
     void addPendingForce(const Vector2d& force) { pending_force_ = pending_force_ + force; }
-    void clearPendingForce() { pending_force_ = Vector2d(0, 0); }
+    void clearPendingForce() { pending_force_ = Vector2d{0, 0}; }
 
     // Material state queries.
-    bool isEmpty() const override { return fill_ratio_ < MIN_FILL_THRESHOLD; }
+    bool isEmpty() const { return fill_ratio_ < MIN_FILL_THRESHOLD; }
     bool isFull() const { return fill_ratio_ > MAX_FILL_THRESHOLD; }
     bool isAir() const { return material_type_ == MaterialType::AIR; }
     bool isWall() const { return material_type_ == MaterialType::WALL; }
@@ -114,12 +113,12 @@ public:
     // Center of mass position [-1,1] within cell.
     const Vector2d& getCOM() const { return com_; }
     void setCOM(const Vector2d& com);
-    void setCOM(double x, double y) { setCOM(Vector2d(x, y)); }
+    void setCOM(double x, double y) { setCOM(Vector2d{x, y}); }
 
     // Velocity vector.
     const Vector2d& getVelocity() const { return velocity_; }
     void setVelocity(const Vector2d& velocity) { velocity_ = velocity; }
-    void setVelocity(double x, double y) { velocity_ = Vector2d(x, y); }
+    void setVelocity(double x, double y) { velocity_ = Vector2d{x, y}; }
 
     // Unified pressure system with component tracking for debugging.
     // Primary interface - use these for physics calculations.
@@ -191,7 +190,7 @@ public:
     void replaceMaterial(MaterialType type, double fill_ratio = 1.0);
 
     // Clear cell (set to empty air)
-    void clear() override;
+    void clear();
 
     // =================================================================
     // PHYSICS UTILITIES
@@ -227,21 +226,21 @@ public:
     // =================================================================
 
     // Basic material addition
-    void addDirt(double amount) override;
-    void addWater(double amount) override;
+    void addDirt(double amount);
+    void addWater(double amount);
 
     // Advanced material addition with physics.
-    void addDirtWithVelocity(double amount, const Vector2d& velocity) override;
-    void addWaterWithVelocity(double amount, const Vector2d& velocity) override;
-    void addDirtWithCOM(double amount, const Vector2d& com, const Vector2d& velocity) override;
+    void addDirtWithVelocity(double amount, const Vector2d& velocity);
+    void addWaterWithVelocity(double amount, const Vector2d& velocity);
+    void addDirtWithCOM(double amount, const Vector2d& com, const Vector2d& velocity);
 
     // Cell state management (markDirty declared above in rendering section).
 
     // Material properties.
-    double getTotalMaterial() const override;
+    double getTotalMaterial() const;
 
     // ASCII visualization.
-    std::string toAsciiCharacter() const override;
+    std::string toAsciiCharacter() const;
 
     // =================================================================
     // JSON SERIALIZATION

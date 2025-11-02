@@ -17,7 +17,7 @@
  */
 #pragma once
 
-class WorldInterface;
+class World;
 
 /*
  * Register all available backends

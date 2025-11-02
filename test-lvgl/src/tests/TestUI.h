@@ -5,7 +5,7 @@
 #include <string>
 #include <atomic>
 
-class WorldInterface;
+class World;
 
 class TestUI {
 public:
@@ -13,8 +13,8 @@ public:
     ~TestUI();
 
     // Set the world after UI creation.
-    void setWorld(WorldInterface* world);
-    WorldInterface* getWorld() const { return world_; }
+    void setWorld(World* world);
+    World* getWorld() const { return world_; }
 
     // UI update methods.
     void updateTestLabel(const std::string& status);
@@ -49,7 +49,7 @@ public:
     friend class VisualTestBase;
 
 private:
-    WorldInterface* world_;
+    World* world_;
     lv_obj_t* screen_;
     lv_obj_t* draw_area_;
     lv_obj_t* test_label_;

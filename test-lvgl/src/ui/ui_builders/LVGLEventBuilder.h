@@ -654,7 +654,6 @@ public:
          * @brief Convenience method for pressure system dropdown.
          * Maps indices to pressure system types.
          */
-        DropdownBuilder& onPressureSystemChange();
         
         /**
          * @brief Set the event router for this builder.

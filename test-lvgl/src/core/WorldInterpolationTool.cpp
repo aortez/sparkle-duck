@@ -4,7 +4,6 @@
 #include "MaterialType.h"
 #include "World.h"
 
-#include "WorldInterface.h"
 #include <algorithm>
 #include <cassert>
 #include <spdlog/spdlog.h>
@@ -15,7 +14,7 @@
 // =================================================================
 
 bool WorldInterpolationTool::resizeWorldWithBilinearFiltering(
-    WorldInterface& world, uint32_t newWidth, uint32_t newHeight)
+    World& world, uint32_t newWidth, uint32_t newHeight)
 {
     // This method is now deprecated - worlds should call resizeGrid directly.
     // which will use the generateInterpolatedCells* methods.
@@ -98,7 +97,7 @@ Vector2d WorldInterpolationTool::bilinearInterpolateVector2d(
     // Interpolate x and y components separately.
     double x = bilinearInterpolateDouble(val00.x, val10.x, val01.x, val11.x, fx, fy);
     double y = bilinearInterpolateDouble(val00.y, val10.y, val01.y, val11.y, fx, fy);
-    return Vector2d(x, y);
+    return Vector2d{x, y};
 }
 
 double WorldInterpolationTool::bilinearInterpolateDouble(

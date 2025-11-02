@@ -4,25 +4,19 @@
 #include <stdexcept>
 #include <string>
 
-Vector2d::Vector2d() : x(0.0), y(0.0)
-{}
-
-Vector2d::Vector2d(double x, double y) : x(x), y(y)
-{}
-
 Vector2d Vector2d::add(const Vector2d& other) const
 {
-    return Vector2d(x + other.x, y + other.y);
+    return Vector2d{x + other.x, y + other.y};
 }
 
 Vector2d Vector2d::subtract(const Vector2d& other) const
 {
-    return Vector2d(x - other.x, y - other.y);
+    return Vector2d{x - other.x, y - other.y};
 }
 
 Vector2d Vector2d::times(double scalar) const
 {
-    return Vector2d(x * scalar, y * scalar);
+    return Vector2d{x * scalar, y * scalar};
 }
 
 double Vector2d::mag() const
@@ -96,7 +90,7 @@ Vector2d Vector2d::operator/(double scalar) const
     if (scalar == 0.0) {
         throw std::runtime_error("Vector2d::operator/: Division by zero");
     }
-    return Vector2d(x / scalar, y / scalar);
+    return Vector2d{x / scalar, y / scalar};
 }
 
 Vector2d& Vector2d::operator/=(double scalar)
@@ -111,12 +105,12 @@ Vector2d& Vector2d::operator/=(double scalar)
 
 Vector2d Vector2d::operator-() const
 {
-    return Vector2d(-x, -y);
+    return Vector2d{-x, -y};
 }
 
 Vector2d Vector2d::operator+() const
 {
-    return Vector2d(x, y);
+    return Vector2d{x, y};
 }
 
 rapidjson::Value Vector2d::toJson(rapidjson::Document::AllocatorType& allocator) const
@@ -141,7 +135,7 @@ Vector2d Vector2d::fromJson(const rapidjson::Value& json)
         throw std::runtime_error("Vector2d::fromJson: 'x' and 'y' members must be numbers");
     }
 
-    return Vector2d(json["x"].GetDouble(), json["y"].GetDouble());
+    return Vector2d{json["x"].GetDouble(), json["y"].GetDouble()};
 }
 
 // Collision physics operations.
@@ -181,11 +175,11 @@ Vector2d Vector2d::rotateBy(double radians) const
     double cosAngle = std::cos(radians);
     double sinAngle = std::sin(radians);
 
-    return Vector2d(x * cosAngle - y * sinAngle, x * sinAngle + y * cosAngle);
+    return Vector2d{x * cosAngle - y * sinAngle, x * sinAngle + y * cosAngle};
 }
 
 Vector2d Vector2d::perpendicular() const
 {
     // Returns a vector perpendicular to this one (rotated 90° counterclockwise).
-    return Vector2d(-y, x);
+    return Vector2d{-y, x};
 }

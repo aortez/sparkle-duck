@@ -1,7 +1,6 @@
-#include "../../../core/CellInterface.h"
 #include "../../../core/MaterialType.h"
-#include "../../../core/WorldInterface.h"
 #include "../Scenario.h"
+#include "../../../core/World.h"
 #include "../ScenarioRegistry.h"
 #include "../ScenarioWorldEventGenerator.h"
 #include "spdlog/spdlog.h"
@@ -15,7 +14,7 @@ private:
     bool wallOpened = false;
     
 public:
-    void setup(WorldInterface& world) override {
+    void setup(World& world) override {
         spdlog::info("Setting up Water Equalization scenario");
         
         // Reset state
@@ -49,12 +48,12 @@ public:
         spdlog::info("Water Equalization setup: 3x6 world, water at x=0, wall at x=1, air at x=2");
     }
     
-    void addParticles(WorldInterface& world, uint32_t timestep, double /*deltaTimeSeconds*/) override {
+    void addParticles(World& world, uint32_t timestep, double /*deltaTimeSeconds*/) override {
         if (!wallOpened && timestep == 30) {
             spdlog::info("Opening wall at timestep {}", timestep);
             
             // Open bottom of middle wall at (1, 5)
-            world.getCellInterface(1, 5).clear();
+            world.getCell(1, 5).clear();
             spdlog::info("Wall opened at (1, 5)");
             wallOpened = true;
         }
