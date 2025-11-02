@@ -267,14 +267,14 @@ int driver_backends_is_supported(const char* backend_name)
     return 0;
 }
 
-void driver_backends_run_loop(DirtSim::DirtSimStateMachine& dsm)
+void driver_backends_run_loop(DirtSim::Ui::StateMachine& sm)
 {
     display_backend_t* dispb;
 
     if (sel_display_backend != NULL && sel_display_backend->handle->display != NULL) {
 
         dispb = sel_display_backend->handle->display;
-        dispb->run_loop(dsm);
+        dispb->run_loop(sm);
     }
     else {
         LV_LOG_ERROR("No backend has been selected - initialize the backend first");

@@ -11,14 +11,16 @@
 #pragma once
 
 namespace DirtSim {
-class DirtSimStateMachine;
+namespace Ui {
+class StateMachine;
+}
 }
 
 /* Prototype of the display initialization functions */
 typedef lv_display_t *(*display_init_t)(void);
 
 /* Prototype of the run loop */
-typedef void (*run_loop_t)(DirtSim::DirtSimStateMachine& dsm);
+typedef void (*run_loop_t)(DirtSim::Ui::StateMachine& sm);
 
 /* Represents a display driver handle */
 typedef struct {

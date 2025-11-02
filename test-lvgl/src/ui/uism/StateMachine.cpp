@@ -5,7 +5,7 @@
 namespace DirtSim {
 namespace Ui {
 
-StateMachine::StateMachine(lv_disp_t* disp)
+StateMachine::StateMachine(_lv_display_t* disp)
     : display(disp)
 {
     spdlog::info("Ui::StateMachine initialized in state: {}", getCurrentStateName());

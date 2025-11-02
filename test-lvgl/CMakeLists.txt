@@ -133,39 +133,52 @@ add_subdirectory(./external/args ${CMAKE_BINARY_DIR}/args)
 
 add_library(lvgl_linux STATIC ${LV_LINUX_SRC} ${LV_LINUX_BACKEND_SRC})
 target_include_directories(lvgl_linux PRIVATE ${LV_LINUX_INC} ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/src/ui/lib)
-target_link_libraries(lvgl_linux PRIVATE spdlog::spdlog)
+target_link_libraries(lvgl_linux PRIVATE nlohmann_json::nlohmann_json spdlog::spdlog)
 
 add_executable(sparkle-duck-ui
     # UI application (client only).
     src/ui/main.cpp
-    src/ui/StateMachine.cpp
-    src/ui/EventProcessor.cpp
-    src/ui/states/Startup.cpp
-    src/ui/states/MainMenu.cpp
-    src/ui/states/SimRunning.cpp
-    src/ui/states/Paused.cpp
-    src/ui/states/Shutdown.cpp
-    src/ui/SimulatorUI.cpp
-    src/ui/UIUpdateConsumer.cpp
-    src/ui/UIManager.cpp
-    src/ui/MaterialPicker.cpp
-    src/ui/ui_builders/LVGLBuilder.cpp
-    src/ui/ui_builders/LVGLEventBuilder.cpp
+    src/ui/uism/StateMachine.cpp
+    src/ui/uism/EventProcessor.cpp
+    src/ui/uism/states/Disconnected.cpp
+    src/ui/uism/states/Paused.cpp
+    src/ui/uism/states/Shutdown.cpp
+    src/ui/uism/states/SimRunning.cpp
+    src/ui/uism/states/StartMenu.cpp
+    src/ui/uism/states/Startup.cpp
+    # TODO: Re-enable these after fixing includes:
+    # src/ui/SimulatorUI.cpp
+    # src/ui/UIUpdateConsumer.cpp
+    # src/ui/UIManager.cpp
+    # src/ui/MaterialPicker.cpp
+    # src/ui/ui_builders/LVGLBuilder.cpp
+    # src/ui/ui_builders/LVGLEventBuilder.cpp
 
-    # Core components (rendering only, no physics).
+    # Core components.
     src/core/Cell.cpp
+    src/core/CrashDumpHandler.cpp
+    src/core/MaterialType.cpp
+    src/core/StateMachineBase.cpp
+    src/core/Timers.cpp
     src/core/Vector2d.cpp
     src/core/Vector2i.cpp
     src/core/World.cpp
-    src/core/MaterialType.cpp
+    src/core/WorldAdhesionCalculator.cpp
+    src/core/WorldAirResistanceCalculator.cpp
+    src/core/WorldCalculatorBase.cpp
+    src/core/WorldCohesionCalculator.cpp
+    src/core/WorldCollisionCalculator.cpp
     src/core/WorldDiagramGeneratorEmoji.cpp
-    src/core/CrashDumpHandler.cpp
-    src/core/StateMachineBase.cpp
+    src/core/WorldEventGenerator.cpp
+    src/core/WorldFrictionCalculator.cpp
+    src/core/WorldInterpolationTool.cpp
+    src/core/WorldPressureCalculator.cpp
+    src/core/WorldSupportCalculator.cpp
 
     # LVGL backend.
     ${LV_LINUX_SRC}
     ${LV_LINUX_BACKEND_SRC})
-target_link_libraries(sparkle-duck-ui lvgl_linux lvgl lvgl::thorvg spdlog::spdlog datachannel-static m pthread ${PKG_CONFIG_LIB} ${SDL2_LIBRARIES} ${SDL2_IMAGE_LIBRARIES})
+target_link_libraries(sparkle-duck-ui lvgl_linux lvgl lvgl::thorvg nlohmann_json::nlohmann_json spdlog::spdlog datachannel-static m pthread ${PKG_CONFIG_LIB} ${SDL2_LIBRARIES} ${SDL2_IMAGE_LIBRARIES})
 target_include_directories(sparkle-duck-ui PRIVATE ${SDL2_INCLUDE_DIRS} ${SDL2_IMAGE_INCLUDE_DIRS} ${CMAKE_SOURCE_DIR}/external/args)
 
 # Enable warnings and treat them as errors for UI executable.

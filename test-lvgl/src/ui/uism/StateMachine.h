@@ -8,14 +8,15 @@
 #include <memory>
 #include <string>
 
-struct lv_disp_t;
+// Forward declaration for LVGL display structure.
+struct _lv_display_t;
 
 namespace DirtSim {
 namespace Ui {
 
 class StateMachine : public StateMachineBase, public StateMachineInterface<Event> {
 public:
-    explicit StateMachine(lv_disp_t* display);
+    explicit StateMachine(_lv_display_t* display);
     ~StateMachine();
 
     void mainLoopRun();
@@ -25,7 +26,7 @@ public:
     std::string getCurrentStateName() const override;
     void processEvents() override;
 
-    lv_disp_t* display = nullptr;
+    _lv_display_t* display = nullptr;
     EventProcessor eventProcessor;
 
     // TODO: Add WebSocket client (to connect to DSSM server).

@@ -116,3 +116,4 @@ See git history for details on:
 - Variable timestep based on last frame time
 - Require UI connection before starting simulation (optional mode)
 - Scenario-specific WorldEventGenerator configuration
+- The directory `uism` should be `state-machine`.

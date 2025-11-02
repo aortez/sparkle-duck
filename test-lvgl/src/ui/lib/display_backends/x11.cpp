@@ -1,5 +1,3 @@
-// TODO: Redesign for client/server architecture
-#if 0 // Temporarily disabled
 /**
  * @file x11.c
  *
@@ -22,10 +20,10 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#include "../../../server/StateMachine.h"
-#include "../../SimulatorUI.h"
+#include "../../uism/StateMachine.h"
 #include "lvgl/lvgl.h"
-#include "simulator_loop.h"
+#include <spdlog/spdlog.h>
+
 #if LV_USE_X11
 #include "../backends.h"
 #include "../simulator_settings.h"
@@ -48,7 +46,7 @@ extern simulator_settings_t settings;
  *  STATIC PROTOTYPES
  **********************/
 static lv_display_t* init_x11(void);
-static void run_loop_x11(DirtSim::DirtSimStateMachine& dsm);
+static void run_loop_x11(DirtSim::Ui::StateMachine& sm);
 
 /**********************
  *  STATIC VARIABLES
@@ -113,46 +111,33 @@ static lv_display_t* init_x11(void)
 /**
  * The run loop of the X11 driver
  */
-void run_loop_x11(DirtSim::DirtSimStateMachine& dsm)
+void run_loop_x11(DirtSim::Ui::StateMachine& sm)
 {
-    // Initialize simulation loop state for step counting.
-    SimulatorLoop::LoopState state;
-    SimulatorLoop::initState(state);
-    
-    // Set max_steps from global settings.
-    state.max_steps = settings.max_steps;
-
     uint32_t idle_time;
 
     /* Handle LVGL tasks. */
-    while (state.is_running) {
-        // Process one frame of simulation.
-        SimulatorLoop::processFrame(dsm, state, 8);
-
-        // Exit immediately if step limit reached - don't wait for more events.
-        if (!state.is_running) {
-            printf("Simulation completed after %u steps\n", state.step_count);
-            break;
-        }
+    while (!sm.shouldExit()) {
+        // Process UI state machine events.
+        sm.processEvents();
 
         /* Returns the time to the next timer execution. */
         idle_time = lv_timer_handler();
-        
-        bool frame_limiting_enabled = true; // Default to enabled.
+
         // TODO: Get frame limiting from settings or config.
+        bool frame_limiting_enabled = true;
         if (frame_limiting_enabled) {
             usleep(idle_time * 1000);
         }
     }
-    
-    // Process any final UI updates before taking screenshot.
+
+    // Process any final UI updates.
     for (int i = 0; i < 3; ++i) {
         lv_timer_handler();
         usleep(10000); // 10ms.
     }
-    
-    SimulatorUI::takeExitScreenshot();
+
+    // TODO: Take exit screenshot.
+    // SimulatorUI::takeExitScreenshot();
 }
 
 #endif /*#if LV_USE_X11. */
-#endif

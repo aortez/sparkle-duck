@@ -1,14 +1,14 @@
-#include "CrashDumpHandler.h"
-#include "DirtSimStateMachine.h"
-#include "Event.h"
-#include "SimulatorUI.h"
-#include "World.h"
+#include "../core/CrashDumpHandler.h"
+#include "uism/StateMachine.h"
+// TODO: Re-enable when integrating UI components:
+// #include "SimulatorUI.h"
+#include "../core/World.h"
 
 #include "args.hxx"
-#include "src/lib/driver_backends.h"
-#include "src/lib/simulator_loop.h"
-#include "src/lib/simulator_settings.h"
-#include "src/lib/simulator_util.h"
+#include "lib/driver_backends.h"
+#include "lib/simulator_loop.h"
+#include "lib/simulator_settings.h"
+#include "lib/simulator_util.h"
 
 #include <chrono>
 #include <cstdio>
@@ -178,49 +178,23 @@ int main(int argc, char** argv)
         die("Failed to initialize display backend");
     }
 
-    spdlog::info("Starting with event-driven state machine");
+    spdlog::info("Starting with new UI state machine (UISM)");
 
-    // Create the state machine with display.
-    auto stateMachine = std::make_unique<DirtSim::DirtSimStateMachine>(lv_disp_get_default());
+    // Create the UI state machine with display.
+    auto stateMachine = std::make_unique<DirtSim::Ui::StateMachine>(lv_disp_get_default());
 
-    // Note: Push-based UI updates are always enabled for thread safety.
+    spdlog::info("UI state machine created, state: {}", stateMachine->getCurrentStateName());
 
-    // Start the state machine's event processing thread.
-    std::thread stateMachineThread([&stateMachine]() {
-        spdlog::info("Starting state machine event processing thread");
-        stateMachine->mainLoopRun();
-        spdlog::info("State machine event processing thread exiting");
-    });
+    // Send init complete event to start state machine flow.
+    stateMachine->queueEvent(DirtSim::Ui::InitCompleteEvent{});
 
-    // Initialize the state machine - transition from Startup -> MainMenu -> SimRunning.
-    stateMachine->getEventRouter().routeEvent(InitCompleteEvent{});
-
-    // Skip the main menu and go directly to simulation for now.
-    // TODO: In the future, show the main menu and let user click start.
-    stateMachine->getEventRouter().routeEvent(StartSimulationCommand{});
-
-    // Wait a bit for events to be processed by the state machine thread.
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
-
-    spdlog::info(
-        "Using DirtSimStateMachine event system ({}x{} grid)",
-        stateMachine->world->getWidth(),
-        stateMachine->world->getHeight());
-
-    // TODO: Update CrashDumpHandler to not need SimulationManager.
-    // CrashDumpHandler::install(...);
+    spdlog::info("Entering backend run loop (will process events and LVGL)");
 
     // Enter the run loop with the state machine.
+    // This integrates state machine event processing with LVGL event loop.
     driver_backends_run_loop(*stateMachine);
 
-    // Signal the state machine to exit.
-    stateMachine->getSharedState().setShouldExit(true);
-
-    // Wait for the state machine thread to finish.
-    if (stateMachineThread.joinable()) {
-        spdlog::info("Waiting for state machine thread to finish...");
-        stateMachineThread.join();
-    }
+    spdlog::info("Backend run loop exited");
 
     // Cleanup.
     CrashDumpHandler::uninstall();

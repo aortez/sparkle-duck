@@ -1,5 +1,3 @@
-// TODO: Redesign for client/server architecture
-#if 0 // Temporarily disabled
 /**
  * @file wayland.c
  *
@@ -23,16 +21,14 @@
 #include <unistd.h>
 #include <iostream>
 
-#include "../../../server/StateMachine.h"
+#include "../../uism/StateMachine.h"
 #include "lvgl/lvgl.h"
-#include "simulator_loop.h"
+#include <spdlog/spdlog.h>
 
 #if LV_USE_WAYLAND
 #include "../backends.h"
 #include "../simulator_settings.h"
 #include "../simulator_util.h"
-
-#include "../../SimulatorUI.h"
 
 /*********************
  *      DEFINES
@@ -43,10 +39,15 @@
  **********************/
 
 /**********************
+ *  EXTERNAL VARIABLES
+ **********************/
+extern simulator_settings_t settings;
+
+/**********************
  *  STATIC PROTOTYPES
  **********************/
 static lv_display_t* init_wayland(void);
-static void run_loop_wayland(DirtSim::DirtSimStateMachine& dsm);
+static void run_loop_wayland(DirtSim::Ui::StateMachine& sm);
 
 /**********************
  *  STATIC VARIABLES
@@ -125,29 +126,16 @@ static lv_display_t* init_wayland(void)
 /**
  * The run loop of the Wayland driver.
  */
-static void run_loop_wayland(DirtSim::DirtSimStateMachine& dsm)
+static void run_loop_wayland(DirtSim::Ui::StateMachine& sm)
 {
-    SimulatorLoop::LoopState state;
-    SimulatorLoop::initState(state);
-    
-    // Set max_steps from global settings.
-    state.max_steps = settings.max_steps;
-
     bool completed;
 
     /* Handle LVGL tasks. */
-    while (state.is_running) {
-        // Process one frame of simulation.
-        SimulatorLoop::processFrame(dsm, state, 8);
+    while (!sm.shouldExit()) {
+        // Process UI state machine events.
+        sm.processEvents();
 
-        // Exit immediately if step limit reached - don't wait for more events.
-        if (!state.is_running) {
-            std::cout << "Simulation completed (" << state.step_count << " steps), exiting..." << std::endl;
-            break;
-        }
-
-        // Mass label is now updated automatically by the World through its UI.
-
+        // Process LVGL timer events.
         completed = lv_wayland_timer_handler();
 
         if (completed) {
@@ -158,18 +146,19 @@ static void run_loop_wayland(DirtSim::DirtSimStateMachine& dsm)
 
         /* Run until the last window closes. */
         if (!lv_wayland_window_is_open(NULL)) {
+            spdlog::info("Wayland window closed, exiting");
+            sm.setShouldExit(true);
             break;
         }
     }
-    
-    // Process any final UI updates before taking screenshot.
+
+    // Process any final UI updates.
     for (int i = 0; i < 3; ++i) {
         lv_wayland_timer_handler();
-//        usleep(10000); // 10ms.
     }
-    
-    SimulatorUI::takeExitScreenshot();
+
+    // TODO: Take exit screenshot.
+    // SimulatorUI::takeExitScreenshot();
 }
 
 #endif /*#if LV_USE_WAYLAND. */
-#endif
