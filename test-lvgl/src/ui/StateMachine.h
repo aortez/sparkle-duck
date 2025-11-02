@@ -1,54 +1,38 @@
 #pragma once
 
-#include "events/Event.h"
-#include "../core/EventProcessor.h"
+#include "uism/Event.h"
+#include "uism/states/State.h"
 #include "../core/StateMachineBase.h"
+#include "../core/StateMachineInterface.h"
+#include "EventProcessor.h"
 #include <memory>
 #include <string>
-#include <variant>
 
 struct lv_disp_t;
 
 namespace DirtSim {
 namespace Ui {
 
-namespace State {
-struct Startup;
-struct MainMenu;
-struct SimRunning;
-struct Paused;
-struct Config;
-struct Shutdown;
-
-using Any = std::variant<
-    Startup,
-    MainMenu,
-    SimRunning,
-    Paused,
-    Config,
-    Shutdown
->;
-
-std::string getCurrentStateName(const Any& state);
-} // namespace State
-
-class StateMachine : public StateMachineBase {
+class StateMachine : public StateMachineBase, public StateMachineInterface<Event> {
 public:
     explicit StateMachine(lv_disp_t* display);
     ~StateMachine();
 
     void mainLoopRun();
-    void queueEvent(const Event& event);
+    void queueEvent(const Event& event) override;
     void handleEvent(const Event& event);
 
-    std::string getCurrentStateName() const;
-    void processEvents();
+    std::string getCurrentStateName() const override;
+    void processEvents() override;
 
     lv_disp_t* display = nullptr;
-    EventProcessor<Event, StateMachine> eventProcessor;
+    EventProcessor eventProcessor;
+
+    // TODO: Add WebSocket client (to connect to DSSM server).
+    // TODO: Add WebSocket server (to accept remote commands).
 
 private:
-    State::Any currentState{ State::Startup{} };
+    State::Any fsmState{ State::Startup{} };
 
     void transitionTo(State::Any newState);
 

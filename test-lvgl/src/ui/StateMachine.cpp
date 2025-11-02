@@ -1,5 +1,5 @@
 #include "StateMachine.h"
-#include "states/State.h"
+#include "uism/states/State.h"
 #include <spdlog/spdlog.h>
 
 namespace DirtSim {
@@ -8,51 +8,34 @@ namespace Ui {
 StateMachine::StateMachine(lv_disp_t* disp)
     : display(disp)
 {
-    spdlog::info("Ui::StateMachine: Created");
+    spdlog::info("Ui::StateMachine initialized in state: {}", getCurrentStateName());
 }
 
 StateMachine::~StateMachine()
 {
-    spdlog::info("Ui::StateMachine: Destroyed");
+    spdlog::info("Ui::StateMachine shutting down from state: {}", getCurrentStateName());
 }
 
 void StateMachine::mainLoopRun()
 {
-    spdlog::info("Ui::StateMachine: Starting main loop");
+    spdlog::info("Starting UI main event loop");
+
+    // Initialize by sending init complete event.
+    queueEvent(InitCompleteEvent{});
+
+    // Main event processing loop.
     while (!shouldExit()) {
         processEvents();
         // TODO: LVGL event processing integration.
+        // TODO: WebSocket client/server event processing.
     }
-    spdlog::info("Ui::StateMachine: Main loop exited");
+
+    spdlog::info("UI main event loop exiting (shouldExit=true)");
 }
 
 void StateMachine::queueEvent(const Event& event)
 {
-    spdlog::debug("Ui::StateMachine: Event queued: {}", getEventName(event));
     eventProcessor.enqueueEvent(event);
-}
-
-void StateMachine::handleEvent(const Event& event)
-{
-    spdlog::trace("Ui::StateMachine: Handling event: {}", getEventName(event));
-
-    std::visit([this](auto&& evt) {
-        using EventType = std::decay_t<decltype(evt)>;
-
-        std::visit([this, &evt](auto&& state) -> void {
-            using StateType = std::decay_t<decltype(state)>;
-
-            if constexpr (requires { state.onEvent(evt, *this); }) {
-                auto newState = state.onEvent(evt, *this);
-                if (!std::holds_alternative<StateType>(newState)) {
-                    transitionTo(std::move(newState));
-                }
-            } else {
-                spdlog::trace("Ui::StateMachine: State {} does not handle event {}",
-                    State::getCurrentStateName(currentState), getEventName(Event{evt}));
-            }
-        }, currentState);
-    }, event);
 }
 
 void StateMachine::processEvents()
@@ -60,23 +43,63 @@ void StateMachine::processEvents()
     eventProcessor.processEventsFromQueue(*this);
 }
 
+void StateMachine::handleEvent(const Event& event)
+{
+    spdlog::debug("Ui::StateMachine: Handling event: {}", getEventName(event));
+
+    std::visit(
+        [this](auto&& evt) {
+            std::visit(
+                [this, &evt](auto&& state) -> void {
+                    using StateType = std::decay_t<decltype(state)>;
+
+                    if constexpr (requires { state.onEvent(evt, *this); }) {
+                        auto newState = state.onEvent(evt, *this);
+                        if (!std::holds_alternative<StateType>(newState)) {
+                            transitionTo(std::move(newState));
+                        }
+                        else {
+                            // Same state type - move it back into variant to preserve state.
+                            fsmState = std::move(newState);
+                        }
+                    }
+                    else {
+                        spdlog::warn(
+                            "Ui::StateMachine: State {} does not handle event {}",
+                            State::getCurrentStateName(fsmState),
+                            getEventName(Event{ evt }));
+
+                        // If this is an API command with sendResponse, send error.
+                        if constexpr (requires { evt.sendResponse(std::declval<typename std::decay_t<decltype(evt)>::Response>()); }) {
+                            auto errorMsg = std::string("Command not supported in state: ") + State::getCurrentStateName(fsmState);
+                            using EventType = std::decay_t<decltype(evt)>;
+                            using ResponseType = typename EventType::Response;
+                            evt.sendResponse(ResponseType::error(ApiError(errorMsg)));
+                        }
+                    }
+                },
+                fsmState);
+        },
+        event);
+}
+
 std::string StateMachine::getCurrentStateName() const
 {
-    return State::getCurrentStateName(currentState);
+    return State::getCurrentStateName(fsmState);
 }
 
 void StateMachine::transitionTo(State::Any newState)
 {
-    std::string oldStateName = State::getCurrentStateName(currentState);
+    std::string oldStateName = State::getCurrentStateName(fsmState);
 
-    std::visit([this](auto&& state) { callOnExit(state); }, currentState);
+    std::visit([this](auto&& state) { callOnExit(state); }, fsmState);
 
-    currentState = std::move(newState);
+    fsmState = std::move(newState);
 
-    std::string newStateName = State::getCurrentStateName(currentState);
+    std::string newStateName = State::getCurrentStateName(fsmState);
     spdlog::info("Ui::StateMachine: {} -> {}", oldStateName, newStateName);
 
-    std::visit([this](auto&& state) { callOnEnter(state); }, currentState);
+    std::visit([this](auto&& state) { callOnEnter(state); }, fsmState);
 }
 
 } // namespace Ui

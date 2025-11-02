@@ -1,0 +1,27 @@
+#pragma once
+
+#include "StateForward.h"
+#include "../Event.h"
+
+namespace DirtSim {
+namespace Ui {
+namespace State {
+
+/**
+ * @brief Start menu state - connected to server, ready to start simulation.
+ * Shows simulation controls (start, scenario selection, etc.).
+ */
+struct StartMenu {
+    void onEnter(StateMachine& sm);
+    void onExit(StateMachine& sm);
+
+    Any onEvent(const ServerDisconnectedEvent& evt, StateMachine& sm);
+    Any onEvent(const UiApi::Exit::Cwc& cwc, StateMachine& sm);
+    Any onEvent(const UiApi::SimRun::Cwc& cwc, StateMachine& sm);
+
+    static constexpr const char* name() { return "StartMenu"; }
+};
+
+} // namespace State
+} // namespace Ui
+} // namespace DirtSim
