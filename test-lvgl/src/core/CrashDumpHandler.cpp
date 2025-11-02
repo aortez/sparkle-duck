@@ -1,8 +1,6 @@
 #include "CrashDumpHandler.h"
 #include "World.h"
-#include "lvgl/src/libs/thorvg/rapidjson/document.h"
-#include "lvgl/src/libs/thorvg/rapidjson/stringbuffer.h"
-#include "lvgl/src/libs/thorvg/rapidjson/writer.h"
+#include <nlohmann/json.hpp>
 #include "spdlog/spdlog.h"
 
 #include <chrono>
@@ -120,59 +118,42 @@ void CrashDumpHandler::writeWorldStateToFile(
         }
 
         // Create JSON document.
-        rapidjson::Document doc;
-        doc.SetObject();
-        auto& allocator = doc.GetAllocator();
+        nlohmann::json doc;
 
         // Add crash information.
-        rapidjson::Value crashInfo(rapidjson::kObjectType);
-        crashInfo.AddMember("reason", rapidjson::Value(reason, allocator), allocator);
+        doc["crash_info"]["reason"] = reason;
 
         // Add timestamp.
         auto now = std::chrono::system_clock::now();
         auto time_t = std::chrono::system_clock::to_time_t(now);
         char timestamp[64];
         std::strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", std::localtime(&time_t));
-        crashInfo.AddMember("timestamp", rapidjson::Value(timestamp, allocator), allocator);
+        doc["crash_info"]["timestamp"] = timestamp;
 
         // Add assertion details if available.
         if (condition) {
-            crashInfo.AddMember(
-                "assertion_condition", rapidjson::Value(condition, allocator), allocator);
+            doc["crash_info"]["assertion_condition"] = condition;
         }
         if (file) {
-            crashInfo.AddMember("source_file", rapidjson::Value(file, allocator), allocator);
+            doc["crash_info"]["source_file"] = file;
         }
         if (line > 0) {
-            crashInfo.AddMember("source_line", line, allocator);
+            doc["crash_info"]["source_line"] = line;
         }
         if (message) {
-            crashInfo.AddMember(
-                "assertion_message", rapidjson::Value(message, allocator), allocator);
+            doc["crash_info"]["assertion_message"] = message;
         }
 
-        doc.AddMember("crash_info", crashInfo, allocator);
-
         // Add basic world information.
-        rapidjson::Value worldInfo(rapidjson::kObjectType);
-        worldInfo.AddMember("width", world_->getWidth(), allocator);
-        worldInfo.AddMember("height", world_->getHeight(), allocator);
-        worldInfo.AddMember("timestep", world_->getTimestep(), allocator);
-        worldInfo.AddMember("total_mass", world_->getTotalMass(), allocator);
-        worldInfo.AddMember("removed_mass", world_->getRemovedMass(), allocator);
+        doc["world_info"]["width"] = world_->getWidth();
+        doc["world_info"]["height"] = world_->getHeight();
+        doc["world_info"]["timestep"] = world_->getTimestep();
+        doc["world_info"]["total_mass"] = world_->getTotalMass();
+        doc["world_info"]["removed_mass"] = world_->getRemovedMass();
+        doc["world_info"]["world_type"] = "World";
 
-        // Add world type information.
-        worldInfo.AddMember("world_type", "World", allocator);
-
-        doc.AddMember("world_info", worldInfo, allocator);
-
-        // TODO: Serialize complete world state using world_->toJSON()
-        // For now, just save basic info.
-        rapidjson::Value worldState(rapidjson::kObjectType);
-        worldState.AddMember("width", world_->getWidth(), allocator);
-        worldState.AddMember("height", world_->getHeight(), allocator);
-        worldState.AddMember("timestep", world_->getTimestep(), allocator);
-        doc.AddMember("world_state", worldState, allocator);
+        // Serialize complete world state using world_->toJSON().
+        doc["world_state"] = world_->toJSON();
 
         // Write to file.
         std::ofstream file_stream(filename);
@@ -181,15 +162,11 @@ void CrashDumpHandler::writeWorldStateToFile(
             return;
         }
 
-        // Use writer for JSON output.
-        rapidjson::StringBuffer buffer;
-        rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
-        doc.Accept(writer);
-
-        file_stream << buffer.GetString();
+        std::string json_str = doc.dump(2);  // Indented with 2 spaces.
+        file_stream << json_str;
         file_stream.close();
 
-        spdlog::info("Crash dump written successfully: {} bytes", buffer.GetSize());
+        spdlog::info("Crash dump written successfully: {} bytes", json_str.size());
     }
     catch (const std::exception& e) {
         spdlog::error("Exception while writing crash dump: {}", e.what());

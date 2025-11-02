@@ -1384,91 +1384,79 @@ WorldEventGenerator* World::getWorldEventGenerator() const
 // JSON SERIALIZATION
 // =================================================================
 
-rapidjson::Document World::toJSON() const
+nlohmann::json World::toJSON() const
 {
-    rapidjson::Document doc(rapidjson::kObjectType);
-    auto& allocator = doc.GetAllocator();
+    nlohmann::json doc;
 
     // Grid metadata.
-    rapidjson::Value grid(rapidjson::kObjectType);
-    grid.AddMember("width", width_, allocator);
-    grid.AddMember("height", height_, allocator);
-    grid.AddMember("timestep", timestep_, allocator);
-    doc.AddMember("grid", grid, allocator);
+    doc["grid"]["width"] = width_;
+    doc["grid"]["height"] = height_;
+    doc["grid"]["timestep"] = timestep_;
 
     // Simulation state.
-    rapidjson::Value simulation(rapidjson::kObjectType);
-    simulation.AddMember("timescale", timescale_, allocator);
-    simulation.AddMember("removed_mass", removed_mass_, allocator);
-    doc.AddMember("simulation", simulation, allocator);
+    doc["simulation"]["timescale"] = timescale_;
+    doc["simulation"]["removed_mass"] = removed_mass_;
 
     // Physics parameters.
-    rapidjson::Value physics(rapidjson::kObjectType);
-    physics.AddMember("gravity", gravity_, allocator);
-    physics.AddMember("elasticity_factor", elasticity_factor_, allocator);
-    physics.AddMember("pressure_scale", pressure_scale_, allocator);
-    physics.AddMember("water_pressure_threshold", water_pressure_threshold_, allocator);
-    physics.AddMember("pressure_diffusion_enabled", pressure_diffusion_enabled_, allocator);
-    physics.AddMember("hydrostatic_pressure_strength", hydrostatic_pressure_strength_, allocator);
-    physics.AddMember("dynamic_pressure_strength", dynamic_pressure_strength_, allocator);
-    doc.AddMember("physics", physics, allocator);
+    doc["physics"]["gravity"] = gravity_;
+    doc["physics"]["elasticity_factor"] = elasticity_factor_;
+    doc["physics"]["pressure_scale"] = pressure_scale_;
+    doc["physics"]["water_pressure_threshold"] = water_pressure_threshold_;
+    doc["physics"]["pressure_diffusion_enabled"] = pressure_diffusion_enabled_;
+    doc["physics"]["hydrostatic_pressure_strength"] = hydrostatic_pressure_strength_;
+    doc["physics"]["dynamic_pressure_strength"] = dynamic_pressure_strength_;
 
     // Cohesion/adhesion/viscosity controls.
-    rapidjson::Value forces(rapidjson::kObjectType);
-    forces.AddMember("cohesion_bind_force_enabled", cohesion_bind_force_enabled_, allocator);
-    forces.AddMember("cohesion_com_force_strength", cohesion_com_force_strength_, allocator);
-    forces.AddMember("cohesion_bind_force_strength", cohesion_bind_force_strength_, allocator);
-    forces.AddMember("com_cohesion_range", com_cohesion_range_, allocator);
-    forces.AddMember("viscosity_strength", viscosity_strength_, allocator);
-    forces.AddMember("friction_strength", friction_strength_, allocator);
-    forces.AddMember("adhesion_strength", adhesion_calculator_.getAdhesionStrength(), allocator);
-    forces.AddMember("adhesion_enabled", adhesion_calculator_.isAdhesionEnabled(), allocator);
-    forces.AddMember("air_resistance_enabled", air_resistance_enabled_, allocator);
-    forces.AddMember("air_resistance_strength", air_resistance_strength_, allocator);
-    doc.AddMember("forces", forces, allocator);
+    doc["forces"]["cohesion_bind_force_enabled"] = cohesion_bind_force_enabled_;
+    doc["forces"]["cohesion_com_force_strength"] = cohesion_com_force_strength_;
+    doc["forces"]["cohesion_bind_force_strength"] = cohesion_bind_force_strength_;
+    doc["forces"]["com_cohesion_range"] = com_cohesion_range_;
+    doc["forces"]["viscosity_strength"] = viscosity_strength_;
+    doc["forces"]["friction_strength"] = friction_strength_;
+    doc["forces"]["adhesion_strength"] = adhesion_calculator_.getAdhesionStrength();
+    doc["forces"]["adhesion_enabled"] = adhesion_calculator_.isAdhesionEnabled();
+    doc["forces"]["air_resistance_enabled"] = air_resistance_enabled_;
+    doc["forces"]["air_resistance_strength"] = air_resistance_strength_;
 
     // Setup controls.
-    rapidjson::Value setup(rapidjson::kObjectType);
-    setup.AddMember("add_particles_enabled", add_particles_enabled_, allocator);
-    setup.AddMember("debug_draw_enabled", debug_draw_enabled_, allocator);
-    setup.AddMember("selected_material", materialTypeToJson(selected_material_, allocator), allocator);
-    doc.AddMember("setup", setup, allocator);
+    doc["setup"]["add_particles_enabled"] = add_particles_enabled_;
+    doc["setup"]["debug_draw_enabled"] = debug_draw_enabled_;
+    doc["setup"]["selected_material"] = selected_material_;  // ADL will convert MaterialType.
 
     // Cells (sparse - only serialize non-empty cells).
-    rapidjson::Value cells(rapidjson::kArrayType);
+    doc["cells"] = nlohmann::json::array();
     for (uint32_t y = 0; y < height_; ++y) {
         for (uint32_t x = 0; x < width_; ++x) {
             const Cell& cell = at(x, y);
             // Only serialize cells with material.
             if (cell.fill_ratio > Cell::MIN_FILL_THRESHOLD ||
                 cell.material_type != MaterialType::AIR) {
-                rapidjson::Value cellEntry(rapidjson::kObjectType);
-                cellEntry.AddMember("x", x, allocator);
-                cellEntry.AddMember("y", y, allocator);
-                cellEntry.AddMember("data", cell.toJson(allocator), allocator);
-                cells.PushBack(cellEntry, allocator);
+                nlohmann::json cellEntry;
+                cellEntry["x"] = x;
+                cellEntry["y"] = y;
+                cellEntry["data"] = cell;  // ADL will convert Cell.
+                doc["cells"].push_back(cellEntry);
             }
         }
     }
-    doc.AddMember("cells", cells, allocator);
 
     return doc;
 }
 
-void World::fromJSON(const rapidjson::Document& doc)
+void World::fromJSON(const nlohmann::json& doc)
 {
-    if (!doc.IsObject()) {
+    if (!doc.is_object()) {
         throw std::runtime_error("World::fromJSON: JSON document must be an object");
     }
 
     // Parse grid metadata.
-    if (!doc.HasMember("grid") || !doc["grid"].IsObject()) {
+    if (!doc.contains("grid") || !doc["grid"].is_object()) {
         throw std::runtime_error("World::fromJSON: Missing or invalid 'grid' section");
     }
     const auto& grid = doc["grid"];
-    uint32_t width = grid["width"].GetUint();
-    uint32_t height = grid["height"].GetUint();
-    uint32_t timestep = grid["timestep"].GetUint();
+    uint32_t width = grid["width"].get<uint32_t>();
+    uint32_t height = grid["height"].get<uint32_t>();
+    uint32_t timestep = grid["timestep"].get<uint32_t>();
 
     // Resize if necessary.
     if (width != width_ || height != height_) {
@@ -1480,87 +1468,85 @@ void World::fromJSON(const rapidjson::Document& doc)
     timestep_ = timestep;
 
     // Parse simulation state.
-    if (doc.HasMember("simulation") && doc["simulation"].IsObject()) {
+    if (doc.contains("simulation") && doc["simulation"].is_object()) {
         const auto& simulation = doc["simulation"];
-        if (simulation.HasMember("timescale")) {
-            timescale_ = simulation["timescale"].GetDouble();
+        if (simulation.contains("timescale")) {
+            timescale_ = simulation["timescale"].get<double>();
         }
-        if (simulation.HasMember("removed_mass")) {
-            removed_mass_ = simulation["removed_mass"].GetDouble();
+        if (simulation.contains("removed_mass")) {
+            removed_mass_ = simulation["removed_mass"].get<double>();
         }
     }
 
     // Parse physics parameters.
-    if (doc.HasMember("physics") && doc["physics"].IsObject()) {
+    if (doc.contains("physics") && doc["physics"].is_object()) {
         const auto& physics = doc["physics"];
-        if (physics.HasMember("gravity")) gravity_ = physics["gravity"].GetDouble();
-        if (physics.HasMember("elasticity_factor"))
-            elasticity_factor_ = physics["elasticity_factor"].GetDouble();
-        if (physics.HasMember("pressure_scale"))
-            pressure_scale_ = physics["pressure_scale"].GetDouble();
-        if (physics.HasMember("water_pressure_threshold"))
-            water_pressure_threshold_ = physics["water_pressure_threshold"].GetDouble();
-        if (physics.HasMember("pressure_system"))
-        if (physics.HasMember("pressure_diffusion_enabled"))
-            pressure_diffusion_enabled_ = physics["pressure_diffusion_enabled"].GetBool();
-        if (physics.HasMember("hydrostatic_pressure_strength"))
-            hydrostatic_pressure_strength_ = physics["hydrostatic_pressure_strength"].GetDouble();
-        if (physics.HasMember("dynamic_pressure_strength"))
-            dynamic_pressure_strength_ = physics["dynamic_pressure_strength"].GetDouble();
+        if (physics.contains("gravity")) gravity_ = physics["gravity"].get<double>();
+        if (physics.contains("elasticity_factor"))
+            elasticity_factor_ = physics["elasticity_factor"].get<double>();
+        if (physics.contains("pressure_scale"))
+            pressure_scale_ = physics["pressure_scale"].get<double>();
+        if (physics.contains("water_pressure_threshold"))
+            water_pressure_threshold_ = physics["water_pressure_threshold"].get<double>();
+        if (physics.contains("pressure_diffusion_enabled"))
+            pressure_diffusion_enabled_ = physics["pressure_diffusion_enabled"].get<bool>();
+        if (physics.contains("hydrostatic_pressure_strength"))
+            hydrostatic_pressure_strength_ = physics["hydrostatic_pressure_strength"].get<double>();
+        if (physics.contains("dynamic_pressure_strength"))
+            dynamic_pressure_strength_ = physics["dynamic_pressure_strength"].get<double>();
     }
 
     // Parse force controls.
-    if (doc.HasMember("forces") && doc["forces"].IsObject()) {
+    if (doc.contains("forces") && doc["forces"].is_object()) {
         const auto& forces = doc["forces"];
-        if (forces.HasMember("cohesion_bind_force_enabled"))
-            cohesion_bind_force_enabled_ = forces["cohesion_bind_force_enabled"].GetBool();
-        if (forces.HasMember("cohesion_com_force_strength"))
-            cohesion_com_force_strength_ = forces["cohesion_com_force_strength"].GetDouble();
-        if (forces.HasMember("cohesion_bind_force_strength"))
-            cohesion_bind_force_strength_ = forces["cohesion_bind_force_strength"].GetDouble();
-        if (forces.HasMember("com_cohesion_range"))
-            com_cohesion_range_ = forces["com_cohesion_range"].GetUint();
-        if (forces.HasMember("viscosity_strength"))
-            viscosity_strength_ = forces["viscosity_strength"].GetDouble();
-        if (forces.HasMember("friction_strength"))
-            friction_strength_ = forces["friction_strength"].GetDouble();
+        if (forces.contains("cohesion_bind_force_enabled"))
+            cohesion_bind_force_enabled_ = forces["cohesion_bind_force_enabled"].get<bool>();
+        if (forces.contains("cohesion_com_force_strength"))
+            cohesion_com_force_strength_ = forces["cohesion_com_force_strength"].get<double>();
+        if (forces.contains("cohesion_bind_force_strength"))
+            cohesion_bind_force_strength_ = forces["cohesion_bind_force_strength"].get<double>();
+        if (forces.contains("com_cohesion_range"))
+            com_cohesion_range_ = forces["com_cohesion_range"].get<uint32_t>();
+        if (forces.contains("viscosity_strength"))
+            viscosity_strength_ = forces["viscosity_strength"].get<double>();
+        if (forces.contains("friction_strength"))
+            friction_strength_ = forces["friction_strength"].get<double>();
         // Deserialize adhesion strength before enabled to avoid overwriting.
-        if (forces.HasMember("adhesion_strength"))
-            adhesion_calculator_.setAdhesionStrength(forces["adhesion_strength"].GetDouble());
+        if (forces.contains("adhesion_strength"))
+            adhesion_calculator_.setAdhesionStrength(forces["adhesion_strength"].get<double>());
         // Only use setAdhesionEnabled if no explicit strength was provided.
-        if (forces.HasMember("adhesion_enabled") && !forces.HasMember("adhesion_strength"))
-            adhesion_calculator_.setAdhesionEnabled(forces["adhesion_enabled"].GetBool());
-        if (forces.HasMember("air_resistance_enabled"))
-            air_resistance_enabled_ = forces["air_resistance_enabled"].GetBool();
-        if (forces.HasMember("air_resistance_strength"))
-            air_resistance_strength_ = forces["air_resistance_strength"].GetDouble();
+        if (forces.contains("adhesion_enabled") && !forces.contains("adhesion_strength"))
+            adhesion_calculator_.setAdhesionEnabled(forces["adhesion_enabled"].get<bool>());
+        if (forces.contains("air_resistance_enabled"))
+            air_resistance_enabled_ = forces["air_resistance_enabled"].get<bool>();
+        if (forces.contains("air_resistance_strength"))
+            air_resistance_strength_ = forces["air_resistance_strength"].get<double>();
     }
 
     // Parse setup controls.
-    if (doc.HasMember("setup") && doc["setup"].IsObject()) {
+    if (doc.contains("setup") && doc["setup"].is_object()) {
         const auto& setup = doc["setup"];
-        if (setup.HasMember("add_particles_enabled"))
-            add_particles_enabled_ = setup["add_particles_enabled"].GetBool();
-        if (setup.HasMember("debug_draw_enabled"))
-            debug_draw_enabled_ = setup["debug_draw_enabled"].GetBool();
-        if (setup.HasMember("selected_material"))
-            selected_material_ = materialTypeFromJson(setup["selected_material"]);
+        if (setup.contains("add_particles_enabled"))
+            add_particles_enabled_ = setup["add_particles_enabled"].get<bool>();
+        if (setup.contains("debug_draw_enabled"))
+            debug_draw_enabled_ = setup["debug_draw_enabled"].get<bool>();
+        if (setup.contains("selected_material"))
+            selected_material_ = setup["selected_material"].get<MaterialType>();  // ADL conversion.
     }
 
     // Parse cells.
-    if (!doc.HasMember("cells") || !doc["cells"].IsArray()) {
+    if (!doc.contains("cells") || !doc["cells"].is_array()) {
         throw std::runtime_error("World::fromJSON: Missing or invalid 'cells' array");
     }
 
     const auto& cells = doc["cells"];
-    for (rapidjson::SizeType i = 0; i < cells.Size(); ++i) {
-        const auto& cellEntry = cells[i];
-        if (!cellEntry.IsObject()) {
+    for (const auto& cellEntry : cells) {
+        if (!cellEntry.is_object()) {
             throw std::runtime_error("World::fromJSON: Cell entry must be an object");
         }
 
-        uint32_t x = cellEntry["x"].GetUint();
-        uint32_t y = cellEntry["y"].GetUint();
+        uint32_t x = cellEntry["x"].get<uint32_t>();
+        uint32_t y = cellEntry["y"].get<uint32_t>();
 
         if (!isValidCell(x, y)) {
             throw std::runtime_error(
@@ -1569,7 +1555,7 @@ void World::fromJSON(const rapidjson::Document& doc)
         }
 
         const auto& cellData = cellEntry["data"];
-        Cell cell = Cell::fromJson(cellData);
+        Cell cell = cellData.get<Cell>();  // ADL conversion.
 
         // Replace cell in grid.
         at(x, y) = cell;
@@ -1580,7 +1566,7 @@ void World::fromJSON(const rapidjson::Document& doc)
         width_,
         height_,
         timestep_,
-        cells.Size());
+        cells.size());
 }
 
 // Stub implementations for WorldInterface methods.
@@ -1592,4 +1578,39 @@ void World::onPreResize(uint32_t newWidth, uint32_t newHeight)
 bool World::shouldResize(uint32_t newWidth, uint32_t newHeight) const
 {
     return width_ != newWidth || height_ != newHeight;
+}
+
+// ADL functions for MotionState JSON serialization.
+void to_json(nlohmann::json& j, World::MotionState state)
+{
+    switch (state) {
+    case World::MotionState::STATIC:
+        j = "STATIC";
+        break;
+    case World::MotionState::FALLING:
+        j = "FALLING";
+        break;
+    case World::MotionState::SLIDING:
+        j = "SLIDING";
+        break;
+    case World::MotionState::TURBULENT:
+        j = "TURBULENT";
+        break;
+    }
+}
+
+void from_json(const nlohmann::json& j, World::MotionState& state)
+{
+    std::string str = j.get<std::string>();
+    if (str == "STATIC") {
+        state = World::MotionState::STATIC;
+    } else if (str == "FALLING") {
+        state = World::MotionState::FALLING;
+    } else if (str == "SLIDING") {
+        state = World::MotionState::SLIDING;
+    } else if (str == "TURBULENT") {
+        state = World::MotionState::TURBULENT;
+    } else {
+        throw std::runtime_error("Unknown MotionState: " + str);
+    }
 }

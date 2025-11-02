@@ -1,6 +1,6 @@
 #pragma once
 
-#include "lvgl/src/libs/thorvg/rapidjson/document.h"
+#include <nlohmann/json.hpp>
 #include <cstdint>
 
 /**
@@ -79,8 +79,7 @@ void setMaterialCohesion(MaterialType type, double cohesion);
 double getFrictionCoefficient(double velocity_magnitude, const MaterialProperties& props);
 
 /**
- * JSON serialization support for MaterialType.
+ * JSON serialization support for MaterialType (ADL convention for nlohmann::json).
  */
-rapidjson::Value materialTypeToJson(
-    MaterialType type, rapidjson::Document::AllocatorType& allocator);
-MaterialType materialTypeFromJson(const rapidjson::Value& json);
+void to_json(nlohmann::json& j, MaterialType type);
+void from_json(const nlohmann::json& j, MaterialType& type);

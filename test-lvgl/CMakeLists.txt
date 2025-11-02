@@ -206,6 +206,12 @@ add_executable(sparkle-duck-server
     src/server/scenarios/scenarios/FallingDirtScenario.cpp
     src/server/network/CommandDeserializerJson.cpp
     src/server/network/WebSocketServer.cpp
+    src/server/api/CellGet.cpp
+    src/server/api/CellSet.cpp
+    src/server/api/GravitySet.cpp
+    src/server/api/Reset.cpp
+    src/server/api/StateGet.cpp
+    src/server/api/StepN.cpp
 
     # Core components.
     src/core/Cell.cpp

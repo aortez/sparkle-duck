@@ -341,10 +341,10 @@ public:
     // =================================================================
 
     // Serialize complete world state to JSON (lossless).
-    rapidjson::Document toJSON() const;
+    nlohmann::json toJSON() const;
 
     // Deserialize world state from JSON.
-    void fromJSON(const rapidjson::Document& doc);
+    void fromJSON(const nlohmann::json& doc);
 
     // =================================================================
     // TEMPORARY STUBS FOR UI-RELATED METHODS (To be removed in Phase 2)
@@ -499,3 +499,9 @@ private:
     // World event generator for dynamic particles.
     std::unique_ptr<WorldEventGenerator> worldEventGenerator_;
 };
+
+/**
+ * ADL (Argument-Dependent Lookup) functions for nlohmann::json automatic conversion.
+ */
+void to_json(nlohmann::json& j, World::MotionState state);
+void from_json(const nlohmann::json& j, World::MotionState& state);

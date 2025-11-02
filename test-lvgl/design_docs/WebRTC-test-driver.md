@@ -80,30 +80,33 @@
 - Adding new members to structs automatically includes them in JSON
 - Clean separation: data (public members) vs behavior (helper methods)
 
-**Next Task: Complete nlohmann/json Migration**
+**Completed (2025-11-02): nlohmann/json Migration**
 
-**Remaining Files:**
-1. **CommandDeserializerJson.cpp** - JSON → Command parsing (164 lines)
-2. **ResponseSerializerJson.h** - Response → JSON serialization (~80 lines)
-3. **World.cpp** - World toJSON/fromJSON (~200 lines)
-4. **MaterialType.cpp** - Material serialization (~30 lines)
-5. **CrashDumpHandler.cpp** - Crash dump JSON (~50 lines)
+✅ **Migration Complete** - `sparkle-duck-server` builds and links without LVGL dependencies!
 
-**Migration Pattern:**
-```cpp
-// OLD (rapidjson):
-rapidjson::Document doc;
-doc.Parse(json_string);
-doc["field"].GetDouble();
+**Migrated Components:**
+1. ✅ **MaterialType** - ADL functions (to_json/from_json) for automatic conversion
+2. ✅ **CommandDeserializerJson** - 164 lines → 67 lines (reflection-based)
+3. ✅ **ResponseSerializerJson** - Template-based serialization with ADL
+4. ✅ **World.cpp** - toJSON/fromJSON methods migrated (cleaner, no allocators)
+5. ✅ **CrashDumpHandler** - Now uses nlohmann::json with complete state dumps
+6. ✅ **API Command Structs** - All 6 commands use ReflectSerializer (zero boilerplate)
+7. ✅ **Type Support** - ADL functions for Cell, Vector2d, MaterialType, World::MotionState
 
-// NEW (nlohmann):
-auto doc = nlohmann::json::parse(json_string);
-double val = doc["field"].get<double>();
+**Key Achievements:**
+- Reflection-based serialization eliminates boilerplate
+- ADL pattern enables automatic type conversions
+- Command structs serialize themselves automatically
+- World serialization: 69 lines → 57 lines (simpler, cleaner)
+- CommandDeserializer: 164 lines → 67 lines (58% reduction)
+
+**Build Status:**
 ```
-
-**Estimated Time:** 20-30 minutes remaining
-
-**Success Criteria:** `sparkle-duck-server` builds and links without LVGL dependencies.
+✅ sparkle-duck-server compiles successfully
+✅ sparkle-duck-server links without LVGL dependencies
+✅ No lv_malloc, lv_free, lv_log_add references
+✅ Ready for headless deployment
+```
 
 **TODO:**
 - CLI swiss-army-knife tool (sparkle-duck-cli) for controlling both server and UI

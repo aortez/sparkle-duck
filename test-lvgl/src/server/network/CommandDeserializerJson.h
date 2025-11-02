@@ -1,7 +1,7 @@
 #pragma once
 
 #include "../api/ApiCommand.h"
-#include "lvgl/src/libs/thorvg/rapidjson/document.h"
+#include <nlohmann/json.hpp>
 #include <string>
 
 namespace DirtSim {
@@ -22,15 +22,6 @@ public:
      * @return Result containing Command or error message.
      */
     Result<ApiCommand, ApiError> deserialize(const std::string& commandJson);
-
-private:
-    // Command deserializers - each creates a Command struct from JSON.
-    Result<ApiCommand, ApiError> handleStepN(const rapidjson::Document& cmd);
-    Result<ApiCommand, ApiError> handleCellSet(const rapidjson::Document& cmd);
-    Result<ApiCommand, ApiError> handleStateGet(const rapidjson::Document& cmd);
-    Result<ApiCommand, ApiError> handleCellGet(const rapidjson::Document& cmd);
-    Result<ApiCommand, ApiError> handleGravitySet(const rapidjson::Document& cmd);
-    Result<ApiCommand, ApiError> handleReset(const rapidjson::Document& cmd);
 };
 
 } // namespace Server

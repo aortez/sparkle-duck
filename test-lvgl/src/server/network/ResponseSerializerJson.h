@@ -1,8 +1,13 @@
 #pragma once
 
 #include "../api/ApiCommand.h"
-#include "lvgl/src/libs/thorvg/rapidjson/stringbuffer.h"
-#include "lvgl/src/libs/thorvg/rapidjson/writer.h"
+#include "../api/CellGet.h"
+#include "../api/CellSet.h"
+#include "../api/GravitySet.h"
+#include "../api/Reset.h"
+#include "../api/StateGet.h"
+#include "../api/StepN.h"
+#include <nlohmann/json.hpp>
 #include <string>
 
 namespace DirtSim {
@@ -25,57 +30,36 @@ public:
     template <typename Response>
     std::string serialize(Response&& response)
     {
-        rapidjson::Document doc(rapidjson::kObjectType);
-        auto& allocator = doc.GetAllocator();
+        nlohmann::json doc;
 
         // Check if response is error or value.
         if (response.isError()) {
             // Error response: {"error": "message"}.
-            rapidjson::Value errorVal(response.error().message.c_str(), allocator);
-            doc.AddMember("error", errorVal, allocator);
+            doc["error"] = response.error().message;
         }
         else {
             using T = std::decay_t<Response>;
 
             // Success response: {"value": {...}}.
             if constexpr (std::is_same_v<T, Api::CellGet::Response>) {
-                rapidjson::Value cellJson = response.value().cell.toJson(allocator);
-                doc.AddMember("value", cellJson, allocator);
+                doc["value"] = response.value().toJson();
             }
             else if constexpr (std::is_same_v<T, Api::StateGet::Response>) {
-                rapidjson::Document worldJson = response.value().world.toJSON();
-                rapidjson::Value worldVal(rapidjson::kObjectType);
-                worldVal.CopyFrom(worldJson, allocator);
-                doc.AddMember("value", worldVal, allocator);
+                doc["value"] = response.value().toJson();
             }
             else if constexpr (std::is_same_v<T, Api::StepN::Response>) {
-                rapidjson::Value valueObj(rapidjson::kObjectType);
-                valueObj.AddMember("timestep", response.value().timestep, allocator);
-                doc.AddMember("value", valueObj, allocator);
+                doc["value"] = response.value().toJson();
             }
             else if constexpr (
                 std::is_same_v<T, Api::CellSet::Response>
                 || std::is_same_v<T, Api::GravitySet::Response>
                 || std::is_same_v<T, Api::Reset::Response>) {
-                rapidjson::Value valueObj(rapidjson::kObjectType);
-                doc.AddMember("value", valueObj, allocator);
+                // Empty object for commands with no response data.
+                doc["value"] = nlohmann::json::object();
             }
         }
 
-        return documentToString(doc);
-    }
-
-    /**
-     * @brief Helper to convert rapidjson::Document to JSON string.
-     * @param doc The document to serialize.
-     * @return JSON string.
-     */
-    static std::string documentToString(const rapidjson::Document& doc)
-    {
-        rapidjson::StringBuffer buffer;
-        rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
-        doc.Accept(writer);
-        return buffer.GetString();
+        return doc.dump();
     }
 };
 

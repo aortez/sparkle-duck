@@ -203,30 +203,28 @@ const char* getMaterialName(MaterialType type)
     return MATERIAL_NAMES[index];
 }
 
-rapidjson::Value materialTypeToJson(
-    MaterialType type, rapidjson::Document::AllocatorType& allocator)
+void to_json(nlohmann::json& j, MaterialType type)
 {
-    const char* name = getMaterialName(type);
-    rapidjson::Value json(name, allocator);
-    return json;
+    j = getMaterialName(type);
 }
 
-MaterialType materialTypeFromJson(const rapidjson::Value& json)
+void from_json(const nlohmann::json& j, MaterialType& type)
 {
-    if (!json.IsString()) {
-        throw std::runtime_error("MaterialType::fromJson: JSON value must be a string");
+    if (!j.is_string()) {
+        throw std::runtime_error("MaterialType::from_json: JSON value must be a string");
     }
 
-    std::string name = json.GetString();
+    std::string name = j.get<std::string>();
 
     // Linear search through material names.
     for (size_t i = 0; i < MATERIAL_NAMES.size(); ++i) {
         if (name == MATERIAL_NAMES[i]) {
-            return static_cast<MaterialType>(i);
+            type = static_cast<MaterialType>(i);
+            return;
         }
     }
 
-    throw std::runtime_error("MaterialType::fromJson: Unknown material type '" + name + "'");
+    throw std::runtime_error("MaterialType::from_json: Unknown material type '" + name + "'");
 }
 
 void setMaterialCohesion(MaterialType type, double cohesion)

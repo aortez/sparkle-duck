@@ -234,3 +234,16 @@ struct Cell {
     // Helper to update unified pressure from components.
     void updateUnifiedPressure() { pressure = hydrostatic_component + dynamic_component; }
 };
+
+/**
+ * ADL (Argument-Dependent Lookup) functions for nlohmann::json automatic conversion.
+ */
+inline void to_json(nlohmann::json& j, const Cell& cell)
+{
+    j = cell.toJson();
+}
+
+inline void from_json(const nlohmann::json& j, Cell& cell)
+{
+    cell = Cell::fromJson(j);
+}

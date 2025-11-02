@@ -44,6 +44,19 @@ struct Vector2d {
     Vector2d operator+() const; // Unary plus (for completeness)
 };
 
+/**
+ * ADL (Argument-Dependent Lookup) functions for nlohmann::json automatic conversion.
+ */
+inline void to_json(nlohmann::json& j, const Vector2d& v)
+{
+    j = v.toJson();
+}
+
+inline void from_json(const nlohmann::json& j, Vector2d& v)
+{
+    v = Vector2d::fromJson(j);
+}
+
 // Non-member operator for scalar multiplication from the left side.
 inline Vector2d operator*(double scalar, const Vector2d& v)
 {
