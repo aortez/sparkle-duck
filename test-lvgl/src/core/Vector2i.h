@@ -2,6 +2,8 @@
 
 #include <string>
 
+namespace DirtSim {
+
 class Vector2i {
 public:
     int x;
@@ -38,3 +40,5 @@ inline Vector2i operator*(int scalar, const Vector2i& v)
 {
     return v * scalar;
 }
+
+} // namespace DirtSim

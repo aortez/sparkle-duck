@@ -9,6 +9,8 @@
 #include <spdlog/spdlog.h>
 #include <stdexcept>
 
+using namespace DirtSim;
+
 // =================================================================
 // PUBLIC INTERFACE.
 // =================================================================

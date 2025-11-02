@@ -6,6 +6,9 @@
 #include "../Event.h"
 
 namespace DirtSim {
+
+class World;  // Forward declaration.
+
 namespace Server {
 
 class StateMachine;
@@ -14,28 +17,16 @@ namespace State {
 
 // Forward declare the variant type
 struct Startup;
-struct MainMenu;
+struct Idle;
 struct SimRunning;
-struct SimPaused;
-struct UnitTesting;
-struct Benchmarking;
-struct Loading;
-struct Saving;
-struct Config;
-struct Demo;
+struct Paused;
 struct Shutdown;
 
 using Any = std::variant<
     Startup,
-    MainMenu,
+    Idle,
     SimRunning,
-    SimPaused,
-    UnitTesting,
-    Benchmarking,
-    Loading,
-    Saving,
-    Config,
-    Demo,
+    Paused,
     Shutdown
 >;
 
@@ -49,31 +40,27 @@ struct Startup {
 };
 
 /**
- * @brief Main menu state - user can start simulation or access settings.
+ * @brief Idle state - server ready, no active simulation.
  */
-struct MainMenu {
+struct Idle {
     void onEnter(StateMachine& dsm);
     void onExit(StateMachine& dsm);
 
-    State::Any onEvent(const StartSimulationCommand& cmd, StateMachine& dsm);
-    State::Any onEvent(const OpenConfigCommand& cmd, StateMachine& dsm);
-    State::Any onEvent(const SelectMaterialCommand& cmd, StateMachine& dsm);
+    State::Any onEvent(const Api::Exit::Cwc& cwc, StateMachine& dsm);
+    // Future: SimRun command will create world and transition to SimRunning.
 
-    static constexpr const char* name() { return "MainMenu"; }
+    static constexpr const char* name() { return "Idle"; }
 };
 
 /**
- * @brief Active simulation state - physics running and UI interactive.
+ * @brief Active simulation state - owns World, physics advancing.
  */
 struct SimRunning {
+    std::unique_ptr<World> world;  // Owns the World instance.
     uint32_t stepCount = 0;
-
-    // Interaction mode for smart cell grabber.
-    enum class InteractionMode {
-        NONE,       // No interaction active.
-        GRAB_MODE   // Dragging material (either existing or newly created).
-    };
-    InteractionMode interactionMode = InteractionMode::NONE;
+    uint32_t targetSteps = 0;       // Steps to execute before pausing.
+    double stepDurationMs = 16.0;   // Physics timestep in milliseconds.
+    int frameLimit = -1;            // Optional FPS cap (-1 = unlimited).
 
     void onEnter(StateMachine& dsm);
     void onExit(StateMachine& dsm);
@@ -83,6 +70,7 @@ struct SimRunning {
     Any onEvent(const ResizeWorldCommand& cmd, StateMachine& dsm);
     Any onEvent(const DirtSim::Api::CellGet::Cwc& cwc, StateMachine& dsm);
     Any onEvent(const DirtSim::Api::CellSet::Cwc& cwc, StateMachine& dsm);
+    Any onEvent(const DirtSim::Api::Exit::Cwc& cwc, StateMachine& dsm);
     Any onEvent(const DirtSim::Api::GravitySet::Cwc& cwc, StateMachine& dsm);
     Any onEvent(const DirtSim::Api::Reset::Cwc& cwc, StateMachine& dsm);
     Any onEvent(const DirtSim::Api::StateGet::Cwc& cwc, StateMachine& dsm);
@@ -144,91 +132,18 @@ struct SimRunning {
 };
 
 /**
- * @brief Paused simulation state - physics halted but UI remains active.
- * 
- * For now, only supports pausing from SimRunning. Can be extended later
- * to support pausing from other states.
+ * @brief Paused simulation state - preserves SimRunning context.
  */
-struct SimPaused {
-    // Store the previous SimRunning state with all its data
-    SimRunning previousState;
-    // Store the timescale before pausing so we can restore it
-    double previousTimescale = 1.0;
+struct Paused {
+    SimRunning previousState;  // Preserves World, stepCount, etc.
 
     void onEnter(StateMachine& dsm);
     void onExit(StateMachine& dsm);
 
-    Any onEvent(const ResumeCommand& cmd, StateMachine& dsm);
-    Any onEvent(const ResetSimulationCommand& cmd, StateMachine& dsm);
-    Any onEvent(const AdvanceSimulationCommand& cmd, StateMachine& dsm);
-    Any onEvent(const MouseDownEvent& evt, StateMachine& dsm);
-    Any onEvent(const MouseMoveEvent& evt, StateMachine& dsm);
-    Any onEvent(const MouseUpEvent& evt, StateMachine& dsm);
-    Any onEvent(const SelectMaterialCommand& cmd, StateMachine& dsm);
+    Any onEvent(const Api::Exit::Cwc& cwc, StateMachine& dsm);
+    // Future: SimRun (resume), SimStop (destroy world → Idle), query commands.
 
-    // Handle immediate events routed through push system
-    Any onEvent(const GetFPSCommand& cmd, StateMachine& dsm);
-    Any onEvent(const GetSimStatsCommand& cmd, StateMachine& dsm);
-    Any onEvent(const ToggleDebugCommand& cmd, StateMachine& dsm);
-    Any onEvent(const ToggleCohesionForceCommand& cmd, StateMachine& dsm);
-    Any onEvent(const ToggleTimeHistoryCommand& cmd, StateMachine& dsm);
-    Any onEvent(const PrintAsciiDiagramCommand& cmd, StateMachine& dsm);
-    Any onEvent(const SpawnDirtBallCommand& cmd, StateMachine& dsm);
-    Any onEvent(const QuitApplicationCommand& cmd, StateMachine& dsm);
-
-    static constexpr const char* name() { return "SimPaused"; }
-};
-
-/**
- * @brief Unit testing state - running automated tests.
- */
-struct UnitTesting {
-    std::string currentTest;
-    static constexpr const char* name() { return "UnitTesting"; }
-};
-
-/**
- * @brief Performance benchmarking state.
- */
-struct Benchmarking {
-    uint32_t iterationsRemaining = 0;
-    static constexpr const char* name() { return "Benchmarking"; }
-};
-
-/**
- * @brief Loading saved simulation state.
- */
-struct Loading {
-    std::string filepath;
-    static constexpr const char* name() { return "Loading"; }
-};
-
-/**
- * @brief Saving current simulation state.
- */
-struct Saving {
-    std::string filepath;
-    static constexpr const char* name() { return "Saving"; }
-};
-
-/**
- * @brief Configuration/settings state.
- */
-struct Config {
-    void onEnter(StateMachine& dsm);
-    void onExit(StateMachine& dsm);
-
-    Any onEvent(const StartSimulationCommand& cmd, StateMachine& dsm);
-
-    static constexpr const char* name() { return "Config"; }
-};
-
-/**
- * @brief Demo/tutorial mode state.
- */
-struct Demo {
-    uint32_t demoStep = 0;
-    static constexpr const char* name() { return "Demo"; }
+    static constexpr const char* name() { return "Paused"; }
 };
 
 /**

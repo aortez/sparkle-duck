@@ -5,6 +5,8 @@
 #include "Vector2d.h"
 #include "WorldCalculatorBase.h"
 
+namespace DirtSim {
+
 class World;
 
 /**
@@ -45,5 +47,7 @@ private:
     // Configuration parameters.
     double adhesion_strength_ = 0.0;
 };
+
+} // namespace DirtSim
 
 #endif // WORLDBADHESIONCALCULATOR_H

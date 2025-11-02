@@ -7,6 +7,8 @@
 #include <cstdint>
 #include <vector>
 
+namespace DirtSim {
+
 class Cell;
 class World;
 
@@ -118,3 +120,5 @@ private:
     static constexpr double MIN_NORMAL_FORCE = 0.01;  // Minimum normal force for friction.
     static constexpr double MIN_TANGENTIAL_SPEED = 1e-6;  // Minimum speed to apply friction.
 };
+
+} // namespace DirtSim

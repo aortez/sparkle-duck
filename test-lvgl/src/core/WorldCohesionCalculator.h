@@ -6,6 +6,8 @@
 #include <cstdint>
 #include <memory>
 
+namespace DirtSim {
+
 class Cell;
 class World;
 class WorldSupportCalculator;
@@ -58,3 +60,5 @@ public:
 private:
     mutable std::unique_ptr<WorldSupportCalculator> support_calculator_; // Support calculations.
 };
+
+} // namespace DirtSim

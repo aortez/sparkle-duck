@@ -14,33 +14,7 @@ namespace Server {
 StateMachine::StateMachine() : eventProcessor(), sharedState()
 {
     spdlog::info("Server::StateMachine initialized in headless mode in state: {}", getCurrentStateName());
-
-    // Create World directly.
-    world = std::make_unique<World>(defaultWidth, defaultHeight);
-    if (!world) {
-        throw std::runtime_error("Failed to create world");
-    }
-    spdlog::info("Server::StateMachine: Created {}x{} World", defaultWidth, defaultHeight);
-
-    // Apply default Sandbox scenario if available.
-    auto& registry = ScenarioRegistry::getInstance();
-    auto* sandboxScenario = registry.getScenario("sandbox");
-
-    if (sandboxScenario) {
-        spdlog::info("Applying default Sandbox scenario");
-        auto setup = sandboxScenario->createWorldEventGenerator();
-        world->setWorldEventGenerator(std::move(setup));
-    }
-    else {
-        spdlog::warn("Sandbox scenario not found - using default world setup");
-    }
-
-    // Initialize world.
-    world->setup();
-
-    // Set world in SharedSimState for immediate event handlers.
-    sharedState.setCurrentWorld(world.get());
-    spdlog::info("Server::StateMachine: World registered in SharedSimState");
+    // Note: World will be created by SimRunning state when simulation starts.
 }
 
 StateMachine::~StateMachine()
@@ -48,38 +22,11 @@ StateMachine::~StateMachine()
     spdlog::info("Server::StateMachine shutting down from state: {}", getCurrentStateName());
 }
 
-bool StateMachine::resizeWorldIfNeeded(uint32_t requiredWidth, uint32_t requiredHeight)
+bool StateMachine::resizeWorldIfNeeded(uint32_t /*requiredWidth*/, uint32_t /*requiredHeight*/)
 {
-    // If no specific dimensions required, restore default dimensions.
-    if (requiredWidth == 0 || requiredHeight == 0) {
-        requiredWidth = defaultWidth;
-        requiredHeight = defaultHeight;
-    }
-
-    // Check if current dimensions match.
-    uint32_t currentWidth = world ? world->getWidth() : 0;
-    uint32_t currentHeight = world ? world->getHeight() : 0;
-
-    if (currentWidth == requiredWidth && currentHeight == requiredHeight) {
-        return false;
-    }
-
-    spdlog::info(
-        "Resizing world from {}x{} to {}x{} for scenario",
-        currentWidth,
-        currentHeight,
-        requiredWidth,
-        requiredHeight);
-
-    // Create new world with new dimensions.
-    world = std::make_unique<World>(requiredWidth, requiredHeight);
-    if (!world) {
-        spdlog::error("Failed to create resized world");
-        return false;
-    }
-
-    spdlog::info("World resized successfully to {}x{}", requiredWidth, requiredHeight);
-    return true;
+    // TODO: Resize logic needs to be moved to SimRunning state.
+    spdlog::warn("StateMachine::resizeWorldIfNeeded called but not implemented (World owned by SimRunning)");
+    return false;
 }
 
 void StateMachine::mainLoopRun()
@@ -229,27 +176,10 @@ State::Any StateMachine::onEvent(const GetSimStatsCommand& /*cmd.*/)
 
 UiUpdateEvent StateMachine::buildUIUpdate()
 {
-    assert(world && "World must exist when building UI update");
-
-    UiUpdateEvent update;
-
-    // Sequence tracking.
-    update.sequenceNum = sharedState.getNextUpdateSequence();
-
-    // Copy complete world state.
-    update.world = *dynamic_cast<World*>(world.get());
-
-    // Simulation metadata.
-    update.fps = static_cast<uint32_t>(sharedState.getCurrentFPS());
-    update.stepCount = sharedState.getCurrentStep();
-
-    // UI-only state.
-    update.isPaused = sharedState.getIsPaused();
-
-    // Timestamp.
-    update.timestamp = std::chrono::steady_clock::now();
-
-    return update;
+    // TODO: UI update logic needs to be rethought for new architecture.
+    // World is owned by SimRunning state, not StateMachine.
+    spdlog::warn("StateMachine::buildUIUpdate called but not implemented (World owned by SimRunning)");
+    return UiUpdateEvent{};
 }
 
 } // namespace Server

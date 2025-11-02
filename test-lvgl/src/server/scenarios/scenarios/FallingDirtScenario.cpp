@@ -6,6 +6,9 @@
 #include "spdlog/spdlog.h"
 #include <random>
 
+using namespace DirtSim;
+
+
 /**
  * Falling Dirt scenario - Dirt particles falling and accumulating.
  */

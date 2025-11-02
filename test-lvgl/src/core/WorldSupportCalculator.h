@@ -5,6 +5,8 @@
 #include "WorldCalculatorBase.h"
 #include <cstdint>
 
+namespace DirtSim {
+
 // Forward declarations
 class Cell;
 class World;
@@ -89,3 +91,5 @@ public:
 private:
     // No additional private members needed.
 };
+
+} // namespace DirtSim

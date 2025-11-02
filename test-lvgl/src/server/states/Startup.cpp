@@ -8,24 +8,13 @@ namespace DirtSim {
 namespace Server {
 namespace State {
 
-State::Any Startup::onEvent(const InitCompleteEvent& /*evt*/, StateMachine& dsm)
+State::Any Startup::onEvent(const InitCompleteEvent& /*evt*/, StateMachine& /*dsm*/)
 {
-    spdlog::info("Startup: Initialization complete, creating world");
-    
-    // Create default world (World/"World")
-    dsm.world = std::make_unique<World>(50, 50);
-    
-    // Initialize world with some default content.
-    if (dsm.world) {
-        // Could call dsm.world->setupInitialContent() or similar.
-        spdlog::info("Startup: World created successfully");
-    } else {
-        spdlog::error("Startup: Failed to create world!");
-        return Shutdown{};
-    }
-    
-    // Transition to main menu.
-    return MainMenu{};
+    spdlog::info("Startup: Initialization complete");
+    spdlog::info("Startup: Transitioning to Idle (server ready, no active simulation)");
+
+    // Transition to Idle state (no World, waiting for SimRun command).
+    return Idle{};
 }
 
 } // namespace State

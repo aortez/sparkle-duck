@@ -4,6 +4,10 @@
 #include <functional>
 #include <memory>
 
+// Import core types from DirtSim namespace.
+using DirtSim::World;
+using DirtSim::WorldEventGenerator;
+
 /**
  * A WorldEventGenerator implementation that wraps functional callbacks.
  * This allows scenarios to be defined using lambdas or function pointers

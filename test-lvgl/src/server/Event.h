@@ -2,6 +2,7 @@
 
 #include "api/CellGet.h"
 #include "api/CellSet.h"
+#include "api/Exit.h"
 #include "api/GravitySet.h"
 #include "api/Reset.h"
 #include "api/StateGet.h"
@@ -602,6 +603,7 @@ using Event = std::variant<
     // API commands (network/remote control).
     DirtSim::Api::CellGet::Cwc,
     DirtSim::Api::CellSet::Cwc,
+    DirtSim::Api::Exit::Cwc,
     DirtSim::Api::GravitySet::Cwc,
     DirtSim::Api::Reset::Cwc,
     DirtSim::Api::StateGet::Cwc,

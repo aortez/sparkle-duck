@@ -4,6 +4,8 @@
 #include "../ScenarioRegistry.h"
 #include "../ScenarioWorldEventGenerator.h"
 #include "spdlog/spdlog.h"
+
+using namespace DirtSim;
 #include <random>
 
 /**

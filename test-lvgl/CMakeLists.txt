@@ -187,14 +187,13 @@ add_custom_target (run COMMAND ${EXECUTABLE_OUTPUT_PATH}/sparkle-duck-ui DEPENDS
 # Headless WebSocket server executable.
 add_executable(sparkle-duck-server
     # Server application.
-    src/server/main_server.cpp
+    src/server/main.cpp
     src/server/StateMachine.cpp
     src/server/EventProcessor.cpp
     src/server/states/Startup.cpp
-    src/server/states/MainMenu.cpp
+    src/server/states/Idle.cpp
     src/server/states/SimRunning.cpp
-    src/server/states/SimPaused.cpp
-    src/server/states/Config.cpp
+    src/server/states/Paused.cpp
     src/server/states/Shutdown.cpp
     src/server/scenarios/ScenarioWorldEventGenerator.cpp
     src/server/scenarios/ScenarioRegistry.cpp
@@ -208,6 +207,7 @@ add_executable(sparkle-duck-server
     src/server/network/WebSocketServer.cpp
     src/server/api/CellGet.cpp
     src/server/api/CellSet.cpp
+    src/server/api/Exit.cpp
     src/server/api/GravitySet.cpp
     src/server/api/Reset.cpp
     src/server/api/StateGet.cpp
@@ -241,6 +241,16 @@ target_compile_options(sparkle-duck-server PRIVATE -Wall -Wextra -Werror)
 
 add_custom_target (run-server COMMAND ${EXECUTABLE_OUTPUT_PATH}/sparkle-duck-server DEPENDS sparkle-duck-server)
 
+# CLI client executable.
+add_executable(cli
+    # CLI application.
+    src/cli/main.cpp
+    src/cli/WebSocketClient.cpp)
+target_link_libraries(cli nlohmann_json::nlohmann_json spdlog::spdlog datachannel-static pthread)
+target_include_directories(cli PRIVATE ${CMAKE_SOURCE_DIR}/external/args)
+
+# Enable warnings and treat them as errors for CLI executable.
+target_compile_options(cli PRIVATE -Wall -Wextra -Werror)
 
 # Add test executable.
 # Note: Removed obsolete physics, UI, and state machine tests.

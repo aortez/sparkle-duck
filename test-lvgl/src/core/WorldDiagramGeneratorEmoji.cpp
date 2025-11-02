@@ -6,6 +6,8 @@
 #include <cmath>
 #include <sstream>
 
+using namespace DirtSim;
+
 std::string WorldDiagramGeneratorEmoji::generateEmojiDiagram(const World& world)
 {
     std::ostringstream diagram;

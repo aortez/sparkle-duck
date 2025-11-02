@@ -20,9 +20,9 @@ void Shutdown::onEnter(StateMachine& dsm)
 
     // Set exit flag to signal backend loop and state machine thread to exit.
     spdlog::info("Shutdown: Setting shouldExit flag to true");
-    dsm.getSharedState().setShouldExit(true);
+    dsm.setShouldExit(true);
 
-    spdlog::info("Shutdown: Cleanup complete, shouldExit={}", dsm.getSharedState().getShouldExit());
+    spdlog::info("Shutdown: Cleanup complete, shouldExit={}", dsm.shouldExit());
 }
 
 } // namespace State

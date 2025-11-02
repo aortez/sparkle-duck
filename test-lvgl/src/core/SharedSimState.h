@@ -9,6 +9,9 @@
 #include <optional>
 #include <shared_mutex>
 
+// Import core types from DirtSim namespace.
+using DirtSim::MaterialType;
+
 // Forward declaration.
 class World;
 

@@ -4,6 +4,8 @@
 #include "spdlog/spdlog.h"
 #include <cmath>
 
+using namespace DirtSim;
+
 WorldFrictionCalculator::WorldFrictionCalculator(const World& world)
     : WorldCalculatorBase(world)
 {}

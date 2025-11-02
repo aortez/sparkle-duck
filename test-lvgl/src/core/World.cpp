@@ -18,6 +18,8 @@
 #include <set>
 #include <sstream>
 
+namespace DirtSim {
+
 World::World() : World(1, 1)
 {}
 
@@ -634,14 +636,6 @@ double World::getTotalMass() const
         cellCount++;
         if (cellMass > 0.0) {
             nonEmptyCells++;
-            if (nonEmptyCells <= 5) { // Log first 5 non-empty cells.
-                spdlog::info(
-                    "DEBUGGING: Cell {} has mass={:.3f} material={} fill_ratio={:.3f}",
-                    cellCount - 1,
-                    cellMass,
-                    static_cast<int>(cell.material_type),
-                    cell.fill_ratio);
-            }
         }
     }
 
@@ -1614,3 +1608,5 @@ void from_json(const nlohmann::json& j, World::MotionState& state)
         throw std::runtime_error("Unknown MotionState: " + str);
     }
 }
+
+} // namespace DirtSim

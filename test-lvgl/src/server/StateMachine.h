@@ -39,7 +39,6 @@ public:
     bool resizeWorldIfNeeded(uint32_t requiredWidth, uint32_t requiredHeight);
     UiUpdateEvent buildUIUpdate();
 
-    std::unique_ptr<World> world;
     EventProcessor eventProcessor;
 
     uint32_t defaultWidth = 28;

@@ -5,8 +5,9 @@
 #include <cstdint>
 #include <vector>
 
+namespace DirtSim {
+
 // Forward declarations
-class Cell;
 class Cell;
 class World;
 
@@ -68,3 +69,5 @@ private:
 
     static void clampToGrid(int& x, int& y, uint32_t width, uint32_t height);
 };
+
+} // namespace DirtSim

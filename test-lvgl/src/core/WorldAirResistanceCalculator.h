@@ -4,6 +4,8 @@
 #include "WorldCalculatorBase.h"
 #include <cstdint>
 
+namespace DirtSim {
+
 class Cell;
 class World;
 
@@ -43,3 +45,5 @@ public:
     Vector2d calculateAirResistance(
         uint32_t x, uint32_t y, double strength = DEFAULT_AIR_RESISTANCE_SCALAR) const;
 };
+
+} // namespace DirtSim

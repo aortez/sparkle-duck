@@ -7,6 +7,8 @@
 #include <algorithm>
 #include <cmath>
 
+using namespace DirtSim;
+
 WorldCohesionCalculator::WorldCohesionCalculator(const World& world)
     : WorldCalculatorBase(world),
       support_calculator_(std::make_unique<WorldSupportCalculator>(world))

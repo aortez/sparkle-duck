@@ -3,6 +3,8 @@
 #include "World.h"
 #include <cmath>
 
+using namespace DirtSim;
+
 WorldAdhesionCalculator::WorldAdhesionCalculator(const World& world)
     : WorldCalculatorBase(world)
 {}

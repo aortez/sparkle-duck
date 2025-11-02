@@ -5,6 +5,8 @@
 #include "../ScenarioWorldEventGenerator.h"
 #include "spdlog/spdlog.h"
 
+using namespace DirtSim;
+
 /**
  * Sandbox scenario - The default world setup without walls.
  */

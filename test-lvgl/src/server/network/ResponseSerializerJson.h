@@ -3,6 +3,7 @@
 #include "../api/ApiCommand.h"
 #include "../api/CellGet.h"
 #include "../api/CellSet.h"
+#include "../api/Exit.h"
 #include "../api/GravitySet.h"
 #include "../api/Reset.h"
 #include "../api/StateGet.h"
@@ -52,6 +53,7 @@ public:
             }
             else if constexpr (
                 std::is_same_v<T, Api::CellSet::Response>
+                || std::is_same_v<T, Api::Exit::Response>
                 || std::is_same_v<T, Api::GravitySet::Response>
                 || std::is_same_v<T, Api::Reset::Response>) {
                 // Empty object for commands with no response data.

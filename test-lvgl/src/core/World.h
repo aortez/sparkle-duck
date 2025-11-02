@@ -27,6 +27,8 @@
  * fill ratios, providing a simpler but different physics model.
  */
 
+namespace DirtSim {
+
 class World {
 public:
     // Motion states for viscosity calculations.
@@ -505,3 +507,5 @@ private:
  */
 void to_json(nlohmann::json& j, World::MotionState state);
 void from_json(const nlohmann::json& j, World::MotionState& state);
+
+} // namespace DirtSim

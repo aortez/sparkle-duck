@@ -10,6 +10,8 @@
 
 #include "lvgl/lvgl.h"
 
+namespace DirtSim {
+
 /**
  * \file
  * Cell represents a single cell in the World pure-material physics system.
@@ -247,3 +249,5 @@ inline void from_json(const nlohmann::json& j, Cell& cell)
 {
     cell = Cell::fromJson(j);
 }
+
+} // namespace DirtSim

@@ -4,6 +4,8 @@
 #include "../ScenarioWorldEventGenerator.h"
 #include "spdlog/spdlog.h"
 
+using namespace DirtSim;
+
 /**
  * Empty scenario - A truly empty world with no particles.
  */

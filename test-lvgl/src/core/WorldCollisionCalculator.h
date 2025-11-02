@@ -8,6 +8,8 @@
 #include "WorldCohesionCalculator.h"
 #include <vector>
 
+namespace DirtSim {
+
 class Cell;
 class World;
 
@@ -200,3 +202,5 @@ private:
     static constexpr double FRAGMENTATION_THRESHOLD = 15.0;
     static constexpr double INELASTIC_RESTITUTION_FACTOR = 0.5;
 };
+
+} // namespace DirtSim

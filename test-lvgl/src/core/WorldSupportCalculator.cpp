@@ -10,6 +10,8 @@
 #include <queue>
 #include <set>
 
+using namespace DirtSim;
+
 WorldSupportCalculator::WorldSupportCalculator(const World& world) : WorldCalculatorBase(world)
 {}
 

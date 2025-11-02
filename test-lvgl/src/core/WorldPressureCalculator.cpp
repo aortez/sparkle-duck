@@ -6,6 +6,8 @@
 #include <cmath>
 #include <spdlog/spdlog.h>
 
+using namespace DirtSim;
+
 WorldPressureCalculator::WorldPressureCalculator(World& world)
     : WorldCalculatorBase(world), world_ref_(world)
 {}

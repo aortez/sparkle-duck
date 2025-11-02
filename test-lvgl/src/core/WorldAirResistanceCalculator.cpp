@@ -5,6 +5,8 @@
 #include <cmath>
 #include <spdlog/spdlog.h>
 
+using namespace DirtSim;
+
 WorldAirResistanceCalculator::WorldAirResistanceCalculator(const World& world)
     : WorldCalculatorBase(world)
 {}

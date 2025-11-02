@@ -3,6 +3,8 @@
 #include "MaterialType.h"
 #include "Vector2d.h"
 
+namespace DirtSim {
+
 /**
  * @brief Types of collisions that can occur during material transfer
  *
@@ -47,3 +49,5 @@ struct MaterialMove {
     // Pressure from excess material that can't transfer
     double pressure_from_excess = 0.0; // Pressure to add to target cell
 };
+
+} // namespace DirtSim

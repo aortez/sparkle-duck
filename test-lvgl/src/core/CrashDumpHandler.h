@@ -3,7 +3,11 @@
 #include <string>
 
 // Forward declarations.
+namespace DirtSim {
 class World;
+}
+
+using DirtSim::World;
 
 /**
  * CrashDumpHandler - Captures complete world state on assertion failures.

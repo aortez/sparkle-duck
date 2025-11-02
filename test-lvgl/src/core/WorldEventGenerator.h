@@ -4,6 +4,8 @@
 #include <cstdint>
 #include <vector>
 
+namespace DirtSim {
+
 // Forward declarations
 class World;
 
@@ -158,3 +160,5 @@ private:
     bool initialThrowDone = false;
     bool topDropDone = false;
 };
+
+} // namespace DirtSim

@@ -6,6 +6,8 @@
 #include <stdexcept>
 #include <string>
 
+namespace DirtSim {
+
 // Material property database.
 // Each material is defined using designated initializers for easy editing and understanding.
 static std::array<MaterialProperties, 8> MATERIAL_PROPERTIES = { {
@@ -255,3 +257,4 @@ double getFrictionCoefficient(double velocity_magnitude, const MaterialPropertie
     return props.static_friction_coefficient * (1.0 - smooth_t)
         + props.kinetic_friction_coefficient * smooth_t;
 }
+} // namespace DirtSim

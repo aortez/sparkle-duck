@@ -1,5 +1,5 @@
+#include "../../core/World.h"  // Must be before State.h for complete type.
 #include "../../core/Cell.h"
-#include "../../core/World.h"
 #include "../../core/WorldEventGenerator.h"
 #include "../StateMachine.h"
 #include "../scenarios/Scenario.h"
@@ -15,23 +15,16 @@ void SimRunning::onEnter(StateMachine& dsm)
 {
     spdlog::info("SimRunning: Entering simulation state");
 
-    // World is created in StateMachine constructor.
-    if (!dsm.world) {
-        spdlog::error("SimRunning: No World available!");
-        return;
-    }
-
-    // Initialize step count from shared state (preserves count when resuming from pause).
-    stepCount = dsm.getSharedState().getCurrentStep();
-
-    // Log whether we're starting fresh or resuming.
-    if (stepCount == 0) {
-        spdlog::info("SimRunning: Starting fresh simulation");
+    // Create World if it doesn't exist (first time entering from Idle).
+    if (!world) {
+        spdlog::info("SimRunning: Creating new World {}x{}", dsm.defaultWidth, dsm.defaultHeight);
+        world = std::make_unique<World>(dsm.defaultWidth, dsm.defaultHeight);
     } else {
-        spdlog::info("SimRunning: Resuming simulation at step {}", stepCount);
+        spdlog::info("SimRunning: Resuming with existing World {}x{}",
+                     world->getWidth(), world->getHeight());
     }
 
-    spdlog::info("SimRunning: Ready to run simulation");
+    spdlog::info("SimRunning: Ready to run simulation (stepCount={})", stepCount);
 }
 
 void SimRunning::onExit(StateMachine& /*dsm. */)
@@ -39,7 +32,7 @@ void SimRunning::onExit(StateMachine& /*dsm. */)
     spdlog::info("SimRunning: Exiting state");
 }
 
-State::Any SimRunning::onEvent(const AdvanceSimulationCommand& /*cmd. */, StateMachine& dsm)
+State::Any SimRunning::onEvent(const AdvanceSimulationCommand& /*cmd*/, StateMachine& /*dsm*/)
 {
     // NOTE: When in SimRunning state, the simulation is advanced by the UI thread's
     // processFrame loop (simulator_loop.h:83). We should NOT call advanceTime here
@@ -49,10 +42,7 @@ State::Any SimRunning::onEvent(const AdvanceSimulationCommand& /*cmd. */, StateM
 
     spdlog::trace("SimRunning: AdvanceSimulationCommand received but ignored (UI loop drives simulation)");
 
-    // Suppress unused parameter warning.
-    (void)dsm;
-
-    return *this;  // Stay in SimRunning.
+    return std::move(*this);  // Stay in SimRunning (move because unique_ptr).
 }
 
 State::Any SimRunning::onEvent(const ApplyScenarioCommand& cmd, StateMachine& dsm)
@@ -64,7 +54,7 @@ State::Any SimRunning::onEvent(const ApplyScenarioCommand& cmd, StateMachine& ds
 
     if (!scenario) {
         spdlog::error("Scenario not found: {}", cmd.scenarioName);
-        return *this;
+        return std::move(*this);
     }
 
     const auto& metadata = scenario->getMetadata();
@@ -79,97 +69,89 @@ State::Any SimRunning::onEvent(const ApplyScenarioCommand& cmd, StateMachine& ds
 
     // Apply scenario's WorldEventGenerator.
     auto setup = scenario->createWorldEventGenerator();
-    if (dsm.world) {
-        dsm.world->setWorldEventGenerator(std::move(setup));
+    if (world) {
+        world->setWorldEventGenerator(std::move(setup));
     }
 
-    return *this;
+    return std::move(*this);
 }
 
 State::Any SimRunning::onEvent(const ResizeWorldCommand& cmd, StateMachine& dsm)
 {
     spdlog::info("SimRunning: Resizing world to {}x{}", cmd.width, cmd.height);
     dsm.resizeWorldIfNeeded(cmd.width, cmd.height);
-    return *this;
+    return std::move(*this);
 }
 
-State::Any SimRunning::onEvent(const Api::CellGet::Cwc& cwc, StateMachine& dsm)
+State::Any SimRunning::onEvent(const Api::CellGet::Cwc& cwc, StateMachine& /*dsm*/)
 {
     using Response = Api::CellGet::Response;
 
     // Validate coordinates.
-    if (!dsm.world) {
-        cwc.sendResponse(Response::error(ApiError("No world available")));
-        return *this;
-    }
-
-    auto* world = dynamic_cast<World*>(dsm.world.get());
     if (!world) {
-        cwc.sendResponse(Response::error(ApiError("World type mismatch")));
-        return *this;
+        cwc.sendResponse(Response::error(ApiError("No world available")));
+        return std::move(*this);
     }
 
     if (cwc.command.x < 0 || cwc.command.y < 0 ||
         static_cast<uint32_t>(cwc.command.x) >= world->getWidth() ||
         static_cast<uint32_t>(cwc.command.y) >= world->getHeight()) {
         cwc.sendResponse(Response::error(ApiError("Invalid coordinates")));
-        return *this;
+        return std::move(*this);
     }
 
     // Get cell.
     const Cell& cell = world->at(cwc.command.x, cwc.command.y);
 
     cwc.sendResponse(Response::okay({ cell }));
-    return *this;
+    return std::move(*this);
 }
 
-State::Any SimRunning::onEvent(const Api::CellSet::Cwc& cwc, StateMachine& dsm)
+State::Any SimRunning::onEvent(const Api::CellSet::Cwc& cwc, StateMachine& /*dsm*/)
 {
     using Response = Api::CellSet::Response;
 
     // Validate world availability.
-    if (!dsm.world) {
+    if (!world) {
         cwc.sendResponse(Response::error(ApiError("No world available")));
-        return *this;
+        return std::move(*this);
     }
-
-    World* worldInterface = dsm.world.get();
 
     // Validate coordinates.
     if (cwc.command.x < 0 || cwc.command.y < 0 ||
-        static_cast<uint32_t>(cwc.command.x) >= worldInterface->getWidth() ||
-        static_cast<uint32_t>(cwc.command.y) >= worldInterface->getHeight()) {
+        static_cast<uint32_t>(cwc.command.x) >= world->getWidth() ||
+        static_cast<uint32_t>(cwc.command.y) >= world->getHeight()) {
         cwc.sendResponse(Response::error(ApiError("Invalid coordinates")));
-        return *this;
+        return std::move(*this);
     }
 
     // Validate fill ratio.
     if (cwc.command.fill < 0.0 || cwc.command.fill > 1.0) {
         cwc.sendResponse(Response::error(ApiError("Fill must be between 0.0 and 1.0")));
-        return *this;
+        return std::move(*this);
     }
 
     // Place material.
-    worldInterface->addMaterialAtCell(cwc.command.x, cwc.command.y, cwc.command.material, cwc.command.fill);
+    world->addMaterialAtCell(cwc.command.x, cwc.command.y, cwc.command.material, cwc.command.fill);
 
     cwc.sendResponse(Response::okay(std::monostate{}));
-    return *this;
+    return std::move(*this);
 }
 
-State::Any SimRunning::onEvent(const Api::GravitySet::Cwc& cwc, StateMachine& dsm)
+State::Any SimRunning::onEvent(const Api::GravitySet::Cwc& cwc, StateMachine& /*dsm*/)
 {
     using Response = Api::GravitySet::Response;
 
-    if (!dsm.world) {
+    if (!world) {
         cwc.sendResponse(Response::error(ApiError("No world available")));
-        return *this;
+        return std::move(*this);
     }
 
-    dsm.world.get()->setGravity(cwc.command.gravity);
+    world->setGravity(cwc.command.gravity);
     spdlog::info("SimRunning: API set gravity to {}", cwc.command.gravity);
 
     cwc.sendResponse(Response::okay(std::monostate{}));
-    return *this;
+    return std::move(*this);
 }
 
 State::Any SimRunning::onEvent(const Api::Reset::Cwc& cwc, StateMachine& dsm)
@@ -178,62 +160,56 @@ State::Any SimRunning::onEvent(const Api::Reset::Cwc& cwc, StateMachine& dsm)
 
     spdlog::info("SimRunning: API reset simulation");
 
-    if (dsm.world) {
-        dsm.world->setup();
+    if (world) {
+        world->setup();
     }
 
     stepCount = 0;
     dsm.getSharedState().setCurrentStep(0);
 
     cwc.sendResponse(Response::okay(std::monostate{}));
-    return *this;
+    return std::move(*this);
 }
 
-State::Any SimRunning::onEvent(const Api::StateGet::Cwc& cwc, StateMachine& dsm)
+State::Any SimRunning::onEvent(const Api::StateGet::Cwc& cwc, StateMachine& /*dsm*/)
 {
     using Response = Api::StateGet::Response;
 
-    if (!dsm.world) {
-        cwc.sendResponse(Response::error(ApiError("No world available")));
-        return *this;
-    }
-
-    auto* world = dynamic_cast<World*>(dsm.world.get());
     if (!world) {
-        cwc.sendResponse(Response::error(ApiError("World type mismatch")));
-        return *this;
+        cwc.sendResponse(Response::error(ApiError("No world available")));
+        return std::move(*this);
     }
 
     // Return complete world state (copy).
     cwc.sendResponse(Response::okay({ *world }));
-    return *this;
+    return std::move(*this);
 }
 
-State::Any SimRunning::onEvent(const Api::StepN::Cwc& cwc, StateMachine& dsm)
+State::Any SimRunning::onEvent(const Api::StepN::Cwc& cwc, StateMachine& /*dsm*/)
 {
     using Response = Api::StepN::Response;
 
-    if (!dsm.world) {
+    if (!world) {
         cwc.sendResponse(Response::error(ApiError("No world available")));
-        return *this;
+        return std::move(*this);
     }
 
     // Validate frames parameter.
     if (cwc.command.frames <= 0) {
         cwc.sendResponse(Response::error(ApiError("Frames must be positive")));
-        return *this;
+        return std::move(*this);
     }
 
     // Step simulation.
     for (int i = 0; i < cwc.command.frames; ++i) {
-        dsm.world->advanceTime(0.016); // ~60 FPS timestep.
+        world->advanceTime(0.016); // ~60 FPS timestep.
     }
 
-    uint32_t timestep = dsm.world.get()->getTimestep();
+    uint32_t timestep = world->getTimestep();
     spdlog::debug("SimRunning: API stepped {} frames, timestep now {}", cwc.command.frames, timestep);
 
     cwc.sendResponse(Response::okay({timestep}));
-    return *this;
+    return std::move(*this);
 }
 
 State::Any SimRunning::onEvent(const PauseCommand& /*cmd*/, StateMachine& /*dsm. */)
@@ -241,390 +217,331 @@ State::Any SimRunning::onEvent(const PauseCommand& /*cmd*/, StateMachine& /*dsm.
     spdlog::info("SimRunning: Pausing at step {}", stepCount);
     
     // Move the current state into SimPaused.
-    return SimPaused{std::move(*this)};
+    return Paused{std::move(*this)};
 }
 
-State::Any SimRunning::onEvent(const ResetSimulationCommand& /*cmd. */, StateMachine& dsm)
+State::Any SimRunning::onEvent(const ResetSimulationCommand& /*cmd*/, StateMachine& dsm)
 {
     spdlog::info("SimRunning: Resetting simulation");
 
-    if (dsm.world) {
-        dsm.world->setup();
+    if (world) {
+        world->setup();
     }
 
     stepCount = 0;
     dsm.getSharedState().setCurrentStep(0);
     
-    return *this;  // Stay in SimRunning.
+    return std::move(*this);  // Stay in SimRunning (move because unique_ptr).
 }
 
-State::Any SimRunning::onEvent(const SaveWorldCommand& cmd, StateMachine& /*dsm. */)
+State::Any SimRunning::onEvent(const SaveWorldCommand& /*cmd*/, StateMachine& /*dsm*/)
 {
-    Saving saveState;
-    saveState.filepath = cmd.filepath;
-    return saveState;
+    spdlog::warn("SimRunning: SaveWorld not implemented yet");
+    // TODO: Implement world saving.
+    return std::move(*this);
 }
 
-State::Any SimRunning::onEvent(const StepBackwardCommand& /*cmd*/, StateMachine& dsm)
+State::Any SimRunning::onEvent(const StepBackwardCommand& /*cmd*/, StateMachine& /*dsm*/)
 {
     spdlog::debug("SimRunning: Stepping simulation backward by one timestep");
 
-    if (!dsm.world) {
+    if (!world) {
         spdlog::warn("SimRunning: Cannot step backward - no world available");
-        return *this;
+        return std::move(*this);
     }
-
-    auto world = dsm.world.get();
 
     // TODO: Implement world->goBackward() method for time reversal.
-    (void)world;  // Silence unused variable warning until implemented.
     spdlog::info("StepBackwardCommand: Time reversal not yet implemented");
 
-    return *this;  // Stay in SimRunning.
+    return std::move(*this);  // Stay in SimRunning (move because unique_ptr).
 }
 
-State::Any SimRunning::onEvent(const StepForwardCommand& /*cmd*/, StateMachine& dsm)
+State::Any SimRunning::onEvent(const StepForwardCommand& /*cmd*/, StateMachine& /*dsm*/)
 {
-    if (!dsm.world) {
+    if (!world) {
         spdlog::warn("SimRunning: Cannot step forward - no world available");
-        return *this;
+        return std::move(*this);
     }
-
-    auto world = dsm.world.get();
 
     // TODO: Implement world->goForward() method for time reversal.
-    (void)world;  // Silence unused variable warning until implemented.
     spdlog::info("SimRunning: Step forward requested");
 
-    return *this;  // Stay in SimRunning.
+    return std::move(*this);  // Stay in SimRunning (move because unique_ptr).
 }
 
-State::Any SimRunning::onEvent(const ToggleTimeReversalCommand& /*cmd*/, StateMachine& dsm)
+State::Any SimRunning::onEvent(const ToggleTimeReversalCommand& /*cmd*/, StateMachine& /*dsm*/)
 {
-    if (!dsm.world) {
+    if (!world) {
         spdlog::warn("SimRunning: Cannot toggle time reversal - no world available");
-        return *this;
+        return std::move(*this);
     }
 
-    auto world = dsm.world.get();
-
     // TODO: Implement world->toggleTimeReversal() method.
-    (void)world;  // Silence unused variable warning until implemented.
     spdlog::info("SimRunning: Toggle time reversal requested");
 
-    return *this;  // Stay in SimRunning.
+    return std::move(*this);  // Stay in SimRunning (move because unique_ptr).
 }
 
 State::Any SimRunning::onEvent(const SetWaterCohesionCommand& cmd, StateMachine& /*dsm*/)
 {
     // Cell::setCohesionStrength(cmd.cohesion_value);
     spdlog::info("SimRunning: Set water cohesion to {}", cmd.cohesion_value);
-    return *this;
+    return std::move(*this);
 }
 
 State::Any SimRunning::onEvent(const SetWaterViscosityCommand& cmd, StateMachine& /*dsm*/)
 {
     // Cell::setViscosityFactor(cmd.viscosity_value);
     spdlog::info("SimRunning: Set water viscosity to {}", cmd.viscosity_value);
-    return *this;
+    return std::move(*this);
 }
 
-State::Any SimRunning::onEvent(const SetWaterPressureThresholdCommand& cmd, StateMachine& dsm)
+State::Any SimRunning::onEvent(const SetWaterPressureThresholdCommand& cmd, StateMachine& /*dsm*/)
 {
-    if (auto* world = dsm.world.get()) {
+    if (world) {
         world->setWaterPressureThreshold(cmd.threshold_value);
         spdlog::info("SimRunning: Set water pressure threshold to {}", cmd.threshold_value);
     }
-    return *this;
+    return std::move(*this);
 }
 
 State::Any SimRunning::onEvent(const SetWaterBuoyancyCommand& cmd, StateMachine& /*dsm*/)
 {
     // Cell::setBuoyancyStrength(cmd.buoyancy_value);
     spdlog::info("SimRunning: Set water buoyancy to {}", cmd.buoyancy_value);
-    return *this;
+    return std::move(*this);
 }
 
-State::Any SimRunning::onEvent(const LoadWorldCommand& cmd, StateMachine& /*dsm*/)
+State::Any SimRunning::onEvent(const LoadWorldCommand& /*cmd*/, StateMachine& /*dsm*/)
 {
-    Loading loadState;
-    loadState.filepath = cmd.filepath;
-    spdlog::info("SimRunning: Loading world from {}", cmd.filepath);
-    return loadState;
+    spdlog::warn("SimRunning: LoadWorld not implemented yet");
+    // TODO: Implement world loading.
+    return std::move(*this);
 }
 
-State::Any SimRunning::onEvent(const SetTimestepCommand& cmd, StateMachine& dsm)
+State::Any SimRunning::onEvent(const SetTimestepCommand& cmd, StateMachine& /*dsm*/)
 {
-    if (auto* world = dsm.world.get()) {
-        // TODO: Implement world->setTimestep() method when available.
-        (void)world;
-    }
+    // TODO: Implement world->setTimestep() method when available.
     spdlog::debug("SimRunning: Set timestep to {}", cmd.timestep_value);
-    return *this;
+    return std::move(*this);
 }
 
-State::Any SimRunning::onEvent(const MouseDownEvent& evt, StateMachine& dsm)
+State::Any SimRunning::onEvent(const MouseDownEvent& /*evt*/, StateMachine& /*dsm*/)
 {
-    if (!dsm.world) {
-        return *this;
-    }
-
-    auto* world = dsm.world.get();
-
-    // Always enter GRAB_MODE - either grab existing material or create new and grab it.
-    interactionMode = InteractionMode::GRAB_MODE;
-
-    if (world->hasMaterialAtPixel(evt.pixelX, evt.pixelY)) {
-        // Cell has material - grab it.
-        world->startDragging(evt.pixelX, evt.pixelY);
-        spdlog::debug("MouseDown: Grabbing existing material at ({}, {})", evt.pixelX, evt.pixelY);
-    } else {
-        // Cell is empty - add material first, then grab it.
-        auto material = dsm.getSharedState().getSelectedMaterial();
-        world->addMaterialAtPixel(evt.pixelX, evt.pixelY, material);
-        world->startDragging(evt.pixelX, evt.pixelY);
-        spdlog::debug("MouseDown: Creating and grabbing new {} at ({}, {})",
-                      static_cast<int>(material), evt.pixelX, evt.pixelY);
-    }
-
-    return *this;
+    spdlog::debug("SimRunning: Mouse events not handled by headless server");
+    return std::move(*this);
 }
 
-State::Any SimRunning::onEvent(const MouseMoveEvent& evt, StateMachine& dsm)
+State::Any SimRunning::onEvent(const MouseMoveEvent& /*evt*/, StateMachine& /*dsm*/)
 {
-    if (!dsm.world) {
-        return *this;
-    }
-
-    auto* world = dsm.world.get();
-
-    // Only update drag position if we're in GRAB_MODE.
-    // No more continuous painting in PAINT_MODE.
-    if (interactionMode == InteractionMode::GRAB_MODE) {
-        world->updateDrag(evt.pixelX, evt.pixelY);
-    }
-
-    return *this;
+    spdlog::debug("SimRunning: Mouse events not handled by headless server");
+    return std::move(*this);
 }
 
-State::Any SimRunning::onEvent(const MouseUpEvent& evt, StateMachine& dsm)
+State::Any SimRunning::onEvent(const MouseUpEvent& /*evt*/, StateMachine& /*dsm*/)
 {
-    if (!dsm.world) {
-        return *this;
-    }
-
-    auto* world = dsm.world.get();
-
-    if (interactionMode == InteractionMode::GRAB_MODE) {
-        // End dragging and release material with velocity.
-        world->endDragging(evt.pixelX, evt.pixelY);
-        spdlog::debug("MouseUp: Ending GRAB_MODE at ({}, {})", evt.pixelX, evt.pixelY);
-    }
-
-    // Reset interaction mode.
-    interactionMode = InteractionMode::NONE;
-
-    return *this;
+    spdlog::debug("SimRunning: Mouse events not handled by headless server");
+    return std::move(*this);
 }
 
 State::Any SimRunning::onEvent(const SelectMaterialCommand& cmd, StateMachine& dsm)
 {
     dsm.getSharedState().setSelectedMaterial(cmd.material);
-    if (dsm.world) {
-        dsm.world.get()->setSelectedMaterial(cmd.material);
+    if (world) {
+        world->setSelectedMaterial(cmd.material);
     }
     spdlog::debug("SimRunning: Selected material {}", static_cast<int>(cmd.material));
-    return *this;
+    return std::move(*this);
 }
 
-State::Any SimRunning::onEvent(const SetTimescaleCommand& cmd, StateMachine& dsm)
+State::Any SimRunning::onEvent(const SetTimescaleCommand& cmd, StateMachine& /*dsm*/)
 {
     // Update world directly (source of truth).
-    if (auto* world = dsm.world.get()) {
+    if (world) {
         world->setTimescale(cmd.timescale);
         spdlog::info("SimRunning: Set timescale to {}", cmd.timescale);
     }
-    return *this;
+    return std::move(*this);
 }
 
-State::Any SimRunning::onEvent(const SetElasticityCommand& cmd, StateMachine& dsm)
+State::Any SimRunning::onEvent(const SetElasticityCommand& cmd, StateMachine& /*dsm*/)
 {
     // Update world directly (source of truth).
-    if (auto* world = dsm.world.get()) {
+    if (world) {
         world->setElasticityFactor(cmd.elasticity);
         spdlog::info("SimRunning: Set elasticity to {}", cmd.elasticity);
     }
-    return *this;
+    return std::move(*this);
 }
 
-State::Any SimRunning::onEvent(const SetDynamicStrengthCommand& cmd, StateMachine& dsm)
+State::Any SimRunning::onEvent(const SetDynamicStrengthCommand& cmd, StateMachine& /*dsm*/)
 {
     // Update world directly (source of truth).
-    if (auto* world = dsm.world.get()) {
+    if (world) {
         world->setDynamicPressureStrength(cmd.strength);
         spdlog::info("SimRunning: Set dynamic strength to {:.1f}", cmd.strength);
     }
-    return *this;
+    return std::move(*this);
 }
 
-State::Any SimRunning::onEvent(const SetGravityCommand& cmd, StateMachine& dsm)
+State::Any SimRunning::onEvent(const SetGravityCommand& cmd, StateMachine& /*dsm*/)
 {
     // Update world directly (source of truth).
-    if (auto* world = dsm.world.get()) {
+    if (world) {
         world->setGravity(cmd.gravity);
         spdlog::info("SimRunning: Set gravity to {}", cmd.gravity);
     }
-    return *this;
+    return std::move(*this);
 }
 
-State::Any SimRunning::onEvent(const SetPressureScaleCommand& cmd, StateMachine& dsm)
+State::Any SimRunning::onEvent(const SetPressureScaleCommand& cmd, StateMachine& /*dsm*/)
 {
     // Apply to world.
-    if (auto* world = dsm.world.get()) {
+    if (world) {
         world->setPressureScale(cmd.scale);
     }
 
     spdlog::debug("SimRunning: Set pressure scale to {}", cmd.scale);
-    return *this;
+    return std::move(*this);
 }
 
-State::Any SimRunning::onEvent(const SetPressureScaleWorldBCommand& cmd, StateMachine& dsm)
+State::Any SimRunning::onEvent(const SetPressureScaleWorldBCommand& cmd, StateMachine& /*dsm*/)
 {
     // Apply to world.
-    if (auto* world = dsm.world.get()) {
+    if (world) {
         world->setPressureScale(cmd.scale);
     }
 
     spdlog::debug("SimRunning: Set World pressure scale to {}", cmd.scale);
-    return *this;
+    return std::move(*this);
 }
 
-State::Any SimRunning::onEvent(const SetCohesionForceStrengthCommand& cmd, StateMachine& dsm)
+State::Any SimRunning::onEvent(const SetCohesionForceStrengthCommand& cmd, StateMachine& /*dsm*/)
 {
-    if (auto* world = dsm.world.get()) {
+    if (world) {
         world->setCohesionComForceStrength(cmd.strength);
         spdlog::info("SimRunning: Set cohesion force strength to {}", cmd.strength);
     }
-    return *this;
+    return std::move(*this);
 }
 
-State::Any SimRunning::onEvent(const SetAdhesionStrengthCommand& cmd, StateMachine& dsm)
+State::Any SimRunning::onEvent(const SetAdhesionStrengthCommand& cmd, StateMachine& /*dsm*/)
 {
-    if (auto* world = dsm.world.get()) {
+    if (world) {
         world->setAdhesionStrength(cmd.strength);
         spdlog::info("SimRunning: Set adhesion strength to {}", cmd.strength);
     }
-    return *this;
+    return std::move(*this);
 }
 
-State::Any SimRunning::onEvent(const SetViscosityStrengthCommand& cmd, StateMachine& dsm)
+State::Any SimRunning::onEvent(const SetViscosityStrengthCommand& cmd, StateMachine& /*dsm*/)
 {
-    if (auto* world = dsm.world.get()) {
+    if (world) {
         world->setViscosityStrength(cmd.strength);
         spdlog::info("SimRunning: Set viscosity strength to {}", cmd.strength);
     }
-    return *this;
+    return std::move(*this);
 }
 
-State::Any SimRunning::onEvent(const SetFrictionStrengthCommand& cmd, StateMachine& dsm)
+State::Any SimRunning::onEvent(const SetFrictionStrengthCommand& cmd, StateMachine& /*dsm*/)
 {
-    if (auto* world = dsm.world.get()) {
+    if (world) {
         world->setFrictionStrength(cmd.strength);
         spdlog::info("SimRunning: Set friction strength to {}", cmd.strength);
     }
-    return *this;
+    return std::move(*this);
 }
 
-State::Any SimRunning::onEvent(const SetContactFrictionStrengthCommand& cmd, StateMachine& dsm)
+State::Any SimRunning::onEvent(const SetContactFrictionStrengthCommand& cmd, StateMachine& /*dsm*/)
 {
-    if (auto* world = dynamic_cast<World*>(dsm.world.get())) {
-        world->getFrictionCalculator().setFrictionStrength(cmd.strength);
+    if (auto* worldPtr = dynamic_cast<World*>(world.get())) {
+        worldPtr->getFrictionCalculator().setFrictionStrength(cmd.strength);
         spdlog::info("SimRunning: Set contact friction strength to {}", cmd.strength);
     }
-    return *this;
+    return std::move(*this);
 }
 
-State::Any SimRunning::onEvent(const SetCOMCohesionRangeCommand& cmd, StateMachine& dsm)
+State::Any SimRunning::onEvent(const SetCOMCohesionRangeCommand& cmd, StateMachine& /*dsm*/)
 {
-    if (auto* world = dsm.world.get()) {
+    if (world) {
         world->setCOMCohesionRange(cmd.range);
         spdlog::info("SimRunning: Set COM cohesion range to {}", cmd.range);
     }
-    return *this;
+    return std::move(*this);
 }
 
-State::Any SimRunning::onEvent(const SetAirResistanceCommand& cmd, StateMachine& dsm)
+State::Any SimRunning::onEvent(const SetAirResistanceCommand& cmd, StateMachine& /*dsm*/)
 {
-    if (auto* world = dsm.world.get()) {
+    if (world) {
         world->setAirResistanceStrength(cmd.strength);
         spdlog::info("SimRunning: Set air resistance to {}", cmd.strength);
     }
-    return *this;
+    return std::move(*this);
 }
 
-State::Any SimRunning::onEvent(const ToggleHydrostaticPressureCommand& /*cmd*/, StateMachine& dsm)
+State::Any SimRunning::onEvent(const ToggleHydrostaticPressureCommand& /*cmd*/, StateMachine& /*dsm*/)
 {
-    if (auto* world = dsm.world.get()) {
+    if (world) {
         bool newValue = !world->isHydrostaticPressureEnabled();
         world->setHydrostaticPressureEnabled(newValue);
         spdlog::info("SimRunning: Toggle hydrostatic pressure - now: {}", newValue);
     }
-    return *this;
+    return std::move(*this);
 }
 
-State::Any SimRunning::onEvent(const ToggleDynamicPressureCommand& /*cmd*/, StateMachine& dsm)
+State::Any SimRunning::onEvent(const ToggleDynamicPressureCommand& /*cmd*/, StateMachine& /*dsm*/)
 {
-    if (auto* world = dsm.world.get()) {
+    if (world) {
         bool newValue = !world->isDynamicPressureEnabled();
         world->setDynamicPressureEnabled(newValue);
         spdlog::info("SimRunning: Toggle dynamic pressure - now: {}", newValue);
     }
-    return *this;
+    return std::move(*this);
 }
 
-State::Any SimRunning::onEvent(const TogglePressureDiffusionCommand& /*cmd*/, StateMachine& dsm)
+State::Any SimRunning::onEvent(const TogglePressureDiffusionCommand& /*cmd*/, StateMachine& /*dsm*/)
 {
-    if (auto* world = dsm.world.get()) {
+    if (world) {
         bool newValue = !world->isPressureDiffusionEnabled();
         world->setPressureDiffusionEnabled(newValue);
         spdlog::info("SimRunning: Toggle pressure diffusion - now: {}", newValue);
     }
-    return *this;
+    return std::move(*this);
 }
 
-State::Any SimRunning::onEvent(const SetHydrostaticPressureStrengthCommand& cmd, StateMachine& dsm)
+State::Any SimRunning::onEvent(const SetHydrostaticPressureStrengthCommand& cmd, StateMachine& /*dsm*/)
 {
-    if (auto* world = dsm.world.get()) {
+    if (world) {
         world->setHydrostaticPressureStrength(cmd.strength);
         spdlog::info("SimRunning: Set hydrostatic pressure strength to {}", cmd.strength);
     }
-    return *this;
+    return std::move(*this);
 }
 
-State::Any SimRunning::onEvent(const SetDynamicPressureStrengthCommand& cmd, StateMachine& dsm)
+State::Any SimRunning::onEvent(const SetDynamicPressureStrengthCommand& cmd, StateMachine& /*dsm*/)
 {
     // Apply to world.
-    if (auto* world = dsm.world.get()) {
+    if (world) {
         // TODO: Need to add setDynamicPressureStrength method to WorldInterface.
         // For now, suppress unused warning.
         (void)world;
     }
 
     spdlog::debug("SimRunning: Set dynamic pressure strength to {}", cmd.strength);
-    return *this;
+    return std::move(*this);
 }
 
-State::Any SimRunning::onEvent(const SetRainRateCommand& cmd, StateMachine& dsm)
+State::Any SimRunning::onEvent(const SetRainRateCommand& cmd, StateMachine& /*dsm*/)
 {
-    if (auto* world = dsm.world.get()) {
+    if (world) {
         world->setRainRate(cmd.rate);
         spdlog::info("SimRunning: Set rain rate to {}", cmd.rate);
     }
-    return *this;
+    return std::move(*this);
 }
 
 // Handle immediate events routed through push system.
-State::Any SimRunning::onEvent(const GetFPSCommand& /*cmd. */, StateMachine& dsm)
+State::Any SimRunning::onEvent(const GetFPSCommand& /*cmd*/, StateMachine& dsm)
 {
     // FPS is already tracked in shared state and will be in next push update.
     spdlog::debug("SimRunning: GetFPSCommand - FPS will be in next update");
@@ -633,10 +550,10 @@ State::Any SimRunning::onEvent(const GetFPSCommand& /*cmd. */, StateMachine& dsm
     UiUpdateEvent update = dsm.buildUIUpdate();
     dsm.getSharedState().pushUIUpdate(std::move(update));
 
-    return *this;
+    return std::move(*this);
 }
 
-State::Any SimRunning::onEvent(const GetSimStatsCommand& /*cmd. */, StateMachine& dsm)
+State::Any SimRunning::onEvent(const GetSimStatsCommand& /*cmd*/, StateMachine& dsm)
 {
     // Stats are already tracked and will be in next push update.
     spdlog::debug("SimRunning: GetSimStatsCommand - Stats will be in next update");
@@ -645,14 +562,13 @@ State::Any SimRunning::onEvent(const GetSimStatsCommand& /*cmd. */, StateMachine
     UiUpdateEvent update = dsm.buildUIUpdate();
     dsm.getSharedState().pushUIUpdate(std::move(update));
 
-    return *this;
+    return std::move(*this);
 }
 
-State::Any SimRunning::onEvent(const ToggleDebugCommand& /*cmd. */, StateMachine& dsm)
+State::Any SimRunning::onEvent(const ToggleDebugCommand& /*cmd*/, StateMachine& dsm)
 {
     // Toggle debug draw state in world (source of truth).
-    if (dsm.world) {
-        auto* world = dsm.world.get();
+    if (world) {
         bool newValue = !world->isDebugDrawEnabled();
         world->setDebugDrawEnabled(newValue);
         spdlog::info("SimRunning: ToggleDebugCommand - Debug draw now: {}", newValue);
@@ -662,12 +578,12 @@ State::Any SimRunning::onEvent(const ToggleDebugCommand& /*cmd. */, StateMachine
         dsm.getSharedState().pushUIUpdate(std::move(update));
     }
 
-    return *this;
+    return std::move(*this);
 }
 
-State::Any SimRunning::onEvent(const ToggleCohesionForceCommand& /*cmd. */, StateMachine& dsm)
+State::Any SimRunning::onEvent(const ToggleCohesionForceCommand& /*cmd*/, StateMachine& dsm)
 {
-    if (auto* world = dsm.world.get()) {
+    if (world) {
         bool newValue = !world->isCohesionComForceEnabled();
         world->setCohesionComForceEnabled(newValue);
         spdlog::info("SimRunning: ToggleCohesionForceCommand - Cohesion force now: {}", newValue);
@@ -675,12 +591,12 @@ State::Any SimRunning::onEvent(const ToggleCohesionForceCommand& /*cmd. */, Stat
         UiUpdateEvent update = dsm.buildUIUpdate();
         dsm.getSharedState().pushUIUpdate(std::move(update));
     }
-    return *this;
+    return std::move(*this);
 }
 
-State::Any SimRunning::onEvent(const ToggleTimeHistoryCommand& /*cmd. */, StateMachine& dsm)
+State::Any SimRunning::onEvent(const ToggleTimeHistoryCommand& /*cmd*/, StateMachine& dsm)
 {
-    if (auto* world = dsm.world.get()) {
+    if (world) {
         bool newValue = !world->isTimeReversalEnabled();
         world->enableTimeReversal(newValue);
         spdlog::info("SimRunning: ToggleTimeHistoryCommand - Time history now: {}", newValue);
@@ -688,29 +604,27 @@ State::Any SimRunning::onEvent(const ToggleTimeHistoryCommand& /*cmd. */, StateM
         UiUpdateEvent update = dsm.buildUIUpdate();
         dsm.getSharedState().pushUIUpdate(std::move(update));
     }
-    return *this;
+    return std::move(*this);
 }
 
-State::Any SimRunning::onEvent(const PrintAsciiDiagramCommand& /*cmd. */, StateMachine& dsm)
+State::Any SimRunning::onEvent(const PrintAsciiDiagramCommand& /*cmd*/, StateMachine& /*dsm*/)
 {
     // Get the current world and print ASCII diagram.
-    if (dsm.world) {
-        std::string ascii_diagram = dsm.world.get()->toAsciiDiagram();
+    if (world) {
+        std::string ascii_diagram = world->toAsciiDiagram();
         spdlog::info("Current world state (ASCII diagram):\n{}", ascii_diagram);
     }
     else {
         spdlog::warn("PrintAsciiDiagramCommand: No world available");
     }
 
-    return *this;
+    return std::move(*this);
 }
 
-State::Any SimRunning::onEvent(const SpawnDirtBallCommand& /*cmd. */, StateMachine& dsm)
+State::Any SimRunning::onEvent(const SpawnDirtBallCommand& /*cmd*/, StateMachine& /*dsm*/)
 {
     // Get the current world and spawn a 5x5 ball at top center.
-    if (dsm.world) {
-        auto* world = dsm.world.get();
-
+    if (world) {
         // Calculate the top center position.
         uint32_t centerX = world->getWidth() / 2;
         uint32_t topY = 2; // Start at row 2 to avoid the very top edge.
@@ -723,39 +637,39 @@ State::Any SimRunning::onEvent(const SpawnDirtBallCommand& /*cmd. */, StateMachi
         spdlog::warn("SpawnDirtBallCommand: No world available");
     }
 
-    return *this;
+    return std::move(*this);
 }
 
-State::Any SimRunning::onEvent(const SetFragmentationCommand& cmd, StateMachine& dsm)
+State::Any SimRunning::onEvent(const SetFragmentationCommand& cmd, StateMachine& /*dsm*/)
 {
-    if (auto* world = dsm.world.get()) {
+    if (world) {
         world->setDirtFragmentationFactor(cmd.factor);
         spdlog::info("SimRunning: Set fragmentation factor to {}", cmd.factor);
     }
-    return *this;
+    return std::move(*this);
 }
 
-State::Any SimRunning::onEvent(const ToggleWallsCommand& /*cmd*/, StateMachine& dsm)
+State::Any SimRunning::onEvent(const ToggleWallsCommand& /*cmd*/, StateMachine& /*dsm*/)
 {
     // Apply to world.
-    if (auto* world = dsm.world.get()) {
+    if (world) {
         // TODO: Need to add toggleWalls method to WorldInterface.
         // For now, suppress unused warning.
         (void)world;
     }
 
     spdlog::info("SimRunning: Toggle walls");
-    return *this;
+    return std::move(*this);
 }
 
-State::Any SimRunning::onEvent(const ToggleWaterColumnCommand& /*cmd*/, StateMachine& dsm)
+State::Any SimRunning::onEvent(const ToggleWaterColumnCommand& /*cmd*/, StateMachine& /*dsm*/)
 {
-    if (auto* world = dsm.world.get()) {
+    if (world) {
         bool newValue = !world->isWaterColumnEnabled();
         world->setWaterColumnEnabled(newValue);
 
         // For World, we can manipulate cells directly.
-        World* worldB = dynamic_cast<World*>(world);
+        World* worldB = dynamic_cast<World*>(world.get());
         if (worldB) {
             if (newValue) {
                 // Add water column (5 wide × 20 tall) on left side.
@@ -793,37 +707,37 @@ State::Any SimRunning::onEvent(const ToggleWaterColumnCommand& /*cmd*/, StateMac
 
         spdlog::info("SimRunning: Water column toggled - now: {}", newValue);
     }
-    return *this;
+    return std::move(*this);
 }
 
-State::Any SimRunning::onEvent(const ToggleLeftThrowCommand& /*cmd*/, StateMachine& dsm)
+State::Any SimRunning::onEvent(const ToggleLeftThrowCommand& /*cmd*/, StateMachine& /*dsm*/)
 {
-    if (auto* world = dsm.world.get()) {
+    if (world) {
         bool newValue = !world->isLeftThrowEnabled();
         world->setLeftThrowEnabled(newValue);
         spdlog::info("SimRunning: Toggle left throw - now: {}", newValue);
     }
-    return *this;
+    return std::move(*this);
 }
 
-State::Any SimRunning::onEvent(const ToggleRightThrowCommand& /*cmd*/, StateMachine& dsm)
+State::Any SimRunning::onEvent(const ToggleRightThrowCommand& /*cmd*/, StateMachine& /*dsm*/)
 {
-    if (auto* world = dsm.world.get()) {
+    if (world) {
         bool newValue = !world->isRightThrowEnabled();
         world->setRightThrowEnabled(newValue);
         spdlog::info("SimRunning: Toggle right throw - now: {}", newValue);
     }
-    return *this;
+    return std::move(*this);
 }
 
-State::Any SimRunning::onEvent(const ToggleQuadrantCommand& /*cmd*/, StateMachine& dsm)
+State::Any SimRunning::onEvent(const ToggleQuadrantCommand& /*cmd*/, StateMachine& /*dsm*/)
 {
-    if (auto* world = dsm.world.get()) {
+    if (world) {
         bool newValue = !world->isLowerRightQuadrantEnabled();
         world->setLowerRightQuadrantEnabled(newValue);
 
         // For World, manipulate cells directly for immediate feedback.
-        World* worldB = dynamic_cast<World*>(world);
+        DirtSim::World* worldB = dynamic_cast<DirtSim::World*>(world.get());
         if (worldB) {
             uint32_t startX = worldB->getWidth() / 2;
             uint32_t startY = worldB->getHeight() / 2;
@@ -867,20 +781,14 @@ State::Any SimRunning::onEvent(const ToggleQuadrantCommand& /*cmd*/, StateMachin
 
         spdlog::info("SimRunning: Toggle quadrant - now: {}", newValue);
     }
-    return *this;
+    return std::move(*this);
 }
 
-State::Any SimRunning::onEvent(const ToggleFrameLimitCommand& /*cmd*/, StateMachine& dsm)
+State::Any SimRunning::onEvent(const ToggleFrameLimitCommand& /*cmd*/, StateMachine& /*dsm*/)
 {
-    // Apply to world.
-    if (auto* world = dsm.world.get()) {
-        // TODO: Need to add toggleFrameLimit method to WorldInterface.
-        // For now, suppress unused warning.
-        (void)world;
-    }
-
+    // TODO: Need to add toggleFrameLimit method to World.
     spdlog::info("SimRunning: Toggle frame limit");
-    return *this;
+    return std::move(*this);
 }
 
 State::Any SimRunning::onEvent(const QuitApplicationCommand& /*cmd*/, StateMachine& /*dsm*/)
@@ -891,6 +799,17 @@ State::Any SimRunning::onEvent(const QuitApplicationCommand& /*cmd*/, StateMachi
     // Screenshots are UI concerns, not server concerns.
 
     // Transition to Shutdown state.
+    return Shutdown{};
+}
+
+State::Any SimRunning::onEvent(const Api::Exit::Cwc& cwc, StateMachine& /*dsm*/)
+{
+    spdlog::info("SimRunning: Exit command received, shutting down");
+
+    // Send success response.
+    cwc.sendResponse(Api::Exit::Response::okay(std::monostate{}));
+
+    // Transition to Shutdown state (Shutdown.onEnter will set shouldExit flag).
     return Shutdown{};
 }
 

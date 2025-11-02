@@ -4,8 +4,12 @@
 #include <memory>
 
 // Forward declarations
+namespace DirtSim {
 class World;
 class WorldEventGenerator;
+}
+
+using namespace DirtSim;
 
 /**
  * Core types for the scenario system.

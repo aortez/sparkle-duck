@@ -2,6 +2,7 @@
 
 #include "CellGet.h"
 #include "CellSet.h"
+#include "Exit.h"
 #include "GravitySet.h"
 #include "Reset.h"
 #include "StateGet.h"
@@ -16,6 +17,7 @@ namespace DirtSim {
 using ApiCommand = std::variant<
     Api::CellGet::Command,
     Api::CellSet::Command,
+    Api::Exit::Command,
     Api::GravitySet::Command,
     Api::Reset::Command,
     Api::StateGet::Command,

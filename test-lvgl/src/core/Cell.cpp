@@ -10,6 +10,8 @@
 #include "lvgl/lvgl.h"
 #include "spdlog/spdlog.h"
 
+using namespace DirtSim;
+
 // Cell is now an aggregate - no constructors needed!
 
 void Cell::setFillRatio(double ratio)

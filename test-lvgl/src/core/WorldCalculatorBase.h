@@ -3,6 +3,7 @@
 #include <cstdint>
 
 // Forward declarations.
+namespace DirtSim {
 class Cell;
 class World;
 
@@ -60,3 +61,5 @@ protected:
      */
     bool isValidCell(int x, int y) const;
 };
+
+} // namespace DirtSim

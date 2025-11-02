@@ -3,6 +3,8 @@
 #include <nlohmann/json.hpp>
 #include <cstdint>
 
+namespace DirtSim {
+
 /**
  * \file
  * Material type definitions for the pure-material World physics system.
@@ -83,3 +85,5 @@ double getFrictionCoefficient(double velocity_magnitude, const MaterialPropertie
  */
 void to_json(nlohmann::json& j, MaterialType type);
 void from_json(const nlohmann::json& j, MaterialType& type);
+
+} // namespace DirtSim

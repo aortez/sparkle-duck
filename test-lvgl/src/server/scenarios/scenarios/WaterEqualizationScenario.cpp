@@ -5,6 +5,8 @@
 #include "../ScenarioWorldEventGenerator.h"
 #include "spdlog/spdlog.h"
 
+using namespace DirtSim;
+
 /**
  * Water Equalization scenario - Demonstrates hydrostatic pressure and flow.
  * Water flows through a small opening to achieve equilibrium between two columns.

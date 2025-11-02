@@ -5,6 +5,8 @@
 #include "../ScenarioWorldEventGenerator.h"
 #include "spdlog/spdlog.h"
 
+using namespace DirtSim;
+
 /**
  * Dam Break scenario - Classic fluid dynamics demonstration.
  * Water held by a wall dam that breaks after pressure builds up.

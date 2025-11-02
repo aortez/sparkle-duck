@@ -4,6 +4,8 @@
 #include <stdexcept>
 #include <string>
 
+using namespace DirtSim;
+
 Vector2d Vector2d::add(const Vector2d& other) const
 {
     return Vector2d{x + other.x, y + other.y};

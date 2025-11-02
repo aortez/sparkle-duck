@@ -143,6 +143,15 @@ Event WebSocketServer::createCwcForCommand(
                 };
                 return cwc;
             }
+            else if constexpr (std::is_same_v<CommandType, Api::Exit::Command>) {
+                Api::Exit::Cwc cwc;
+                cwc.command = cmd;
+                cwc.callback = [this, ws](Api::Exit::Response&& response) {
+                    std::string jsonResponse = serializer_.serialize(std::move(response));
+                    ws->send(jsonResponse);
+                };
+                return cwc;
+            }
             else {
                 // This should never happen if ApiCommand variant is complete.
                 throw std::runtime_error("Unknown command type in createCwcForCommand");

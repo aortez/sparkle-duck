@@ -8,6 +8,8 @@
 #include <cstdint>
 #include <vector>
 
+namespace DirtSim {
+
 class Cell;
 class World;
 
@@ -185,3 +187,5 @@ private:
     double calculateDiffusionReflectionCoefficient(
         MaterialType material, double blocked_flux) const;
 };
+
+} // namespace DirtSim

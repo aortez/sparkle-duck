@@ -4,6 +4,8 @@
 #include <stdexcept>
 #include <string>
 
+using namespace DirtSim;
+
 Vector2i::Vector2i() : x(0), y(0)
 {}
 

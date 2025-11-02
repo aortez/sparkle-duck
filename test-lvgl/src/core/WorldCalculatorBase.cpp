@@ -2,6 +2,8 @@
 #include "Cell.h"
 #include "World.h"
 
+using namespace DirtSim;
+
 WorldCalculatorBase::WorldCalculatorBase(const World& world) : world_(world)
 {}
 

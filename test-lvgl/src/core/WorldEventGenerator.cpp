@@ -10,6 +10,8 @@
 #include <iostream>
 #include <random>
 
+using namespace DirtSim;
+
 void WorldEventGenerator::fillLowerRightQuadrant(World& world)
 {
     uint32_t startX = world.getWidth() / 2;

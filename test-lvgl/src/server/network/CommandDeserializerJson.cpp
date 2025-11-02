@@ -1,6 +1,7 @@
 #include "CommandDeserializerJson.h"
 #include "../api/CellGet.h"
 #include "../api/CellSet.h"
+#include "../api/Exit.h"
 #include "../api/GravitySet.h"
 #include "../api/Reset.h"
 #include "../api/StateGet.h"
@@ -53,6 +54,9 @@ Result<ApiCommand, ApiError> CommandDeserializerJson::deserialize(const std::str
         }
         else if (commandName == "reset") {
             return Result<ApiCommand, ApiError>::okay(Api::Reset::Command::fromJson(cmd));
+        }
+        else if (commandName == "exit") {
+            return Result<ApiCommand, ApiError>::okay(Api::Exit::Command::fromJson(cmd));
         }
         else {
             return Result<ApiCommand, ApiError>::error(ApiError("Unknown command: " + commandName));

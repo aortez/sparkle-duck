@@ -3,6 +3,8 @@
 #include <nlohmann/json.hpp>
 #include <string>
 
+namespace DirtSim {
+
 struct Vector2d {
     double x = 0.0;
     double y = 0.0;
@@ -62,3 +64,5 @@ inline Vector2d operator*(double scalar, const Vector2d& v)
 {
     return v * scalar;
 }
+
+} // namespace DirtSim

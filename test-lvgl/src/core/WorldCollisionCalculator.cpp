@@ -8,6 +8,8 @@
 #include <algorithm>
 #include <cmath>
 
+using namespace DirtSim;
+
 WorldCollisionCalculator::WorldCollisionCalculator(World& world)
     : WorldCalculatorBase(world), world_(world)
 {}
