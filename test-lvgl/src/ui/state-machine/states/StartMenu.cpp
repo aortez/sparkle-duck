@@ -65,7 +65,8 @@ State::Any StartMenu::onEvent(const FrameReadyNotification& evt, StateMachine& /
     spdlog::info("StartMenu: Transitioning to SimRunning to display visualization");
 
     // Server already has a running simulation - transition to SimRunning to render it.
-    return SimRunning{ nullptr, nullptr, nullptr };  // Will initialize worldData, renderer, and controls in onEnter.
+    SimRunning newState;  // Default initialization handles all fields.
+    return newState;  // Will initialize worldData, renderer, and controls in onEnter.
 }
 
 State::Any StartMenu::onEvent(const ServerDisconnectedEvent& evt, StateMachine& /*sm*/)

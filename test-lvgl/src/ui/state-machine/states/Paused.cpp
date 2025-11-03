@@ -79,7 +79,9 @@ State::Any Paused::onEvent(const UiApi::SimRun::Cwc& cwc, StateMachine& /*sm*/)
     cwc.sendResponse(UiApi::SimRun::Response::okay({true}));
 
     // Transition back to SimRunning (renderer and controls will be created in onEnter).
-    return SimRunning{ std::move(worldData), nullptr, nullptr };
+    SimRunning newState;
+    newState.worldData = std::move(worldData);
+    return newState;
 }
 
 State::Any Paused::onEvent(const ServerDisconnectedEvent& evt, StateMachine& /*sm*/)

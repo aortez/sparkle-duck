@@ -66,7 +66,7 @@ State::Any SimRunning::onEvent(const UiApi::MouseDown::Cwc& cwc, StateMachine& /
     // TODO: Handle mouse interaction with running world.
 
     cwc.sendResponse(UiApi::MouseDown::Response::okay(std::monostate{}));
-    return SimRunning{ std::move(worldData), std::move(renderer_), std::move(controls_) };
+    return std::move(*this);
 }
 
 State::Any SimRunning::onEvent(const UiApi::MouseMove::Cwc& cwc, StateMachine& /*sm*/)
@@ -76,7 +76,7 @@ State::Any SimRunning::onEvent(const UiApi::MouseMove::Cwc& cwc, StateMachine& /
     // TODO: Handle mouse drag with running world.
 
     cwc.sendResponse(UiApi::MouseMove::Response::okay(std::monostate{}));
-    return SimRunning{ std::move(worldData), std::move(renderer_), std::move(controls_) };
+    return std::move(*this);
 }
 
 State::Any SimRunning::onEvent(const UiApi::MouseUp::Cwc& cwc, StateMachine& /*sm*/)
@@ -86,7 +86,7 @@ State::Any SimRunning::onEvent(const UiApi::MouseUp::Cwc& cwc, StateMachine& /*s
     // TODO: Handle mouse release with running world.
 
     cwc.sendResponse(UiApi::MouseUp::Response::okay(std::monostate{}));
-    return SimRunning{ std::move(worldData), std::move(renderer_), std::move(controls_) };
+    return std::move(*this);
 }
 
 State::Any SimRunning::onEvent(const UiApi::Screenshot::Cwc& cwc, StateMachine& /*sm*/)
@@ -98,7 +98,7 @@ State::Any SimRunning::onEvent(const UiApi::Screenshot::Cwc& cwc, StateMachine& 
     std::string filepath = cwc.command.filepath.empty() ? "screenshot.png" : cwc.command.filepath;
     cwc.sendResponse(UiApi::Screenshot::Response::okay({filepath}));
 
-    return SimRunning{ std::move(worldData), std::move(renderer_), std::move(controls_) };
+    return std::move(*this);
 }
 
 State::Any SimRunning::onEvent(const UiApi::SimPause::Cwc& cwc, StateMachine& /*sm*/)
@@ -115,17 +115,47 @@ State::Any SimRunning::onEvent(const UiApi::SimPause::Cwc& cwc, StateMachine& /*
 
 State::Any SimRunning::onEvent(const FrameReadyNotification& evt, StateMachine& sm)
 {
-    spdlog::info("SimRunning: Frame ready notification (step {})", evt.stepNumber);
+    // Time-based frame limiting: only request updates at target frame rate.
+    auto now = std::chrono::steady_clock::now();
+    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastFrameRequestTime);
 
-    // Request world state from DSSM.
-    auto* wsClient = sm.getWebSocketClient();
-    if (wsClient && wsClient->isConnected()) {
-        nlohmann::json stateGetCmd = {{"command", "state_get"}};
-        wsClient->send(stateGetCmd.dump());
-        spdlog::debug("SimRunning: Requested state_get from DSSM");
+    if (elapsed >= targetFrameInterval) {
+        // Enough time passed - request new frame.
+        spdlog::info("SimRunning: Frame ready (step {}), requesting update (skipped {} frames)",
+                     evt.stepNumber, skippedFrames);
+
+        // Calculate actual UI FPS.
+        if (elapsed.count() > 0) {
+            measuredUIFPS = 1000.0 / elapsed.count();
+
+            // Exponentially weighted moving average (90% old, 10% new) for smooth display.
+            if (smoothedUIFPS == 0.0) {
+                smoothedUIFPS = measuredUIFPS;  // Initialize.
+            } else {
+                smoothedUIFPS = 0.9 * smoothedUIFPS + 0.1 * measuredUIFPS;
+            }
+
+            spdlog::info("SimRunning: UI FPS: {:.1f} (smoothed: {:.1f})",
+                         measuredUIFPS, smoothedUIFPS);
+        }
+
+        // Request world state from DSSM.
+        auto* wsClient = sm.getWebSocketClient();
+        if (wsClient && wsClient->isConnected()) {
+            nlohmann::json stateGetCmd = {{"command", "state_get"}};
+            wsClient->send(stateGetCmd.dump());
+        }
+
+        lastFrameRequestTime = now;
+        skippedFrames = 0;
+    } else {
+        // Too soon - skip this frame.
+        skippedFrames++;
+        spdlog::debug("SimRunning: Skipping frame {} (elapsed {}ms < target {}ms)",
+                      evt.stepNumber, elapsed.count(), targetFrameInterval.count());
     }
 
-    return SimRunning{ std::move(worldData), std::move(renderer_), std::move(controls_) };
+    return std::move(*this);
 }
 
 State::Any SimRunning::onEvent(const UiUpdateEvent& evt, StateMachine& sm)
@@ -152,7 +182,7 @@ State::Any SimRunning::onEvent(const UiUpdateEvent& evt, StateMachine& sm)
         }
     }
 
-    return SimRunning{ std::move(worldData), std::move(renderer_), std::move(controls_) };
+    return std::move(*this);
 }
 
 } // namespace State
