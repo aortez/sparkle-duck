@@ -117,3 +117,12 @@ See git history for details on:
 - Require UI connection before starting simulation (optional mode)
 - Scenario-specific WorldEventGenerator configuration
 - The directory `uism` should be `state-machine`.
+- Fix alphabetical order here:
+⎿  Updated /home/oldman/workspace/sparkle-duck/test-lvgl/CMakeLists.txt with 1 addition
+     147        src/ui/state-machine/states/StartMenu.cpp
+     148        src/ui/state-machine/states/Startup.cpp
+     149        src/ui/state-machine/network/CommandDeserializerJson.cpp
+     150 +      src/ui/state-machine/network/WebSocketClient.cpp
+     151        src/ui/state-machine/network/WebSocketServer.cpp
+     152        src/ui/state-machine/api/Exit.cpp
+     153        src/ui/state-machine/api/MouseDown.cpp

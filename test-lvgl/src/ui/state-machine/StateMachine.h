@@ -11,6 +11,14 @@
 // Forward declaration for LVGL display structure.
 struct _lv_display_t;
 
+// Forward declarations for network components.
+namespace DirtSim {
+namespace Ui {
+class WebSocketServer;
+class WebSocketClient;
+}
+}
+
 namespace DirtSim {
 namespace Ui {
 
@@ -29,10 +37,17 @@ public:
     _lv_display_t* display = nullptr;
     EventProcessor eventProcessor;
 
-    // TODO: Add WebSocket client (to connect to DSSM server).
+    // WebSocket connections.
+    WebSocketServer* wsServer_ = nullptr;  // Server for accepting remote commands.
+    WebSocketClient* wsClient_ = nullptr;  // Client for connecting to DSSM server.
+
+    /**
+     * @brief Get WebSocket client for DSSM connection.
+     * @return Pointer to WebSocket client.
+     */
+    WebSocketClient* getWebSocketClient() { return wsClient_; }
 
 private:
-    class WebSocketServer* wsServer_ = nullptr; // Owned WebSocket server for remote commands.
     State::Any fsmState{ State::Startup{} };
 
     void transitionTo(State::Any newState);

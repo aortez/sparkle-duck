@@ -1,4 +1,5 @@
 #include "../StateMachine.h"
+#include "../network/WebSocketClient.h"
 #include "State.h"
 #include <spdlog/spdlog.h>
 
@@ -18,16 +19,48 @@ void Disconnected::onExit(StateMachine& /*sm*/)
     spdlog::info("Disconnected: Exiting");
 }
 
-State::Any Disconnected::onEvent(const ConnectToServerCommand& cmd, StateMachine& /*sm*/)
+State::Any Disconnected::onEvent(const ConnectToServerCommand& cmd, StateMachine& sm)
 {
     spdlog::info("Disconnected: Connect command received (host={}, port={})", cmd.host, cmd.port);
 
-    // TODO: Initiate WebSocket connection to server.
-    // TODO: On success, queue ServerConnectedEvent.
-    // For now, just log and stay in same state.
+    // Get WebSocket client from state machine.
+    auto* wsClient = sm.getWebSocketClient();
+    if (!wsClient) {
+        spdlog::error("Disconnected: No WebSocket client available");
+        return Disconnected{};
+    }
 
-    spdlog::warn("Disconnected: WebSocket client not yet implemented - staying disconnected");
+    // Set up callbacks before connecting.
+    wsClient->onConnected([&sm]() {
+        spdlog::info("Disconnected: DSSM connection established");
+        // Queue ServerConnectedEvent to trigger state transition.
+        sm.queueEvent(ServerConnectedEvent{});
+    });
 
+    wsClient->onDisconnected([&sm]() {
+        spdlog::warn("Disconnected: DSSM connection lost");
+        sm.queueEvent(ServerDisconnectedEvent{"Connection closed"});
+    });
+
+    wsClient->onError([&sm](const std::string& error) {
+        spdlog::error("Disconnected: DSSM connection error: {}", error);
+        sm.queueEvent(ServerDisconnectedEvent{error});
+    });
+
+    wsClient->onMessage([&sm](const std::string& message) {
+        spdlog::debug("Disconnected: Received message from DSSM: {}", message);
+        // TODO: Parse and route DSSM responses (world updates, etc.).
+    });
+
+    // Initiate connection.
+    std::string url = "ws://" + cmd.host + ":" + std::to_string(cmd.port);
+    bool success = wsClient->connect(url);
+
+    if (!success) {
+        spdlog::error("Disconnected: Failed to initiate connection to {}", url);
+    }
+
+    // Stay in Disconnected state - will transition to StartMenu on ServerConnectedEvent.
     return Disconnected{};
 }
 

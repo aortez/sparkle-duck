@@ -110,6 +110,11 @@ int main(int argc, char** argv)
         "Select physics system: rulesA (mixed materials) or rulesB (pure materials, default)",
         { 'w', "world" },
         "rulesB");
+    args::ValueFlag<std::string> server_host(
+        parser,
+        "server",
+        "Auto-connect to DSSM server (format: host:port, e.g. localhost:8080)",
+        { 'c', "connect" });
 
     // Default values from environment if set.
     settings.window_width = atoi(getenv("LV_SIM_WINDOW_WIDTH") ?: "1200");
@@ -187,6 +192,21 @@ int main(int argc, char** argv)
 
     // Send init complete event to start state machine flow.
     stateMachine->queueEvent(DirtSim::Ui::InitCompleteEvent{});
+
+    // Auto-connect to DSSM server if specified.
+    if (server_host) {
+        std::string hostPort = args::get(server_host);
+        size_t colonPos = hostPort.find(':');
+        if (colonPos != std::string::npos) {
+            std::string host = hostPort.substr(0, colonPos);
+            uint16_t port = static_cast<uint16_t>(std::stoi(hostPort.substr(colonPos + 1)));
+            spdlog::info("Auto-connecting to DSSM server at {}:{}", host, port);
+            stateMachine->queueEvent(DirtSim::Ui::ConnectToServerCommand{host, port});
+        }
+        else {
+            spdlog::error("Invalid server format (use host:port): {}", hostPort);
+        }
+    }
 
     spdlog::info("Entering backend run loop (will process events and LVGL)");
 

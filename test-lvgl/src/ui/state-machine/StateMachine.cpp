@@ -1,6 +1,7 @@
 #include "StateMachine.h"
 #include "states/State.h"
 #include "network/WebSocketServer.h"
+#include "network/WebSocketClient.h"
 #include <spdlog/spdlog.h>
 
 namespace DirtSim {
@@ -15,11 +16,22 @@ StateMachine::StateMachine(_lv_display_t* disp, uint16_t wsPort)
     wsServer_ = new WebSocketServer(*this, wsPort);
     wsServer_->start();
     spdlog::info("Ui::StateMachine: WebSocket server listening on port {}", wsPort);
+
+    // Create WebSocket client for connecting to DSSM server.
+    wsClient_ = new WebSocketClient();
+    spdlog::info("Ui::StateMachine: WebSocket client created (not yet connected)");
 }
 
 StateMachine::~StateMachine()
 {
     spdlog::info("Ui::StateMachine shutting down from state: {}", getCurrentStateName());
+
+    // Stop and clean up WebSocket client.
+    if (wsClient_) {
+        wsClient_->disconnect();
+        delete wsClient_;
+        wsClient_ = nullptr;
+    }
 
     // Stop and clean up WebSocket server.
     if (wsServer_) {

@@ -147,6 +147,7 @@ add_executable(sparkle-duck-ui
     src/ui/state-machine/states/StartMenu.cpp
     src/ui/state-machine/states/Startup.cpp
     src/ui/state-machine/network/CommandDeserializerJson.cpp
+    src/ui/state-machine/network/WebSocketClient.cpp
     src/ui/state-machine/network/WebSocketServer.cpp
     src/ui/state-machine/api/Exit.cpp
     src/ui/state-machine/api/MouseDown.cpp
