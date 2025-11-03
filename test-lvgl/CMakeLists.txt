@@ -160,12 +160,7 @@ add_executable(sparkle-duck-ui
     src/ui/UiComponentManager.cpp
     src/ui/rendering/CellRenderer.cpp
     src/ui/controls/ControlPanel.cpp
-    # TODO: Re-enable these after fixing includes:
-    # src/ui/SimulatorUI.cpp
-    # src/ui/UIUpdateConsumer.cpp
-    # src/ui/MaterialPicker.cpp
-    # src/ui/ui_builders/LVGLBuilder.cpp
-    # src/ui/ui_builders/LVGLEventBuilder.cpp
+    src/ui/ui_builders/LVGLBuilder.cpp
 
     # Core components.
     src/core/Cell.cpp
@@ -338,12 +333,8 @@ add_executable(sparkle-duck-tests
     src/server/scenarios/scenarios/FallingDirtScenario.cpp
 
     # UI components (for visual tests).
-    src/ui/SimulatorUI.cpp
-    src/ui/UIUpdateConsumer.cpp
     src/ui/UiComponentManager.cpp
-    src/ui/MaterialPicker.cpp
     src/ui/ui_builders/LVGLBuilder.cpp
-    src/ui/ui_builders/LVGLEventBuilder.cpp
 
     # LVGL backend.
     ${LV_LINUX_SRC}

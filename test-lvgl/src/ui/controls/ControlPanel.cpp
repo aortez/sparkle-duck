@@ -21,6 +21,12 @@ ControlPanel::ControlPanel(lv_obj_t* container, WebSocketClient* wsClient)
     lv_obj_set_flex_flow(panelContainer_, LV_FLEX_FLOW_COLUMN);  // Stack controls vertically.
     lv_obj_set_flex_align(panelContainer_, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
 
+    // Reduce padding/gaps to fit more controls without scrolling.
+    lv_obj_set_style_pad_row(panelContainer_, 2, 0);  // Minimal spacing between items.
+    lv_obj_set_style_pad_all(panelContainer_, 5, 0);  // Minimal padding around edges.
+    lv_obj_set_scroll_dir(panelContainer_, LV_DIR_VER);  // Enable vertical scrolling.
+    lv_obj_set_scrollbar_mode(panelContainer_, LV_SCROLLBAR_MODE_AUTO);  // Show scrollbar when needed.
+
     // Create core controls.
     createCoreControls();
 
