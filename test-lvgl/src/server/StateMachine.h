@@ -7,8 +7,12 @@
 #include "states/State.h"
 #include <functional>
 #include <memory>
+#include <mutex>
 
 namespace DirtSim {
+
+struct WorldData;  // Forward declaration.
+
 namespace Server {
 
 class StateMachine : public StateMachineBase, public StateMachineInterface<Event> {
@@ -48,6 +52,22 @@ public:
      * @param server Pointer to WebSocket server.
      */
     void setWebSocketServer(class WebSocketServer* server) { wsServer_ = server; }
+
+    // Cached WorldData for fast state_get responses (shared between physics and WebSocket threads).
+    std::shared_ptr<WorldData> cachedWorldData_;
+    mutable std::mutex cachedWorldDataMutex_;
+
+    /**
+     * @brief Update cached WorldData (called by SimRunning after physics step).
+     * @param data New WorldData to cache.
+     */
+    void updateCachedWorldData(const WorldData& data);
+
+    /**
+     * @brief Get cached WorldData (thread-safe, called by state_get handler).
+     * @return Shared pointer to cached WorldData (may be null if no data yet).
+     */
+    std::shared_ptr<WorldData> getCachedWorldData() const;
 
 private:
     State::Any fsmState{ State::Startup{} };

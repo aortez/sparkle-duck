@@ -79,6 +79,9 @@ State::Any SimRunning::onEvent(const AdvanceSimulationCommand& /*cmd*/, StateMac
     world->advanceTime(0.016);
     stepCount++;
 
+    // Update StateMachine's cached WorldData for fast state_get responses (cheap ~1ms).
+    dsm.updateCachedWorldData(world->data);
+
     spdlog::debug("SimRunning: Advanced simulation (step {})", stepCount);
 
     // Broadcast frame notification to all connected UI clients.
@@ -283,8 +286,11 @@ State::Any SimRunning::onEvent(const Api::StateGet::Cwc& cwc, StateMachine& /*ds
         return std::move(*this);
     }
 
-    // Return complete world state (copy).
-    cwc.sendResponse(Response::okay({ *world }));
+    // Return complete world state.
+    // Note: World copy includes WorldData. Cache is updated each frame for future optimization.
+    Api::StateGet::Okay responseData;
+    responseData.world = *world;
+    cwc.sendResponse(Response::okay(std::move(responseData)));
     return std::move(*this);
 }
 

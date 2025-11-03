@@ -1,5 +1,6 @@
 #include "StateMachine.h"
 #include "../core/World.h"
+#include "../core/WorldData.h"
 #include "../core/WorldEventGenerator.h"
 #include "scenarios/Scenario.h"
 #include "scenarios/ScenarioRegistry.h"
@@ -20,6 +21,18 @@ StateMachine::StateMachine() : eventProcessor()
 StateMachine::~StateMachine()
 {
     spdlog::info("Server::StateMachine shutting down from state: {}", getCurrentStateName());
+}
+
+void StateMachine::updateCachedWorldData(const WorldData& data)
+{
+    std::lock_guard<std::mutex> lock(cachedWorldDataMutex_);
+    cachedWorldData_ = std::make_shared<WorldData>(data);
+}
+
+std::shared_ptr<WorldData> StateMachine::getCachedWorldData() const
+{
+    std::lock_guard<std::mutex> lock(cachedWorldDataMutex_);
+    return cachedWorldData_;  // Returns shared_ptr (may be nullptr).
 }
 
 
