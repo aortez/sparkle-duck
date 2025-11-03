@@ -223,11 +223,49 @@ public:
         Size size_;
     };
 
+    /**
+     * LabeledSwitchBuilder - Creates a switch with label in horizontal layout.
+     */
+    class LabeledSwitchBuilder {
+    public:
+        explicit LabeledSwitchBuilder(lv_obj_t* parent);
+
+        // Configuration.
+        LabeledSwitchBuilder& label(const char* text);
+        LabeledSwitchBuilder& initialState(bool checked);
+        LabeledSwitchBuilder& callback(lv_event_cb_t cb, void* user_data = nullptr);
+
+        // Build the labeled switch (returns the switch object).
+        Result<lv_obj_t*, std::string> build();
+
+        // Build with automatic error logging (returns switch or nullptr).
+        lv_obj_t* buildOrLog();
+
+        // Access to created objects.
+        lv_obj_t* getSwitch() const { return switch_; }
+        lv_obj_t* getLabel() const { return label_; }
+        lv_obj_t* getContainer() const { return container_; }
+
+    private:
+        lv_obj_t* parent_;
+        lv_obj_t* container_;
+        lv_obj_t* switch_;
+        lv_obj_t* label_;
+
+        std::string label_text_;
+        bool initial_checked_ = false;
+        lv_event_cb_t callback_ = nullptr;
+        void* user_data_ = nullptr;
+
+        Result<lv_obj_t*, std::string> createLabeledSwitch();
+    };
+
     // Static factory methods for fluent interface.
     static SliderBuilder slider(lv_obj_t* parent);
     static ButtonBuilder button(lv_obj_t* parent);
     static LabelBuilder label(lv_obj_t* parent);
     static DropdownBuilder dropdown(lv_obj_t* parent);
+    static LabeledSwitchBuilder labeledSwitch(lv_obj_t* parent);
     
     // Common value transform functions for sliders.
     struct Transforms {

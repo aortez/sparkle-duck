@@ -579,6 +579,81 @@ lv_obj_t* LVGLBuilder::DropdownBuilder::buildOrLog() {
 }
 
 // ============================================================================
+// LabeledSwitchBuilder Implementation.
+// ============================================================================
+
+LVGLBuilder::LabeledSwitchBuilder::LabeledSwitchBuilder(lv_obj_t* parent)
+    : parent_(parent), container_(nullptr), switch_(nullptr), label_(nullptr) {}
+
+LVGLBuilder::LabeledSwitchBuilder& LVGLBuilder::LabeledSwitchBuilder::label(const char* text) {
+    label_text_ = text;
+    return *this;
+}
+
+LVGLBuilder::LabeledSwitchBuilder& LVGLBuilder::LabeledSwitchBuilder::initialState(bool checked) {
+    initial_checked_ = checked;
+    return *this;
+}
+
+LVGLBuilder::LabeledSwitchBuilder& LVGLBuilder::LabeledSwitchBuilder::callback(lv_event_cb_t cb, void* user_data) {
+    callback_ = cb;
+    user_data_ = user_data;
+    return *this;
+}
+
+Result<lv_obj_t*, std::string> LVGLBuilder::LabeledSwitchBuilder::build() {
+    return createLabeledSwitch();
+}
+
+lv_obj_t* LVGLBuilder::LabeledSwitchBuilder::buildOrLog() {
+    auto result = build();
+    if (result.isError()) {
+        spdlog::error("LabeledSwitchBuilder::buildOrLog failed: {}", result.error());
+        return nullptr;
+    }
+    return result.value();
+}
+
+Result<lv_obj_t*, std::string> LVGLBuilder::LabeledSwitchBuilder::createLabeledSwitch() {
+    // Create horizontal container for switch + label.
+    container_ = lv_obj_create(parent_);
+    if (!container_) {
+        return Result<lv_obj_t*, std::string>::error("Failed to create container");
+    }
+
+    lv_obj_set_size(container_, LV_PCT(90), LV_SIZE_CONTENT);
+    lv_obj_set_flex_flow(container_, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(container_, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_pad_all(container_, 2, 0);  // Minimal padding.
+
+    // Create switch.
+    switch_ = lv_switch_create(container_);
+    if (!switch_) {
+        return Result<lv_obj_t*, std::string>::error("Failed to create switch");
+    }
+
+    // Set initial state.
+    if (initial_checked_) {
+        lv_obj_add_state(switch_, LV_STATE_CHECKED);
+    }
+
+    // Set up callback.
+    if (callback_) {
+        lv_obj_add_event_cb(switch_, callback_, LV_EVENT_VALUE_CHANGED, user_data_);
+    }
+
+    // Create label.
+    if (!label_text_.empty()) {
+        label_ = lv_label_create(container_);
+        if (label_) {
+            lv_label_set_text(label_, label_text_.c_str());
+        }
+    }
+
+    return Result<lv_obj_t*, std::string>::okay(switch_);
+}
+
+// ============================================================================
 // Static Factory Methods.
 // ============================================================================
 
@@ -592,4 +667,8 @@ LVGLBuilder::ButtonBuilder LVGLBuilder::button(lv_obj_t* parent) {
 
 LVGLBuilder::DropdownBuilder LVGLBuilder::dropdown(lv_obj_t* parent) {
     return DropdownBuilder(parent);
+}
+
+LVGLBuilder::LabeledSwitchBuilder LVGLBuilder::labeledSwitch(lv_obj_t* parent) {
+    return LabeledSwitchBuilder(parent);
 }
