@@ -1,5 +1,6 @@
 #include "ControlPanel.h"
 #include "../state-machine/network/WebSocketClient.h"
+#include "../ui_builders/LVGLBuilder.h"
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
 
@@ -114,55 +115,41 @@ void ControlPanel::createSandboxControls(const SandboxConfig& config)
     lv_label_set_text(scenarioLabel, "--- Sandbox ---");
 
     // Quadrant toggle.
-    sandboxQuadrantSwitch_ = lv_switch_create(scenarioPanel_);
-    lv_obj_set_user_data(sandboxQuadrantSwitch_, this);
-    lv_obj_add_event_cb(sandboxQuadrantSwitch_, onSandboxQuadrantToggled, LV_EVENT_VALUE_CHANGED, nullptr);
-    if (config.quadrant_enabled) {
-        lv_obj_add_state(sandboxQuadrantSwitch_, LV_STATE_CHECKED);
-    }
-    lv_obj_t* quadrantLabel = lv_label_create(scenarioPanel_);
-    lv_label_set_text(quadrantLabel, "Quadrant");
+    sandboxQuadrantSwitch_ = LVGLBuilder::labeledSwitch(scenarioPanel_)
+        .label("Quadrant")
+        .initialState(config.quadrant_enabled)
+        .callback(onSandboxQuadrantToggled, this)
+        .buildOrLog();
 
     // Water column toggle.
-    sandboxWaterColumnSwitch_ = lv_switch_create(scenarioPanel_);
-    lv_obj_set_user_data(sandboxWaterColumnSwitch_, this);
-    lv_obj_add_event_cb(sandboxWaterColumnSwitch_, onSandboxWaterColumnToggled, LV_EVENT_VALUE_CHANGED, nullptr);
-    if (config.water_column_enabled) {
-        lv_obj_add_state(sandboxWaterColumnSwitch_, LV_STATE_CHECKED);
-    }
-    lv_obj_t* waterColumnLabel = lv_label_create(scenarioPanel_);
-    lv_label_set_text(waterColumnLabel, "Water Column");
+    sandboxWaterColumnSwitch_ = LVGLBuilder::labeledSwitch(scenarioPanel_)
+        .label("Water Column")
+        .initialState(config.water_column_enabled)
+        .callback(onSandboxWaterColumnToggled, this)
+        .buildOrLog();
 
     // Right throw toggle.
-    sandboxRightThrowSwitch_ = lv_switch_create(scenarioPanel_);
-    lv_obj_set_user_data(sandboxRightThrowSwitch_, this);
-    lv_obj_add_event_cb(sandboxRightThrowSwitch_, onSandboxRightThrowToggled, LV_EVENT_VALUE_CHANGED, nullptr);
-    if (config.right_throw_enabled) {
-        lv_obj_add_state(sandboxRightThrowSwitch_, LV_STATE_CHECKED);
-    }
-    lv_obj_t* rightThrowLabel = lv_label_create(scenarioPanel_);
-    lv_label_set_text(rightThrowLabel, "Right Throw");
+    sandboxRightThrowSwitch_ = LVGLBuilder::labeledSwitch(scenarioPanel_)
+        .label("Right Throw")
+        .initialState(config.right_throw_enabled)
+        .callback(onSandboxRightThrowToggled, this)
+        .buildOrLog();
 
     // Top drop toggle.
-    sandboxTopDropSwitch_ = lv_switch_create(scenarioPanel_);
-    lv_obj_set_user_data(sandboxTopDropSwitch_, this);
-    lv_obj_add_event_cb(sandboxTopDropSwitch_, onSandboxTopDropToggled, LV_EVENT_VALUE_CHANGED, nullptr);
-    if (config.top_drop_enabled) {
-        lv_obj_add_state(sandboxTopDropSwitch_, LV_STATE_CHECKED);
-    }
-    lv_obj_t* topDropLabel = lv_label_create(scenarioPanel_);
-    lv_label_set_text(topDropLabel, "Top Drop");
+    sandboxTopDropSwitch_ = LVGLBuilder::labeledSwitch(scenarioPanel_)
+        .label("Top Drop")
+        .initialState(config.top_drop_enabled)
+        .callback(onSandboxTopDropToggled, this)
+        .buildOrLog();
 
     // Rain slider.
-    lv_obj_t* rainLabel = lv_label_create(scenarioPanel_);
-    lv_label_set_text(rainLabel, "Rain Rate");
-
-    sandboxRainSlider_ = lv_slider_create(scenarioPanel_);
-    lv_obj_set_width(sandboxRainSlider_, LV_PCT(80));
-    lv_slider_set_range(sandboxRainSlider_, 0, 100);  // 0-10.0 drops/sec, scaled by 10.
-    lv_slider_set_value(sandboxRainSlider_, static_cast<int32_t>(config.rain_rate * 10), LV_ANIM_OFF);
-    lv_obj_set_user_data(sandboxRainSlider_, this);
-    lv_obj_add_event_cb(sandboxRainSlider_, onSandboxRainSliderChanged, LV_EVENT_VALUE_CHANGED, nullptr);
+    sandboxRainSlider_ = LVGLBuilder::slider(scenarioPanel_)
+        .size(LV_PCT(80), 10)
+        .range(0, 100)
+        .value(static_cast<int>(config.rain_rate * 10))
+        .label("Rain Rate")
+        .callback(onSandboxRainSliderChanged, this)
+        .buildOrLog();
 
     spdlog::debug("ControlPanel: Sandbox controls created");
 }

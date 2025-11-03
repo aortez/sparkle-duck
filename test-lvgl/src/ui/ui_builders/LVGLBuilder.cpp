@@ -621,10 +621,11 @@ Result<lv_obj_t*, std::string> LVGLBuilder::LabeledSwitchBuilder::createLabeledS
         return Result<lv_obj_t*, std::string>::error("Failed to create container");
     }
 
-    lv_obj_set_size(container_, LV_PCT(90), LV_SIZE_CONTENT);
+    lv_obj_set_size(container_, LV_PCT(100), LV_SIZE_CONTENT);  // Full width to prevent scrolling.
     lv_obj_set_flex_flow(container_, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(container_, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
     lv_obj_set_style_pad_all(container_, 2, 0);  // Minimal padding.
+    lv_obj_set_style_pad_column(container_, 5, 0);  // Small gap between switch and label.
 
     // Create switch.
     switch_ = lv_switch_create(container_);
