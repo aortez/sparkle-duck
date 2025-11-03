@@ -2,6 +2,7 @@
 #include "states/State.h"
 #include "network/WebSocketServer.h"
 #include "network/WebSocketClient.h"
+#include "../UiComponentManager.h"
 #include <spdlog/spdlog.h>
 
 namespace DirtSim {
@@ -13,31 +14,31 @@ StateMachine::StateMachine(_lv_display_t* disp, uint16_t wsPort)
     spdlog::info("Ui::StateMachine initialized in state: {}", getCurrentStateName());
 
     // Create WebSocket server for accepting remote commands.
-    wsServer_ = new WebSocketServer(*this, wsPort);
+    wsServer_ = std::make_unique<WebSocketServer>(*this, wsPort);
     wsServer_->start();
     spdlog::info("Ui::StateMachine: WebSocket server listening on port {}", wsPort);
 
     // Create WebSocket client for connecting to DSSM server.
-    wsClient_ = new WebSocketClient();
+    wsClient_ = std::make_unique<WebSocketClient>();
     spdlog::info("Ui::StateMachine: WebSocket client created (not yet connected)");
+
+    // Create UI manager for LVGL screen/container management.
+    uiManager_ = std::make_unique<UiComponentManager>(disp);
+    spdlog::info("Ui::StateMachine: UiComponentManager created");
 }
 
 StateMachine::~StateMachine()
 {
     spdlog::info("Ui::StateMachine shutting down from state: {}", getCurrentStateName());
 
-    // Stop and clean up WebSocket client.
+    // Stop and clean up WebSocket client (unique_ptr handles deletion).
     if (wsClient_) {
         wsClient_->disconnect();
-        delete wsClient_;
-        wsClient_ = nullptr;
     }
 
-    // Stop and clean up WebSocket server.
+    // Stop and clean up WebSocket server (unique_ptr handles deletion).
     if (wsServer_) {
         wsServer_->stop();
-        delete wsServer_;
-        wsServer_ = nullptr;
     }
 }
 

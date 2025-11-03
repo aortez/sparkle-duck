@@ -20,10 +20,29 @@ public:
         metadata_.category = "demo";
         metadata_.supportsWorldA = true;
         metadata_.supportsWorldB = true;
+
+        // Initialize with default config.
+        config_.drop_height = 20.0;
+        config_.drop_rate = 2.0;
     }
     
     const ScenarioMetadata& getMetadata() const override {
         return metadata_;
+    }
+
+    ScenarioConfig getConfig() const override {
+        return config_;
+    }
+
+    void setConfig(const ScenarioConfig& newConfig) override {
+        // Validate type and update.
+        if (std::holds_alternative<FallingDirtConfig>(newConfig)) {
+            config_ = std::get<FallingDirtConfig>(newConfig);
+            spdlog::info("FallingDirtScenario: Config updated");
+        }
+        else {
+            spdlog::error("FallingDirtScenario: Invalid config type provided");
+        }
     }
 
     std::unique_ptr<WorldEventGenerator> createWorldEventGenerator() const override
@@ -83,6 +102,7 @@ public:
 
 private:
     ScenarioMetadata metadata_;
+    FallingDirtConfig config_;
 };
 
 // Self-registering scenario

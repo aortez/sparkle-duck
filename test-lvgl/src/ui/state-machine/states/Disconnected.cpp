@@ -1,5 +1,6 @@
 #include "../StateMachine.h"
 #include "../network/WebSocketClient.h"
+#include "../network/MessageParser.h"
 #include "State.h"
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
@@ -49,28 +50,12 @@ State::Any Disconnected::onEvent(const ConnectToServerCommand& cmd, StateMachine
     });
 
     wsClient->onMessage([&sm](const std::string& message) {
-        spdlog::debug("UI: Received message from DSSM: {}", message);
+        spdlog::debug("UI: Received message from DSSM (length: {})", message.length());
 
-        // Parse message to determine type.
-        try {
-            nlohmann::json msg = nlohmann::json::parse(message);
-
-            // Check if it's a frame_ready notification.
-            if (msg.contains("type") && msg["type"] == "frame_ready") {
-                uint64_t stepNumber = msg.value("stepNumber", 0);
-                int64_t timestamp = msg.value("timestamp", 0);
-                spdlog::info("UI: Received frame_ready notification (step {})", stepNumber);
-
-                // Queue FrameReadyNotification event.
-                sm.queueEvent(FrameReadyNotification{stepNumber, timestamp});
-            }
-            else {
-                // Regular response (success/error).
-                spdlog::debug("UI: Received response from DSSM: {}", message);
-            }
-        }
-        catch (const std::exception& e) {
-            spdlog::error("UI: Failed to parse DSSM message: {}", e.what());
+        // Use MessageParser to convert message to event.
+        auto event = MessageParser::parse(message);
+        if (event) {
+            sm.queueEvent(*event);
         }
     });
 

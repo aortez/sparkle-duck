@@ -1,5 +1,7 @@
 #include "../StateMachine.h"
 #include "../network/WebSocketClient.h"
+#include "../../rendering/CellRenderer.h"
+#include "../../UiComponentManager.h"
 #include "State.h"
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
@@ -8,10 +10,28 @@ namespace DirtSim {
 namespace Ui {
 namespace State {
 
-void SimRunning::onEnter(StateMachine& /*sm*/)
+void SimRunning::onEnter(StateMachine& sm)
 {
     spdlog::info("SimRunning: Simulation is running, displaying world updates");
-    // TODO: Update UI to show running state.
+
+    // Get simulation container from UiComponentManager.
+    auto* uiManager = sm.getUiComponentManager();
+    if (!uiManager) return;
+
+    lv_obj_t* container = uiManager->getSimulationContainer();
+
+    // Create renderer if not already created.
+    if (!renderer_) {
+        renderer_ = std::make_unique<CellRenderer>();
+    }
+
+    // Create control panel if not already created.
+    if (!controls_) {
+        controls_ = std::make_unique<ControlPanel>(container, sm.getWebSocketClient());
+        spdlog::info("SimRunning: Created control panel");
+    }
+
+    spdlog::info("SimRunning: Got simulation container for rendering");
 }
 
 void SimRunning::onExit(StateMachine& /*sm*/)
@@ -46,7 +66,7 @@ State::Any SimRunning::onEvent(const UiApi::MouseDown::Cwc& cwc, StateMachine& /
     // TODO: Handle mouse interaction with running world.
 
     cwc.sendResponse(UiApi::MouseDown::Response::okay(std::monostate{}));
-    return SimRunning{ std::move(world) };
+    return SimRunning{ std::move(worldData), std::move(renderer_), std::move(controls_) };
 }
 
 State::Any SimRunning::onEvent(const UiApi::MouseMove::Cwc& cwc, StateMachine& /*sm*/)
@@ -56,7 +76,7 @@ State::Any SimRunning::onEvent(const UiApi::MouseMove::Cwc& cwc, StateMachine& /
     // TODO: Handle mouse drag with running world.
 
     cwc.sendResponse(UiApi::MouseMove::Response::okay(std::monostate{}));
-    return SimRunning{ std::move(world) };
+    return SimRunning{ std::move(worldData), std::move(renderer_), std::move(controls_) };
 }
 
 State::Any SimRunning::onEvent(const UiApi::MouseUp::Cwc& cwc, StateMachine& /*sm*/)
@@ -66,7 +86,7 @@ State::Any SimRunning::onEvent(const UiApi::MouseUp::Cwc& cwc, StateMachine& /*s
     // TODO: Handle mouse release with running world.
 
     cwc.sendResponse(UiApi::MouseUp::Response::okay(std::monostate{}));
-    return SimRunning{ std::move(world) };
+    return SimRunning{ std::move(worldData), std::move(renderer_), std::move(controls_) };
 }
 
 State::Any SimRunning::onEvent(const UiApi::Screenshot::Cwc& cwc, StateMachine& /*sm*/)
@@ -78,7 +98,7 @@ State::Any SimRunning::onEvent(const UiApi::Screenshot::Cwc& cwc, StateMachine& 
     std::string filepath = cwc.command.filepath.empty() ? "screenshot.png" : cwc.command.filepath;
     cwc.sendResponse(UiApi::Screenshot::Response::okay({filepath}));
 
-    return SimRunning{ std::move(world) };
+    return SimRunning{ std::move(worldData), std::move(renderer_), std::move(controls_) };
 }
 
 State::Any SimRunning::onEvent(const UiApi::SimPause::Cwc& cwc, StateMachine& /*sm*/)
@@ -89,8 +109,8 @@ State::Any SimRunning::onEvent(const UiApi::SimPause::Cwc& cwc, StateMachine& /*
 
     cwc.sendResponse(UiApi::SimPause::Response::okay({true}));
 
-    // Transition to Paused state.
-    return Paused{ std::move(world) };
+    // Transition to Paused state (keep renderer for when we resume).
+    return Paused{ std::move(worldData) };
 }
 
 State::Any SimRunning::onEvent(const FrameReadyNotification& evt, StateMachine& sm)
@@ -105,17 +125,34 @@ State::Any SimRunning::onEvent(const FrameReadyNotification& evt, StateMachine& 
         spdlog::debug("SimRunning: Requested state_get from DSSM");
     }
 
-    return SimRunning{ std::move(world) };
+    return SimRunning{ std::move(worldData), std::move(renderer_), std::move(controls_) };
 }
 
-State::Any SimRunning::onEvent(const UiUpdateEvent& evt, StateMachine& /*sm*/)
+State::Any SimRunning::onEvent(const UiUpdateEvent& evt, StateMachine& sm)
 {
     spdlog::trace("SimRunning: Received world update (step {})", evt.stepCount);
 
-    // Update local world copy with received state.
-    // TODO: Apply update to world and render.
+    // Update local worldData with received state.
+    worldData = std::make_unique<WorldData>(evt.worldData);
 
-    return SimRunning{ std::move(world) };
+    // Update control panel with new world state.
+    if (controls_ && worldData) {
+        controls_->updateFromWorldData(*worldData);
+    }
+
+    // Render worldData to LVGL.
+    if (renderer_ && worldData) {
+        auto* uiManager = sm.getUiComponentManager();
+        if (uiManager) {
+            lv_obj_t* container = uiManager->getSimulationContainer();
+            bool debugDraw = worldData->debug_draw_enabled;
+            renderer_->renderWorldData(*worldData, container, debugDraw);
+            spdlog::debug("SimRunning: Rendered world ({}x{}, step {})",
+                         worldData->width, worldData->height, worldData->timestep);
+        }
+    }
+
+    return SimRunning{ std::move(worldData), std::move(renderer_), std::move(controls_) };
 }
 
 } // namespace State

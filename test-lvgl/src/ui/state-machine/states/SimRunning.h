@@ -2,11 +2,13 @@
 
 #include "StateForward.h"
 #include "../Event.h"
+#include "../../rendering/CellRenderer.h"
+#include "../../controls/ControlPanel.h"
 #include <memory>
 
 namespace DirtSim {
 
-class World;
+struct WorldData;
 
 namespace Ui {
 namespace State {
@@ -15,7 +17,9 @@ namespace State {
  * @brief Simulation running state - active display and interaction.
  */
 struct SimRunning {
-    std::unique_ptr<World> world;  // Local copy of world for rendering.
+    std::unique_ptr<WorldData> worldData;  // Local copy of world data for rendering.
+    std::unique_ptr<CellRenderer> renderer_;  // Manages LVGL canvases for cells.
+    std::unique_ptr<ControlPanel> controls_;  // UI controls for interaction.
 
     void onEnter(StateMachine& sm);
     void onExit(StateMachine& sm);

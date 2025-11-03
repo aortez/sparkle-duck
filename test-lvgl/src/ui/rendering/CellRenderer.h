@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../../core/Cell.h"
+#include "../../core/WorldData.h"
 #include "lvgl/lvgl.h"
 #include <cstdint>
 #include <vector>
@@ -15,7 +16,7 @@ public:
 
     void initialize(lv_obj_t* parent, uint32_t worldWidth, uint32_t worldHeight);
     void resize(lv_obj_t* parent, uint32_t worldWidth, uint32_t worldHeight);
-    void renderWorld(const World& world, lv_obj_t* parent, bool debugDraw);
+    void renderWorldData(const WorldData& worldData, lv_obj_t* parent, bool debugDraw);
     void cleanup();
 
 private:

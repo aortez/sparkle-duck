@@ -9,15 +9,15 @@ namespace DirtSim {
 /**
  * @brief Lightweight manager for LVGL resources and screen management.
  *
- * UIManager handles LVGL-specific resources like screens and containers,
+ * UiComponentManager handles LVGL-specific resources like screens and containers,
  * but does NOT own business logic UI components. States own their UI
- * components and use UIManager to get appropriate containers.
+ * components and use UiComponentManager to get appropriate containers.
  */
-class UIManager {
+class UiComponentManager {
 public:
-    explicit UIManager(lv_disp_t* display);
+    explicit UiComponentManager(lv_disp_t* display);
 
-    ~UIManager();
+    ~UiComponentManager();
 
     /**
      * @brief Get container for simulation UI.

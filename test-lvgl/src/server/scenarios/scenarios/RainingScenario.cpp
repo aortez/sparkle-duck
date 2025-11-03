@@ -19,10 +19,29 @@ public:
         metadata_.category = "demo";
         metadata_.supportsWorldA = true;
         metadata_.supportsWorldB = true;
+
+        // Initialize with default config.
+        config_.rain_rate = 5.0;
+        config_.puddle_floor = true;
     }
     
     const ScenarioMetadata& getMetadata() const override {
         return metadata_;
+    }
+
+    ScenarioConfig getConfig() const override {
+        return config_;
+    }
+
+    void setConfig(const ScenarioConfig& newConfig) override {
+        // Validate type and update.
+        if (std::holds_alternative<RainingConfig>(newConfig)) {
+            config_ = std::get<RainingConfig>(newConfig);
+            spdlog::info("RainingScenario: Config updated");
+        }
+        else {
+            spdlog::error("RainingScenario: Invalid config type provided");
+        }
     }
 
     std::unique_ptr<WorldEventGenerator> createWorldEventGenerator() const override
@@ -67,6 +86,7 @@ public:
 
 private:
     ScenarioMetadata metadata_;
+    RainingConfig config_;
 };
 
 // Self-registering scenario

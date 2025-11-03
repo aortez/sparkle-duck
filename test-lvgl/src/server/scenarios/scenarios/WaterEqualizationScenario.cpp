@@ -74,10 +74,30 @@ public:
         metadata_.supportsWorldB = true;   // Primary target
         metadata_.requiredWidth = 3;       // Match test specifications
         metadata_.requiredHeight = 6;      // Match test specifications
+
+        // Initialize with default config.
+        config_.left_height = 15.0;
+        config_.right_height = 5.0;
+        config_.separator_enabled = true;
     }
     
     const ScenarioMetadata& getMetadata() const override {
         return metadata_;
+    }
+
+    ScenarioConfig getConfig() const override {
+        return config_;
+    }
+
+    void setConfig(const ScenarioConfig& newConfig) override {
+        // Validate type and update.
+        if (std::holds_alternative<WaterEqualizationConfig>(newConfig)) {
+            config_ = std::get<WaterEqualizationConfig>(newConfig);
+            spdlog::info("WaterEqualizationScenario: Config updated");
+        }
+        else {
+            spdlog::error("WaterEqualizationScenario: Invalid config type provided");
+        }
     }
 
     std::unique_ptr<WorldEventGenerator> createWorldEventGenerator() const override
@@ -87,6 +107,7 @@ public:
 
 private:
     ScenarioMetadata metadata_;
+    WaterEqualizationConfig config_;
 };
 
 // Self-registering scenario

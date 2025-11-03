@@ -7,6 +7,7 @@
 #include "../api/Exit.h"
 #include "../api/GravitySet.h"
 #include "../api/Reset.h"
+#include "../api/ScenarioConfigSet.h"
 #include "../api/SimRun.h"
 #include "../api/StateGet.h"
 #include "../api/StepN.h"
@@ -48,6 +49,9 @@ public:
                 doc["value"] = response.value().toJson();
             }
             else if constexpr (std::is_same_v<T, Api::DiagramGet::Response>) {
+                doc["value"] = response.value().toJson();
+            }
+            else if constexpr (std::is_same_v<T, Api::ScenarioConfigSet::Response>) {
                 doc["value"] = response.value().toJson();
             }
             else if constexpr (std::is_same_v<T, Api::SimRun::Response>) {

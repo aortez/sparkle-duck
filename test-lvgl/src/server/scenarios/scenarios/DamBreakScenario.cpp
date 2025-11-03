@@ -73,10 +73,30 @@ public:
         metadata_.supportsWorldB = true;   // Primary target
         metadata_.requiredWidth = 6;       // Match test specifications
         metadata_.requiredHeight = 6;      // Match test specifications
+
+        // Initialize with default config.
+        config_.dam_height = 10.0;
+        config_.auto_release = false;
+        config_.release_time = 2.0;
     }
     
     const ScenarioMetadata& getMetadata() const override {
         return metadata_;
+    }
+
+    ScenarioConfig getConfig() const override {
+        return config_;
+    }
+
+    void setConfig(const ScenarioConfig& newConfig) override {
+        // Validate type and update.
+        if (std::holds_alternative<DamBreakConfig>(newConfig)) {
+            config_ = std::get<DamBreakConfig>(newConfig);
+            spdlog::info("DamBreakScenario: Config updated");
+        }
+        else {
+            spdlog::error("DamBreakScenario: Invalid config type provided");
+        }
     }
 
     std::unique_ptr<WorldEventGenerator> createWorldEventGenerator() const override
@@ -86,6 +106,7 @@ public:
 
 private:
     ScenarioMetadata metadata_;
+    DamBreakConfig config_;
 };
 
 // Self-registering scenario

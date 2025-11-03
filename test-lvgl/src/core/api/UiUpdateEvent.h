@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../World.h"
+#include "../WorldData.h"
 #include <chrono>
 #include <cstdint>
 
@@ -8,7 +8,7 @@ namespace DirtSim {
 
 struct UiUpdateEvent {
     uint64_t sequenceNum = 0;
-    World world;
+    WorldData worldData;  // Just the data, no physics calculators needed for rendering.
     uint32_t fps = 0;
     uint64_t stepCount = 0;
     bool isPaused = false;

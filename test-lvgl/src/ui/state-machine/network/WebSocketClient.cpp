@@ -20,8 +20,12 @@ bool WebSocketClient::connect(const std::string& url)
     try {
         spdlog::info("UI WebSocketClient: Connecting to {}", url);
 
+        // Create WebSocket configuration.
+        rtc::WebSocketConfiguration config;
+        config.maxMessageSize = 10 * 1024 * 1024; // 10MB limit for WorldData JSON.
+
         // Create WebSocket.
-        ws_ = std::make_shared<rtc::WebSocket>();
+        ws_ = std::make_shared<rtc::WebSocket>(config);
 
         // Set up message handler.
         ws_->onMessage([this](std::variant<rtc::binary, rtc::string> data) {

@@ -27,6 +27,26 @@ void SimRunning::onEnter(StateMachine& dsm)
                      world->data.width, world->data.height);
     }
 
+    // Apply default "sandbox" scenario if no scenario is set.
+    if (world && world->data.scenario_id == "empty") {
+        spdlog::info("SimRunning: Applying default 'sandbox' scenario");
+
+        auto& registry = ScenarioRegistry::getInstance();
+        auto* scenario = registry.getScenario("sandbox");
+
+        if (scenario) {
+            // Apply scenario's WorldEventGenerator.
+            auto setup = scenario->createWorldEventGenerator();
+            world->setWorldEventGenerator(std::move(setup));
+
+            // Populate WorldData with scenario metadata and config.
+            world->data.scenario_id = "sandbox";
+            world->data.scenario_config = scenario->getConfig();
+
+            spdlog::info("SimRunning: Default scenario 'sandbox' applied");
+        }
+    }
+
     spdlog::info("SimRunning: Ready to run simulation (stepCount={})", stepCount);
 }
 
@@ -82,6 +102,12 @@ State::Any SimRunning::onEvent(const ApplyScenarioCommand& cmd, StateMachine& /*
     auto setup = scenario->createWorldEventGenerator();
     if (world) {
         world->setWorldEventGenerator(std::move(setup));
+
+        // Populate WorldData with scenario metadata and config.
+        world->data.scenario_id = cmd.scenarioName;
+        world->data.scenario_config = scenario->getConfig();
+
+        spdlog::info("SimRunning: Scenario '{}' applied to WorldData", cmd.scenarioName);
     }
 
     return std::move(*this);
@@ -193,6 +219,43 @@ State::Any SimRunning::onEvent(const Api::Reset::Cwc& cwc, StateMachine& /*dsm*/
     stepCount = 0;
 
     cwc.sendResponse(Response::okay(std::monostate{}));
+    return std::move(*this);
+}
+
+State::Any SimRunning::onEvent(const Api::ScenarioConfigSet::Cwc& cwc, StateMachine& /*dsm*/)
+{
+    using Response = Api::ScenarioConfigSet::Response;
+
+    spdlog::info("SimRunning: API update scenario config");
+
+    if (!world) {
+        cwc.sendResponse(Response::error(ApiError("No world available")));
+        return std::move(*this);
+    }
+
+    // Get current scenario from ScenarioRegistry.
+    auto& registry = ScenarioRegistry::getInstance();
+    auto* scenario = registry.getScenario(world->data.scenario_id);
+
+    if (!scenario) {
+        spdlog::error("SimRunning: Scenario '{}' not found in registry", world->data.scenario_id);
+        cwc.sendResponse(Response::error(ApiError("Scenario not found: " + world->data.scenario_id)));
+        return std::move(*this);
+    }
+
+    // Apply new config to scenario.
+    scenario->setConfig(cwc.command.config);
+
+    // Recreate WorldEventGenerator with new config.
+    auto newGenerator = scenario->createWorldEventGenerator();
+    world->setWorldEventGenerator(std::move(newGenerator));
+
+    // Update WorldData with new config.
+    world->data.scenario_config = cwc.command.config;
+
+    spdlog::info("SimRunning: Scenario config updated for '{}'", world->data.scenario_id);
+
+    cwc.sendResponse(Response::okay({true}));
     return std::move(*this);
 }
 

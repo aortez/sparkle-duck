@@ -6,6 +6,7 @@
 #include "Exit.h"
 #include "GravitySet.h"
 #include "Reset.h"
+#include "ScenarioConfigSet.h"
 #include "SimRun.h"
 #include "StateGet.h"
 #include "StepN.h"
@@ -23,6 +24,7 @@ using ApiCommand = std::variant<
     Api::Exit::Command,
     Api::GravitySet::Command,
     Api::Reset::Command,
+    Api::ScenarioConfigSet::Command,
     Api::SimRun::Command,
     Api::StateGet::Command,
     Api::StepN::Command

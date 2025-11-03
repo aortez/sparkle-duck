@@ -35,7 +35,7 @@ State::Any Paused::onEvent(const UiApi::MouseDown::Cwc& cwc, StateMachine& /*sm*
     // TODO: Handle mouse interaction with paused world.
 
     cwc.sendResponse(UiApi::MouseDown::Response::okay(std::monostate{}));
-    return Paused{ std::move(world) };
+    return Paused{ std::move(worldData) };
 }
 
 State::Any Paused::onEvent(const UiApi::MouseMove::Cwc& cwc, StateMachine& /*sm*/)
@@ -45,7 +45,7 @@ State::Any Paused::onEvent(const UiApi::MouseMove::Cwc& cwc, StateMachine& /*sm*
     // TODO: Handle mouse drag with paused world.
 
     cwc.sendResponse(UiApi::MouseMove::Response::okay(std::monostate{}));
-    return Paused{ std::move(world) };
+    return Paused{ std::move(worldData) };
 }
 
 State::Any Paused::onEvent(const UiApi::MouseUp::Cwc& cwc, StateMachine& /*sm*/)
@@ -55,7 +55,7 @@ State::Any Paused::onEvent(const UiApi::MouseUp::Cwc& cwc, StateMachine& /*sm*/)
     // TODO: Handle mouse release with paused world.
 
     cwc.sendResponse(UiApi::MouseUp::Response::okay(std::monostate{}));
-    return Paused{ std::move(world) };
+    return Paused{ std::move(worldData) };
 }
 
 State::Any Paused::onEvent(const UiApi::Screenshot::Cwc& cwc, StateMachine& /*sm*/)
@@ -67,7 +67,7 @@ State::Any Paused::onEvent(const UiApi::Screenshot::Cwc& cwc, StateMachine& /*sm
     std::string filepath = cwc.command.filepath.empty() ? "screenshot.png" : cwc.command.filepath;
     cwc.sendResponse(UiApi::Screenshot::Response::okay({filepath}));
 
-    return Paused{ std::move(world) };
+    return Paused{ std::move(worldData) };
 }
 
 State::Any Paused::onEvent(const UiApi::SimRun::Cwc& cwc, StateMachine& /*sm*/)
@@ -78,8 +78,8 @@ State::Any Paused::onEvent(const UiApi::SimRun::Cwc& cwc, StateMachine& /*sm*/)
 
     cwc.sendResponse(UiApi::SimRun::Response::okay({true}));
 
-    // Transition back to SimRunning.
-    return SimRunning{ std::move(world) };
+    // Transition back to SimRunning (renderer and controls will be created in onEnter).
+    return SimRunning{ std::move(worldData), nullptr, nullptr };
 }
 
 State::Any Paused::onEvent(const ServerDisconnectedEvent& evt, StateMachine& /*sm*/)

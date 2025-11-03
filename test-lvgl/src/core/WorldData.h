@@ -1,7 +1,11 @@
 #pragma once
 
 #include "Cell.h"
+#include "ReflectSerializer.h"
+#include "ScenarioConfig.h"
 #include <cstdint>
+#include <nlohmann/json.hpp>
+#include <string>
 #include <vector>
 
 namespace DirtSim {
@@ -31,6 +35,23 @@ struct WorldData {
     // Feature flags.
     bool add_particles_enabled = true;
     bool debug_draw_enabled = false;
+
+    // Scenario metadata and configuration.
+    std::string scenario_id = "empty";
+    ScenarioConfig scenario_config = EmptyConfig{};
 };
+
+/**
+ * ADL (Argument-Dependent Lookup) functions for nlohmann::json automatic conversion.
+ */
+inline void to_json(nlohmann::json& j, const WorldData& data)
+{
+    j = ReflectSerializer::to_json(data);
+}
+
+inline void from_json(const nlohmann::json& j, WorldData& data)
+{
+    data = ReflectSerializer::from_json<WorldData>(j);
+}
 
 } // namespace DirtSim

@@ -147,6 +147,7 @@ add_executable(sparkle-duck-ui
     src/ui/state-machine/states/StartMenu.cpp
     src/ui/state-machine/states/Startup.cpp
     src/ui/state-machine/network/CommandDeserializerJson.cpp
+    src/ui/state-machine/network/MessageParser.cpp
     src/ui/state-machine/network/WebSocketClient.cpp
     src/ui/state-machine/network/WebSocketServer.cpp
     src/ui/state-machine/api/Exit.cpp
@@ -156,10 +157,12 @@ add_executable(sparkle-duck-ui
     src/ui/state-machine/api/Screenshot.cpp
     src/ui/state-machine/api/SimPause.cpp
     src/ui/state-machine/api/SimRun.cpp
+    src/ui/UiComponentManager.cpp
+    src/ui/rendering/CellRenderer.cpp
+    src/ui/controls/ControlPanel.cpp
     # TODO: Re-enable these after fixing includes:
     # src/ui/SimulatorUI.cpp
     # src/ui/UIUpdateConsumer.cpp
-    # src/ui/UIManager.cpp
     # src/ui/MaterialPicker.cpp
     # src/ui/ui_builders/LVGLBuilder.cpp
     # src/ui/ui_builders/LVGLEventBuilder.cpp
@@ -234,6 +237,7 @@ add_executable(sparkle-duck-server
     src/server/api/Exit.cpp
     src/server/api/GravitySet.cpp
     src/server/api/Reset.cpp
+    src/server/api/ScenarioConfigSet.cpp
     src/server/api/SimRun.cpp
     src/server/api/StateGet.cpp
     src/server/api/StepN.cpp
@@ -336,7 +340,7 @@ add_executable(sparkle-duck-tests
     # UI components (for visual tests).
     src/ui/SimulatorUI.cpp
     src/ui/UIUpdateConsumer.cpp
-    src/ui/UIManager.cpp
+    src/ui/UiComponentManager.cpp
     src/ui/MaterialPicker.cpp
     src/ui/ui_builders/LVGLBuilder.cpp
     src/ui/ui_builders/LVGLEventBuilder.cpp

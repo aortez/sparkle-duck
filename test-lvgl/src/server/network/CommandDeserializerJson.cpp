@@ -5,6 +5,7 @@
 #include "../api/Exit.h"
 #include "../api/GravitySet.h"
 #include "../api/Reset.h"
+#include "../api/ScenarioConfigSet.h"
 #include "../api/SimRun.h"
 #include "../api/StateGet.h"
 #include "../api/StepN.h"
@@ -59,6 +60,9 @@ Result<ApiCommand, ApiError> CommandDeserializerJson::deserialize(const std::str
         }
         else if (commandName == "reset") {
             return Result<ApiCommand, ApiError>::okay(Api::Reset::Command::fromJson(cmd));
+        }
+        else if (commandName == "scenario_config_set") {
+            return Result<ApiCommand, ApiError>::okay(Api::ScenarioConfigSet::Command::fromJson(cmd));
         }
         else if (commandName == "sim_run") {
             return Result<ApiCommand, ApiError>::okay(Api::SimRun::Command::fromJson(cmd));

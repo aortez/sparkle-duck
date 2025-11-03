@@ -11,6 +11,7 @@ WebSocketServer::WebSocketServer(DirtSim::StateMachineInterface<Event>& stateMac
     rtc::WebSocketServerConfiguration config;
     config.port = port;
     config.enableTls = false; // No TLS for now.
+    config.maxMessageSize = 10 * 1024 * 1024; // 10MB limit for WorldData JSON.
 
     // Create server.
     server_ = std::make_unique<rtc::WebSocketServer>(config);
@@ -157,6 +158,15 @@ Event WebSocketServer::createCwcForCommand(
                 Api::Reset::Cwc cwc;
                 cwc.command = cmd;
                 cwc.callback = [this, ws](Api::Reset::Response&& response) {
+                    std::string jsonResponse = serializer_.serialize(std::move(response));
+                    ws->send(jsonResponse);
+                };
+                return cwc;
+            }
+            else if constexpr (std::is_same_v<CommandType, Api::ScenarioConfigSet::Command>) {
+                Api::ScenarioConfigSet::Cwc cwc;
+                cwc.command = cmd;
+                cwc.callback = [this, ws](Api::ScenarioConfigSet::Response&& response) {
                     std::string jsonResponse = serializer_.serialize(std::move(response));
                     ws->send(jsonResponse);
                 };

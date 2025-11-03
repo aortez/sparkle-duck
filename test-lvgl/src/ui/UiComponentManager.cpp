@@ -1,23 +1,23 @@
-#include "UIManager.h"
+#include "UiComponentManager.h"
 #include <spdlog/spdlog.h>
 
 namespace DirtSim {
 
-UIManager::UIManager(lv_disp_t* display) : display(display)
+UiComponentManager::UiComponentManager(lv_disp_t* display) : display(display)
 {
     if (!display) {
-        spdlog::error("UIManager initialized with null display");
+        spdlog::error("UiComponentManager initialized with null display");
         return;
     }
 
     // Initialize with the default screen.
     currentScreen = lv_disp_get_scr_act(display);
-    spdlog::info("UIManager initialized with display");
+    spdlog::info("UiComponentManager initialized with display");
 }
 
-UIManager::~UIManager()
+UiComponentManager::~UiComponentManager()
 {
-    spdlog::info("UIManager cleanup started");
+    spdlog::info("UiComponentManager cleanup started");
 
     // Clean up any screens we created (not the default one).
     if (simulationScreen && simulationScreen != lv_disp_get_scr_act(display)) {
@@ -30,10 +30,10 @@ UIManager::~UIManager()
         cleanupScreen(configScreen);
     }
 
-    spdlog::info("UIManager cleanup completed");
+    spdlog::info("UiComponentManager cleanup completed");
 }
 
-lv_obj_t* UIManager::getSimulationContainer()
+lv_obj_t* UiComponentManager::getSimulationContainer()
 {
     if (!display) return nullptr;
 
@@ -42,7 +42,7 @@ lv_obj_t* UIManager::getSimulationContainer()
     return simulationScreen;
 }
 
-lv_obj_t* UIManager::getMainMenuContainer()
+lv_obj_t* UiComponentManager::getMainMenuContainer()
 {
     if (!display) return nullptr;
 
@@ -51,7 +51,7 @@ lv_obj_t* UIManager::getMainMenuContainer()
     return mainMenuScreen;
 }
 
-lv_obj_t* UIManager::getConfigContainer()
+lv_obj_t* UiComponentManager::getConfigContainer()
 {
     if (!display) return nullptr;
 
@@ -60,7 +60,7 @@ lv_obj_t* UIManager::getConfigContainer()
     return configScreen;
 }
 
-void UIManager::clearCurrentContainer()
+void UiComponentManager::clearCurrentContainer()
 {
     if (currentScreen) {
         lv_obj_clean(currentScreen);
@@ -68,7 +68,7 @@ void UIManager::clearCurrentContainer()
     }
 }
 
-void UIManager::transitionToScreen(lv_obj_t* screen, bool animate)
+void UiComponentManager::transitionToScreen(lv_obj_t* screen, bool animate)
 {
     if (!screen || screen == currentScreen) {
         return;
@@ -85,7 +85,7 @@ void UIManager::transitionToScreen(lv_obj_t* screen, bool animate)
     spdlog::debug("Transitioned to screen");
 }
 
-lv_obj_t* UIManager::ensureScreen(lv_obj_t*& screen, const char* name)
+lv_obj_t* UiComponentManager::ensureScreen(lv_obj_t*& screen, const char* name)
 {
     if (!screen) {
         screen = lv_obj_create(NULL);
@@ -99,7 +99,7 @@ lv_obj_t* UIManager::ensureScreen(lv_obj_t*& screen, const char* name)
     return screen;
 }
 
-void UIManager::cleanupScreen(lv_obj_t*& screen)
+void UiComponentManager::cleanupScreen(lv_obj_t*& screen)
 {
     if (screen) {
         lv_obj_del(screen);

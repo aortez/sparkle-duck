@@ -23,6 +23,21 @@ public:
         return metadata_;
     }
 
+    ScenarioConfig getConfig() const override {
+        return config_;
+    }
+
+    void setConfig(const ScenarioConfig& newConfig) override {
+        // Validate type and update.
+        if (std::holds_alternative<EmptyConfig>(newConfig)) {
+            config_ = std::get<EmptyConfig>(newConfig);
+            spdlog::info("EmptyScenario: Config updated");
+        }
+        else {
+            spdlog::error("EmptyScenario: Invalid config type provided");
+        }
+    }
+
     std::unique_ptr<WorldEventGenerator> createWorldEventGenerator() const override
     {
         auto setup = std::make_unique<ScenarioWorldEventGenerator>();
@@ -44,6 +59,7 @@ public:
 
 private:
     ScenarioMetadata metadata_;
+    EmptyConfig config_;
 };
 
 // Self-registering scenario

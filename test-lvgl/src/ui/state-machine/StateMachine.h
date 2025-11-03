@@ -11,8 +11,9 @@
 // Forward declaration for LVGL display structure.
 struct _lv_display_t;
 
-// Forward declarations for network components.
+// Forward declarations for network and UI components.
 namespace DirtSim {
+class UiComponentManager;
 namespace Ui {
 class WebSocketServer;
 class WebSocketClient;
@@ -38,14 +39,23 @@ public:
     EventProcessor eventProcessor;
 
     // WebSocket connections.
-    WebSocketServer* wsServer_ = nullptr;  // Server for accepting remote commands.
-    WebSocketClient* wsClient_ = nullptr;  // Client for connecting to DSSM server.
+    std::unique_ptr<WebSocketServer> wsServer_;  // Server for accepting remote commands.
+    std::unique_ptr<WebSocketClient> wsClient_;  // Client for connecting to DSSM server.
+
+    // UI management.
+    std::unique_ptr<UiComponentManager> uiManager_;  // LVGL screen and container management.
 
     /**
      * @brief Get WebSocket client for DSSM connection.
-     * @return Pointer to WebSocket client.
+     * @return Pointer to WebSocket client (non-owning).
      */
-    WebSocketClient* getWebSocketClient() { return wsClient_; }
+    WebSocketClient* getWebSocketClient() { return wsClient_.get(); }
+
+    /**
+     * @brief Get UI manager for LVGL screen/container access.
+     * @return Pointer to UI manager (non-owning).
+     */
+    UiComponentManager* getUiComponentManager() { return uiManager_.get(); }
 
 private:
     State::Any fsmState{ State::Startup{} };

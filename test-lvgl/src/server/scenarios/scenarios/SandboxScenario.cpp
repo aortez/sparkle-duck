@@ -18,32 +18,55 @@ public:
         metadata_.category = "sandbox";
         metadata_.supportsWorldA = true;
         metadata_.supportsWorldB = true;
+
+        // Initialize with default config.
+        config_.quadrant_enabled = true;
+        config_.water_column_enabled = true;
+        config_.right_throw_enabled = true;
+        config_.top_drop_enabled = true;
+        config_.rain_rate = 0.0;
     }
-    
+
     const ScenarioMetadata& getMetadata() const override {
         return metadata_;
     }
 
+    ScenarioConfig getConfig() const override {
+        return config_;
+    }
+
+    void setConfig(const ScenarioConfig& newConfig) override {
+        // Validate type and update.
+        if (std::holds_alternative<SandboxConfig>(newConfig)) {
+            config_ = std::get<SandboxConfig>(newConfig);
+            spdlog::info("SandboxScenario: Config updated");
+        }
+        else {
+            spdlog::error("SandboxScenario: Invalid config type provided");
+        }
+    }
+
     std::unique_ptr<WorldEventGenerator> createWorldEventGenerator() const override
     {
-        // Create a ConfigurableWorldEventGenerator with sandbox-specific defaults.
+        // Create a ConfigurableWorldEventGenerator using current config.
         auto configurableSetup = std::make_unique<ConfigurableWorldEventGenerator>();
 
-        // Configure sandbox settings.
-        configurableSetup->setLowerRightQuadrantEnabled(true);
-        configurableSetup->setWallsEnabled(true);  // Walls enabled for physics containment.
+        // Apply config settings to event generator.
+        configurableSetup->setLowerRightQuadrantEnabled(config_.quadrant_enabled);
+        configurableSetup->setWallsEnabled(true);  // Walls always enabled for physics containment.
         configurableSetup->setMiddleMetalWallEnabled(false);
         configurableSetup->setLeftThrowEnabled(false);
-        configurableSetup->setRightThrowEnabled(true);
-        configurableSetup->setTopDropEnabled(true);
-        configurableSetup->setRainRate(0.0); // No rain by default.
-        configurableSetup->setWaterColumnEnabled(true); // On by default.
+        configurableSetup->setRightThrowEnabled(config_.right_throw_enabled);
+        configurableSetup->setTopDropEnabled(config_.top_drop_enabled);
+        configurableSetup->setRainRate(config_.rain_rate);
+        configurableSetup->setWaterColumnEnabled(config_.water_column_enabled);
 
         return configurableSetup;
     }
 
 private:
     ScenarioMetadata metadata_;
+    SandboxConfig config_;
 };
 
 // Self-registering scenario
