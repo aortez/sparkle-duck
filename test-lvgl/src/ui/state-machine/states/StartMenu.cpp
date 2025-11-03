@@ -1,5 +1,7 @@
 #include "../StateMachine.h"
 #include "../network/WebSocketClient.h"
+#include "../../UiComponentManager.h"
+#include "../api/SimRun.h"
 #include "State.h"
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
@@ -8,16 +10,53 @@ namespace DirtSim {
 namespace Ui {
 namespace State {
 
-void StartMenu::onEnter(StateMachine& /*sm*/)
+void StartMenu::onEnter(StateMachine& sm)
 {
     spdlog::info("StartMenu: Connected to server, ready to start simulation");
-    spdlog::info("StartMenu: Show simulation controls (start, scenario selection, etc.)");
-    // TODO: Display start menu UI using SimulatorUI.
+
+    // Get main menu container (switches to menu screen).
+    auto* uiManager = sm.getUiComponentManager();
+    if (!uiManager) return;
+
+    lv_obj_t* container = uiManager->getMainMenuContainer();
+
+    // Create centered "Start Simulation" button.
+    lv_obj_t* startButton = lv_btn_create(container);
+    lv_obj_set_size(startButton, 200, 60);
+    lv_obj_center(startButton);
+    lv_obj_set_user_data(startButton, &sm);
+    lv_obj_add_event_cb(startButton, onStartButtonClicked, LV_EVENT_CLICKED, nullptr);
+
+    lv_obj_t* label = lv_label_create(startButton);
+    lv_label_set_text(label, "Start Simulation");
+    lv_obj_center(label);
+
+    spdlog::info("StartMenu: Created start button");
 }
 
 void StartMenu::onExit(StateMachine& /*sm*/)
 {
     spdlog::info("StartMenu: Exiting");
+    // No cleanup needed - screen switch will clean up widgets automatically.
+}
+
+void StartMenu::onStartButtonClicked(lv_event_t* e)
+{
+    auto* sm = static_cast<StateMachine*>(lv_obj_get_user_data(static_cast<lv_obj_t*>(lv_event_get_target(e))));
+    if (!sm) return;
+
+    spdlog::info("StartMenu: Start button clicked, sending sim_run to DSSM");
+
+    // Send sim_run command to DSSM using typed Command object.
+    auto* wsClient = sm->getWebSocketClient();
+    if (wsClient && wsClient->isConnected()) {
+        UiApi::SimRun::Command cmd;  // Create command object.
+        nlohmann::json json = cmd.toJson();  // Convert to JSON.
+        wsClient->send(json.dump());  // Send to DSSM.
+    }
+    else {
+        spdlog::error("StartMenu: Cannot start simulation, not connected to DSSM");
+    }
 }
 
 State::Any StartMenu::onEvent(const FrameReadyNotification& evt, StateMachine& /*sm*/)

@@ -21,6 +21,9 @@ struct StartMenu {
     Any onEvent(const UiApi::SimRun::Cwc& cwc, StateMachine& sm);
 
     static constexpr const char* name() { return "StartMenu"; }
+
+private:
+    static void onStartButtonClicked(lv_event_t* e);
 };
 
 } // namespace State
