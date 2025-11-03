@@ -144,6 +144,9 @@ State::Any SimRunning::onEvent(const FrameReadyNotification& evt, StateMachine& 
         if (wsClient && wsClient->isConnected()) {
             nlohmann::json stateGetCmd = {{"command", "state_get"}};
             wsClient->send(stateGetCmd.dump());
+
+            // Record when request was sent for round-trip timing.
+            lastStateGetSentTime = std::chrono::steady_clock::now();
         }
 
         lastFrameRequestTime = now;
@@ -160,7 +163,20 @@ State::Any SimRunning::onEvent(const FrameReadyNotification& evt, StateMachine& 
 
 State::Any SimRunning::onEvent(const UiUpdateEvent& evt, StateMachine& sm)
 {
-    spdlog::trace("SimRunning: Received world update (step {})", evt.stepCount);
+    // Calculate round-trip time for frame request.
+    auto now = std::chrono::steady_clock::now();
+    auto roundTrip = std::chrono::duration_cast<std::chrono::microseconds>(now - lastStateGetSentTime);
+    lastRoundTripMs = roundTrip.count() / 1000.0;  // Convert to milliseconds.
+
+    // Smooth with EMA.
+    if (smoothedRoundTripMs == 0.0) {
+        smoothedRoundTripMs = lastRoundTripMs;
+    } else {
+        smoothedRoundTripMs = 0.9 * smoothedRoundTripMs + 0.1 * lastRoundTripMs;
+    }
+
+    spdlog::info("SimRunning: Received world update (step {}), round-trip: {:.1f}ms (smoothed: {:.1f}ms)",
+                 evt.stepCount, lastRoundTripMs, smoothedRoundTripMs);
 
     // Update local worldData with received state.
     worldData = std::make_unique<WorldData>(evt.worldData);

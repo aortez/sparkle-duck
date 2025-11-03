@@ -23,10 +23,15 @@ struct SimRunning {
 
     // Time-based frame limiting.
     std::chrono::steady_clock::time_point lastFrameRequestTime;
-    std::chrono::milliseconds targetFrameInterval{33};  // Target 30 FPS (33ms between frames).
+    std::chrono::milliseconds targetFrameInterval{16};
     double measuredUIFPS = 0.0;      // Instantaneous UI frame rate.
     double smoothedUIFPS = 0.0;      // Exponentially smoothed UI FPS for display.
     uint64_t skippedFrames = 0;      // Count of skipped frame_ready notifications.
+
+    // Round-trip timing (state_get request → UiUpdateEvent received).
+    std::chrono::steady_clock::time_point lastStateGetSentTime;
+    double lastRoundTripMs = 0.0;
+    double smoothedRoundTripMs = 0.0;  // EMA smoothed round-trip time.
 
     void onEnter(StateMachine& sm);
     void onExit(StateMachine& sm);
