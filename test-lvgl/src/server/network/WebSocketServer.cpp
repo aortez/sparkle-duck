@@ -43,6 +43,9 @@ void WebSocketServer::onClientConnected(std::shared_ptr<rtc::WebSocket> ws)
 {
     spdlog::info("WebSocket client connected");
 
+    // Add to connected clients list.
+    connectedClients_.push_back(ws);
+
     // Set up message handler for this client.
     ws->onMessage([this, ws](std::variant<rtc::binary, rtc::string> data) {
         if (std::holds_alternative<rtc::string>(data)) {
@@ -55,10 +58,33 @@ void WebSocketServer::onClientConnected(std::shared_ptr<rtc::WebSocket> ws)
     });
 
     // Set up close handler.
-    ws->onClosed([](void) { spdlog::info("WebSocket client disconnected"); });
+    ws->onClosed([this, ws](void) {
+        spdlog::info("WebSocket client disconnected");
+        // Remove from connected clients list.
+        connectedClients_.erase(
+            std::remove(connectedClients_.begin(), connectedClients_.end(), ws),
+            connectedClients_.end());
+    });
 
     // Set up error handler.
     ws->onError([](std::string error) { spdlog::error("WebSocket error: {}", error); });
+}
+
+void WebSocketServer::broadcast(const std::string& message)
+{
+    spdlog::trace("WebSocketServer: Broadcasting to {} clients", connectedClients_.size());
+
+    // Send to all connected clients.
+    for (auto& ws : connectedClients_) {
+        if (ws && ws->isOpen()) {
+            try {
+                ws->send(message);
+            }
+            catch (const std::exception& e) {
+                spdlog::error("WebSocketServer: Broadcast failed for client: {}", e.what());
+            }
+        }
+    }
 }
 
 void WebSocketServer::onMessage(std::shared_ptr<rtc::WebSocket> ws, const std::string& message)

@@ -4,9 +4,11 @@
 #include "../Event.h"
 #include "CommandDeserializerJson.h"
 #include "ResponseSerializerJson.h"
+#include <algorithm>
 #include <memory>
 #include <rtc/rtc.hpp>
 #include <string>
+#include <vector>
 
 namespace DirtSim {
 namespace Server {
@@ -31,7 +33,14 @@ public:
      */
     uint16_t getPort() const;
 
+    /**
+     * @brief Broadcast a message to all connected clients.
+     * @param message JSON message to broadcast.
+     */
+    void broadcast(const std::string& message);
+
 private:
+    std::vector<std::shared_ptr<rtc::WebSocket>> connectedClients_;
     DirtSim::StateMachineInterface<Event>& stateMachine_;
     std::unique_ptr<rtc::WebSocketServer> server_;
     CommandDeserializerJson deserializer_;

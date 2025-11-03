@@ -71,6 +71,9 @@ int main(int argc, char** argv)
     Server::WebSocketServer server(*stateMachine, port);
     server.start();
 
+    // Give state machine access to server for broadcasting.
+    stateMachine->setWebSocketServer(&server);
+
     spdlog::info("WebSocket server listening on port {}", server.getPort());
     spdlog::info("Send commands to ws://localhost:{}", server.getPort());
 

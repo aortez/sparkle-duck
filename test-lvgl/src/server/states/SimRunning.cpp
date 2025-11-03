@@ -2,9 +2,12 @@
 #include "../../core/Cell.h"
 #include "../../core/WorldEventGenerator.h"
 #include "../StateMachine.h"
+#include "../network/WebSocketServer.h"
 #include "../scenarios/Scenario.h"
 #include "../scenarios/ScenarioRegistry.h"
 #include "State.h"
+#include <chrono>
+#include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
 
 namespace DirtSim {
@@ -32,7 +35,7 @@ void SimRunning::onExit(StateMachine& /*dsm. */)
     spdlog::info("SimRunning: Exiting state");
 }
 
-State::Any SimRunning::onEvent(const AdvanceSimulationCommand& /*cmd*/, StateMachine& /*dsm*/)
+State::Any SimRunning::onEvent(const AdvanceSimulationCommand& /*cmd*/, StateMachine& dsm)
 {
     // Headless server: advance physics simulation by one timestep.
     assert(world && "World must exist in SimRunning state");
@@ -42,6 +45,21 @@ State::Any SimRunning::onEvent(const AdvanceSimulationCommand& /*cmd*/, StateMac
     stepCount++;
 
     spdlog::debug("SimRunning: Advanced simulation (step {})", stepCount);
+
+    // Broadcast frame notification to all connected UI clients.
+    if (dsm.getWebSocketServer()) {
+        auto now = std::chrono::system_clock::now();
+        auto timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+            now.time_since_epoch()).count();
+
+        nlohmann::json notification = {
+            {"type", "frame_ready"},
+            {"stepNumber", stepCount},
+            {"timestamp", timestamp}
+        };
+
+        dsm.getWebSocketServer()->broadcast(notification.dump());
+    }
 
     return std::move(*this);  // Stay in SimRunning (move because unique_ptr).
 }

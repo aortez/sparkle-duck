@@ -34,6 +34,21 @@ public:
     uint32_t defaultWidth = 28;
     uint32_t defaultHeight = 28;
 
+    // WebSocket server (public so states can access for broadcasting).
+    class WebSocketServer* wsServer_ = nullptr;
+
+    /**
+     * @brief Get WebSocket server for broadcasting frame notifications.
+     * @return Pointer to WebSocket server.
+     */
+    class WebSocketServer* getWebSocketServer() { return wsServer_; }
+
+    /**
+     * @brief Set WebSocket server (called from main).
+     * @param server Pointer to WebSocket server.
+     */
+    void setWebSocketServer(class WebSocketServer* server) { wsServer_ = server; }
+
 private:
     State::Any fsmState{ State::Startup{} };
 
