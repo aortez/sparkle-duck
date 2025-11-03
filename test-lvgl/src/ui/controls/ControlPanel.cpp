@@ -81,7 +81,7 @@ void ControlPanel::createScenarioControls(const std::string& scenarioId, const S
 {
     // Create scenario panel container.
     scenarioPanel_ = lv_obj_create(panelContainer_);
-    lv_obj_set_width(scenarioPanel_, LV_PCT(100));
+    lv_obj_set_size(scenarioPanel_, LV_PCT(100), LV_SIZE_CONTENT);  // Full width, height fits content.
     lv_obj_set_flex_flow(scenarioPanel_, LV_FLEX_FLOW_COLUMN);
     lv_obj_set_flex_align(scenarioPanel_, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
 
