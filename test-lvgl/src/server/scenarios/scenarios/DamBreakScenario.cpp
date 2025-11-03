@@ -23,11 +23,11 @@ public:
         damBroken = false;
         
         // Configure physics for dynamic pressure
-        world.setGravity(9.81);
+        world.data.gravity = 9.81;
         world.setDynamicPressureEnabled(true);
         world.setHydrostaticPressureEnabled(false);
         world.setPressureDiffusionEnabled(true);
-        world.setPressureScale(1.0);
+        world.data.pressure_scale = 1.0;
         
         // Disable extra features for clean demo
         world.setWallsEnabled(false);

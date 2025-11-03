@@ -26,7 +26,7 @@ bool WorldSupportCalculator::hasVerticalSupport(const World& world, uint32_t x, 
     }
 
     // Check if already at ground level.
-    if (y == world.getHeight() - 1) {
+    if (y == world.data.height - 1) {
         spdlog::trace("hasVerticalSupport({},{}) = true (at ground level)", x, y);
         return true;
     }
@@ -36,7 +36,7 @@ bool WorldSupportCalculator::hasVerticalSupport(const World& world, uint32_t x, 
         uint32_t support_y = y + dy;
 
         // If we reach beyond the world boundary, no material support available.
-        if (support_y >= world.getHeight()) {
+        if (support_y >= world.data.height) {
             spdlog::info(
                 "hasVerticalSupport({},{}) = false (reached world boundary at distance {}, no "
                 "material below)",
@@ -168,7 +168,7 @@ bool WorldSupportCalculator::hasStructuralSupport(const World& world, uint32_t x
     }
 
     // 2. Bottom edge of world (ground) provides support.
-    if (y == world.getHeight() - 1) {
+    if (y == world.data.height - 1) {
         return true;
     }
 
@@ -228,7 +228,7 @@ bool WorldSupportCalculator::hasStructuralSupport(const World& world, uint32_t x
                     // Fluids adjacent to walls are NOT structurally supported.
                 }
                 // Ground level provides support to all materials.
-                else if (ny == static_cast<int>(world.getHeight()) - 1) {
+                else if (ny == static_cast<int>(world.data.height) - 1) {
                     return true;
                 }
 
@@ -277,7 +277,7 @@ double WorldSupportCalculator::calculateDistanceToSupport(const World& world, ui
 
     // Use simpler 2D array for distance tracking (avoid Vector2i comparisons)
     std::vector<std::vector<int>> distances(
-        world.getWidth(), std::vector<int>(world.getHeight(), -1));
+        world.data.width, std::vector<int>(world.data.height, -1));
     std::queue<std::pair<uint32_t, uint32_t>> queue;
 
     queue.push({ x, y });
@@ -312,8 +312,8 @@ double WorldSupportCalculator::calculateDistanceToSupport(const World& world, ui
             int nx = static_cast<int>(cx) + dir.first;
             int ny = static_cast<int>(cy) + dir.second;
 
-            if (nx >= 0 && ny >= 0 && nx < static_cast<int>(world.getWidth())
-                && ny < static_cast<int>(world.getHeight())
+            if (nx >= 0 && ny >= 0 && nx < static_cast<int>(world.data.width)
+                && ny < static_cast<int>(world.data.height)
                 && distances[nx][ny] == -1) { // Not visited.
 
                 const Cell& nextCell = getCellAt(world, nx, ny);

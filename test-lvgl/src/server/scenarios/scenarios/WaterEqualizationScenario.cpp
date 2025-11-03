@@ -22,11 +22,11 @@ public:
         // Reset state
         wallOpened = false;
         
-        world.setGravity(9.81);
+        world.data.gravity = 9.81;
         world.setDynamicPressureEnabled(false);
         world.setHydrostaticPressureEnabled(true);
         world.setPressureDiffusionEnabled(true);
-        world.setPressureScale(1.0);
+        world.data.pressure_scale = 1.0;
         
         world.setWallsEnabled(false);
         world.setLeftThrowEnabled(false);

@@ -23,8 +23,8 @@ protected:
     // Helper to compare two worlds for equality.
     void validateWorldsEqual(const World& original, const World& restored) {
         // Grid dimensions.
-        EXPECT_EQ(original.getWidth(), restored.getWidth());
-        EXPECT_EQ(original.getHeight(), restored.getHeight());
+        EXPECT_EQ(original.data.width, restored.data.width);
+        EXPECT_EQ(original.data.height, restored.data.height);
 
         // Simulation state.
         EXPECT_EQ(original.getTimestep(), restored.getTimestep());
@@ -65,8 +65,8 @@ protected:
         EXPECT_EQ(original.isDebugDrawEnabled(), restored.isDebugDrawEnabled());
 
         // Cell data - compare all cells.
-        for (uint32_t y = 0; y < original.getHeight(); ++y) {
-            for (uint32_t x = 0; x < original.getWidth(); ++x) {
+        for (uint32_t y = 0; y < original.data.height; ++y) {
+            for (uint32_t x = 0; x < original.data.width; ++x) {
                 const Cell& origCell = original.at(x, y);
                 const Cell& restCell = restored.at(x, y);
 
@@ -293,8 +293,8 @@ TEST_F(WorldJSONTest, ResizeOnDeserialize) {
     world2.fromJSON(json);
 
     // Should resize to match.
-    EXPECT_EQ(world2.getWidth(), 10u);
-    EXPECT_EQ(world2.getHeight(), 10u);
+    EXPECT_EQ(world2.data.width, 10u);
+    EXPECT_EQ(world2.data.height, 10u);
 
     // Cell data should be preserved.
     EXPECT_EQ(world2.at(5, 5).material_type, MaterialType::WATER);

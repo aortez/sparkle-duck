@@ -24,8 +24,8 @@ WorldFrictionCalculator::detectContactInterfaces(const World& world) const
 {
     std::vector<ContactInterface> contacts;
 
-    const uint32_t width = world.getWidth();
-    const uint32_t height = world.getHeight();
+    const uint32_t width = world.data.width;
+    const uint32_t height = world.data.height;
 
     // Iterate over all cells.
     for (uint32_t y = 0; y < height; ++y) {
@@ -137,7 +137,7 @@ double WorldFrictionCalculator::calculateNormalForce(
 
     // Source 2: Weight for vertical contacts.
     // If B is below A (interface normal points downward), weight of A creates normal force.
-    double gravity_magnitude = world.getGravity();
+    double gravity_magnitude = world.data.gravity;
 
     if (interface_normal.y > 0.5) {  // B is below A (normal points down).
         double massA = cellA.getMass();

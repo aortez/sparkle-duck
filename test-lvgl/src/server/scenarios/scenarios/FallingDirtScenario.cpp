@@ -34,15 +34,15 @@ public:
         setup->setSetupFunction([](World& world) {
             spdlog::info("Setting up Falling Dirt scenario");
             
-            world.setGravity(9.81);
+            world.data.gravity = 9.81;
             world.setWallsEnabled(false);
             world.setLeftThrowEnabled(false);
             world.setRightThrowEnabled(false);
             world.setLowerRightQuadrantEnabled(false);
             
             // Add some initial dirt piles to make it interesting
-            uint32_t width = world.getWidth();
-            uint32_t height = world.getHeight();
+            uint32_t width = world.data.width;
+            uint32_t height = world.data.height;
             
             // Create small dirt mounds at the bottom
             if (width >= 7 && height >= 7) {
@@ -62,7 +62,7 @@ public:
         setup->setUpdateFunction([](World& world, uint32_t /*timestep*/, double deltaTime) {
             static std::mt19937 rng(123); // Different seed than rain
             static std::uniform_real_distribution<double> drop_dist(0.0, 1.0);
-            static std::uniform_int_distribution<int> x_dist(1, world.getWidth() - 2);
+            static std::uniform_int_distribution<int> x_dist(1, world.data.width - 2);
             
             // Dirt fall rate: particles per second
             const double dirt_rate = 5.0; // 5 dirt particles per second

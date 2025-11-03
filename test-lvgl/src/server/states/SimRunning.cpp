@@ -24,7 +24,7 @@ void SimRunning::onEnter(StateMachine& dsm)
         world = std::make_unique<World>(dsm.defaultWidth, dsm.defaultHeight);
     } else {
         spdlog::info("SimRunning: Resuming with existing World {}x{}",
-                     world->getWidth(), world->getHeight());
+                     world->data.width, world->data.height);
     }
 
     spdlog::info("SimRunning: Ready to run simulation (stepCount={})", stepCount);
@@ -105,8 +105,8 @@ State::Any SimRunning::onEvent(const Api::CellGet::Cwc& cwc, StateMachine& /*dsm
     }
 
     if (cwc.command.x < 0 || cwc.command.y < 0 ||
-        static_cast<uint32_t>(cwc.command.x) >= world->getWidth() ||
-        static_cast<uint32_t>(cwc.command.y) >= world->getHeight()) {
+        static_cast<uint32_t>(cwc.command.x) >= world->data.width ||
+        static_cast<uint32_t>(cwc.command.y) >= world->data.height) {
         cwc.sendResponse(Response::error(ApiError("Invalid coordinates")));
         return std::move(*this);
     }
@@ -145,8 +145,8 @@ State::Any SimRunning::onEvent(const Api::CellSet::Cwc& cwc, StateMachine& /*dsm
 
     // Validate coordinates.
     if (cwc.command.x < 0 || cwc.command.y < 0 ||
-        static_cast<uint32_t>(cwc.command.x) >= world->getWidth() ||
-        static_cast<uint32_t>(cwc.command.y) >= world->getHeight()) {
+        static_cast<uint32_t>(cwc.command.x) >= world->data.width ||
+        static_cast<uint32_t>(cwc.command.y) >= world->data.height) {
         cwc.sendResponse(Response::error(ApiError("Invalid coordinates")));
         return std::move(*this);
     }
@@ -173,7 +173,7 @@ State::Any SimRunning::onEvent(const Api::GravitySet::Cwc& cwc, StateMachine& /*
         return std::move(*this);
     }
 
-    world->setGravity(cwc.command.gravity);
+    world->data.gravity = cwc.command.gravity;
     spdlog::info("SimRunning: API set gravity to {}", cwc.command.gravity);
 
     cwc.sendResponse(Response::okay(std::monostate{}));
@@ -246,7 +246,7 @@ State::Any SimRunning::onEvent(const Api::StepN::Cwc& cwc, StateMachine& /*dsm*/
         stepCount++;
     }
 
-    uint32_t timestep = world->getTimestep();
+    uint32_t timestep = world->data.timestep;
     spdlog::debug("SimRunning: API stepped {} frames, timestep now {}", cwc.command.frames, timestep);
 
     cwc.sendResponse(Response::okay({timestep}));
@@ -397,7 +397,7 @@ State::Any SimRunning::onEvent(const SetTimescaleCommand& cmd, StateMachine& /*d
 {
     // Update world directly (source of truth).
     if (world) {
-        world->setTimescale(cmd.timescale);
+        world->data.timescale = cmd.timescale;
         spdlog::info("SimRunning: Set timescale to {}", cmd.timescale);
     }
     return std::move(*this);
@@ -407,7 +407,7 @@ State::Any SimRunning::onEvent(const SetElasticityCommand& cmd, StateMachine& /*
 {
     // Update world directly (source of truth).
     if (world) {
-        world->setElasticityFactor(cmd.elasticity);
+        world->data.elasticity_factor = cmd.elasticity;
         spdlog::info("SimRunning: Set elasticity to {}", cmd.elasticity);
     }
     return std::move(*this);
@@ -427,7 +427,7 @@ State::Any SimRunning::onEvent(const SetGravityCommand& cmd, StateMachine& /*dsm
 {
     // Update world directly (source of truth).
     if (world) {
-        world->setGravity(cmd.gravity);
+        world->data.gravity = cmd.gravity;
         spdlog::info("SimRunning: Set gravity to {}", cmd.gravity);
     }
     return std::move(*this);
@@ -437,7 +437,7 @@ State::Any SimRunning::onEvent(const SetPressureScaleCommand& cmd, StateMachine&
 {
     // Apply to world.
     if (world) {
-        world->setPressureScale(cmd.scale);
+        world->data.pressure_scale = cmd.scale;
     }
 
     spdlog::debug("SimRunning: Set pressure scale to {}", cmd.scale);
@@ -448,7 +448,7 @@ State::Any SimRunning::onEvent(const SetPressureScaleWorldBCommand& cmd, StateMa
 {
     // Apply to world.
     if (world) {
-        world->setPressureScale(cmd.scale);
+        world->data.pressure_scale = cmd.scale;
     }
 
     spdlog::debug("SimRunning: Set World pressure scale to {}", cmd.scale);
@@ -645,7 +645,7 @@ State::Any SimRunning::onEvent(const SpawnDirtBallCommand& /*cmd*/, StateMachine
     // Get the current world and spawn a 5x5 ball at top center.
     if (world) {
         // Calculate the top center position.
-        uint32_t centerX = world->getWidth() / 2;
+        uint32_t centerX = world->data.width / 2;
         uint32_t topY = 2; // Start at row 2 to avoid the very top edge.
 
         // Spawn a 5x5 ball of the currently selected material.
@@ -693,8 +693,8 @@ State::Any SimRunning::onEvent(const ToggleWaterColumnCommand& /*cmd*/, StateMac
             if (newValue) {
                 // Add water column (5 wide × 20 tall) on left side.
                 spdlog::info("SimRunning: Adding water column (5 wide × 20 tall) at runtime");
-                for (uint32_t y = 0; y < 20 && y < worldB->getHeight(); ++y) {
-                    for (uint32_t x = 1; x <= 5 && x < worldB->getWidth(); ++x) {
+                for (uint32_t y = 0; y < 20 && y < worldB->data.height; ++y) {
+                    for (uint32_t x = 1; x <= 5 && x < worldB->data.width; ++x) {
                         Cell& cell = worldB->at(x, y);
                         // Only add water to non-wall cells.
                         if (!cell.isWall()) {
@@ -709,8 +709,8 @@ State::Any SimRunning::onEvent(const ToggleWaterColumnCommand& /*cmd*/, StateMac
             else {
                 // Remove water from column area (only water cells).
                 spdlog::info("SimRunning: Removing water from water column area at runtime");
-                for (uint32_t y = 0; y < 20 && y < worldB->getHeight(); ++y) {
-                    for (uint32_t x = 1; x <= 5 && x < worldB->getWidth(); ++x) {
+                for (uint32_t y = 0; y < 20 && y < worldB->data.height; ++y) {
+                    for (uint32_t x = 1; x <= 5 && x < worldB->data.width; ++x) {
                         Cell& cell = worldB->at(x, y);
                         // Only clear water cells, leave walls and other materials.
                         if (cell.material_type == MaterialType::WATER && !cell.isWall()) {
@@ -758,17 +758,17 @@ State::Any SimRunning::onEvent(const ToggleQuadrantCommand& /*cmd*/, StateMachin
         // For World, manipulate cells directly for immediate feedback.
         DirtSim::World* worldB = dynamic_cast<DirtSim::World*>(world.get());
         if (worldB) {
-            uint32_t startX = worldB->getWidth() / 2;
-            uint32_t startY = worldB->getHeight() / 2;
+            uint32_t startX = worldB->data.width / 2;
+            uint32_t startY = worldB->data.height / 2;
 
             if (newValue) {
                 // Add dirt quadrant immediately.
                 spdlog::info(
                     "SimRunning: Adding lower right quadrant ({}x{}) at runtime",
-                    worldB->getWidth() - startX,
-                    worldB->getHeight() - startY);
-                for (uint32_t y = startY; y < worldB->getHeight(); ++y) {
-                    for (uint32_t x = startX; x < worldB->getWidth(); ++x) {
+                    worldB->data.width - startX,
+                    worldB->data.height - startY);
+                for (uint32_t y = startY; y < worldB->data.height; ++y) {
+                    for (uint32_t x = startX; x < worldB->data.width; ++x) {
                         Cell& cell = worldB->at(x, y);
                         // Only add dirt to non-wall cells.
                         if (!cell.isWall()) {
@@ -783,8 +783,8 @@ State::Any SimRunning::onEvent(const ToggleQuadrantCommand& /*cmd*/, StateMachin
             else {
                 // Remove dirt from quadrant area (only dirt cells).
                 spdlog::info("SimRunning: Removing dirt from lower right quadrant at runtime");
-                for (uint32_t y = startY; y < worldB->getHeight(); ++y) {
-                    for (uint32_t x = startX; x < worldB->getWidth(); ++x) {
+                for (uint32_t y = startY; y < worldB->data.height; ++y) {
+                    for (uint32_t x = startX; x < worldB->data.width; ++x) {
                         Cell& cell = worldB->at(x, y);
                         // Only clear dirt cells, leave walls and other materials.
                         if (cell.material_type == MaterialType::DIRT && !cell.isWall()) {

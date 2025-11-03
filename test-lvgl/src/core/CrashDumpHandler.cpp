@@ -145,11 +145,11 @@ void CrashDumpHandler::writeWorldStateToFile(
         }
 
         // Add basic world information.
-        doc["world_info"]["width"] = world_->getWidth();
-        doc["world_info"]["height"] = world_->getHeight();
-        doc["world_info"]["timestep"] = world_->getTimestep();
+        doc["world_info"]["width"] = world_->data.width;
+        doc["world_info"]["height"] = world_->data.height;
+        doc["world_info"]["timestep"] = world_->data.timestep;
         doc["world_info"]["total_mass"] = world_->getTotalMass();
-        doc["world_info"]["removed_mass"] = world_->getRemovedMass();
+        doc["world_info"]["removed_mass"] = world_->data.removed_mass;
         doc["world_info"]["world_type"] = "World";
 
         // Serialize complete world state using world_->toJSON().
@@ -187,11 +187,11 @@ void CrashDumpHandler::logDumpSummary(const std::string& filename, const char* r
     spdlog::info("File: {}", filename);
     spdlog::info(
         "World: {}x{} cells, {} timesteps",
-        world_->getWidth(),
-        world_->getHeight(),
-        world_->getTimestep());
+        world_->data.width,
+        world_->data.height,
+        world_->data.timestep);
     spdlog::info(
-        "Mass: {:.3f} total, {:.3f} removed", world_->getTotalMass(), world_->getRemovedMass());
+        "Mass: {:.3f} total, {:.3f} removed", world_->getTotalMass(), world_->data.removed_mass);
 
     const char* worldTypeName = "World";
     spdlog::info("Physics: {}", worldTypeName);

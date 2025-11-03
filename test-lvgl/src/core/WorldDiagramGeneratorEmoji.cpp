@@ -12,8 +12,8 @@ std::string WorldDiagramGeneratorEmoji::generateEmojiDiagram(const World& world)
 {
     std::ostringstream diagram;
 
-    uint32_t width = world.getWidth();
-    uint32_t height = world.getHeight();
+    uint32_t width = world.data.width;
+    uint32_t height = world.data.height;
 
     // Top border with sparkles!
     diagram << "✨";
@@ -96,8 +96,8 @@ std::string WorldDiagramGeneratorEmoji::generateMixedDiagram(const World& world)
 {
     std::ostringstream diagram;
 
-    uint32_t width = world.getWidth();
-    uint32_t height = world.getHeight();
+    uint32_t width = world.data.width;
+    uint32_t height = world.data.height;
 
     // Top border.
     diagram << "🦆✨ Sparkle Duck World ✨🦆\n";

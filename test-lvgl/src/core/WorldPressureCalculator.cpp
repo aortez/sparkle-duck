@@ -26,12 +26,12 @@ void WorldPressureCalculator::calculateHydrostaticPressure(World& world)
         world.getHydrostaticPressureStrength() * HYDROSTATIC_MULTIPLIER;
 
     // Process each column independently.
-    for (uint32_t x = 0; x < world.getWidth(); ++x) {
+    for (uint32_t x = 0; x < world.data.width; ++x) {
         // Phase 1: Bottom-up support detection.
         bool has_support_below = true; // Bottom boundary provides support.
-        std::vector<bool> cell_has_support(world.getHeight());
+        std::vector<bool> cell_has_support(world.data.height);
 
-        for (int y = world.getHeight() - 1; y >= 0; --y) {
+        for (int y = world.data.height - 1; y >= 0; --y) {
             Cell& cell = world.at(x, y);
 
             if (cell.isEmpty()) {
@@ -51,7 +51,7 @@ void WorldPressureCalculator::calculateHydrostaticPressure(World& world)
         // Phase 2: Top-down pressure accumulation.
         double accumulated_pressure = 0.0;
 
-        for (uint32_t y = 0; y < world.getHeight(); ++y) {
+        for (uint32_t y = 0; y < world.data.height; ++y) {
             Cell& cell = world.at(x, y);
 
             if (cell.isEmpty()) {
@@ -545,8 +545,8 @@ Vector2d WorldPressureCalculator::calculateGravityGradient(const World& world, u
 void WorldPressureCalculator::applyPressureDecay(World& world, double deltaTime)
 {
     // Apply decay to unified pressure values.
-    for (uint32_t y = 0; y < world.getHeight(); ++y) {
-        for (uint32_t x = 0; x < world.getWidth(); ++x) {
+    for (uint32_t y = 0; y < world.data.height; ++y) {
+        for (uint32_t x = 0; x < world.data.width; ++x) {
             Cell& cell = world.at(x, y);
 
             // Apply pressure decay to the unified pressure.
@@ -590,8 +590,8 @@ void WorldPressureCalculator::generateVirtualGravityTransfers(World& world, doub
     }
 
     // Process all cells to generate virtual gravity transfers.
-    for (uint32_t y = 0; y < world.getHeight(); ++y) {
-        for (uint32_t x = 0; x < world.getWidth(); ++x) {
+    for (uint32_t y = 0; y < world.data.height; ++y) {
+        for (uint32_t x = 0; x < world.data.width; ++x) {
             Cell& cell = world.at(x, y);
 
             // Skip empty cells and walls.
@@ -735,8 +735,8 @@ bool WorldPressureCalculator::isRigidSupport(MaterialType type) const
 void WorldPressureCalculator::applyPressureDiffusion(World& world, double deltaTime)
 {
     // Create a temporary copy of pressure values to avoid order-dependent updates.
-    const uint32_t width = world.getWidth();
-    const uint32_t height = world.getHeight();
+    const uint32_t width = world.data.width;
+    const uint32_t height = world.data.height;
     std::vector<double> new_pressure(width * height);
 
     // Initialize wall reflection tracking.

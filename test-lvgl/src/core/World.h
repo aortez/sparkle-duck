@@ -39,10 +39,6 @@ public:
         TURBULENT // High velocity differences with neighbors.
     };
 
-    // World state data - public source of truth for all serializable state.
-    WorldData data;
-
-public:
     World();
     World(uint32_t width, uint32_t height);
     ~World();
@@ -58,7 +54,6 @@ public:
     // =================================================================
 
     void advanceTime(double deltaTimeSeconds);
-    uint32_t getTimestep() const { return data.timestep; }
     void reset();
     void setup();
 
@@ -66,8 +61,6 @@ public:
     // WORLDINTERFACE IMPLEMENTATION - GRID ACCESS
     // =================================================================
 
-    uint32_t getWidth() const { return data.width; }
-    uint32_t getHeight() const { return data.height; }
 
     // WorldInterface cell access through CellInterface.
     Cell& getCell(uint32_t x, uint32_t y);
@@ -77,11 +70,8 @@ public:
     // WORLDINTERFACE IMPLEMENTATION - SIMULATION CONTROL
     // =================================================================
 
-    void setTimescale(double scale) { data.timescale = scale; }
-    double getTimescale() const { return data.timescale; }
+    // NOTE: Use data.timescale, data.removed_mass, data.add_particles_enabled directly.
     double getTotalMass() const;
-    double getRemovedMass() const { return data.removed_mass; }
-    void setAddParticlesEnabled(bool enabled) { data.add_particles_enabled = enabled; }
 
     // =================================================================
     // WORLDINTERFACE IMPLEMENTATION - MATERIAL ADDITION
@@ -114,20 +104,14 @@ public:
     // WORLDINTERFACE IMPLEMENTATION - PHYSICS PARAMETERS
     // =================================================================
 
-    void setGravity(double g) { data.gravity = g; }
-    double getGravity() const { return data.gravity; }
     Vector2d getGravityVector() const { return Vector2d{0.0, data.gravity}; }
-    void setElasticityFactor(double e) { data.elasticity_factor = e; }
-    double getElasticityFactor() const { return data.elasticity_factor; }
-    void setPressureScale(double scale) { data.pressure_scale = scale; }
-    double getPressureScale() const { return data.pressure_scale; }
     void setDirtFragmentationFactor(double /* factor */) { /* no-op for World */ }
 
     // =================================================================
     // WORLDINTERFACE IMPLEMENTATION - WATER PHYSICS (SIMPLIFIED)
     // =================================================================
 
-    void setWaterPressureThreshold(double threshold) 
+    void setWaterPressureThreshold(double threshold)
     {
         water_pressure_threshold_ = threshold;
     }
@@ -148,7 +132,7 @@ public:
     void setDynamicPressureEnabled(bool enabled);
     bool isDynamicPressureEnabled() const { return dynamic_pressure_strength_ > 0.0; }
 
-    void setPressureDiffusionEnabled(bool enabled) 
+    void setPressureDiffusionEnabled(bool enabled)
     {
         pressure_diffusion_enabled_ = enabled;
     }
@@ -195,41 +179,41 @@ public:
     bool isDebugDrawEnabled() const { return data.debug_draw_enabled; }
 
     // WORLDINTERFACE IMPLEMENTATION - COHESION PHYSICS CONTROL
-    void setCohesionBindForceEnabled(bool enabled) 
+    void setCohesionBindForceEnabled(bool enabled)
     {
         cohesion_bind_force_enabled_ = enabled;
     }
     bool isCohesionBindForceEnabled() const { return cohesion_bind_force_enabled_; }
 
-    void setCohesionComForceEnabled(bool enabled) 
+    void setCohesionComForceEnabled(bool enabled)
     {
         // Backward compatibility: set strength to 0 (disabled) or default (enabled).
         cohesion_com_force_strength_ = enabled ? 150.0 : 0.0;
     }
     bool isCohesionComForceEnabled() const { return cohesion_com_force_strength_ > 0.0; }
 
-    void setCohesionComForceStrength(double strength) 
+    void setCohesionComForceStrength(double strength)
     {
         cohesion_com_force_strength_ = strength;
     }
     double getCohesionComForceStrength() const { return cohesion_com_force_strength_; }
 
-    void setAdhesionStrength(double strength) 
+    void setAdhesionStrength(double strength)
     {
         adhesion_calculator_.setAdhesionStrength(strength);
     }
-    double getAdhesionStrength() const 
+    double getAdhesionStrength() const
     {
         return adhesion_calculator_.getAdhesionStrength();
     }
 
-    void setAdhesionEnabled(bool enabled) 
+    void setAdhesionEnabled(bool enabled)
     {
         adhesion_calculator_.setAdhesionEnabled(enabled);
     }
     bool isAdhesionEnabled() const { return adhesion_calculator_.isAdhesionEnabled(); }
 
-    void setCohesionBindForceStrength(double strength) 
+    void setCohesionBindForceStrength(double strength)
     {
         cohesion_bind_force_strength_ = strength;
     }
@@ -367,6 +351,9 @@ public:
     void spawnMaterialBall(MaterialType type, uint32_t x, uint32_t y, uint32_t radius) {
         (void)type; (void)x; (void)y; (void)radius;
     }
+
+    // World state data - public source of truth for all serializable state.
+    WorldData data;
 
 protected:
     // WorldInterface hook implementations
