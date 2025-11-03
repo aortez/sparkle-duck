@@ -17,7 +17,7 @@ ControlPanel::ControlPanel(lv_obj_t* container, WebSocketClient* wsClient)
 
     // Create left-side panel container for controls.
     panelContainer_ = lv_obj_create(container_);
-    lv_obj_set_size(panelContainer_, 200, LV_PCT(100));  // 200px wide, full height.
+    lv_obj_set_size(panelContainer_, 260, LV_PCT(100));  // 260px wide (30% wider), full height.
     lv_obj_align(panelContainer_, LV_ALIGN_LEFT_MID, 0, 0);
     lv_obj_set_flex_flow(panelContainer_, LV_FLEX_FLOW_COLUMN);  // Stack controls vertically.
     lv_obj_set_flex_align(panelContainer_, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);

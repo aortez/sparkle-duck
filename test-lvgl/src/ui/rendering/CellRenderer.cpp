@@ -44,8 +44,8 @@ void CellRenderer::initialize(lv_obj_t* parent, uint32_t worldWidth, uint32_t wo
     width_ = worldWidth;
     height_ = worldHeight;
 
-    // Offset grid to the right of control panel (200px wide).
-    constexpr int32_t CONTROL_PANEL_WIDTH = 200;
+    // Offset grid to the right of control panel (260px wide).
+    constexpr int32_t CONTROL_PANEL_WIDTH = 260;
 
     // Create canvas grid for each cell.
     canvases_.resize(worldHeight);
