@@ -22,11 +22,8 @@ class World;
  */
 class WorldAirResistanceCalculator : public WorldCalculatorBase {
 public:
-    /**
-     * @brief Constructor takes a World for accessing world data.
-     * @param world World providing access to grid and cells.
-     */
-    explicit WorldAirResistanceCalculator(const World& world);
+    // Default constructor - calculator is stateless.
+    WorldAirResistanceCalculator() = default;
 
     /**
      * @brief Default air resistance scaling factor.
@@ -37,13 +34,14 @@ public:
 
     /**
      * @brief Calculate air resistance force for a cell.
+     * @param world World providing access to grid and cells.
      * @param x Column coordinate.
      * @param y Row coordinate.
      * @param strength Air resistance strength multiplier (optional, uses default if not provided).
      * @return Air resistance force vector opposing motion.
      */
     Vector2d calculateAirResistance(
-        uint32_t x, uint32_t y, double strength = DEFAULT_AIR_RESISTANCE_SCALAR) const;
+        const World& world, uint32_t x, uint32_t y, double strength = DEFAULT_AIR_RESISTANCE_SCALAR) const;
 };
 
 } // namespace DirtSim

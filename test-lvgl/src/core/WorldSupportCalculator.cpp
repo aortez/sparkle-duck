@@ -12,24 +12,21 @@
 
 using namespace DirtSim;
 
-WorldSupportCalculator::WorldSupportCalculator(const World& world) : WorldCalculatorBase(world)
-{}
-
-bool WorldSupportCalculator::hasVerticalSupport(uint32_t x, uint32_t y) const
+bool WorldSupportCalculator::hasVerticalSupport(const World& world, uint32_t x, uint32_t y) const
 {
-    if (!isValidCell(static_cast<int>(x), static_cast<int>(y))) {
+    if (!isValidCell(world, static_cast<int>(x), static_cast<int>(y))) {
         spdlog::trace("hasVerticalSupport({},{}) = false (invalid cell)", x, y);
         return false;
     }
 
-    const Cell& cell = getCellAt(x, y);
+    const Cell& cell = getCellAt(world, x, y);
     if (cell.isEmpty()) {
         spdlog::trace("hasVerticalSupport({},{}) = false (empty cell)", x, y);
         return false;
     }
 
     // Check if already at ground level.
-    if (y == world_.getHeight() - 1) {
+    if (y == world.getHeight() - 1) {
         spdlog::trace("hasVerticalSupport({},{}) = true (at ground level)", x, y);
         return true;
     }
@@ -39,7 +36,7 @@ bool WorldSupportCalculator::hasVerticalSupport(uint32_t x, uint32_t y) const
         uint32_t support_y = y + dy;
 
         // If we reach beyond the world boundary, no material support available.
-        if (support_y >= world_.getHeight()) {
+        if (support_y >= world.getHeight()) {
             spdlog::info(
                 "hasVerticalSupport({},{}) = false (reached world boundary at distance {}, no "
                 "material below)",
@@ -49,10 +46,10 @@ bool WorldSupportCalculator::hasVerticalSupport(uint32_t x, uint32_t y) const
             break;
         }
 
-        const Cell& below = getCellAt(x, support_y);
+        const Cell& below = getCellAt(world, x, support_y);
         if (!below.isEmpty()) {
             // RECURSIVE SUPPORT CHECK: Supporting block must itself be supported.
-            bool supporting_block_supported = hasVerticalSupport(x, support_y);
+            bool supporting_block_supported = hasVerticalSupport(world, x, support_y);
             if (supporting_block_supported) {
                 spdlog::trace(
                     "hasVerticalSupport({},{}) = true (material {} below at distance {} is itself "
@@ -94,14 +91,14 @@ bool WorldSupportCalculator::hasVerticalSupport(uint32_t x, uint32_t y) const
     return false;
 }
 
-bool WorldSupportCalculator::hasHorizontalSupport(uint32_t x, uint32_t y) const
+bool WorldSupportCalculator::hasHorizontalSupport(const World& world, uint32_t x, uint32_t y) const
 {
-    if (!isValidCell(static_cast<int>(x), static_cast<int>(y))) {
+    if (!isValidCell(world, static_cast<int>(x), static_cast<int>(y))) {
         spdlog::trace("hasHorizontalSupport({},{}) = false (invalid cell)", x, y);
         return false;
     }
 
-    const Cell& cell = getCellAt(x, y);
+    const Cell& cell = getCellAt(world, x, y);
     if (cell.isEmpty()) {
         spdlog::trace("hasHorizontalSupport({},{}) = false (empty cell)", x, y);
         return false;
@@ -117,9 +114,9 @@ bool WorldSupportCalculator::hasHorizontalSupport(uint32_t x, uint32_t y) const
             int nx = static_cast<int>(x) + dx;
             int ny = static_cast<int>(y) + dy;
 
-            if (!isValidCell(nx, ny)) continue;
+            if (!isValidCell(world, nx, ny)) continue;
 
-            const Cell& neighbor = getCellAt(nx, ny);
+            const Cell& neighbor = getCellAt(world, nx, ny);
             if (neighbor.isEmpty()) continue;
 
             const MaterialProperties& neighbor_props =
@@ -149,14 +146,14 @@ bool WorldSupportCalculator::hasHorizontalSupport(uint32_t x, uint32_t y) const
     return false;
 }
 
-bool WorldSupportCalculator::hasStructuralSupport(uint32_t x, uint32_t y) const
+bool WorldSupportCalculator::hasStructuralSupport(const World& world, uint32_t x, uint32_t y) const
 {
-    //    if (!isValidCell(static_cast<int>(x), static_cast<int>(y))) {
+    //    if (!isValidCell(world, static_cast<int>(x), static_cast<int>(y))) {
     //        spdlog::error("hasStructuralSupport({},{}) = false (invalid cell)", x, y);
     //        return false;
     //    }
 
-    const Cell& cell = getCellAt(x, y);
+    const Cell& cell = getCellAt(world, x, y);
 
     // Empty cells provide no support.
     if (cell.isEmpty()) {
@@ -171,7 +168,7 @@ bool WorldSupportCalculator::hasStructuralSupport(uint32_t x, uint32_t y) const
     }
 
     // 2. Bottom edge of world (ground) provides support.
-    if (y == world_.getHeight() - 1) {
+    if (y == world.getHeight() - 1) {
         return true;
     }
 
@@ -207,12 +204,12 @@ bool WorldSupportCalculator::hasStructuralSupport(uint32_t x, uint32_t y) const
                 int nx = pos.x + dx;
                 int ny = pos.y + dy;
 
-                if (!isValidCell(nx, ny) || visited.count({ nx, ny })) {
+                if (!isValidCell(world, nx, ny) || visited.count({ nx, ny })) {
                     continue;
                 }
 
                 visited.insert({ nx, ny });
-                const Cell& neighbor = getCellAt(nx, ny);
+                const Cell& neighbor = getCellAt(world, nx, ny);
 
                 // Skip empty cells.
                 if (neighbor.isEmpty()) {
@@ -231,7 +228,7 @@ bool WorldSupportCalculator::hasStructuralSupport(uint32_t x, uint32_t y) const
                     // Fluids adjacent to walls are NOT structurally supported.
                 }
                 // Ground level provides support to all materials.
-                else if (ny == static_cast<int>(world_.getHeight()) - 1) {
+                else if (ny == static_cast<int>(world.getHeight()) - 1) {
                     return true;
                 }
 
@@ -266,10 +263,10 @@ bool WorldSupportCalculator::hasStructuralSupport(uint32_t x, uint32_t y) const
     return false;
 }
 
-double WorldSupportCalculator::calculateDistanceToSupport(uint32_t x, uint32_t y) const
+double WorldSupportCalculator::calculateDistanceToSupport(const World& world, uint32_t x, uint32_t y) const
 {
     spdlog::info("calculateDistanceToSupport({},{}) called", x, y);
-    const Cell& cell = getCellAt(x, y);
+    const Cell& cell = getCellAt(world, x, y);
     if (cell.isEmpty()) {
         spdlog::info(
             "calculateDistanceToSupport({},{}) = {} (empty cell)", x, y, MAX_SUPPORT_DISTANCE);
@@ -280,7 +277,7 @@ double WorldSupportCalculator::calculateDistanceToSupport(uint32_t x, uint32_t y
 
     // Use simpler 2D array for distance tracking (avoid Vector2i comparisons)
     std::vector<std::vector<int>> distances(
-        world_.getWidth(), std::vector<int>(world_.getHeight(), -1));
+        world.getWidth(), std::vector<int>(world.getHeight(), -1));
     std::queue<std::pair<uint32_t, uint32_t>> queue;
 
     queue.push({ x, y });
@@ -299,7 +296,7 @@ double WorldSupportCalculator::calculateDistanceToSupport(uint32_t x, uint32_t y
         uint32_t cy = current.second;
 
         // Check if current position has structural support.
-        if (hasStructuralSupport(cx, cy)) {
+        if (hasStructuralSupport(world, cx, cy)) {
             int distance = distances[cx][cy];
             spdlog::trace("Support found for material at ({},{}) - distance: {}", x, y, distance);
             return static_cast<double>(distance);
@@ -315,11 +312,11 @@ double WorldSupportCalculator::calculateDistanceToSupport(uint32_t x, uint32_t y
             int nx = static_cast<int>(cx) + dir.first;
             int ny = static_cast<int>(cy) + dir.second;
 
-            if (nx >= 0 && ny >= 0 && nx < static_cast<int>(world_.getWidth())
-                && ny < static_cast<int>(world_.getHeight())
+            if (nx >= 0 && ny >= 0 && nx < static_cast<int>(world.getWidth())
+                && ny < static_cast<int>(world.getHeight())
                 && distances[nx][ny] == -1) { // Not visited.
 
-                const Cell& nextCell = getCellAt(nx, ny);
+                const Cell& nextCell = getCellAt(world, nx, ny);
 
                 // Follow paths through connected material.
                 // Either same material, or structural support material (metal, walls)
@@ -328,7 +325,7 @@ double WorldSupportCalculator::calculateDistanceToSupport(uint32_t x, uint32_t y
                     && nextCell.fill_ratio > MIN_MATTER_THRESHOLD) {
                     canConnect = true; // Same material connection.
                 }
-                else if (!nextCell.isEmpty() && hasStructuralSupport(nx, ny)) {
+                else if (!nextCell.isEmpty() && hasStructuralSupport(world, nx, ny)) {
                     canConnect = true; // Structural support connection (metal, walls, etc.)
                 }
 

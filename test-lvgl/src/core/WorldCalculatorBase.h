@@ -21,19 +21,8 @@ class World;
  */
 class WorldCalculatorBase {
 public:
-    /**
-     * @brief Constructor takes a World for accessing world data.
-     * @param world World providing access to grid and cells
-     */
-    explicit WorldCalculatorBase(const World& world);
-
-    // Disable copy construction and assignment.
-    WorldCalculatorBase(const WorldCalculatorBase&) = delete;
-    WorldCalculatorBase& operator=(const WorldCalculatorBase&) = delete;
-
-    // Allow move construction and assignment.
-    WorldCalculatorBase(WorldCalculatorBase&&) = default;
-    WorldCalculatorBase& operator=(WorldCalculatorBase&&) = default;
+    // Default constructor - calculators are now stateless.
+    WorldCalculatorBase() = default;
 
     // Virtual destructor for proper cleanup.
     virtual ~WorldCalculatorBase() = default;
@@ -42,24 +31,23 @@ public:
     static constexpr double MIN_MATTER_THRESHOLD = 0.001; // Minimum matter to process.
 
 protected:
-    // Reference to the world for accessing grid data.
-    const World& world_;
-
     /**
      * @brief Get cell at specific coordinates.
+     * @param world World providing access to grid and cells
      * @param x Column coordinate
      * @param y Row coordinate
      * @return Reference to cell at (x,y)
      */
-    const Cell& getCellAt(uint32_t x, uint32_t y) const;
+    static const Cell& getCellAt(const World& world, uint32_t x, uint32_t y);
 
     /**
      * @brief Check if coordinates are valid for the grid.
+     * @param world World providing access to grid dimensions
      * @param x Column coordinate
      * @param y Row coordinate
      * @return true if coordinates are within bounds
      */
-    bool isValidCell(int x, int y) const;
+    static bool isValidCell(const World& world, int x, int y);
 };
 
 } // namespace DirtSim

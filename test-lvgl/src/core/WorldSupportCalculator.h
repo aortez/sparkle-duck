@@ -26,11 +26,8 @@ class World;
  */
 class WorldSupportCalculator : public WorldCalculatorBase {
 public:
-    /**
-     * @brief Constructor takes a World for accessing world data.
-     * @param world World providing access to grid and cells.
-     */
-    explicit WorldSupportCalculator(const World& world);
+    // Default constructor - calculator is stateless.
+    WorldSupportCalculator() = default;
 
     // Support-specific constants.
     static constexpr uint32_t MAX_VERTICAL_SUPPORT_DISTANCE =
@@ -45,11 +42,12 @@ public:
      * Determines if a cell has vertical support by checking for continuous material
      * below up to MAX_VERTICAL_SUPPORT_DISTANCE with recursive validation.
      *
+     * @param world World providing access to grid and cells.
      * @param x Cell X coordinate.
      * @param y Cell Y coordinate.
      * @return true if cell has vertical support.
      */
-    bool hasVerticalSupport(uint32_t x, uint32_t y) const;
+    bool hasVerticalSupport(const World& world, uint32_t x, uint32_t y) const;
 
     /**
      * @brief Check if cell has horizontal structural support.
@@ -57,11 +55,12 @@ public:
      * Determines if a cell has horizontal support by checking immediate neighbors
      * for rigid materials with strong mutual adhesion.
      *
+     * @param world World providing access to grid and cells.
      * @param x Cell X coordinate.
      * @param y Cell Y coordinate.
      * @return true if cell has horizontal support.
      */
-    bool hasHorizontalSupport(uint32_t x, uint32_t y) const;
+    bool hasHorizontalSupport(const World& world, uint32_t x, uint32_t y) const;
 
     /**
      * @brief Check if a position has structural support.
@@ -69,11 +68,12 @@ public:
      * Determines overall structural support by checking both vertical and horizontal
      * support systems. Used for determining material stability.
      *
+     * @param world World providing access to grid and cells.
      * @param x Cell X coordinate.
      * @param y Cell Y coordinate.
      * @return true if cell has any form of structural support.
      */
-    bool hasStructuralSupport(uint32_t x, uint32_t y) const;
+    bool hasStructuralSupport(const World& world, uint32_t x, uint32_t y) const;
 
     /**
      * @brief Calculate distance to structural support.
@@ -82,11 +82,12 @@ public:
      * used for cohesion decay calculations. Implements BFS to find nearest
      * supported material.
      *
+     * @param world World providing access to grid and cells.
      * @param x Cell X coordinate.
      * @param y Cell Y coordinate.
      * @return Distance to nearest structural support (higher = less stable).
      */
-    double calculateDistanceToSupport(uint32_t x, uint32_t y) const;
+    double calculateDistanceToSupport(const World& world, uint32_t x, uint32_t y) const;
 
 private:
     // No additional private members needed.

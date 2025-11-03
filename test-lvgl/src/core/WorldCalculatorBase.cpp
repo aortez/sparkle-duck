@@ -4,17 +4,13 @@
 
 using namespace DirtSim;
 
-WorldCalculatorBase::WorldCalculatorBase(const World& world) : world_(world)
-{}
-
-const Cell& WorldCalculatorBase::getCellAt(uint32_t x, uint32_t y) const
+const Cell& WorldCalculatorBase::getCellAt(const World& world, uint32_t x, uint32_t y)
 {
-    // Direct access to Cell through World.
-    return world_.at(x, y);
+    return world.at(x, y);
 }
 
-bool WorldCalculatorBase::isValidCell(int x, int y) const
+bool WorldCalculatorBase::isValidCell(const World& world, int x, int y)
 {
-    return x >= 0 && y >= 0 && static_cast<uint32_t>(x) < world_.getWidth()
-        && static_cast<uint32_t>(y) < world_.getHeight();
+    return x >= 0 && y >= 0 && static_cast<uint32_t>(x) < world.getWidth()
+        && static_cast<uint32_t>(y) < world.getHeight();
 }

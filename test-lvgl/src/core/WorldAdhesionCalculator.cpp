@@ -5,14 +5,10 @@
 
 using namespace DirtSim;
 
-WorldAdhesionCalculator::WorldAdhesionCalculator(const World& world)
-    : WorldCalculatorBase(world)
-{}
-
 WorldAdhesionCalculator::AdhesionForce WorldAdhesionCalculator::calculateAdhesionForce(
-    uint32_t x, uint32_t y) const
+    const World& world, uint32_t x, uint32_t y) const
 {
-    const Cell& cell = getCellAt(x, y);
+    const Cell& cell = getCellAt(world, x, y);
     if (cell.isEmpty()) {
         return { { 0.0, 0.0 }, 0.0, MaterialType::AIR, 0 };
     }
@@ -31,8 +27,8 @@ WorldAdhesionCalculator::AdhesionForce WorldAdhesionCalculator::calculateAdhesio
             int nx = static_cast<int>(x) + dx;
             int ny = static_cast<int>(y) + dy;
 
-            if (isValidCell(nx, ny)) {
-                const Cell& neighbor = getCellAt(nx, ny);
+            if (isValidCell(world, nx, ny)) {
+                const Cell& neighbor = getCellAt(world, nx, ny);
 
                 if (neighbor.material_type != cell.material_type
                     && neighbor.fill_ratio > MIN_MATTER_THRESHOLD) {

@@ -27,11 +27,11 @@ public:
         uint32_t contact_points;      // Number of contact interfaces.
     };
 
-    // Constructor.
-    explicit WorldAdhesionCalculator(const World& world);
+    // Default constructor - calculator is stateless.
+    WorldAdhesionCalculator() = default;
 
     // Main calculation method.
-    AdhesionForce calculateAdhesionForce(uint32_t x, uint32_t y) const;
+    AdhesionForce calculateAdhesionForce(const World& world, uint32_t x, uint32_t y) const;
 
     // Adhesion parameters.
     void setAdhesionEnabled(bool enabled) {

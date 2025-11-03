@@ -9,15 +9,10 @@
 
 using namespace DirtSim;
 
-WorldCohesionCalculator::WorldCohesionCalculator(const World& world)
-    : WorldCalculatorBase(world),
-      support_calculator_(std::make_unique<WorldSupportCalculator>(world))
-{}
-
 WorldCohesionCalculator::CohesionForce WorldCohesionCalculator::calculateCohesionForce(
-    uint32_t x, uint32_t y) const
+    const World& world, uint32_t x, uint32_t y) const
 {
-    const Cell& cell = getCellAt(x, y);
+    const Cell& cell = getCellAt(world, x, y);
     if (cell.isEmpty()) {
         return { 0.0, 0 };
     }
@@ -34,8 +29,8 @@ WorldCohesionCalculator::CohesionForce WorldCohesionCalculator::calculateCohesio
             int nx = static_cast<int>(x) + dx;
             int ny = static_cast<int>(y) + dy;
 
-            if (isValidCell(nx, ny)) {
-                const Cell& neighbor = getCellAt(nx, ny);
+            if (isValidCell(world, nx, ny)) {
+                const Cell& neighbor = getCellAt(world, nx, ny);
                 if (neighbor.material_type == cell.material_type
                     && neighbor.fill_ratio > MIN_MATTER_THRESHOLD) {
 
@@ -57,8 +52,8 @@ WorldCohesionCalculator::CohesionForce WorldCohesionCalculator::calculateCohesio
                 int nx = static_cast<int>(x) + dx;
                 int ny = static_cast<int>(y) + dy;
 
-                if (isValidCell(nx, ny)) {
-                    const Cell& neighbor = getCellAt(nx, ny);
+                if (isValidCell(world, nx, ny)) {
+                    const Cell& neighbor = getCellAt(world, nx, ny);
                     if (neighbor.material_type == MaterialType::METAL
                         && neighbor.fill_ratio > 0.5) {
                         metal_neighbors++;
@@ -69,8 +64,9 @@ WorldCohesionCalculator::CohesionForce WorldCohesionCalculator::calculateCohesio
     }
 
     // Use directional support for realistic physics.
-    bool has_vertical = support_calculator_->hasVerticalSupport(x, y);
-    bool has_horizontal = support_calculator_->hasHorizontalSupport(x, y);
+    WorldSupportCalculator support_calc;
+    bool has_vertical = support_calc.hasVerticalSupport(world, x, y);
+    bool has_horizontal = support_calc.hasHorizontalSupport(world, x, y);
 
     // Calculate support factor based on directional support.
     double support_factor;
@@ -134,9 +130,9 @@ WorldCohesionCalculator::CohesionForce WorldCohesionCalculator::calculateCohesio
 }
 
 WorldCohesionCalculator::COMCohesionForce WorldCohesionCalculator::calculateCOMCohesionForce(
-    uint32_t x, uint32_t y, uint32_t com_cohesion_range) const
+    const World& world, uint32_t x, uint32_t y, uint32_t com_cohesion_range) const
 {
-    const Cell& cell = getCellAt(x, y);
+    const Cell& cell = getCellAt(world, x, y);
     if (cell.isEmpty()) {
         return { { 0.0, 0.0 }, 0.0, { 0.0, 0.0 }, 0, 0.0, 0.0, false };
     }
@@ -167,8 +163,8 @@ WorldCohesionCalculator::COMCohesionForce WorldCohesionCalculator::calculateCOMC
             int nx = static_cast<int>(x) + dx;
             int ny = static_cast<int>(y) + dy;
 
-            if (isValidCell(nx, ny)) {
-                const Cell& neighbor = getCellAt(nx, ny);
+            if (isValidCell(world, nx, ny)) {
+                const Cell& neighbor = getCellAt(world, nx, ny);
                 if (neighbor.material_type == cell.material_type
                     && neighbor.fill_ratio > MIN_MATTER_THRESHOLD) {
 

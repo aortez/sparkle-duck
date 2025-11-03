@@ -6,35 +6,31 @@
 
 using namespace DirtSim;
 
-WorldFrictionCalculator::WorldFrictionCalculator(const World& world)
-    : WorldCalculatorBase(world)
-{}
-
-void WorldFrictionCalculator::calculateAndApplyFrictionForces(double /* deltaTime */)
+void WorldFrictionCalculator::calculateAndApplyFrictionForces(World& world, double /* deltaTime */)
 {
     if (friction_strength_ <= 0.0) {
         return;
     }
 
     // Detect all contact interfaces and calculate their properties.
-    std::vector<ContactInterface> contacts = detectContactInterfaces();
+    std::vector<ContactInterface> contacts = detectContactInterfaces(world);
 
     // Apply friction forces to cells.
-    applyFrictionForces(contacts);
+    applyFrictionForces(world, contacts);
 }
 
 std::vector<WorldFrictionCalculator::ContactInterface>
-WorldFrictionCalculator::detectContactInterfaces() const
+WorldFrictionCalculator::detectContactInterfaces(const World& world) const
 {
     std::vector<ContactInterface> contacts;
 
-    const uint32_t width = world_.getWidth();
-    const uint32_t height = world_.getHeight();
+    const uint32_t width = world.getWidth();
+    const uint32_t height = world.getHeight();
 
     // Iterate over all cells.
     for (uint32_t y = 0; y < height; ++y) {
         for (uint32_t x = 0; x < width; ++x) {
-            const Cell& cellA = getCellAt(x, y);
+            const Cell& cellA = getCellAt(world, x, y);
 
             // Skip empty cells and walls.
             if (cellA.isEmpty() || cellA.isWall()) {
@@ -59,9 +55,9 @@ WorldFrictionCalculator::detectContactInterfaces() const
                     if (nx < static_cast<int>(x)) continue;
                     if (nx == static_cast<int>(x) && ny <= static_cast<int>(y)) continue;
 
-                    if (!isValidCell(nx, ny)) continue;
+                    if (!isValidCell(world, nx, ny)) continue;
 
-                    const Cell& cellB = getCellAt(nx, ny);
+                    const Cell& cellB = getCellAt(world, nx, ny);
 
                     // Skip if neighbor is empty or wall.
                     if (cellB.isEmpty() || cellB.isWall()) {
@@ -82,7 +78,7 @@ WorldFrictionCalculator::detectContactInterfaces() const
 
                     // Calculate normal force.
                     contact.normal_force = calculateNormalForce(
-                        cellA, cellB, contact.cell_A_pos, contact.cell_B_pos, contact.interface_normal);
+                        world, cellA, cellB, contact.cell_A_pos, contact.cell_B_pos, contact.interface_normal);
 
                     // Skip if normal force is too small.
                     if (contact.normal_force < MIN_NORMAL_FORCE) {
@@ -119,6 +115,7 @@ WorldFrictionCalculator::detectContactInterfaces() const
 }
 
 double WorldFrictionCalculator::calculateNormalForce(
+    const World& world,
     const Cell& cellA,
     const Cell& cellB,
     const Vector2i& /* posA */,
@@ -140,7 +137,7 @@ double WorldFrictionCalculator::calculateNormalForce(
 
     // Source 2: Weight for vertical contacts.
     // If B is below A (interface normal points downward), weight of A creates normal force.
-    double gravity_magnitude = world_.getGravity();
+    double gravity_magnitude = world.getGravity();
 
     if (interface_normal.y > 0.5) {  // B is below A (normal points down).
         double massA = cellA.getMass();
@@ -202,11 +199,8 @@ Vector2d WorldFrictionCalculator::calculateTangentialVelocity(
     return tangential_velocity;
 }
 
-void WorldFrictionCalculator::applyFrictionForces(const std::vector<ContactInterface>& contacts)
+void WorldFrictionCalculator::applyFrictionForces(World& world, const std::vector<ContactInterface>& contacts)
 {
-    // Get mutable access to world (const_cast is safe here as we're in a non-const method).
-    World& world = const_cast<World&>(world_);
-
     for (const ContactInterface& contact : contacts) {
         // Calculate friction force magnitude.
         double friction_force_magnitude = contact.friction_coefficient * contact.normal_force * friction_strength_;

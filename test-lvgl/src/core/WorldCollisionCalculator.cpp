@@ -10,9 +10,6 @@
 
 using namespace DirtSim;
 
-WorldCollisionCalculator::WorldCollisionCalculator(World& world)
-    : WorldCalculatorBase(world), world_(world)
-{}
 
 // =================================================================
 // COLLISION DETECTION.
@@ -33,6 +30,7 @@ std::vector<Vector2i> WorldCollisionCalculator::getAllBoundaryCrossings(
 }
 
 MaterialMove WorldCollisionCalculator::createCollisionAwareMove(
+    const World& world,
     const Cell& fromCell,
     const Cell& toCell,
     const Vector2i& fromPos,
@@ -61,10 +59,10 @@ MaterialMove WorldCollisionCalculator::createCollisionAwareMove(
     double excess = wants_to_transfer - move.amount;
     move.pressure_from_excess = 0.0; // Initialize.
 
-    if (excess > MIN_MATTER_THRESHOLD && world_.isDynamicPressureEnabled()) {
+    if (excess > MIN_MATTER_THRESHOLD && world.isDynamicPressureEnabled()) {
         double blocked_mass = excess * getMaterialDensity(fromCell.material_type);
         double energy = fromCell.velocity.magnitude() * blocked_mass;
-        double dynamic_strength = world_.getDynamicPressureStrength();
+        double dynamic_strength = world.getDynamicPressureStrength();
         double pressure_increase =
             energy * 0.1 * dynamic_strength; // Apply dynamic pressure strength.
 
@@ -226,13 +224,13 @@ double WorldCollisionCalculator::calculateMaterialMass(const Cell& cell) const
 }
 
 bool WorldCollisionCalculator::checkFloatingParticleCollision(
-    int cellX, int cellY, const Cell& floating_particle) const
+    const World& world, int cellX, int cellY, const Cell& floating_particle) const
 {
-    if (!isValidCell(cellX, cellY)) {
+    if (!isValidCell(world, cellX, cellY)) {
         return false;
     }
 
-    const Cell& targetCell = getCellAt(cellX, cellY);
+    const Cell& targetCell = getCellAt(world, cellX, cellY);
 
     // Check if there's material to collide with.
     if (!targetCell.isEmpty()) {
@@ -262,7 +260,7 @@ bool WorldCollisionCalculator::checkFloatingParticleCollision(
 // =================================================================
 
 void WorldCollisionCalculator::handleTransferMove(
-    Cell& fromCell, Cell& toCell, const MaterialMove& move)
+    World& world, Cell& fromCell, Cell& toCell, const MaterialMove& move)
 {
     // Log pre-transfer state.
     spdlog::debug(
@@ -326,7 +324,7 @@ void WorldCollisionCalculator::handleTransferMove(
             transfer_deficit);
 
         // Queue blocked transfer for dynamic pressure accumulation.
-        if (world_.isDynamicPressureEnabled()) {
+        if (world.isDynamicPressureEnabled()) {
             // Calculate energy with proper mass consideration.
             double material_density = getMaterialDensity(move.material);
             double blocked_mass = transfer_deficit * material_density;
@@ -341,7 +339,7 @@ void WorldCollisionCalculator::handleTransferMove(
                 fromCell.velocity.magnitude(),
                 energy);
 
-            world_.getPressureCalculator().queueBlockedTransfer(
+            world.getPressureCalculator().queueBlockedTransfer(
                 { move.fromX,
                   move.fromY,
                   move.toX,
@@ -475,7 +473,7 @@ void WorldCollisionCalculator::handleElasticCollision(
 }
 
 void WorldCollisionCalculator::handleInelasticCollision(
-    Cell& fromCell, Cell& toCell, const MaterialMove& move)
+    World& world, Cell& fromCell, Cell& toCell, const MaterialMove& move)
 {
     // Physics-correct component-based collision handling.
     Vector2d incident_velocity = move.momentum;
@@ -530,11 +528,11 @@ void WorldCollisionCalculator::handleInelasticCollision(
         transfer_deficit);
     spdlog::debug(
         "Dynamic pressure enabled: {}, deficit > threshold: {} (threshold={:.6f})",
-        world_.isDynamicPressureEnabled(),
+        world.isDynamicPressureEnabled(),
         transfer_deficit > MIN_MATTER_THRESHOLD,
         MIN_MATTER_THRESHOLD);
 
-    if (transfer_deficit > MIN_MATTER_THRESHOLD && world_.isDynamicPressureEnabled()) {
+    if (transfer_deficit > MIN_MATTER_THRESHOLD && world.isDynamicPressureEnabled()) {
         spdlog::debug(
             "🚫 Inelastic collision blocked transfer: requested={:.3f}, transferred={:.3f}, "
             "deficit={:.3f}",
@@ -557,7 +555,7 @@ void WorldCollisionCalculator::handleInelasticCollision(
             fromCell.velocity.magnitude(),
             energy);
 
-        world_.getPressureCalculator().queueBlockedTransfer({ move.fromX,
+        world.getPressureCalculator().queueBlockedTransfer({ move.fromX,
                                                               move.fromY,
                                                               move.toX,
                                                               move.toY,
@@ -574,7 +572,7 @@ void WorldCollisionCalculator::handleInelasticCollision(
         actual_transfer);
 }
 
-void WorldCollisionCalculator::handleFragmentation(
+void WorldCollisionCalculator::handleFragmentation(World& world, 
     Cell& fromCell, Cell& toCell, const MaterialMove& move)
 {
     // TODO: Implement fragmentation mechanics.
@@ -585,33 +583,34 @@ void WorldCollisionCalculator::handleFragmentation(
         move.fromX,
         move.fromY);
 
-    handleInelasticCollision(fromCell, toCell, move);
+    handleInelasticCollision(world, fromCell, toCell, move);
 }
 
-void WorldCollisionCalculator::handleAbsorption(
+void WorldCollisionCalculator::handleAbsorption(World& world, 
     Cell& fromCell, Cell& toCell, const MaterialMove& move)
 {
     // One material absorbs the other - implement absorption logic.
     if (move.material == MaterialType::WATER && toCell.material_type == MaterialType::DIRT) {
         // Water absorbed by dirt - transfer all water.
-        handleTransferMove(fromCell, toCell, move);
+        handleTransferMove(world, fromCell, toCell, move);
         spdlog::trace("Absorption: WATER absorbed by DIRT at ({},{})", move.toX, move.toY);
     }
     else if (
         move.material == MaterialType::DIRT && toCell.material_type == MaterialType::WATER) {
         // Dirt falls into water - mix materials.
-        handleTransferMove(fromCell, toCell, move);
+        handleTransferMove(world, fromCell, toCell, move);
         spdlog::trace("Absorption: DIRT mixed with WATER at ({},{})", move.toX, move.toY);
     }
     else {
         // Default to regular transfer.
-        handleTransferMove(fromCell, toCell, move);
+        handleTransferMove(world, fromCell, toCell, move);
     }
 }
 
 void WorldCollisionCalculator::handleFloatingParticleCollision(
-    int cellX, int cellY, const Cell& floating_particle, Cell& targetCell)
+    World& world, int cellX, int cellY, const Cell& floating_particle, Cell& targetCell)
 {
+    (void)world; // Unused for now.
     Vector2d particleVelocity = floating_particle.velocity;
 
     spdlog::info(

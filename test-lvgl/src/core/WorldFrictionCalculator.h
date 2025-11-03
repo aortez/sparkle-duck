@@ -24,11 +24,8 @@ class World;
  */
 class WorldFrictionCalculator : public WorldCalculatorBase {
 public:
-    /**
-     * @brief Constructor takes a World for accessing world data.
-     * @param world World providing access to grid and cells.
-     */
-    explicit WorldFrictionCalculator(const World& world);
+    // Default constructor - calculator is stateless.
+    WorldFrictionCalculator() = default;
 
     /**
      * @brief Data structure representing a contact interface between two cells.
@@ -46,9 +43,10 @@ public:
 
     /**
      * @brief Calculate and apply friction forces for all contact interfaces.
+     * @param world World providing access to grid and cells (non-const for modifications).
      * @param deltaTime Time step for physics integration.
      */
-    void calculateAndApplyFrictionForces(double deltaTime);
+    void calculateAndApplyFrictionForces(World& world, double deltaTime);
 
     /**
      * @brief Set the global friction strength multiplier.
@@ -65,12 +63,14 @@ public:
 private:
     /**
      * @brief Detect all contact interfaces in the world.
+     * @param world World providing access to grid and cells.
      * @return Vector of contact interfaces with calculated properties.
      */
-    std::vector<ContactInterface> detectContactInterfaces() const;
+    std::vector<ContactInterface> detectContactInterfaces(const World& world) const;
 
     /**
      * @brief Calculate normal force for a contact interface.
+     * @param world World providing access to grid and cells.
      * @param cellA First cell in contact.
      * @param cellB Second cell in contact.
      * @param posA Position of first cell.
@@ -79,6 +79,7 @@ private:
      * @return Normal force magnitude.
      */
     double calculateNormalForce(
+        const World& world,
         const Cell& cellA,
         const Cell& cellB,
         const Vector2i& posA,
@@ -109,9 +110,10 @@ private:
 
     /**
      * @brief Apply friction forces to cells based on contact interfaces.
+     * @param world World providing access to grid and cells (non-const for modifications).
      * @param contacts Vector of contact interfaces with calculated properties.
      */
-    void applyFrictionForces(const std::vector<ContactInterface>& contacts);
+    void applyFrictionForces(World& world, const std::vector<ContactInterface>& contacts);
 
     // Configuration parameters.
     double friction_strength_ = 1.0;

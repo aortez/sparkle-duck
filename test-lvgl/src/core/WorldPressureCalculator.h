@@ -25,11 +25,9 @@ public:
      * @brief Enum for pressure gradient calculation directions.
      */
     enum class PressureGradientDirections { Four, Eight };
-    /**
-     * @brief Constructor takes a World for accessing and modifying world data.
-     * @param world World providing access to grid and cells (non-const for modifications).
-     */
-    explicit WorldPressureCalculator(World& world);
+
+    // Default constructor - calculator is stateless.
+    WorldPressureCalculator() = default;
 
     // Blocked transfer data for dynamic pressure accumulation.
     struct BlockedTransfer {
@@ -52,8 +50,10 @@ public:
      *
      * Implements slice-based calculation perpendicular to gravity direction.
      * Pressure accumulates based on material density and gravity magnitude.
+     *
+     * @param world World providing access to grid and cells (non-const for modifications).
      */
-    void calculateHydrostaticPressure();
+    void calculateHydrostaticPressure(World& world);
 
     /**
      * @brief Queue a blocked transfer for dynamic pressure accumulation.
@@ -63,12 +63,13 @@ public:
 
     /**
      * @brief Process blocked transfers and accumulate dynamic pressure.
+     * @param world World providing access to grid and cells (non-const for modifications).
      * @param blocked_transfers Vector of blocked transfers to process.
      *
      * Converts blocked kinetic energy into dynamic pressure at source cells.
      * Updates pressure gradients based on blocked transfer directions.
      */
-    void processBlockedTransfers(const std::vector<BlockedTransfer>& blocked_transfers);
+    void processBlockedTransfers(World& world, const std::vector<BlockedTransfer>& blocked_transfers);
 
     /**
      * @brief Get material-specific hydrostatic pressure sensitivity.
@@ -86,6 +87,7 @@ public:
 
     /**
      * @brief Calculate pressure gradient at a cell position.
+     * @param world World providing access to grid and cells.
      * @param x X coordinate of cell.
      * @param y Y coordinate of cell.
      * @return Pressure gradient vector pointing from high to low pressure.
@@ -93,10 +95,11 @@ public:
      * Calculates the pressure gradient by comparing total pressure (hydrostatic + dynamic)
      * with neighboring cells. The gradient points in the direction of decreasing pressure.
      */
-    Vector2d calculatePressureGradient(uint32_t x, uint32_t y) const;
+    Vector2d calculatePressureGradient(const World& world, uint32_t x, uint32_t y) const;
 
     /**
      * @brief Calculate expected gravity gradient at a cell position.
+     * @param world World providing access to grid and cells.
      * @param x X coordinate of cell.
      * @param y Y coordinate of cell.
      * @return Gravity gradient vector representing expected equilibrium pressure gradient.
@@ -104,10 +107,11 @@ public:
      * Calculates the expected pressure gradient due to gravity based on material density
      * differences with neighbors. In equilibrium, this should balance the pressure gradient.
      */
-    Vector2d calculateGravityGradient(uint32_t x, uint32_t y) const;
+    Vector2d calculateGravityGradient(const World& world, uint32_t x, uint32_t y) const;
 
     /**
      * @brief Generate virtual gravity transfers for pressure accumulation.
+     * @param world World providing access to grid and cells (non-const for modifications).
      * @param deltaTime Time step for the current frame.
      *
      * Creates virtual blocked transfers from gravity forces acting on material.
@@ -115,26 +119,28 @@ public:
      * If the downward path is blocked, this gravitational force converts to pressure.
      * This allows dynamic pressure to naturally model hydrostatic-like behavior.
      */
-    void generateVirtualGravityTransfers(double deltaTime);
+    void generateVirtualGravityTransfers(World& world, double deltaTime);
 
     /**
      * @brief Apply pressure decay to dynamic pressure values.
+     * @param world World providing access to grid and cells (non-const for modifications).
      * @param deltaTime Time step for the current frame.
      *
      * Decays dynamic pressure over time. Hydrostatic pressure does not decay.
      * This should be called after material moves are complete.
      */
-    void applyPressureDecay(double deltaTime);
+    void applyPressureDecay(World& world, double deltaTime);
 
     /**
      * @brief Apply pressure diffusion between neighboring cells.
+     * @param world World providing access to grid and cells (non-const for modifications).
      * @param deltaTime Time step for the current frame.
      *
      * Implements material-specific pressure propagation using 4-neighbor diffusion.
      * Pressure spreads from high to low pressure regions based on material
      * diffusion coefficients. Walls act as barriers with zero flux.
      */
-    void applyPressureDiffusion(double deltaTime);
+    void applyPressureDiffusion(World& world, double deltaTime);
 
     /**
      * @brief Calculate material-based reflection coefficient.
@@ -151,8 +157,6 @@ public:
     std::vector<BlockedTransfer> blocked_transfers_;
 
 private:
-    World& world_ref_; // Non-const reference for modifying cells.
-
     // Configuration for pressure gradient calculation.
     PressureGradientDirections gradient_directions_ = PressureGradientDirections::Eight;
 

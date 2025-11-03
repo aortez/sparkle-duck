@@ -1,4 +1,5 @@
 #include "World.h"
+#include "ReflectSerializer.h"
 #include "Cell.h"
 #include "ScopeTimer.h"
 #include "Vector2i.h"
@@ -25,22 +26,11 @@ World::World() : World(1, 1)
 {}
 
 World::World(uint32_t width, uint32_t height)
-    : width_(width),
-      height_(height),
-      timestep_(0),
-      timescale_(1.0),
-      removed_mass_(0.0),
-      gravity_(9.81),
-      elasticity_factor_(0.8),
-      pressure_scale_(1.0),
-      water_pressure_threshold_(0.0004),
+    : water_pressure_threshold_(0.0004),
       pressure_diffusion_enabled_(false),
       hydrostatic_pressure_strength_(0.0),
       dynamic_pressure_strength_(0.0),
-      add_particles_enabled_(true),
-      debug_draw_enabled_(true),
       cohesion_bind_force_enabled_(false),
-
       cohesion_com_force_strength_(0.0),
       cohesion_bind_force_strength_(1.0),
       com_cohesion_range_(1),
@@ -62,20 +52,24 @@ World::World(uint32_t width, uint32_t height)
       dragged_velocity_(0.0, 0.0),
       dragged_com_(0.0, 0.0),
       selected_material_(MaterialType::DIRT),
-      support_calculator_(*this),
-      pressure_calculator_(*this),
-      collision_calculator_(*this),
-      adhesion_calculator_(*this),
-      friction_calculator_(*this),
+      support_calculator_(),
+      pressure_calculator_(),
+      collision_calculator_(),
+      adhesion_calculator_(),
+      friction_calculator_(),
       worldEventGenerator_(nullptr)
 {
-    spdlog::info("Creating World: {}x{} grid with pure-material physics", width_, height_);
+    // Set dimensions (other WorldData members use defaults from struct declaration).
+    data.width = width;
+    data.height = height;
+
+    spdlog::info("Creating World: {}x{} grid with pure-material physics", data.width, data.height);
 
     // Initialize cell grid.
-    cells_.resize(width_ * height_);
+    data.cells.resize(data.width * data.height);
 
     // Initialize with air.
-    for (auto& cell : cells_) {
+    for (auto& cell : data.cells) {
         cell = Cell{MaterialType::AIR, 0.0};
     }
 
@@ -91,7 +85,7 @@ World::World(uint32_t width, uint32_t height)
 
 World::~World()
 {
-    spdlog::info("Destroying World: {}x{} grid", width_, height_);
+    spdlog::info("Destroying World: {}x{} grid", data.width, data.height);
     timers_.stopTimer("total_simulation");
     timers_.dumpTimerStats();
 }
@@ -101,106 +95,28 @@ std::string World::toAsciiDiagram() const
     return WorldDiagramGeneratorEmoji::generateEmojiDiagram(*this);
 }
 
-World::World(const World& other)
-    : cells_(other.cells_),
-      width_(other.width_),
-      height_(other.height_),
-      timestep_(other.timestep_),
-      timescale_(other.timescale_),
-      removed_mass_(other.removed_mass_),
-      gravity_(other.gravity_),
-      elasticity_factor_(other.elasticity_factor_),
-      pressure_scale_(other.pressure_scale_),
-      water_pressure_threshold_(other.water_pressure_threshold_),
-      pressure_diffusion_enabled_(other.pressure_diffusion_enabled_),
-      hydrostatic_pressure_strength_(other.hydrostatic_pressure_strength_),
-      dynamic_pressure_strength_(other.dynamic_pressure_strength_),
-      add_particles_enabled_(other.add_particles_enabled_),
-      debug_draw_enabled_(other.debug_draw_enabled_),
-      cohesion_bind_force_enabled_(other.cohesion_bind_force_enabled_),
-      cohesion_com_force_strength_(other.cohesion_com_force_strength_),
-      cohesion_bind_force_strength_(other.cohesion_bind_force_strength_),
-      com_cohesion_range_(other.com_cohesion_range_),
-      viscosity_strength_(other.viscosity_strength_),
-      friction_strength_(other.friction_strength_),
-      air_resistance_enabled_(other.air_resistance_enabled_),
-      air_resistance_strength_(other.air_resistance_strength_),
-      is_dragging_(false), // Don't copy drag state.
-      drag_start_x_(-1),
-      drag_start_y_(-1),
-      dragged_material_(MaterialType::AIR),
-      dragged_amount_(0.0),
-      last_drag_cell_x_(-1),
-      last_drag_cell_y_(-1),
-      has_floating_particle_(false),
-      floating_particle_{MaterialType::AIR, 0.0},
-      floating_particle_pixel_x_(0.0),
-      floating_particle_pixel_y_(0.0),
-      dragged_velocity_(0.0, 0.0),
-      dragged_com_(0.0, 0.0),
-      selected_material_(other.selected_material_),
-      timers_(),
-      support_calculator_(*this),
-      pressure_calculator_(*this),
-      collision_calculator_(*this),
-      adhesion_calculator_(*this),
-      friction_calculator_(*this),
-      worldEventGenerator_(other.worldEventGenerator_ ? other.worldEventGenerator_->clone() : nullptr)
-{
-    spdlog::info("Copied World: {}x{} grid", width_, height_);
-}
 
-World& World::operator=(const World& other)
-{
-    if (this != &other) {
-        cells_ = other.cells_;
-        width_ = other.width_;
-        height_ = other.height_;
-        timestep_ = other.timestep_;
-        timescale_ = other.timescale_;
-        removed_mass_ = other.removed_mass_;
-        gravity_ = other.gravity_;
-        elasticity_factor_ = other.elasticity_factor_;
-        pressure_scale_ = other.pressure_scale_;
-        water_pressure_threshold_ = other.water_pressure_threshold_;
-        pressure_diffusion_enabled_ = other.pressure_diffusion_enabled_;
-        hydrostatic_pressure_strength_ = other.hydrostatic_pressure_strength_;
-        dynamic_pressure_strength_ = other.dynamic_pressure_strength_;
-        add_particles_enabled_ = other.add_particles_enabled_;
-        debug_draw_enabled_ = other.debug_draw_enabled_;
-        cohesion_bind_force_enabled_ = other.cohesion_bind_force_enabled_;
-        cohesion_com_force_strength_ = other.cohesion_com_force_strength_;
-        cohesion_bind_force_strength_ = other.cohesion_bind_force_strength_;
-        com_cohesion_range_ = other.com_cohesion_range_;
-        viscosity_strength_ = other.viscosity_strength_;
-        friction_strength_ = other.friction_strength_;
-        air_resistance_enabled_ = other.air_resistance_enabled_;
-        air_resistance_strength_ = other.air_resistance_strength_;
-        selected_material_ = other.selected_material_;
-        // Don't copy drag or UI state.
-    }
-    return *this;
-}
 
-// =================================================================.
-// CORE SIMULATION METHODS.
-// =================================================================.
+
+// =================================================================
+// CORE SIMULATION METHODS
+// =================================================================
 
 void World::advanceTime(double deltaTimeSeconds)
 {
     ScopeTimer timer(timers_, "advance_time");
 
-    const double scaledDeltaTime = deltaTimeSeconds * timescale_;
+    const double scaledDeltaTime = deltaTimeSeconds * data.timescale;
     spdlog::trace(
-        "World::advanceTime: deltaTime={:.4f}s, timestep={}", deltaTimeSeconds, timestep_);
+        "World::advanceTime: deltaTime={:.4f}s, timestep={}", deltaTimeSeconds, data.timestep);
     if (scaledDeltaTime <= 0.0) {
         return;
     }
 
     // Add particles if enabled.
-    if (add_particles_enabled_ && worldEventGenerator_) {
+    if (data.add_particles_enabled && worldEventGenerator_) {
         ScopeTimer addParticlesTimer(timers_, "add_particles");
-        worldEventGenerator_->addParticles(*this, timestep_, deltaTimeSeconds);
+        worldEventGenerator_->addParticles(*this, data.timestep, deltaTimeSeconds);
     }
 
     // Accumulate and apply all forces based on resistance.
@@ -218,7 +134,7 @@ void World::advanceTime(double deltaTimeSeconds)
     // This follows the two-frame model where pressure calculated in frame N
     // affects velocities in frame N+1.
     if (hydrostatic_pressure_strength_ > 0.0) {
-        pressure_calculator_.calculateHydrostaticPressure();
+        pressure_calculator_.calculateHydrostaticPressure(*this);
     }
 
     // Process any blocked transfers that were queued during processMaterialMoves.
@@ -227,31 +143,30 @@ void World::advanceTime(double deltaTimeSeconds)
         // This allows dynamic pressure to model hydrostatic-like behavior.
         //        pressure_calculator_.generateVirtualGravityTransfers(scaledDeltaTime);
 
-        pressure_calculator_.processBlockedTransfers(pressure_calculator_.blocked_transfers_);
+        pressure_calculator_.processBlockedTransfers(*this, pressure_calculator_.blocked_transfers_);
         pressure_calculator_.blocked_transfers_.clear();
     }
 
     // Apply pressure diffusion before decay.
     if (pressure_diffusion_enabled_) {
-        pressure_calculator_.applyPressureDiffusion(scaledDeltaTime);
+        pressure_calculator_.applyPressureDiffusion(*this, scaledDeltaTime);
     }
 
     // Apply pressure decay after material moves.
-    pressure_calculator_.applyPressureDecay(scaledDeltaTime);
+    pressure_calculator_.applyPressureDecay(*this, scaledDeltaTime);
 
-    timestep_++;
+    data.timestep++;
 }
-
 void World::reset()
 {
     spdlog::info("Resetting World to empty state");
 
-    timestep_ = 0;
-    removed_mass_ = 0.0;
+    data.timestep = 0;
+    data.removed_mass = 0.0;
     pending_moves_.clear();
 
     // Clear all cells to air.
-    for (auto& cell : cells_) {
+    for (auto& cell : data.cells) {
         cell.clear();
     }
 
@@ -442,10 +357,10 @@ void World::updateDrag(int pixelX, int pixelY)
             floating_particle_.velocity = Vector2d{dx, dy};
 
             // Check for collisions with the target cell.
-            if (collision_calculator_.checkFloatingParticleCollision(
+            if (collision_calculator_.checkFloatingParticleCollision(*this, 
                     last_drag_cell_x_, last_drag_cell_y_, floating_particle_)) {
                 Cell& targetCell = at(last_drag_cell_x_, last_drag_cell_y_);
-                collision_calculator_.handleFloatingParticleCollision(
+                collision_calculator_.handleFloatingParticleCollision(*this, 
                     last_drag_cell_x_, last_drag_cell_y_, floating_particle_, targetCell);
             }
         }
@@ -574,12 +489,12 @@ void World::resizeGrid(uint32_t newWidth, uint32_t newHeight)
 
     // Phase 1: Generate interpolated cells using the interpolation tool.
     std::vector<Cell> interpolatedCells = WorldInterpolationTool::generateInterpolatedCellsB(
-        cells_, width_, height_, newWidth, newHeight);
+        data.cells, data.width, data.height, newWidth, newHeight);
 
     // Phase 2: Update world state with the new interpolated cells.
-    width_ = newWidth;
-    height_ = newHeight;
-    cells_ = std::move(interpolatedCells);
+    data.width = newWidth;
+    data.height = newHeight;
+    data.cells = std::move(interpolatedCells);
 
     onPostResize();
 
@@ -600,14 +515,14 @@ void World::onPostResize()
 
 Cell& World::at(uint32_t x, uint32_t y)
 {
-    assert(x < width_ && y < height_);
-    return cells_[coordToIndex(x, y)];
+    assert(x < data.width && y < data.height);
+    return data.cells[coordToIndex(x, y)];
 }
 
 const Cell& World::at(uint32_t x, uint32_t y) const
 {
-    assert(x < width_ && y < height_);
-    return cells_[coordToIndex(x, y)];
+    assert(x < data.width && y < data.height);
+    return data.cells[coordToIndex(x, y)];
 }
 
 Cell& World::at(const Vector2i& pos)
@@ -636,7 +551,7 @@ double World::getTotalMass() const
     int cellCount = 0;
     int nonEmptyCells = 0;
 
-    for (const auto& cell : cells_) {
+    for (const auto& cell : data.cells) {
         double cellMass = cell.getMass();
         totalMass += cellMass;
         cellCount++;
@@ -661,9 +576,9 @@ void World::applyGravity()
 {
     ScopeTimer timer(timers_, "apply_gravity");
 
-    const Vector2d gravityForce(0.0, gravity_);
+    const Vector2d gravityForce(0.0, data.gravity);
 
-    for (auto& cell : cells_) {
+    for (auto& cell : data.cells) {
         if (!cell.isEmpty() && !cell.isWall()) {
             // Accumulate gravity force instead of applying directly.
             cell.addPendingForce(gravityForce);
@@ -679,14 +594,14 @@ void World::applyAirResistance()
 
     ScopeTimer timer(timers_, "apply_air_resistance");
 
-    WorldAirResistanceCalculator air_resistance_calculator(*this);
+    WorldAirResistanceCalculator air_resistance_calculator{};
 
-    for (uint32_t y = 0; y < height_; ++y) {
-        for (uint32_t x = 0; x < width_; ++x) {
+    for (uint32_t y = 0; y < data.height; ++y) {
+        for (uint32_t x = 0; x < data.width; ++x) {
             Cell& cell = at(x, y);
 
             if (!cell.isEmpty() && !cell.isWall()) {
-                Vector2d air_resistance_force = air_resistance_calculator.calculateAirResistance(
+                Vector2d air_resistance_force = air_resistance_calculator.calculateAirResistance(*this, 
                     x, y, air_resistance_strength_);
                 cell.addPendingForce(air_resistance_force);
             }
@@ -702,8 +617,8 @@ void World::applyCohesionForces()
 
     ScopeTimer timer(timers_, "apply_cohesion_forces");
 
-    for (uint32_t y = 0; y < height_; ++y) {
-        for (uint32_t x = 0; x < width_; ++x) {
+    for (uint32_t y = 0; y < data.height; ++y) {
+        for (uint32_t x = 0; x < data.width; ++x) {
             Cell& cell = at(x, y);
 
             if (cell.isEmpty() || cell.isWall()) {
@@ -711,9 +626,9 @@ void World::applyCohesionForces()
             }
 
             // Calculate COM cohesion force.
+            WorldCohesionCalculator cohesion_calc{};
             WorldCohesionCalculator::COMCohesionForce com_cohesion =
-                WorldCohesionCalculator(*this).calculateCOMCohesionForce(
-                    x, y, com_cohesion_range_);
+                cohesion_calc.calculateCOMCohesionForce(*this, x, y, com_cohesion_range_);
 
             // COM cohesion force accumulation (only if force is active).
             if (com_cohesion.force_active) {
@@ -725,7 +640,7 @@ void World::applyCohesionForces()
             // Adhesion force accumulation (only if enabled).
             if (adhesion_calculator_.isAdhesionEnabled()) {
                 WorldAdhesionCalculator::AdhesionForce adhesion =
-                    adhesion_calculator_.calculateAdhesionForce(x, y);
+                    adhesion_calculator_.calculateAdhesionForce(*this, x, y);
                 Vector2d adhesion_force = adhesion.force_direction * adhesion.force_magnitude
                     * adhesion_calculator_.getAdhesionStrength();
                 cell.addPendingForce(adhesion_force);
@@ -743,8 +658,8 @@ void World::applyPressureForces()
     ScopeTimer timer(timers_, "apply_pressure_forces");
 
     // Apply pressure forces through the pending force system.
-    for (uint32_t y = 0; y < height_; ++y) {
-        for (uint32_t x = 0; x < width_; ++x) {
+    for (uint32_t y = 0; y < data.height; ++y) {
+        for (uint32_t x = 0; x < data.width; ++x) {
             Cell& cell = at(x, y);
 
             // Skip empty cells and walls.
@@ -761,11 +676,11 @@ void World::applyPressureForces()
             // Calculate pressure gradient to determine force direction.
             // The gradient is calculated as (center_pressure - neighbor_pressure) * direction,
             // which points AWAY from high pressure regions (toward increasing pressure).
-            Vector2d gradient = pressure_calculator_.calculatePressureGradient(x, y);
+            Vector2d gradient = pressure_calculator_.calculatePressureGradient(*this, x, y);
 
             // Only apply force if system is out of equilibrium.
             if (gradient.magnitude() > 0.001) {
-                Vector2d pressure_force = gradient * pressure_scale_;
+                Vector2d pressure_force = gradient * data.pressure_scale;
                 cell.addPendingForce(pressure_force);
 
                 spdlog::debug(
@@ -810,7 +725,7 @@ void World::resolveForces(double deltaTime)
     ScopeTimer timer(timers_, "resolve_forces");
 
     // Clear pending forces at the start of each physics frame.
-    for (auto& cell : cells_) {
+    for (auto& cell : data.cells) {
         cell.clearPendingForce();
     }
 
@@ -827,13 +742,13 @@ void World::resolveForces(double deltaTime)
     applyCohesionForces();
 
     // Apply contact-based friction forces.
-    friction_calculator_.calculateAndApplyFrictionForces(deltaTime);
+    friction_calculator_.calculateAndApplyFrictionForces(*this, deltaTime);
 
     // Now resolve all accumulated forces using viscosity model.
-    WorldSupportCalculator support_calc(*this);
+    WorldSupportCalculator support_calc{};
 
-    for (uint32_t y = 0; y < height_; ++y) {
-        for (uint32_t x = 0; x < width_; ++x) {
+    for (uint32_t y = 0; y < data.height; ++y) {
+        for (uint32_t x = 0; x < data.width; ++x) {
             Cell& cell = at(x, y);
 
             if (cell.isEmpty() || cell.isWall()) {
@@ -847,7 +762,7 @@ void World::resolveForces(double deltaTime)
             const MaterialProperties& props = getMaterialProperties(cell.material_type);
 
             // Calculate support factor (1.0 if supported, 0.0 if not).
-            double support_factor = support_calc.hasStructuralSupport(x, y) ? 1.0 : 0.0;
+            double support_factor = support_calc.hasStructuralSupport(*this, x, y) ? 1.0 : 0.0;
 
             // For now, assume STATIC motion state when supported, FALLING otherwise.
             // TODO: Implement proper motion state detection.
@@ -925,7 +840,7 @@ void World::resolveForces(double deltaTime)
 
 void World::processVelocityLimiting(double deltaTime)
 {
-    for (auto& cell : cells_) {
+    for (auto& cell : data.cells) {
         if (!cell.isEmpty()) {
             cell.limitVelocity(
                 MAX_VELOCITY_PER_TIMESTEP,
@@ -951,8 +866,8 @@ std::vector<MaterialMove> World::computeMaterialMoves(double deltaTime)
 {
     std::vector<MaterialMove> moves;
 
-    for (uint32_t y = 0; y < height_; ++y) {
-        for (uint32_t x = 0; x < width_; ++x) {
+    for (uint32_t y = 0; y < data.height; ++y) {
+        for (uint32_t x = 0; x < data.width; ++x) {
             Cell& cell = at(x, y);
 
             if (cell.isEmpty() || cell.isWall()) {
@@ -963,19 +878,20 @@ std::vector<MaterialMove> World::computeMaterialMoves(double deltaTime)
             // Calculate cohesion and adhesion forces before movement decisions.
             WorldCohesionCalculator::CohesionForce cohesion;
             if (cohesion_bind_force_enabled_) {
-                cohesion = WorldCohesionCalculator(*this).calculateCohesionForce(x, y);
+                WorldCohesionCalculator cohesion_calc{};
+                cohesion = cohesion_calc.calculateCohesionForce(*this, x, y);
             }
             else {
                 cohesion = { 0.0, 0 }; // No cohesion resistance when disabled.
             }
             WorldAdhesionCalculator::AdhesionForce adhesion =
-                adhesion_calculator_.calculateAdhesionForce(x, y);
+                adhesion_calculator_.calculateAdhesionForce(*this, x, y);
 
             // NEW: Calculate COM-based cohesion force.
             WorldCohesionCalculator::COMCohesionForce com_cohesion;
             if (cohesion_com_force_strength_ > 0.0) {
-                com_cohesion = WorldCohesionCalculator(*this).calculateCOMCohesionForce(
-                    x, y, com_cohesion_range_);
+                WorldCohesionCalculator com_cohesion_calc{};
+                com_cohesion = com_cohesion_calc.calculateCOMCohesionForce(*this, x, y, com_cohesion_range_);
             }
             else {
                 com_cohesion = {
@@ -1039,7 +955,7 @@ std::vector<MaterialMove> World::computeMaterialMoves(double deltaTime)
 
                 if (isValidCell(targetPos)) {
                     // Create enhanced MaterialMove with collision physics and COM cohesion data.
-                    MaterialMove move = collision_calculator_.createCollisionAwareMove(
+                    MaterialMove move = collision_calculator_.createCollisionAwareMove(*this, 
                         cell,
                         at(targetPos),
                         Vector2i(x, y),
@@ -1169,19 +1085,19 @@ void World::processMaterialMoves()
 
         switch (move.collision_type) {
             case CollisionType::TRANSFER_ONLY:
-                collision_calculator_.handleTransferMove(fromCell, toCell, move);
+                collision_calculator_.handleTransferMove(*this, fromCell, toCell, move);
                 break;
             case CollisionType::ELASTIC_REFLECTION:
                 collision_calculator_.handleElasticCollision(fromCell, toCell, move);
                 break;
             case CollisionType::INELASTIC_COLLISION:
-                collision_calculator_.handleInelasticCollision(fromCell, toCell, move);
+                collision_calculator_.handleInelasticCollision(*this, fromCell, toCell, move);
                 break;
             case CollisionType::FRAGMENTATION:
-                collision_calculator_.handleFragmentation(fromCell, toCell, move);
+                collision_calculator_.handleFragmentation(*this, fromCell, toCell, move);
                 break;
             case CollisionType::ABSORPTION:
-                collision_calculator_.handleAbsorption(fromCell, toCell, move);
+                collision_calculator_.handleAbsorption(*this, fromCell, toCell, move);
                 break;
         }
     }
@@ -1194,15 +1110,15 @@ void World::setupBoundaryWalls()
     spdlog::info("Setting up boundary walls for World");
 
     // Top and bottom walls.
-    for (uint32_t x = 0; x < width_; ++x) {
+    for (uint32_t x = 0; x < data.width; ++x) {
         at(x, 0).replaceMaterial(MaterialType::WALL, 1.0);
-        at(x, height_ - 1).replaceMaterial(MaterialType::WALL, 1.0);
+        at(x, data.height - 1).replaceMaterial(MaterialType::WALL, 1.0);
     }
 
     // Left and right walls.
-    for (uint32_t y = 0; y < height_; ++y) {
+    for (uint32_t y = 0; y < data.height; ++y) {
         at(0, y).replaceMaterial(MaterialType::WALL, 1.0);
-        at(width_ - 1, y).replaceMaterial(MaterialType::WALL, 1.0);
+        at(data.width - 1, y).replaceMaterial(MaterialType::WALL, 1.0);
     }
 
     spdlog::info("Boundary walls setup complete");
@@ -1222,13 +1138,13 @@ void World::pixelToCell(int pixelX, int pixelY, int& cellX, int& cellY) const
 
 bool World::isValidCell(int x, int y) const
 {
-    return x >= 0 && y >= 0 && static_cast<uint32_t>(x) < width_
-        && static_cast<uint32_t>(y) < height_;
+    return x >= 0 && y >= 0 && static_cast<uint32_t>(x) < data.width
+        && static_cast<uint32_t>(y) < data.height;
 }
 
 size_t World::coordToIndex(uint32_t x, uint32_t y) const
 {
-    return y * width_ + x;
+    return y * data.width + x;
 }
 
 Vector2i World::pixelToCell(int pixelX, int pixelY) const
@@ -1264,13 +1180,13 @@ void World::setWallsEnabled(bool enabled)
     }
     else {
         // Clear existing walls by resetting boundary cells to air.
-        for (uint32_t x = 0; x < width_; ++x) {
+        for (uint32_t x = 0; x < data.width; ++x) {
             at(x, 0).clear();           // Top wall.
-            at(x, height_ - 1).clear(); // Bottom wall.
+            at(x, data.height - 1).clear(); // Bottom wall.
         }
-        for (uint32_t y = 0; y < height_; ++y) {
+        for (uint32_t y = 0; y < data.height; ++y) {
             at(0, y).clear();          // Left wall.
-            at(width_ - 1, y).clear(); // Right wall.
+            at(data.width - 1, y).clear(); // Right wall.
         }
     }
 }
@@ -1288,7 +1204,7 @@ void World::setHydrostaticPressureEnabled(bool enabled)
     hydrostatic_pressure_strength_ = enabled ? 1.0 : 0.0;
 
     spdlog::info("Clearing all pressure values");
-    for (auto& cell : cells_) {
+    for (auto& cell : data.cells) {
         cell.setHydrostaticPressure(0.0);
         if (cell.dynamic_component < MIN_MATTER_THRESHOLD) {
             cell.pressure_gradient = Vector2d{0.0, 0.0};
@@ -1302,7 +1218,7 @@ void World::setDynamicPressureEnabled(bool enabled)
     dynamic_pressure_strength_ = enabled ? 1.0 : 0.0;
 
     spdlog::info("Clearing all pressure values");
-    for (auto& cell : cells_) {
+    for (auto& cell : data.cells) {
         cell.setDynamicPressure(0.0);
         if (cell.hydrostatic_component < MIN_MATTER_THRESHOLD) {
             cell.pressure_gradient = Vector2d{0.0, 0.0};
@@ -1339,14 +1255,14 @@ std::string World::settingsToString() const
 {
     std::stringstream ss;
     ss << "=== World Settings ===\n";
-    ss << "Grid size: " << width_ << "x" << height_ << "\n";
-    ss << "Gravity: " << gravity_ << "\n";
+    ss << "Grid size: " << data.width << "x" << data.height << "\n";
+    ss << "Gravity: " << data.gravity << "\n";
     ss << "Hydrostatic pressure enabled: " << (isHydrostaticPressureEnabled() ? "true" : "false")
        << "\n";
     ss << "Dynamic pressure enabled: " << (isDynamicPressureEnabled() ? "true" : "false") << "\n";
-    ss << "Pressure scale: " << pressure_scale_ << "\n";
-    ss << "Elasticity factor: " << elasticity_factor_ << "\n";
-    ss << "Add particles enabled: " << (add_particles_enabled_ ? "true" : "false") << "\n";
+    ss << "Pressure scale: " << data.pressure_scale << "\n";
+    ss << "Elasticity factor: " << data.elasticity_factor << "\n";
+    ss << "Add particles enabled: " << (data.add_particles_enabled ? "true" : "false") << "\n";
     ss << "Walls enabled: " << (areWallsEnabled() ? "true" : "false") << "\n";
     ss << "Rain rate: " << getRainRate() << "\n";
     ss << "Left throw enabled: " << (isLeftThrowEnabled() ? "true" : "false") << "\n";
@@ -1366,7 +1282,7 @@ std::string World::settingsToString() const
 }
 
 // World type management implementation.
-void World::setWorldEventGenerator(std::unique_ptr<WorldEventGenerator> newSetup)
+void World::setWorldEventGenerator(std::shared_ptr<WorldEventGenerator> newSetup)
 {
     worldEventGenerator_ = std::move(newSetup);
     // Reset and apply the new setup.
@@ -1386,198 +1302,26 @@ WorldEventGenerator* World::getWorldEventGenerator() const
 
 nlohmann::json World::toJSON() const
 {
-    nlohmann::json doc;
-
-    // Grid metadata.
-    doc["grid"]["width"] = width_;
-    doc["grid"]["height"] = height_;
-    doc["grid"]["timestep"] = timestep_;
-
-    // Simulation state.
-    doc["simulation"]["timescale"] = timescale_;
-    doc["simulation"]["removed_mass"] = removed_mass_;
-
-    // Physics parameters.
-    doc["physics"]["gravity"] = gravity_;
-    doc["physics"]["elasticity_factor"] = elasticity_factor_;
-    doc["physics"]["pressure_scale"] = pressure_scale_;
-    doc["physics"]["water_pressure_threshold"] = water_pressure_threshold_;
-    doc["physics"]["pressure_diffusion_enabled"] = pressure_diffusion_enabled_;
-    doc["physics"]["hydrostatic_pressure_strength"] = hydrostatic_pressure_strength_;
-    doc["physics"]["dynamic_pressure_strength"] = dynamic_pressure_strength_;
-
-    // Cohesion/adhesion/viscosity controls.
-    doc["forces"]["cohesion_bind_force_enabled"] = cohesion_bind_force_enabled_;
-    doc["forces"]["cohesion_com_force_strength"] = cohesion_com_force_strength_;
-    doc["forces"]["cohesion_bind_force_strength"] = cohesion_bind_force_strength_;
-    doc["forces"]["com_cohesion_range"] = com_cohesion_range_;
-    doc["forces"]["viscosity_strength"] = viscosity_strength_;
-    doc["forces"]["friction_strength"] = friction_strength_;
-    doc["forces"]["adhesion_strength"] = adhesion_calculator_.getAdhesionStrength();
-    doc["forces"]["adhesion_enabled"] = adhesion_calculator_.isAdhesionEnabled();
-    doc["forces"]["air_resistance_enabled"] = air_resistance_enabled_;
-    doc["forces"]["air_resistance_strength"] = air_resistance_strength_;
-
-    // Setup controls.
-    doc["setup"]["add_particles_enabled"] = add_particles_enabled_;
-    doc["setup"]["debug_draw_enabled"] = debug_draw_enabled_;
-    doc["setup"]["selected_material"] = selected_material_;  // ADL will convert MaterialType.
-
-    // Cells (sparse - only serialize non-empty cells).
-    doc["cells"] = nlohmann::json::array();
-    for (uint32_t y = 0; y < height_; ++y) {
-        for (uint32_t x = 0; x < width_; ++x) {
-            const Cell& cell = at(x, y);
-            // Only serialize cells with material.
-            if (cell.fill_ratio > Cell::MIN_FILL_THRESHOLD ||
-                cell.material_type != MaterialType::AIR) {
-                nlohmann::json cellEntry;
-                cellEntry["x"] = x;
-                cellEntry["y"] = y;
-                cellEntry["data"] = cell;  // ADL will convert Cell.
-                doc["cells"].push_back(cellEntry);
-            }
-        }
-    }
-
-    return doc;
+    // Automatic serialization via ReflectSerializer!
+    return ReflectSerializer::to_json(data);
 }
 
 void World::fromJSON(const nlohmann::json& doc)
 {
-    if (!doc.is_object()) {
-        throw std::runtime_error("World::fromJSON: JSON document must be an object");
-    }
-
-    // Parse grid metadata.
-    if (!doc.contains("grid") || !doc["grid"].is_object()) {
-        throw std::runtime_error("World::fromJSON: Missing or invalid 'grid' section");
-    }
-    const auto& grid = doc["grid"];
-    uint32_t width = grid["width"].get<uint32_t>();
-    uint32_t height = grid["height"].get<uint32_t>();
-    uint32_t timestep = grid["timestep"].get<uint32_t>();
-
-    // Resize if necessary.
-    if (width != width_ || height != height_) {
-        resizeGrid(width, height);
-    }
-
-    // Clear and reset.
-    reset();
-    timestep_ = timestep;
-
-    // Parse simulation state.
-    if (doc.contains("simulation") && doc["simulation"].is_object()) {
-        const auto& simulation = doc["simulation"];
-        if (simulation.contains("timescale")) {
-            timescale_ = simulation["timescale"].get<double>();
-        }
-        if (simulation.contains("removed_mass")) {
-            removed_mass_ = simulation["removed_mass"].get<double>();
-        }
-    }
-
-    // Parse physics parameters.
-    if (doc.contains("physics") && doc["physics"].is_object()) {
-        const auto& physics = doc["physics"];
-        if (physics.contains("gravity")) gravity_ = physics["gravity"].get<double>();
-        if (physics.contains("elasticity_factor"))
-            elasticity_factor_ = physics["elasticity_factor"].get<double>();
-        if (physics.contains("pressure_scale"))
-            pressure_scale_ = physics["pressure_scale"].get<double>();
-        if (physics.contains("water_pressure_threshold"))
-            water_pressure_threshold_ = physics["water_pressure_threshold"].get<double>();
-        if (physics.contains("pressure_diffusion_enabled"))
-            pressure_diffusion_enabled_ = physics["pressure_diffusion_enabled"].get<bool>();
-        if (physics.contains("hydrostatic_pressure_strength"))
-            hydrostatic_pressure_strength_ = physics["hydrostatic_pressure_strength"].get<double>();
-        if (physics.contains("dynamic_pressure_strength"))
-            dynamic_pressure_strength_ = physics["dynamic_pressure_strength"].get<double>();
-    }
-
-    // Parse force controls.
-    if (doc.contains("forces") && doc["forces"].is_object()) {
-        const auto& forces = doc["forces"];
-        if (forces.contains("cohesion_bind_force_enabled"))
-            cohesion_bind_force_enabled_ = forces["cohesion_bind_force_enabled"].get<bool>();
-        if (forces.contains("cohesion_com_force_strength"))
-            cohesion_com_force_strength_ = forces["cohesion_com_force_strength"].get<double>();
-        if (forces.contains("cohesion_bind_force_strength"))
-            cohesion_bind_force_strength_ = forces["cohesion_bind_force_strength"].get<double>();
-        if (forces.contains("com_cohesion_range"))
-            com_cohesion_range_ = forces["com_cohesion_range"].get<uint32_t>();
-        if (forces.contains("viscosity_strength"))
-            viscosity_strength_ = forces["viscosity_strength"].get<double>();
-        if (forces.contains("friction_strength"))
-            friction_strength_ = forces["friction_strength"].get<double>();
-        // Deserialize adhesion strength before enabled to avoid overwriting.
-        if (forces.contains("adhesion_strength"))
-            adhesion_calculator_.setAdhesionStrength(forces["adhesion_strength"].get<double>());
-        // Only use setAdhesionEnabled if no explicit strength was provided.
-        if (forces.contains("adhesion_enabled") && !forces.contains("adhesion_strength"))
-            adhesion_calculator_.setAdhesionEnabled(forces["adhesion_enabled"].get<bool>());
-        if (forces.contains("air_resistance_enabled"))
-            air_resistance_enabled_ = forces["air_resistance_enabled"].get<bool>();
-        if (forces.contains("air_resistance_strength"))
-            air_resistance_strength_ = forces["air_resistance_strength"].get<double>();
-    }
-
-    // Parse setup controls.
-    if (doc.contains("setup") && doc["setup"].is_object()) {
-        const auto& setup = doc["setup"];
-        if (setup.contains("add_particles_enabled"))
-            add_particles_enabled_ = setup["add_particles_enabled"].get<bool>();
-        if (setup.contains("debug_draw_enabled"))
-            debug_draw_enabled_ = setup["debug_draw_enabled"].get<bool>();
-        if (setup.contains("selected_material"))
-            selected_material_ = setup["selected_material"].get<MaterialType>();  // ADL conversion.
-    }
-
-    // Parse cells.
-    if (!doc.contains("cells") || !doc["cells"].is_array()) {
-        throw std::runtime_error("World::fromJSON: Missing or invalid 'cells' array");
-    }
-
-    const auto& cells = doc["cells"];
-    for (const auto& cellEntry : cells) {
-        if (!cellEntry.is_object()) {
-            throw std::runtime_error("World::fromJSON: Cell entry must be an object");
-        }
-
-        uint32_t x = cellEntry["x"].get<uint32_t>();
-        uint32_t y = cellEntry["y"].get<uint32_t>();
-
-        if (!isValidCell(x, y)) {
-            throw std::runtime_error(
-                "World::fromJSON: Invalid cell coordinates (" + std::to_string(x) + "," +
-                std::to_string(y) + ")");
-        }
-
-        const auto& cellData = cellEntry["data"];
-        Cell cell = cellData.get<Cell>();  // ADL conversion.
-
-        // Replace cell in grid.
-        at(x, y) = cell;
-    }
-
-    spdlog::info(
-        "World deserialized from JSON: {}x{} grid, {} timesteps, {} cells",
-        width_,
-        height_,
-        timestep_,
-        cells.size());
+    // Automatic deserialization via ReflectSerializer!
+    data = ReflectSerializer::from_json<WorldData>(doc);
+    spdlog::info("World deserialized: {}x{} grid", data.width, data.height);
 }
 
 // Stub implementations for WorldInterface methods.
 void World::onPreResize(uint32_t newWidth, uint32_t newHeight)
 {
-    spdlog::debug("World::onPreResize: {}x{} -> {}x{}", width_, height_, newWidth, newHeight);
+    spdlog::debug("World::onPreResize: {}x{} -> {}x{}", data.width, data.height, newWidth, newHeight);
 }
 
 bool World::shouldResize(uint32_t newWidth, uint32_t newHeight) const
 {
-    return width_ != newWidth || height_ != newHeight;
+    return data.width != newWidth || data.height != newHeight;
 }
 
 // ADL functions for MotionState JSON serialization.

@@ -8,11 +8,11 @@
 #include "WorldAdhesionCalculator.h"
 #include "WorldCohesionCalculator.h"
 #include "WorldCollisionCalculator.h"
+#include "WorldData.h"
+#include "WorldEventGenerator.h"
 #include "WorldFrictionCalculator.h"
 #include "WorldPressureCalculator.h"
 #include "WorldSupportCalculator.h"
-
-#include "WorldEventGenerator.h"
 
 #include <cstdint>
 #include <memory>
@@ -39,16 +39,17 @@ public:
         TURBULENT // High velocity differences with neighbors.
     };
 
+    // World state data - public source of truth for all serializable state.
+    WorldData data;
+
 public:
     World();
     World(uint32_t width, uint32_t height);
     ~World();
 
-    // Copy constructor and assignment - clones worldEventGenerator_.
-    World(const World& other);
-    World& operator=(const World& other);
-
-    // Move constructor and move assignment operator.
+    // Copy and move - trivially copyable now that calculators are stateless!
+    World(const World& other) = default;
+    World& operator=(const World& other) = default;
     World(World&&) = default;
     World& operator=(World&&) = default;
 
@@ -57,7 +58,7 @@ public:
     // =================================================================
 
     void advanceTime(double deltaTimeSeconds);
-    uint32_t getTimestep() const { return timestep_; }
+    uint32_t getTimestep() const { return data.timestep; }
     void reset();
     void setup();
 
@@ -65,8 +66,8 @@ public:
     // WORLDINTERFACE IMPLEMENTATION - GRID ACCESS
     // =================================================================
 
-    uint32_t getWidth() const { return width_; }
-    uint32_t getHeight() const { return height_; }
+    uint32_t getWidth() const { return data.width; }
+    uint32_t getHeight() const { return data.height; }
 
     // WorldInterface cell access through CellInterface.
     Cell& getCell(uint32_t x, uint32_t y);
@@ -76,11 +77,11 @@ public:
     // WORLDINTERFACE IMPLEMENTATION - SIMULATION CONTROL
     // =================================================================
 
-    void setTimescale(double scale) { timescale_ = scale; }
-    double getTimescale() const { return timescale_; }
+    void setTimescale(double scale) { data.timescale = scale; }
+    double getTimescale() const { return data.timescale; }
     double getTotalMass() const;
-    double getRemovedMass() const { return removed_mass_; }
-    void setAddParticlesEnabled(bool enabled) { add_particles_enabled_ = enabled; }
+    double getRemovedMass() const { return data.removed_mass; }
+    void setAddParticlesEnabled(bool enabled) { data.add_particles_enabled = enabled; }
 
     // =================================================================
     // WORLDINTERFACE IMPLEMENTATION - MATERIAL ADDITION
@@ -113,13 +114,13 @@ public:
     // WORLDINTERFACE IMPLEMENTATION - PHYSICS PARAMETERS
     // =================================================================
 
-    void setGravity(double g) { gravity_ = g; }
-    double getGravity() const { return gravity_; }
-    Vector2d getGravityVector() const { return Vector2d{0.0, gravity_}; }
-    void setElasticityFactor(double e) { elasticity_factor_ = e; }
-    double getElasticityFactor() const { return elasticity_factor_; }
-    void setPressureScale(double scale) { pressure_scale_ = scale; }
-    double getPressureScale() const { return pressure_scale_; }
+    void setGravity(double g) { data.gravity = g; }
+    double getGravity() const { return data.gravity; }
+    Vector2d getGravityVector() const { return Vector2d{0.0, data.gravity}; }
+    void setElasticityFactor(double e) { data.elasticity_factor = e; }
+    double getElasticityFactor() const { return data.elasticity_factor; }
+    void setPressureScale(double scale) { data.pressure_scale = scale; }
+    double getPressureScale() const { return data.pressure_scale; }
     void setDirtFragmentationFactor(double /* factor */) { /* no-op for World */ }
 
     // =================================================================
@@ -190,8 +191,8 @@ public:
     bool areWallsEnabled() const; // World defaults to true instead of false
 
     // WORLDINTERFACE IMPLEMENTATION - DEBUG VISUALIZATION
-    void setDebugDrawEnabled(bool enabled) { debug_draw_enabled_ = enabled; }
-    bool isDebugDrawEnabled() const { return debug_draw_enabled_; }
+    void setDebugDrawEnabled(bool enabled) { data.debug_draw_enabled = enabled; }
+    bool isDebugDrawEnabled() const { return data.debug_draw_enabled; }
 
     // WORLDINTERFACE IMPLEMENTATION - COHESION PHYSICS CONTROL
     void setCohesionBindForceEnabled(bool enabled) 
@@ -262,7 +263,7 @@ public:
     std::string settingsToString() const;
 
     // World setup management
-    void setWorldEventGenerator(std::unique_ptr<WorldEventGenerator> setup);
+    void setWorldEventGenerator(std::shared_ptr<WorldEventGenerator> setup);
     WorldEventGenerator* getWorldEventGenerator() const;
 
     // =================================================================
@@ -315,7 +316,7 @@ public:
     void clearPendingMoves() { pending_moves_.clear(); }
 
     // Expose cells array for static method testing
-    const Cell* getCellsData() const { return cells_.data(); }
+    const Cell* getCellsData() const { return data.cells.data(); }
 
     // =================================================================
     // FORCE CALCULATION METHODS
@@ -405,32 +406,17 @@ private:
     // MEMBER VARIABLES
     // =================================================================
 
-    // Grid storage
-    std::vector<Cell> cells_;
-    uint32_t width_;
-    uint32_t height_;
+    // NOTE: Grid storage (cells), width, height, timestep, timescale, removed_mass,
+    // gravity, elasticity_factor, pressure_scale, add_particles_enabled, and
+    // debug_draw_enabled are now in public WorldData data member.
 
-    // Simulation state
-    uint32_t timestep_;
-    double timescale_;
-    double removed_mass_;
-
-    // Physics parameters
-    double gravity_;
-    double elasticity_factor_;
-    double pressure_scale_;
+    // Physics parameters (not yet migrated to WorldData).
     double water_pressure_threshold_;
 
-    // Dual pressure system controls
+    // Dual pressure system controls (not yet migrated to WorldData).
     bool pressure_diffusion_enabled_;
     double hydrostatic_pressure_strength_;  // 0 = disabled
     double dynamic_pressure_strength_;      // 0 = disabled
-
-    // World setup controls
-    bool add_particles_enabled_;
-
-    // Debug visualization.
-    bool debug_draw_enabled_;
 
     // Cohesion physics control.
     bool cohesion_bind_force_enabled_; // Enable/disable cohesion bind force (resistance)
@@ -499,7 +485,7 @@ private:
     mutable WorldFrictionCalculator friction_calculator_;
 
     // World event generator for dynamic particles.
-    std::unique_ptr<WorldEventGenerator> worldEventGenerator_;
+    std::shared_ptr<WorldEventGenerator> worldEventGenerator_;
 };
 
 /**

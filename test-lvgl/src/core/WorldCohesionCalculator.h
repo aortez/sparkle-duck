@@ -26,11 +26,8 @@ class WorldSupportCalculator;
  */
 class WorldCohesionCalculator : public WorldCalculatorBase {
 public:
-    /**
-     * @brief Constructor takes a World for accessing world data.
-     * @param world World providing access to grid and cells.
-     */
-    explicit WorldCohesionCalculator(const World& world);
+    // Default constructor - calculator is stateless.
+    WorldCohesionCalculator() = default;
 
     // Force calculation structures for cohesion physics (moved from World).
     struct CohesionForce {
@@ -52,13 +49,10 @@ public:
     // Cohesion-specific constants.
     static constexpr double MIN_SUPPORT_FACTOR = 0.1; // Minimum cohesion when no support.
 
-    CohesionForce calculateCohesionForce(uint32_t x, uint32_t y) const;
+    CohesionForce calculateCohesionForce(const World& world, uint32_t x, uint32_t y) const;
 
     COMCohesionForce calculateCOMCohesionForce(
-        uint32_t x, uint32_t y, uint32_t com_cohesion_range) const;
-
-private:
-    mutable std::unique_ptr<WorldSupportCalculator> support_calculator_; // Support calculations.
+        const World& world, uint32_t x, uint32_t y, uint32_t com_cohesion_range) const;
 };
 
 } // namespace DirtSim

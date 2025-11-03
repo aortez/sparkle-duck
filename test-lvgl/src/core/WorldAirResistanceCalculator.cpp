@@ -7,14 +7,10 @@
 
 using namespace DirtSim;
 
-WorldAirResistanceCalculator::WorldAirResistanceCalculator(const World& world)
-    : WorldCalculatorBase(world)
-{}
-
 Vector2d WorldAirResistanceCalculator::calculateAirResistance(
-    uint32_t x, uint32_t y, double strength) const
+    const World& world, uint32_t x, uint32_t y, double strength) const
 {
-    const Cell& cell = getCellAt(x, y);
+    const Cell& cell = getCellAt(world, x, y);
 
     // No air resistance for empty or wall cells.
     if (cell.isEmpty() || cell.isWall()) {

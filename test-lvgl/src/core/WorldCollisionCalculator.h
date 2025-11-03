@@ -28,11 +28,8 @@ class World;
  */
 class WorldCollisionCalculator : public WorldCalculatorBase {
 public:
-    /**
-     * @brief Constructor.
-     * @param world Non-const reference since collisions modify world state.
-     */
-    explicit WorldCollisionCalculator(World& world);
+    // Default constructor - calculator is stateless.
+    WorldCollisionCalculator() = default;
 
     // ===== COLLISION DETECTION =====
 
@@ -45,6 +42,7 @@ public:
 
     /**
      * @brief Create a collision-aware material move with physics data.
+     * @param world World providing access to grid and cells.
      * @param fromCell Source cell.
      * @param toCell Target cell.
      * @param fromPos Source position.
@@ -55,6 +53,7 @@ public:
      * @return MaterialMove with collision physics data.
      */
     MaterialMove createCollisionAwareMove(
+        const World& world,
         const Cell& fromCell,
         const Cell& toCell,
         const Vector2i& fromPos,
@@ -92,22 +91,24 @@ public:
 
     /**
      * @brief Check if floating particle collides with target cell.
+     * @param world World providing access to grid and cells.
      * @param cellX Target cell X coordinate.
      * @param cellY Target cell Y coordinate.
      * @param floating_particle The floating particle.
      * @return True if collision occurs.
      */
-    bool checkFloatingParticleCollision(int cellX, int cellY, const Cell& floating_particle) const;
+    bool checkFloatingParticleCollision(const World& world, int cellX, int cellY, const Cell& floating_particle) const;
 
     // ===== COLLISION RESPONSE =====
 
     /**
      * @brief Handle basic material transfer (no collision).
+     * @param world World providing access to grid and cells.
      * @param fromCell Source cell.
      * @param toCell Target cell.
      * @param move Material move data.
      */
-    void handleTransferMove(Cell& fromCell, Cell& toCell, const MaterialMove& move);
+    void handleTransferMove(World& world, Cell& fromCell, Cell& toCell, const MaterialMove& move);
 
     /**
      * @brief Handle elastic collision between materials.
@@ -119,11 +120,12 @@ public:
 
     /**
      * @brief Handle inelastic collision with momentum transfer.
+     * @param world World providing access to grid and cells.
      * @param fromCell Source cell.
      * @param toCell Target cell.
      * @param move Material move data.
      */
-    void handleInelasticCollision(Cell& fromCell, Cell& toCell, const MaterialMove& move);
+    void handleInelasticCollision(World& world, Cell& fromCell, Cell& toCell, const MaterialMove& move);
 
     /**
      * @brief Handle material fragmentation on high-energy impact.
@@ -131,7 +133,7 @@ public:
      * @param toCell Target cell.
      * @param move Material move data.
      */
-    void handleFragmentation(Cell& fromCell, Cell& toCell, const MaterialMove& move);
+    void handleFragmentation(World& world, Cell& fromCell, Cell& toCell, const MaterialMove& move);
 
     /**
      * @brief Handle material absorption (e.g., water into dirt).
@@ -139,17 +141,18 @@ public:
      * @param toCell Target cell.
      * @param move Material move data.
      */
-    void handleAbsorption(Cell& fromCell, Cell& toCell, const MaterialMove& move);
+    void handleAbsorption(World& world, Cell& fromCell, Cell& toCell, const MaterialMove& move);
 
     /**
      * @brief Handle floating particle collision response.
+     * @param world World providing access to grid and cells.
      * @param cellX Target cell X coordinate.
      * @param cellY Target cell Y coordinate.
      * @param floating_particle The floating particle.
      * @param targetCell Target cell to modify.
      */
     void handleFloatingParticleCollision(
-        int cellX, int cellY, const Cell& floating_particle, Cell& targetCell);
+        World& world, int cellX, int cellY, const Cell& floating_particle, Cell& targetCell);
 
     // ===== BOUNDARY REFLECTIONS =====
 
@@ -196,8 +199,6 @@ public:
     static bool isMaterialRigid(MaterialType material);
 
 private:
-    World& world_; // Non-const reference for modifying world state.
-
     // Physics constants.
     static constexpr double FRAGMENTATION_THRESHOLD = 15.0;
     static constexpr double INELASTIC_RESTITUTION_FACTOR = 0.5;
