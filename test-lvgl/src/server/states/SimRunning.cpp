@@ -60,6 +60,21 @@ State::Any SimRunning::onEvent(const AdvanceSimulationCommand& /*cmd*/, StateMac
     // Headless server: advance physics simulation by one timestep.
     assert(world && "World must exist in SimRunning state");
 
+    // Calculate actual FPS.
+    auto now = std::chrono::steady_clock::now();
+    if (stepCount > 0) {
+        auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(now - lastFrameTime).count();
+        if (elapsed > 0) {
+            actualFPS = 1000000.0 / elapsed;  // Microseconds to FPS.
+
+            // Log FPS every 60 frames.
+            if (stepCount % 60 == 0) {
+                spdlog::info("SimRunning: Actual FPS: {:.1f} (step {})", actualFPS, stepCount);
+            }
+        }
+    }
+    lastFrameTime = now;
+
     // Advance physics by one timestep (~60 FPS).
     world->advanceTime(0.016);
     stepCount++;
@@ -68,14 +83,14 @@ State::Any SimRunning::onEvent(const AdvanceSimulationCommand& /*cmd*/, StateMac
 
     // Broadcast frame notification to all connected UI clients.
     if (dsm.getWebSocketServer()) {
-        auto now = std::chrono::system_clock::now();
         auto timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
             now.time_since_epoch()).count();
 
         nlohmann::json notification = {
             {"type", "frame_ready"},
             {"stepNumber", stepCount},
-            {"timestamp", timestamp}
+            {"timestamp", timestamp},
+            {"fps", actualFPS}
         };
 
         dsm.getWebSocketServer()->broadcast(notification.dump());

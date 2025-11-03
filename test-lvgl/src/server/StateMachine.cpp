@@ -42,8 +42,8 @@ void StateMachine::mainLoopRun()
             queueEvent(AdvanceSimulationCommand{});
         }
 
-        // Small sleep to prevent busy waiting.
-        std::this_thread::sleep_for(std::chrono::milliseconds(16)); // ~60 FPS.
+        // Small sleep to prevent busy waiting (1ms for max performance testing).
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
 
     spdlog::info("State machine event loop exiting (shouldExit=true)");

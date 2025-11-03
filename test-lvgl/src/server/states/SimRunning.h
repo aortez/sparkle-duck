@@ -2,6 +2,7 @@
 
 #include "StateForward.h"
 #include "../Event.h"
+#include <chrono>
 #include <memory>
 
 namespace DirtSim {
@@ -20,6 +21,10 @@ struct SimRunning {
     uint32_t targetSteps = 0;       // Steps to execute before pausing.
     double stepDurationMs = 16.0;   // Physics timestep in milliseconds.
     int frameLimit = -1;            // Optional FPS cap (-1 = unlimited).
+
+    // FPS tracking.
+    std::chrono::steady_clock::time_point lastFrameTime;
+    double actualFPS = 0.0;         // Measured FPS (steps/second).
 
     void onEnter(StateMachine& dsm);
     void onExit(StateMachine& dsm);
