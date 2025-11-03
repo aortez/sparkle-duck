@@ -17,8 +17,8 @@ Command Command::fromJson(const nlohmann::json& j)
 
 nlohmann::json Okay::toJson() const
 {
-    // World needs special handling - it has its own toJSON method.
-    return world.toJSON();
+    // WorldData uses automatic serialization via ADL.
+    return ReflectSerializer::to_json(worldData);
 }
 
 } // namespace StateGet

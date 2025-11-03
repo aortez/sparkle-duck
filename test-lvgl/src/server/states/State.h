@@ -3,6 +3,7 @@
 // This file aggregates all server state definitions.
 // Each state has its own header file for better organization.
 
+#include "../../core/World.h"  // Must be before SimRunning.h for complete type in unique_ptr.
 #include "StateForward.h"
 #include "Startup.h"
 #include "Idle.h"

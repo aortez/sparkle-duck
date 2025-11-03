@@ -277,7 +277,7 @@ State::Any SimRunning::onEvent(const Api::ScenarioConfigSet::Cwc& cwc, StateMach
     return std::move(*this);
 }
 
-State::Any SimRunning::onEvent(const Api::StateGet::Cwc& cwc, StateMachine& /*dsm*/)
+State::Any SimRunning::onEvent(const Api::StateGet::Cwc& cwc, StateMachine& dsm)
 {
     using Response = Api::StateGet::Response;
 
@@ -286,11 +286,18 @@ State::Any SimRunning::onEvent(const Api::StateGet::Cwc& cwc, StateMachine& /*ds
         return std::move(*this);
     }
 
-    // Return complete world state.
-    // Note: World copy includes WorldData. Cache is updated each frame for future optimization.
-    Api::StateGet::Okay responseData;
-    responseData.world = *world;
-    cwc.sendResponse(Response::okay(std::move(responseData)));
+    // Return cached WorldData (fast - uses pre-cached copy, no World copy overhead!).
+    auto cachedPtr = dsm.getCachedWorldData();
+    if (cachedPtr) {
+        Api::StateGet::Okay responseData;
+        responseData.worldData = *cachedPtr;
+        cwc.sendResponse(Response::okay(std::move(responseData)));
+    } else {
+        // Fallback: cache not ready yet, copy from world.
+        Api::StateGet::Okay responseData;
+        responseData.worldData = world->data;
+        cwc.sendResponse(Response::okay(std::move(responseData)));
+    }
     return std::move(*this);
 }
 

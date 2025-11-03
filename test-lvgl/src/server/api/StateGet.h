@@ -3,7 +3,7 @@
 #include "ApiError.h"
 #include "../../core/CommandWithCallback.h"
 #include "../../core/Result.h"
-#include "../../core/World.h"
+#include "../../core/WorldData.h"
 #include <nlohmann/json.hpp>
 
 namespace DirtSim {
@@ -17,7 +17,7 @@ struct Command {
 };
 
 struct Okay {
-    World world;
+    WorldData worldData;  // Changed from World to WorldData.
 
     nlohmann::json toJson() const;
 };
