@@ -55,7 +55,7 @@ public:
             spdlog::info("Opening wall at timestep {}", timestep);
             
             // Open bottom of middle wall at (1, 5)
-            world.getCell(1, 5).clear();
+            world.at(1, 5).clear();
             spdlog::info("Wall opened at (1, 5)");
             wallOpened = true;
         }

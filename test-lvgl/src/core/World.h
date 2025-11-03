@@ -61,10 +61,11 @@ public:
     // WORLDINTERFACE IMPLEMENTATION - GRID ACCESS
     // =================================================================
 
-
-    // WorldInterface cell access through CellInterface.
-    Cell& getCell(uint32_t x, uint32_t y);
-    const Cell& getCell(uint32_t x, uint32_t y) const;
+    // Direct cell access.
+    Cell& at(uint32_t x, uint32_t y);
+    const Cell& at(uint32_t x, uint32_t y) const;
+    Cell& at(const Vector2i& pos);
+    const Cell& at(const Vector2i& pos) const;
 
     // =================================================================
     // WORLDINTERFACE IMPLEMENTATION - SIMULATION CONTROL
@@ -77,28 +78,13 @@ public:
     // WORLDINTERFACE IMPLEMENTATION - MATERIAL ADDITION
     // =================================================================
 
-    void addDirtAtPixel(int pixelX, int pixelY);
-    void addWaterAtPixel(int pixelX, int pixelY);
-
     // Universal material addition (direct support for all 8 material types).
     void addMaterialAtPixel(
         int pixelX, int pixelY, MaterialType type, double amount = 1.0);
 
-    // Material selection state management.
+    // Material selection state management (for UI/API coordination).
     void setSelectedMaterial(MaterialType type) { selected_material_ = type; }
     MaterialType getSelectedMaterial() const { return selected_material_; }
-
-    // Check if cell at pixel coordinates has material.
-    bool hasMaterialAtPixel(int pixelX, int pixelY) const;
-
-    // =================================================================
-    // WORLDINTERFACE IMPLEMENTATION - DRAG INTERACTION
-    // =================================================================
-
-    void startDragging(int pixelX, int pixelY);
-    void updateDrag(int pixelX, int pixelY);
-    void endDragging(int pixelX, int pixelY);
-    void restoreLastDragCell();
 
     // =================================================================
     // WORLDINTERFACE IMPLEMENTATION - PHYSICS PARAMETERS
@@ -227,6 +213,10 @@ public:
     void setFrictionStrength(double strength) { friction_strength_ = strength; }
     double getFrictionStrength() const { return friction_strength_; }
 
+    // Friction calculator access.
+    WorldFrictionCalculator& getFrictionCalculator() { return friction_calculator_; }
+    const WorldFrictionCalculator& getFrictionCalculator() const { return friction_calculator_; }
+
     void setCOMCohesionRange(uint32_t range) { com_cohesion_range_ = range; }
     uint32_t getCOMCohesionRange() const { return com_cohesion_range_; }
 
@@ -254,13 +244,7 @@ public:
     // WORLD-SPECIFIC METHODS
     // =================================================================
 
-    // Direct cell access
-    Cell& at(uint32_t x, uint32_t y);
-    const Cell& at(uint32_t x, uint32_t y) const;
-    Cell& at(const Vector2i& pos);
-    const Cell& at(const Vector2i& pos) const;
-
-    // Add material at specific cell coordinates
+    // Add material at specific cell coordinates.
     void addMaterialAtCell(uint32_t x, uint32_t y, MaterialType type, double amount = 1.0);
 
     // Physics constants from GridMechanics.md (all per-timestep values)
@@ -293,34 +277,10 @@ public:
         0.5; // Minimum adhesion needed for horizontal support
 
     // =================================================================
-    // TESTING METHODS
-    // =================================================================
-
-    // Clear pending moves for testing
-    void clearPendingMoves() { pending_moves_.clear(); }
-
-    // Expose cells array for static method testing
-    const Cell* getCellsData() const { return data.cells.data(); }
-
-    // =================================================================
     // FORCE CALCULATION METHODS
     // =================================================================
 
-    // Calculate adhesion force from different-material neighbors
-
-    // Support calculation methods moved to WorldSupportCalculator.
-    WorldSupportCalculator& getSupportCalculator() { return support_calculator_; }
-    const WorldSupportCalculator& getSupportCalculator() const { return support_calculator_; }
-
-    // Adhesion calculation methods moved to WorldAdhesionCalculator.
-    WorldAdhesionCalculator& getAdhesionCalculator() { return adhesion_calculator_; }
-    const WorldAdhesionCalculator& getAdhesionCalculator() const { return adhesion_calculator_; }
-
-    // Friction calculation methods moved to WorldFrictionCalculator.
-    WorldFrictionCalculator& getFrictionCalculator() { return friction_calculator_; }
-    const WorldFrictionCalculator& getFrictionCalculator() const { return friction_calculator_; }
-
-    // Material transfer computation - computes moves without processing them
+    // Material transfer computation - computes moves without processing them.
     std::vector<MaterialMove> computeMaterialMoves(double deltaTime);
 
     // =================================================================
@@ -334,36 +294,73 @@ public:
     void fromJSON(const nlohmann::json& doc);
 
     // =================================================================
-    // TEMPORARY STUBS FOR UI-RELATED METHODS (To be removed in Phase 2)
+    // UTILITY METHODS
     // =================================================================
 
-    void setRainRate(double rate) { (void)rate; }
-    double getRainRate() const { return 0.0; }
-    void setWaterColumnEnabled(bool enabled) { (void)enabled; }
-    bool isWaterColumnEnabled() const { return false; }
-    void setLeftThrowEnabled(bool enabled) { (void)enabled; }
-    bool isLeftThrowEnabled() const { return false; }
-    void setRightThrowEnabled(bool enabled) { (void)enabled; }
-    bool isRightThrowEnabled() const { return false; }
-    void setLowerRightQuadrantEnabled(bool enabled) { (void)enabled; }
-    bool isLowerRightQuadrantEnabled() const { return false; }
     std::string toAsciiDiagram() const;
-    void spawnMaterialBall(MaterialType type, uint32_t x, uint32_t y, uint32_t radius) {
-        (void)type; (void)x; (void)y; (void)radius;
-    }
+
+    // Stub methods for unimplemented features (TODO: remove event handlers that call these).
+    void setRainRate(double) {}
+    double getRainRate() const { return 0.0; }
+    void spawnMaterialBall(MaterialType, uint32_t, uint32_t, uint32_t) {}
+    void setWaterColumnEnabled(bool) {}
+    bool isWaterColumnEnabled() const { return false; }
+    void setLeftThrowEnabled(bool) {}
+    bool isLeftThrowEnabled() const { return false; }
+    void setRightThrowEnabled(bool) {}
+    bool isRightThrowEnabled() const { return false; }
+    void setLowerRightQuadrantEnabled(bool) {}
+    bool isLowerRightQuadrantEnabled() const { return false; }
 
     // World state data - public source of truth for all serializable state.
     WorldData data;
 
-protected:
-    // WorldInterface hook implementations
+    // WorldInterface hook implementations (rarely overridden - can be public).
     void onPostResize();
     void onPreResize(uint32_t newWidth, uint32_t newHeight);
     bool shouldResize(uint32_t newWidth, uint32_t newHeight) const;
 
+    // =================================================================
+    // CONFIGURATION (public - direct access preferred)
+    // =================================================================
+
+    // Physics parameters (TODO: migrate to WorldData).
+    double water_pressure_threshold_;
+    bool pressure_diffusion_enabled_;
+    double hydrostatic_pressure_strength_;
+    double dynamic_pressure_strength_;
+    bool cohesion_bind_force_enabled_;
+    double cohesion_com_force_strength_;
+    double cohesion_bind_force_strength_;
+    uint32_t com_cohesion_range_;
+    double viscosity_strength_;
+    double friction_strength_;
+    bool air_resistance_enabled_;
+    double air_resistance_strength_;
+    MaterialType selected_material_;
+
+    // =================================================================
+    // CALCULATORS (public for direct access)
+    // =================================================================
+
+    WorldSupportCalculator support_calculator_;
+    WorldPressureCalculator pressure_calculator_;
+    WorldCollisionCalculator collision_calculator_;
+    WorldAdhesionCalculator adhesion_calculator_;
+    WorldFrictionCalculator friction_calculator_;
+
+    // Material transfer queue (internal simulation state).
+    std::vector<MaterialMove> pending_moves_;
+
+    // Performance timing.
+    mutable Timers timers_;
+
+    // World event generator for dynamic particles.
+    std::shared_ptr<WorldEventGenerator> worldEventGenerator_;
+
 private:
     // =================================================================
-    // INTERNAL PHYSICS METHODS
+    // INTERNAL PHYSICS METHODS (implementation details)
     // =================================================================
 
     void applyGravity();
@@ -371,108 +368,19 @@ private:
     void applyCohesionForces();
     void applyPressureForces();
     void resolveForces(double deltaTime);
-
-    // Helper method for viscosity calculations.
     double getMotionStateMultiplier(MotionState state, double sensitivity) const;
     void updateTransfers(double deltaTime);
     void processVelocityLimiting(double deltaTime);
-
     void processMaterialMoves();
-
     void setupBoundaryWalls();
 
-    // Coordinate conversion helpers
+    // Coordinate conversion helpers (can be public if needed).
     void pixelToCell(int pixelX, int pixelY, int& cellX, int& cellY) const;
     Vector2i pixelToCell(int pixelX, int pixelY) const;
     bool isValidCell(int x, int y) const;
     bool isValidCell(const Vector2i& pos) const;
     size_t coordToIndex(uint32_t x, uint32_t y) const;
     size_t coordToIndex(const Vector2i& pos) const;
-
-    // =================================================================
-    // MEMBER VARIABLES
-    // =================================================================
-
-    // NOTE: Grid storage (cells), width, height, timestep, timescale, removed_mass,
-    // gravity, elasticity_factor, pressure_scale, add_particles_enabled, and
-    // debug_draw_enabled are now in public WorldData data member.
-
-    // Physics parameters (not yet migrated to WorldData).
-    double water_pressure_threshold_;
-
-    // Dual pressure system controls (not yet migrated to WorldData).
-    bool pressure_diffusion_enabled_;
-    double hydrostatic_pressure_strength_;  // 0 = disabled
-    double dynamic_pressure_strength_;      // 0 = disabled
-
-    // Cohesion physics control.
-    bool cohesion_bind_force_enabled_; // Enable/disable cohesion bind force (resistance)
-
-    double cohesion_com_force_strength_; // Scaling factor for COM cohesion force magnitude (0 = disabled)
-    double
-        cohesion_bind_force_strength_; // Scaling factor for cohesion bind resistance - DEPRECATED
-    uint32_t com_cohesion_range_;      // Range for COM cohesion neighbors (default 2)
-
-    // Viscosity control
-    double viscosity_strength_; // Global multiplier for material viscosity (0.0-2.0)
-
-    // Friction control
-    double friction_strength_; // Global multiplier for friction coefficients (0.0-2.0)
-
-    // Air resistance control
-    bool air_resistance_enabled_;    // Enable/disable air resistance forces
-    double air_resistance_strength_; // Strength multiplier for air resistance
-
-    // Drag state (enhanced with visual feedback)
-    bool is_dragging_;
-    int drag_start_x_;
-    int drag_start_y_;
-    MaterialType dragged_material_;
-    double dragged_amount_;
-
-    // Current drag position tracking
-    int last_drag_cell_x_;
-    int last_drag_cell_y_;
-
-    // Floating particle for drag interaction (can collide with world)
-    bool has_floating_particle_;
-    Cell floating_particle_;
-    double floating_particle_pixel_x_;
-    double floating_particle_pixel_y_;
-
-    // Velocity tracking for "toss" behavior
-    std::vector<std::pair<int, int>> recent_positions_;
-    Vector2d dragged_velocity_;
-    Vector2d dragged_com_;
-
-    // Material selection state (for UI coordination)
-    MaterialType selected_material_;
-
-    // Material transfer queue
-    std::vector<MaterialMove> pending_moves_;
-
-    // Dynamic pressure system
-
-    // Performance timing.
-    mutable Timers timers_;
-
-    // Support calculation.
-    mutable WorldSupportCalculator support_calculator_;
-
-    // Pressure calculation.
-    WorldPressureCalculator pressure_calculator_;
-
-    // Collision calculation.
-    WorldCollisionCalculator collision_calculator_;
-
-    // Adhesion calculation.
-    mutable WorldAdhesionCalculator adhesion_calculator_;
-
-    // Friction calculation.
-    mutable WorldFrictionCalculator friction_calculator_;
-
-    // World event generator for dynamic particles.
-    std::shared_ptr<WorldEventGenerator> worldEventGenerator_;
 };
 
 /**

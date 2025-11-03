@@ -38,19 +38,6 @@ World::World(uint32_t width, uint32_t height)
       friction_strength_(1.0),
       air_resistance_enabled_(true),
       air_resistance_strength_(0.1),
-      is_dragging_(false),
-      drag_start_x_(-1),
-      drag_start_y_(-1),
-      dragged_material_(MaterialType::AIR),
-      dragged_amount_(0.0),
-      last_drag_cell_x_(-1),
-      last_drag_cell_y_(-1),
-      has_floating_particle_(false),
-      floating_particle_{MaterialType::AIR, 0.0},
-      floating_particle_pixel_x_(0.0),
-      floating_particle_pixel_y_(0.0),
-      dragged_velocity_(0.0, 0.0),
-      dragged_com_(0.0, 0.0),
       selected_material_(MaterialType::DIRT),
       support_calculator_(),
       pressure_calculator_(),
@@ -188,38 +175,6 @@ void World::setup()
 // MATERIAL ADDITION METHODS.
 // =================================================================.
 
-void World::addDirtAtPixel(int pixelX, int pixelY)
-{
-    int cellX, cellY;
-    pixelToCell(pixelX, pixelY, cellX, cellY);
-
-    spdlog::info(
-        "DEBUGGING: World::addDirtAtPixel pixel ({},{}) -> cell ({},{}) valid={}",
-        pixelX,
-        pixelY,
-        cellX,
-        cellY,
-        isValidCell(cellX, cellY));
-
-    if (isValidCell(cellX, cellY)) {
-        addMaterialAtCell(
-            static_cast<uint32_t>(cellX), static_cast<uint32_t>(cellY), MaterialType::DIRT, 1.0);
-        Cell& cell __attribute__((unused)) =
-            at(static_cast<uint32_t>(cellX), static_cast<uint32_t>(cellY));
-    }
-}
-
-void World::addWaterAtPixel(int pixelX, int pixelY)
-{
-    int cellX, cellY;
-    pixelToCell(pixelX, pixelY, cellX, cellY);
-
-    if (isValidCell(cellX, cellY)) {
-        addMaterialAtCell(cellX, cellY, MaterialType::WATER, 1.0);
-        spdlog::debug("Added WATER at pixel ({},{}) -> cell ({},{})", pixelX, pixelY, cellX, cellY);
-    }
-}
-
 void World::addMaterialAtCell(uint32_t x, uint32_t y, MaterialType type, double amount)
 {
     if (!isValidCell(x, y)) {
@@ -250,229 +205,6 @@ void World::addMaterialAtPixel(int pixelX, int pixelY, MaterialType type, double
     if (isValidCell(cellX, cellY)) {
         addMaterialAtCell(static_cast<uint32_t>(cellX), static_cast<uint32_t>(cellY), type, amount);
     }
-}
-
-bool World::hasMaterialAtPixel(int pixelX, int pixelY) const
-{
-    int cellX, cellY;
-    pixelToCell(pixelX, pixelY, cellX, cellY);
-
-    if (isValidCell(cellX, cellY)) {
-        const Cell& cell = at(cellX, cellY);
-        return !cell.isEmpty();
-    }
-
-    return false;
-}
-
-// =================================================================.
-// DRAG INTERACTION (SIMPLIFIED).
-// =================================================================.
-
-void World::startDragging(int pixelX, int pixelY)
-{
-    int cellX, cellY;
-    pixelToCell(pixelX, pixelY, cellX, cellY);
-
-    if (!isValidCell(cellX, cellY)) {
-        return;
-    }
-
-    Cell& cell = at(cellX, cellY);
-
-    if (!cell.isEmpty()) {
-        is_dragging_ = true;
-        drag_start_x_ = cellX;
-        drag_start_y_ = cellY;
-        dragged_material_ = cell.material_type;
-        dragged_amount_ = cell.fill_ratio;
-
-        // Initialize drag position tracking.
-        last_drag_cell_x_ = -1;
-        last_drag_cell_y_ = -1;
-
-        // Initialize velocity tracking.
-        recent_positions_.clear();
-        recent_positions_.push_back({ pixelX, pixelY });
-        dragged_velocity_ = Vector2d{0.0, 0.0};
-
-        // Calculate sub-cell COM position.
-        double subCellX = (pixelX % Cell::WIDTH) / static_cast<double>(Cell::WIDTH);
-        double subCellY = (pixelY % Cell::HEIGHT) / static_cast<double>(Cell::HEIGHT);
-        dragged_com_ = Vector2d{subCellX * 2.0 - 1.0, subCellY * 2.0 - 1.0};
-
-        // Create floating particle for drag interaction.
-        has_floating_particle_ = true;
-        floating_particle_.material_type = dragged_material_;
-        floating_particle_.setFillRatio(dragged_amount_);
-        floating_particle_.setCOM(dragged_com_);
-        floating_particle_.velocity = dragged_velocity_;
-        floating_particle_pixel_x_ = static_cast<double>(pixelX);
-        floating_particle_pixel_y_ = static_cast<double>(pixelY);
-
-        // Remove material from source cell.
-        cell.clear();
-
-        spdlog::debug(
-            "Started dragging {} from cell ({},{}) with COM ({:.2f},{:.2f})",
-            getMaterialName(dragged_material_),
-            cellX,
-            cellY,
-            dragged_com_.x,
-            dragged_com_.y);
-    }
-}
-
-void World::updateDrag(int pixelX, int pixelY)
-{
-    if (!is_dragging_) {
-        return;
-    }
-
-    // Add position to recent history for velocity tracking.
-    recent_positions_.push_back({ pixelX, pixelY });
-    if (recent_positions_.size() > 5) {
-        recent_positions_.erase(recent_positions_.begin());
-    }
-
-    // Update COM based on sub-cell position.
-    double subCellX = (pixelX % Cell::WIDTH) / static_cast<double>(Cell::WIDTH);
-    double subCellY = (pixelY % Cell::HEIGHT) / static_cast<double>(Cell::HEIGHT);
-    dragged_com_ = Vector2d{subCellX * 2.0 - 1.0, subCellY * 2.0 - 1.0};
-
-    // Update floating particle position and physics properties.
-    pixelToCell(pixelX, pixelY, last_drag_cell_x_, last_drag_cell_y_);
-    floating_particle_pixel_x_ = static_cast<double>(pixelX);
-    floating_particle_pixel_y_ = static_cast<double>(pixelY);
-
-    // Update floating particle properties for collision detection.
-    if (has_floating_particle_) {
-        floating_particle_.setCOM(dragged_com_);
-
-        // Calculate current velocity for collision physics.
-        if (recent_positions_.size() >= 2) {
-            const auto& prev = recent_positions_[recent_positions_.size() - 2];
-            double dx = static_cast<double>(pixelX - prev.first) / Cell::WIDTH;
-            double dy = static_cast<double>(pixelY - prev.second) / Cell::HEIGHT;
-            floating_particle_.velocity = Vector2d{dx, dy};
-
-            // Check for collisions with the target cell.
-            if (collision_calculator_.checkFloatingParticleCollision(*this, 
-                    last_drag_cell_x_, last_drag_cell_y_, floating_particle_)) {
-                Cell& targetCell = at(last_drag_cell_x_, last_drag_cell_y_);
-                collision_calculator_.handleFloatingParticleCollision(*this, 
-                    last_drag_cell_x_, last_drag_cell_y_, floating_particle_, targetCell);
-            }
-        }
-    }
-
-    spdlog::trace(
-        "Drag tracking: position ({},{}) -> cell ({},{}) with COM ({:.2f},{:.2f})",
-        pixelX,
-        pixelY,
-        last_drag_cell_x_,
-        last_drag_cell_y_,
-        dragged_com_.x,
-        dragged_com_.y);
-}
-
-void World::endDragging(int pixelX, int pixelY)
-{
-    if (!is_dragging_) {
-        return;
-    }
-
-    // Calculate velocity from recent positions for "toss" behavior.
-    dragged_velocity_ = Vector2d{0.0, 0.0};
-    if (recent_positions_.size() >= 2) {
-        const auto& first = recent_positions_[0];
-        const auto& last = recent_positions_.back();
-
-        double dx = static_cast<double>(last.first - first.first);
-        double dy = static_cast<double>(last.second - first.second);
-
-        // Scale velocity based on Cell dimensions (similar to WorldA).
-        dragged_velocity_ = Vector2d{dx / (Cell::WIDTH * 2.0), dy / (Cell::HEIGHT * 2.0)};
-
-        spdlog::debug(
-            "Calculated drag velocity: ({:.2f}, {:.2f}) from {} positions",
-            dragged_velocity_.x,
-            dragged_velocity_.y,
-            recent_positions_.size());
-    }
-
-    // No cell restoration needed since preview doesn't modify cells.
-
-    int cellX, cellY;
-    pixelToCell(pixelX, pixelY, cellX, cellY);
-
-    if (isValidCell(cellX, cellY)) {
-        // Place the material with calculated velocity and COM.
-        Cell& targetCell = at(cellX, cellY);
-        targetCell.material_type = dragged_material_;
-        targetCell.setFillRatio(dragged_amount_);
-        targetCell.setCOM(dragged_com_);
-        targetCell.velocity = dragged_velocity_;
-
-        spdlog::debug(
-            "Ended drag: placed {} at cell ({},{}) with velocity ({:.2f},{:.2f})",
-            getMaterialName(dragged_material_),
-            cellX,
-            cellY,
-            dragged_velocity_.x,
-            dragged_velocity_.y);
-    }
-
-    // Clear floating particle.
-    has_floating_particle_ = false;
-    floating_particle_.clear();
-    floating_particle_pixel_x_ = 0.0;
-    floating_particle_pixel_y_ = 0.0;
-
-    // Reset all drag state.
-    is_dragging_ = false;
-    drag_start_x_ = -1;
-    drag_start_y_ = -1;
-    dragged_material_ = MaterialType::AIR;
-    dragged_amount_ = 0.0;
-    last_drag_cell_x_ = -1;
-    last_drag_cell_y_ = -1;
-    recent_positions_.clear();
-    dragged_velocity_ = Vector2d{0.0, 0.0};
-    dragged_com_ = Vector2d{0.0, 0.0};
-}
-
-void World::restoreLastDragCell()
-{
-    if (!is_dragging_) {
-        return;
-    }
-
-    // Restore material to the original drag start location.
-    if (isValidCell(drag_start_x_, drag_start_y_)) {
-        Cell& originCell = at(drag_start_x_, drag_start_y_);
-        originCell.material_type = dragged_material_;
-        originCell.setFillRatio(dragged_amount_);
-        spdlog::debug("Restored dragged material to origin ({},{})", drag_start_x_, drag_start_y_);
-    }
-
-    // Clear floating particle.
-    has_floating_particle_ = false;
-    floating_particle_.clear();
-    floating_particle_pixel_x_ = 0.0;
-    floating_particle_pixel_y_ = 0.0;
-
-    // Reset drag state.
-    is_dragging_ = false;
-    drag_start_x_ = -1;
-    drag_start_y_ = -1;
-    dragged_material_ = MaterialType::AIR;
-    dragged_amount_ = 0.0;
-    last_drag_cell_x_ = -1;
-    last_drag_cell_y_ = -1;
-    recent_positions_.clear();
-    dragged_velocity_ = Vector2d{0.0, 0.0};
-    dragged_com_ = Vector2d{0.0, 0.0};
 }
 
 // =================================================================.
@@ -533,16 +265,6 @@ Cell& World::at(const Vector2i& pos)
 const Cell& World::at(const Vector2i& pos) const
 {
     return at(static_cast<uint32_t>(pos.x), static_cast<uint32_t>(pos.y));
-}
-
-Cell& World::getCell(uint32_t x, uint32_t y)
-{
-    return at(x, y); // Call the existing at() method.
-}
-
-const Cell& World::getCell(uint32_t x, uint32_t y) const
-{
-    return at(x, y); // Call the existing at() method.
 }
 
 double World::getTotalMass() const
@@ -1264,7 +986,7 @@ std::string World::settingsToString() const
     ss << "Elasticity factor: " << data.elasticity_factor << "\n";
     ss << "Add particles enabled: " << (data.add_particles_enabled ? "true" : "false") << "\n";
     ss << "Walls enabled: " << (areWallsEnabled() ? "true" : "false") << "\n";
-    ss << "Rain rate: " << getRainRate() << "\n";
+    ss << "Rain rate: " << getRainRate() /* stub */ << "\n";
     ss << "Left throw enabled: " << (isLeftThrowEnabled() ? "true" : "false") << "\n";
     ss << "Right throw enabled: " << (isRightThrowEnabled() ? "true" : "false") << "\n";
     ss << "Lower right quadrant enabled: " << (isLowerRightQuadrantEnabled() ? "true" : "false")

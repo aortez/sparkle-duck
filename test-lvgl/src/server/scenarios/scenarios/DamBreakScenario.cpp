@@ -56,7 +56,7 @@ public:
             spdlog::info("Breaking the dam at timestep {}", timestep);
             
             // Dam is at x=2, break only the bottom cell for realistic flow
-            world.getCell(2, 5).clear();  // Bottom cell at (2,5)
+            world.at(2, 5).clear();  // Bottom cell at (2,5)
             spdlog::info("Dam broken at (2, 5)");
             damBroken = true;
         }
