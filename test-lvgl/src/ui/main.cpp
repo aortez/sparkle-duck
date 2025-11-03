@@ -68,7 +68,7 @@ int main(int argc, char** argv)
 
         // Create logger with both sinks.
         std::vector<spdlog::sink_ptr> sinks{ console_sink, file_sink };
-        auto logger = std::make_shared<spdlog::logger>("sparkle-duck", sinks.begin(), sinks.end());
+        auto logger = std::make_shared<spdlog::logger>("ui", sinks.begin(), sinks.end());
 
         // Set as default logger.
         spdlog::set_default_logger(logger);
@@ -93,7 +93,7 @@ int main(int argc, char** argv)
     args::Flag list_backends(
         parser, "list-backends", "List supported backends", { 'B', "list-backends" });
     args::ValueFlag<std::string> backend(
-        parser, "backend", "Select display backend (wayland, x11, fbdev, sdl)", { 'b', "backend" });
+        parser, "backend", "Select display backend (wayland, x11, fbdev, sdl)", { 'b', "backend" }, "wayland");
     args::ValueFlag<int> window_width(
         parser, "width", "Set window width (default: 1200)", { 'W', "width" }, 1200);
     args::ValueFlag<int> window_height(
@@ -104,12 +104,6 @@ int main(int argc, char** argv)
         "Set maximum number of simulation steps (0 = unlimited)",
         { 's', "steps" },
         0);
-    args::ValueFlag<std::string> world_type(
-        parser,
-        "world",
-        "Select physics system: rulesA (mixed materials) or rulesB (pure materials, default)",
-        { 'w', "world" },
-        "rulesB");
     args::ValueFlag<std::string> server_host(
         parser,
         "server",
@@ -158,21 +152,14 @@ int main(int argc, char** argv)
         }
     }
     else {
-        // No backend specified, use default (empty string will auto-select).
-        selected_backend = "";
+        // No backend specified, use wayland as default.
+        selected_backend = "wayland";
     }
 
     // Apply settings from command line arguments.
     if (window_width) settings.window_width = args::get(window_width);
     if (window_height) settings.window_height = args::get(window_height);
     if (max_steps) settings.max_steps = args::get(max_steps);
-
-    // Note: World type selection via command-line is not yet implemented in the event system.
-    // The state machine currently uses World by default.
-    // TODO: Pass world type to state machine constructor when implementing world type selection.
-    if (world_type) {
-        spdlog::warn("--world flag is not yet implemented in event system (always uses World)");
-    }
 
     /* Initialize LVGL. */
     lv_init();
@@ -193,7 +180,7 @@ int main(int argc, char** argv)
     // Send init complete event to start state machine flow.
     stateMachine->queueEvent(DirtSim::Ui::InitCompleteEvent{});
 
-    // Auto-connect to DSSM server if specified.
+    // Auto-connect to DSSM server (default: localhost:8080).
     if (server_host) {
         std::string hostPort = args::get(server_host);
         size_t colonPos = hostPort.find(':');
@@ -206,6 +193,11 @@ int main(int argc, char** argv)
         else {
             spdlog::error("Invalid server format (use host:port): {}", hostPort);
         }
+    }
+    else {
+        // No server specified, connect to localhost:8080 by default.
+        spdlog::info("Auto-connecting to DSSM server at localhost:8080 (default)");
+        stateMachine->queueEvent(DirtSim::Ui::ConnectToServerCommand{"localhost", 8080});
     }
 
     spdlog::info("Entering backend run loop (will process events and LVGL)");

@@ -44,6 +44,9 @@ void CellRenderer::initialize(lv_obj_t* parent, uint32_t worldWidth, uint32_t wo
     width_ = worldWidth;
     height_ = worldHeight;
 
+    // Offset grid to the right of control panel (200px wide).
+    constexpr int32_t CONTROL_PANEL_WIDTH = 200;
+
     // Create canvas grid for each cell.
     canvases_.resize(worldHeight);
     for (uint32_t y = 0; y < worldHeight; ++y) {
@@ -66,8 +69,10 @@ void CellRenderer::initialize(lv_obj_t* parent, uint32_t worldWidth, uint32_t wo
                 Cell::HEIGHT,
                 LV_COLOR_FORMAT_ARGB8888);
 
-            // Position canvas.
-            lv_obj_set_pos(cellCanvas.canvas, x * Cell::WIDTH, y * Cell::HEIGHT);
+            // Position canvas to the right of control panel.
+            lv_obj_set_pos(cellCanvas.canvas,
+                          CONTROL_PANEL_WIDTH + x * Cell::WIDTH,
+                          y * Cell::HEIGHT);
         }
     }
 
