@@ -1,5 +1,7 @@
 #include "../StateMachine.h"
+#include "../network/WebSocketClient.h"
 #include "State.h"
+#include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
 
 namespace DirtSim {
@@ -38,19 +40,35 @@ State::Any StartMenu::onEvent(const UiApi::Exit::Cwc& cwc, StateMachine& /*sm*/)
     return Shutdown{};
 }
 
-State::Any StartMenu::onEvent(const UiApi::SimRun::Cwc& cwc, StateMachine& /*sm*/)
+State::Any StartMenu::onEvent(const UiApi::SimRun::Cwc& cwc, StateMachine& sm)
 {
     spdlog::info("StartMenu: SimRun command received");
 
-    // TODO: Send SimRun command to DSSM server via WebSocket client.
-    // TODO: Transition to SimRunning state when server confirms.
+    // Get WebSocket client to send command to DSSM.
+    auto* wsClient = sm.getWebSocketClient();
+    if (!wsClient || !wsClient->isConnected()) {
+        spdlog::error("StartMenu: Not connected to DSSM server");
+        cwc.sendResponse(UiApi::SimRun::Response::error(ApiError("Not connected to DSSM server")));
+        return StartMenu{};
+    }
 
-    spdlog::warn("StartMenu: Simulation control not yet implemented - staying in menu");
+    // Send sim_run command to DSSM server.
+    nlohmann::json simRunCmd = {{"command", "sim_run"}};
+    bool sent = wsClient->send(simRunCmd.dump());
 
-    // Send OK response for now.
+    if (!sent) {
+        spdlog::error("StartMenu: Failed to send sim_run to DSSM");
+        cwc.sendResponse(UiApi::SimRun::Response::error(ApiError("Failed to send command to DSSM")));
+        return StartMenu{};
+    }
+
+    spdlog::info("StartMenu: Sent sim_run to DSSM, transitioning to SimRunning");
+
+    // Send OK response.
     cwc.sendResponse(UiApi::SimRun::Response::okay({true}));
 
-    return StartMenu{};
+    // Transition to SimRunning state.
+    return SimRunning{};
 }
 
 } // namespace State

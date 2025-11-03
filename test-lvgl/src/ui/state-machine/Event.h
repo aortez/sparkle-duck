@@ -81,6 +81,15 @@ struct RequestWorldUpdateCommand {
     static constexpr const char* name() { return "RequestWorldUpdateCommand"; }
 };
 
+/**
+ * @brief Frame ready notification from DSSM server.
+ */
+struct FrameReadyNotification {
+    uint64_t stepNumber;
+    int64_t timestamp;
+    static constexpr const char* name() { return "FrameReadyNotification"; }
+};
+
 // =================================================================
 // EVENT VARIANT
 // =================================================================
@@ -97,6 +106,7 @@ using Event = std::variant<
     ServerConnectedEvent,
     ServerDisconnectedEvent,
     RequestWorldUpdateCommand,
+    FrameReadyNotification,
 
     // World updates from DSSM server
     DirtSim::UiUpdateEvent,

@@ -1,5 +1,7 @@
 #include "../StateMachine.h"
+#include "../network/WebSocketClient.h"
 #include "State.h"
+#include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
 
 namespace DirtSim {
@@ -89,6 +91,21 @@ State::Any SimRunning::onEvent(const UiApi::SimPause::Cwc& cwc, StateMachine& /*
 
     // Transition to Paused state.
     return Paused{ std::move(world) };
+}
+
+State::Any SimRunning::onEvent(const FrameReadyNotification& evt, StateMachine& sm)
+{
+    spdlog::info("SimRunning: Frame ready notification (step {})", evt.stepNumber);
+
+    // Request world state from DSSM.
+    auto* wsClient = sm.getWebSocketClient();
+    if (wsClient && wsClient->isConnected()) {
+        nlohmann::json stateGetCmd = {{"command", "state_get"}};
+        wsClient->send(stateGetCmd.dump());
+        spdlog::debug("SimRunning: Requested state_get from DSSM");
+    }
+
+    return SimRunning{ std::move(world) };
 }
 
 State::Any SimRunning::onEvent(const UiUpdateEvent& evt, StateMachine& /*sm*/)
