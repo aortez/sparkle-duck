@@ -140,16 +140,6 @@ add_executable(sparkle-duck-ui
     src/ui/main.cpp
     src/ui/state-machine/StateMachine.cpp
     src/ui/state-machine/EventProcessor.cpp
-    src/ui/state-machine/states/Disconnected.cpp
-    src/ui/state-machine/states/Paused.cpp
-    src/ui/state-machine/states/Shutdown.cpp
-    src/ui/state-machine/states/SimRunning.cpp
-    src/ui/state-machine/states/StartMenu.cpp
-    src/ui/state-machine/states/Startup.cpp
-    src/ui/state-machine/network/CommandDeserializerJson.cpp
-    src/ui/state-machine/network/MessageParser.cpp
-    src/ui/state-machine/network/WebSocketClient.cpp
-    src/ui/state-machine/network/WebSocketServer.cpp
     src/ui/state-machine/api/Exit.cpp
     src/ui/state-machine/api/MouseDown.cpp
     src/ui/state-machine/api/MouseMove.cpp
@@ -157,6 +147,16 @@ add_executable(sparkle-duck-ui
     src/ui/state-machine/api/Screenshot.cpp
     src/ui/state-machine/api/SimPause.cpp
     src/ui/state-machine/api/SimRun.cpp
+    src/ui/state-machine/network/CommandDeserializerJson.cpp
+    src/ui/state-machine/network/MessageParser.cpp
+    src/ui/state-machine/network/WebSocketClient.cpp
+    src/ui/state-machine/network/WebSocketServer.cpp
+    src/ui/state-machine/states/Disconnected.cpp
+    src/ui/state-machine/states/Paused.cpp
+    src/ui/state-machine/states/Shutdown.cpp
+    src/ui/state-machine/states/SimRunning.cpp
+    src/ui/state-machine/states/StartMenu.cpp
+    src/ui/state-machine/states/Startup.cpp
     src/ui/UiComponentManager.cpp
     src/ui/rendering/CellRenderer.cpp
     src/ui/controls/ControlPanel.cpp
