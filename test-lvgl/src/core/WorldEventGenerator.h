@@ -51,6 +51,10 @@ public:
     virtual void makeMiddleMetalWall(World& world);
     virtual void fillWithDirt(World& world);
 
+    // Toggle methods for add/remove features.
+    virtual void dirtQuadrantToggle(World& world, bool enabled);
+    virtual void waterColumnToggle(World& world, bool enabled);
+
 protected:
     // Helper functions for feature-preserving resize
     virtual double calculateEdgeStrength(

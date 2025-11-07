@@ -1,4 +1,5 @@
 #include "CommandDeserializerJson.h"
+#include "../api/DrawDebugToggle.h"
 #include "../api/Exit.h"
 #include "../api/MouseDown.h"
 #include "../api/MouseMove.h"
@@ -37,17 +38,11 @@ Result<UiApiCommand, ApiError> CommandDeserializerJson::deserialize(const std::s
 
     // Dispatch to appropriate handler.
     try {
-        if (commandName == "exit") {
+        if (commandName == "draw_debug_toggle") {
+            return Result<UiApiCommand, ApiError>::okay(UiApi::DrawDebugToggle::Command::fromJson(cmd));
+        }
+        else if (commandName == "exit") {
             return Result<UiApiCommand, ApiError>::okay(UiApi::Exit::Command::fromJson(cmd));
-        }
-        else if (commandName == "sim_run") {
-            return Result<UiApiCommand, ApiError>::okay(UiApi::SimRun::Command::fromJson(cmd));
-        }
-        else if (commandName == "sim_pause") {
-            return Result<UiApiCommand, ApiError>::okay(UiApi::SimPause::Command::fromJson(cmd));
-        }
-        else if (commandName == "screenshot") {
-            return Result<UiApiCommand, ApiError>::okay(UiApi::Screenshot::Command::fromJson(cmd));
         }
         else if (commandName == "mouse_down") {
             return Result<UiApiCommand, ApiError>::okay(UiApi::MouseDown::Command::fromJson(cmd));
@@ -57,6 +52,15 @@ Result<UiApiCommand, ApiError> CommandDeserializerJson::deserialize(const std::s
         }
         else if (commandName == "mouse_up") {
             return Result<UiApiCommand, ApiError>::okay(UiApi::MouseUp::Command::fromJson(cmd));
+        }
+        else if (commandName == "screenshot") {
+            return Result<UiApiCommand, ApiError>::okay(UiApi::Screenshot::Command::fromJson(cmd));
+        }
+        else if (commandName == "sim_pause") {
+            return Result<UiApiCommand, ApiError>::okay(UiApi::SimPause::Command::fromJson(cmd));
+        }
+        else if (commandName == "sim_run") {
+            return Result<UiApiCommand, ApiError>::okay(UiApi::SimRun::Command::fromJson(cmd));
         }
         else {
             return Result<UiApiCommand, ApiError>::error(

@@ -266,6 +266,14 @@ State::Any SimRunning::onEvent(const Api::ScenarioConfigSet::Cwc& cwc, StateMach
 
     // Recreate WorldEventGenerator with new config.
     auto newGenerator = scenario->createWorldEventGenerator();
+
+    // Apply immediate visual toggles for sandbox scenario.
+    if (std::holds_alternative<SandboxConfig>(cwc.command.config)) {
+        const auto& sandboxConfig = std::get<SandboxConfig>(cwc.command.config);
+        newGenerator->dirtQuadrantToggle(*world, sandboxConfig.quadrant_enabled);
+        newGenerator->waterColumnToggle(*world, sandboxConfig.water_column_enabled);
+    }
+
     world->setWorldEventGenerator(std::move(newGenerator));
 
     // Update WorldData with new config.

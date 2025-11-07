@@ -638,9 +638,14 @@ Result<lv_obj_t*, std::string> LVGLBuilder::LabeledSwitchBuilder::createLabeledS
         lv_obj_add_state(switch_, LV_STATE_CHECKED);
     }
 
+    // Set user data on switch object for callback retrieval.
+    if (user_data_) {
+        lv_obj_set_user_data(switch_, user_data_);
+    }
+
     // Set up callback.
     if (callback_) {
-        lv_obj_add_event_cb(switch_, callback_, LV_EVENT_VALUE_CHANGED, user_data_);
+        lv_obj_add_event_cb(switch_, callback_, LV_EVENT_VALUE_CHANGED, nullptr);
     }
 
     // Create label.

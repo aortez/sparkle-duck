@@ -67,6 +67,52 @@ void WorldEventGenerator::fillWithDirt(World& world)
     }
 }
 
+void WorldEventGenerator::dirtQuadrantToggle(World& world, bool enabled)
+{
+    uint32_t startX = world.data.width / 2;
+    uint32_t startY = world.data.height / 2;
+    uint32_t sizeX = world.data.width - startX;
+    uint32_t sizeY = world.data.height - startY;
+
+    if (enabled) {
+        spdlog::info("Adding dirt quadrant ({}x{} cells)", sizeX, sizeY);
+        for (uint32_t y = startY; y < world.data.height; ++y) {
+            for (uint32_t x = startX; x < world.data.width; ++x) {
+                world.addMaterialAtCell(x, y, MaterialType::DIRT, 1.0);
+            }
+        }
+    } else {
+        spdlog::info("Removing dirt quadrant ({}x{} cells)", sizeX, sizeY);
+        for (uint32_t y = startY; y < world.data.height; ++y) {
+            for (uint32_t x = startX; x < world.data.width; ++x) {
+                Cell& cell = world.at(x, y);
+                cell.clear();
+            }
+        }
+    }
+}
+
+void WorldEventGenerator::waterColumnToggle(World& world, bool enabled)
+{
+    if (enabled) {
+        spdlog::info("Adding water column (5 wide × 20 tall) on left side");
+        for (uint32_t y = 0; y < 20 && y < world.data.height; ++y) {
+            for (uint32_t x = 1; x <= 5 && x < world.data.width; ++x) {
+                Cell& cell = world.at(x, y);
+                cell.addWater(1.0);
+            }
+        }
+    } else {
+        spdlog::info("Removing water column (5 wide × 20 tall) on left side");
+        for (uint32_t y = 0; y < 20 && y < world.data.height; ++y) {
+            for (uint32_t x = 1; x <= 5 && x < world.data.width; ++x) {
+                Cell& cell = world.at(x, y);
+                cell.clear();
+            }
+        }
+    }
+}
+
 void DefaultWorldEventGenerator::setup(World& world)
 {
     fillLowerRightQuadrant(world);
@@ -262,28 +308,17 @@ void ConfigurableWorldEventGenerator::setup(World& world)
         "ConfigurableWorldEventGenerator::setup called - waterColumnEnabled={}",
         waterColumnEnabled);
 
-    if (lowerRightQuadrantEnabled) {
-        fillLowerRightQuadrant(world);
-    }
+    // Use toggle methods for initial setup.
+    dirtQuadrantToggle(world, lowerRightQuadrantEnabled);
+
     if (wallsEnabled) {
         makeWalls(world);
     }
     if (middleMetalWallEnabled) {
         makeMiddleMetalWall(world);
     }
-    if (waterColumnEnabled) {
-        // Add 5-wide × 20-tall water column on left side (top 20 cells).
-        spdlog::info("Adding water column (5 wide × 20 tall) on left side");
-        for (uint32_t y = 0; y < 20 && y < world.data.height; ++y) {
-            for (uint32_t x = 1; x <= 5 && x < world.data.width; ++x) {
-                Cell& cell = world.at(x, y);
-                cell.addWater(1.0); // Add full cell of water.
-            }
-        }
-    }
-    else {
-        spdlog::info("Water column NOT enabled - skipping");
-    }
+
+    waterColumnToggle(world, waterColumnEnabled);
 }
 
 std::unique_ptr<WorldEventGenerator> ConfigurableWorldEventGenerator::clone() const

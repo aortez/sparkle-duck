@@ -1,5 +1,6 @@
 #pragma once
 
+#include "DrawDebugToggle.h"
 #include "Exit.h"
 #include "MouseDown.h"
 #include "MouseMove.h"
@@ -16,6 +17,7 @@ namespace Ui {
  * @brief Variant containing all UI API command types.
  */
 using UiApiCommand = std::variant<
+    UiApi::DrawDebugToggle::Command,
     UiApi::Exit::Command,
     UiApi::MouseDown::Command,
     UiApi::MouseMove::Command,
