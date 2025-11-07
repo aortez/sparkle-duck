@@ -79,7 +79,6 @@ struct SimRunning {
     Any onEvent(const SetRainRateCommand& cmd, StateMachine& dsm);
     Any onEvent(const GetFPSCommand& cmd, StateMachine& dsm);
     Any onEvent(const GetSimStatsCommand& cmd, StateMachine& dsm);
-    Any onEvent(const ToggleDebugCommand& cmd, StateMachine& dsm);
     Any onEvent(const ToggleCohesionForceCommand& cmd, StateMachine& dsm);
     Any onEvent(const ToggleTimeHistoryCommand& cmd, StateMachine& dsm);
     Any onEvent(const PrintAsciiDiagramCommand& cmd, StateMachine& dsm);

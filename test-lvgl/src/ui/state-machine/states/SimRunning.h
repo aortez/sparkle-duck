@@ -21,6 +21,9 @@ struct SimRunning {
     std::unique_ptr<CellRenderer> renderer_;  // Manages LVGL canvases for cells.
     std::unique_ptr<ControlPanel> controls_;  // UI controls for interaction.
 
+    // UI-local draw mode toggle.
+    bool debugDrawEnabled = false;
+
     // Time-based frame limiting.
     std::chrono::steady_clock::time_point lastFrameRequestTime;
     std::chrono::milliseconds targetFrameInterval{16};
@@ -38,6 +41,7 @@ struct SimRunning {
 
     Any onEvent(const FrameReadyNotification& evt, StateMachine& sm);
     Any onEvent(const ServerDisconnectedEvent& evt, StateMachine& sm);
+    Any onEvent(const UiApi::DrawDebugToggle::Cwc& cwc, StateMachine& sm);
     Any onEvent(const UiApi::Exit::Cwc& cwc, StateMachine& sm);
     Any onEvent(const UiApi::MouseDown::Cwc& cwc, StateMachine& sm);
     Any onEvent(const UiApi::MouseMove::Cwc& cwc, StateMachine& sm);

@@ -27,7 +27,7 @@ void SimRunning::onEnter(StateMachine& sm)
 
     // Create control panel if not already created.
     if (!controls_) {
-        controls_ = std::make_unique<ControlPanel>(container, sm.getWebSocketClient());
+        controls_ = std::make_unique<ControlPanel>(container, sm.getWebSocketClient(), sm);
         spdlog::info("SimRunning: Created control panel");
     }
 
@@ -46,6 +46,17 @@ State::Any SimRunning::onEvent(const ServerDisconnectedEvent& evt, StateMachine&
 
     // Lost connection - go back to Disconnected state (world is lost).
     return Disconnected{};
+}
+
+State::Any SimRunning::onEvent(const UiApi::DrawDebugToggle::Cwc& cwc, StateMachine& /*sm*/)
+{
+    using Response = UiApi::DrawDebugToggle::Response;
+
+    debugDrawEnabled = cwc.command.enabled;
+    spdlog::info("SimRunning: Debug draw mode {}", debugDrawEnabled ? "enabled" : "disabled");
+
+    cwc.sendResponse(Response::okay(UiApi::DrawDebugToggle::Okay{debugDrawEnabled}));
+    return std::move(*this);
 }
 
 State::Any SimRunning::onEvent(const UiApi::Exit::Cwc& cwc, StateMachine& /*sm*/)
@@ -191,8 +202,7 @@ State::Any SimRunning::onEvent(const UiUpdateEvent& evt, StateMachine& sm)
         auto* uiManager = sm.getUiComponentManager();
         if (uiManager) {
             lv_obj_t* container = uiManager->getSimulationContainer();
-            bool debugDraw = worldData->debug_draw_enabled;
-            renderer_->renderWorldData(*worldData, container, debugDraw);
+            renderer_->renderWorldData(*worldData, container, debugDrawEnabled);
             spdlog::debug("SimRunning: Rendered world ({}x{}, step {})",
                          worldData->width, worldData->height, worldData->timestep);
         }

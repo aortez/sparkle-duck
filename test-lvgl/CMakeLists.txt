@@ -140,6 +140,7 @@ add_executable(sparkle-duck-ui
     src/ui/main.cpp
     src/ui/state-machine/StateMachine.cpp
     src/ui/state-machine/EventProcessor.cpp
+    src/ui/state-machine/api/DrawDebugToggle.cpp
     src/ui/state-machine/api/Exit.cpp
     src/ui/state-machine/api/MouseDown.cpp
     src/ui/state-machine/api/MouseMove.cpp

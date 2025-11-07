@@ -34,7 +34,6 @@ struct WorldData {
 
     // Feature flags.
     bool add_particles_enabled = true;
-    bool debug_draw_enabled = false;
 
     // Scenario metadata and configuration.
     std::string scenario_id = "empty";

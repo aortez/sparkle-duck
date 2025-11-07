@@ -1,4 +1,5 @@
 #include "ControlPanel.h"
+#include "../state-machine/EventSink.h"
 #include "../state-machine/network/WebSocketClient.h"
 #include "../ui_builders/LVGLBuilder.h"
 #include <nlohmann/json.hpp>
@@ -7,8 +8,8 @@
 namespace DirtSim {
 namespace Ui {
 
-ControlPanel::ControlPanel(lv_obj_t* container, WebSocketClient* wsClient)
-    : container_(container), wsClient_(wsClient)
+ControlPanel::ControlPanel(lv_obj_t* container, WebSocketClient* wsClient, EventSink& eventSink)
+    : container_(container), wsClient_(wsClient), eventSink_(eventSink)
 {
     if (!container_) {
         spdlog::error("ControlPanel: Null container provided");
@@ -42,11 +43,6 @@ ControlPanel::~ControlPanel()
 
 void ControlPanel::updateFromWorldData(const WorldData& data)
 {
-    // Update debug switch to match server state.
-    if (debugSwitch_) {
-        lv_obj_add_state(debugSwitch_, data.debug_draw_enabled ? LV_STATE_CHECKED : 0);
-    }
-
     // Rebuild scenario controls if scenario changed.
     if (data.scenario_id != currentScenarioId_) {
         spdlog::info("ControlPanel: Scenario changed to '{}'", data.scenario_id);
@@ -318,16 +314,14 @@ void ControlPanel::sendConfigUpdate(const ScenarioConfig& config)
 
 void ControlPanel::sendDebugUpdate(bool enabled)
 {
-    (void)enabled;  // TODO: Wire this to DSSM when debug_set API is added.
+    // Queue DrawDebugToggle command to UI state machine (UI-local, not sent to server).
+    auto cmd = UiApi::DrawDebugToggle::Command{enabled};
+    auto cwc = UiApi::DrawDebugToggle::Cwc(std::move(cmd), [](const auto& /*response*/) {
+        // No action needed on response.
+    });
 
-    if (!wsClient_ || !wsClient_->isConnected()) {
-        spdlog::warn("ControlPanel: Cannot send debug update, not connected to DSSM");
-        return;
-    }
-
-    // TODO: Add debug_set API command to DSSM.
-    // For now, we could use gravity_set as a workaround or create new API.
-    spdlog::warn("ControlPanel: Debug toggle not yet wired to DSSM (needs debug_set API command)");
+    eventSink_.queueEvent(std::move(cwc));
+    spdlog::info("ControlPanel: Queued DrawDebugToggle command (enabled: {})", enabled);
 }
 
 } // namespace Ui

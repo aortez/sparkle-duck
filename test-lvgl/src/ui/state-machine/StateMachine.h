@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Event.h"
+#include "EventSink.h"
 #include "states/State.h"
 #include "../../core/StateMachineBase.h"
 #include "../../core/StateMachineInterface.h"
@@ -23,7 +24,7 @@ class WebSocketClient;
 namespace DirtSim {
 namespace Ui {
 
-class StateMachine : public StateMachineBase, public StateMachineInterface<Event> {
+class StateMachine : public StateMachineBase, public StateMachineInterface<Event>, public EventSink {
 public:
     explicit StateMachine(_lv_display_t* display, uint16_t wsPort = 7070);
     ~StateMachine();

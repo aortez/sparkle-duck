@@ -685,18 +685,6 @@ State::Any SimRunning::onEvent(const GetSimStatsCommand& /*cmd*/, StateMachine& 
     return std::move(*this);
 }
 
-State::Any SimRunning::onEvent(const ToggleDebugCommand& /*cmd*/, StateMachine& /*dsm*/)
-{
-    // Toggle debug draw state in world.
-    if (world) {
-        bool newValue = !world->isDebugDrawEnabled();
-        world->setDebugDrawEnabled(newValue);
-        spdlog::info("SimRunning: Debug draw now: {}", newValue);
-    }
-
-    return std::move(*this);
-}
-
 State::Any SimRunning::onEvent(const ToggleCohesionForceCommand& /*cmd*/, StateMachine& /*dsm*/)
 {
     if (world) {

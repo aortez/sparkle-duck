@@ -9,8 +9,9 @@
 namespace DirtSim {
 namespace Ui {
 
-// Forward declaration.
+// Forward declarations.
 class WebSocketClient;
+class EventSink;
 
 /**
  * @brief Manages UI controls for simulation interaction.
@@ -20,6 +21,7 @@ class WebSocketClient;
  * - Scenario-specific controls - created based on active scenario
  *
  * Sends commands to DSSM server via WebSocketClient.
+ * Queues UI-local commands to EventSink.
  */
 class ControlPanel {
 public:
@@ -27,8 +29,9 @@ public:
      * @brief Create control panel.
      * @param container Parent LVGL container for controls.
      * @param wsClient WebSocket client for sending commands to DSSM.
+     * @param eventSink Event sink for UI-local commands.
      */
-    ControlPanel(lv_obj_t* container, WebSocketClient* wsClient);
+    ControlPanel(lv_obj_t* container, WebSocketClient* wsClient, EventSink& eventSink);
 
     /**
      * @brief Destructor - cleans up LVGL widgets.
@@ -47,6 +50,7 @@ public:
 private:
     lv_obj_t* container_;
     WebSocketClient* wsClient_;
+    EventSink& eventSink_;
     std::string currentScenarioId_;
 
     // Control panel layout.

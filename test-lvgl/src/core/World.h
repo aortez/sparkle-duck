@@ -160,10 +160,6 @@ public:
     void setWallsEnabled(bool enabled);
     bool areWallsEnabled() const; // World defaults to true instead of false
 
-    // WORLDINTERFACE IMPLEMENTATION - DEBUG VISUALIZATION
-    void setDebugDrawEnabled(bool enabled) { data.debug_draw_enabled = enabled; }
-    bool isDebugDrawEnabled() const { return data.debug_draw_enabled; }
-
     // WORLDINTERFACE IMPLEMENTATION - COHESION PHYSICS CONTROL
     void setCohesionBindForceEnabled(bool enabled)
     {

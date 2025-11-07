@@ -382,13 +382,6 @@ struct SetRainRateCommand {
 };
 
 /**
- * @brief Toggle debug visualization.
- */
-struct ToggleDebugCommand {
-    static constexpr const char* name() { return "ToggleDebugCommand"; }
-};
-
-/**
  * @brief Toggle cohesion force physics.
  */
 struct ToggleCohesionForceCommand {
@@ -582,7 +575,6 @@ using Event = std::variant<
     SetHydrostaticPressureStrengthCommand,
     SetDynamicPressureStrengthCommand,
     SetRainRateCommand,
-    ToggleDebugCommand,
     ToggleCohesionForceCommand,
     ToggleTimeHistoryCommand,
 

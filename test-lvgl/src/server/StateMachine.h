@@ -104,8 +104,6 @@ private:
     State::Any onEvent(const QuitApplicationCommand& cmd);
     State::Any onEvent(const GetFPSCommand& cmd);
     State::Any onEvent(const GetSimStatsCommand& cmd);
-
-    friend class EventDispatcher;
 };
 
 } // namespace Server

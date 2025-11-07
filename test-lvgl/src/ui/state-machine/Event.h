@@ -1,5 +1,6 @@
 #pragma once
 
+#include "api/DrawDebugToggle.h"
 #include "api/Exit.h"
 #include "api/MouseDown.h"
 #include "api/MouseMove.h"
@@ -112,13 +113,14 @@ using Event = std::variant<
     DirtSim::UiUpdateEvent,
 
     // API commands (local from LVGL or remote from WebSocket)
-    DirtSim::UiApi::SimRun::Cwc,
-    DirtSim::UiApi::SimPause::Cwc,
-    DirtSim::UiApi::Screenshot::Cwc,
+    DirtSim::UiApi::DrawDebugToggle::Cwc,
     DirtSim::UiApi::Exit::Cwc,
     DirtSim::UiApi::MouseDown::Cwc,
     DirtSim::UiApi::MouseMove::Cwc,
-    DirtSim::UiApi::MouseUp::Cwc
+    DirtSim::UiApi::MouseUp::Cwc,
+    DirtSim::UiApi::Screenshot::Cwc,
+    DirtSim::UiApi::SimPause::Cwc,
+    DirtSim::UiApi::SimRun::Cwc
 >;
 
 /**
