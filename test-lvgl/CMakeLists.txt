@@ -283,6 +283,7 @@ target_compile_options(cli PRIVATE -Wall -Wextra -Werror)
 add_executable(sparkle-duck-tests
     # Test files.
     src/server/tests/StateIdle_test.cpp
+    src/server/tests/StateSimRunning_test.cpp
     # src/tests/CellJSON_test.cpp         # TODO: Fix test bugs.
     # src/tests/CrashDumpHandler_test.cpp # TODO: Fix test bugs.
     # src/tests/MaterialTypeJSON_test.cpp # TODO: Fix test bugs.

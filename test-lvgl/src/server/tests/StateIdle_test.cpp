@@ -66,15 +66,8 @@ TEST_F(StateIdleTest, SimRunCreatesWorldAndTransitionsToSimRunning)
     EXPECT_EQ(simRunning.targetSteps, 100u) << "Target steps should match command";
     EXPECT_DOUBLE_EQ(simRunning.stepDurationMs, 16.0) << "Step duration should be 16ms";
 
-    // Verify: World has walls (basic initialization check).
-    // Check corners are walls.
-    const Cell& topLeft = simRunning.world->at(0, 0);
-    const Cell& topRight = simRunning.world->at(simRunning.world->data.width - 1, 0);
-    EXPECT_EQ(topLeft.material_type, MaterialType::WALL) << "Top-left should be wall";
-    EXPECT_EQ(topRight.material_type, MaterialType::WALL) << "Top-right should be wall";
-
-    // Verify: World has sandbox scenario applied (dirt quadrant).
-    EXPECT_EQ(simRunning.world->data.scenario_id, "sandbox") << "Should have sandbox scenario";
+    // Note: Scenario application and wall setup happen in SimRunning::onEnter(),
+    // which should be tested in StateSimRunning_test.cpp.
 
     // Verify: Response callback was invoked.
     ASSERT_TRUE(callbackInvoked) << "Response callback should be invoked";

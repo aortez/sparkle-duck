@@ -16,7 +16,7 @@ namespace State {
  * @brief Active simulation state - owns World, physics advancing.
  */
 struct SimRunning {
-    std::unique_ptr<World> world;  // Owns the World instance.
+    std::unique_ptr<World> world;
     uint32_t stepCount = 0;
     uint32_t targetSteps = 0;       // Steps to execute before pausing.
     double stepDurationMs = 16.0;   // Physics timestep in milliseconds.
