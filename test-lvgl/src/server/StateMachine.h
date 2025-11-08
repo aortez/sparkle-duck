@@ -2,6 +2,7 @@
 
 #include "Event.h"
 #include "EventProcessor.h"
+#include "scenarios/ScenarioRegistry.h"
 #include "core/StateMachineBase.h"
 #include "core/StateMachineInterface.h"
 #include "states/State.h"
@@ -69,7 +70,14 @@ public:
      */
     std::shared_ptr<WorldData> getCachedWorldData() const;
 
+    /**
+     * @brief Get scenario registry for accessing scenarios.
+     * @return Reference to scenario registry.
+     */
+    ScenarioRegistry& getScenarioRegistry() { return scenarioRegistry_; }
+
 private:
+    ScenarioRegistry scenarioRegistry_;  // Owned scenario registry.
     State::Any fsmState{ State::Startup{} };
 
     /**

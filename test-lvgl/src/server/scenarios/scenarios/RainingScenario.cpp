@@ -88,15 +88,3 @@ private:
     ScenarioMetadata metadata_;
     RainingConfig config_;
 };
-
-// Self-registering scenario
-namespace {
-    struct RainingScenarioRegistrar {
-        RainingScenarioRegistrar() {
-            ScenarioRegistry::getInstance().registerScenario(
-                "raining", 
-                std::make_unique<RainingScenario>()
-            );
-        }
-    } raining_scenario_registrar;
-}

@@ -104,15 +104,3 @@ private:
     ScenarioMetadata metadata_;
     FallingDirtConfig config_;
 };
-
-// Self-registering scenario
-namespace {
-    struct FallingDirtScenarioRegistrar {
-        FallingDirtScenarioRegistrar() {
-            ScenarioRegistry::getInstance().registerScenario(
-                "falling_dirt", 
-                std::make_unique<FallingDirtScenario>()
-            );
-        }
-    } falling_dirt_scenario_registrar;
-}

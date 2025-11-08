@@ -162,6 +162,11 @@ void World::reset()
 
 void World::setup()
 {
+    // Call WorldEventGenerator's setup to create scenario features.
+    if (worldEventGenerator_) {
+        worldEventGenerator_->setup(*this);
+    }
+
     // World-specific: Rebuild boundary walls if enabled.
     if (areWallsEnabled()) {
         setupBoundaryWalls();

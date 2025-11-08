@@ -61,15 +61,3 @@ private:
     ScenarioMetadata metadata_;
     EmptyConfig config_;
 };
-
-// Self-registering scenario
-namespace {
-    struct EmptyScenarioRegistrar {
-        EmptyScenarioRegistrar() {
-            ScenarioRegistry::getInstance().registerScenario(
-                "empty", 
-                std::make_unique<EmptyScenario>()
-            );
-        }
-    } empty_scenario_registrar;
-}

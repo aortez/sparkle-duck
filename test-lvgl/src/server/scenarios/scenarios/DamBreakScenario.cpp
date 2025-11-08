@@ -108,15 +108,3 @@ private:
     ScenarioMetadata metadata_;
     DamBreakConfig config_;
 };
-
-// Self-registering scenario
-namespace {
-    struct DamBreakScenarioRegistrar {
-        DamBreakScenarioRegistrar() {
-            ScenarioRegistry::getInstance().registerScenario(
-                "dam_break", 
-                std::make_unique<DamBreakScenario>()
-            );
-        }
-    } dam_break_scenario_registrar;
-}

@@ -68,15 +68,3 @@ private:
     ScenarioMetadata metadata_;
     SandboxConfig config_;
 };
-
-// Self-registering scenario
-namespace {
-    struct SandboxScenarioRegistrar {
-        SandboxScenarioRegistrar() {
-            ScenarioRegistry::getInstance().registerScenario(
-                "sandbox", 
-                std::make_unique<SandboxScenario>()
-            );
-        }
-    } sandbox_scenario_registrar;
-}

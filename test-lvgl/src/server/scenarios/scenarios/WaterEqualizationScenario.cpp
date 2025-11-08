@@ -109,15 +109,3 @@ private:
     ScenarioMetadata metadata_;
     WaterEqualizationConfig config_;
 };
-
-// Self-registering scenario
-namespace {
-    struct WaterEqualizationScenarioRegistrar {
-        WaterEqualizationScenarioRegistrar() {
-            ScenarioRegistry::getInstance().registerScenario(
-                "water_equalization", 
-                std::make_unique<WaterEqualizationScenario>()
-            );
-        }
-    } water_equalization_scenario_registrar;
-}

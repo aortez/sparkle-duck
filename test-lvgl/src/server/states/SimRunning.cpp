@@ -31,7 +31,7 @@ void SimRunning::onEnter(StateMachine& dsm)
     if (world && world->data.scenario_id == "empty") {
         spdlog::info("SimRunning: Applying default 'sandbox' scenario");
 
-        auto& registry = ScenarioRegistry::getInstance();
+        auto& registry = dsm.getScenarioRegistry();
         auto* scenario = registry.getScenario("sandbox");
 
         if (scenario) {
@@ -42,6 +42,9 @@ void SimRunning::onEnter(StateMachine& dsm)
             // Populate WorldData with scenario metadata and config.
             world->data.scenario_id = "sandbox";
             world->data.scenario_config = scenario->getConfig();
+
+            // Run setup to actually create scenario features.
+            world->setup();
 
             spdlog::info("SimRunning: Default scenario 'sandbox' applied");
         }
@@ -102,11 +105,11 @@ State::Any SimRunning::onEvent(const AdvanceSimulationCommand& /*cmd*/, StateMac
     return std::move(*this);  // Stay in SimRunning (move because unique_ptr).
 }
 
-State::Any SimRunning::onEvent(const ApplyScenarioCommand& cmd, StateMachine& /*dsm*/)
+State::Any SimRunning::onEvent(const ApplyScenarioCommand& cmd, StateMachine& dsm)
 {
     spdlog::info("SimRunning: Applying scenario: {}", cmd.scenarioName);
 
-    auto& registry = ScenarioRegistry::getInstance();
+    auto& registry = dsm.getScenarioRegistry();
     auto* scenario = registry.getScenario(cmd.scenarioName);
 
     if (!scenario) {
@@ -240,7 +243,7 @@ State::Any SimRunning::onEvent(const Api::Reset::Cwc& cwc, StateMachine& /*dsm*/
     return std::move(*this);
 }
 
-State::Any SimRunning::onEvent(const Api::ScenarioConfigSet::Cwc& cwc, StateMachine& /*dsm*/)
+State::Any SimRunning::onEvent(const Api::ScenarioConfigSet::Cwc& cwc, StateMachine& dsm)
 {
     using Response = Api::ScenarioConfigSet::Response;
 
@@ -252,7 +255,7 @@ State::Any SimRunning::onEvent(const Api::ScenarioConfigSet::Cwc& cwc, StateMach
     }
 
     // Get current scenario from ScenarioRegistry.
-    auto& registry = ScenarioRegistry::getInstance();
+    auto& registry = dsm.getScenarioRegistry();
     auto* scenario = registry.getScenario(world->data.scenario_id);
 
     if (!scenario) {

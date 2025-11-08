@@ -1,6 +1,7 @@
 #include "core/World.h"  // Must be first for complete type in variant.
 #include "core/WorldData.h"
 #include "core/WorldEventGenerator.h"
+#include "core/ScenarioConfig.h"
 #include "StateMachine.h"
 #include "scenarios/Scenario.h"
 #include "scenarios/ScenarioRegistry.h"
@@ -12,7 +13,7 @@
 namespace DirtSim {
 namespace Server {
 
-StateMachine::StateMachine() : eventProcessor()
+StateMachine::StateMachine() : eventProcessor(), scenarioRegistry_(ScenarioRegistry::createDefault())
 {
     spdlog::info("Server::StateMachine initialized in headless mode in state: {}", getCurrentStateName());
     // Note: World will be created by SimRunning state when simulation starts.

@@ -8,13 +8,18 @@
 
 /**
  * Central registry for all available scenarios.
- * Implemented as a singleton to provide global access from UI components.
+ * Owned by StateMachine to provide isolated registries for testing.
  */
 class ScenarioRegistry {
 public:
-    // Get the singleton instance
-    static ScenarioRegistry& getInstance();
-    
+    ScenarioRegistry() = default;
+
+    /**
+     * @brief Create a registry populated with all available scenarios.
+     * @return Initialized registry with all scenarios.
+     */
+    static ScenarioRegistry createDefault();
+
     // Register a scenario with the given ID
     void registerScenario(const std::string& id, std::unique_ptr<Scenario> scenario);
     
@@ -32,17 +37,8 @@ public:
     
     // Clear all registered scenarios (mainly for testing)
     void clear();
-    
+
 private:
-    // Private constructor for singleton
-    ScenarioRegistry() = default;
-    
-    // Delete copy/move operations
-    ScenarioRegistry(const ScenarioRegistry&) = delete;
-    ScenarioRegistry& operator=(const ScenarioRegistry&) = delete;
-    ScenarioRegistry(ScenarioRegistry&&) = delete;
-    ScenarioRegistry& operator=(ScenarioRegistry&&) = delete;
-    
     // Storage for scenarios
     std::unordered_map<std::string, std::unique_ptr<Scenario>> scenarios_;
 };
