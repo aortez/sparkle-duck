@@ -1,7 +1,7 @@
 #pragma once
 
-#include "../../core/ScenarioConfig.h"
-#include "../../core/WorldData.h"
+#include "core/ScenarioConfig.h"
+#include "core/WorldData.h"
 #include "lvgl/lvgl.h"
 #include <memory>
 #include <string>

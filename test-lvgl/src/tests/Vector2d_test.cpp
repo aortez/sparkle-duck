@@ -1,4 +1,4 @@
-#include "../Vector2d.h"
+#include "core/Vector2d.h"
 #include <gtest/gtest.h>
 #include <cmath>
 #include <spdlog/spdlog.h>

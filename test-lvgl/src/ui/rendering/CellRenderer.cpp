@@ -1,5 +1,5 @@
 #include "CellRenderer.h"
-#include "../../core/MaterialType.h"
+#include "core/MaterialType.h"
 #include <algorithm>
 #include <spdlog/spdlog.h>
 

@@ -1,8 +1,8 @@
-#include "../../../core/MaterialType.h"
-#include "../Scenario.h"
-#include "../../../core/World.h"
-#include "../ScenarioRegistry.h"
-#include "../ScenarioWorldEventGenerator.h"
+#include "core/MaterialType.h"
+#include "server/scenarios/Scenario.h"
+#include "core/World.h"
+#include "server/scenarios/ScenarioRegistry.h"
+#include "server/scenarios/ScenarioWorldEventGenerator.h"
 #include "spdlog/spdlog.h"
 #include <random>
 

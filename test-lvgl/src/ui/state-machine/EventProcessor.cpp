@@ -1,6 +1,6 @@
 #include "EventProcessor.h"
 #include "StateMachine.h"
-#include "../../core/SynchronizedQueue.h"
+#include "core/SynchronizedQueue.h"
 #include <spdlog/spdlog.h>
 
 namespace DirtSim {

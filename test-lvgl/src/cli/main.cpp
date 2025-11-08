@@ -21,8 +21,10 @@ static const std::vector<CommandInfo> AVAILABLE_COMMANDS = {
     {"exit", "Shutdown server", ""},
     {"gravity_set", "Set gravity value", R"({"gravity": 15.0})"},
     {"reset", "Reset simulation to initial state", ""},
+    {"scenario_config_set", "Update scenario configuration", R"({"config": {"type": "sandbox", "quadrant_enabled": true, "water_column_enabled": true, "right_throw_enabled": true, "top_drop_enabled": true, "rain_rate": 0.0}})"},
     {"sim_run", "Start autonomous simulation", R"({"timestep": 0.016, "max_steps": 100})"},
     {"state_get", "Get complete world state as JSON", ""},
+    {"step_n", "Advance simulation N frames", R"({"frames": 1})"},
 };
 
 std::string getCommandListHelp() {

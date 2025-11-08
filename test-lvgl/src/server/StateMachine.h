@@ -2,8 +2,8 @@
 
 #include "Event.h"
 #include "EventProcessor.h"
-#include "../core/StateMachineBase.h"
-#include "../core/StateMachineInterface.h"
+#include "core/StateMachineBase.h"
+#include "core/StateMachineInterface.h"
 #include "states/State.h"
 #include <functional>
 #include <memory>

@@ -1,10 +1,10 @@
-#include "../../core/World.h"  // Must be before State.h for complete type.
-#include "../../core/Cell.h"
-#include "../../core/WorldEventGenerator.h"
-#include "../StateMachine.h"
-#include "../network/WebSocketServer.h"
-#include "../scenarios/Scenario.h"
-#include "../scenarios/ScenarioRegistry.h"
+#include "core/World.h"  // Must be before State.h for complete type.
+#include "core/Cell.h"
+#include "core/WorldEventGenerator.h"
+#include "server/StateMachine.h"
+#include "server/network/WebSocketServer.h"
+#include "server/scenarios/Scenario.h"
+#include "server/scenarios/ScenarioRegistry.h"
 #include "State.h"
 #include <chrono>
 #include <nlohmann/json.hpp>

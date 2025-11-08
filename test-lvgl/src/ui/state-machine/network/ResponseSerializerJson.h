@@ -1,7 +1,7 @@
 #pragma once
 
-#include "../../../server/api/ApiError.h"
-#include "../../../core/Result.h"
+#include "server/api/ApiError.h"
+#include "core/Result.h"
 #include <nlohmann/json.hpp>
 #include <string>
 #include <variant>

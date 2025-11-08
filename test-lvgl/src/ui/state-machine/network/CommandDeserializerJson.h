@@ -1,8 +1,8 @@
 #pragma once
 
-#include "../api/UiApiCommand.h"
-#include "../../../server/api/ApiError.h"
-#include "../../../core/Result.h"
+#include "ui/state-machine/api/UiApiCommand.h"
+#include "server/api/ApiError.h"
+#include "core/Result.h"
 #include <nlohmann/json.hpp>
 #include <string>
 

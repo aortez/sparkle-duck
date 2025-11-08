@@ -1,5 +1,5 @@
-#include "../../core/WorldEventGenerator.h"
-#include "../StateMachine.h"
+#include "core/WorldEventGenerator.h"
+#include "server/StateMachine.h"
 #include "State.h"
 #include <spdlog/spdlog.h>
 

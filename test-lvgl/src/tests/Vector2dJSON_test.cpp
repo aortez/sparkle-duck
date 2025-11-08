@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include "src/Vector2d.h"
+#include "core/Vector2d.h"
 #include "lvgl/src/libs/thorvg/rapidjson/document.h"
 #include "lvgl/src/libs/thorvg/rapidjson/stringbuffer.h"
 #include "lvgl/src/libs/thorvg/rapidjson/writer.h"

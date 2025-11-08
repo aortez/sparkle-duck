@@ -21,13 +21,13 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#include "../../../server/StateMachine.h"
+#include "server/StateMachine.h"
 #include "lvgl/lvgl.h"
 #include "simulator_loop.h"
 #if LV_USE_SDL
-#include "../backends.h"
-#include "../simulator_settings.h"
-#include "../simulator_util.h"
+#include "ui/lib/backends.h"
+#include "ui/lib/simulator_settings.h"
+#include "ui/lib/simulator_util.h"
 
 /*********************
  *      DEFINES

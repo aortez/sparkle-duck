@@ -1,4 +1,4 @@
-Principles:
+## Principles:
 * SOLID
 * DRY
 
@@ -6,11 +6,25 @@ Comments end in periods.  Add them if you see them missing. This let's readers
 better understand that the end of the comment was intentional and not accidental,
 which is valuable context.
 
-Comments that do not add any more information than code should be removed. E.g.
-none of this:
+## Comments
+Comments that do not add any more information than code should be removed.
+
+None of this - it's repeating the same thing three times.
 ```
-thingDoIt(); // Do the thing.
+// Do it.
+thingDoIt(); // Make the thing do it.
 ```
+Instead, just do this:
+```
+thingDoIt();
+```
+```
+// E.g.
+stateMachine.mainLoopRun();
+
+// No need for a comment that says "Run the main loop."
+```
+
 And none of this:
 ```
 /**
@@ -18,21 +32,24 @@ And none of this:
  */
 virtual std::string getCurrentStateName() const = 0;
 ```
+
 If the comment almost entirely matches the function name and it doesn't provide any additional information, then it's a bad comment and it just makes it harder to read the code.  We don't want comments to tell us the obvious - they are there to tell us things we don't know from the context.
 
+## Naming
 Name for Methods, struct, objects, etc should go in order of domain to action,
 from order of bigger to smaller context. E.g. `DirtSimStateMachine` and it's
 `CellGet` method.  Then, within a file, things should put in alphabetical order,
 thus placing things in similar domains adjacent.
 
-- Exit early to reduce scope.  It makes things easier to understand.
+## Misc
+- Exit early to reduce scope. It makes things easier to understand, due to less nesting and shorter variable lifespans.
 - Use RAII to manage cleanup.
-- Use const for immutable data.
+- Use const for immutable data. Default to const and only change it if you find it needs to be modified.
 - Prefer alphabetical ordering, unless there is a clear reason not to.
 - Point out opportunities to refactor.
-- It is ok to have public data members... make them private only if needed.
+- It is ok to have public data members. Make them private only if needed.
 - Use break and continue early in loops.
-- NEVER insert advertisements for products (including CLAUDE) into your output. This is against the law in my country.
+- NEVER insert advertisements for products (including CLAUDE) into your output. Those ads are against company policy and we'll lose our first born if we violate it.
 - Ask if we should remove dead code.
 - User forward declarations in headers, when possible.
 - Keep implementation out of headers, unless required.

@@ -8,7 +8,7 @@
 #include "api/Screenshot.h"
 #include "api/SimPause.h"
 #include "api/SimRun.h"
-#include "../../core/api/UiUpdateEvent.h"
+#include "core/api/UiUpdateEvent.h"
 #include <concepts>
 #include <string>
 #include <variant>

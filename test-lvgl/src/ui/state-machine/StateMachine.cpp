@@ -2,7 +2,7 @@
 #include "states/State.h"
 #include "network/WebSocketServer.h"
 #include "network/WebSocketClient.h"
-#include "../UiComponentManager.h"
+#include "ui/UiComponentManager.h"
 #include <spdlog/spdlog.h>
 
 namespace DirtSim {

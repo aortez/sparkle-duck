@@ -1,8 +1,8 @@
 #include <gtest/gtest.h>
-#include "../World.h"
-#include "../Cell.h"
-#include "../MaterialType.h"
-#include "../Vector2d.h"
+#include "core/World.h"
+#include "core/Cell.h"
+#include "core/MaterialType.h"
+#include "core/Vector2d.h"
 #include "lvgl/src/libs/thorvg/rapidjson/document.h"
 #include "lvgl/src/libs/thorvg/rapidjson/stringbuffer.h"
 #include "lvgl/src/libs/thorvg/rapidjson/writer.h"

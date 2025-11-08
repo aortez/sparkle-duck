@@ -21,14 +21,14 @@
 #include <unistd.h>
 #include <iostream>
 
-#include "../../state-machine/StateMachine.h"
+#include "ui/state-machine/StateMachine.h"
 #include "lvgl/lvgl.h"
 #include <spdlog/spdlog.h>
 
 #if LV_USE_WAYLAND
-#include "../backends.h"
-#include "../simulator_settings.h"
-#include "../simulator_util.h"
+#include "ui/lib/backends.h"
+#include "ui/lib/simulator_settings.h"
+#include "ui/lib/simulator_util.h"
 
 /*********************
  *      DEFINES

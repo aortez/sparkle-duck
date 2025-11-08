@@ -1,5 +1,5 @@
 #include "Exit.h"
-#include "../../core/ReflectSerializer.h"
+#include "core/ReflectSerializer.h"
 
 namespace DirtSim {
 namespace Api {

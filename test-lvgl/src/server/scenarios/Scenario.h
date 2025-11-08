@@ -2,7 +2,7 @@
 
 #include <string>
 #include <memory>
-#include "../../core/ScenarioConfig.h"
+#include "core/ScenarioConfig.h"
 
 // Forward declarations
 namespace DirtSim {

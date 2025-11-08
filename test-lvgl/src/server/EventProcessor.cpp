@@ -1,5 +1,5 @@
 #include "EventProcessor.h"
-#include "../core/SynchronizedQueue.h"
+#include "core/SynchronizedQueue.h"
 #include "StateMachine.h"
 #include <spdlog/spdlog.h>
 

@@ -1,12 +1,12 @@
 #include "CommandDeserializerJson.h"
-#include "../api/DrawDebugToggle.h"
-#include "../api/Exit.h"
-#include "../api/MouseDown.h"
-#include "../api/MouseMove.h"
-#include "../api/MouseUp.h"
-#include "../api/Screenshot.h"
-#include "../api/SimPause.h"
-#include "../api/SimRun.h"
+#include "ui/state-machine/api/DrawDebugToggle.h"
+#include "ui/state-machine/api/Exit.h"
+#include "ui/state-machine/api/MouseDown.h"
+#include "ui/state-machine/api/MouseMove.h"
+#include "ui/state-machine/api/MouseUp.h"
+#include "ui/state-machine/api/Screenshot.h"
+#include "ui/state-machine/api/SimPause.h"
+#include "ui/state-machine/api/SimRun.h"
 #include <spdlog/spdlog.h>
 
 namespace DirtSim {

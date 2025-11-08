@@ -1,7 +1,7 @@
-#include "../StateMachine.h"
-#include "../network/WebSocketClient.h"
-#include "../../UiComponentManager.h"
-#include "../api/SimRun.h"
+#include "ui/state-machine/StateMachine.h"
+#include "ui/state-machine/network/WebSocketClient.h"
+#include "ui/UiComponentManager.h"
+#include "server/api/SimRun.h"
 #include "State.h"
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>

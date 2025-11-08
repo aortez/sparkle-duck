@@ -1,16 +1,16 @@
 #pragma once
 
-#include "../api/ApiCommand.h"
-#include "../api/CellGet.h"
-#include "../api/CellSet.h"
-#include "../api/DiagramGet.h"
-#include "../api/Exit.h"
-#include "../api/GravitySet.h"
-#include "../api/Reset.h"
-#include "../api/ScenarioConfigSet.h"
-#include "../api/SimRun.h"
-#include "../api/StateGet.h"
-#include "../api/StepN.h"
+#include "server/api/ApiCommand.h"
+#include "server/api/CellGet.h"
+#include "server/api/CellSet.h"
+#include "server/api/DiagramGet.h"
+#include "server/api/Exit.h"
+#include "server/api/GravitySet.h"
+#include "server/api/Reset.h"
+#include "server/api/ScenarioConfigSet.h"
+#include "server/api/SimRun.h"
+#include "server/api/StateGet.h"
+#include "server/api/StepN.h"
 #include <nlohmann/json.hpp>
 #include <string>
 

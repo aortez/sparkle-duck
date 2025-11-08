@@ -10,8 +10,8 @@
 #include "api/SimRun.h"
 #include "api/StateGet.h"
 #include "api/StepN.h"
-#include "../core/MaterialType.h"
-#include "../core/SimulationStats.h"
+#include "core/MaterialType.h"
+#include "core/SimulationStats.h"
 #include <chrono>
 #include <concepts>
 #include <cstdint>

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../../core/Result.h"
+#include "core/Result.h"
 #include "lvgl/lvgl.h"
 #include <cmath>
 #include <functional>

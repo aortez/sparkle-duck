@@ -1,9 +1,9 @@
 #pragma once
 
 #include "ApiError.h"
-#include "../../core/Cell.h"
-#include "../../core/CommandWithCallback.h"
-#include "../../core/Result.h"
+#include "core/Cell.h"
+#include "core/CommandWithCallback.h"
+#include "core/Result.h"
 #include <nlohmann/json.hpp>
 
 namespace DirtSim {

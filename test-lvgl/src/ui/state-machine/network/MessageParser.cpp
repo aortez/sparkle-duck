@@ -1,5 +1,5 @@
 #include "MessageParser.h"
-#include "../../../core/WorldData.h"
+#include "core/WorldData.h"
 #include <spdlog/spdlog.h>
 
 namespace DirtSim {

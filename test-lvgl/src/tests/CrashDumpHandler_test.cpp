@@ -1,7 +1,7 @@
-#include "src/CrashDumpHandler.h"
-#include "src/SparkleAssert.h"
-#include "src/World.h"
-#include "src/WorldEventGenerator.h"
+#include "core/CrashDumpHandler.h"
+#include "core/SparkleAssert.h"
+#include "core/World.h"
+#include "core/WorldEventGenerator.h"
 #include <chrono>
 #include <filesystem>
 #include <fstream>

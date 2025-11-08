@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../api/ApiCommand.h"
+#include "server/api/ApiCommand.h"
 #include <nlohmann/json.hpp>
 #include <string>
 

@@ -1,7 +1,7 @@
 #include "ControlPanel.h"
-#include "../state-machine/EventSink.h"
-#include "../state-machine/network/WebSocketClient.h"
-#include "../ui_builders/LVGLBuilder.h"
+#include "ui/state-machine/EventSink.h"
+#include "ui/state-machine/network/WebSocketClient.h"
+#include "ui/ui_builders/LVGLBuilder.h"
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
 

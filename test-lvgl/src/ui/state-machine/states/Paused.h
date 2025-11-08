@@ -1,7 +1,7 @@
 #pragma once
 
 #include "StateForward.h"
-#include "../Event.h"
+#include "ui/state-machine/Event.h"
 #include <memory>
 
 namespace DirtSim {

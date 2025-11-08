@@ -1,8 +1,8 @@
-#include "../core/CrashDumpHandler.h"
+#include "core/CrashDumpHandler.h"
 #include "state-machine/StateMachine.h"
 // TODO: Re-enable when integrating UI components:
 // #include "SimulatorUI.h"
-#include "../core/World.h"
+#include "core/World.h"
 
 #include "args.hxx"
 #include "lib/driver_backends.h"

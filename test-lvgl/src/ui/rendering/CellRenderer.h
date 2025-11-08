@@ -1,7 +1,7 @@
 #pragma once
 
-#include "../../core/Cell.h"
-#include "../../core/WorldData.h"
+#include "core/Cell.h"
+#include "core/WorldData.h"
 #include "lvgl/lvgl.h"
 #include <cstdint>
 #include <vector>

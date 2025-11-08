@@ -2,7 +2,7 @@
 
 #include "StateForward.h"
 #include "SimRunning.h"  // Need full definition for previousState member.
-#include "../Event.h"
+#include "server/Event.h"
 
 namespace DirtSim {
 namespace Server {

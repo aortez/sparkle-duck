@@ -1,8 +1,8 @@
 #pragma once
 
 #include "ApiError.h"
-#include "../../core/CommandWithCallback.h"
-#include "../../core/Result.h"
+#include "core/CommandWithCallback.h"
+#include "core/Result.h"
 #include <cstdint>
 #include <nlohmann/json.hpp>
 

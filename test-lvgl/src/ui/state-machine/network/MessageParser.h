@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../Event.h"
+#include "ui/state-machine/Event.h"
 #include <nlohmann/json.hpp>
 #include <optional>
 #include <string>

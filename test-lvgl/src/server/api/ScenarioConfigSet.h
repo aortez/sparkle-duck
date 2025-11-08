@@ -1,8 +1,8 @@
 #pragma once
 
-#include "../../core/CommandWithCallback.h"
-#include "../../core/Result.h"
-#include "../../core/ScenarioConfig.h"
+#include "core/CommandWithCallback.h"
+#include "core/Result.h"
+#include "core/ScenarioConfig.h"
 #include "ApiError.h"
 #include <string>
 

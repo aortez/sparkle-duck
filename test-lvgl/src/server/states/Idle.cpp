@@ -1,5 +1,5 @@
-#include "../StateMachine.h"
-#include "../../core/World.h"
+#include "server/StateMachine.h"
+#include "core/World.h"
 #include "State.h"
 #include <spdlog/spdlog.h>
 

@@ -1,9 +1,9 @@
 #pragma once
 
 #include "StateForward.h"
-#include "../Event.h"
-#include "../../rendering/CellRenderer.h"
-#include "../../controls/ControlPanel.h"
+#include "ui/state-machine/Event.h"
+#include "ui/rendering/CellRenderer.h"
+#include "ui/controls/ControlPanel.h"
 #include <memory>
 
 namespace DirtSim {

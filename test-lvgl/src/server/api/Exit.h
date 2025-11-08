@@ -1,7 +1,7 @@
 #pragma once
 
-#include "../../core/CommandWithCallback.h"
-#include "../../core/Result.h"
+#include "core/CommandWithCallback.h"
+#include "core/Result.h"
 #include "ApiError.h"
 #include <nlohmann/json.hpp>
 #include <variant>

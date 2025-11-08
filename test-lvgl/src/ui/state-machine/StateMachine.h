@@ -3,8 +3,8 @@
 #include "Event.h"
 #include "EventSink.h"
 #include "states/State.h"
-#include "../../core/StateMachineBase.h"
-#include "../../core/StateMachineInterface.h"
+#include "core/StateMachineBase.h"
+#include "core/StateMachineInterface.h"
 #include "EventProcessor.h"
 #include <memory>
 #include <string>

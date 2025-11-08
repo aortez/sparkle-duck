@@ -1,7 +1,7 @@
-#include "../Scenario.h"
-#include "../../../core/World.h"
-#include "../ScenarioRegistry.h"
-#include "../ScenarioWorldEventGenerator.h"
+#include "server/scenarios/Scenario.h"
+#include "core/World.h"
+#include "server/scenarios/ScenarioRegistry.h"
+#include "server/scenarios/ScenarioWorldEventGenerator.h"
 #include "spdlog/spdlog.h"
 
 using namespace DirtSim;

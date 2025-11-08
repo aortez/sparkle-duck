@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../../core/WorldEventGenerator.h"
+#include "core/WorldEventGenerator.h"
 #include <functional>
 #include <memory>
 

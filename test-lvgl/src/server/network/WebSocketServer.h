@@ -1,7 +1,7 @@
 #pragma once
 
-#include "../../core/StateMachineInterface.h"
-#include "../Event.h"
+#include "core/StateMachineInterface.h"
+#include "server/Event.h"
 #include "CommandDeserializerJson.h"
 #include "ResponseSerializerJson.h"
 #include <algorithm>
