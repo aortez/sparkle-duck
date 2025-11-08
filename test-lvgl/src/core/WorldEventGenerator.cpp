@@ -359,13 +359,34 @@ void ConfigurableWorldEventGenerator::addParticles(
         lastSimTime,
         deltaTimeSeconds);
 
-    // Drop a dirt from the top (if enabled).
+    // Drop a dirt ball from the top (if enabled).
     if (topDropEnabled && !topDropDone && simTime >= nextTopDrop) {
-        spdlog::info("Adding top drop at time {:.3f}s", simTime);
         uint32_t centerX = world.data.width / 2;
-        Cell& cell =
-            world.at(centerX, 1); // 1 to be just below the top wall.
-        cell.addDirt(1.0);
+        uint32_t centerY = 3;  // A few cells below top wall.
+        double radius = world.data.width / 10.0;  // ~1/10 of world width.
+
+        spdlog::info("Adding top drop ball at time {:.3f}s (radius={:.1f} cells)", simTime, radius);
+
+        // Fill cells within circular radius.
+        int32_t minX = std::max(1, static_cast<int32_t>(centerX - radius) - 1);
+        int32_t maxX = std::min(static_cast<int32_t>(world.data.width - 2),
+                                static_cast<int32_t>(centerX + radius) + 1);
+        int32_t minY = std::max(1, static_cast<int32_t>(centerY - radius) - 1);
+        int32_t maxY = std::min(static_cast<int32_t>(world.data.height - 2),
+                                static_cast<int32_t>(centerY + radius) + 1);
+
+        for (int32_t y = minY; y <= maxY; ++y) {
+            for (int32_t x = minX; x <= maxX; ++x) {
+                double dx = x - static_cast<double>(centerX);
+                double dy = y - static_cast<double>(centerY);
+                double distance = std::sqrt(dx * dx + dy * dy);
+
+                if (distance <= radius) {
+                    Cell& cell = world.at(static_cast<uint32_t>(x), static_cast<uint32_t>(y));
+                    cell.addDirt(1.0);
+                }
+            }
+        }
         topDropDone = true;
     }
 

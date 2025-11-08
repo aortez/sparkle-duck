@@ -39,43 +39,48 @@ make -C build -j12
 
 ### Running
 ```bash
-# Run the simulation (defaults to wayland backend)
-make run
+# Run headless DSSM server (Dirt Sim State Machine)
+./build/bin/sparkle-duck-server -p 8080 -s 1000
 
-# Run with specific options using ARGS
-make run ARGS='-b sdl -s 100'
+# Run UI client (auto-connects to server)
+./build/bin/sparkle-duck-ui -b wayland --connect localhost:8080
 
-# Run directly with specific display backend
-# RECOMMENDED: always specify steps with -s option,
-# otherwise it will not automatically exit.
-./build/bin/sparkle-duck -b wayland -s 100
-./build/bin/sparkle-duck -b sdl -s 100
+# Run server and UI together (two terminals)
+# Terminal 1:
+./build/bin/sparkle-duck-server -p 8080
 
-# Enable push-based UI updates (experimental, thread-safe)
-./build/bin/sparkle-duck -b wayland -s 100 --push-updates
-# Or use short form:
-./build/bin/sparkle-duck -b x11 -s 100 -p
+# Terminal 2:
+./build/bin/sparkle-duck-ui -b wayland --connect localhost:8080
+
+# UI options
+./build/bin/sparkle-duck-ui -b wayland        # Wayland backend
+./build/bin/sparkle-duck-ui -b x11            # X11 backend
+./build/bin/sparkle-duck-ui -W 1200 -H 1200   # Custom window size
+./build/bin/sparkle-duck-ui -s 100            # Auto-exit after 100 steps
+
+# CLI client for sending commands
+./build/bin/cli ws://localhost:8080 state_get
+./build/bin/cli ws://localhost:8080 step_n '{"frames": 1}'
+./build/bin/cli ws://localhost:8080 diagram_get
 ```
 
 ### Testing
 ```bash
-# Run unit tests (builds debug first)
+# Run all unit tests
 make test
 
-# Run all tests (unit + visual)
-make test-all
-
-# Run visual tests (requires display)
-make visual-tests
-
 # Run tests with filters using ARGS
-make test ARGS='--gtest_filter=World*'
+make test ARGS='--gtest_filter=State*'
 
-# The test binary:
-./build/bin/sparkle-duck-tests
+# Run state machine tests directly
+./build/bin/sparkle-duck-tests --gtest_filter="StateIdle*"
+./build/bin/sparkle-duck-tests --gtest_filter="StateSimRunning*"
 
-# The application saves a screenshot at exit, take a look!
-./build/bin/screenshot-last-exit.png
+# List all available tests
+./build/bin/sparkle-duck-tests --gtest_list_tests
+
+# Run specific test
+./build/bin/sparkle-duck-tests --gtest_filter="StateSimRunningTest.AdvanceSimulation_StepsPhysicsAndDirtFalls"
 ```
 
 ## Architecture
@@ -90,89 +95,55 @@ make test ARGS='--gtest_filter=World*'
 ### Core Components
 - **Vector2d**: 2D floating point vector class
 - **Vector2i**: 2D integer vector class
-- **DirtSimStateMachine**: Main event-driven state machine managing simulation lifecycle
-- **WorldInterface**: Abstract interface for the physics system
+- **Server::StateMachine**: Aka DirtSimStateMachine (DSSM). Headless server state machine (Idle → SimRunning ↔ SimPaused → Shutdown)
+- **Ui::StateMachine**: UI client state machine (Disconnected → StartMenu → SimRunning ↔ Paused → Shutdown)
 - **WorldEventGenerator**: Strategy pattern for initial world setup and dynamic particle generation
-- **SimulatorUI**: LVGL-based interface with real-time physics controls (communicates via events)
+- **ScenarioRegistry**: Registry of available scenarios (owned by each StateMachine)
+- **EventSink**: Interface pattern for clean event routing
 
 ### UI Framework
-- **SimulatorUI**: LVGL-based interface with real-time physics controls
-- **Interactive Elements**: Smart cell grabber with intelligent material interaction
-- **Visual Controls**: Live sliders for gravity, elasticity, pressure parameters
-- **Push-Based Updates**: Thread-safe UI update system (experimental, use --push-updates flag)
+- **ControlPanel**: LVGL controls for scenario toggles and simulation parameters
+- **CellRenderer**: Renders world state to LVGL canvases
+- **UiComponentManager**: Manages LVGL screen and containers
+- **WebSocketClient**: Connects to DSSM server for world data
+- **WebSocketServer**: Accepts remote control commands (port 7070)
 
-### Smart Cell Grabber
-The intelligent interaction system provides seamless material manipulation:
-
-**Features**:
-- **Smart Interaction**: Automatically detects user intent based on cell content
-- **Material Addition**: Click empty cells to add selected material type
-- **Material Dragging**: Click occupied cells to grab and drag existing material
-- **Floating Particle Preview**: Real-time visual feedback with particle following cursor
-- **Physics-Based Tossing**: Drag velocity translates to material momentum on release
-- **Collision Foundation**: Infrastructure for particle-world collision interactions
-
-**Material Selection**:
-- **8-Material Grid**: Choose from DIRT, WATER, WOOD, SAND, METAL, LEAF, WALL, AIR
-- **Visual Material Picker**: 4×2 grid layout with color-coded material buttons
-
-**User Experience**:
-- **No Mode Switching**: System intelligently handles both add and grab operations
-- **Sub-Cell Precision**: Accurate center-of-mass calculation from cursor position
-- **Velocity Tracking**: Recent position history enables realistic physics momentum
-- **Visual Feedback**: Floating particles show exactly what's being manipulated
-
-### Physics Features
+### Physics Overview
 
 - Pure material cells with fill ratios [0,1]
 - Material-specific density affecting gravity response
-- Velocity limiting (max 0.9 cells/timestep, 10% slowdown above 0.5)
 - Center of mass (COM) physics within [-1,1] bounds
 - 8 material types: AIR, DIRT, WATER, WOOD, SAND, METAL, LEAF, WALL
 - Cohesion (same-material attraction) and adhesion (different-material attraction)
 - Viscosity and friction (static/kinetic)
 - Pressure systems: hydrostatic, dynamic, diffusion
 - Air resistance
-- Wall boundaries with configurable behavior
 
 ## Testing Framework
 
-Uses GoogleTest with custom visual test framework:
+Uses GoogleTest for unit and state machine testing.
 
-### Physics Tests
-- **WorldVisual_test.cpp**: Material initialization, empty world advancement, material properties
-- **PressureSystemVisual_test.cpp**: Pressure system validation
-- **ForceCalculation_test.cpp**: Cohesion, adhesion, and force integration
-- **CollisionSystem_test.cpp**: Material collision and transfer mechanics
-- **HorizontalLineStability_test.cpp**: Structural stability tests
+### State Machine Tests
+- **StateIdle_test.cpp**: Tests Idle state event handlers (SimRun, Exit)
+- **StateSimRunning_test.cpp**: Tests SimRunning state (physics, toggles, API commands)
+- One happy-path test per event handler
+- Tests verify state transitions, callbacks, and world state changes
 
 ### Core Tests
 - **Vector2d_test.cpp**: 2D mathematics validation
-- **UI component tests**: SimulatorUI functionality
+- **Vector2i_test.cpp**: 2D integer vector operations
+- **ResultTest.cpp**: Result<> class behavior
+- **TimersTest.cpp**: Timing infrastructure
 
-### Visual Test Framework
-The project uses a unified visual test framework:
-- Tests can be written in a generic way that allows them to run headless, or visually, allowing the user to run or step through the tests and see the results.
-- Design doc: visual_test_framework.md
-- **UnifiedSimLoopExample_test.cpp**: REFERENCE GUIDE: demonstrating best practices for writing tests with the new `runSimulationLoop()` pattern.
-
-### Notes
-Visual tests can display simulation while running when `SPARKLE_DUCK_VISUAL_TESTS=1` is enabled.
-
-Always rebuild test binaries after modifying code - running outdated test executables will show old behavior and error messages that don't match the current source.
-
-  Example: make -C build sparkle-duck-tests -j12 && ./build/bin/sparkle-duck-tests --gtest_filter=MyTest
+### Integration Testing
+- **CLI client** can send commands to server or UI for scripted testing
+- WebSocket API enables external test drivers (Python, bash scripts, etc.)
+- Server and UI can be tested independently
 
 ## Development Environment
 
 ### Display Backends
 Supports SDL, Wayland, X11, and Linux FBDEV backends. Primary development is Linux-focused with Wayland backend as default.
-
-### Performance Tools
-- Built-in timing systems and FPS tracking
-- Debug visualization modes
-- Screenshot capture functionality
-- Memory profiling capabilities
 
 ## Logging
 
@@ -201,41 +172,58 @@ https://docs.lvgl.io/master/details/widgets/index.html
 ### Design docs
 
 Can be found here:
-- @design_docs/GridMechanics.md           #<-- For the World physics system foundations.
-- design_docs/MaterialPicker-UI-Design.md #<-- Material picker UI design (IN DEVELOPMENT)
-- design_docs/ui_overview.md              #<-- UI architecture and widget layout
-- design_docs/WebRTC-test-driver.md       #<-- P2P API for test framework purposes.
-- design_docs/*.md
+- @design_docs/GridMechanics.md           #<-- Physics system foundations (pressure, friction, cohesion, etc.)
+- design_docs/WebRTC-test-driver.md       #<-- Dual-system architecture (DSSM server + UI client)
+- design_docs/coding_convention.md        #<-- Code style guidelines
+- design_docs/plant.md                    #<-- Tree/organism feature (future)
 
 ## Project Directory Structure
 
   test-lvgl/
   ├── src/                                   # Source code
-  │   ├── main.cpp                           # UI application entry point
-  │   ├── main_server.cpp                    # Headless WebSocket server entry point
-  │   ├── World.{cpp,h}                      # Physics system (pure materials, copyable)
-  │   ├── Cell.{cpp,h}                       # Physics cell implementation
-  │   ├── WorldEventGenerator.{cpp,h}        # World initialization and particle generation strategies
-  │   ├── World*Calculator.{cpp,h}           # Physics calculators (8 files)
-  │   ├── DirtSimStateMachine.{cpp,h}        # Main event-driven state machine
-  │   ├── Event.h                            # Event definitions for state machine
-  │   ├── ApiCommands.h                      # Network API command/response types
-  │   ├── SimulatorUI.{cpp,h}                # LVGL-based UI (event-driven, no direct world access)
-  │   ├── network/                           # Network layer
-  │   │   ├── CommandDeserializerJson        # JSON → Command deserialization
-  │   │   ├── ResponseSerializerJson         # Response → JSON serialization
-  │   │   └── WebSocketServer                # WebSocket server implementation
-  │   ├── states/                            # State machine states
-  │   ├── scenarios/                         # Scenario system
-  │   ├── ui/                                # UI builders and event handlers
-  │   ├── lib/                               # LVGL backend support
-  │   └── tests/                             # Comprehensive test suite
+  │   ├── core/                              # Shared physics and utilities
+  │   │   ├── World.{cpp,h}                  # Grid-based physics simulation
+  │   │   ├── Cell.{cpp,h}                   # Pure-material cell implementation
+  │   │   ├── WorldEventGenerator.{cpp,h}    # World initialization and particle generation
+  │   │   ├── World*Calculator.{cpp,h}       # Physics calculators (8 files)
+  │   │   ├── Vector2d.{cpp,h}               # 2D floating point vectors
+  │   │   ├── ScenarioConfig.h               # Scenario configuration types
+  │   │   ├── WorldData.h                    # Serializable world state
+  │   │   └── api/UiUpdateEvent.h            # World update events
+  │   ├── server/                            # Headless DSSM server
+  │   │   ├── main.cpp                       # Server entry point
+  │   │   ├── StateMachine.{cpp,h}           # Server state machine
+  │   │   ├── EventProcessor.{cpp,h}         # Event queue processor
+  │   │   ├── Event.h                        # Server event definitions
+  │   │   ├── states/                        # Server states (Idle, SimRunning, etc.)
+  │   │   ├── api/                           # API commands (CellGet, StateGet, etc.)
+  │   │   ├── network/                       # WebSocket server and serializers
+  │   │   ├── scenarios/                     # Scenario registry and implementations
+  │   │   └── tests/                         # Server state machine tests
+  │   ├── ui/                                # UI client application
+  │   │   ├── main.cpp                       # UI entry point
+  │   │   ├── state-machine/                 # UI state machine
+  │   │   │   ├── StateMachine.{cpp,h}       # UI state machine
+  │   │   │   ├── EventSink.h                # Event routing interface
+  │   │   │   ├── states/                    # UI states (Disconnected, SimRunning, etc.)
+  │   │   │   ├── api/                       # UI API commands (DrawDebugToggle, etc.)
+  │   │   │   └── network/                   # WebSocket client and server
+  │   │   ├── rendering/CellRenderer         # World rendering to LVGL
+  │   │   ├── controls/ControlPanel          # UI controls (toggles, buttons)
+  │   │   ├── ui_builders/LVGLBuilder        # Fluent API for LVGL widgets
+  │   │   └── lib/display_backends/          # Wayland, X11, FBDEV backends
+  │   ├── cli/                               # Command-line client
+  │   │   ├── main.cpp                       # CLI entry point
+  │   │   └── WebSocketClient                # CLI WebSocket client
+  │   └── tests/                             # Core unit tests
+  │       ├── Vector2d_test.cpp              # Math tests
+  │       ├── ResultTest.cpp                 # Result<> tests
+  │       └── TimersTest.cpp                 # Timer tests
   ├── design_docs/                           # Architecture documentation
-  │   ├── GridMechanics.md                   # World physics design
-  │   ├── WebRTC-test-driver.md              # Network API architecture
+  │   ├── GridMechanics.md                   # Physics system design
+  │   ├── WebRTC-test-driver.md              # Dual-system architecture
   │   ├── coding_convention.md               # Code style guidelines
-  │   └── *.md                               # Other design documents
-  ├── scripts/                               # Build and utility scripts
+  │   └── plant.md                           # Tree/organism feature
   ├── lvgl/                                  # LVGL graphics library (submodule)
   ├── spdlog/                                # Logging library (submodule)
   └── CMakeLists.txt                         # CMake configuration
@@ -243,25 +231,15 @@ Can be found here:
 
 ## Development Status
 
-### Current Focus: WebRTC/Network API Development (In Progress)
-
-**Completed:**
-- ✅ World is fully copyable (via WorldEventGenerator cloning)
-- ✅ JSON serialization for Cell and World (lossless round-trip)
-- ✅ API command system with typed request/response (DirtSim::Api::* namespace pattern)
-- ✅ WebSocket server infrastructure (libdatachannel integration)
-- ✅ Event-driven architecture (UI ↔ StateMachine via events only)
-- ✅ WorldEventGenerator refactor (formerly WorldSetup - now with instance state)
-- ✅ Eliminated SimulationManager (DirtSimStateMachine owns World directly)
-- ✅ UIUpdateEvent simplified (contains full World copy for rendering)
-
-**In Progress:**
-- ⏳ Create UiStateMachine (StartUp → StartMenu → SimRunning → Shutdown)
-- ⏳ Complete headless server build (remove remaining UI dependencies)
+### Current Focus: Dual-System Architecture (DSSM + UI Client)
 
 **Next Steps:**
-- Integrate qlibs/reflect for automatic serialization
-- Python test client for network API
+- Fix AdvanceSimulation targetSteps enforcement (doesn't pause at limit)
+- Performance testing
+- Optimization
+- Python/bash integration test scripts
+- More state machine tests (StartMenu, Paused, etc.)
+- More state machine events (StartMenu, Paused, etc.)
 - WebRTC video streaming for remote UI
 
 ## Misc TODO
