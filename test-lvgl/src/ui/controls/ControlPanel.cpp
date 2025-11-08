@@ -37,7 +37,11 @@ ControlPanel::ControlPanel(lv_obj_t* container, WebSocketClient* wsClient, Event
 
 ControlPanel::~ControlPanel()
 {
-    // LVGL widgets are automatically cleaned up when parent is deleted.
+    // Explicitly delete widgets to prevent use-after-free from queued LVGL events.
+    if (panelContainer_) {
+        lv_obj_del(panelContainer_);  // Recursively deletes all child widgets.
+        panelContainer_ = nullptr;
+    }
     spdlog::info("ControlPanel: Destroyed");
 }
 
@@ -157,13 +161,22 @@ void ControlPanel::createSandboxControls(const SandboxConfig& config)
 void ControlPanel::onQuitClicked(lv_event_t* e)
 {
     auto* panel = static_cast<ControlPanel*>(lv_obj_get_user_data(static_cast<lv_obj_t*>(lv_event_get_target(e))));
-    if (!panel || !panel->wsClient_) return;
+    if (!panel) return;
 
     spdlog::info("ControlPanel: Quit button clicked");
 
-    // Send exit command to DSSM.
-    nlohmann::json cmd = {{"command", "exit"}};
-    panel->wsClient_->send(cmd.dump());
+    // Send exit command to DSSM server.
+    if (panel->wsClient_ && panel->wsClient_->isConnected()) {
+        nlohmann::json cmd = {{"command", "exit"}};
+        panel->wsClient_->send(cmd.dump());
+    }
+
+    // Also exit the UI itself.
+    auto exitCmd = UiApi::Exit::Command{};
+    auto exitCwc = UiApi::Exit::Cwc(std::move(exitCmd), [](const auto& /*response*/) {
+        // No action needed on response.
+    });
+    panel->eventSink_.queueEvent(std::move(exitCwc));
 }
 
 void ControlPanel::onDebugToggled(lv_event_t* e)
