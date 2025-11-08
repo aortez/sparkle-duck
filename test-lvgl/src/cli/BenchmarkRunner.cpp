@@ -1,0 +1,316 @@
+#include "BenchmarkRunner.h"
+#include "core/ReflectSerializer.h"
+#include "core/WorldData.h"
+#include <spdlog/spdlog.h>
+#include <chrono>
+#include <thread>
+#include <atomic>
+#include <numeric>
+#include <algorithm>
+#include <filesystem>
+
+namespace DirtSim {
+namespace Client {
+
+BenchmarkRunner::BenchmarkRunner()
+{
+}
+
+BenchmarkRunner::~BenchmarkRunner()
+{
+}
+
+BenchmarkResults BenchmarkRunner::run(
+    const std::string& serverPath,
+    uint32_t steps,
+    const std::string& scenario,
+    bool simulateUI)
+{
+    BenchmarkResults results;
+    results.scenario = scenario;
+    results.steps = steps;
+    results.client_polling_enabled = simulateUI;
+
+    // Metrics tracking.
+    std::vector<double> roundTripTimes;
+    std::vector<double> deserializeTimes;
+    std::vector<size_t> responseSizes;
+
+    std::atomic<bool> benchmarkComplete{false};
+    std::atomic<bool> stateGetPending{false};
+    std::atomic<uint64_t> currentStep{0};
+    std::chrono::steady_clock::time_point requestStartTime = std::chrono::steady_clock::now();
+
+    // Launch server.
+    if (!subprocessManager_.launchServer(serverPath)) {
+        spdlog::error("BenchmarkRunner: Failed to launch server");
+        return results;
+    }
+
+    // Wait for server to be ready.
+    if (!subprocessManager_.waitForServerReady("ws://localhost:8080", 10)) {
+        spdlog::error("BenchmarkRunner: Server failed to start");
+        return results;
+    }
+
+    // Connect client.
+    if (!client_.connect("ws://localhost:8080")) {
+        spdlog::error("BenchmarkRunner: Failed to connect to server");
+        return results;
+    }
+
+    // Set up message handler (like UI does).
+    client_.onMessage([&](const std::string& message) {
+        try {
+            // Time deserialization.
+            auto deserializeStart = std::chrono::steady_clock::now();
+            nlohmann::json json = nlohmann::json::parse(message);
+            auto deserializeEnd = std::chrono::steady_clock::now();
+
+            double deserializeMs = std::chrono::duration<double, std::milli>(
+                deserializeEnd - deserializeStart).count();
+
+            // Type 1: Notifications (frame_ready).
+            if (json.contains("type") && json["type"] == "frame_ready") {
+                uint64_t stepNumber = json.value("stepNumber", 0ULL);
+                spdlog::debug("BenchmarkRunner: frame_ready (step {})", stepNumber);
+
+                // Simulate UI behavior: respond to frame_ready with state_get.
+                if (simulateUI && !stateGetPending) {
+                    nlohmann::json stateGetCmd = {{"command", "state_get"}};
+                    client_.send(stateGetCmd.dump());
+                    requestStartTime = std::chrono::steady_clock::now();
+                    stateGetPending = true;
+                    spdlog::trace("BenchmarkRunner: Sent state_get for step {}", stepNumber);
+                }
+                return;
+            }
+
+            // Type 2: Success responses with data.
+            if (json.contains("value")) {
+                const auto& value = json["value"];
+
+                // WorldData response (state_get).
+                if (value.contains("width") && value.contains("cells")) {
+                    stateGetPending = false;
+
+                    // Measure round-trip time.
+                    auto now = std::chrono::steady_clock::now();
+                    double roundTripMs = std::chrono::duration<double, std::milli>(
+                        now - requestStartTime).count();
+
+                    // Deserialize WorldData to track step.
+                    WorldData worldData = value.get<WorldData>();
+                    currentStep = worldData.timestep;
+
+                    // Record metrics.
+                    roundTripTimes.push_back(roundTripMs);
+                    deserializeTimes.push_back(deserializeMs);
+                    responseSizes.push_back(message.size());
+
+                    spdlog::debug("BenchmarkRunner: Received WorldData (step {}, round-trip: {:.1f}ms)",
+                                 worldData.timestep, roundTripMs);
+
+                    // Check if benchmark complete (only log once).
+                    if (currentStep >= steps && !benchmarkComplete) {
+                        spdlog::info("BenchmarkRunner: Benchmark complete (step {} >= target {})",
+                                    currentStep.load(), steps);
+                        benchmarkComplete = true;
+                    }
+                    return;
+                }
+
+                // Other responses (sim_run, perf_stats_get, etc.) - just log.
+                spdlog::trace("BenchmarkRunner: Received response: {}", value.dump());
+            }
+
+            // Type 3: Error responses.
+            if (json.contains("error")) {
+                spdlog::error("BenchmarkRunner: Server error: {}", json["error"].get<std::string>());
+            }
+        }
+        catch (const std::exception& e) {
+            spdlog::error("BenchmarkRunner: Message handler error: {}", e.what());
+        }
+    });
+
+    client_.onConnected([]() {
+        spdlog::info("BenchmarkRunner: Connected to server");
+    });
+
+    client_.onDisconnected([]() {
+        spdlog::info("BenchmarkRunner: Disconnected from server");
+    });
+
+    client_.onError([](const std::string& error) {
+        spdlog::error("BenchmarkRunner: WebSocket error: {}", error);
+    });
+
+    // Start simulation.
+    auto benchmarkStart = std::chrono::steady_clock::now();
+
+    nlohmann::json simRunCmd = {
+        {"command", "sim_run"},
+        {"timestep", 0.016},
+        {"max_steps", steps}
+    };
+    client_.send(simRunCmd.dump());
+    spdlog::info("BenchmarkRunner: Started simulation ({} steps, scenario: {})", steps, scenario);
+
+    // Wait for simulation to complete.
+    // Note: Server doesn't enforce max_steps yet, so poll state_get to check progress.
+    int timeoutSec = (steps * 50) / 1000 + 10;
+
+    while (subprocessManager_.isServerRunning()) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+        // Poll current step if not simulating UI.
+        if (!simulateUI) {
+            nlohmann::json stateGetCmd = {{"command", "state_get"}};
+            std::string response = client_.sendAndReceive(stateGetCmd.dump(), 1000);
+
+            try {
+                nlohmann::json json = nlohmann::json::parse(response);
+                if (json.contains("value") && json["value"].contains("timestep")) {
+                    uint64_t step = json["value"]["timestep"].get<uint64_t>();
+
+                    if (step >= steps) {
+                        spdlog::info("BenchmarkRunner: Benchmark complete (step {} >= target {})",
+                                    step, steps);
+                        benchmarkComplete = true;
+                        break;
+                    }
+                }
+            }
+            catch (...) {}
+        }
+
+        // If simulating UI, message handler sets benchmarkComplete.
+        if (benchmarkComplete) {
+            break;
+        }
+
+        // Check timeout.
+        auto elapsed = std::chrono::steady_clock::now() - benchmarkStart;
+        if (std::chrono::duration_cast<std::chrono::seconds>(elapsed).count() > timeoutSec) {
+            spdlog::error("BenchmarkRunner: Timeout waiting for completion");
+            break;
+        }
+    }
+
+    auto benchmarkEnd = std::chrono::steady_clock::now();
+    results.duration_sec = std::chrono::duration<double>(benchmarkEnd - benchmarkStart).count();
+
+    if (!benchmarkComplete) {
+        spdlog::error("BenchmarkRunner: Benchmark did not complete");
+        return results;
+    }
+
+    // Query performance stats using special callback that filters frame_ready.
+    std::atomic<bool> perfStatsReceived{false};
+    std::string perfStatsResponse;
+
+    client_.onMessage([&](const std::string& message) {
+        try {
+            nlohmann::json json = nlohmann::json::parse(message);
+
+            // Ignore frame_ready notifications.
+            if (json.contains("type") && json["type"] == "frame_ready") {
+                spdlog::trace("BenchmarkRunner: Ignoring frame_ready while waiting for perf_stats");
+                return;
+            }
+
+            // Got a response - save it.
+            perfStatsResponse = message;
+            perfStatsReceived = true;
+        }
+        catch (...) {}
+    });
+
+    spdlog::info("BenchmarkRunner: Requesting perf_stats from server");
+    nlohmann::json perfStatsCmd = {{"command", "perf_stats_get"}};
+    client_.send(perfStatsCmd.dump());
+
+    // Wait for perf_stats response (skip frame_ready).
+    auto waitStart = std::chrono::steady_clock::now();
+    while (!perfStatsReceived) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
+        auto elapsed = std::chrono::steady_clock::now() - waitStart;
+        if (std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count() > 2000) {
+            spdlog::error("BenchmarkRunner: Timeout waiting for perf_stats");
+            client_.disconnect();
+            return results;
+        }
+    }
+
+    spdlog::debug("BenchmarkRunner: Received perf_stats response ({} bytes)", perfStatsResponse.size());
+
+    try {
+        nlohmann::json perfStatsJson = nlohmann::json::parse(perfStatsResponse);
+        spdlog::debug("BenchmarkRunner: Parsed perf_stats JSON");
+
+        if (perfStatsJson.contains("value")) {
+            const auto& value = perfStatsJson["value"];
+
+            // Populate server stats.
+            results.server_fps = value.value("fps", 0.0);
+            results.server_physics_avg_ms = value.value("physics_avg_ms", 0.0);
+            results.server_physics_total_ms = value.value("physics_total_ms", 0.0);
+            results.server_physics_calls = value.value("physics_calls", 0U);
+            results.server_serialization_avg_ms = value.value("serialization_avg_ms", 0.0);
+            results.server_serialization_total_ms = value.value("serialization_total_ms", 0.0);
+            results.server_serialization_calls = value.value("serialization_calls", 0U);
+            results.server_cache_update_avg_ms = value.value("cache_update_avg_ms", 0.0);
+            results.server_network_send_avg_ms = value.value("network_send_avg_ms", 0.0);
+
+            spdlog::info("BenchmarkRunner: Server stats - fps: {:.1f}, physics: {:.1f}ms avg, serialization: {:.1f}ms avg",
+                        results.server_fps, results.server_physics_avg_ms, results.server_serialization_avg_ms);
+        } else {
+            spdlog::warn("BenchmarkRunner: perf_stats response missing 'value' field: {}", perfStatsJson.dump());
+        }
+    }
+    catch (const std::exception& e) {
+        spdlog::error("BenchmarkRunner: Failed to parse perf_stats: {}", e.what());
+    }
+
+    // Calculate client-side statistics (only meaningful when simulating UI).
+    if (simulateUI && !roundTripTimes.empty()) {
+        results.client_requests_sent = static_cast<uint32_t>(roundTripTimes.size());
+        results.client_avg_round_trip_ms = std::accumulate(
+            roundTripTimes.begin(), roundTripTimes.end(), 0.0) / roundTripTimes.size();
+        results.client_avg_deserialize_ms = std::accumulate(
+            deserializeTimes.begin(), deserializeTimes.end(), 0.0) / deserializeTimes.size();
+        results.client_total_data_kb = std::accumulate(
+            responseSizes.begin(), responseSizes.end(), 0.0) / 1024.0;
+
+        spdlog::info("BenchmarkRunner: Client stats - requests: {}, avg_rtt: {:.1f}ms, avg_deser: {:.1f}ms",
+                    results.client_requests_sent, results.client_avg_round_trip_ms, results.client_avg_deserialize_ms);
+    }
+
+    // Disconnect and cleanup.
+    client_.disconnect();
+
+    return results;
+}
+
+nlohmann::json BenchmarkRunner::queryPerfStats()
+{
+    nlohmann::json cmd = {{"command", "perf_stats_get"}};
+    std::string response = client_.sendAndReceive(cmd.dump());
+
+    try {
+        nlohmann::json json = nlohmann::json::parse(response);
+        if (json.contains("value")) {
+            return json["value"];
+        }
+    }
+    catch (const std::exception& e) {
+        spdlog::error("BenchmarkRunner: Failed to parse perf_stats: {}", e.what());
+    }
+
+    return nlohmann::json::object();
+}
+
+} // namespace Client
+} // namespace DirtSim

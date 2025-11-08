@@ -18,6 +18,13 @@ WebSocketClient::~WebSocketClient()
 bool WebSocketClient::connect(const std::string& url)
 {
     try {
+        // IMPORTANT: Disconnect any existing connection first to prevent duplicate message handlers.
+        if (ws_ && ws_->isOpen()) {
+            spdlog::warn("UI WebSocketClient: Disconnecting existing connection before reconnecting");
+            ws_->close();
+        }
+        ws_.reset();  // Release old WebSocket to ensure cleanup.
+
         spdlog::info("UI WebSocketClient: Connecting to {}", url);
 
         // Create WebSocket configuration.
@@ -31,9 +38,12 @@ bool WebSocketClient::connect(const std::string& url)
         ws_->onMessage([this](std::variant<rtc::binary, rtc::string> data) {
             if (std::holds_alternative<rtc::string>(data)) {
                 std::string message = std::get<rtc::string>(data);
-                spdlog::debug("UI WebSocketClient: Received message");
+                spdlog::debug("UI WebSocketClient: Received message (length: {})", message.length());
                 if (messageCallback_) {
+                    spdlog::trace("UI WebSocketClient: Calling messageCallback_");
                     messageCallback_(message);
+                } else {
+                    spdlog::warn("UI WebSocketClient: Received message but no messageCallback_ set!");
                 }
             }
         });

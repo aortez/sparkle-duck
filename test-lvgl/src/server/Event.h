@@ -5,6 +5,7 @@
 #include "api/DiagramGet.h"
 #include "api/Exit.h"
 #include "api/GravitySet.h"
+#include "api/PerfStatsGet.h"
 #include "api/Reset.h"
 #include "api/ScenarioConfigSet.h"
 #include "api/SimRun.h"
@@ -601,6 +602,7 @@ using Event = std::variant<
     DirtSim::Api::DiagramGet::Cwc,
     DirtSim::Api::Exit::Cwc,
     DirtSim::Api::GravitySet::Cwc,
+    DirtSim::Api::PerfStatsGet::Cwc,
     DirtSim::Api::Reset::Cwc,
     DirtSim::Api::ScenarioConfigSet::Cwc,
     DirtSim::Api::SimRun::Cwc,

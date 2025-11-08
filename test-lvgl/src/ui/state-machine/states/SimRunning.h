@@ -35,6 +35,8 @@ struct SimRunning {
     std::chrono::steady_clock::time_point lastStateGetSentTime;
     double lastRoundTripMs = 0.0;
     double smoothedRoundTripMs = 0.0;  // EMA smoothed round-trip time.
+    uint64_t updateCount = 0;  // Count of received world updates.
+    bool stateGetPending = false;  // Track if a state_get request is awaiting response.
 
     void onEnter(StateMachine& sm);
     void onExit(StateMachine& sm);

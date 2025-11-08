@@ -21,21 +21,52 @@ bool WebSocketClient::connect(const std::string& url)
     try {
         spdlog::debug("WebSocketClient: Connecting to {}", url);
 
-        // Create WebSocket.
-        ws_ = std::make_shared<rtc::WebSocket>();
+        // Create WebSocket with large message size for WorldData.
+        rtc::WebSocketConfiguration config;
+        config.maxMessageSize = 10 * 1024 * 1024; // 10MB limit for WorldData JSON.
 
-        // Set up message handler.
+        ws_ = std::make_shared<rtc::WebSocket>(config);
+
+        // Set up message handler (supports both blocking and async modes).
         ws_->onMessage([this](std::variant<rtc::binary, rtc::string> data) {
             if (std::holds_alternative<rtc::string>(data)) {
-                response_ = std::get<rtc::string>(data);
+                std::string message = std::get<rtc::string>(data);
+
+                // For blocking mode (sendAndReceive).
+                response_ = message;
                 responseReceived_ = true;
+
+                // For async mode (callbacks).
+                if (messageCallback_) {
+                    messageCallback_(message);
+                }
+
                 spdlog::debug("WebSocketClient: Received response");
             }
         });
 
+        // Set up open handler.
+        ws_->onOpen([this]() {
+            spdlog::debug("WebSocketClient: Connection opened");
+            if (connectedCallback_) {
+                connectedCallback_();
+            }
+        });
+
+        // Set up close handler.
+        ws_->onClosed([this]() {
+            spdlog::debug("WebSocketClient: Connection closed");
+            if (disconnectedCallback_) {
+                disconnectedCallback_();
+            }
+        });
+
         // Set up error handler.
-        ws_->onError([](std::string error) {
+        ws_->onError([this](std::string error) {
             spdlog::error("WebSocketClient error: {}", error);
+            if (errorCallback_) {
+                errorCallback_(error);
+            }
         });
 
         // Open connection.
@@ -90,6 +121,24 @@ std::string WebSocketClient::sendAndReceive(const std::string& message, int time
     return response_;
 }
 
+bool WebSocketClient::send(const std::string& message)
+{
+    if (!ws_ || !ws_->isOpen()) {
+        spdlog::error("WebSocketClient: Cannot send, not connected");
+        return false;
+    }
+
+    try {
+        spdlog::debug("WebSocketClient: Sending: {}", message);
+        ws_->send(message);
+        return true;
+    }
+    catch (const std::exception& e) {
+        spdlog::error("WebSocketClient: Send failed: {}", e.what());
+        return false;
+    }
+}
+
 void WebSocketClient::disconnect()
 {
     if (ws_) {
@@ -98,6 +147,31 @@ void WebSocketClient::disconnect()
         }
         ws_.reset();
     }
+}
+
+bool WebSocketClient::isConnected() const
+{
+    return ws_ && ws_->isOpen();
+}
+
+void WebSocketClient::onMessage(MessageCallback callback)
+{
+    messageCallback_ = callback;
+}
+
+void WebSocketClient::onConnected(ConnectionCallback callback)
+{
+    connectedCallback_ = callback;
+}
+
+void WebSocketClient::onDisconnected(ConnectionCallback callback)
+{
+    disconnectedCallback_ = callback;
+}
+
+void WebSocketClient::onError(ErrorCallback callback)
+{
+    errorCallback_ = callback;
 }
 
 } // namespace Client

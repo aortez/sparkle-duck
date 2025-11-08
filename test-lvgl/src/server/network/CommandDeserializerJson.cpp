@@ -4,6 +4,7 @@
 #include "server/api/DiagramGet.h"
 #include "server/api/Exit.h"
 #include "server/api/GravitySet.h"
+#include "server/api/PerfStatsGet.h"
 #include "server/api/Reset.h"
 #include "server/api/ScenarioConfigSet.h"
 #include "server/api/SimRun.h"
@@ -57,6 +58,9 @@ Result<ApiCommand, ApiError> CommandDeserializerJson::deserialize(const std::str
         }
         else if (commandName == "gravity_set") {
             return Result<ApiCommand, ApiError>::okay(Api::GravitySet::Command::fromJson(cmd));
+        }
+        else if (commandName == "perf_stats_get") {
+            return Result<ApiCommand, ApiError>::okay(Api::PerfStatsGet::Command::fromJson(cmd));
         }
         else if (commandName == "reset") {
             return Result<ApiCommand, ApiError>::okay(Api::Reset::Command::fromJson(cmd));

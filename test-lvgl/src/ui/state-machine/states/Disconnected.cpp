@@ -52,8 +52,12 @@ State::Any Disconnected::onEvent(const ConnectToServerCommand& cmd, StateMachine
     wsClient->onMessage([&sm](const std::string& message) {
         spdlog::debug("UI: Received message from DSSM (length: {})", message.length());
 
-        // Use MessageParser to convert message to event.
+        // Time message parsing (JSON parse + WorldData deserialization).
+        auto& timers = sm.getTimers();
+        timers.startTimer("parse_message");
         auto event = MessageParser::parse(message);
+        timers.stopTimer("parse_message");
+
         if (event) {
             sm.queueEvent(*event);
         }

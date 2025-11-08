@@ -1,4 +1,5 @@
 #include "WebSocketServer.h"
+#include "server/StateMachine.h"
 #include <spdlog/spdlog.h>
 
 namespace DirtSim {
@@ -154,6 +155,15 @@ Event WebSocketServer::createCwcForCommand(
                 };
                 return cwc;
             }
+            else if constexpr (std::is_same_v<CommandType, Api::PerfStatsGet::Command>) {
+                Api::PerfStatsGet::Cwc cwc;
+                cwc.command = cmd;
+                cwc.callback = [this, ws](Api::PerfStatsGet::Response&& response) {
+                    std::string jsonResponse = serializer_.serialize(std::move(response));
+                    ws->send(jsonResponse);
+                };
+                return cwc;
+            }
             else if constexpr (std::is_same_v<CommandType, Api::Reset::Command>) {
                 Api::Reset::Cwc cwc;
                 cwc.command = cmd;
@@ -176,8 +186,19 @@ Event WebSocketServer::createCwcForCommand(
                 Api::StateGet::Cwc cwc;
                 cwc.command = cmd;
                 cwc.callback = [this, ws](Api::StateGet::Response&& response) {
+                    // Get timers for instrumentation.
+                    auto& dsm = static_cast<StateMachine&>(stateMachine_);
+                    auto& timers = dsm.getTimers();
+
+                    // Time serialization (includes ReflectSerializer::to_json + nlohmann::json::dump).
+                    timers.startTimer("serialize_worlddata");
                     std::string jsonResponse = serializer_.serialize(std::move(response));
+                    timers.stopTimer("serialize_worlddata");
+
+                    // Time network send.
+                    timers.startTimer("network_send");
                     ws->send(jsonResponse);
+                    timers.stopTimer("network_send");
                 };
                 return cwc;
             }

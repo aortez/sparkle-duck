@@ -1,8 +1,11 @@
+#include "BenchmarkRunner.h"
 #include "WebSocketClient.h"
+#include "core/ReflectSerializer.h"
 #include <args.hxx>
+#include <filesystem>
+#include <iostream>
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
-#include <iostream>
 #include <string>
 
 using namespace DirtSim;
@@ -15,11 +18,13 @@ struct CommandInfo {
 };
 
 static const std::vector<CommandInfo> AVAILABLE_COMMANDS = {
+    {"benchmark", "Run performance benchmark (launches server)", ""},
     {"cell_get", "Get cell state at coordinates", R"({"x": 10, "y": 20})"},
     {"cell_set", "Place material at coordinates", R"({"x": 50, "y": 50, "material": "WATER", "fill": 1.0})"},
     {"diagram_get", "Get emoji visualization of world", ""},
     {"exit", "Shutdown server", ""},
     {"gravity_set", "Set gravity value", R"({"gravity": 15.0})"},
+    {"perf_stats_get", "Get server performance statistics", ""},
     {"reset", "Reset simulation to initial state", ""},
     {"scenario_config_set", "Update scenario configuration", R"({"config": {"type": "sandbox", "quadrant_enabled": true, "water_column_enabled": true, "right_throw_enabled": true, "top_drop_enabled": true, "rain_rate": 0.0}})"},
     {"sim_run", "Start autonomous simulation", R"({"timestep": 0.016, "max_steps": 100})"},
@@ -82,12 +87,20 @@ int main(int argc, char** argv)
     args::ValueFlag<int> timeout(
         parser, "timeout", "Response timeout in milliseconds (default: 5000)", { 't', "timeout" });
 
-    args::Positional<std::string> address(
-        parser, "address", "WebSocket URL (e.g., ws://localhost:8080)");
+    // Benchmark-specific flags.
+    args::ValueFlag<int> benchSteps(
+        parser, "steps", "Benchmark: number of simulation steps (default: 120)", {"steps"}, 120);
+    args::ValueFlag<std::string> benchScenario(
+        parser, "scenario", "Benchmark: scenario name (default: sandbox)", {"scenario"}, "sandbox");
+    args::Flag simulateUI(
+        parser, "simulate-ui", "Benchmark: simulate UI client behavior", {"simulate-ui"});
+
     args::Positional<std::string> command(
         parser,
         "command",
         getCommandListHelp());
+    args::Positional<std::string> address(
+        parser, "address", "WebSocket URL (e.g., ws://localhost:8080) - not needed for benchmark");
     args::Positional<std::string> params(
         parser, "params", "Optional JSON object with command parameters");
 
@@ -105,8 +118,8 @@ int main(int argc, char** argv)
     }
 
     // Validate required arguments.
-    if (!address || !command) {
-        std::cerr << "Error: address and command are required\n\n";
+    if (!command) {
+        std::cerr << "Error: command is required\n\n";
         std::cerr << parser;
         return 1;
     }
@@ -117,6 +130,41 @@ int main(int argc, char** argv)
     }
     else {
         spdlog::set_level(spdlog::level::err);
+    }
+
+    std::string commandName = args::get(command);
+
+    // Handle benchmark command (auto-launches server).
+    if (commandName == "benchmark") {
+        // Find server binary (assume it's in same directory as CLI).
+        std::filesystem::path exePath = std::filesystem::read_symlink("/proc/self/exe");
+        std::filesystem::path binDir = exePath.parent_path();
+        std::filesystem::path serverPath = binDir / "sparkle-duck-server";
+
+        if (!std::filesystem::exists(serverPath)) {
+            std::cerr << "Error: Cannot find server binary at " << serverPath << std::endl;
+            return 1;
+        }
+
+        // Run benchmark.
+        Client::BenchmarkRunner runner;
+        auto results = runner.run(
+            serverPath.string(),
+            args::get(benchSteps),
+            args::get(benchScenario),
+            simulateUI);
+
+        // Output results as JSON using ReflectSerializer.
+        nlohmann::json resultJson = ReflectSerializer::to_json(results);
+        std::cout << resultJson.dump(2) << std::endl;
+        return 0;
+    }
+
+    // Normal command mode - require address.
+    if (!address) {
+        std::cerr << "Error: address is required for non-benchmark commands\n\n";
+        std::cerr << parser;
+        return 1;
     }
 
     int timeoutMs = timeout ? args::get(timeout) : 5000;
@@ -143,7 +191,6 @@ int main(int argc, char** argv)
     }
 
     // Special handling for diagram_get - extract and display just the diagram.
-    std::string commandName = args::get(command);
     if (commandName == "diagram_get") {
         try {
             nlohmann::json responseJson = nlohmann::json::parse(response);

@@ -231,6 +231,7 @@ add_executable(sparkle-duck-server
     src/server/api/DiagramGet.cpp
     src/server/api/Exit.cpp
     src/server/api/GravitySet.cpp
+    src/server/api/PerfStatsGet.cpp
     src/server/api/Reset.cpp
     src/server/api/ScenarioConfigSet.cpp
     src/server/api/SimRun.cpp
@@ -268,7 +269,14 @@ add_custom_target (run-server COMMAND ${EXECUTABLE_OUTPUT_PATH}/sparkle-duck-ser
 add_executable(cli
     # CLI application.
     src/cli/main.cpp
-    src/cli/WebSocketClient.cpp)
+    src/cli/BenchmarkRunner.cpp
+    src/cli/SubprocessManager.cpp
+    src/cli/WebSocketClient.cpp
+
+    # Core dependencies (for WorldData deserialization).
+    src/core/Cell.cpp
+    src/core/MaterialType.cpp
+    src/core/Vector2d.cpp)
 target_link_libraries(cli nlohmann_json::nlohmann_json spdlog::spdlog datachannel-static pthread)
 target_include_directories(cli PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/external/args)
 
@@ -315,6 +323,7 @@ add_executable(sparkle-duck-tests
     src/server/api/DiagramGet.cpp
     src/server/api/Exit.cpp
     src/server/api/GravitySet.cpp
+    src/server/api/PerfStatsGet.cpp
     src/server/api/Reset.cpp
     src/server/api/ScenarioConfigSet.cpp
     src/server/api/SimRun.cpp

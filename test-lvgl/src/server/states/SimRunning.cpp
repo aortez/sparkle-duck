@@ -70,20 +70,52 @@ State::Any SimRunning::onEvent(const AdvanceSimulationCommand& /*cmd*/, StateMac
         if (elapsed > 0) {
             actualFPS = 1000000.0 / elapsed;  // Microseconds to FPS.
 
-            // Log FPS every 60 frames.
+            // Log FPS and performance stats every 60 frames.
             if (stepCount % 60 == 0) {
                 spdlog::info("SimRunning: Actual FPS: {:.1f} (step {})", actualFPS, stepCount);
+
+                // Log performance timing stats.
+                auto& timers = dsm.getTimers();
+                spdlog::info("  Physics: {:.1f}ms avg ({} calls, {:.1f}ms total)",
+                    timers.getCallCount("physics_step") > 0 ?
+                        timers.getAccumulatedTime("physics_step") / timers.getCallCount("physics_step") : 0.0,
+                    timers.getCallCount("physics_step"),
+                    timers.getAccumulatedTime("physics_step"));
+                spdlog::info("  Cache update: {:.1f}ms avg ({} calls, {:.1f}ms total)",
+                    timers.getCallCount("cache_update") > 0 ?
+                        timers.getAccumulatedTime("cache_update") / timers.getCallCount("cache_update") : 0.0,
+                    timers.getCallCount("cache_update"),
+                    timers.getAccumulatedTime("cache_update"));
+                spdlog::info("  Serialization: {:.1f}ms avg ({} calls, {:.1f}ms total)",
+                    timers.getCallCount("serialize_worlddata") > 0 ?
+                        timers.getAccumulatedTime("serialize_worlddata") / timers.getCallCount("serialize_worlddata") : 0.0,
+                    timers.getCallCount("serialize_worlddata"),
+                    timers.getAccumulatedTime("serialize_worlddata"));
+                spdlog::info("  JSON dump: {:.1f}ms avg ({} calls, {:.1f}ms total)",
+                    timers.getCallCount("json_dump") > 0 ?
+                        timers.getAccumulatedTime("json_dump") / timers.getCallCount("json_dump") : 0.0,
+                    timers.getCallCount("json_dump"),
+                    timers.getAccumulatedTime("json_dump"));
+                spdlog::info("  Network send: {:.1f}ms avg ({} calls, {:.1f}ms total)",
+                    timers.getCallCount("network_send") > 0 ?
+                        timers.getAccumulatedTime("network_send") / timers.getCallCount("network_send") : 0.0,
+                    timers.getCallCount("network_send"),
+                    timers.getAccumulatedTime("network_send"));
             }
         }
     }
     lastFrameTime = now;
 
     // Advance physics by one timestep (~60 FPS).
+    dsm.getTimers().startTimer("physics_step");
     world->advanceTime(0.016);
+    dsm.getTimers().stopTimer("physics_step");
     stepCount++;
 
     // Update StateMachine's cached WorldData for fast state_get responses (cheap ~1ms).
+    dsm.getTimers().startTimer("cache_update");
     dsm.updateCachedWorldData(world->data);
+    dsm.getTimers().stopTimer("cache_update");
 
     spdlog::debug("SimRunning: Advanced simulation (step {})", stepCount);
 
@@ -224,6 +256,47 @@ State::Any SimRunning::onEvent(const Api::GravitySet::Cwc& cwc, StateMachine& /*
     spdlog::info("SimRunning: API set gravity to {}", cwc.command.gravity);
 
     cwc.sendResponse(Response::okay(std::monostate{}));
+    return std::move(*this);
+}
+
+State::Any SimRunning::onEvent(const Api::PerfStatsGet::Cwc& cwc, StateMachine& dsm)
+{
+    using Response = Api::PerfStatsGet::Response;
+
+    // Gather performance statistics from timers.
+    auto& timers = dsm.getTimers();
+
+    Api::PerfStatsGet::Okay stats;
+    stats.fps = actualFPS;
+
+    // Physics timing.
+    stats.physics_calls = timers.getCallCount("physics_step");
+    stats.physics_total_ms = timers.getAccumulatedTime("physics_step");
+    stats.physics_avg_ms = stats.physics_calls > 0 ?
+        stats.physics_total_ms / stats.physics_calls : 0.0;
+
+    // Serialization timing.
+    stats.serialization_calls = timers.getCallCount("serialize_worlddata");
+    stats.serialization_total_ms = timers.getAccumulatedTime("serialize_worlddata");
+    stats.serialization_avg_ms = stats.serialization_calls > 0 ?
+        stats.serialization_total_ms / stats.serialization_calls : 0.0;
+
+    // Cache update timing.
+    stats.cache_update_calls = timers.getCallCount("cache_update");
+    stats.cache_update_total_ms = timers.getAccumulatedTime("cache_update");
+    stats.cache_update_avg_ms = stats.cache_update_calls > 0 ?
+        stats.cache_update_total_ms / stats.cache_update_calls : 0.0;
+
+    // Network send timing.
+    stats.network_send_calls = timers.getCallCount("network_send");
+    stats.network_send_total_ms = timers.getAccumulatedTime("network_send");
+    stats.network_send_avg_ms = stats.network_send_calls > 0 ?
+        stats.network_send_total_ms / stats.network_send_calls : 0.0;
+
+    spdlog::info("SimRunning: API perf_stats_get returning {} physics steps, {} serializations",
+                 stats.physics_calls, stats.serialization_calls);
+
+    cwc.sendResponse(Response::okay(std::move(stats)));
     return std::move(*this);
 }
 
