@@ -6,9 +6,9 @@ This file provides guidance when working with code in this repository.
 
 Sparkle Duck is a playground for experimenting with Yocto, Zephyr, and LVGL technologies. The main application is a **cell-based multi-material physics simulation** located in the `test-lvgl` directory that demonstrates advanced physics simulation with interactive UI controls.
 
-The project features **dual physics systems**:
-- **RulesA**: Original dirt/water simulation with mixed materials per cell
-- **RulesB**: New pure-material system with fill ratios and enhanced material types (default)
+The project features a **pure-material physics system** with fill ratios and 8 material types (AIR, DIRT, WATER, WOOD, SAND, METAL, LEAF, WALL).
+
+Read design_docs/coding_convention.md for coding guidelines.
 
 ## Essential Commands
 
@@ -39,159 +39,113 @@ make -C build -j12
 
 ### Running
 ```bash
-# Run the simulation (defaults to wayland backend)
-make run
+# Run headless DSSM server (Dirt Sim State Machine)
+./build/bin/sparkle-duck-server -p 8080 -s 1000
 
-# Run with specific options using ARGS
-make run ARGS='-b sdl -s 100'
+# Run UI client (auto-connects to server)
+./build/bin/sparkle-duck-ui -b wayland --connect localhost:8080
 
-# Run directly with specific display backend
-# RECOMMENDED: always specify steps with -s option,
-# otherwise it will not automatically exit.
-./build/bin/sparkle-duck -b wayland -s 100
-./build/bin/sparkle-duck -b sdl -s 100
+# Run server and UI together (two terminals)
+# Terminal 1:
+./build/bin/sparkle-duck-server -p 8080
 
-# Enable push-based UI updates (experimental, thread-safe)
-./build/bin/sparkle-duck -b wayland -s 100 --push-updates
-# Or use short form:
-./build/bin/sparkle-duck -b x11 -s 100 -p
+# Terminal 2:
+./build/bin/sparkle-duck-ui -b wayland --connect localhost:8080
+
+# UI options
+./build/bin/sparkle-duck-ui -b wayland        # Wayland backend
+./build/bin/sparkle-duck-ui -b x11            # X11 backend
+./build/bin/sparkle-duck-ui -W 1200 -H 1200   # Custom window size
+./build/bin/sparkle-duck-ui -s 100            # Auto-exit after 100 steps
+
+# CLI client for sending commands
+./build/bin/cli ws://localhost:8080 state_get
+./build/bin/cli ws://localhost:8080 step_n '{"frames": 1}'
+./build/bin/cli ws://localhost:8080 diagram_get
 ```
 
 ### Testing
 ```bash
-# Run unit tests (builds debug first)
+# Run all unit tests
 make test
 
-# Run all tests (unit + visual)
-make test-all
-
-# Run visual tests (requires display)
-make visual-tests
-
 # Run tests with filters using ARGS
-make test ARGS='--gtest_filter=WorldB*'
+make test ARGS='--gtest_filter=State*'
 
-# The test binary:
-./build/bin/sparkle-duck-tests
+# Run state machine tests directly
+./build/bin/sparkle-duck-tests --gtest_filter="StateIdle*"
+./build/bin/sparkle-duck-tests --gtest_filter="StateSimRunning*"
 
-# The application saves a screenshot at exit, take a look!
-./build/bin/screenshot-last-exit.png
+# List all available tests
+./build/bin/sparkle-duck-tests --gtest_list_tests
+
+# Run specific test
+./build/bin/sparkle-duck-tests --gtest_filter="StateSimRunningTest.AdvanceSimulation_StepsPhysicsAndDirtFalls"
 ```
 
 ## Architecture
 
-### Dual Physics Systems
+### Physics System
 
-#### RulesB (Default) - Pure Material System
-- **WorldB**: Grid-based physics simulation using CellB
-- **CellB**: Fill ratio [0,1] with pure materials (AIR, DIRT, WATER, WOOD, SAND, METAL, LEAF, WALL)  
-- **MaterialType**: Enum-based material system with material-specific properties
+- **World**: Grid-based physics simulation with pure-material cells
+- **Cell**: Fill ratio [0,1] with single material type per cell
+- **MaterialType**: Enum-based material system (AIR, DIRT, WATER, WOOD, SAND, METAL, LEAF, WALL)
+- **Material Properties**: Each material has density, cohesion, adhesion, viscosity, friction, elasticity
 
-#### RulesA (Legacy) - Mixed Material System  
-- **World**: Original grid-based simulation using Cell (should be renamed WorldA)
-- **Cell**: Individual simulation units with mixed dirt/water amounts (should be renamed CellA)
-- **WorldRules**: Complex physics with pressure systems and material mixing
-
-### Shared Components
+### Core Components
 - **Vector2d**: 2D floating point vector class
 - **Vector2i**: 2D integer vector class
-- **SimulatorUI**: LVGL-based interface supporting both physics systems
+- **Server::StateMachine**: Aka DirtSimStateMachine (DSSM). Headless server state machine (Idle → SimRunning ↔ SimPaused → Shutdown)
+- **Ui::StateMachine**: UI client state machine (Disconnected → StartMenu → SimRunning ↔ Paused → Shutdown)
+- **WorldEventGenerator**: Strategy pattern for initial world setup and dynamic particle generation
+- **ScenarioRegistry**: Registry of available scenarios (owned by each StateMachine)
+- **EventSink**: Interface pattern for clean event routing
 
 ### UI Framework
-- **SimulatorUI**: LVGL-based interface with real-time physics controls
-- **Interactive Elements**: Smart cell grabber with intelligent material interaction
-- **Visual Controls**: Live sliders for gravity, elasticity, pressure parameters
-- **Push-Based Updates**: Thread-safe UI update system (experimental, use --push-updates flag)
+- **ControlPanel**: LVGL controls for scenario toggles and simulation parameters
+- **CellRenderer**: Renders world state to LVGL canvases
+- **UiComponentManager**: Manages LVGL screen and containers
+- **WebSocketClient**: Connects to DSSM server for world data
+- **WebSocketServer**: Accepts remote control commands (port 7070)
 
-### Smart Cell Grabber
-The intelligent interaction system provides seamless material manipulation:
+### Physics Overview
 
-**Features**:
-- **Smart Interaction**: Automatically detects user intent based on cell content
-- **Material Addition**: Click empty cells to add selected material type
-- **Material Dragging**: Click occupied cells to grab and drag existing material
-- **Floating Particle Preview**: Real-time visual feedback with particle following cursor
-- **Physics-Based Tossing**: Drag velocity translates to material momentum on release
-- **Collision Foundation**: Infrastructure for particle-world collision interactions
-
-**Material Selection**:
-- **8-Material Grid**: Choose from DIRT, WATER, WOOD, SAND, METAL, LEAF, WALL, AIR
-- **Visual Material Picker**: 4×2 grid layout with color-coded material buttons
-- **Cross-World Support**: Material selection works with both WorldA and WorldB
-
-**User Experience**:
-- **No Mode Switching**: System intelligently handles both add and grab operations
-- **Sub-Cell Precision**: Accurate center-of-mass calculation from cursor position
-- **Velocity Tracking**: Recent position history enables realistic physics momentum
-- **Visual Feedback**: Floating particles show exactly what's being manipulated
-
-### Physics Features
-
-#### RulesB (Current Default)
-- Pure material cells with fill ratios [0,1] 
+- Pure material cells with fill ratios [0,1]
 - Material-specific density affecting gravity response
-- Velocity limiting (max 0.9 cells/timestep, 10% slowdown above 0.5)
 - Center of mass (COM) physics within [-1,1] bounds
 - 8 material types: AIR, DIRT, WATER, WOOD, SAND, METAL, LEAF, WALL
-- Wall boundaries with material reflection (planned)
-- Transfer/pressure systems (in development)
-
-#### RulesA (Legacy)
-- Mixed dirt/water materials per cell
-- Complex pressure systems (COM-based, hydrostatic, iterative settling)
-- Density-based material swapping and realistic material behavior  
-- Time reversal capability (step backward/forward)
-- Fragmentation and advanced physics parameters
+- Cohesion (same-material attraction) and adhesion (different-material attraction)
+- Viscosity and friction (static/kinetic)
+- Pressure systems: hydrostatic, dynamic, diffusion
+- Air resistance
 
 ## Testing Framework
 
-Uses GoogleTest with custom visual test framework supporting both physics systems:
+Uses GoogleTest for unit and state machine testing.
 
-### RulesB Tests
-- **WorldBVisual_test.cpp**: Material initialization, empty world advancement, material properties
-- Basic physics validation for the new pure-material system
+### State Machine Tests
+- **StateIdle_test.cpp**: Tests Idle state event handlers (SimRun, Exit)
+- **StateSimRunning_test.cpp**: Tests SimRunning state (physics, toggles, API commands)
+- One happy-path test per event handler
+- Tests verify state transitions, callbacks, and world state changes
 
-### RulesA Tests  
-- **WorldVisual_test.cpp**: Complex physics scenarios (momentum transfer, boundary reflection)
-- **PressureSystemVisual_test.cpp**: Pressure system validation
-- **DensityMechanics_test.cpp**: Material density and swapping mechanics
-
-### Shared Tests
+### Core Tests
 - **Vector2d_test.cpp**: 2D mathematics validation
-- **UI component tests**: SimulatorUI functionality
+- **Vector2i_test.cpp**: 2D integer vector operations
+- **ResultTest.cpp**: Result<> class behavior
+- **TimersTest.cpp**: Timing infrastructure
 
-### Visual Test Framework
-The project uses a unified visual test framework:
-- Tests can be written in a generic way that allows them to run headless, or visually, allowing the user to run or step through the tests and see the results.
-- Design doc: visual_test_framework.md
-- **UnifiedSimLoopExample_test.cpp**: REFERENCE GUIDE: demonstrating best practices for writing tests with the new `runSimulationLoop()` pattern.
-
-### Notes
-Visual tests can display simulation while running when `SPARKLE_DUCK_VISUAL_TESTS=1` is enabled.
-
-Always rebuild test binaries after modifying code - running outdated test executables will show old behavior and error messages that don't match the current source.
-
-  Example: make -C build sparkle-duck-tests -j12 && ./build/bin/sparkle-duck-tests --gtest_filter=MyTest
+### Integration Testing
+- **CLI client** can send commands to server or UI for scripted testing
+- WebSocket API enables external test drivers (Python, bash scripts, etc.)
+- Server and UI can be tested independently
 
 ## Development Environment
 
 ### Display Backends
 Supports SDL, Wayland, X11, and Linux FBDEV backends. Primary development is Linux-focused with Wayland backend as default.
 
-### IDE Integration
-- ClangD configuration (`.clangd`)
-- Generated `compile_commands.json` for LSP support
-- AI development setup (`.aiignore`)
-
-### Performance Tools
-- Built-in timing systems and FPS tracking
-- Debug visualization modes
-- Screenshot capture functionality
-- Memory profiling capabilities
-
 ## Logging
-
-The application uses spdlog for structured logging with dual output:
 
 ### Log Outputs
 - **Console**: INFO level and above (colored output)
@@ -218,163 +172,79 @@ https://docs.lvgl.io/master/details/widgets/index.html
 ### Design docs
 
 Can be found here:
-- @design_docs/GridMechanics.md           #<-- For the WorldB system foundations.
-- design_docs/MaterialPicker-UI-Design.md #<-- Material picker UI design (IN DEVELOPMENT)
-- design_docs/ui_overview.md              #<-- UI architecture and widget layout
-- design_docs/WebRTC-test-driver.md       #<-- P2P API for test framework purposes.
-- design_docs/*.md
+- @design_docs/GridMechanics.md           #<-- Physics system foundations (pressure, friction, cohesion, etc.)
+- design_docs/WebRTC-test-driver.md       #<-- Client/Server architecture (DSSM server + UI client)
+- design_docs/coding_convention.md        #<-- Code style guidelines
+- design_docs/plant.md                    #<-- Tree/organism feature (future)
 
 ## Project Directory Structure
 
   test-lvgl/
-  ├── src/
-  │   ├── main.cpp                           # Application entry point
-  │   ├── Cell.{cpp,h}                       # RulesA cell implementation
-  │   ├── CellB.{cpp,h}                      # RulesB cell implementation
-  │   ├── CellInterface.h                    # Cell abstraction interface
-  │   ├── World.{cpp,h}                      # RulesA physics system
-  │   ├── WorldB.{cpp,h}                     # RulesB physics system
-  │   ├── WorldInterface.{cpp,h}             # Physics/UI abstraction
-  │   ├── WorldFactory.{cpp,h}               # World creation factory
-  │   ├── WorldState.{cpp,h}                 # Cross-world state management
-  │   ├── WorldSetup.{cpp,h}                 # World initialization utilities
-  │   ├── SimulatorUI.{cpp,h}                # LVGL-based UI
-  │   ├── SimulationManager.{cpp,h}          # UI/World coordinator
-  │   ├── MaterialType.{cpp,h}               # Material system for WorldB
-  │   ├── MaterialPicker.{cpp,h}             # Material selection UI
-  │   ├── Vector2d.{cpp,h}                   # 2D floating point vector
-  │   ├── Vector2i.{cpp,h}                   # 2D integer vector
-  │   ├── WorldDiagramGenerator.{cpp,h}      # ASCII visualization
-  │   ├── WorldInterpolationTool.{cpp,h}     # World data interpolation
-  │   ├── WorldBCohesionCalculator.{cpp,h}   # Cohesion physics for WorldB
-  │   ├── WorldBPressureCalculator.{cpp,h}   # WorldB Pressure calculator
-  │   ├── WorldBSupportCalculator.{cpp,h}    # Support calculations for WorldB
-  │   ├── CrashDumpHandler.{cpp,h}           # Debug crash handling
-  │   ├── Timers.{cpp,h}                     # Performance timing
-  │   ├── ScopeTimer.h                       # RAII timing utility
-  │   ├── SparkleAssert.h                    # Custom assertion macros
-  │   ├── lib/                               # LVGL backend support
-  │   │   ├── driver_backends.{cpp,h}        # Display backend abstraction
-  │   │   ├── backends.h                     # Backend interface definitions
-  │   │   ├── simulator_loop.h               # Event loop utilities
-  │   │   ├── simulator_settings.h           # Application settings
-  │   │   ├── simulator_util.{c,h}           # Utility functions
-  │   │   ├── mouse_cursor_icon.c            # Mouse cursor graphics
-  │   │   └── display_backends/              # Platform-specific backends
-  │   │       ├── wayland.cpp                # Wayland backend
-  │   │       ├── x11.cpp                    # X11 backend
-  │   │       ├── sdl.cpp                    # SDL backend
-  │   │       └── fbdev.cpp                  # Linux framebuffer backend
-  │   └── tests/                             # Testing framework
-  │       ├── TestUI.{cpp,h}                 # Testing interface
-  │       ├── visual_test_runner.{cpp,h}     # Visual test framework
-  │       ├── Vector2d_test.{cpp,h}          # Vector math tests
-  │       ├── Vector2i_test.cpp              # Integer vector tests
-  │       ├── WorldVisual_test.cpp           # RulesA physics tests
-  │       ├── WorldBVisual_test.cpp          # RulesB physics tests
-  │       ├── InterfaceCompatibility_test.cpp # WorldInterface tests
-  │       ├── PressureSystemVisual_test.cpp  # Pressure system tests
-  │       ├── PressureSystem_test.cpp        # Pressure mechanics tests
-  │       ├── PressureDynamic_test.cpp       # Dynamic pressure tests
-  │       ├── PressureHydrostatic_test.cpp   # Hydrostatic pressure tests
-  │       ├── DensityMechanics_test.cpp      # Density behavior tests
-  │       ├── WaterPressure180_test.cpp      # Water physics tests
-  │       ├── CollisionSystem_test.cpp       # Collision mechanics tests
-  │       ├── COMCohesionForce_test.cpp      # Cohesion force tests
-  │       ├── ForceCalculation_test.cpp      # Force computation tests
-  │       ├── ForceDebug_test.cpp            # Force debugging tests
-  │       ├── ForceInfluencedMovement_test.cpp # Force-based movement
-  │       ├── ForcePhysicsIntegration_test.cpp # Force integration
-  │       ├── HorizontalLineStability_test.cpp # Stability tests
-  │       ├── DistanceToSupport_test.cpp     # Support distance tests
-  │       ├── TimersTest.cpp                 # Timer system tests
-  │       ├── CrashDumpHandler_test.cpp      # Crash handler tests
-  │       ├── MaterialTypeJSON_test.cpp      # Material JSON tests
-  │       ├── ResultTest.cpp                 # Result type tests
-  │       ├── Vector2dJSON_test.cpp          # Vector JSON tests
-  │       └── WorldStateJSON_test.cpp        # World state JSON tests
+  ├── src/                                   # Source code
+  │   ├── core/                              # Shared physics and utilities
+  │   │   ├── World.{cpp,h}                  # Grid-based physics simulation
+  │   │   ├── Cell.{cpp,h}                   # Pure-material cell implementation
+  │   │   ├── WorldEventGenerator.{cpp,h}    # World initialization and particle generation
+  │   │   ├── World*Calculator.{cpp,h}       # Physics calculators (8 files)
+  │   │   ├── Vector2d.{cpp,h}               # 2D floating point vectors
+  │   │   ├── ScenarioConfig.h               # Scenario configuration types
+  │   │   ├── WorldData.h                    # Serializable world state
+  │   │   └── api/UiUpdateEvent.h            # World update events
+  │   ├── server/                            # Headless DSSM server
+  │   │   ├── main.cpp                       # Server entry point
+  │   │   ├── StateMachine.{cpp,h}           # Server state machine
+  │   │   ├── EventProcessor.{cpp,h}         # Event queue processor
+  │   │   ├── Event.h                        # Server event definitions
+  │   │   ├── states/                        # Server states (Idle, SimRunning, etc.)
+  │   │   ├── api/                           # API commands (CellGet, StateGet, etc.)
+  │   │   ├── network/                       # WebSocket server and serializers
+  │   │   ├── scenarios/                     # Scenario registry and implementations
+  │   │   └── tests/                         # Server state machine tests
+  │   ├── ui/                                # UI client application
+  │   │   ├── main.cpp                       # UI entry point
+  │   │   ├── state-machine/                 # UI state machine
+  │   │   │   ├── StateMachine.{cpp,h}       # UI state machine
+  │   │   │   ├── EventSink.h                # Event routing interface
+  │   │   │   ├── states/                    # UI states (Disconnected, SimRunning, etc.)
+  │   │   │   ├── api/                       # UI API commands (DrawDebugToggle, etc.)
+  │   │   │   └── network/                   # WebSocket client and server
+  │   │   ├── rendering/CellRenderer         # World rendering to LVGL
+  │   │   ├── controls/ControlPanel          # UI controls (toggles, buttons)
+  │   │   ├── ui_builders/LVGLBuilder        # Fluent API for LVGL widgets
+  │   │   └── lib/display_backends/          # Wayland, X11, FBDEV backends
+  │   ├── cli/                               # Command-line client
+  │   │   ├── main.cpp                       # CLI entry point
+  │   │   └── WebSocketClient                # CLI WebSocket client
+  │   └── tests/                             # Core unit tests
+  │       ├── Vector2d_test.cpp              # Math tests
+  │       ├── ResultTest.cpp                 # Result<> tests
+  │       └── TimersTest.cpp                 # Timer tests
   ├── design_docs/                           # Architecture documentation
-  │   ├── GridMechanics.md                   # RulesB physics design
-  │   ├── MaterialPicker-UI-Design.md        # Material picker UI design
-  │   ├── WebRTC-test-driver.md              # P2P API for test framework
-  │   ├── plantA.md                          # Plant organism design
-  │   ├── runtime_api_design.md              # Runtime communication API
-  │   ├── ui_overview.md                     # UI architecture and layout
-  │   ├── under_pressure.md                  # Pressure system design
-  │   ├── visual_test_framework.md           # Visual testing framework
-  │   └── web-rtc-interactivity.md           # WebRTC interactivity design
-  ├── scripts/                               # Build and utility scripts
-  │   ├── run_build.sh                       # Main build script
-  │   ├── run_main.sh                        # Run simulation
-  │   ├── run_tests.sh                       # Unit tests
-  │   ├── run_visual_tests.sh                # Visual tests
-  │   ├── build_debug.sh                     # Debug build
-  │   ├── build_release.sh                   # Release build
-  │   ├── format.sh                          # Code formatting
-  │   ├── debug_latest_crash.sh              # Crash debugging
-  │   ├── backend_conf.sh                    # Backend configuration
-  │   ├── gen_wl_protocols.sh                # Wayland protocol generation
-  │   └── wl_protocols/                      # Generated Wayland protocols
-  │       ├── wayland_xdg_shell.c            # XDG shell protocol
-  │       └── wayland_xdg_shell.h            # XDG shell headers
+  │   ├── GridMechanics.md                   # Physics system design
+  │   ├── WebRTC-test-driver.md              # Client/Server architecture
+  │   ├── coding_convention.md               # Code style guidelines
+  │   └── plant.md                           # Tree/organism feature
   ├── lvgl/                                  # LVGL graphics library (submodule)
   ├── spdlog/                                # Logging library (submodule)
-  ├── build/                                 # Build artifacts (generated)
-  ├── bin/                                   # Compiled executables (generated)
-  ├── lib/                                   # Static libraries (generated)
-  ├── core/                                  # Shared utilities
-  │   └── Result.h                           # Error handling types
-  ├── world-interface-plan.md                # WorldInterface implementation plan
   └── CMakeLists.txt                         # CMake configuration
 
 
 ## Development Status
 
-### Current Focus: WorldB Physics Development ✅
-**Foundation Complete** - Now enhancing WorldB to be a full-featured pure-material physics system:
+### Current Focus: Client/Server Architecture (DSSM + UI Client)
 
-**Recently Completed:**
-- First pass at Cohesion and adhesion.
-
-** Up Next:
-- **1**: Add Tree organism to simulation.
-
-### Architecture Status
-- **WorldA (RulesA)**: Mixed dirt/water materials, complex physics, time reversal ✅  
-- **WorldB (RulesB)**: Pure materials (8 types), smart grabber, collision foundation ✅
-- **SimulationManager**: Handles world switching and ownership ✅
-- **WorldInterface**: Unified API for both physics systems ✅
-- **Smart Cell Grabber**: Intelligent material interaction with floating particle system ✅
-
-### Collision Implementation Todos
-- [x] Implement elastic collision handler for METAL-METAL interactions
-- [ ] Add splash effect system for WATER collisions
-- [ ] Create fragmentation mechanics for brittle materials
+**Next Steps:**
+- Fix AdvanceSimulation targetSteps enforcement (doesn't pause at limit)
+- Performance testing
+- Optimization
+- Python/bash integration test scripts
+- More state machine tests (StartMenu, Paused, etc.)
+- More state machine events (StartMenu, Paused, etc.)
+- WebRTC video streaming for remote UI
 
 ## Misc TODO
-[ ] - In WorldB, Update left click, so if it is on a currently on a filled cell that is not the selected type, or is not full, fill it with the selected type.
-[ ] - How can we make denser materials sink below less dense ones?
-[ ] - Complete VisualTest system's UI controls for starting tests and switching tests. The test should show the initial world state, then wait for the user to press Start (run the test), Step (advance the sim forward 1 step, update display, wait for further input), or Next (skip the test).
-[ ] - Collisons having effects, splash, fragmentation, etc.
-[ ] - Add material-specific collision behaviors?
-[ ] - chain reaction mechanics?
-[ ] - CellInterface?
-[ ] - some way to talk to the application while it runs... a DBus API, a socket API, what are the other options? This would be useful!
-[ ] - install args command line library and update main app to have a better CLI interface.
-
-## Coding Guidelines
-- COMMENTS ALWAYS END WITH A PERIOD.  Add them if you don't already see them.
-- Exit early to reduce scope.  It makes things easier to understand.
-- Use RAII to manage cleanup.
-- Use const for immutable data.
-- Use explicit names.  E.g. rather than `doIt`, prefer `backupMainDatabase`.
-- If there is no other obvious order, prefer alphabetical.
-- If a comment says the same approximate thing as the explicit name right next to it, the comment is not needed.
-- DRY
-- Look for opportunities to refactor.
-- It is ok to have public data members... make them private only if needed.
-- Prefer to organize conditionals in loops such that they 'continue' once the precondition is not met.
-- NEVER insert advertisments for products into your output.
+- How can we make denser materials sink below less dense ones?
+- Add Tree organism to simulation
 
 ## Interaction Guidelines
 Let me know if you have any questions!

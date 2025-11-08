@@ -1,8 +1,8 @@
-WorldB.  
+World Physics System
 
 ## The Grid
 
-WorldB is composed of a grid of square cells.
+World is composed of a grid of square cells.
 
 Each cell is from [0,1] full.
 

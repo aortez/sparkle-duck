@@ -1,317 +1,193 @@
-# WebRTC Test Driver Implementation Plan
+# Sparkle Duck WebSocket Server
 
-## Overview
+## Current Status - DUAL SYSTEM OPERATIONAL ✅
 
-This document outlines the plan for a WebRTC-based client/test driver for the Sparkle Duck physics simulation. The client will provide real-time bidirectional communication between clients and the simulation, enabling automated testing, remote control, live monitoring capabilities, and shared access to a single simulation.
+**DSSM Server:** Headless WebSocket server with autonomous physics simulation and frame notifications.
+**UI Client:** LVGL-based UI with WebSocket client/server, connects to DSSM for simulation viewing.
 
-## Goals
+### Quick Start
 
-### Primary Use Cases
-1. **Automated Test Driver**: Execute test sequences, capture world state, validate simulation behavior.
-2. **Remote UI**: Real-time display/control of simulation from web browser.
-3. **Debugging Interface**: Step-by-step simulation control and state inspection.
+```bash
+# Start server
+./build/bin/sparkle-duck-server --port 8080
 
-### Key Features
-- JSON data format.
-- Advance simulation by N frames.
-- Capture complete grid state dumps.
-- Control simulation parameters.
-- Stream visual snapshots/screenshots.
-- Real-time bidirectional communication.
-- Multiple concurrent client connections.
-- Automated discovery of server from client (maybe only on lan?).
+# Start simulation
+./build/bin/cli ws://localhost:8080 sim_run '{}'
 
-## Technology Choices
+# Add materials
+./build/bin/cli ws://localhost:8080 cell_set '{"x": 14, "y": 5, "material": "WATER", "fill": 1.0}'
 
-### Network Protocol: WebSocket + WebRTC Hybrid
+# View world
+./build/bin/cli ws://localhost:8080 diagram_get
 
-**WebSocket** (websocketpp or Boost.Beast):
-- Command/control protocol (JSON-based).
-- Simple request/response for simulation control.
-- WebRTC signaling channel (offer/answer exchange).
-- No NAT traversal needed on LAN.
+# Shutdown
+./build/bin/cli ws://localhost:8080 exit
+```
 
-**WebRTC** (libdatachannel):
-- Real-time video streaming of LVGL framebuffer.
-- Efficient compression (H.264/VP8) - ~500KB/s vs 5MB/s for PNG.
-- Low latency (~50-100ms) for smooth remote viewing.
-- Data channels for large binary state dumps.
+## API Commands
 
-### Discovery: Multi-Backend Architecture
+### DSSM Server API (port 8080)
 
-**Initial implementation - LAN Discovery (mDNS/Avahi)**:
-- Service type: `_sparkleduck._tcp.local`.
-- Automatic server discovery on local network.
-- Zero-configuration, works out of the box.
-- Available on Linux (Avahi), macOS (Bonjour), Windows (Bonjour for Windows).
+| Command | Description | Parameters |
+|---------|-------------|------------|
+| `sim_run` | Start autonomous simulation | `{timestep, max_steps}` |
+| `cell_get` | Get cell state | `{x, y}` |
+| `cell_set` | Place material | `{x, y, material, fill}` |
+| `diagram_get` | Get emoji visualization | none |
+| `state_get` | Get complete world JSON | none |
+| `gravity_set` | Set gravity | `{gravity}` |
+| `reset` | Reset simulation | none |
+| `exit` | Shutdown server | none |
 
-**Future extension - Internet Discovery**:
-- Abstract `DiscoveryBackend` interface for pluggable discovery.
-- LAN backend: mDNS (Phase 3).
-- Internet backend options (future phases):
-  - **Central directory**: Simple REST API for server registration/query.
-  - **DHT**: Distributed discovery via libp2p or OpenDHT.
-  - **Hybrid**: Support multiple backends simultaneously.
-- WebRTC already supports internet connections via STUN/TURN servers.
-- Only discovery mechanism needs to change - connection layer stays the same.
+**Frame Notifications:** Server broadcasts `{type: "frame_ready", stepNumber, timestamp}` after each physics step.
 
-### Client Types Supported
+### UI Server API (port 7070)
 
-1. **Python test scripts**: WebSocket commands + JSON responses.
-2. **Web browsers**: WebSocket + WebRTC (native browser APIs).
-3. **LVGL native client**: WebSocket commands + WebRTC video rendering.
-4. **Command-line tools**: websocat, curl for simple testing.
+| Command | Description | Parameters |
+|---------|-------------|------------|
+| `sim_run` | Start simulation (forwards to DSSM) | none |
+| `sim_pause` | Pause simulation | none |
+| `screenshot` | Capture screenshot | `{filepath}` (optional) |
+| `mouse_down` | Mouse press event | `{pixelX, pixelY}` |
+| `mouse_move` | Mouse drag event | `{pixelX, pixelY}` |
+| `mouse_up` | Mouse release event | `{pixelX, pixelY}` |
+| `exit` | Shutdown UI | none |
 
-## Proposed Architecture
+## Architecture
 
-### 1. Core Library Refactoring
+### API Pattern
 
-Create a shared library that both executables link against:
+```cpp
+namespace DirtSim::Api::CommandName {
+    struct Command { /* params */ };
+    struct Okay { /* response data */ };
+    using Response = Result<Okay, ApiError>;
+    using Cwc = CommandWithCallback<Command, Response>;
+}
+```
+
+### DSSM Server States
+
+`Startup` → `Idle` → `SimRunning` ↔ `SimPaused` → `Shutdown`
+
+- Each state in separate header
+- Generic error responses for unhandled commands
+- SimRunning owns World, broadcasts frame_ready after each step
+
+### UI Client States
+
+`Startup` → `Disconnected` ↔ `StartMenu` → `SimRunning` ↔ `Paused` → `Shutdown`
+
+- **Disconnected:** No DSSM connection, shows connection UI
+- **StartMenu:** Connected to DSSM, ready to start simulation
+- **SimRunning:** Receives frame_ready → requests state_get → renders world
+- **Paused:** Simulation stopped, world frozen
+
+### Communication Flow
+
+```
+UI (client) ←WebSocket→ DSSM (server)
+    ↓                         ↓
+port 7070              port 8080
+(accepts remote      (accepts commands,
+ UI commands)         broadcasts frames)
+```
+
+**Frame Update Cycle:**
+1. DSSM advances physics → broadcasts `frame_ready`
+2. UI receives notification → requests `state_get`
+3. DSSM responds with WorldData JSON
+4. UI parses via ReflectSerializer → renders to LVGL
+
+### Key Implementation Details
+
+**State machine pattern:** States returning same type must be moved back into variant (preserves state data).
+
+**Serialization:** WorldData + ReflectSerializer = zero-boilerplate JSON.
+- toJSON(): `return ReflectSerializer::to_json(data);` (1 line!)
+- fromJSON(): `data = ReflectSerializer::from_json<WorldData>(doc);` (1 line!)
+
+**Stateless calculators:** All physics calculators are stateless, methods take World& parameter.
+- No world_ reference stored
+- Trivially copyable
+- World copy/move now = default
+
+**Error handling:** Compile-time safety with `static_assert`, runtime generic errors for unhandled commands.
+
+## Directory Structure
 
 ```
 src/
-├── core/                              # Shared simulation core
-│   ├── World.{cpp,h}
-│   ├── WorldB.{cpp,h}
-│   ├── Cell.{cpp,h}, CellB.{cpp,h}
-│   ├── WorldInterface.{cpp,h}
-│   ├── WorldFactory.{cpp,h}
-│   ├── SimulationController.{cpp,h}   # NEW: headless simulation control
-│   ├── All physics calculators
-│   ├── Vector2d, MaterialType, etc.
-│   └── serialization/
-│       ├── WorldStateSerializer.{cpp,h}
-│       ├── MaterialTypeJSON.{cpp,h}
-│       └── ...
+├── core/                           # Shared components
+│   ├── World.{h,cpp}              # Physics system
+│   ├── WorldData.h                # Serializable state (auto via ReflectSerializer)
+│   ├── Cell.{h,cpp}               # Cell with JSON serialization
+│   ├── World*Calculator.{h,cpp}   # Stateless physics calculators (7 types)
+│   ├── ReflectSerializer.h        # Zero-boilerplate JSON serialization
+│   └── CommandWithCallback.h     # Async command pattern
 │
-├── ui/                                # UI-specific code
-│   ├── SimulatorUI.{cpp,h}
-│   ├── MaterialPicker.{cpp,h}
-│   ├── SimulationManager.{cpp,h}      # UI + Simulation coordinator
-│   ├── lib/                           # LVGL backends
-│   └── LVGLEventBuilder.{cpp,h}
+├── server/                        # DSSM - Headless physics server
+│   ├── main.cpp                  # Server entry point
+│   ├── StateMachine.{h,cpp}      # State machine (Startup → Idle → SimRunning)
+│   ├── Event.h                   # Server events
+│   ├── states/                   # Server states (5 states)
+│   ├── api/                      # API commands (9 commands)
+│   ├── network/                  # WebSocketServer, serializers
+│   │   ├── WebSocketServer       # Broadcasts frame_ready notifications
+│   │   └── CommandDeserializer   # JSON → Command
+│   └── scenarios/                # Scenario system
 │
-├── network/                           # Server-specific code
-│   ├── WebRTCServer.{cpp,h}
-│   ├── NetworkController.{cpp,h}      # Network + Simulation coordinator
-│   ├── ClientConnection.{cpp,h}
-│   ├── CommandProcessor.{cpp,h}
-│   └── DiscoveryService.{cpp,h}
+├── ui/                           # UI Client - LVGL display + remote control
+│   ├── main.cpp                 # UI entry point
+│   ├── state-machine/           # UI State machine
+│   │   ├── StateMachine.{h,cpp} # (Startup → Disconnected → StartMenu → SimRunning)
+│   │   ├── Event.h              # UI events
+│   │   ├── states/              # UI states (6 states)
+│   │   ├── api/                 # UI API commands (7 commands)
+│   │   └── network/             # WebSocket client + server
+│   │       ├── WebSocketServer  # Accepts remote UI commands (port 7070)
+│   │       └── WebSocketClient  # Connects to DSSM (receives frame notifications)
+│   ├── SimulatorUI.{h,cpp}      # LVGL UI components (TODO: integrate)
+│   ├── rendering/               # CellRenderer (TODO: integrate)
+│   └── lib/                     # LVGL backends (wayland, x11, fbdev)
 │
-└── bin/
-    ├── main.cpp                       # UI app entry point
-    ├── server_main.cpp                # Server app entry point
-    └── test_main.cpp                  # Tests (already exists)
+└── cli/                         # CLI client
+    ├── main.cpp                # Programmatic command registry
+    └── WebSocketClient.{h,cpp} # Single-request client
 ```
 
-### 2. Key Abstraction: SimulationController
+## Next Steps
 
-This is the piece that both UI and server would use:
+**Cleanup:**
+- Remove obsolete UIUpdateConsumer/SharedSimState
+- Fix UI build (separate from server)
+- Implement WebSocket-based UI stuff
 
-```cpp
-// src/core/SimulationController.h
-class SimulationController {
-    std::unique_ptr<WorldInterface> world_;
-    bool paused_ = false;
-    int frame_count_ = 0;
+**Features:**
+- C++ remote test suite
+- WebRTC video streaming
+- mDNS service discovery
 
-public:
-    // Construction.
-    SimulationController(WorldType type, int width, int height);
+## Historical Notes
 
-    // Control interface.
-    void step(int frames = 1);
-    void pause() { paused_ = true; }
-    void resume() { paused_ = false; }
-    void reset();
+See git history for details on:
+- nlohmann/json migration (removed LVGL dependencies)
+- Aggregate types + reflection-based serialization
+- Directory restructure (core/, server/, ui/)
+- Removal of SimulationManager, WorldInterface, CellInterface
 
-    // State access (const, thread-safe).
-    const WorldInterface& getWorld() const { return *world_; }
-    WorldStateSnapshot captureState() const;
-    std::vector<uint8_t> captureScreenshot() const;
+## Misc Ideas
 
-    // Parameter modification.
-    void setGravity(const Vector2d& gravity);
-    void setCellMaterial(int x, int y, MaterialType type, double fill);
-    // ... other setters
-
-    // Query.
-    int getFrameCount() const { return frame_count_; }
-    bool isPaused() const { return paused_; }
-};
-```
-
-### 3. UI App Structure
-
-```cpp
-// src/bin/main.cpp
-int main(int argc, char** argv) {
-    // Parse display backend args.
-    auto backend = parse_backend(argc, argv);
-
-    // Create core simulation.
-    auto sim_controller = std::make_unique<SimulationController>(
-        WorldType::RulesB, 200, 150);
-
-    // Create UI that wraps the controller.
-    auto sim_manager = std::make_unique<SimulationManager>(
-        std::move(sim_controller), backend);
-
-    // Run UI event loop.
-    sim_manager->run();
-}
-```
-
-### 4. Server App Structure
-
-```cpp
-// src/bin/server_main.cpp
-int main(int argc, char** argv) {
-    // Parse server args (port, world size, physics system).
-    auto config = parse_server_config(argc, argv);
-
-    // Create core simulation.
-    auto sim_controller = std::make_unique<SimulationController>(
-        config.world_type, config.width, config.height);
-
-    // Create network controller that wraps the simulation.
-    auto network_controller = std::make_unique<NetworkController>(
-        std::move(sim_controller), config.port);
-
-    // Run server event loop (WebRTC, command processing).
-    network_controller->run();
-}
-```
-
-### 5. Build System (CMakeLists.txt)
-
-```cmake
-# Core library (no UI dependencies).
-add_library(sparkle_core STATIC
-    src/core/World.cpp
-    src/core/WorldB.cpp
-    src/core/SimulationController.cpp
-    # ... all physics code
-)
-target_link_libraries(sparkle_core PUBLIC spdlog::spdlog nlohmann_json::nlohmann_json)
-
-# UI executable.
-add_executable(sparkle-duck
-    src/bin/main.cpp
-    src/ui/SimulatorUI.cpp
-    src/ui/SimulationManager.cpp
-    # ... UI code
-)
-target_link_libraries(sparkle-duck PRIVATE sparkle_core lvgl)
-
-# Server executable.
-add_executable(sparkle-duck-server
-    src/bin/server_main.cpp
-    src/network/WebRTCServer.cpp
-    src/network/NetworkController.cpp
-    # ... network code
-)
-target_link_libraries(sparkle-duck-server PRIVATE sparkle_core webrtc_library)
-
-# Server doesn't need LVGL at all!
-```
-
-### 6. Benefits of This Structure
-
-**Separation of Concerns**:
-- Core physics has zero UI dependencies.
-- Server has zero LVGL dependencies.
-- Each executable optimized for its purpose.
-
-**Code Reuse**:
-- Tests, UI app, and server all use same `sparkle_core` library.
-- Physics bugs fixed once, affects all executables.
-
-**Future LVGL Client**:
-```cpp
-// Future: src/bin/client_main.cpp
-int main() {
-    auto backend = parse_backend();
-
-    // Connect to remote server.
-    auto network_client = std::make_unique<WebRTCClient>("server_address");
-
-    // Create UI that renders remote state.
-    auto client_ui = std::make_unique<RemoteSimulatorUI>(
-        std::move(network_client), backend);
-
-    client_ui->run();  // Renders state from server.
-}
-```
-
-**Multiple Clients Viewing Same Sim**:
-- One `sparkle-duck-server` running the physics.
-- Multiple `sparkle-duck` (local UI) instances.
-- Multiple web browsers.
-- Multiple future LVGL clients.
-- All seeing the same simulation state in real-time!
-
-### 7. Migration Path
-
-1. **Phase 1a**: Extract `SimulationController` from existing `SimulationManager`.
-   - Create new `SimulationController` class in existing location.
-   - Refactor `SimulationManager` to use `SimulationController` internally.
-   - Keep all files in current locations.
-
-2. **Phase 1b**: Verify UI still works.
-   - Build and run existing `sparkle-duck` executable.
-   - Test all UI interactions (material selection, simulation controls, etc.).
-   - Run existing visual tests to ensure physics unchanged.
-
-3. **Phase 2a**: Reorganize directories (core/, ui/, network/).
-   - Move files to new directory structure.
-   - Update CMakeLists.txt to create `sparkle_core` library.
-   - Update includes and build dependencies.
-
-4. **Phase 2b**: Verify UI still works after reorganization.
-   - Build and run `sparkle-duck` with new structure.
-   - Ensure no regressions from directory reorganization.
-
-5. **Phase 3**: Create basic `server_main.cpp` with WebSocket command protocol.
-   - Implement JSON-based command/response protocol (step, pause, query state).
-   - Add mDNS/Avahi service announcement for LAN discovery.
-   - Test with simple command-line client (websocat, Python script).
-   - WebSocket signaling will be reused for WebRTC negotiation later.
-
-6. **Phase 4**: Add WebRTC video streaming.
-   - Integrate libdatachannel for WebRTC support.
-   - Use existing WebSocket for WebRTC signaling (offer/answer).
-   - Add video track for real-time framebuffer streaming (H.264/VP8).
-   - Add data channel for efficient binary state dumps.
-   - Keep WebSocket commands alongside WebRTC for control.
-
-7. **Phase 5**: Build LVGL network client.
-   - Create `client_main.cpp` that connects to server.
-   - Render simulation state from network in LVGL UI.
-   - Test with local server first, then remote.
-
-### 8. Refactoring SimulationManager
-
-Currently `SimulationManager` does both simulation control AND UI coordination. We'd split it:
-
-```cpp
-// Before: SimulationManager does everything.
-class SimulationManager {
-    WorldInterface* world_;        // Simulation.
-    SimulatorUI* ui_;              // UI.
-    void advanceSimulation();      // Mixed concerns.
-    void updateUI();
-};
-
-// After: Clean separation.
-class SimulationController {
-    WorldInterface* world_;
-    void step(int frames);         // Pure simulation control.
-};
-
-class SimulationManager {
-    SimulationController controller_;  // Owns simulation.
-    SimulatorUI* ui_;                  // Owns UI.
-    void syncUIToSimulation();         // UI coordination only.
-};
-```
+- Variable timestep based on last frame time
+- Require UI connection before starting simulation (optional mode)
+- Scenario-specific WorldEventGenerator configuration
+- The directory `uism` should be `state-machine`.
+- Fix alphabetical order here:
+⎿  Updated /home/oldman/workspace/sparkle-duck/test-lvgl/CMakeLists.txt with 1 addition
+     147        src/ui/state-machine/states/StartMenu.cpp
+     148        src/ui/state-machine/states/Startup.cpp
+     149        src/ui/state-machine/network/CommandDeserializerJson.cpp
+     150 +      src/ui/state-machine/network/WebSocketClient.cpp
+     151        src/ui/state-machine/network/WebSocketServer.cpp
+     152        src/ui/state-machine/api/Exit.cpp
+     153        src/ui/state-machine/api/MouseDown.cpp
