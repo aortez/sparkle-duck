@@ -3,6 +3,8 @@
 #include <cmath>
 #include <spdlog/spdlog.h>
 
+using namespace DirtSim;
+
 bool almostEqualI(double a, double b, double epsilon = 1e-6) {
     return std::abs(a - b) < epsilon;
 }

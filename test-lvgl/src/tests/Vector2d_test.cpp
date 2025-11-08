@@ -3,6 +3,8 @@
 #include <cmath>
 #include <spdlog/spdlog.h>
 
+using namespace DirtSim;
+
 // Helper function to compare doubles with epsilon.
 bool almostEqual(double a, double b, double epsilon = 1e-6) {
     return std::abs(a - b) < epsilon;
@@ -64,7 +66,8 @@ TEST(Vector2dTest, Operators) {
     EXPECT_TRUE(almostEqual(v1, Vector2d{1.0, 2.0}));
 
     // Equality.
-    EXPECT_TRUE(v1 == Vector2d{1.0, 2.0});
+    Vector2d expected{1.0, 2.0};
+    EXPECT_TRUE(v1 == expected);
     EXPECT_FALSE(v1 == v2);
 }
 

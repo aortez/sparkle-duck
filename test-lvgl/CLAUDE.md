@@ -173,7 +173,7 @@ https://docs.lvgl.io/master/details/widgets/index.html
 
 Can be found here:
 - @design_docs/GridMechanics.md           #<-- Physics system foundations (pressure, friction, cohesion, etc.)
-- design_docs/WebRTC-test-driver.md       #<-- Dual-system architecture (DSSM server + UI client)
+- design_docs/WebRTC-test-driver.md       #<-- Client/Server architecture (DSSM server + UI client)
 - design_docs/coding_convention.md        #<-- Code style guidelines
 - design_docs/plant.md                    #<-- Tree/organism feature (future)
 
@@ -221,7 +221,7 @@ Can be found here:
   │       └── TimersTest.cpp                 # Timer tests
   ├── design_docs/                           # Architecture documentation
   │   ├── GridMechanics.md                   # Physics system design
-  │   ├── WebRTC-test-driver.md              # Dual-system architecture
+  │   ├── WebRTC-test-driver.md              # Client/Server architecture
   │   ├── coding_convention.md               # Code style guidelines
   │   └── plant.md                           # Tree/organism feature
   ├── lvgl/                                  # LVGL graphics library (submodule)
@@ -231,7 +231,7 @@ Can be found here:
 
 ## Development Status
 
-### Current Focus: Dual-System Architecture (DSSM + UI Client)
+### Current Focus: Client/Server Architecture (DSSM + UI Client)
 
 **Next Steps:**
 - Fix AdvanceSimulation targetSteps enforcement (doesn't pause at limit)

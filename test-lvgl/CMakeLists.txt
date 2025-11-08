@@ -165,7 +165,6 @@ add_executable(sparkle-duck-ui
 
     # Core components.
     src/core/Cell.cpp
-    src/core/CrashDumpHandler.cpp
     src/core/MaterialType.cpp
     src/core/StateMachineBase.cpp
     src/core/Timers.cpp
@@ -254,7 +253,6 @@ add_executable(sparkle-duck-server
     src/core/WorldCollisionCalculator.cpp
     src/core/WorldAdhesionCalculator.cpp
     src/core/WorldFrictionCalculator.cpp
-    src/core/CrashDumpHandler.cpp
     src/core/WorldInterpolationTool.cpp
     src/core/WorldDiagramGeneratorEmoji.cpp
     src/core/StateMachineBase.cpp)
@@ -284,14 +282,10 @@ add_executable(sparkle-duck-tests
     # Test files.
     src/server/tests/StateIdle_test.cpp
     src/server/tests/StateSimRunning_test.cpp
-    # src/tests/CellJSON_test.cpp         # TODO: Fix test bugs.
-    # src/tests/CrashDumpHandler_test.cpp # TODO: Fix test bugs.
-    # src/tests/MaterialTypeJSON_test.cpp # TODO: Fix test bugs.
     src/tests/ResultTest.cpp
     src/tests/TimersTest.cpp
-    # src/tests/Vector2d_test.cpp          # TODO: Fix test bugs.
-    # src/tests/Vector2i_test.cpp          # TODO: Fix test bugs.
-    # src/tests/WorldJSON_test.cpp         # TODO: Fix test bugs.
+    src/tests/Vector2d_test.cpp
+    src/tests/Vector2i_test.cpp
 
     # Core components.
     src/core/Cell.cpp
@@ -310,7 +304,6 @@ add_executable(sparkle-duck-tests
     src/core/WorldAdhesionCalculator.cpp
     src/core/WorldFrictionCalculator.cpp
     src/core/WorldDiagramGeneratorEmoji.cpp
-    src/core/CrashDumpHandler.cpp
     src/core/WorldInterpolationTool.cpp
     src/core/StateMachineBase.cpp
 
@@ -351,12 +344,8 @@ target_link_libraries(sparkle-duck-tests
     nlohmann_json::nlohmann_json
     spdlog::spdlog
     datachannel-static
-    lvgl_linux
-    lvgl::thorvg
-    lvgl
     m
     pthread
-    ${PKG_CONFIG_LIB}
 )
 target_include_directories(sparkle-duck-tests PRIVATE ${CMAKE_SOURCE_DIR}/src ${PKG_CONFIG_INC})
 

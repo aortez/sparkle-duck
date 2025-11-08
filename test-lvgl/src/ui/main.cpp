@@ -1,4 +1,3 @@
-#include "core/CrashDumpHandler.h"
 #include "state-machine/StateMachine.h"
 // TODO: Re-enable when integrating UI components:
 // #include "SimulatorUI.h"
@@ -207,10 +206,6 @@ int main(int argc, char** argv)
     driver_backends_run_loop(*stateMachine);
 
     spdlog::info("Backend run loop exited");
-
-    // Cleanup.
-    CrashDumpHandler::uninstall();
-
     spdlog::info("Application shutting down cleanly");
 
     return 0;
