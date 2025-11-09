@@ -78,7 +78,7 @@ State::Any SimRunning::onEvent(const AdvanceSimulationCommand& /*cmd*/, StateMac
 
             // Log FPS and performance stats intermittently.
             if (stepCount == 100 || stepCount % 1000 == 0) {
-                spdlog::info("SimRunning: Actual FPS?: {:.1f} (step {})", actualFPS, stepCount);
+                spdlog::info("SimRunning: Actual FPS: {:.1f} (step {})", actualFPS, stepCount);
 
                 // Log performance timing stats.
                 auto& timers = dsm.getTimers();

@@ -736,6 +736,273 @@ Result<lv_obj_t*, std::string> LVGLBuilder::LabeledSwitchBuilder::createLabeledS
 }
 
 // ============================================================================
+// ToggleSliderBuilder Implementation.
+// ============================================================================
+
+// State structure for toggle slider callbacks.
+struct ToggleSliderState {
+    lv_obj_t* slider;
+    lv_obj_t* valueLabel;
+    lv_obj_t* switch_obj;
+    double valueScale;
+    std::string valueFormat;
+    int savedValue;
+    int defaultValue;
+    lv_event_cb_t sliderCallback;
+    void* sliderUserData;
+    lv_event_cb_t toggleCallback;
+    void* toggleUserData;
+};
+
+static void toggleSliderSwitchCallback(lv_event_t* e)
+{
+    if (lv_event_get_code(e) != LV_EVENT_VALUE_CHANGED)
+        return;
+
+    ToggleSliderState* state = static_cast<ToggleSliderState*>(lv_event_get_user_data(e));
+    if (!state)
+        return;
+
+    bool isEnabled = lv_obj_has_state(state->switch_obj, LV_STATE_CHECKED);
+
+    if (isEnabled) {
+        // Toggle ON: Restore saved value (or use default).
+        int valueToRestore = (state->savedValue > 0) ? state->savedValue : state->defaultValue;
+        lv_slider_set_value(state->slider, valueToRestore, LV_ANIM_OFF);
+        lv_obj_clear_state(state->slider, LV_STATE_DISABLED);
+
+        // Restore blue color.
+        lv_obj_set_style_bg_color(state->slider, lv_palette_main(LV_PALETTE_BLUE), LV_PART_INDICATOR);
+        lv_obj_set_style_bg_color(state->slider, lv_palette_main(LV_PALETTE_BLUE), LV_PART_KNOB);
+
+        // Update value label.
+        double scaledValue = valueToRestore * state->valueScale;
+        char buf[32];
+        snprintf(buf, sizeof(buf), state->valueFormat.c_str(), scaledValue);
+        lv_label_set_text(state->valueLabel, buf);
+    }
+    else {
+        // Toggle OFF: Save current value, set to 0, disable slider.
+        int currentValue = lv_slider_get_value(state->slider);
+        if (currentValue > 0) {
+            state->savedValue = currentValue;
+        }
+
+        lv_slider_set_value(state->slider, 0, LV_ANIM_OFF);
+        lv_obj_add_state(state->slider, LV_STATE_DISABLED);
+
+        // Grey color when disabled.
+        lv_obj_set_style_bg_color(state->slider, lv_color_hex(0x808080), LV_PART_INDICATOR);
+        lv_obj_set_style_bg_color(state->slider, lv_color_hex(0x808080), LV_PART_KNOB);
+
+        // Update value label to 0.
+        char buf[32];
+        snprintf(buf, sizeof(buf), state->valueFormat.c_str(), 0.0);
+        lv_label_set_text(state->valueLabel, buf);
+    }
+
+    // Call user callback if provided.
+    if (state->toggleCallback) {
+        state->toggleCallback(e);
+    }
+}
+
+static void toggleSliderValueCallback(lv_event_t* e)
+{
+    if (lv_event_get_code(e) != LV_EVENT_VALUE_CHANGED)
+        return;
+
+    ToggleSliderState* state = static_cast<ToggleSliderState*>(lv_event_get_user_data(e));
+    if (!state)
+        return;
+
+    lv_obj_t* slider = static_cast<lv_obj_t*>(lv_event_get_target(e));
+    int value = lv_slider_get_value(slider);
+    double scaledValue = value * state->valueScale;
+
+    // Update value label.
+    char buf[32];
+    snprintf(buf, sizeof(buf), state->valueFormat.c_str(), scaledValue);
+    lv_label_set_text(state->valueLabel, buf);
+
+    // Call user callback if provided.
+    if (state->sliderCallback) {
+        state->sliderCallback(e);
+    }
+}
+
+static void toggleSliderDeleteCallback(lv_event_t* e)
+{
+    ToggleSliderState* state = static_cast<ToggleSliderState*>(lv_event_get_user_data(e));
+    delete state;
+}
+
+LVGLBuilder::ToggleSliderBuilder::ToggleSliderBuilder(lv_obj_t* parent)
+    : parent_(parent)
+    , container_(nullptr)
+    , switch_(nullptr)
+    , slider_(nullptr)
+    , label_(nullptr)
+    , valueLabel_(nullptr)
+{
+}
+
+LVGLBuilder::ToggleSliderBuilder& LVGLBuilder::ToggleSliderBuilder::label(const char* text)
+{
+    label_text_ = text;
+    return *this;
+}
+
+LVGLBuilder::ToggleSliderBuilder& LVGLBuilder::ToggleSliderBuilder::sliderWidth(int width)
+{
+    slider_width_ = width;
+    return *this;
+}
+
+LVGLBuilder::ToggleSliderBuilder& LVGLBuilder::ToggleSliderBuilder::range(int min, int max)
+{
+    range_min_ = min;
+    range_max_ = max;
+    return *this;
+}
+
+LVGLBuilder::ToggleSliderBuilder& LVGLBuilder::ToggleSliderBuilder::value(int initialValue)
+{
+    initial_value_ = initialValue;
+    return *this;
+}
+
+LVGLBuilder::ToggleSliderBuilder& LVGLBuilder::ToggleSliderBuilder::defaultValue(int defValue)
+{
+    default_value_ = defValue;
+    return *this;
+}
+
+LVGLBuilder::ToggleSliderBuilder& LVGLBuilder::ToggleSliderBuilder::valueScale(double scale)
+{
+    value_scale_ = scale;
+    return *this;
+}
+
+LVGLBuilder::ToggleSliderBuilder& LVGLBuilder::ToggleSliderBuilder::valueFormat(const char* format)
+{
+    value_format_ = format;
+    return *this;
+}
+
+LVGLBuilder::ToggleSliderBuilder& LVGLBuilder::ToggleSliderBuilder::initiallyEnabled(bool enabled)
+{
+    initially_enabled_ = enabled;
+    return *this;
+}
+
+LVGLBuilder::ToggleSliderBuilder& LVGLBuilder::ToggleSliderBuilder::onToggle(
+    lv_event_cb_t cb, void* user_data)
+{
+    toggle_callback_ = cb;
+    toggle_user_data_ = user_data;
+    return *this;
+}
+
+LVGLBuilder::ToggleSliderBuilder& LVGLBuilder::ToggleSliderBuilder::onSliderChange(
+    lv_event_cb_t cb, void* user_data)
+{
+    slider_callback_ = cb;
+    slider_user_data_ = user_data;
+    return *this;
+}
+
+Result<lv_obj_t*, std::string> LVGLBuilder::ToggleSliderBuilder::createToggleSlider()
+{
+    // Create container for the whole control group.
+    container_ = lv_obj_create(parent_);
+    lv_obj_set_size(container_, LV_PCT(90), 80);
+    lv_obj_set_style_pad_all(container_, 8, 0);
+    lv_obj_set_style_border_width(container_, 1, 0);
+    lv_obj_set_style_border_color(container_, lv_color_hex(0x404040), 0);
+    lv_obj_set_style_radius(container_, 5, 0);
+    lv_obj_clear_flag(container_, LV_OBJ_FLAG_SCROLLABLE);
+
+    // Create label (top left).
+    label_ = lv_label_create(container_);
+    lv_label_set_text(label_, label_text_.c_str());
+    lv_obj_align(label_, LV_ALIGN_TOP_LEFT, 0, 0);
+
+    // Create switch (top right).
+    switch_ = lv_switch_create(container_);
+    lv_obj_align(switch_, LV_ALIGN_TOP_RIGHT, 0, -5);
+    lv_obj_set_size(switch_, 50, 25);
+
+    if (initially_enabled_) {
+        lv_obj_add_state(switch_, LV_STATE_CHECKED);
+    }
+
+    // Create slider (below label/switch).
+    slider_ = lv_slider_create(container_);
+    lv_obj_align(slider_, LV_ALIGN_TOP_LEFT, 0, 30);
+    lv_obj_set_size(slider_, LV_PCT(100), 10);
+    lv_slider_set_range(slider_, range_min_, range_max_);
+    lv_slider_set_value(slider_, initially_enabled_ ? initial_value_ : 0, LV_ANIM_OFF);
+
+    // Set initial color and state.
+    if (!initially_enabled_) {
+        lv_obj_add_state(slider_, LV_STATE_DISABLED);
+        lv_obj_set_style_bg_color(slider_, lv_color_hex(0x808080), LV_PART_INDICATOR);
+        lv_obj_set_style_bg_color(slider_, lv_color_hex(0x808080), LV_PART_KNOB);
+    }
+    else {
+        lv_obj_set_style_bg_color(slider_, lv_palette_main(LV_PALETTE_BLUE), LV_PART_INDICATOR);
+        lv_obj_set_style_bg_color(slider_, lv_palette_main(LV_PALETTE_BLUE), LV_PART_KNOB);
+    }
+
+    // Create value label (above slider).
+    valueLabel_ = lv_label_create(container_);
+    double scaledValue = (initially_enabled_ ? initial_value_ : 0) * value_scale_;
+    char buf[32];
+    snprintf(buf, sizeof(buf), value_format_.c_str(), scaledValue);
+    lv_label_set_text(valueLabel_, buf);
+    lv_obj_align_to(valueLabel_, slider_, LV_ALIGN_OUT_TOP_MID, 0, -5);
+    lv_obj_set_style_text_font(valueLabel_, &lv_font_montserrat_12, 0);
+
+    // Create persistent state for callbacks.
+    ToggleSliderState* state = new ToggleSliderState{ slider_,
+                                                       valueLabel_,
+                                                       switch_,
+                                                       value_scale_,
+                                                       value_format_,
+                                                       initial_value_,
+                                                       default_value_,
+                                                       slider_callback_,
+                                                       slider_user_data_,
+                                                       toggle_callback_,
+                                                       toggle_user_data_ };
+
+    // Set up callbacks.
+    lv_obj_add_event_cb(switch_, toggleSliderSwitchCallback, LV_EVENT_VALUE_CHANGED, state);
+    lv_obj_add_event_cb(slider_, toggleSliderValueCallback, LV_EVENT_VALUE_CHANGED, state);
+
+    // Cleanup callback to free state.
+    lv_obj_add_event_cb(container_, toggleSliderDeleteCallback, LV_EVENT_DELETE, state);
+
+    return Result<lv_obj_t*, std::string>::okay(container_);
+}
+
+Result<lv_obj_t*, std::string> LVGLBuilder::ToggleSliderBuilder::build()
+{
+    return createToggleSlider();
+}
+
+lv_obj_t* LVGLBuilder::ToggleSliderBuilder::buildOrLog()
+{
+    auto result = createToggleSlider();
+    if (result.isError()) {
+        spdlog::error("ToggleSliderBuilder: {}", result.error());
+        return nullptr;
+    }
+    return result.value();
+}
+
+// ============================================================================
 // Static Factory Methods.
 // ============================================================================
 
@@ -757,4 +1024,9 @@ LVGLBuilder::DropdownBuilder LVGLBuilder::dropdown(lv_obj_t* parent)
 LVGLBuilder::LabeledSwitchBuilder LVGLBuilder::labeledSwitch(lv_obj_t* parent)
 {
     return LabeledSwitchBuilder(parent);
+}
+
+LVGLBuilder::ToggleSliderBuilder LVGLBuilder::toggleSlider(lv_obj_t* parent)
+{
+    return ToggleSliderBuilder(parent);
 }

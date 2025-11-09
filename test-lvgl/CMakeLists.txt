@@ -266,8 +266,12 @@ add_library(sparkle-duck-ui-lib STATIC
 
     # UI components.
     src/ui/UiComponentManager.cpp
+    src/ui/SimPlayground.cpp
     src/ui/rendering/CellRenderer.cpp
     src/ui/controls/ControlPanel.cpp
+    src/ui/controls/CoreControls.cpp
+    src/ui/controls/PhysicsControls.cpp
+    src/ui/controls/SandboxControls.cpp
     src/ui/ui_builders/LVGLBuilder.cpp
 )
 target_include_directories(sparkle-duck-ui-lib PUBLIC ${CMAKE_SOURCE_DIR}/src ${zpp_bits_SOURCE_DIR})
