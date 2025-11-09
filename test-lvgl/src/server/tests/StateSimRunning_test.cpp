@@ -33,7 +33,7 @@ protected:
     {
         // Create Idle and transition to SimRunning.
         Idle idleState;
-        Api::SimRun::Command cmd{ 0.016, 100 };
+        Api::SimRun::Command cmd{ 0.016, 150 };
         Api::SimRun::Cwc cwc(cmd, [](auto&&) {});
         State::Any state = idleState.onEvent(cwc, *stateMachine);
 
@@ -388,7 +388,7 @@ TEST_F(StateSimRunningTest, SimRun_UpdatesRunParameters)
 {
     // Setup: Create initialized SimRunning with initial parameters.
     SimRunning simRunning = createSimRunningWithWorld();
-    EXPECT_EQ(simRunning.targetSteps, 100u);
+    EXPECT_EQ(simRunning.targetSteps, 150u);
     EXPECT_DOUBLE_EQ(simRunning.stepDurationMs, 16.0);
 
     // Advance a few steps to verify world isn't recreated.
