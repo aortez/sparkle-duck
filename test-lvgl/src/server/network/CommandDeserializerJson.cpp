@@ -7,6 +7,7 @@
 #include "server/api/PerfStatsGet.h"
 #include "server/api/Reset.h"
 #include "server/api/ScenarioConfigSet.h"
+#include "server/api/SeedAdd.h"
 #include "server/api/SimRun.h"
 #include "server/api/StateGet.h"
 #include "server/api/StepN.h"
@@ -67,6 +68,9 @@ Result<ApiCommand, ApiError> CommandDeserializerJson::deserialize(const std::str
         }
         else if (commandName == "scenario_config_set") {
             return Result<ApiCommand, ApiError>::okay(Api::ScenarioConfigSet::Command::fromJson(cmd));
+        }
+        else if (commandName == "seed_add") {
+            return Result<ApiCommand, ApiError>::okay(Api::SeedAdd::Command::fromJson(cmd));
         }
         else if (commandName == "sim_run") {
             return Result<ApiCommand, ApiError>::okay(Api::SimRun::Command::fromJson(cmd));

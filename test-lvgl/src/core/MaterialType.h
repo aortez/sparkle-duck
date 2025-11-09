@@ -15,12 +15,13 @@ namespace DirtSim {
 enum class MaterialType : uint8_t {
     AIR = 0, // Empty space (default).
     DIRT,    // Granular solid material.
-    WATER,   // Fluid material.
-    WOOD,    // Rigid solid (light).
-    SAND,    // Granular solid (faster settling than dirt).
-    METAL,   // Dense rigid solid.
     LEAF,    // Light organic matter.
-    WALL     // Immobile boundary material.
+    METAL,   // Dense rigid solid.
+    SAND,    // Granular solid (faster settling than dirt).
+    SEED,    // Tree seed material (dense, grows into tree).
+    WALL,    // Immobile boundary material.
+    WATER,   // Fluid material.
+    WOOD     // Rigid solid (light).
 };
 
 /**
