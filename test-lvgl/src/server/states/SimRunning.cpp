@@ -77,7 +77,7 @@ State::Any SimRunning::onEvent(const AdvanceSimulationCommand& /*cmd*/, StateMac
             world->data.fps_server = actualFPS; // Update WorldData for UI.
 
             // Log FPS and performance stats intermittently.
-            if (stepCount == 100 || stepCount % 1000 == 0) {
+            if (stepCount == 100 || stepCount % 10000 == 0) {
                 spdlog::info("SimRunning: Actual FPS: {:.1f} (step {})", actualFPS, stepCount);
 
                 // Log performance timing stats.
