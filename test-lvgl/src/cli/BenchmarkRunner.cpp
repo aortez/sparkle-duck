@@ -288,6 +288,27 @@ BenchmarkResults BenchmarkRunner::run(
                     results.client_requests_sent, results.client_avg_round_trip_ms, results.client_avg_deserialize_ms);
     }
 
+    // Query detailed timer statistics.
+    spdlog::info("BenchmarkRunner: Requesting timer_stats from server");
+    nlohmann::json timerStatsCmd = {{"command", "timer_stats_get"}};
+    std::string timerStatsResponse = client_.sendAndReceive(timerStatsCmd.dump(), 2000);
+
+    try {
+        nlohmann::json timerStatsJson = nlohmann::json::parse(timerStatsResponse);
+        if (timerStatsJson.contains("value")) {
+            results.timer_stats = timerStatsJson["value"];
+            spdlog::info("BenchmarkRunner: Received {} timer stats", results.timer_stats.size());
+        }
+    }
+    catch (const std::exception& e) {
+        spdlog::error("BenchmarkRunner: Failed to parse timer_stats: {}", e.what());
+    }
+
+    // Send exit command to cleanly shut down server.
+    spdlog::info("BenchmarkRunner: Sending exit command to server");
+    nlohmann::json exitCmd = {{"command", "exit"}};
+    client_.send(exitCmd.dump());
+
     // Disconnect and cleanup.
     client_.disconnect();
 

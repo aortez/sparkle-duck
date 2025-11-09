@@ -12,6 +12,7 @@
 #include "api/SimRun.h"
 #include "api/StateGet.h"
 #include "api/StepN.h"
+#include "api/TimerStatsGet.h"
 #include "core/MaterialType.h"
 #include "core/SimulationStats.h"
 #include <chrono>
@@ -610,6 +611,7 @@ using Event = std::variant<
     DirtSim::Api::SimRun::Cwc,
     DirtSim::Api::StateGet::Cwc,
     DirtSim::Api::StepN::Cwc,
+    DirtSim::Api::TimerStatsGet::Cwc,
 
     // State transitions
     OpenConfigCommand,

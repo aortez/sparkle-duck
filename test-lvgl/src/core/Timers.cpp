@@ -1,5 +1,7 @@
 #include "Timers.h"
 #include <iostream>
+#include <vector>
+#include <nlohmann/json.hpp>
 
 void Timers::startTimer(const std::string& name)
 {
@@ -24,8 +26,8 @@ double Timers::stopTimer(const std::string& name)
     }
 
     auto end = std::chrono::steady_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - timer.startTime);
-    timer.accumulatedTime += duration.count();
+    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - timer.startTime);
+    timer.accumulatedTime += duration.count() / 1000.0;  // Convert to milliseconds.
     timer.isRunning = false;
     return timer.accumulatedTime;
 }
@@ -50,8 +52,8 @@ double Timers::getAccumulatedTime(const std::string& name) const
     // If timer is running, include current session.
     auto current = std::chrono::steady_clock::now();
     auto currentDuration =
-        std::chrono::duration_cast<std::chrono::milliseconds>(current - timer.startTime);
-    return timer.accumulatedTime + currentDuration.count();
+        std::chrono::duration_cast<std::chrono::microseconds>(current - timer.startTime);
+    return timer.accumulatedTime + (currentDuration.count() / 1000.0);  // Convert to milliseconds.
 }
 
 void Timers::resetTimer(const std::string& name)
@@ -126,5 +128,68 @@ void Timers::dumpTimerStats() const
               << "% of total, " << (dragCalls > 0 ? dragTime / dragCalls : 0) << "ms avg per call, "
               << dragCalls << " calls)" << std::endl;
 
+    // Physics subsystem breakdown.
+    std::cout << "\nPhysics Subsystems:" << std::endl;
+    std::cout << "-------------------" << std::endl;
+
+    // List of physics subsystem timers to dump.
+    const std::vector<std::string> physicsTimers = {
+        "resolve_forces_total",
+        "compute_support_map",
+        "support_calculation",
+        "apply_gravity",
+        "apply_air_resistance",
+        "apply_cohesion_forces",
+        "cohesion_calculation",
+        "adhesion_calculation",
+        "apply_pressure_forces",
+        "velocity_limiting",
+        "update_transfers",
+        "process_moves_total",
+        "hydrostatic_pressure",
+        "dynamic_pressure",
+        "pressure_diffusion",
+        "pressure_decay"
+    };
+
+    for (const auto& timerName : physicsTimers) {
+        double time = getAccumulatedTime(timerName);
+        uint32_t calls = getCallCount(timerName);
+        if (time >= 0 || calls > 0) {  // Show all timers, even 0ms ones.
+            std::cout << "  " << timerName << ": " << time << "ms ("
+                      << (time / advanceTime * 100.0) << "% of physics, "
+                      << (calls > 0 ? time / calls : 0) << "ms avg, " << calls << " calls)" << std::endl;
+        }
+    }
+
     std::cout << "----------------" << std::endl;
+}
+
+std::vector<std::string> Timers::getAllTimerNames() const
+{
+    std::vector<std::string> names;
+    names.reserve(timers.size());
+    for (const auto& pair : timers) {
+        names.push_back(pair.first);
+    }
+    return names;
+}
+
+nlohmann::json Timers::exportAllTimersAsJson() const
+{
+    nlohmann::json j = nlohmann::json::object();
+
+    for (const auto& [name, timerData] : timers) {
+        double total_ms = getAccumulatedTime(name);
+        uint32_t calls = timerData.callCount;
+        double avg_ms = calls > 0 ? total_ms / calls : 0.0;
+
+        j[name] = {
+            {"total_ms", total_ms},
+            {"avg_ms", avg_ms},
+            {"calls", calls}
+        };
+    }
+
+    return j;
 }

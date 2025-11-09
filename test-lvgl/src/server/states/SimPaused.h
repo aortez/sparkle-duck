@@ -20,6 +20,7 @@ struct SimPaused {
     Any onEvent(const Api::Exit::Cwc& cwc, StateMachine& dsm);
     Any onEvent(const Api::PerfStatsGet::Cwc& cwc, StateMachine& dsm);
     Any onEvent(const Api::StateGet::Cwc& cwc, StateMachine& dsm);
+    Any onEvent(const Api::TimerStatsGet::Cwc& cwc, StateMachine& dsm);
 
     static constexpr const char* name() { return "SimPaused"; }
 };

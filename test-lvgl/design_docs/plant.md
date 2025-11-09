@@ -434,14 +434,23 @@ Material displacement multipliers (future):
 ### Phase 1: Foundation
 **Goal**: SEED material visible and trackable in world
 
-1. Add SEED and ROOT to MaterialType enum
-2. Define material properties
-3. Update MaterialPicker UI (SEED only)
-4. Create TreeTypes.h with TreeCommand variants
-5. Create Tree class with brain interface
-6. Create TreeManager class
-7. Integrate into WorldB
-8. Testing: Seeds fall with gravity, render correctly
+**Status: In Progress**
+
+Completed:
+- ✅ Add SEED to MaterialType enum (alphabetized)
+- ✅ Define SEED material properties (density: 8.0, rigid, cohesive)
+- ✅ Add SEED rendering color (0x8B4513 - saddle brown)
+- ✅ Create SeedAdd API command
+- ✅ Add UI button for placing seeds
+
+Remaining:
+- ❌ Add ROOT material type
+- ❌ Material picker UI (doesn't exist yet)
+- ❌ Create TreeTypes.h with TreeCommand variants
+- ❌ Create Tree class with brain interface
+- ❌ Create TreeManager class
+- ❌ Integrate into WorldB
+- ❌ Testing: Seeds fall with gravity, render correctly
 
 ### Phase 2: Growth System
 1. SEED → WOOD germination

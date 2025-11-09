@@ -2,9 +2,11 @@
 
 #include "SubprocessManager.h"
 #include "WebSocketClient.h"
+#include "server/api/TimerStatsGet.h"
 
 #include <nlohmann/json.hpp>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace DirtSim {
@@ -36,6 +38,8 @@ struct BenchmarkResults {
     double client_avg_round_trip_ms = 0.0;
     double client_avg_deserialize_ms = 0.0;
     double client_total_data_kb = 0.0;
+
+    nlohmann::json timer_stats;
 };
 
 /**

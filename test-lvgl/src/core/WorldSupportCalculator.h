@@ -76,6 +76,16 @@ public:
     bool hasStructuralSupport(const World& world, uint32_t x, uint32_t y) const;
 
     /**
+     * @brief Compute support map for entire grid using bottom-up scan.
+     *
+     * Calculates support for all cells in a single bottom-to-top pass.
+     * Much more efficient than per-cell recursive checks.
+     *
+     * @param world World to compute support for (modifies cached_has_support).
+     */
+    void computeSupportMapBottomUp(World& world) const;
+
+    /**
      * @brief Calculate distance to structural support.
      *
      * Calculates the minimum distance to any form of structural support,

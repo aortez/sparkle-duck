@@ -29,6 +29,7 @@ static const std::vector<CommandInfo> AVAILABLE_COMMANDS = {
     {"scenario_config_set", "Update scenario configuration", R"({"config": {"type": "sandbox", "quadrant_enabled": true, "water_column_enabled": true, "right_throw_enabled": true, "top_drop_enabled": true, "rain_rate": 0.0}})"},
     {"sim_run", "Start autonomous simulation", R"({"timestep": 0.016, "max_steps": 100})"},
     {"state_get", "Get complete world state as JSON", ""},
+    {"timer_stats_get", "Get detailed physics timing breakdown", ""},
     {"step_n", "Advance simulation N frames", R"({"frames": 1})"},
 };
 
@@ -156,6 +157,12 @@ int main(int argc, char** argv)
 
         // Output results as JSON using ReflectSerializer.
         nlohmann::json resultJson = ReflectSerializer::to_json(results);
+
+        // Add timer_stats (already in JSON format).
+        if (!results.timer_stats.empty()) {
+            resultJson["timer_stats"] = results.timer_stats;
+        }
+
         std::cout << resultJson.dump(2) << std::endl;
         return 0;
     }

@@ -1,5 +1,6 @@
 #include "server/StateMachine.h"
 #include "State.h"
+#include "server/api/TimerStatsGet.h"
 #include <spdlog/spdlog.h>
 
 namespace DirtSim {
@@ -89,6 +90,29 @@ State::Any SimPaused::onEvent(const Api::PerfStatsGet::Cwc& cwc, StateMachine& d
                  stats.physics_calls, stats.serialization_calls);
 
     cwc.sendResponse(Response::okay(std::move(stats)));
+    return std::move(*this);
+}
+
+State::Any SimPaused::onEvent(const Api::TimerStatsGet::Cwc& cwc, StateMachine& dsm)
+{
+    using Response = Api::TimerStatsGet::Response;
+
+    auto& timers = dsm.getTimers();
+    std::vector<std::string> timerNames = timers.getAllTimerNames();
+
+    Api::TimerStatsGet::Okay okay;
+
+    for (const auto& name : timerNames) {
+        Api::TimerStatsGet::TimerEntry entry;
+        entry.total_ms = timers.getAccumulatedTime(name);
+        entry.calls = timers.getCallCount(name);
+        entry.avg_ms = entry.calls > 0 ? entry.total_ms / entry.calls : 0.0;
+        okay.timers[name] = entry;
+    }
+
+    spdlog::info("SimPaused: API timer_stats_get returning {} timers", okay.timers.size());
+
+    cwc.sendResponse(Response::okay(std::move(okay)));
     return std::move(*this);
 }
 

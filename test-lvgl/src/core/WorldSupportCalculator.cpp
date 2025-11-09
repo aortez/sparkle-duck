@@ -263,6 +263,53 @@ bool WorldSupportCalculator::hasStructuralSupport(const World& world, uint32_t x
     return false;
 }
 
+void WorldSupportCalculator::computeSupportMapBottomUp(World& world) const
+{
+    // Bottom-up pass: compute support for entire grid in one sweep.
+    // Start from bottom row (ground) and work upward.
+    for (int y = world.data.height - 1; y >= 0; y--) {
+        for (uint32_t x = 0; x < world.data.width; x++) {
+            Cell& cell = world.at(x, y);
+
+            if (cell.isEmpty()) {
+                cell.has_support = false;
+                continue;
+            }
+
+            // WALL material is always structurally supported.
+            if (cell.material_type == MaterialType::WALL) {
+                cell.has_support = true;
+                continue;
+            }
+
+            // Bottom edge of world (ground) provides support.
+            if (y == static_cast<int>(world.data.height) - 1) {
+                cell.has_support = true;
+                continue;
+            }
+
+            // High-density materials (METAL) act as structural anchors.
+            const MaterialProperties& props = getMaterialProperties(cell.material_type);
+            if (props.density > RIGID_DENSITY_THRESHOLD) {
+                cell.has_support = true;
+                continue;
+            }
+
+            // Check vertical support: cell below must be non-empty AND supported.
+            const Cell& below = world.at(x, y + 1);
+            bool has_vertical = !below.isEmpty() && below.has_support;
+
+            // Check horizontal support if no vertical.
+            bool has_horizontal = false;
+            if (!has_vertical) {
+                has_horizontal = hasHorizontalSupport(world, x, y);
+            }
+
+            cell.has_support = has_vertical || has_horizontal;
+        }
+    }
+}
+
 double WorldSupportCalculator::calculateDistanceToSupport(const World& world, uint32_t x, uint32_t y) const
 {
     spdlog::info("calculateDistanceToSupport({},{}) called", x, y);
