@@ -124,7 +124,9 @@ sudo apt-get install -y \
     cmake \
     pkg-config \
     libboost-dev \
-    clang-format
+    clang-format \
+    libwayland-dev \
+    libxkbcommon-dev
 
 # Create runner directory.
 RUNNER_DIR="$HOME/actions-runner"
