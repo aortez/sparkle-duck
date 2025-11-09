@@ -86,33 +86,23 @@ WorldCohesionCalculator::CohesionForce WorldCohesionCalculator::calculateCohesio
         // Full cohesion with vertical support (load-bearing from below)
         support_factor = 1.0;
         spdlog::trace(
-            "Full vertical support for {} at ({},{})",
-            getMaterialName(cell.material_type),
-            x,
-            y);
+            "Full vertical support for {} at ({},{})", getMaterialName(cell.material_type), x, y);
     }
     else if (has_horizontal) {
         // Reduced cohesion with only horizontal support (rigid lateral connections)
         support_factor = 0.5;
         spdlog::trace(
-            "Horizontal support only for {} at ({},{})",
-            getMaterialName(cell.material_type),
-            x,
-            y);
+            "Horizontal support only for {} at ({},{})", getMaterialName(cell.material_type), x, y);
     }
     else {
         // Minimal cohesion without structural support.
         support_factor = World::MIN_SUPPORT_FACTOR; // 0.05.
         spdlog::trace(
-            "No structural support for {} at ({},{})",
-            getMaterialName(cell.material_type),
-            x,
-            y);
+            "No structural support for {} at ({},{})", getMaterialName(cell.material_type), x, y);
     }
 
     // Resistance magnitude = cohesion × connection strength × own fill ratio × support factor.
-    double resistance =
-        material_cohesion * connected_neighbors * cell.fill_ratio * support_factor;
+    double resistance = material_cohesion * connected_neighbors * cell.fill_ratio * support_factor;
 
     spdlog::trace(
         "Cohesion calculation for {} at ({},{}): neighbors={}, vertical_support={}, "

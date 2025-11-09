@@ -1,5 +1,5 @@
-#include "ui/state-machine/StateMachine.h"
 #include "State.h"
+#include "ui/state-machine/StateMachine.h"
 #include <spdlog/spdlog.h>
 
 namespace DirtSim {
@@ -65,7 +65,7 @@ State::Any Paused::onEvent(const UiApi::Screenshot::Cwc& cwc, StateMachine& /*sm
     // TODO: Capture screenshot.
 
     std::string filepath = cwc.command.filepath.empty() ? "screenshot.png" : cwc.command.filepath;
-    cwc.sendResponse(UiApi::Screenshot::Response::okay({filepath}));
+    cwc.sendResponse(UiApi::Screenshot::Response::okay({ filepath }));
 
     return Paused{ std::move(worldData) };
 }
@@ -76,7 +76,7 @@ State::Any Paused::onEvent(const UiApi::SimRun::Cwc& cwc, StateMachine& /*sm*/)
 
     // TODO: Send resume command to DSSM server.
 
-    cwc.sendResponse(UiApi::SimRun::Response::okay({true}));
+    cwc.sendResponse(UiApi::SimRun::Response::okay({ true }));
 
     // Transition back to SimRunning (renderer and controls will be created in onEnter).
     SimRunning newState;

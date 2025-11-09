@@ -1,6 +1,6 @@
 #include "World.h"
-#include "ReflectSerializer.h"
 #include "Cell.h"
+#include "ReflectSerializer.h"
 #include "ScopeTimer.h"
 #include "Vector2i.h"
 #include "WorldAirResistanceCalculator.h"
@@ -57,7 +57,7 @@ World::World(uint32_t width, uint32_t height)
 
     // Initialize with air.
     for (auto& cell : data.cells) {
-        cell = Cell{MaterialType::AIR, 0.0};
+        cell = Cell{ MaterialType::AIR, 0.0 };
     }
 
     // Set up boundary walls if enabled.
@@ -81,9 +81,6 @@ std::string World::toAsciiDiagram() const
 {
     return WorldDiagramGeneratorEmoji::generateEmojiDiagram(*this);
 }
-
-
-
 
 // =================================================================
 // CORE SIMULATION METHODS
@@ -151,7 +148,8 @@ void World::advanceTime(double deltaTimeSeconds)
         // This allows dynamic pressure to model hydrostatic-like behavior.
         //        pressure_calculator_.generateVirtualGravityTransfers(scaledDeltaTime);
 
-        pressure_calculator_.processBlockedTransfers(*this, pressure_calculator_.blocked_transfers_);
+        pressure_calculator_.processBlockedTransfers(
+            *this, pressure_calculator_.blocked_transfers_);
         pressure_calculator_.blocked_transfers_.clear();
     }
 
@@ -353,8 +351,8 @@ void World::applyAirResistance()
             Cell& cell = at(x, y);
 
             if (!cell.isEmpty() && !cell.isWall()) {
-                Vector2d air_resistance_force = air_resistance_calculator.calculateAirResistance(*this, 
-                    x, y, air_resistance_strength_);
+                Vector2d air_resistance_force = air_resistance_calculator.calculateAirResistance(
+                    *this, x, y, air_resistance_strength_);
                 cell.addPendingForce(air_resistance_force);
             }
         }
@@ -555,8 +553,7 @@ void World::resolveForces(double deltaTime)
 
             // Apply continuous damping with friction (no thresholds).
             double damping_factor = 1.0
-                + (effective_viscosity * viscosity_strength_ * cell.fill_ratio
-                   * support_factor);
+                + (effective_viscosity * viscosity_strength_ * cell.fill_ratio * support_factor);
 
             // Ensure damping factor is never zero or negative to prevent division by zero.
             if (damping_factor <= 0.0) {
@@ -566,7 +563,7 @@ void World::resolveForces(double deltaTime)
             // Store damping info for visualization (X=friction_coefficient, Y=damping_factor).
             // Only store if viscosity is actually enabled and having an effect.
             if (viscosity_strength_ > 0.0 && props.viscosity > 0.0) {
-                cell.accumulated_cohesion_force = Vector2d{friction_coefficient, damping_factor};
+                cell.accumulated_cohesion_force = Vector2d{ friction_coefficient, damping_factor };
             }
             else {
                 cell.accumulated_cohesion_force = {}; // Clear when viscosity is off.
@@ -657,7 +654,8 @@ std::vector<MaterialMove> World::computeMaterialMoves(double deltaTime)
             WorldCohesionCalculator::COMCohesionForce com_cohesion;
             if (cohesion_com_force_strength_ > 0.0) {
                 WorldCohesionCalculator com_cohesion_calc{};
-                com_cohesion = com_cohesion_calc.calculateCOMCohesionForce(*this, x, y, com_cohesion_range_);
+                com_cohesion =
+                    com_cohesion_calc.calculateCOMCohesionForce(*this, x, y, com_cohesion_range_);
             }
             else {
                 com_cohesion = {
@@ -673,8 +671,10 @@ std::vector<MaterialMove> World::computeMaterialMoves(double deltaTime)
 
             // Store forces in cell for visualization.
             // Note: Cohesion force field is now repurposed in resolveForces() for damping info.
-            cell.accumulated_adhesion_force = adhesion.force_direction * effective_adhesion_magnitude;
-            cell.accumulated_com_cohesion_force = com_cohesion.force_direction * effective_com_cohesion_magnitude;
+            cell.accumulated_adhesion_force =
+                adhesion.force_direction * effective_adhesion_magnitude;
+            cell.accumulated_com_cohesion_force =
+                com_cohesion.force_direction * effective_com_cohesion_magnitude;
 
             // NOTE: Force calculation and resistance checking now handled in resolveForces().
             // This method only needs to handle material movement based on COM positions.
@@ -721,7 +721,8 @@ std::vector<MaterialMove> World::computeMaterialMoves(double deltaTime)
 
                 if (isValidCell(targetPos)) {
                     // Create enhanced MaterialMove with collision physics and COM cohesion data.
-                    MaterialMove move = collision_calculator_.createCollisionAwareMove(*this, 
+                    MaterialMove move = collision_calculator_.createCollisionAwareMove(
+                        *this,
                         cell,
                         at(targetPos),
                         Vector2i(x, y),
@@ -815,8 +816,7 @@ void World::processMaterialMoves()
         if (move.pressure_from_excess > 0.0) {
             // If target is a wall, pressure reflects back to source.
             if (toCell.material_type == MaterialType::WALL) {
-                fromCell.setDynamicPressure(
-                    fromCell.dynamic_component + move.pressure_from_excess);
+                fromCell.setDynamicPressure(fromCell.dynamic_component + move.pressure_from_excess);
 
                 spdlog::debug(
                     "Wall blocked transfer: source cell({},{}) pressure increased by {:.3f}",
@@ -947,11 +947,11 @@ void World::setWallsEnabled(bool enabled)
     else {
         // Clear existing walls by resetting boundary cells to air.
         for (uint32_t x = 0; x < data.width; ++x) {
-            at(x, 0).clear();           // Top wall.
+            at(x, 0).clear();               // Top wall.
             at(x, data.height - 1).clear(); // Bottom wall.
         }
         for (uint32_t y = 0; y < data.height; ++y) {
-            at(0, y).clear();          // Left wall.
+            at(0, y).clear();              // Left wall.
             at(data.width - 1, y).clear(); // Right wall.
         }
     }
@@ -973,7 +973,7 @@ void World::setHydrostaticPressureEnabled(bool enabled)
     for (auto& cell : data.cells) {
         cell.setHydrostaticPressure(0.0);
         if (cell.dynamic_component < MIN_MATTER_THRESHOLD) {
-            cell.pressure_gradient = Vector2d{0.0, 0.0};
+            cell.pressure_gradient = Vector2d{ 0.0, 0.0 };
         }
     }
 }
@@ -987,7 +987,7 @@ void World::setDynamicPressureEnabled(bool enabled)
     for (auto& cell : data.cells) {
         cell.setDynamicPressure(0.0);
         if (cell.hydrostatic_component < MIN_MATTER_THRESHOLD) {
-            cell.pressure_gradient = Vector2d{0.0, 0.0};
+            cell.pressure_gradient = Vector2d{ 0.0, 0.0 };
         }
     }
 
@@ -1082,7 +1082,8 @@ void World::fromJSON(const nlohmann::json& doc)
 // Stub implementations for WorldInterface methods.
 void World::onPreResize(uint32_t newWidth, uint32_t newHeight)
 {
-    spdlog::debug("World::onPreResize: {}x{} -> {}x{}", data.width, data.height, newWidth, newHeight);
+    spdlog::debug(
+        "World::onPreResize: {}x{} -> {}x{}", data.width, data.height, newWidth, newHeight);
 }
 
 bool World::shouldResize(uint32_t newWidth, uint32_t newHeight) const
@@ -1094,18 +1095,18 @@ bool World::shouldResize(uint32_t newWidth, uint32_t newHeight) const
 void to_json(nlohmann::json& j, World::MotionState state)
 {
     switch (state) {
-    case World::MotionState::STATIC:
-        j = "STATIC";
-        break;
-    case World::MotionState::FALLING:
-        j = "FALLING";
-        break;
-    case World::MotionState::SLIDING:
-        j = "SLIDING";
-        break;
-    case World::MotionState::TURBULENT:
-        j = "TURBULENT";
-        break;
+        case World::MotionState::STATIC:
+            j = "STATIC";
+            break;
+        case World::MotionState::FALLING:
+            j = "FALLING";
+            break;
+        case World::MotionState::SLIDING:
+            j = "SLIDING";
+            break;
+        case World::MotionState::TURBULENT:
+            j = "TURBULENT";
+            break;
     }
 }
 
@@ -1114,13 +1115,17 @@ void from_json(const nlohmann::json& j, World::MotionState& state)
     std::string str = j.get<std::string>();
     if (str == "STATIC") {
         state = World::MotionState::STATIC;
-    } else if (str == "FALLING") {
+    }
+    else if (str == "FALLING") {
         state = World::MotionState::FALLING;
-    } else if (str == "SLIDING") {
+    }
+    else if (str == "SLIDING") {
         state = World::MotionState::SLIDING;
-    } else if (str == "TURBULENT") {
+    }
+    else if (str == "TURBULENT") {
         state = World::MotionState::TURBULENT;
-    } else {
+    }
+    else {
         throw std::runtime_error("Unknown MotionState: " + str);
     }
 }

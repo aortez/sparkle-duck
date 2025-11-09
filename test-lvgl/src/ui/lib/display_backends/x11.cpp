@@ -20,8 +20,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#include "ui/state-machine/StateMachine.h"
 #include "lvgl/lvgl.h"
+#include "ui/state-machine/StateMachine.h"
 #include <spdlog/spdlog.h>
 
 #if LV_USE_X11

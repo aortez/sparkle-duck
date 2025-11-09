@@ -8,7 +8,7 @@ namespace DirtSim {
 
 struct UiUpdateEvent {
     uint64_t sequenceNum = 0;
-    WorldData worldData;  // Just the data, no physics calculators needed for rendering.
+    WorldData worldData; // Just the data, no physics calculators needed for rendering.
     uint32_t fps = 0;
     uint64_t stepCount = 0;
     bool isPaused = false;

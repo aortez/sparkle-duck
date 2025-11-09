@@ -2,9 +2,9 @@
 
 #include "core/WorldData.h"
 #include "ui/state-machine/EventSink.h"
-#include <rtc/rtc.hpp>
 #include <functional>
 #include <memory>
+#include <rtc/rtc.hpp>
 #include <string>
 
 namespace DirtSim {

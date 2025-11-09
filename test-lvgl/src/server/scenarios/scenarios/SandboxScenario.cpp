@@ -1,6 +1,6 @@
+#include "core/World.h"
 #include "core/WorldEventGenerator.h"
 #include "server/scenarios/Scenario.h"
-#include "core/World.h"
 #include "server/scenarios/ScenarioRegistry.h"
 #include "server/scenarios/ScenarioWorldEventGenerator.h"
 #include "spdlog/spdlog.h"
@@ -12,9 +12,11 @@ using namespace DirtSim;
  */
 class SandboxScenario : public Scenario {
 public:
-    SandboxScenario() {
+    SandboxScenario()
+    {
         metadata_.name = "Sandbox";
-        metadata_.description = "Default sandbox with dirt quadrant and particle streams (no walls)";
+        metadata_.description =
+            "Default sandbox with dirt quadrant and particle streams (no walls)";
         metadata_.category = "sandbox";
         metadata_.supportsWorldA = true;
         metadata_.supportsWorldB = true;
@@ -27,15 +29,12 @@ public:
         config_.rain_rate = 0.0;
     }
 
-    const ScenarioMetadata& getMetadata() const override {
-        return metadata_;
-    }
+    const ScenarioMetadata& getMetadata() const override { return metadata_; }
 
-    ScenarioConfig getConfig() const override {
-        return config_;
-    }
+    ScenarioConfig getConfig() const override { return config_; }
 
-    void setConfig(const ScenarioConfig& newConfig) override {
+    void setConfig(const ScenarioConfig& newConfig) override
+    {
         // Validate type and update.
         if (std::holds_alternative<SandboxConfig>(newConfig)) {
             config_ = std::get<SandboxConfig>(newConfig);
@@ -53,7 +52,7 @@ public:
 
         // Apply config settings to event generator.
         configurableSetup->setLowerRightQuadrantEnabled(config_.quadrant_enabled);
-        configurableSetup->setWallsEnabled(true);  // Walls always enabled for physics containment.
+        configurableSetup->setWallsEnabled(true); // Walls always enabled for physics containment.
         configurableSetup->setMiddleMetalWallEnabled(false);
         configurableSetup->setLeftThrowEnabled(false);
         configurableSetup->setRightThrowEnabled(config_.right_throw_enabled);

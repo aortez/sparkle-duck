@@ -1,5 +1,5 @@
-#include "ui/state-machine/StateMachine.h"
 #include "State.h"
+#include "ui/state-machine/StateMachine.h"
 #include <spdlog/spdlog.h>
 
 namespace DirtSim {

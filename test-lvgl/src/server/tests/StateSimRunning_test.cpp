@@ -1,11 +1,11 @@
-#include "server/states/SimRunning.h"
-#include "server/states/Idle.h"
-#include "server/states/Shutdown.h"
-#include "server/StateMachine.h"
-#include "server/scenarios/ScenarioRegistry.h"
-#include "core/World.h"
 #include "core/Cell.h"
 #include "core/ScenarioConfig.h"
+#include "core/World.h"
+#include "server/StateMachine.h"
+#include "server/scenarios/ScenarioRegistry.h"
+#include "server/states/Idle.h"
+#include "server/states/Shutdown.h"
+#include "server/states/SimRunning.h"
 #include <gtest/gtest.h>
 #include <spdlog/spdlog.h>
 
@@ -16,27 +16,25 @@ using namespace DirtSim::Server::State;
 /**
  * @brief Test fixture for SimRunning state tests.
  *
- * Provides common setup including a StateMachine and helper to create initialized SimRunning states.
+ * Provides common setup including a StateMachine and helper to create initialized SimRunning
+ * states.
  */
 class StateSimRunningTest : public ::testing::Test {
 protected:
-    void SetUp() override {
-        stateMachine = std::make_unique<StateMachine>();
-    }
+    void SetUp() override { stateMachine = std::make_unique<StateMachine>(); }
 
-    void TearDown() override {
-        stateMachine.reset();
-    }
+    void TearDown() override { stateMachine.reset(); }
 
     /**
      * @brief Helper to create a SimRunning state with initialized world.
      * @return SimRunning state after onEnter() has been called.
      */
-    SimRunning createSimRunningWithWorld() {
+    SimRunning createSimRunningWithWorld()
+    {
         // Create Idle and transition to SimRunning.
         Idle idleState;
-        Api::SimRun::Command cmd{0.016, 100};
-        Api::SimRun::Cwc cwc(cmd, [](auto&&){});
+        Api::SimRun::Command cmd{ 0.016, 150 };
+        Api::SimRun::Cwc cwc(cmd, [](auto&&) {});
         State::Any state = idleState.onEvent(cwc, *stateMachine);
 
         SimRunning simRunning = std::move(std::get<SimRunning>(state));
@@ -50,7 +48,8 @@ protected:
     /**
      * @brief Helper to apply clean scenario config (all features disabled).
      */
-    void applyCleanScenario(SimRunning& simRunning) {
+    void applyCleanScenario(SimRunning& simRunning)
+    {
         SandboxConfig cleanConfig;
         cleanConfig.quadrant_enabled = false;
         cleanConfig.water_column_enabled = false;
@@ -60,7 +59,7 @@ protected:
 
         Api::ScenarioConfigSet::Command cmd;
         cmd.config = cleanConfig;
-        Api::ScenarioConfigSet::Cwc cwc(cmd, [](auto&&){});
+        Api::ScenarioConfigSet::Cwc cwc(cmd, [](auto&&) {});
 
         State::Any newState = simRunning.onEvent(cwc, *stateMachine);
         simRunning = std::move(std::get<SimRunning>(newState));
@@ -76,8 +75,8 @@ TEST_F(StateSimRunningTest, OnEnter_AppliesDefaultScenario)
 {
     // Setup: Create SimRunning state (world exists but scenario not applied).
     Idle idleState;
-    Api::SimRun::Command cmd{0.016, 100};
-    Api::SimRun::Cwc cwc(cmd, [](auto&&){});
+    Api::SimRun::Command cmd{ 0.016, 100 };
+    Api::SimRun::Cwc cwc(cmd, [](auto&&) {});
     State::Any state = idleState.onEvent(cwc, *stateMachine);
     SimRunning simRunning = std::move(std::get<SimRunning>(state));
 
@@ -89,13 +88,13 @@ TEST_F(StateSimRunningTest, OnEnter_AppliesDefaultScenario)
     simRunning.onEnter(*stateMachine);
 
     // Verify: Sandbox scenario is applied.
-    EXPECT_EQ(simRunning.world->data.scenario_id, "sandbox") << "Default scenario should be sandbox";
+    EXPECT_EQ(simRunning.world->data.scenario_id, "sandbox")
+        << "Default scenario should be sandbox";
 
     // Verify: Walls exist (basic scenario setup check).
     const Cell& topLeft = simRunning.world->at(0, 0);
-    const Cell& bottomRight = simRunning.world->at(
-        simRunning.world->data.width - 1,
-        simRunning.world->data.height - 1);
+    const Cell& bottomRight =
+        simRunning.world->at(simRunning.world->data.width - 1, simRunning.world->data.height - 1);
     EXPECT_EQ(topLeft.material_type, MaterialType::WALL) << "Walls should be created";
     EXPECT_EQ(bottomRight.material_type, MaterialType::WALL) << "Walls should be created";
 }
@@ -114,7 +113,10 @@ TEST_F(StateSimRunningTest, AdvanceSimulation_StepsPhysicsAndDirtFalls)
     const uint32_t testY = 5;
 
     // Debug: Check world state before adding dirt.
-    spdlog::info("TEST: World dimensions: {}x{}", simRunning.world->data.width, simRunning.world->data.height);
+    spdlog::info(
+        "TEST: World dimensions: {}x{}",
+        simRunning.world->data.width,
+        simRunning.world->data.height);
     spdlog::info("TEST: Gravity: {}", simRunning.world->data.gravity);
     spdlog::info("TEST: Total mass before adding dirt: {}", simRunning.world->getTotalMass());
 
@@ -125,12 +127,21 @@ TEST_F(StateSimRunningTest, AdvanceSimulation_StepsPhysicsAndDirtFalls)
     // Verify initial state.
     const Cell& startCell = simRunning.world->at(testX, testY);
     const Cell& cellBelow = simRunning.world->at(testX, testY + 1);
-    spdlog::info("TEST: Start cell ({},{}) material={}, fill={}",
-                 testX, testY, static_cast<int>(startCell.material_type), startCell.fill_ratio);
-    spdlog::info("TEST: Cell below ({},{}) material={}, fill={}",
-                 testX, testY + 1, static_cast<int>(cellBelow.material_type), cellBelow.fill_ratio);
+    spdlog::info(
+        "TEST: Start cell ({},{}) material={}, fill={}",
+        testX,
+        testY,
+        static_cast<int>(startCell.material_type),
+        startCell.fill_ratio);
+    spdlog::info(
+        "TEST: Cell below ({},{}) material={}, fill={}",
+        testX,
+        testY + 1,
+        static_cast<int>(cellBelow.material_type),
+        cellBelow.fill_ratio);
 
-    EXPECT_EQ(startCell.material_type, MaterialType::DIRT) << "Should have dirt at starting position";
+    EXPECT_EQ(startCell.material_type, MaterialType::DIRT)
+        << "Should have dirt at starting position";
     EXPECT_GT(startCell.fill_ratio, 0.9) << "Dirt should be nearly full";
     EXPECT_LT(cellBelow.fill_ratio, 0.1) << "Cell below should be empty initially";
 
@@ -144,14 +155,25 @@ TEST_F(StateSimRunningTest, AdvanceSimulation_StepsPhysicsAndDirtFalls)
         if (i < 5 || i % 20 == 0) {
             const Cell& current = simRunning.world->at(testX, testY);
             const Cell& below = simRunning.world->at(testX, testY + 1);
-            spdlog::info("TEST: Step {} - Cell({},{}) mat={} fill={:.2f} COM=({:.3f},{:.3f}) vel=({:.3f},{:.3f})",
-                         i + 1, testX, testY,
-                         static_cast<int>(current.material_type), current.fill_ratio,
-                         current.com.x, current.com.y,
-                         current.velocity.x, current.velocity.y);
-            spdlog::info("TEST: Step {} - Cell({},{}) mat={} fill={:.2f}",
-                         i + 1, testX, testY + 1,
-                         static_cast<int>(below.material_type), below.fill_ratio);
+            spdlog::info(
+                "TEST: Step {} - Cell({},{}) mat={} fill={:.2f} COM=({:.3f},{:.3f}) "
+                "vel=({:.3f},{:.3f})",
+                i + 1,
+                testX,
+                testY,
+                static_cast<int>(current.material_type),
+                current.fill_ratio,
+                current.com.x,
+                current.com.y,
+                current.velocity.x,
+                current.velocity.y);
+            spdlog::info(
+                "TEST: Step {} - Cell({},{}) mat={} fill={:.2f}",
+                i + 1,
+                testX,
+                testY + 1,
+                static_cast<int>(below.material_type),
+                below.fill_ratio);
         }
 
         // Check if dirt has moved to cell below.
@@ -217,13 +239,14 @@ TEST_F(StateSimRunningTest, ScenarioConfigSet_TogglesWaterColumn)
 
     // Verify: Water column initially exists (check a few cells).
     const Cell& waterCell = simRunning.world->at(3, 10);
-    EXPECT_EQ(waterCell.material_type, MaterialType::WATER) << "Water column should exist initially";
+    EXPECT_EQ(waterCell.material_type, MaterialType::WATER)
+        << "Water column should exist initially";
     EXPECT_GT(waterCell.fill_ratio, 0.5) << "Water column cells should be filled";
 
     // Execute: Toggle water column OFF.
     SandboxConfig configOff;
-    configOff.quadrant_enabled = true;  // Keep quadrant.
-    configOff.water_column_enabled = false;  // Turn off water column.
+    configOff.quadrant_enabled = true;      // Keep quadrant.
+    configOff.water_column_enabled = false; // Turn off water column.
     configOff.right_throw_enabled = false;
     configOff.top_drop_enabled = false;
     configOff.rain_rate = 0.0;
@@ -267,7 +290,8 @@ TEST_F(StateSimRunningTest, ScenarioConfigSet_TogglesWaterColumn)
     // Verify: Water column restored.
     ASSERT_TRUE(callbackInvoked);
     const Cell& restoredWaterCell = simRunning.world->at(3, 10);
-    EXPECT_EQ(restoredWaterCell.material_type, MaterialType::WATER) << "Water column should be restored";
+    EXPECT_EQ(restoredWaterCell.material_type, MaterialType::WATER)
+        << "Water column should be restored";
     EXPECT_GT(restoredWaterCell.fill_ratio, 0.9) << "Water should be nearly full";
 }
 
@@ -288,7 +312,7 @@ TEST_F(StateSimRunningTest, ScenarioConfigSet_TogglesDirtQuadrant)
 
     // Execute: Toggle quadrant OFF.
     SandboxConfig configOff;
-    configOff.quadrant_enabled = false;  // Turn off quadrant.
+    configOff.quadrant_enabled = false; // Turn off quadrant.
     configOff.water_column_enabled = false;
     configOff.right_throw_enabled = false;
     configOff.top_drop_enabled = false;
@@ -364,7 +388,7 @@ TEST_F(StateSimRunningTest, SimRun_UpdatesRunParameters)
 {
     // Setup: Create initialized SimRunning with initial parameters.
     SimRunning simRunning = createSimRunningWithWorld();
-    EXPECT_EQ(simRunning.targetSteps, 100u);
+    EXPECT_EQ(simRunning.targetSteps, 150u);
     EXPECT_DOUBLE_EQ(simRunning.stepDurationMs, 16.0);
 
     // Advance a few steps to verify world isn't recreated.
@@ -376,7 +400,7 @@ TEST_F(StateSimRunningTest, SimRun_UpdatesRunParameters)
 
     // Execute: Send SimRun with new parameters.
     bool callbackInvoked = false;
-    Api::SimRun::Command cmd{0.032, 50};  // Different timestep and target.
+    Api::SimRun::Command cmd{ 0.032, 50 }; // Different timestep and target.
     Api::SimRun::Cwc cwc(cmd, [&](Api::SimRun::Response&& response) {
         callbackInvoked = true;
         EXPECT_TRUE(response.isValue());
@@ -435,8 +459,12 @@ TEST_F(StateSimRunningTest, SeedAdd_PlacesSeedAtCoordinates)
     EXPECT_EQ(cellAfter.material_type, MaterialType::SEED) << "Cell should contain SEED material";
     EXPECT_GT(cellAfter.fill_ratio, 0.9) << "Cell should be nearly full with SEED";
 
-    spdlog::info("TEST: Seed placed at ({},{}) - material={}, fill={:.2f}",
-                 testX, testY, static_cast<int>(cellAfter.material_type), cellAfter.fill_ratio);
+    spdlog::info(
+        "TEST: Seed placed at ({},{}) - material={}, fill={:.2f}",
+        testX,
+        testY,
+        static_cast<int>(cellAfter.material_type),
+        cellAfter.fill_ratio);
 }
 
 /**

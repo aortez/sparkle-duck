@@ -128,8 +128,7 @@ using Event = std::variant<
     DirtSim::UiApi::MouseUp::Cwc,
     DirtSim::UiApi::Screenshot::Cwc,
     DirtSim::UiApi::SimPause::Cwc,
-    DirtSim::UiApi::SimRun::Cwc
->;
+    DirtSim::UiApi::SimRun::Cwc>;
 
 /**
  * @brief Helper to get event name from variant.

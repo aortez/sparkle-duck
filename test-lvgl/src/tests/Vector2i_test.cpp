@@ -1,19 +1,22 @@
 #include "core/Vector2i.h"
-#include <gtest/gtest.h>
 #include <cmath>
+#include <gtest/gtest.h>
 #include <spdlog/spdlog.h>
 
 using namespace DirtSim;
 
-bool almostEqualI(double a, double b, double epsilon = 1e-6) {
+bool almostEqualI(double a, double b, double epsilon = 1e-6)
+{
     return std::abs(a - b) < epsilon;
 }
 
-bool almostEqual(const Vector2i& a, const Vector2i& b) {
+bool almostEqual(const Vector2i& a, const Vector2i& b)
+{
     return a.x == b.x && a.y == b.y;
 }
 
-TEST(Vector2iTest, Constructors) {
+TEST(Vector2iTest, Constructors)
+{
     spdlog::info("Starting Vector2iTest::Constructors test");
     Vector2i v1;
     EXPECT_EQ(v1.x, 0);
@@ -24,7 +27,8 @@ TEST(Vector2iTest, Constructors) {
     EXPECT_EQ(v2.y, 2);
 }
 
-TEST(Vector2iTest, Operators) {
+TEST(Vector2iTest, Operators)
+{
     spdlog::info("Starting Vector2iTest::Operators test");
     Vector2i v1(1, 2);
     Vector2i v2(3, 4);
@@ -57,7 +61,8 @@ TEST(Vector2iTest, Operators) {
     EXPECT_FALSE(v1 == v2);
 }
 
-TEST(Vector2iTest, VectorOperations) {
+TEST(Vector2iTest, VectorOperations)
+{
     spdlog::info("Starting Vector2iTest::VectorOperations test");
     Vector2i v1(3, 4);
     Vector2i v2(1, 2);
@@ -81,7 +86,8 @@ TEST(Vector2iTest, VectorOperations) {
     EXPECT_TRUE(almostEqual(scaled, Vector2i(6, 8)));
 }
 
-TEST(Vector2iTest, EdgeCases) {
+TEST(Vector2iTest, EdgeCases)
+{
     spdlog::info("Starting Vector2iTest::EdgeCases test");
     Vector2i v(1, 2);
 

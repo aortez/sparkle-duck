@@ -1,8 +1,8 @@
+#include "State.h"
+#include "server/api/SimRun.h"
+#include "ui/UiComponentManager.h"
 #include "ui/state-machine/StateMachine.h"
 #include "ui/state-machine/network/WebSocketClient.h"
-#include "ui/UiComponentManager.h"
-#include "server/api/SimRun.h"
-#include "State.h"
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
 
@@ -42,7 +42,8 @@ void StartMenu::onExit(StateMachine& /*sm*/)
 
 void StartMenu::onStartButtonClicked(lv_event_t* e)
 {
-    auto* sm = static_cast<StateMachine*>(lv_obj_get_user_data(static_cast<lv_obj_t*>(lv_event_get_target(e))));
+    auto* sm = static_cast<StateMachine*>(
+        lv_obj_get_user_data(static_cast<lv_obj_t*>(lv_event_get_target(e))));
     if (!sm) return;
 
     spdlog::info("StartMenu: Start button clicked, sending sim_run to DSSM");
@@ -50,7 +51,7 @@ void StartMenu::onStartButtonClicked(lv_event_t* e)
     // Send sim_run command and wait for response.
     auto* wsClient = sm->getWebSocketClient();
     if (wsClient && wsClient->isConnected()) {
-        nlohmann::json cmd = {{"command", "sim_run"}};
+        nlohmann::json cmd = { { "command", "sim_run" } };
         std::string response = wsClient->sendAndReceive(cmd.dump(), 1000);
 
         if (response.empty()) {
@@ -65,7 +66,8 @@ void StartMenu::onStartButtonClicked(lv_event_t* e)
                 spdlog::info("StartMenu: Server confirmed running, transitioning to SimRunning");
                 // Queue transition event.
                 sm->queueEvent(ServerRunningConfirmedEvent{});
-            } else {
+            }
+            else {
                 spdlog::warn("StartMenu: Server not running after sim_run");
             }
         }
@@ -86,12 +88,14 @@ State::Any StartMenu::onEvent(const ServerRunningConfirmedEvent& /*evt*/, StateM
 
 State::Any StartMenu::onEvent(const FrameReadyNotification& evt, StateMachine& /*sm*/)
 {
-    spdlog::info("StartMenu: Received frame_ready (step {}), server already running simulation", evt.stepNumber);
+    spdlog::info(
+        "StartMenu: Received frame_ready (step {}), server already running simulation",
+        evt.stepNumber);
     spdlog::info("StartMenu: Transitioning to SimRunning to display visualization");
 
     // Server already has a running simulation - transition to SimRunning to render it.
-    SimRunning newState;  // Default initialization handles all fields.
-    return newState;  // Will initialize worldData, renderer, and controls in onEnter.
+    SimRunning newState; // Default initialization handles all fields.
+    return newState;     // Will initialize worldData, renderer, and controls in onEnter.
 }
 
 State::Any StartMenu::onEvent(const ServerDisconnectedEvent& evt, StateMachine& /*sm*/)
@@ -127,19 +131,20 @@ State::Any StartMenu::onEvent(const UiApi::SimRun::Cwc& cwc, StateMachine& sm)
     }
 
     // Send sim_run command to DSSM server.
-    nlohmann::json simRunCmd = {{"command", "sim_run"}};
+    nlohmann::json simRunCmd = { { "command", "sim_run" } };
     bool sent = wsClient->send(simRunCmd.dump());
 
     if (!sent) {
         spdlog::error("StartMenu: Failed to send sim_run to DSSM");
-        cwc.sendResponse(UiApi::SimRun::Response::error(ApiError("Failed to send command to DSSM")));
+        cwc.sendResponse(
+            UiApi::SimRun::Response::error(ApiError("Failed to send command to DSSM")));
         return StartMenu{};
     }
 
     spdlog::info("StartMenu: Sent sim_run to DSSM, transitioning to SimRunning");
 
     // Send OK response.
-    cwc.sendResponse(UiApi::SimRun::Response::okay({true}));
+    cwc.sendResponse(UiApi::SimRun::Response::okay({ true }));
 
     // Transition to SimRunning state.
     return SimRunning{};

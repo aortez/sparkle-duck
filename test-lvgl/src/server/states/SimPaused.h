@@ -1,7 +1,7 @@
 #pragma once
 
+#include "SimRunning.h" // Need full definition for previousState member.
 #include "StateForward.h"
-#include "SimRunning.h"  // Need full definition for previousState member.
 #include "server/Event.h"
 
 namespace DirtSim {
@@ -12,7 +12,7 @@ namespace State {
  * @brief Paused simulation state - preserves SimRunning context.
  */
 struct SimPaused {
-    SimRunning previousState;  // Preserves World, stepCount, run parameters.
+    SimRunning previousState; // Preserves World, stepCount, run parameters.
 
     void onEnter(StateMachine& dsm);
     void onExit(StateMachine& dsm);

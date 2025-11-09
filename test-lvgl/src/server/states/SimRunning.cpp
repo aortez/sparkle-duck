@@ -1,11 +1,11 @@
-#include "core/World.h"  // Must be before State.h for complete type.
+#include "State.h"
 #include "core/Cell.h"
+#include "core/World.h" // Must be before State.h for complete type.
 #include "core/WorldEventGenerator.h"
 #include "server/StateMachine.h"
 #include "server/network/WebSocketServer.h"
 #include "server/scenarios/Scenario.h"
 #include "server/scenarios/ScenarioRegistry.h"
-#include "State.h"
 #include <chrono>
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
@@ -23,9 +23,12 @@ void SimRunning::onEnter(StateMachine& dsm)
     if (!world) {
         spdlog::info("SimRunning: Creating new World {}x{}", dsm.defaultWidth, dsm.defaultHeight);
         world = std::make_unique<World>(dsm.defaultWidth, dsm.defaultHeight);
-    } else {
-        spdlog::info("SimRunning: Resuming with existing World {}x{}",
-                     world->data.width, world->data.height);
+    }
+    else {
+        spdlog::info(
+            "SimRunning: Resuming with existing World {}x{}",
+            world->data.width,
+            world->data.height);
     }
 
     // Apply default "sandbox" scenario if no scenario is set.
@@ -67,9 +70,10 @@ State::Any SimRunning::onEvent(const AdvanceSimulationCommand& /*cmd*/, StateMac
     // Calculate actual FPS.
     auto now = std::chrono::steady_clock::now();
     if (stepCount > 0) {
-        auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(now - lastFrameTime).count();
+        auto elapsed =
+            std::chrono::duration_cast<std::chrono::microseconds>(now - lastFrameTime).count();
         if (elapsed > 0) {
-            actualFPS = 1000000.0 / elapsed;  // Microseconds to FPS.
+            actualFPS = 1000000.0 / elapsed; // Microseconds to FPS.
 
             // Log FPS and performance stats every 60 frames.
             if (stepCount % 60 == 0) {
@@ -77,29 +81,44 @@ State::Any SimRunning::onEvent(const AdvanceSimulationCommand& /*cmd*/, StateMac
 
                 // Log performance timing stats.
                 auto& timers = dsm.getTimers();
-                spdlog::info("  Physics: {:.1f}ms avg ({} calls, {:.1f}ms total)",
-                    timers.getCallCount("physics_step") > 0 ?
-                        timers.getAccumulatedTime("physics_step") / timers.getCallCount("physics_step") : 0.0,
+                spdlog::info(
+                    "  Physics: {:.1f}ms avg ({} calls, {:.1f}ms total)",
+                    timers.getCallCount("physics_step") > 0
+                        ? timers.getAccumulatedTime("physics_step")
+                            / timers.getCallCount("physics_step")
+                        : 0.0,
                     timers.getCallCount("physics_step"),
                     timers.getAccumulatedTime("physics_step"));
-                spdlog::info("  Cache update: {:.1f}ms avg ({} calls, {:.1f}ms total)",
-                    timers.getCallCount("cache_update") > 0 ?
-                        timers.getAccumulatedTime("cache_update") / timers.getCallCount("cache_update") : 0.0,
+                spdlog::info(
+                    "  Cache update: {:.1f}ms avg ({} calls, {:.1f}ms total)",
+                    timers.getCallCount("cache_update") > 0
+                        ? timers.getAccumulatedTime("cache_update")
+                            / timers.getCallCount("cache_update")
+                        : 0.0,
                     timers.getCallCount("cache_update"),
                     timers.getAccumulatedTime("cache_update"));
-                spdlog::info("  zpp_bits pack: {:.2f}ms avg ({} calls, {:.1f}ms total)",
-                    timers.getCallCount("serialize_worlddata") > 0 ?
-                        timers.getAccumulatedTime("serialize_worlddata") / timers.getCallCount("serialize_worlddata") : 0.0,
+                spdlog::info(
+                    "  zpp_bits pack: {:.2f}ms avg ({} calls, {:.1f}ms total)",
+                    timers.getCallCount("serialize_worlddata") > 0
+                        ? timers.getAccumulatedTime("serialize_worlddata")
+                            / timers.getCallCount("serialize_worlddata")
+                        : 0.0,
                     timers.getCallCount("serialize_worlddata"),
                     timers.getAccumulatedTime("serialize_worlddata"));
-                spdlog::info("  Network send: {:.2f}ms avg ({} calls, {:.1f}ms total)",
-                    timers.getCallCount("network_send") > 0 ?
-                        timers.getAccumulatedTime("network_send") / timers.getCallCount("network_send") : 0.0,
+                spdlog::info(
+                    "  Network send: {:.2f}ms avg ({} calls, {:.1f}ms total)",
+                    timers.getCallCount("network_send") > 0
+                        ? timers.getAccumulatedTime("network_send")
+                            / timers.getCallCount("network_send")
+                        : 0.0,
                     timers.getCallCount("network_send"),
                     timers.getAccumulatedTime("network_send"));
-                spdlog::info("  state_get immediate (total): {:.2f}ms avg ({} calls, {:.1f}ms total)",
-                    timers.getCallCount("state_get_immediate_total") > 0 ?
-                        timers.getAccumulatedTime("state_get_immediate_total") / timers.getCallCount("state_get_immediate_total") : 0.0,
+                spdlog::info(
+                    "  state_get immediate (total): {:.2f}ms avg ({} calls, {:.1f}ms total)",
+                    timers.getCallCount("state_get_immediate_total") > 0
+                        ? timers.getAccumulatedTime("state_get_immediate_total")
+                            / timers.getCallCount("state_get_immediate_total")
+                        : 0.0,
                     timers.getCallCount("state_get_immediate_total"),
                     timers.getAccumulatedTime("state_get_immediate_total"));
             }
@@ -115,8 +134,11 @@ State::Any SimRunning::onEvent(const AdvanceSimulationCommand& /*cmd*/, StateMac
 
     // Check if we've reached target steps.
     if (targetSteps > 0 && stepCount >= targetSteps) {
-        spdlog::info("SimRunning: Reached target steps ({}/{}), transitioning to Paused", stepCount, targetSteps);
-        return SimPaused{std::move(*this)};
+        spdlog::info(
+            "SimRunning: Reached target steps ({}/{}), transitioning to Paused",
+            stepCount,
+            targetSteps);
+        return SimPaused{ std::move(*this) };
     }
 
     // Update StateMachine's cached WorldData for fast state_get responses (cheap ~1ms).
@@ -144,7 +166,7 @@ State::Any SimRunning::onEvent(const AdvanceSimulationCommand& /*cmd*/, StateMac
         timers.stopTimer("network_send");
     }
 
-    return std::move(*this);  // Stay in SimRunning (move because unique_ptr).
+    return std::move(*this); // Stay in SimRunning (move because unique_ptr).
 }
 
 State::Any SimRunning::onEvent(const ApplyScenarioCommand& cmd, StateMachine& dsm)
@@ -193,9 +215,9 @@ State::Any SimRunning::onEvent(const Api::CellGet::Cwc& cwc, StateMachine& /*dsm
         return std::move(*this);
     }
 
-    if (cwc.command.x < 0 || cwc.command.y < 0 ||
-        static_cast<uint32_t>(cwc.command.x) >= world->data.width ||
-        static_cast<uint32_t>(cwc.command.y) >= world->data.height) {
+    if (cwc.command.x < 0 || cwc.command.y < 0
+        || static_cast<uint32_t>(cwc.command.x) >= world->data.width
+        || static_cast<uint32_t>(cwc.command.y) >= world->data.height) {
         cwc.sendResponse(Response::error(ApiError("Invalid coordinates")));
         return std::move(*this);
     }
@@ -218,7 +240,7 @@ State::Any SimRunning::onEvent(const Api::DiagramGet::Cwc& cwc, StateMachine& /*
 
     spdlog::info("DiagramGet: Generated diagram ({} bytes):\n{}", diagram.size(), diagram);
 
-    cwc.sendResponse(Response::okay({diagram}));
+    cwc.sendResponse(Response::okay({ diagram }));
     return std::move(*this);
 }
 
@@ -233,9 +255,9 @@ State::Any SimRunning::onEvent(const Api::CellSet::Cwc& cwc, StateMachine& /*dsm
     }
 
     // Validate coordinates.
-    if (cwc.command.x < 0 || cwc.command.y < 0 ||
-        static_cast<uint32_t>(cwc.command.x) >= world->data.width ||
-        static_cast<uint32_t>(cwc.command.y) >= world->data.height) {
+    if (cwc.command.x < 0 || cwc.command.y < 0
+        || static_cast<uint32_t>(cwc.command.x) >= world->data.width
+        || static_cast<uint32_t>(cwc.command.y) >= world->data.height) {
         cwc.sendResponse(Response::error(ApiError("Invalid coordinates")));
         return std::move(*this);
     }
@@ -282,29 +304,32 @@ State::Any SimRunning::onEvent(const Api::PerfStatsGet::Cwc& cwc, StateMachine& 
     // Physics timing.
     stats.physics_calls = timers.getCallCount("physics_step");
     stats.physics_total_ms = timers.getAccumulatedTime("physics_step");
-    stats.physics_avg_ms = stats.physics_calls > 0 ?
-        stats.physics_total_ms / stats.physics_calls : 0.0;
+    stats.physics_avg_ms =
+        stats.physics_calls > 0 ? stats.physics_total_ms / stats.physics_calls : 0.0;
 
     // Serialization timing.
     stats.serialization_calls = timers.getCallCount("serialize_worlddata");
     stats.serialization_total_ms = timers.getAccumulatedTime("serialize_worlddata");
-    stats.serialization_avg_ms = stats.serialization_calls > 0 ?
-        stats.serialization_total_ms / stats.serialization_calls : 0.0;
+    stats.serialization_avg_ms = stats.serialization_calls > 0
+        ? stats.serialization_total_ms / stats.serialization_calls
+        : 0.0;
 
     // Cache update timing.
     stats.cache_update_calls = timers.getCallCount("cache_update");
     stats.cache_update_total_ms = timers.getAccumulatedTime("cache_update");
-    stats.cache_update_avg_ms = stats.cache_update_calls > 0 ?
-        stats.cache_update_total_ms / stats.cache_update_calls : 0.0;
+    stats.cache_update_avg_ms =
+        stats.cache_update_calls > 0 ? stats.cache_update_total_ms / stats.cache_update_calls : 0.0;
 
     // Network send timing.
     stats.network_send_calls = timers.getCallCount("network_send");
     stats.network_send_total_ms = timers.getAccumulatedTime("network_send");
-    stats.network_send_avg_ms = stats.network_send_calls > 0 ?
-        stats.network_send_total_ms / stats.network_send_calls : 0.0;
+    stats.network_send_avg_ms =
+        stats.network_send_calls > 0 ? stats.network_send_total_ms / stats.network_send_calls : 0.0;
 
-    spdlog::info("SimRunning: API perf_stats_get returning {} physics steps, {} serializations",
-                 stats.physics_calls, stats.serialization_calls);
+    spdlog::info(
+        "SimRunning: API perf_stats_get returning {} physics steps, {} serializations",
+        stats.physics_calls,
+        stats.serialization_calls);
 
     cwc.sendResponse(Response::okay(std::move(stats)));
     return std::move(*this);
@@ -343,7 +368,8 @@ State::Any SimRunning::onEvent(const Api::ScenarioConfigSet::Cwc& cwc, StateMach
 
     if (!scenario) {
         spdlog::error("SimRunning: Scenario '{}' not found in registry", world->data.scenario_id);
-        cwc.sendResponse(Response::error(ApiError("Scenario not found: " + world->data.scenario_id)));
+        cwc.sendResponse(
+            Response::error(ApiError("Scenario not found: " + world->data.scenario_id)));
         return std::move(*this);
     }
 
@@ -367,7 +393,7 @@ State::Any SimRunning::onEvent(const Api::ScenarioConfigSet::Cwc& cwc, StateMach
 
     spdlog::info("SimRunning: Scenario config updated for '{}'", world->data.scenario_id);
 
-    cwc.sendResponse(Response::okay({true}));
+    cwc.sendResponse(Response::okay({ true }));
     return std::move(*this);
 }
 
@@ -376,10 +402,9 @@ State::Any SimRunning::onEvent(const Api::SeedAdd::Cwc& cwc, StateMachine& /*dsm
     using Response = Api::SeedAdd::Response;
 
     // Validate coordinates.
-    if (cwc.command.x < 0 || cwc.command.y < 0 ||
-        static_cast<uint32_t>(cwc.command.x) >= world->data.width ||
-        static_cast<uint32_t>(cwc.command.y) >= world->data.height)
-    {
+    if (cwc.command.x < 0 || cwc.command.y < 0
+        || static_cast<uint32_t>(cwc.command.x) >= world->data.width
+        || static_cast<uint32_t>(cwc.command.y) >= world->data.height) {
         cwc.sendResponse(Response::error(ApiError("Invalid coordinates")));
         return std::move(*this);
     }
@@ -410,7 +435,8 @@ State::Any SimRunning::onEvent(const Api::StateGet::Cwc& cwc, StateMachine& dsm)
         Api::StateGet::Okay responseData;
         responseData.worldData = *cachedPtr;
         cwc.sendResponse(Response::okay(std::move(responseData)));
-    } else {
+    }
+    else {
         // Fallback: cache not ready yet, copy from world.
         Api::StateGet::Okay responseData;
         responseData.worldData = world->data;
@@ -419,7 +445,8 @@ State::Any SimRunning::onEvent(const Api::StateGet::Cwc& cwc, StateMachine& dsm)
 
     // Log server processing time for state_get requests (includes serialization + send).
     auto requestEnd = std::chrono::steady_clock::now();
-    double processingMs = std::chrono::duration<double, std::milli>(requestEnd - requestStart).count();
+    double processingMs =
+        std::chrono::duration<double, std::milli>(requestEnd - requestStart).count();
     spdlog::trace("SimRunning: state_get processed in {:.2f}ms (server-side total)", processingMs);
 
     return std::move(*this);
@@ -432,14 +459,16 @@ State::Any SimRunning::onEvent(const Api::SimRun::Cwc& cwc, StateMachine& /*dsm*
     assert(world && "World must exist in SimRunning state");
 
     // Store run parameters.
-    stepDurationMs = cwc.command.timestep * 1000.0;  // Convert seconds to milliseconds.
+    stepDurationMs = cwc.command.timestep * 1000.0; // Convert seconds to milliseconds.
     targetSteps = cwc.command.max_steps > 0 ? static_cast<uint32_t>(cwc.command.max_steps) : 0;
 
-    spdlog::info("SimRunning: Starting autonomous simulation (timestep={}ms, max_steps={})",
-                 stepDurationMs, cwc.command.max_steps);
+    spdlog::info(
+        "SimRunning: Starting autonomous simulation (timestep={}ms, max_steps={})",
+        stepDurationMs,
+        cwc.command.max_steps);
 
     // Send response indicating simulation is running.
-    cwc.sendResponse(Response::okay({true, stepCount}));
+    cwc.sendResponse(Response::okay({ true, stepCount }));
     return std::move(*this);
 }
 
@@ -462,18 +491,19 @@ State::Any SimRunning::onEvent(const Api::StepN::Cwc& cwc, StateMachine& /*dsm*/
     }
 
     uint32_t timestep = world->data.timestep;
-    spdlog::debug("SimRunning: API stepped {} frames, timestep now {}", cwc.command.frames, timestep);
+    spdlog::debug(
+        "SimRunning: API stepped {} frames, timestep now {}", cwc.command.frames, timestep);
 
-    cwc.sendResponse(Response::okay({timestep}));
+    cwc.sendResponse(Response::okay({ timestep }));
     return std::move(*this);
 }
 
 State::Any SimRunning::onEvent(const PauseCommand& /*cmd*/, StateMachine& /*dsm. */)
 {
     spdlog::info("SimRunning: Pausing at step {}", stepCount);
-    
+
     // Move the current state into SimPaused.
-    return SimPaused{std::move(*this)};
+    return SimPaused{ std::move(*this) };
 }
 
 State::Any SimRunning::onEvent(const ResetSimulationCommand& /*cmd*/, StateMachine& /*dsm*/)
@@ -486,7 +516,7 @@ State::Any SimRunning::onEvent(const ResetSimulationCommand& /*cmd*/, StateMachi
 
     stepCount = 0;
 
-    return std::move(*this);  // Stay in SimRunning (move because unique_ptr).
+    return std::move(*this); // Stay in SimRunning (move because unique_ptr).
 }
 
 State::Any SimRunning::onEvent(const SaveWorldCommand& /*cmd*/, StateMachine& /*dsm*/)
@@ -508,7 +538,7 @@ State::Any SimRunning::onEvent(const StepBackwardCommand& /*cmd*/, StateMachine&
     // TODO: Implement world->goBackward() method for time reversal.
     spdlog::info("StepBackwardCommand: Time reversal not yet implemented");
 
-    return std::move(*this);  // Stay in SimRunning (move because unique_ptr).
+    return std::move(*this); // Stay in SimRunning (move because unique_ptr).
 }
 
 State::Any SimRunning::onEvent(const StepForwardCommand& /*cmd*/, StateMachine& /*dsm*/)
@@ -521,7 +551,7 @@ State::Any SimRunning::onEvent(const StepForwardCommand& /*cmd*/, StateMachine& 
     // TODO: Implement world->goForward() method for time reversal.
     spdlog::info("SimRunning: Step forward requested");
 
-    return std::move(*this);  // Stay in SimRunning (move because unique_ptr).
+    return std::move(*this); // Stay in SimRunning (move because unique_ptr).
 }
 
 State::Any SimRunning::onEvent(const ToggleTimeReversalCommand& /*cmd*/, StateMachine& /*dsm*/)
@@ -534,7 +564,7 @@ State::Any SimRunning::onEvent(const ToggleTimeReversalCommand& /*cmd*/, StateMa
     // TODO: Implement world->toggleTimeReversal() method.
     spdlog::info("SimRunning: Toggle time reversal requested");
 
-    return std::move(*this);  // Stay in SimRunning (move because unique_ptr).
+    return std::move(*this); // Stay in SimRunning (move because unique_ptr).
 }
 
 State::Any SimRunning::onEvent(const SetWaterCohesionCommand& cmd, StateMachine& /*dsm*/)
@@ -733,7 +763,8 @@ State::Any SimRunning::onEvent(const SetAirResistanceCommand& cmd, StateMachine&
     return std::move(*this);
 }
 
-State::Any SimRunning::onEvent(const ToggleHydrostaticPressureCommand& /*cmd*/, StateMachine& /*dsm*/)
+State::Any SimRunning::onEvent(
+    const ToggleHydrostaticPressureCommand& /*cmd*/, StateMachine& /*dsm*/)
 {
     if (world) {
         bool newValue = !world->isHydrostaticPressureEnabled();
@@ -763,7 +794,8 @@ State::Any SimRunning::onEvent(const TogglePressureDiffusionCommand& /*cmd*/, St
     return std::move(*this);
 }
 
-State::Any SimRunning::onEvent(const SetHydrostaticPressureStrengthCommand& cmd, StateMachine& /*dsm*/)
+State::Any SimRunning::onEvent(
+    const SetHydrostaticPressureStrengthCommand& cmd, StateMachine& /*dsm*/)
 {
     if (world) {
         world->setHydrostaticPressureStrength(cmd.strength);
@@ -903,8 +935,8 @@ State::Any SimRunning::onEvent(const ToggleWaterColumnCommand& /*cmd*/, StateMac
                         if (!cell.isWall()) {
                             cell.material_type = MaterialType::WATER;
                             cell.setFillRatio(1.0);
-                            cell.setCOM(Vector2d{0.0, 0.0});
-                            cell.velocity = Vector2d{0.0, 0.0};
+                            cell.setCOM(Vector2d{ 0.0, 0.0 });
+                            cell.velocity = Vector2d{ 0.0, 0.0 };
                         }
                     }
                 }
@@ -919,8 +951,8 @@ State::Any SimRunning::onEvent(const ToggleWaterColumnCommand& /*cmd*/, StateMac
                         if (cell.material_type == MaterialType::WATER && !cell.isWall()) {
                             cell.material_type = MaterialType::AIR;
                             cell.setFillRatio(0.0);
-                            cell.setCOM(Vector2d{0.0, 0.0});
-                            cell.velocity = Vector2d{0.0, 0.0};
+                            cell.setCOM(Vector2d{ 0.0, 0.0 });
+                            cell.velocity = Vector2d{ 0.0, 0.0 };
                         }
                     }
                 }
@@ -977,8 +1009,8 @@ State::Any SimRunning::onEvent(const ToggleQuadrantCommand& /*cmd*/, StateMachin
                         if (!cell.isWall()) {
                             cell.material_type = MaterialType::DIRT;
                             cell.setFillRatio(1.0);
-                            cell.setCOM(Vector2d{0.0, 0.0});
-                            cell.velocity = Vector2d{0.0, 0.0};
+                            cell.setCOM(Vector2d{ 0.0, 0.0 });
+                            cell.velocity = Vector2d{ 0.0, 0.0 };
                         }
                     }
                 }
@@ -993,8 +1025,8 @@ State::Any SimRunning::onEvent(const ToggleQuadrantCommand& /*cmd*/, StateMachin
                         if (cell.material_type == MaterialType::DIRT && !cell.isWall()) {
                             cell.material_type = MaterialType::AIR;
                             cell.setFillRatio(0.0);
-                            cell.setCOM(Vector2d{0.0, 0.0});
-                            cell.velocity = Vector2d{0.0, 0.0};
+                            cell.setCOM(Vector2d{ 0.0, 0.0 });
+                            cell.velocity = Vector2d{ 0.0, 0.0 };
                         }
                     }
                 }

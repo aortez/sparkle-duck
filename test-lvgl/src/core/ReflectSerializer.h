@@ -27,11 +27,13 @@ nlohmann::json to_json(const T& obj)
     nlohmann::json j;
 
     // Use qlibs/reflect to iterate over all members.
-    reflect::for_each([&](auto I) {
-        auto name = std::string(reflect::member_name<I>(obj));
-        const auto& value = reflect::get<I>(obj);
-        j[name] = value;
-    }, obj);
+    reflect::for_each(
+        [&](auto I) {
+            auto name = std::string(reflect::member_name<I>(obj));
+            const auto& value = reflect::get<I>(obj);
+            j[name] = value;
+        },
+        obj);
 
     return j;
 }
@@ -45,13 +47,15 @@ T from_json(const nlohmann::json& j)
     T obj{};
 
     // Use qlibs/reflect to iterate over all members.
-    reflect::for_each([&](auto I) {
-        auto name = std::string(reflect::member_name<I>(obj));
-        if (j.contains(name)) {
-            using MemberType = std::remove_reference_t<decltype(reflect::get<I>(obj))>;
-            reflect::get<I>(obj) = j[name].get<MemberType>();
-        }
-    }, obj);
+    reflect::for_each(
+        [&](auto I) {
+            auto name = std::string(reflect::member_name<I>(obj));
+            if (j.contains(name)) {
+                using MemberType = std::remove_reference_t<decltype(reflect::get<I>(obj))>;
+                reflect::get<I>(obj) = j[name].get<MemberType>();
+            }
+        },
+        obj);
 
     return obj;
 }

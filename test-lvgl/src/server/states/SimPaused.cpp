@@ -1,5 +1,5 @@
-#include "server/StateMachine.h"
 #include "State.h"
+#include "server/StateMachine.h"
 #include "server/api/TimerStatsGet.h"
 #include <spdlog/spdlog.h>
 
@@ -9,7 +9,8 @@ namespace State {
 
 void SimPaused::onEnter(StateMachine& /*dsm*/)
 {
-    spdlog::info("SimPaused: Simulation paused at step {} (World preserved)", previousState.stepCount);
+    spdlog::info(
+        "SimPaused: Simulation paused at step {} (World preserved)", previousState.stepCount);
 }
 
 void SimPaused::onExit(StateMachine& /*dsm*/)
@@ -43,7 +44,8 @@ State::Any SimPaused::onEvent(const Api::StateGet::Cwc& cwc, StateMachine& dsm)
         Api::StateGet::Okay responseData;
         responseData.worldData = *cachedPtr;
         cwc.sendResponse(Response::okay(std::move(responseData)));
-    } else {
+    }
+    else {
         // Fallback: cache not ready yet, copy from world.
         Api::StateGet::Okay responseData;
         responseData.worldData = previousState.world->data;
@@ -65,29 +67,32 @@ State::Any SimPaused::onEvent(const Api::PerfStatsGet::Cwc& cwc, StateMachine& d
     // Physics timing.
     stats.physics_calls = timers.getCallCount("physics_step");
     stats.physics_total_ms = timers.getAccumulatedTime("physics_step");
-    stats.physics_avg_ms = stats.physics_calls > 0 ?
-        stats.physics_total_ms / stats.physics_calls : 0.0;
+    stats.physics_avg_ms =
+        stats.physics_calls > 0 ? stats.physics_total_ms / stats.physics_calls : 0.0;
 
     // Serialization timing.
     stats.serialization_calls = timers.getCallCount("serialize_worlddata");
     stats.serialization_total_ms = timers.getAccumulatedTime("serialize_worlddata");
-    stats.serialization_avg_ms = stats.serialization_calls > 0 ?
-        stats.serialization_total_ms / stats.serialization_calls : 0.0;
+    stats.serialization_avg_ms = stats.serialization_calls > 0
+        ? stats.serialization_total_ms / stats.serialization_calls
+        : 0.0;
 
     // Cache update timing.
     stats.cache_update_calls = timers.getCallCount("cache_update");
     stats.cache_update_total_ms = timers.getAccumulatedTime("cache_update");
-    stats.cache_update_avg_ms = stats.cache_update_calls > 0 ?
-        stats.cache_update_total_ms / stats.cache_update_calls : 0.0;
+    stats.cache_update_avg_ms =
+        stats.cache_update_calls > 0 ? stats.cache_update_total_ms / stats.cache_update_calls : 0.0;
 
     // Network send timing.
     stats.network_send_calls = timers.getCallCount("network_send");
     stats.network_send_total_ms = timers.getAccumulatedTime("network_send");
-    stats.network_send_avg_ms = stats.network_send_calls > 0 ?
-        stats.network_send_total_ms / stats.network_send_calls : 0.0;
+    stats.network_send_avg_ms =
+        stats.network_send_calls > 0 ? stats.network_send_total_ms / stats.network_send_calls : 0.0;
 
-    spdlog::info("SimPaused: API perf_stats_get returning {} physics steps, {} serializations",
-                 stats.physics_calls, stats.serialization_calls);
+    spdlog::info(
+        "SimPaused: API perf_stats_get returning {} physics steps, {} serializations",
+        stats.physics_calls,
+        stats.serialization_calls);
 
     cwc.sendResponse(Response::okay(std::move(stats)));
     return std::move(*this);

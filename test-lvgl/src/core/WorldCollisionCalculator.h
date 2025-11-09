@@ -97,7 +97,8 @@ public:
      * @param floating_particle The floating particle.
      * @return True if collision occurs.
      */
-    bool checkFloatingParticleCollision(const World& world, int cellX, int cellY, const Cell& floating_particle) const;
+    bool checkFloatingParticleCollision(
+        const World& world, int cellX, int cellY, const Cell& floating_particle) const;
 
     // ===== COLLISION RESPONSE =====
 
@@ -125,7 +126,8 @@ public:
      * @param toCell Target cell.
      * @param move Material move data.
      */
-    void handleInelasticCollision(World& world, Cell& fromCell, Cell& toCell, const MaterialMove& move);
+    void handleInelasticCollision(
+        World& world, Cell& fromCell, Cell& toCell, const MaterialMove& move);
 
     /**
      * @brief Handle material fragmentation on high-energy impact.
@@ -177,9 +179,9 @@ public:
      * @brief Velocity decomposition result for collision physics.
      */
     struct VelocityComponents {
-        Vector2d normal;       // Normal component (perpendicular to surface).
-        Vector2d tangential;   // Tangential component (parallel to surface).
-        double normal_scalar;  // Signed magnitude of normal component.
+        Vector2d normal;      // Normal component (perpendicular to surface).
+        Vector2d tangential;  // Tangential component (parallel to surface).
+        double normal_scalar; // Signed magnitude of normal component.
     };
 
     /**

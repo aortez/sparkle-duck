@@ -6,7 +6,7 @@ namespace SimPause {
 
 nlohmann::json Command::toJson() const
 {
-    return nlohmann::json{{"command", "sim_pause"}};
+    return nlohmann::json{ { "command", "sim_pause" } };
 }
 
 Command Command::fromJson(const nlohmann::json& /*j*/)
@@ -17,7 +17,7 @@ Command Command::fromJson(const nlohmann::json& /*j*/)
 
 nlohmann::json Okay::toJson() const
 {
-    return nlohmann::json{{"paused", paused}};
+    return nlohmann::json{ { "paused", paused } };
 }
 
 } // namespace SimPause

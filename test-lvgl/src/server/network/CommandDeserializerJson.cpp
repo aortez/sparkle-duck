@@ -23,7 +23,8 @@ Result<ApiCommand, ApiError> CommandDeserializerJson::deserialize(const std::str
 
     try {
         cmd = nlohmann::json::parse(commandJson);
-    } catch (const nlohmann::json::parse_error& e) {
+    }
+    catch (const nlohmann::json::parse_error& e) {
         return Result<ApiCommand, ApiError>::error(
             ApiError(std::string("JSON parse error: ") + e.what()));
     }
@@ -67,7 +68,8 @@ Result<ApiCommand, ApiError> CommandDeserializerJson::deserialize(const std::str
             return Result<ApiCommand, ApiError>::okay(Api::Reset::Command::fromJson(cmd));
         }
         else if (commandName == "scenario_config_set") {
-            return Result<ApiCommand, ApiError>::okay(Api::ScenarioConfigSet::Command::fromJson(cmd));
+            return Result<ApiCommand, ApiError>::okay(
+                Api::ScenarioConfigSet::Command::fromJson(cmd));
         }
         else if (commandName == "seed_add") {
             return Result<ApiCommand, ApiError>::okay(Api::SeedAdd::Command::fromJson(cmd));
@@ -94,7 +96,8 @@ Result<ApiCommand, ApiError> CommandDeserializerJson::deserialize(const std::str
         else {
             return Result<ApiCommand, ApiError>::error(ApiError("Unknown command: " + commandName));
         }
-    } catch (const std::exception& e) {
+    }
+    catch (const std::exception& e) {
         return Result<ApiCommand, ApiError>::error(
             ApiError(std::string("Error deserializing command: ") + e.what()));
     }

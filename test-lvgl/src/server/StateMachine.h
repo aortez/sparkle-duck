@@ -2,10 +2,10 @@
 
 #include "Event.h"
 #include "EventProcessor.h"
-#include "scenarios/ScenarioRegistry.h"
 #include "core/StateMachineBase.h"
 #include "core/StateMachineInterface.h"
 #include "core/Timers.h"
+#include "scenarios/ScenarioRegistry.h"
 #include "states/State.h"
 #include <functional>
 #include <memory>
@@ -13,7 +13,7 @@
 
 namespace DirtSim {
 
-struct WorldData;  // Forward declaration.
+struct WorldData; // Forward declaration.
 
 namespace Server {
 
@@ -25,14 +25,16 @@ public:
     void mainLoopRun();
     void queueEvent(const Event& event);
 
-
     /**
      * @brief Handle an event by dispatching to current state.
      * Called by EventProcessor.
      */
     void handleEvent(const Event& event);
 
-    std::string getCurrentStateName() const override { return State::getCurrentStateName(fsmState); }
+    std::string getCurrentStateName() const override
+    {
+        return State::getCurrentStateName(fsmState);
+    }
     void processEvents();
 
     EventProcessor eventProcessor;
@@ -84,8 +86,8 @@ public:
     Timers& getTimers() { return timers_; }
 
 private:
-    ScenarioRegistry scenarioRegistry_;  // Owned scenario registry.
-    Timers timers_;  // Performance instrumentation timers.
+    ScenarioRegistry scenarioRegistry_; // Owned scenario registry.
+    Timers timers_;                     // Performance instrumentation timers.
     State::Any fsmState{ State::Startup{} };
 
     /**

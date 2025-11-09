@@ -45,8 +45,8 @@ WorldAdhesionCalculator::AdhesionForce WorldAdhesionCalculator::calculateAdhesio
                     // Force strength weighted by fill ratios and distance.
                     double distance_weight =
                         (std::abs(dx) + std::abs(dy) == 1) ? 1.0 : 0.707; // Adjacent vs diagonal.
-                    double force_strength = mutual_adhesion * neighbor.fill_ratio
-                        * cell.fill_ratio * distance_weight;
+                    double force_strength =
+                        mutual_adhesion * neighbor.fill_ratio * cell.fill_ratio * distance_weight;
 
                     total_force += direction * force_strength;
                     contact_count++;

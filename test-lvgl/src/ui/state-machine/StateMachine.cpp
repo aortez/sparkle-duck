@@ -1,15 +1,14 @@
 #include "StateMachine.h"
-#include "states/State.h"
-#include "network/WebSocketServer.h"
 #include "network/WebSocketClient.h"
+#include "network/WebSocketServer.h"
+#include "states/State.h"
 #include "ui/UiComponentManager.h"
 #include <spdlog/spdlog.h>
 
 namespace DirtSim {
 namespace Ui {
 
-StateMachine::StateMachine(_lv_display_t* disp, uint16_t wsPort)
-    : display(disp)
+StateMachine::StateMachine(_lv_display_t* disp, uint16_t wsPort) : display(disp)
 {
     spdlog::info("Ui::StateMachine initialized in state: {}", getCurrentStateName());
 
@@ -20,7 +19,7 @@ StateMachine::StateMachine(_lv_display_t* disp, uint16_t wsPort)
 
     // Create WebSocket client for connecting to DSSM server.
     wsClient_ = std::make_unique<WebSocketClient>();
-    wsClient_->setEventSink(this);  // StateMachine implements EventSink.
+    wsClient_->setEventSink(this); // StateMachine implements EventSink.
     spdlog::info("Ui::StateMachine: WebSocket client created (not yet connected)");
 
     // Create UI manager for LVGL screen/container management.
@@ -97,8 +96,12 @@ void StateMachine::handleEvent(const Event& event)
                             getEventName(Event{ evt }));
 
                         // If this is an API command with sendResponse, send error.
-                        if constexpr (requires { evt.sendResponse(std::declval<typename std::decay_t<decltype(evt)>::Response>()); }) {
-                            auto errorMsg = std::string("Command not supported in state: ") + State::getCurrentStateName(fsmState);
+                        if constexpr (requires {
+                                          evt.sendResponse(std::declval<typename std::decay_t<
+                                                               decltype(evt)>::Response>());
+                                      }) {
+                            auto errorMsg = std::string("Command not supported in state: ")
+                                + State::getCurrentStateName(fsmState);
                             using EventType = std::decay_t<decltype(evt)>;
                             using ResponseType = typename EventType::Response;
                             evt.sendResponse(ResponseType::error(ApiError(errorMsg)));

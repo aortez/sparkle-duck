@@ -1,12 +1,12 @@
 #pragma once
 
 #include "Event.h"
+#include "EventProcessor.h"
 #include "EventSink.h"
-#include "states/State.h"
 #include "core/StateMachineBase.h"
 #include "core/StateMachineInterface.h"
 #include "core/Timers.h"
-#include "EventProcessor.h"
+#include "states/State.h"
 #include <memory>
 #include <string>
 
@@ -19,13 +19,15 @@ class UiComponentManager;
 namespace Ui {
 class WebSocketServer;
 class WebSocketClient;
-}
-}
+} // namespace Ui
+} // namespace DirtSim
 
 namespace DirtSim {
 namespace Ui {
 
-class StateMachine : public StateMachineBase, public StateMachineInterface<Event>, public EventSink {
+class StateMachine : public StateMachineBase,
+                     public StateMachineInterface<Event>,
+                     public EventSink {
 public:
     explicit StateMachine(_lv_display_t* display, uint16_t wsPort = 7070);
     ~StateMachine();
@@ -41,11 +43,11 @@ public:
     EventProcessor eventProcessor;
 
     // WebSocket connections.
-    std::unique_ptr<WebSocketServer> wsServer_;  // Server for accepting remote commands.
-    std::unique_ptr<WebSocketClient> wsClient_;  // Client for connecting to DSSM server.
+    std::unique_ptr<WebSocketServer> wsServer_; // Server for accepting remote commands.
+    std::unique_ptr<WebSocketClient> wsClient_; // Client for connecting to DSSM server.
 
     // UI management.
-    std::unique_ptr<UiComponentManager> uiManager_;  // LVGL screen and container management.
+    std::unique_ptr<UiComponentManager> uiManager_; // LVGL screen and container management.
 
     /**
      * @brief Get WebSocket client for DSSM connection.
@@ -66,7 +68,7 @@ public:
     Timers& getTimers() { return timers_; }
 
 private:
-    Timers timers_;  // Performance instrumentation timers.
+    Timers timers_; // Performance instrumentation timers.
     State::Any fsmState{ State::Startup{} };
 
     void transitionTo(State::Any newState);

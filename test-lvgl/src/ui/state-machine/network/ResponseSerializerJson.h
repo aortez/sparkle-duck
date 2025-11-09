@@ -1,7 +1,7 @@
 #pragma once
 
-#include "server/api/ApiError.h"
 #include "core/Result.h"
+#include "server/api/ApiError.h"
 #include <nlohmann/json.hpp>
 #include <string>
 #include <variant>
@@ -31,7 +31,7 @@ public:
             // Success response.
             if constexpr (std::is_same_v<OkayType, std::monostate>) {
                 // No data to return, just success.
-                j = nlohmann::json{{"success", true}};
+                j = nlohmann::json{ { "success", true } };
             }
             else {
                 // Return data using toJson().
@@ -41,10 +41,7 @@ public:
         }
         else {
             // Error response.
-            j = nlohmann::json{
-                {"success", false},
-                {"error", response.error().message}
-            };
+            j = nlohmann::json{ { "success", false }, { "error", response.error().message } };
         }
 
         return j.dump();

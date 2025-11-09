@@ -21,8 +21,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#include "server/StateMachine.h"
 #include "lvgl/lvgl.h"
+#include "server/StateMachine.h"
 #include "simulator_loop.h"
 #if LV_USE_SDL
 #include "ui/lib/backends.h"

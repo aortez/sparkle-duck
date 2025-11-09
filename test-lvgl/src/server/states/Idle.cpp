@@ -1,6 +1,6 @@
-#include "server/StateMachine.h"
-#include "core/World.h"
 #include "State.h"
+#include "core/World.h"
+#include "server/StateMachine.h"
 #include <spdlog/spdlog.h>
 
 namespace DirtSim {
@@ -41,15 +41,18 @@ State::Any Idle::onEvent(const Api::SimRun::Cwc& cwc, StateMachine& dsm)
     newState.world = std::make_unique<World>(dsm.defaultWidth, dsm.defaultHeight);
 
     // Set run parameters.
-    newState.stepDurationMs = cwc.command.timestep * 1000.0;  // Convert seconds to milliseconds.
-    newState.targetSteps = cwc.command.max_steps > 0 ? static_cast<uint32_t>(cwc.command.max_steps) : 0;
+    newState.stepDurationMs = cwc.command.timestep * 1000.0; // Convert seconds to milliseconds.
+    newState.targetSteps =
+        cwc.command.max_steps > 0 ? static_cast<uint32_t>(cwc.command.max_steps) : 0;
     newState.stepCount = 0;
 
-    spdlog::info("Idle: World created, transitioning to SimRunning (timestep={}ms, max_steps={})",
-                 newState.stepDurationMs, cwc.command.max_steps);
+    spdlog::info(
+        "Idle: World created, transitioning to SimRunning (timestep={}ms, max_steps={})",
+        newState.stepDurationMs,
+        cwc.command.max_steps);
 
     // Send response immediately (before transition).
-    cwc.sendResponse(Api::SimRun::Response::okay({true, 0}));
+    cwc.sendResponse(Api::SimRun::Response::okay({ true, 0 }));
 
     // Transition to SimRunning.
     return newState;

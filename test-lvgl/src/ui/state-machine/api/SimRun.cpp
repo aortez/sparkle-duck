@@ -6,7 +6,7 @@ namespace SimRun {
 
 nlohmann::json Command::toJson() const
 {
-    return nlohmann::json{{"command", "sim_run"}};
+    return nlohmann::json{ { "command", "sim_run" } };
 }
 
 Command Command::fromJson(const nlohmann::json& /*j*/)
@@ -17,7 +17,7 @@ Command Command::fromJson(const nlohmann::json& /*j*/)
 
 nlohmann::json Okay::toJson() const
 {
-    return nlohmann::json{{"running", running}};
+    return nlohmann::json{ { "running", running } };
 }
 
 } // namespace SimRun

@@ -6,9 +6,9 @@
 
 #if 0 // Temporarily disabled - needs redesign for client/server architecture.
 
-#include "server/StateMachine.h"
 #include "lvgl/lvgl.h"
 #include "lvgl/src/misc/lv_timer.h"
+#include "server/StateMachine.h"
 #include <chrono>
 #include <cstdio>
 

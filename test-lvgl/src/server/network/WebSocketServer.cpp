@@ -13,7 +13,7 @@ WebSocketServer::WebSocketServer(DirtSim::StateMachineInterface<Event>& stateMac
     // Create WebSocket server configuration.
     rtc::WebSocketServerConfiguration config;
     config.port = port;
-    config.enableTls = false; // No TLS for now.
+    config.enableTls = false;                 // No TLS for now.
     config.maxMessageSize = 10 * 1024 * 1024; // 10MB limit for WorldData JSON.
 
     // Create server.
@@ -93,8 +93,10 @@ void WebSocketServer::broadcast(const std::string& message)
 
 void WebSocketServer::broadcastBinary(const rtc::binary& data)
 {
-    spdlog::trace("WebSocketServer: Broadcasting binary ({} bytes) to {} clients",
-                 data.size(), connectedClients_.size());
+    spdlog::trace(
+        "WebSocketServer: Broadcasting binary ({} bytes) to {} clients",
+        data.size(),
+        connectedClients_.size());
 
     // Send to all connected clients.
     for (auto& ws : connectedClients_) {
@@ -222,7 +224,8 @@ Event WebSocketServer::createCwcForCommand(
                         timers.startTimer("network_send");
                         ws->send(jsonResponse);
                         timers.stopTimer("network_send");
-                    } else {
+                    }
+                    else {
                         // Pack WorldData directly to binary with zpp_bits.
                         timers.startTimer("serialize_worlddata");
 

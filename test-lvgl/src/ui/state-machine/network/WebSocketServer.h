@@ -1,9 +1,9 @@
 #pragma once
 
-#include "core/StateMachineInterface.h"
-#include "ui/state-machine/Event.h"
 #include "CommandDeserializerJson.h"
 #include "ResponseSerializerJson.h"
+#include "core/StateMachineInterface.h"
+#include "ui/state-machine/Event.h"
 #include <memory>
 #include <rtc/rtc.hpp>
 #include <string>
@@ -13,7 +13,8 @@ namespace Ui {
 
 class WebSocketServer {
 public:
-    explicit WebSocketServer(DirtSim::StateMachineInterface<Event>& stateMachine, uint16_t port = 7070);
+    explicit WebSocketServer(
+        DirtSim::StateMachineInterface<Event>& stateMachine, uint16_t port = 7070);
 
     /**
      * @brief Start the server.

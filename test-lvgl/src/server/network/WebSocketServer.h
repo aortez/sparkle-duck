@@ -1,9 +1,9 @@
 #pragma once
 
-#include "core/StateMachineInterface.h"
-#include "server/Event.h"
 #include "CommandDeserializerJson.h"
 #include "ResponseSerializerJson.h"
+#include "core/StateMachineInterface.h"
+#include "server/Event.h"
 #include <algorithm>
 #include <memory>
 #include <rtc/rtc.hpp>
@@ -15,7 +15,8 @@ namespace Server {
 
 class WebSocketServer {
 public:
-    explicit WebSocketServer(DirtSim::StateMachineInterface<Event>& stateMachine, uint16_t port = 8080);
+    explicit WebSocketServer(
+        DirtSim::StateMachineInterface<Event>& stateMachine, uint16_t port = 8080);
 
     /**
      * @brief Start the server.

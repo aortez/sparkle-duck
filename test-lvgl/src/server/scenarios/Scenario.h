@@ -1,14 +1,14 @@
 #pragma once
 
-#include <string>
-#include <memory>
 #include "core/ScenarioConfig.h"
+#include <memory>
+#include <string>
 
 // Forward declarations
 namespace DirtSim {
 class World;
 class WorldEventGenerator;
-}
+} // namespace DirtSim
 
 using namespace DirtSim;
 
@@ -25,12 +25,12 @@ struct ScenarioMetadata {
     std::string category;    // Organization category (test, demo, sandbox)
 
     // Compatibility flags
-    bool supportsWorldA = true;  // Works with RulesA/World
-    bool supportsWorldB = true;  // Works with RulesB/World
+    bool supportsWorldA = true; // Works with RulesA/World
+    bool supportsWorldB = true; // Works with RulesB/World
 
     // Required world dimensions (0 = any size is acceptable)
-    uint32_t requiredWidth = 0;   // Required world width, 0 for flexible
-    uint32_t requiredHeight = 0;  // Required world height, 0 for flexible
+    uint32_t requiredWidth = 0;  // Required world width, 0 for flexible
+    uint32_t requiredHeight = 0; // Required world height, 0 for flexible
 };
 
 /**

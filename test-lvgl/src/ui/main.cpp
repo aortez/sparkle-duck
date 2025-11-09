@@ -92,7 +92,11 @@ int main(int argc, char** argv)
     args::Flag list_backends(
         parser, "list-backends", "List supported backends", { 'B', "list-backends" });
     args::ValueFlag<std::string> backend(
-        parser, "backend", "Select display backend (wayland, x11, fbdev, sdl)", { 'b', "backend" }, "wayland");
+        parser,
+        "backend",
+        "Select display backend (wayland, x11, fbdev, sdl)",
+        { 'b', "backend" },
+        "wayland");
     args::ValueFlag<int> window_width(
         parser, "width", "Set window width (default: 1200)", { 'W', "width" }, 1200);
     args::ValueFlag<int> window_height(
@@ -187,7 +191,7 @@ int main(int argc, char** argv)
             std::string host = hostPort.substr(0, colonPos);
             uint16_t port = static_cast<uint16_t>(std::stoi(hostPort.substr(colonPos + 1)));
             spdlog::info("Auto-connecting to DSSM server at {}:{}", host, port);
-            stateMachine->queueEvent(DirtSim::Ui::ConnectToServerCommand{host, port});
+            stateMachine->queueEvent(DirtSim::Ui::ConnectToServerCommand{ host, port });
         }
         else {
             spdlog::error("Invalid server format (use host:port): {}", hostPort);
@@ -196,7 +200,7 @@ int main(int argc, char** argv)
     else {
         // No server specified, connect to localhost:8080 by default.
         spdlog::info("Auto-connecting to DSSM server at localhost:8080 (default)");
-        stateMachine->queueEvent(DirtSim::Ui::ConnectToServerCommand{"localhost", 8080});
+        stateMachine->queueEvent(DirtSim::Ui::ConnectToServerCommand{ "localhost", 8080 });
     }
 
     spdlog::info("Entering backend run loop (will process events and LVGL)");

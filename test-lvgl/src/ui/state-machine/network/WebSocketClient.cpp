@@ -3,17 +3,16 @@
 #include "core/ReflectSerializer.h"
 #include "core/WorldData.h"
 #include "core/api/UiUpdateEvent.h"
-#include <spdlog/spdlog.h>
-#include <zpp_bits.h>
 #include <chrono>
+#include <spdlog/spdlog.h>
 #include <thread>
+#include <zpp_bits.h>
 
 namespace DirtSim {
 namespace Ui {
 
 WebSocketClient::WebSocketClient()
-{
-}
+{}
 
 WebSocketClient::~WebSocketClient()
 {
@@ -28,12 +27,14 @@ void WebSocketClient::setEventSink(EventSink* sink)
 bool WebSocketClient::connect(const std::string& url)
 {
     try {
-        // IMPORTANT: Disconnect any existing connection first to prevent duplicate message handlers.
+        // IMPORTANT: Disconnect any existing connection first to prevent duplicate message
+        // handlers.
         if (ws_ && ws_->isOpen()) {
-            spdlog::warn("UI WebSocketClient: Disconnecting existing connection before reconnecting");
+            spdlog::warn(
+                "UI WebSocketClient: Disconnecting existing connection before reconnecting");
             ws_->close();
         }
-        ws_.reset();  // Release old WebSocket to ensure cleanup.
+        ws_.reset(); // Release old WebSocket to ensure cleanup.
 
         spdlog::info("UI WebSocketClient: Connecting to {}", url);
 
@@ -51,12 +52,14 @@ bool WebSocketClient::connect(const std::string& url)
             if (std::holds_alternative<rtc::string>(data)) {
                 // JSON string message.
                 message = std::get<rtc::string>(data);
-                spdlog::debug("UI WebSocketClient: Received JSON message (length: {})", message.length());
+                spdlog::debug(
+                    "UI WebSocketClient: Received JSON message (length: {})", message.length());
             }
             else if (std::holds_alternative<rtc::binary>(data)) {
                 // zpp_bits binary message - unpack WorldData directly.
                 const auto& binaryData = std::get<rtc::binary>(data);
-                spdlog::debug("UI WebSocketClient: Received binary message ({} bytes)", binaryData.size());
+                spdlog::debug(
+                    "UI WebSocketClient: Received binary message ({} bytes)", binaryData.size());
 
                 try {
                     // Unpack binary to WorldData using zpp_bits (fast!).
@@ -69,7 +72,8 @@ bool WebSocketClient::connect(const std::string& url)
                         // Throttle to 60 FPS to prevent event queue overflow.
                         auto now = std::chrono::steady_clock::now();
                         auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
-                            now - lastEventQueueTime_).count();
+                                           now - lastEventQueueTime_)
+                                           .count();
 
                         if (elapsed < 16) {
                             // Drop frame - too soon since last update.
@@ -78,17 +82,15 @@ bool WebSocketClient::connect(const std::string& url)
 
                         lastEventQueueTime_ = now;
                         uint64_t stepCount = worldData.timestep;
-                        UiUpdateEvent evt{
-                            .sequenceNum = 0,
-                            .worldData = std::move(worldData),
-                            .fps = 0,
-                            .stepCount = stepCount,
-                            .isPaused = false,
-                            .timestamp = now
-                        };
+                        UiUpdateEvent evt{ .sequenceNum = 0,
+                                           .worldData = std::move(worldData),
+                                           .fps = 0,
+                                           .stepCount = stepCount,
+                                           .isPaused = false,
+                                           .timestamp = now };
 
                         eventSink_->queueEvent(evt);
-                        return;  // Done - skip JSON conversion entirely.
+                        return; // Done - skip JSON conversion entirely.
                     }
 
                     // Legacy fallback: convert to JSON for MessageParser.

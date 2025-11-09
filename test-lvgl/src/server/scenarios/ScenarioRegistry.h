@@ -22,19 +22,19 @@ public:
 
     // Register a scenario with the given ID
     void registerScenario(const std::string& id, std::unique_ptr<Scenario> scenario);
-    
+
     // Get a scenario by ID
     Scenario* getScenario(const std::string& id) const;
-    
+
     // Get all registered scenario IDs
     std::vector<std::string> getScenarioIds() const;
-    
+
     // Get scenarios filtered by world type compatibility
     std::vector<std::string> getScenariosForWorldType(bool isWorldB) const;
-    
+
     // Get scenarios filtered by category
     std::vector<std::string> getScenariosByCategory(const std::string& category) const;
-    
+
     // Clear all registered scenarios (mainly for testing)
     void clear();
 

@@ -35,8 +35,7 @@ public:
     virtual void setup(World& world) = 0;
 
     // Add particles to the world during simulation.
-    virtual void addParticles(
-        World& world, uint32_t timestep, double deltaTimeSeconds) = 0;
+    virtual void addParticles(World& world, uint32_t timestep, double deltaTimeSeconds) = 0;
 
     // Resize functionality - can be overridden by different strategies
     virtual std::vector<ResizeData> captureWorldState(const World& world) const;

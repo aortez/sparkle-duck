@@ -1,30 +1,25 @@
 #include "BenchmarkRunner.h"
 #include "core/ReflectSerializer.h"
 #include "core/WorldData.h"
-#include <spdlog/spdlog.h>
-#include <chrono>
-#include <thread>
-#include <atomic>
-#include <numeric>
 #include <algorithm>
+#include <atomic>
+#include <chrono>
 #include <filesystem>
+#include <numeric>
+#include <spdlog/spdlog.h>
+#include <thread>
 
 namespace DirtSim {
 namespace Client {
 
 BenchmarkRunner::BenchmarkRunner()
-{
-}
+{}
 
 BenchmarkRunner::~BenchmarkRunner()
-{
-}
+{}
 
 BenchmarkResults BenchmarkRunner::run(
-    const std::string& serverPath,
-    uint32_t steps,
-    const std::string& scenario,
-    bool simulateUI)
+    const std::string& serverPath, uint32_t steps, const std::string& scenario, bool simulateUI)
 {
     BenchmarkResults results;
     results.scenario = scenario;
@@ -36,9 +31,9 @@ BenchmarkResults BenchmarkRunner::run(
     std::vector<double> deserializeTimes;
     std::vector<size_t> responseSizes;
 
-    std::atomic<bool> benchmarkComplete{false};
-    std::atomic<bool> stateGetPending{false};
-    std::atomic<uint64_t> currentStep{0};
+    std::atomic<bool> benchmarkComplete{ false };
+    std::atomic<bool> stateGetPending{ false };
+    std::atomic<uint64_t> currentStep{ 0 };
     std::chrono::steady_clock::time_point requestStartTime = std::chrono::steady_clock::now();
 
     // Launch server.
@@ -67,8 +62,9 @@ BenchmarkResults BenchmarkRunner::run(
             nlohmann::json json = nlohmann::json::parse(message);
             auto deserializeEnd = std::chrono::steady_clock::now();
 
-            double deserializeMs = std::chrono::duration<double, std::milli>(
-                deserializeEnd - deserializeStart).count();
+            double deserializeMs =
+                std::chrono::duration<double, std::milli>(deserializeEnd - deserializeStart)
+                    .count();
 
             // Type 1: Notifications (frame_ready).
             if (json.contains("type") && json["type"] == "frame_ready") {
@@ -77,7 +73,7 @@ BenchmarkResults BenchmarkRunner::run(
 
                 // Simulate UI behavior: respond to frame_ready with state_get.
                 if (simulateUI && !stateGetPending) {
-                    nlohmann::json stateGetCmd = {{"command", "state_get"}};
+                    nlohmann::json stateGetCmd = { { "command", "state_get" } };
                     client_.send(stateGetCmd.dump());
                     requestStartTime = std::chrono::steady_clock::now();
                     stateGetPending = true;
@@ -96,8 +92,8 @@ BenchmarkResults BenchmarkRunner::run(
 
                     // Measure round-trip time.
                     auto now = std::chrono::steady_clock::now();
-                    double roundTripMs = std::chrono::duration<double, std::milli>(
-                        now - requestStartTime).count();
+                    double roundTripMs =
+                        std::chrono::duration<double, std::milli>(now - requestStartTime).count();
 
                     // Deserialize WorldData to track step.
                     WorldData worldData = value.get<WorldData>();
@@ -108,13 +104,17 @@ BenchmarkResults BenchmarkRunner::run(
                     deserializeTimes.push_back(deserializeMs);
                     responseSizes.push_back(message.size());
 
-                    spdlog::debug("BenchmarkRunner: Received WorldData (step {}, round-trip: {:.1f}ms)",
-                                 worldData.timestep, roundTripMs);
+                    spdlog::debug(
+                        "BenchmarkRunner: Received WorldData (step {}, round-trip: {:.1f}ms)",
+                        worldData.timestep,
+                        roundTripMs);
 
                     // Check if benchmark complete (only log once).
                     if (currentStep >= steps && !benchmarkComplete) {
-                        spdlog::info("BenchmarkRunner: Benchmark complete (step {} >= target {})",
-                                    currentStep.load(), steps);
+                        spdlog::info(
+                            "BenchmarkRunner: Benchmark complete (step {} >= target {})",
+                            currentStep.load(),
+                            steps);
                         benchmarkComplete = true;
                     }
                     return;
@@ -126,7 +126,8 @@ BenchmarkResults BenchmarkRunner::run(
 
             // Type 3: Error responses.
             if (json.contains("error")) {
-                spdlog::error("BenchmarkRunner: Server error: {}", json["error"].get<std::string>());
+                spdlog::error(
+                    "BenchmarkRunner: Server error: {}", json["error"].get<std::string>());
             }
         }
         catch (const std::exception& e) {
@@ -134,13 +135,9 @@ BenchmarkResults BenchmarkRunner::run(
         }
     });
 
-    client_.onConnected([]() {
-        spdlog::info("BenchmarkRunner: Connected to server");
-    });
+    client_.onConnected([]() { spdlog::info("BenchmarkRunner: Connected to server"); });
 
-    client_.onDisconnected([]() {
-        spdlog::info("BenchmarkRunner: Disconnected from server");
-    });
+    client_.onDisconnected([]() { spdlog::info("BenchmarkRunner: Disconnected from server"); });
 
     client_.onError([](const std::string& error) {
         spdlog::error("BenchmarkRunner: WebSocket error: {}", error);
@@ -149,11 +146,9 @@ BenchmarkResults BenchmarkRunner::run(
     // Start simulation.
     auto benchmarkStart = std::chrono::steady_clock::now();
 
-    nlohmann::json simRunCmd = {
-        {"command", "sim_run"},
-        {"timestep", 0.016},
-        {"max_steps", steps}
-    };
+    nlohmann::json simRunCmd = { { "command", "sim_run" },
+                                 { "timestep", 0.016 },
+                                 { "max_steps", steps } };
     client_.send(simRunCmd.dump());
     spdlog::info("BenchmarkRunner: Started simulation ({} steps, scenario: {})", steps, scenario);
 
@@ -166,7 +161,7 @@ BenchmarkResults BenchmarkRunner::run(
 
         // Poll current step if not simulating UI.
         if (!simulateUI) {
-            nlohmann::json stateGetCmd = {{"command", "state_get"}};
+            nlohmann::json stateGetCmd = { { "command", "state_get" } };
             std::string response = client_.sendAndReceive(stateGetCmd.dump(), 1000);
 
             try {
@@ -175,14 +170,17 @@ BenchmarkResults BenchmarkRunner::run(
                     uint64_t step = json["value"]["timestep"].get<uint64_t>();
 
                     if (step >= steps) {
-                        spdlog::info("BenchmarkRunner: Benchmark complete (step {} >= target {})",
-                                    step, steps);
+                        spdlog::info(
+                            "BenchmarkRunner: Benchmark complete (step {} >= target {})",
+                            step,
+                            steps);
                         benchmarkComplete = true;
                         break;
                     }
                 }
             }
-            catch (...) {}
+            catch (...) {
+            }
         }
 
         // If simulating UI, message handler sets benchmarkComplete.
@@ -207,7 +205,7 @@ BenchmarkResults BenchmarkRunner::run(
     }
 
     // Query performance stats using special callback that filters frame_ready.
-    std::atomic<bool> perfStatsReceived{false};
+    std::atomic<bool> perfStatsReceived{ false };
     std::string perfStatsResponse;
 
     client_.onMessage([&](const std::string& message) {
@@ -224,11 +222,12 @@ BenchmarkResults BenchmarkRunner::run(
             perfStatsResponse = message;
             perfStatsReceived = true;
         }
-        catch (...) {}
+        catch (...) {
+        }
     });
 
     spdlog::info("BenchmarkRunner: Requesting perf_stats from server");
-    nlohmann::json perfStatsCmd = {{"command", "perf_stats_get"}};
+    nlohmann::json perfStatsCmd = { { "command", "perf_stats_get" } };
     client_.send(perfStatsCmd.dump());
 
     // Wait for perf_stats response (skip frame_ready).
@@ -244,7 +243,8 @@ BenchmarkResults BenchmarkRunner::run(
         }
     }
 
-    spdlog::debug("BenchmarkRunner: Received perf_stats response ({} bytes)", perfStatsResponse.size());
+    spdlog::debug(
+        "BenchmarkRunner: Received perf_stats response ({} bytes)", perfStatsResponse.size());
 
     try {
         nlohmann::json perfStatsJson = nlohmann::json::parse(perfStatsResponse);
@@ -264,10 +264,17 @@ BenchmarkResults BenchmarkRunner::run(
             results.server_cache_update_avg_ms = value.value("cache_update_avg_ms", 0.0);
             results.server_network_send_avg_ms = value.value("network_send_avg_ms", 0.0);
 
-            spdlog::info("BenchmarkRunner: Server stats - fps: {:.1f}, physics: {:.1f}ms avg, serialization: {:.1f}ms avg",
-                        results.server_fps, results.server_physics_avg_ms, results.server_serialization_avg_ms);
-        } else {
-            spdlog::warn("BenchmarkRunner: perf_stats response missing 'value' field: {}", perfStatsJson.dump());
+            spdlog::info(
+                "BenchmarkRunner: Server stats - fps: {:.1f}, physics: {:.1f}ms avg, "
+                "serialization: {:.1f}ms avg",
+                results.server_fps,
+                results.server_physics_avg_ms,
+                results.server_serialization_avg_ms);
+        }
+        else {
+            spdlog::warn(
+                "BenchmarkRunner: perf_stats response missing 'value' field: {}",
+                perfStatsJson.dump());
         }
     }
     catch (const std::exception& e) {
@@ -277,20 +284,25 @@ BenchmarkResults BenchmarkRunner::run(
     // Calculate client-side statistics (only meaningful when simulating UI).
     if (simulateUI && !roundTripTimes.empty()) {
         results.client_requests_sent = static_cast<uint32_t>(roundTripTimes.size());
-        results.client_avg_round_trip_ms = std::accumulate(
-            roundTripTimes.begin(), roundTripTimes.end(), 0.0) / roundTripTimes.size();
-        results.client_avg_deserialize_ms = std::accumulate(
-            deserializeTimes.begin(), deserializeTimes.end(), 0.0) / deserializeTimes.size();
-        results.client_total_data_kb = std::accumulate(
-            responseSizes.begin(), responseSizes.end(), 0.0) / 1024.0;
+        results.client_avg_round_trip_ms =
+            std::accumulate(roundTripTimes.begin(), roundTripTimes.end(), 0.0)
+            / roundTripTimes.size();
+        results.client_avg_deserialize_ms =
+            std::accumulate(deserializeTimes.begin(), deserializeTimes.end(), 0.0)
+            / deserializeTimes.size();
+        results.client_total_data_kb =
+            std::accumulate(responseSizes.begin(), responseSizes.end(), 0.0) / 1024.0;
 
-        spdlog::info("BenchmarkRunner: Client stats - requests: {}, avg_rtt: {:.1f}ms, avg_deser: {:.1f}ms",
-                    results.client_requests_sent, results.client_avg_round_trip_ms, results.client_avg_deserialize_ms);
+        spdlog::info(
+            "BenchmarkRunner: Client stats - requests: {}, avg_rtt: {:.1f}ms, avg_deser: {:.1f}ms",
+            results.client_requests_sent,
+            results.client_avg_round_trip_ms,
+            results.client_avg_deserialize_ms);
     }
 
     // Query detailed timer statistics.
     spdlog::info("BenchmarkRunner: Requesting timer_stats from server");
-    nlohmann::json timerStatsCmd = {{"command", "timer_stats_get"}};
+    nlohmann::json timerStatsCmd = { { "command", "timer_stats_get" } };
     std::string timerStatsResponse = client_.sendAndReceive(timerStatsCmd.dump(), 2000);
 
     try {
@@ -306,7 +318,7 @@ BenchmarkResults BenchmarkRunner::run(
 
     // Send exit command to cleanly shut down server.
     spdlog::info("BenchmarkRunner: Sending exit command to server");
-    nlohmann::json exitCmd = {{"command", "exit"}};
+    nlohmann::json exitCmd = { { "command", "exit" } };
     client_.send(exitCmd.dump());
 
     // Disconnect and cleanup.
@@ -317,7 +329,7 @@ BenchmarkResults BenchmarkRunner::run(
 
 nlohmann::json BenchmarkRunner::queryPerfStats()
 {
-    nlohmann::json cmd = {{"command", "perf_stats_get"}};
+    nlohmann::json cmd = { { "command", "perf_stats_get" } };
     std::string response = client_.sendAndReceive(cmd.dump());
 
     try {

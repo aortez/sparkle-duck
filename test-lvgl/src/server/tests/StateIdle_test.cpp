@@ -1,8 +1,8 @@
+#include "core/World.h"
+#include "server/StateMachine.h"
 #include "server/states/Idle.h"
 #include "server/states/Shutdown.h"
 #include "server/states/SimRunning.h"
-#include "server/StateMachine.h"
-#include "core/World.h"
 #include <gtest/gtest.h>
 
 using namespace DirtSim;
@@ -16,13 +16,9 @@ using namespace DirtSim::Server::State;
  */
 class StateIdleTest : public ::testing::Test {
 protected:
-    void SetUp() override {
-        stateMachine = std::make_unique<StateMachine>();
-    }
+    void SetUp() override { stateMachine = std::make_unique<StateMachine>(); }
 
-    void TearDown() override {
-        stateMachine.reset();
-    }
+    void TearDown() override { stateMachine.reset(); }
 
     std::unique_ptr<StateMachine> stateMachine;
 };
@@ -40,7 +36,7 @@ TEST_F(StateIdleTest, SimRunCreatesWorldAndTransitionsToSimRunning)
     Api::SimRun::Response capturedResponse;
 
     Api::SimRun::Command cmd;
-    cmd.timestep = 0.016;  // 60 FPS.
+    cmd.timestep = 0.016; // 60 FPS.
     cmd.max_steps = 100;
 
     Api::SimRun::Cwc cwc(cmd, [&](Api::SimRun::Response&& response) {

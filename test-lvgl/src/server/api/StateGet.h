@@ -17,7 +17,7 @@ struct Command {
 };
 
 struct Okay {
-    WorldData worldData;  // Changed from World to WorldData.
+    WorldData worldData; // Changed from World to WorldData.
 
     nlohmann::json toJson() const;
 };

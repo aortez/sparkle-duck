@@ -19,7 +19,8 @@ Result<UiApiCommand, ApiError> CommandDeserializerJson::deserialize(const std::s
 
     try {
         cmd = nlohmann::json::parse(commandJson);
-    } catch (const nlohmann::json::parse_error& e) {
+    }
+    catch (const nlohmann::json::parse_error& e) {
         return Result<UiApiCommand, ApiError>::error(
             ApiError(std::string("JSON parse error: ") + e.what()));
     }
@@ -39,7 +40,8 @@ Result<UiApiCommand, ApiError> CommandDeserializerJson::deserialize(const std::s
     // Dispatch to appropriate handler.
     try {
         if (commandName == "draw_debug_toggle") {
-            return Result<UiApiCommand, ApiError>::okay(UiApi::DrawDebugToggle::Command::fromJson(cmd));
+            return Result<UiApiCommand, ApiError>::okay(
+                UiApi::DrawDebugToggle::Command::fromJson(cmd));
         }
         else if (commandName == "exit") {
             return Result<UiApiCommand, ApiError>::okay(UiApi::Exit::Command::fromJson(cmd));

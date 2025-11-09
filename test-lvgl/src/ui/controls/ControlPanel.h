@@ -52,8 +52,8 @@ private:
     WebSocketClient* wsClient_;
     EventSink& eventSink_;
     std::string currentScenarioId_;
-    uint32_t worldWidth_ = 28;   // Current world width (updated from WorldData).
-    uint32_t worldHeight_ = 28;  // Current world height (updated from WorldData).
+    uint32_t worldWidth_ = 28;  // Current world width (updated from WorldData).
+    uint32_t worldHeight_ = 28; // Current world height (updated from WorldData).
 
     // Control panel layout.
     lv_obj_t* panelContainer_ = nullptr;

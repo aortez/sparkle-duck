@@ -310,7 +310,8 @@ void WorldSupportCalculator::computeSupportMapBottomUp(World& world) const
     }
 }
 
-double WorldSupportCalculator::calculateDistanceToSupport(const World& world, uint32_t x, uint32_t y) const
+double WorldSupportCalculator::calculateDistanceToSupport(
+    const World& world, uint32_t x, uint32_t y) const
 {
     spdlog::info("calculateDistanceToSupport({},{}) called", x, y);
     const Cell& cell = getCellAt(world, x, y);

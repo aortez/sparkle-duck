@@ -18,7 +18,7 @@ std::optional<Event> MessageParser::parse(const std::string& message)
         // Type 2: Error responses.
         if (json.contains("error")) {
             handleError(json);
-            return std::nullopt;  // Error responses don't generate events.
+            return std::nullopt; // Error responses don't generate events.
         }
 
         // Type 3: Success responses with data.
@@ -44,7 +44,7 @@ std::optional<Event> MessageParser::parseFrameReady(const nlohmann::json& json)
 
         spdlog::debug("MessageParser: Parsed frame_ready (step {})", stepNumber);
 
-        return FrameReadyNotification{stepNumber, timestamp};
+        return FrameReadyNotification{ stepNumber, timestamp };
     }
 
     spdlog::warn("MessageParser: Unknown notification type: {}", json["type"].get<std::string>());
@@ -61,15 +61,13 @@ std::optional<Event> MessageParser::parseWorldDataResponse(const nlohmann::json&
         WorldData worldData = value.get<WorldData>();
 
         // Create UiUpdateEvent with the received data.
-        uint64_t stepCount = worldData.timestep;  // Save before move.
-        UiUpdateEvent evt{
-            .sequenceNum = 0,
-            .worldData = std::move(worldData),
-            .fps = 60,  // TODO: Get actual FPS from server.
-            .stepCount = stepCount,
-            .isPaused = false,
-            .timestamp = std::chrono::steady_clock::now()
-        };
+        uint64_t stepCount = worldData.timestep; // Save before move.
+        UiUpdateEvent evt{ .sequenceNum = 0,
+                           .worldData = std::move(worldData),
+                           .fps = 60, // TODO: Get actual FPS from server.
+                           .stepCount = stepCount,
+                           .isPaused = false,
+                           .timestamp = std::chrono::steady_clock::now() };
 
         return evt;
     }
