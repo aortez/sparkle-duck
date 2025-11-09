@@ -1,10 +1,11 @@
 #include "core/Result.h"
 #include <cassert>
+#include <gtest/gtest.h>
 #include <iostream>
 #include <spdlog/spdlog.h>
-#include <gtest/gtest.h>
 
-TEST(ResultTest, DefaultConstructorCreatesErrorState) {
+TEST(ResultTest, DefaultConstructorCreatesErrorState)
+{
     spdlog::info("Starting ResultTest::DefaultConstructorCreatesErrorState test");
     Result<int, std::string> result;
     EXPECT_FALSE(result.isValue());
@@ -15,7 +16,8 @@ TEST(ResultTest, DefaultConstructorCreatesErrorState) {
     EXPECT_EQ(error, std::string()); // Default-constructed error.
 }
 
-TEST(ResultTest, SuccessWithDefaultValue) {
+TEST(ResultTest, SuccessWithDefaultValue)
+{
     spdlog::info("Starting ResultTest::SuccessWithDefaultValue test");
     Result<int, std::string> result = Result<int, std::string>::okay();
     EXPECT_TRUE(result.isValue());
@@ -26,21 +28,24 @@ TEST(ResultTest, SuccessWithDefaultValue) {
     // We'll just test that we can access the value.
 }
 
-TEST(ResultTest, SuccessWithSpecificValue) {
+TEST(ResultTest, SuccessWithSpecificValue)
+{
     spdlog::info("Starting ResultTest::SuccessWithSpecificValue test");
     Result<int, std::string> result = Result<int, std::string>::okay(42);
     EXPECT_TRUE(result.isValue());
     EXPECT_EQ(result.value(), 42);
 }
 
-TEST(ResultTest, ErrorWithDefaultValue) {
+TEST(ResultTest, ErrorWithDefaultValue)
+{
     spdlog::info("Starting ResultTest::ErrorWithDefaultValue test");
     Result<int, std::string> result; // Default constructor creates error state.
     EXPECT_TRUE(result.isError());
     EXPECT_EQ(result.error(), std::string());
 }
 
-TEST(ResultTest, ErrorWithSpecificValue) {
+TEST(ResultTest, ErrorWithSpecificValue)
+{
     spdlog::info("Starting ResultTest::ErrorWithSpecificValue test");
     Result<int, std::string> result = Result<int, std::string>::error("Test error");
     EXPECT_TRUE(result.isError());

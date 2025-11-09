@@ -19,16 +19,18 @@ ControlPanel::ControlPanel(lv_obj_t* container, WebSocketClient* wsClient, Event
 
     // Create left-side panel container for controls.
     panelContainer_ = lv_obj_create(container_);
-    lv_obj_set_size(panelContainer_, 260, LV_PCT(100));  // 260px wide (30% wider), full height.
+    lv_obj_set_size(panelContainer_, 260, LV_PCT(100)); // 260px wide (30% wider), full height.
     lv_obj_align(panelContainer_, LV_ALIGN_LEFT_MID, 0, 0);
-    lv_obj_set_flex_flow(panelContainer_, LV_FLEX_FLOW_COLUMN);  // Stack controls vertically.
-    lv_obj_set_flex_align(panelContainer_, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_flex_flow(panelContainer_, LV_FLEX_FLOW_COLUMN); // Stack controls vertically.
+    lv_obj_set_flex_align(
+        panelContainer_, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
 
     // Reduce padding/gaps to fit more controls without scrolling.
-    lv_obj_set_style_pad_row(panelContainer_, 2, 0);  // Minimal spacing between items.
-    lv_obj_set_style_pad_all(panelContainer_, 5, 0);  // Minimal padding around edges.
-    lv_obj_set_scroll_dir(panelContainer_, LV_DIR_VER);  // Enable vertical scrolling.
-    lv_obj_set_scrollbar_mode(panelContainer_, LV_SCROLLBAR_MODE_AUTO);  // Show scrollbar when needed.
+    lv_obj_set_style_pad_row(panelContainer_, 2, 0);    // Minimal spacing between items.
+    lv_obj_set_style_pad_all(panelContainer_, 5, 0);    // Minimal padding around edges.
+    lv_obj_set_scroll_dir(panelContainer_, LV_DIR_VER); // Enable vertical scrolling.
+    lv_obj_set_scrollbar_mode(
+        panelContainer_, LV_SCROLLBAR_MODE_AUTO); // Show scrollbar when needed.
 
     // Create core controls.
     createCoreControls();
@@ -40,7 +42,7 @@ ControlPanel::~ControlPanel()
 {
     // Explicitly delete widgets to prevent use-after-free from queued LVGL events.
     if (panelContainer_) {
-        lv_obj_del(panelContainer_);  // Recursively deletes all child widgets.
+        lv_obj_del(panelContainer_); // Recursively deletes all child widgets.
         panelContainer_ = nullptr;
     }
     spdlog::info("ControlPanel: Destroyed");
@@ -83,13 +85,16 @@ void ControlPanel::createCoreControls()
     spdlog::debug("ControlPanel: Core controls created");
 }
 
-void ControlPanel::createScenarioControls(const std::string& scenarioId, const ScenarioConfig& config)
+void ControlPanel::createScenarioControls(
+    const std::string& scenarioId, const ScenarioConfig& config)
 {
     // Create scenario panel container.
     scenarioPanel_ = lv_obj_create(panelContainer_);
-    lv_obj_set_size(scenarioPanel_, LV_PCT(100), LV_SIZE_CONTENT);  // Full width, height fits content.
+    lv_obj_set_size(
+        scenarioPanel_, LV_PCT(100), LV_SIZE_CONTENT); // Full width, height fits content.
     lv_obj_set_flex_flow(scenarioPanel_, LV_FLEX_FLOW_COLUMN);
-    lv_obj_set_flex_align(scenarioPanel_, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_flex_align(
+        scenarioPanel_, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
 
     // Create controls based on scenario type.
     if (scenarioId == "sandbox" && std::holds_alternative<SandboxConfig>(config)) {
@@ -122,47 +127,47 @@ void ControlPanel::createSandboxControls(const SandboxConfig& config)
 
     // Add Seed button.
     sandboxAddSeedButton_ = LVGLBuilder::button(scenarioPanel_)
-        .size(LV_PCT(90), 40)
-        .text("Add Seed")
-        .callback(onAddSeedClicked, this)
-        .buildOrLog();
+                                .size(LV_PCT(90), 40)
+                                .text("Add Seed")
+                                .callback(onAddSeedClicked, this)
+                                .buildOrLog();
 
     // Quadrant toggle.
     sandboxQuadrantSwitch_ = LVGLBuilder::labeledSwitch(scenarioPanel_)
-        .label("Quadrant")
-        .initialState(config.quadrant_enabled)
-        .callback(onSandboxQuadrantToggled, this)
-        .buildOrLog();
+                                 .label("Quadrant")
+                                 .initialState(config.quadrant_enabled)
+                                 .callback(onSandboxQuadrantToggled, this)
+                                 .buildOrLog();
 
     // Water column toggle.
     sandboxWaterColumnSwitch_ = LVGLBuilder::labeledSwitch(scenarioPanel_)
-        .label("Water Column")
-        .initialState(config.water_column_enabled)
-        .callback(onSandboxWaterColumnToggled, this)
-        .buildOrLog();
+                                    .label("Water Column")
+                                    .initialState(config.water_column_enabled)
+                                    .callback(onSandboxWaterColumnToggled, this)
+                                    .buildOrLog();
 
     // Right throw toggle.
     sandboxRightThrowSwitch_ = LVGLBuilder::labeledSwitch(scenarioPanel_)
-        .label("Right Throw")
-        .initialState(config.right_throw_enabled)
-        .callback(onSandboxRightThrowToggled, this)
-        .buildOrLog();
+                                   .label("Right Throw")
+                                   .initialState(config.right_throw_enabled)
+                                   .callback(onSandboxRightThrowToggled, this)
+                                   .buildOrLog();
 
     // Top drop toggle.
     sandboxTopDropSwitch_ = LVGLBuilder::labeledSwitch(scenarioPanel_)
-        .label("Top Drop")
-        .initialState(config.top_drop_enabled)
-        .callback(onSandboxTopDropToggled, this)
-        .buildOrLog();
+                                .label("Top Drop")
+                                .initialState(config.top_drop_enabled)
+                                .callback(onSandboxTopDropToggled, this)
+                                .buildOrLog();
 
     // Rain slider.
     sandboxRainSlider_ = LVGLBuilder::slider(scenarioPanel_)
-        .size(LV_PCT(80), 10)
-        .range(0, 100)
-        .value(static_cast<int>(config.rain_rate * 10))
-        .label("Rain Rate")
-        .callback(onSandboxRainSliderChanged, this)
-        .buildOrLog();
+                             .size(LV_PCT(80), 10)
+                             .range(0, 100)
+                             .value(static_cast<int>(config.rain_rate * 10))
+                             .label("Rain Rate")
+                             .callback(onSandboxRainSliderChanged, this)
+                             .buildOrLog();
 
     spdlog::debug("ControlPanel: Sandbox controls created");
 }
@@ -173,7 +178,8 @@ void ControlPanel::createSandboxControls(const SandboxConfig& config)
 
 void ControlPanel::onAddSeedClicked(lv_event_t* e)
 {
-    auto* panel = static_cast<ControlPanel*>(lv_obj_get_user_data(static_cast<lv_obj_t*>(lv_event_get_target(e))));
+    auto* panel = static_cast<ControlPanel*>(
+        lv_obj_get_user_data(static_cast<lv_obj_t*>(lv_event_get_target(e))));
     if (!panel) return;
 
     spdlog::info("ControlPanel: Add Seed button clicked");
@@ -182,8 +188,8 @@ void ControlPanel::onAddSeedClicked(lv_event_t* e)
     // Place seed at top-center of world (world is typically 28x28, so use 14, 5).
     if (panel->wsClient_ && panel->wsClient_->isConnected()) {
         DirtSim::Api::SeedAdd::Command cmd;
-        cmd.x = panel->worldWidth_ / 2;   // Horizontal center.
-        cmd.y = 5;                         // Near top (below wall boundary).
+        cmd.x = panel->worldWidth_ / 2; // Horizontal center.
+        cmd.y = 5;                      // Near top (below wall boundary).
 
         nlohmann::json json = cmd.toJson();
         json["command"] = "seed_add";
@@ -195,14 +201,15 @@ void ControlPanel::onAddSeedClicked(lv_event_t* e)
 
 void ControlPanel::onQuitClicked(lv_event_t* e)
 {
-    auto* panel = static_cast<ControlPanel*>(lv_obj_get_user_data(static_cast<lv_obj_t*>(lv_event_get_target(e))));
+    auto* panel = static_cast<ControlPanel*>(
+        lv_obj_get_user_data(static_cast<lv_obj_t*>(lv_event_get_target(e))));
     if (!panel) return;
 
     spdlog::info("ControlPanel: Quit button clicked");
 
     // Send exit command to DSSM server.
     if (panel->wsClient_ && panel->wsClient_->isConnected()) {
-        nlohmann::json cmd = {{"command", "exit"}};
+        nlohmann::json cmd = { { "command", "exit" } };
         panel->wsClient_->send(cmd.dump());
     }
 
@@ -216,10 +223,12 @@ void ControlPanel::onQuitClicked(lv_event_t* e)
 
 void ControlPanel::onDebugToggled(lv_event_t* e)
 {
-    auto* panel = static_cast<ControlPanel*>(lv_obj_get_user_data(static_cast<lv_obj_t*>(lv_event_get_target(e))));
+    auto* panel = static_cast<ControlPanel*>(
+        lv_obj_get_user_data(static_cast<lv_obj_t*>(lv_event_get_target(e))));
     if (!panel) return;
 
-    bool enabled = lv_obj_has_state(static_cast<lv_obj_t*>(lv_event_get_target(e)), LV_STATE_CHECKED);
+    bool enabled =
+        lv_obj_has_state(static_cast<lv_obj_t*>(lv_event_get_target(e)), LV_STATE_CHECKED);
     spdlog::info("ControlPanel: Debug draw toggled: {}", enabled);
 
     panel->sendDebugUpdate(enabled);
@@ -227,97 +236,128 @@ void ControlPanel::onDebugToggled(lv_event_t* e)
 
 void ControlPanel::onSandboxQuadrantToggled(lv_event_t* e)
 {
-    auto* panel = static_cast<ControlPanel*>(lv_obj_get_user_data(static_cast<lv_obj_t*>(lv_event_get_target(e))));
+    auto* panel = static_cast<ControlPanel*>(
+        lv_obj_get_user_data(static_cast<lv_obj_t*>(lv_event_get_target(e))));
     if (!panel) return;
 
-    bool enabled = lv_obj_has_state(static_cast<lv_obj_t*>(lv_event_get_target(e)), LV_STATE_CHECKED);
+    bool enabled =
+        lv_obj_has_state(static_cast<lv_obj_t*>(lv_event_get_target(e)), LV_STATE_CHECKED);
     spdlog::info("ControlPanel: Sandbox quadrant toggled: {}", enabled);
 
     // Create updated config.
     SandboxConfig config;
     config.quadrant_enabled = enabled;
     config.water_column_enabled = panel->sandboxWaterColumnSwitch_
-        ? lv_obj_has_state(static_cast<lv_obj_t*>(panel->sandboxWaterColumnSwitch_), LV_STATE_CHECKED) : true;
+        ? lv_obj_has_state(
+              static_cast<lv_obj_t*>(panel->sandboxWaterColumnSwitch_), LV_STATE_CHECKED)
+        : true;
     config.right_throw_enabled = panel->sandboxRightThrowSwitch_
-        ? lv_obj_has_state(static_cast<lv_obj_t*>(panel->sandboxRightThrowSwitch_), LV_STATE_CHECKED) : true;
+        ? lv_obj_has_state(
+              static_cast<lv_obj_t*>(panel->sandboxRightThrowSwitch_), LV_STATE_CHECKED)
+        : true;
     config.top_drop_enabled = panel->sandboxTopDropSwitch_
-        ? lv_obj_has_state(static_cast<lv_obj_t*>(panel->sandboxTopDropSwitch_), LV_STATE_CHECKED) : true;
+        ? lv_obj_has_state(static_cast<lv_obj_t*>(panel->sandboxTopDropSwitch_), LV_STATE_CHECKED)
+        : true;
     config.rain_rate = panel->sandboxRainSlider_
-        ? lv_slider_get_value(static_cast<lv_obj_t*>(panel->sandboxRainSlider_)) / 10.0 : 0.0;
+        ? lv_slider_get_value(static_cast<lv_obj_t*>(panel->sandboxRainSlider_)) / 10.0
+        : 0.0;
 
     panel->sendConfigUpdate(config);
 }
 
 void ControlPanel::onSandboxWaterColumnToggled(lv_event_t* e)
 {
-    auto* panel = static_cast<ControlPanel*>(lv_obj_get_user_data(static_cast<lv_obj_t*>(lv_event_get_target(e))));
+    auto* panel = static_cast<ControlPanel*>(
+        lv_obj_get_user_data(static_cast<lv_obj_t*>(lv_event_get_target(e))));
     if (!panel) return;
 
-    bool enabled = lv_obj_has_state(static_cast<lv_obj_t*>(lv_event_get_target(e)), LV_STATE_CHECKED);
+    bool enabled =
+        lv_obj_has_state(static_cast<lv_obj_t*>(lv_event_get_target(e)), LV_STATE_CHECKED);
     spdlog::info("ControlPanel: Sandbox water column toggled: {}", enabled);
 
     // Create updated config with all current values.
     SandboxConfig config;
     config.quadrant_enabled = panel->sandboxQuadrantSwitch_
-        ? lv_obj_has_state(static_cast<lv_obj_t*>(panel->sandboxQuadrantSwitch_), LV_STATE_CHECKED) : true;
+        ? lv_obj_has_state(static_cast<lv_obj_t*>(panel->sandboxQuadrantSwitch_), LV_STATE_CHECKED)
+        : true;
     config.water_column_enabled = enabled;
     config.right_throw_enabled = panel->sandboxRightThrowSwitch_
-        ? lv_obj_has_state(static_cast<lv_obj_t*>(panel->sandboxRightThrowSwitch_), LV_STATE_CHECKED) : true;
+        ? lv_obj_has_state(
+              static_cast<lv_obj_t*>(panel->sandboxRightThrowSwitch_), LV_STATE_CHECKED)
+        : true;
     config.top_drop_enabled = panel->sandboxTopDropSwitch_
-        ? lv_obj_has_state(static_cast<lv_obj_t*>(panel->sandboxTopDropSwitch_), LV_STATE_CHECKED) : true;
+        ? lv_obj_has_state(static_cast<lv_obj_t*>(panel->sandboxTopDropSwitch_), LV_STATE_CHECKED)
+        : true;
     config.rain_rate = panel->sandboxRainSlider_
-        ? lv_slider_get_value(static_cast<lv_obj_t*>(panel->sandboxRainSlider_)) / 10.0 : 0.0;
+        ? lv_slider_get_value(static_cast<lv_obj_t*>(panel->sandboxRainSlider_)) / 10.0
+        : 0.0;
 
     panel->sendConfigUpdate(config);
 }
 
 void ControlPanel::onSandboxRightThrowToggled(lv_event_t* e)
 {
-    auto* panel = static_cast<ControlPanel*>(lv_obj_get_user_data(static_cast<lv_obj_t*>(lv_event_get_target(e))));
+    auto* panel = static_cast<ControlPanel*>(
+        lv_obj_get_user_data(static_cast<lv_obj_t*>(lv_event_get_target(e))));
     if (!panel) return;
 
-    bool enabled = lv_obj_has_state(static_cast<lv_obj_t*>(lv_event_get_target(e)), LV_STATE_CHECKED);
+    bool enabled =
+        lv_obj_has_state(static_cast<lv_obj_t*>(lv_event_get_target(e)), LV_STATE_CHECKED);
     spdlog::info("ControlPanel: Sandbox right throw toggled: {}", enabled);
 
     SandboxConfig config;
     config.quadrant_enabled = panel->sandboxQuadrantSwitch_
-        ? lv_obj_has_state(static_cast<lv_obj_t*>(panel->sandboxQuadrantSwitch_), LV_STATE_CHECKED) : true;
+        ? lv_obj_has_state(static_cast<lv_obj_t*>(panel->sandboxQuadrantSwitch_), LV_STATE_CHECKED)
+        : true;
     config.water_column_enabled = panel->sandboxWaterColumnSwitch_
-        ? lv_obj_has_state(static_cast<lv_obj_t*>(panel->sandboxWaterColumnSwitch_), LV_STATE_CHECKED) : true;
+        ? lv_obj_has_state(
+              static_cast<lv_obj_t*>(panel->sandboxWaterColumnSwitch_), LV_STATE_CHECKED)
+        : true;
     config.right_throw_enabled = enabled;
     config.top_drop_enabled = panel->sandboxTopDropSwitch_
-        ? lv_obj_has_state(static_cast<lv_obj_t*>(panel->sandboxTopDropSwitch_), LV_STATE_CHECKED) : true;
+        ? lv_obj_has_state(static_cast<lv_obj_t*>(panel->sandboxTopDropSwitch_), LV_STATE_CHECKED)
+        : true;
     config.rain_rate = panel->sandboxRainSlider_
-        ? lv_slider_get_value(static_cast<lv_obj_t*>(panel->sandboxRainSlider_)) / 10.0 : 0.0;
+        ? lv_slider_get_value(static_cast<lv_obj_t*>(panel->sandboxRainSlider_)) / 10.0
+        : 0.0;
 
     panel->sendConfigUpdate(config);
 }
 
 void ControlPanel::onSandboxTopDropToggled(lv_event_t* e)
 {
-    auto* panel = static_cast<ControlPanel*>(lv_obj_get_user_data(static_cast<lv_obj_t*>(lv_event_get_target(e))));
+    auto* panel = static_cast<ControlPanel*>(
+        lv_obj_get_user_data(static_cast<lv_obj_t*>(lv_event_get_target(e))));
     if (!panel) return;
 
-    bool enabled = lv_obj_has_state(static_cast<lv_obj_t*>(lv_event_get_target(e)), LV_STATE_CHECKED);
+    bool enabled =
+        lv_obj_has_state(static_cast<lv_obj_t*>(lv_event_get_target(e)), LV_STATE_CHECKED);
     spdlog::info("ControlPanel: Sandbox top drop toggled: {}", enabled);
 
     SandboxConfig config;
     config.quadrant_enabled = panel->sandboxQuadrantSwitch_
-        ? lv_obj_has_state(static_cast<lv_obj_t*>(panel->sandboxQuadrantSwitch_), LV_STATE_CHECKED) : true;
+        ? lv_obj_has_state(static_cast<lv_obj_t*>(panel->sandboxQuadrantSwitch_), LV_STATE_CHECKED)
+        : true;
     config.water_column_enabled = panel->sandboxWaterColumnSwitch_
-        ? lv_obj_has_state(static_cast<lv_obj_t*>(panel->sandboxWaterColumnSwitch_), LV_STATE_CHECKED) : true;
+        ? lv_obj_has_state(
+              static_cast<lv_obj_t*>(panel->sandboxWaterColumnSwitch_), LV_STATE_CHECKED)
+        : true;
     config.right_throw_enabled = panel->sandboxRightThrowSwitch_
-        ? lv_obj_has_state(static_cast<lv_obj_t*>(panel->sandboxRightThrowSwitch_), LV_STATE_CHECKED) : true;
+        ? lv_obj_has_state(
+              static_cast<lv_obj_t*>(panel->sandboxRightThrowSwitch_), LV_STATE_CHECKED)
+        : true;
     config.top_drop_enabled = enabled;
     config.rain_rate = panel->sandboxRainSlider_
-        ? lv_slider_get_value(static_cast<lv_obj_t*>(panel->sandboxRainSlider_)) / 10.0 : 0.0;
+        ? lv_slider_get_value(static_cast<lv_obj_t*>(panel->sandboxRainSlider_)) / 10.0
+        : 0.0;
 
     panel->sendConfigUpdate(config);
 }
 
 void ControlPanel::onSandboxRainSliderChanged(lv_event_t* e)
 {
-    auto* panel = static_cast<ControlPanel*>(lv_obj_get_user_data(static_cast<lv_obj_t*>(lv_event_get_target(e))));
+    auto* panel = static_cast<ControlPanel*>(
+        lv_obj_get_user_data(static_cast<lv_obj_t*>(lv_event_get_target(e))));
     if (!panel) return;
 
     lv_obj_t* slider = static_cast<lv_obj_t*>(lv_event_get_target(e));
@@ -327,13 +367,19 @@ void ControlPanel::onSandboxRainSliderChanged(lv_event_t* e)
 
     SandboxConfig config;
     config.quadrant_enabled = panel->sandboxQuadrantSwitch_
-        ? lv_obj_has_state(static_cast<lv_obj_t*>(panel->sandboxQuadrantSwitch_), LV_STATE_CHECKED) : true;
+        ? lv_obj_has_state(static_cast<lv_obj_t*>(panel->sandboxQuadrantSwitch_), LV_STATE_CHECKED)
+        : true;
     config.water_column_enabled = panel->sandboxWaterColumnSwitch_
-        ? lv_obj_has_state(static_cast<lv_obj_t*>(panel->sandboxWaterColumnSwitch_), LV_STATE_CHECKED) : true;
+        ? lv_obj_has_state(
+              static_cast<lv_obj_t*>(panel->sandboxWaterColumnSwitch_), LV_STATE_CHECKED)
+        : true;
     config.right_throw_enabled = panel->sandboxRightThrowSwitch_
-        ? lv_obj_has_state(static_cast<lv_obj_t*>(panel->sandboxRightThrowSwitch_), LV_STATE_CHECKED) : true;
+        ? lv_obj_has_state(
+              static_cast<lv_obj_t*>(panel->sandboxRightThrowSwitch_), LV_STATE_CHECKED)
+        : true;
     config.top_drop_enabled = panel->sandboxTopDropSwitch_
-        ? lv_obj_has_state(static_cast<lv_obj_t*>(panel->sandboxTopDropSwitch_), LV_STATE_CHECKED) : true;
+        ? lv_obj_has_state(static_cast<lv_obj_t*>(panel->sandboxTopDropSwitch_), LV_STATE_CHECKED)
+        : true;
     config.rain_rate = rainRate;
 
     panel->sendConfigUpdate(config);
@@ -353,7 +399,7 @@ void ControlPanel::sendConfigUpdate(const ScenarioConfig& config)
     // Create command JSON.
     nlohmann::json cmd;
     cmd["command"] = "scenario_config_set";
-    cmd["config"] = config;  // Uses ADL to_json from ScenarioConfig.h.
+    cmd["config"] = config; // Uses ADL to_json from ScenarioConfig.h.
 
     // Send to DSSM.
     wsClient_->send(cmd.dump());
@@ -363,7 +409,7 @@ void ControlPanel::sendConfigUpdate(const ScenarioConfig& config)
 void ControlPanel::sendDebugUpdate(bool enabled)
 {
     // Queue DrawDebugToggle command to UI state machine (UI-local, not sent to server).
-    auto cmd = UiApi::DrawDebugToggle::Command{enabled};
+    auto cmd = UiApi::DrawDebugToggle::Command{ enabled };
     auto cwc = UiApi::DrawDebugToggle::Cwc(std::move(cmd), [](const auto& /*response*/) {
         // No action needed on response.
     });

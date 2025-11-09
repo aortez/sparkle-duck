@@ -22,20 +22,21 @@ void Cell::setFillRatio(double ratio)
     if (fill_ratio < MIN_FILL_THRESHOLD) {
         material_type = MaterialType::AIR;
         fill_ratio = 0.0;
-        velocity = Vector2d{0.0, 0.0};
-        com = Vector2d{0.0, 0.0};
+        velocity = Vector2d{ 0.0, 0.0 };
+        com = Vector2d{ 0.0, 0.0 };
 
         // Clear all pressure values when cell becomes empty.
         pressure = 0.0;
         hydrostatic_component = 0.0;
         dynamic_component = 0.0;
-        pressure_gradient = Vector2d{0.0, 0.0};
+        pressure_gradient = Vector2d{ 0.0, 0.0 };
     }
 }
 
 void Cell::setCOM(const Vector2d& newCom)
 {
-    com = Vector2d{std::clamp(newCom.x, COM_MIN, COM_MAX), std::clamp(newCom.y, COM_MIN, COM_MAX)};
+    com =
+        Vector2d{ std::clamp(newCom.x, COM_MIN, COM_MAX), std::clamp(newCom.y, COM_MIN, COM_MAX) };
 }
 
 double Cell::getMass() const
@@ -199,22 +200,22 @@ void Cell::replaceMaterial(MaterialType type, double fill_ratio)
     setFillRatio(fill_ratio);
 
     // Reset physics state when replacing material.
-    velocity = Vector2d{0.0, 0.0};
-    com = Vector2d{0.0, 0.0};
+    velocity = Vector2d{ 0.0, 0.0 };
+    com = Vector2d{ 0.0, 0.0 };
 }
 
 void Cell::clear()
 {
     material_type = MaterialType::AIR;
     fill_ratio = 0.0;
-    velocity = Vector2d{0.0, 0.0};
-    com = Vector2d{0.0, 0.0};
+    velocity = Vector2d{ 0.0, 0.0 };
+    com = Vector2d{ 0.0, 0.0 };
 
     // Clear all pressure values when cell becomes empty.
     pressure = 0.0;
     hydrostatic_component = 0.0;
     dynamic_component = 0.0;
-    pressure_gradient = Vector2d{0.0, 0.0};
+    pressure_gradient = Vector2d{ 0.0, 0.0 };
 }
 
 void Cell::limitVelocity(
@@ -454,7 +455,6 @@ std::string Cell::toAsciiCharacter() const
 // =================================================================
 // JSON SERIALIZATION
 // =================================================================
-
 
 #include "ReflectSerializer.h"
 

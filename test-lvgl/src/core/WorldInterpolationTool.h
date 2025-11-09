@@ -56,16 +56,28 @@ private:
         double v00, double v10, double v01, double v11, double fx, double fy);
 
     static Vector2d bilinearInterpolateVector2d(
-        const Vector2d& v00, const Vector2d& v10, const Vector2d& v01, const Vector2d& v11,
-        double fx, double fy);
+        const Vector2d& v00,
+        const Vector2d& v10,
+        const Vector2d& v01,
+        const Vector2d& v11,
+        double fx,
+        double fy);
 
     static MaterialType interpolateMaterialType(
-        MaterialType m00, MaterialType m10, MaterialType m01, MaterialType m11,
-        double fx, double fy);
+        MaterialType m00,
+        MaterialType m10,
+        MaterialType m01,
+        MaterialType m11,
+        double fx,
+        double fy);
 
     static Cell createInterpolatedCellB(
-        const Cell& cell00, const Cell& cell10, const Cell& cell01, const Cell& cell11,
-        double fx, double fy);
+        const Cell& cell00,
+        const Cell& cell10,
+        const Cell& cell01,
+        const Cell& cell11,
+        double fx,
+        double fy);
 
     static void clampToGrid(int& x, int& y, uint32_t width, uint32_t height);
 };

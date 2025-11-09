@@ -109,8 +109,8 @@ void WorldPressureCalculator::processBlockedTransfers(
                     double dynamic_strength = world.getDynamicPressureStrength();
 
                     // Calculate material-based reflection coefficient.
-                    double reflection_coefficient = calculateReflectionCoefficient(
-                        source_cell.material_type, transfer.energy);
+                    double reflection_coefficient =
+                        calculateReflectionCoefficient(source_cell.material_type, transfer.energy);
 
                     double reflected_energy = transfer.energy * material_weight * dynamic_strength
                         * reflection_coefficient;
@@ -206,7 +206,7 @@ double WorldPressureCalculator::getHydrostaticWeight(MaterialType type) const
         case MaterialType::WATER:
             return 1.0;
         case MaterialType::SAND:
-          return 0.7;
+            return 0.7;
         case MaterialType::DIRT:
             return 0.3;
         case MaterialType::WOOD:
@@ -243,7 +243,8 @@ double WorldPressureCalculator::getDynamicWeight(MaterialType type) const
     }
 }
 
-Vector2d WorldPressureCalculator::calculatePressureGradient(const World& world, uint32_t x, uint32_t y) const
+Vector2d WorldPressureCalculator::calculatePressureGradient(
+    const World& world, uint32_t x, uint32_t y) const
 {
     // Get center cell total pressure.
     const Cell& center = world.at(x, y);
@@ -257,7 +258,7 @@ Vector2d WorldPressureCalculator::calculatePressureGradient(const World& world, 
             y,
             center_pressure,
             MIN_PRESSURE_THRESHOLD);
-        return Vector2d{0, 0};
+        return Vector2d{ 0, 0 };
     }
 
     // First pass: Identify blocked and open directions.
@@ -484,7 +485,8 @@ Vector2d WorldPressureCalculator::calculatePressureGradient(const World& world, 
     return gradient;
 }
 
-Vector2d WorldPressureCalculator::calculateGravityGradient(const World& world, uint32_t x, uint32_t y) const
+Vector2d WorldPressureCalculator::calculateGravityGradient(
+    const World& world, uint32_t x, uint32_t y) const
 {
     const Cell& center = world.at(x, y);
     double center_density = center.getEffectiveDensity();
@@ -495,7 +497,7 @@ Vector2d WorldPressureCalculator::calculateGravityGradient(const World& world, u
 
     // Skip if no gravity.
     if (gravity_magnitude < 0.001) {
-        return Vector2d{0, 0};
+        return Vector2d{ 0, 0 };
     }
 
     Vector2d gravity_gradient(0, 0);
@@ -570,11 +572,11 @@ void WorldPressureCalculator::applyPressureDecay(World& world, double deltaTime)
                     cell.pressure_gradient = gradient;
                 }
                 else {
-                    cell.pressure_gradient = Vector2d{0.0, 0.0};
+                    cell.pressure_gradient = Vector2d{ 0.0, 0.0 };
                 }
             }
             else {
-                cell.pressure_gradient = Vector2d{0.0, 0.0};
+                cell.pressure_gradient = Vector2d{ 0.0, 0.0 };
             }
         }
     }
@@ -913,7 +915,8 @@ void WorldPressureCalculator::applyPressureDiffusion(World& world, double deltaT
 
             // Limit maximum pressure change per timestep to prevent explosions.
             // This ensures CFL stability for explicit diffusion scheme.
-            double max_change = current_pressure * 0.5 + 0.1; // Max 50% change + small absolute floor.
+            double max_change =
+                current_pressure * 0.5 + 0.1; // Max 50% change + small absolute floor.
             if (std::abs(pressure_change) > max_change) {
                 pressure_change = std::copysign(max_change, pressure_change);
             }

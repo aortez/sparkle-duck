@@ -1,10 +1,10 @@
 #pragma once
 
 #include <chrono>
+#include <nlohmann/json_fwd.hpp>
 #include <string>
 #include <unordered_map>
 #include <vector>
-#include <nlohmann/json_fwd.hpp>
 
 class Timers {
 public:

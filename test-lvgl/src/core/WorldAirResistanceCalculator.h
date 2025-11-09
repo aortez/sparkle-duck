@@ -41,7 +41,10 @@ public:
      * @return Air resistance force vector opposing motion.
      */
     Vector2d calculateAirResistance(
-        const World& world, uint32_t x, uint32_t y, double strength = DEFAULT_AIR_RESISTANCE_SCALAR) const;
+        const World& world,
+        uint32_t x,
+        uint32_t y,
+        double strength = DEFAULT_AIR_RESISTANCE_SCALAR) const;
 };
 
 } // namespace DirtSim

@@ -51,7 +51,7 @@ struct Cell {
     Vector2d pressure_gradient = {};
 
     // Force accumulation for visualization.
-    Vector2d accumulated_cohesion_force = {};     // Repurposed: X=motion_multiplier, Y=damping_factor.
+    Vector2d accumulated_cohesion_force = {}; // Repurposed: X=motion_multiplier, Y=damping_factor.
     Vector2d accumulated_adhesion_force = {};
     Vector2d accumulated_com_cohesion_force = {};
 
@@ -97,32 +97,35 @@ struct Cell {
     bool isAir() const { return material_type == MaterialType::AIR; }
     bool isWall() const { return material_type == MaterialType::WALL; }
 
-
     // =================================================================
     // PHYSICS PROPERTIES
     // =================================================================
 
     // Center of mass position [-1,1] within cell (has clamping logic).
     void setCOM(const Vector2d& com);
-    void setCOM(double x, double y) { setCOM(Vector2d{x, y}); }
+    void setCOM(double x, double y) { setCOM(Vector2d{ x, y }); }
 
     // Helpers with logic for pressure component management.
-    void setHydrostaticPressure(double p) {
+    void setHydrostaticPressure(double p)
+    {
         hydrostatic_component = p;
         updateUnifiedPressure();
     }
 
-    void setDynamicPressure(double p) {
+    void setDynamicPressure(double p)
+    {
         dynamic_component = p;
         updateUnifiedPressure();
     }
 
-    void addDynamicPressure(double p) {
+    void addDynamicPressure(double p)
+    {
         dynamic_component += p;
         updateUnifiedPressure();
     }
 
-    void clearPressure() {
+    void clearPressure()
+    {
         pressure = 0.0;
         hydrostatic_component = 0.0;
         dynamic_component = 0.0;

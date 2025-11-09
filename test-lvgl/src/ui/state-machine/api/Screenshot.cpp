@@ -6,7 +6,7 @@ namespace Screenshot {
 
 nlohmann::json Command::toJson() const
 {
-    nlohmann::json j{{"command", "screenshot"}};
+    nlohmann::json j{ { "command", "screenshot" } };
     if (!filepath.empty()) {
         j["filepath"] = filepath;
     }
@@ -24,7 +24,7 @@ Command Command::fromJson(const nlohmann::json& j)
 
 nlohmann::json Okay::toJson() const
 {
-    return nlohmann::json{{"filepath", filepath}};
+    return nlohmann::json{ { "filepath", filepath } };
 }
 
 } // namespace Screenshot

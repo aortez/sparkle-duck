@@ -20,7 +20,7 @@ struct WorldData {
     // Grid dimensions and cells (1D storage for performance).
     uint32_t width = 0;
     uint32_t height = 0;
-    std::vector<Cell> cells;  // Flat array: cells[y * width + x]
+    std::vector<Cell> cells; // Flat array: cells[y * width + x]
 
     // Simulation state.
     uint32_t timestep = 0;

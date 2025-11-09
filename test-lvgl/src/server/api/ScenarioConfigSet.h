@@ -1,9 +1,9 @@
 #pragma once
 
+#include "ApiError.h"
 #include "core/CommandWithCallback.h"
 #include "core/Result.h"
 #include "core/ScenarioConfig.h"
-#include "ApiError.h"
 #include <string>
 
 namespace DirtSim {
@@ -14,7 +14,7 @@ namespace ScenarioConfigSet {
  * @brief Command to update scenario configuration.
  */
 struct Command {
-    ScenarioConfig config;  // New configuration to apply.
+    ScenarioConfig config; // New configuration to apply.
 
     nlohmann::json toJson() const;
     static Command fromJson(const nlohmann::json& j);

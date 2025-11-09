@@ -16,13 +16,13 @@
  *      INCLUDES
  *********************/
 #include "stdio.h"
+#include <iostream>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <iostream>
 
-#include "ui/state-machine/StateMachine.h"
 #include "lvgl/lvgl.h"
+#include "ui/state-machine/StateMachine.h"
 #include <spdlog/spdlog.h>
 
 #if LV_USE_WAYLAND
@@ -101,8 +101,8 @@ static lv_display_t* init_wayland(void)
     lv_display_t* disp;
     lv_group_t* g;
 
-    disp =
-        lv_wayland_window_create(settings.window_width, settings.window_height, const_cast<char*>("Dirt Sim"), NULL);
+    disp = lv_wayland_window_create(
+        settings.window_width, settings.window_height, const_cast<char*>("Dirt Sim"), NULL);
 
     if (disp == NULL) {
         die("Failed to initialize Wayland backend\n");
@@ -141,7 +141,7 @@ static void run_loop_wayland(DirtSim::Ui::StateMachine& sm)
         if (completed) {
             /* wait only if the cycle was completed and FPS limiting is enabled. */
             // TODO: Get frame limiting from settings or config.
-            //usleep(LV_DEF_REFR_PERIOD * 1000);
+            // usleep(LV_DEF_REFR_PERIOD * 1000);
         }
 
         /* Run until the last window closes. */

@@ -1,7 +1,7 @@
 #pragma once
 
-#include <variant>
 #include <string>
+#include <variant>
 
 namespace DirtSim {
 namespace Server {
@@ -18,13 +18,7 @@ struct SimPaused;
 struct Shutdown;
 
 // State variant type.
-using Any = std::variant<
-    Startup,
-    Idle,
-    SimRunning,
-    SimPaused,
-    Shutdown
->;
+using Any = std::variant<Startup, Idle, SimRunning, SimPaused, Shutdown>;
 
 } // namespace State
 } // namespace Server

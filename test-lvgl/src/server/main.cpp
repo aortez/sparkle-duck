@@ -1,9 +1,9 @@
 #include "StateMachine.h"
 #include "network/WebSocketServer.h"
-#include <spdlog/spdlog.h>
 #include <args.hxx>
 #include <csignal>
 #include <memory>
+#include <spdlog/spdlog.h>
 
 using namespace DirtSim;
 

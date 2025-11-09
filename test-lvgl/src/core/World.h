@@ -79,8 +79,7 @@ public:
     // =================================================================
 
     // Universal material addition (direct support for all 8 material types).
-    void addMaterialAtPixel(
-        int pixelX, int pixelY, MaterialType type, double amount = 1.0);
+    void addMaterialAtPixel(int pixelX, int pixelY, MaterialType type, double amount = 1.0);
 
     // Material selection state management (for UI/API coordination).
     void setSelectedMaterial(MaterialType type) { selected_material_ = type; }
@@ -90,23 +89,19 @@ public:
     // WORLDINTERFACE IMPLEMENTATION - PHYSICS PARAMETERS
     // =================================================================
 
-    Vector2d getGravityVector() const { return Vector2d{0.0, data.gravity}; }
+    Vector2d getGravityVector() const { return Vector2d{ 0.0, data.gravity }; }
     void setDirtFragmentationFactor(double /* factor */) { /* no-op for World */ }
 
     // =================================================================
     // WORLDINTERFACE IMPLEMENTATION - WATER PHYSICS (SIMPLIFIED)
     // =================================================================
 
-    void setWaterPressureThreshold(double threshold)
-    {
-        water_pressure_threshold_ = threshold;
-    }
+    void setWaterPressureThreshold(double threshold) { water_pressure_threshold_ = threshold; }
     double getWaterPressureThreshold() const { return water_pressure_threshold_; }
 
     // =================================================================
     // WORLDINTERFACE IMPLEMENTATION - PRESSURE SYSTEM
     // =================================================================
-
 
     // =================================================================
     // WORLDINTERFACE IMPLEMENTATION - DUAL PRESSURE SYSTEM
@@ -118,10 +113,7 @@ public:
     void setDynamicPressureEnabled(bool enabled);
     bool isDynamicPressureEnabled() const { return dynamic_pressure_strength_ > 0.0; }
 
-    void setPressureDiffusionEnabled(bool enabled)
-    {
-        pressure_diffusion_enabled_ = enabled;
-    }
+    void setPressureDiffusionEnabled(bool enabled) { pressure_diffusion_enabled_ = enabled; }
     bool isPressureDiffusionEnabled() const { return pressure_diffusion_enabled_; }
 
     void setHydrostaticPressureStrength(double strength);
@@ -136,10 +128,7 @@ public:
 
     // Collision calculator access.
     WorldCollisionCalculator& getCollisionCalculator() { return collision_calculator_; }
-    const WorldCollisionCalculator& getCollisionCalculator() const
-    {
-        return collision_calculator_;
-    }
+    const WorldCollisionCalculator& getCollisionCalculator() const { return collision_calculator_; }
 
     // =================================================================
     // WORLDINTERFACE IMPLEMENTATION - TIME REVERSAL (NO-OP)
@@ -161,10 +150,7 @@ public:
     bool areWallsEnabled() const; // World defaults to true instead of false
 
     // WORLDINTERFACE IMPLEMENTATION - COHESION PHYSICS CONTROL
-    void setCohesionBindForceEnabled(bool enabled)
-    {
-        cohesion_bind_force_enabled_ = enabled;
-    }
+    void setCohesionBindForceEnabled(bool enabled) { cohesion_bind_force_enabled_ = enabled; }
     bool isCohesionBindForceEnabled() const { return cohesion_bind_force_enabled_; }
 
     void setCohesionComForceEnabled(bool enabled)
@@ -174,31 +160,19 @@ public:
     }
     bool isCohesionComForceEnabled() const { return cohesion_com_force_strength_ > 0.0; }
 
-    void setCohesionComForceStrength(double strength)
-    {
-        cohesion_com_force_strength_ = strength;
-    }
+    void setCohesionComForceStrength(double strength) { cohesion_com_force_strength_ = strength; }
     double getCohesionComForceStrength() const { return cohesion_com_force_strength_; }
 
     void setAdhesionStrength(double strength)
     {
         adhesion_calculator_.setAdhesionStrength(strength);
     }
-    double getAdhesionStrength() const
-    {
-        return adhesion_calculator_.getAdhesionStrength();
-    }
+    double getAdhesionStrength() const { return adhesion_calculator_.getAdhesionStrength(); }
 
-    void setAdhesionEnabled(bool enabled)
-    {
-        adhesion_calculator_.setAdhesionEnabled(enabled);
-    }
+    void setAdhesionEnabled(bool enabled) { adhesion_calculator_.setAdhesionEnabled(enabled); }
     bool isAdhesionEnabled() const { return adhesion_calculator_.isAdhesionEnabled(); }
 
-    void setCohesionBindForceStrength(double strength)
-    {
-        cohesion_bind_force_strength_ = strength;
-    }
+    void setCohesionBindForceStrength(double strength) { cohesion_bind_force_strength_ = strength; }
     double getCohesionBindForceStrength() const { return cohesion_bind_force_strength_; }
 
     // Viscosity control.

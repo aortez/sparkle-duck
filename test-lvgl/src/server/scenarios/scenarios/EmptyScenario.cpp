@@ -1,5 +1,5 @@
-#include "server/scenarios/Scenario.h"
 #include "core/World.h"
+#include "server/scenarios/Scenario.h"
 #include "server/scenarios/ScenarioRegistry.h"
 #include "server/scenarios/ScenarioWorldEventGenerator.h"
 #include "spdlog/spdlog.h"
@@ -11,23 +11,21 @@ using namespace DirtSim;
  */
 class EmptyScenario : public Scenario {
 public:
-    EmptyScenario() {
+    EmptyScenario()
+    {
         metadata_.name = "Empty";
         metadata_.description = "A completely empty world with no particles";
         metadata_.category = "sandbox";
         metadata_.supportsWorldA = true;
         metadata_.supportsWorldB = true;
     }
-    
-    const ScenarioMetadata& getMetadata() const override {
-        return metadata_;
-    }
 
-    ScenarioConfig getConfig() const override {
-        return config_;
-    }
+    const ScenarioMetadata& getMetadata() const override { return metadata_; }
 
-    void setConfig(const ScenarioConfig& newConfig) override {
+    ScenarioConfig getConfig() const override { return config_; }
+
+    void setConfig(const ScenarioConfig& newConfig) override
+    {
         // Validate type and update.
         if (std::holds_alternative<EmptyConfig>(newConfig)) {
             config_ = std::get<EmptyConfig>(newConfig);
@@ -48,12 +46,12 @@ public:
             // reset() is called before setup(), so world is already empty
             // No additional setup needed
         });
-        
+
         // Update function - no particles added
         setup->setUpdateFunction([](World& /*world*/, uint32_t /*timestep*/, double /*deltaTime*/) {
             // Intentionally empty - no particles added
         });
-        
+
         return setup;
     }
 

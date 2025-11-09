@@ -1,9 +1,9 @@
 #pragma once
 
 #include "StateForward.h"
-#include "ui/state-machine/Event.h"
-#include "ui/rendering/CellRenderer.h"
 #include "ui/controls/ControlPanel.h"
+#include "ui/rendering/CellRenderer.h"
+#include "ui/state-machine/Event.h"
 #include <memory>
 
 namespace DirtSim {
@@ -17,26 +17,26 @@ namespace State {
  * @brief Simulation running state - active display and interaction.
  */
 struct SimRunning {
-    std::unique_ptr<WorldData> worldData;  // Local copy of world data for rendering.
-    std::unique_ptr<CellRenderer> renderer_;  // Manages LVGL canvases for cells.
-    std::unique_ptr<ControlPanel> controls_;  // UI controls for interaction.
+    std::unique_ptr<WorldData> worldData;    // Local copy of world data for rendering.
+    std::unique_ptr<CellRenderer> renderer_; // Manages LVGL canvases for cells.
+    std::unique_ptr<ControlPanel> controls_; // UI controls for interaction.
 
     // UI-local draw mode toggle.
     bool debugDrawEnabled = false;
 
     // Time-based frame limiting.
     std::chrono::steady_clock::time_point lastFrameRequestTime;
-    std::chrono::milliseconds targetFrameInterval{16};
-    double measuredUIFPS = 0.0;      // Instantaneous UI frame rate.
-    double smoothedUIFPS = 0.0;      // Exponentially smoothed UI FPS for display.
-    uint64_t skippedFrames = 0;      // Count of skipped frame_ready notifications.
+    std::chrono::milliseconds targetFrameInterval{ 16 };
+    double measuredUIFPS = 0.0; // Instantaneous UI frame rate.
+    double smoothedUIFPS = 0.0; // Exponentially smoothed UI FPS for display.
+    uint64_t skippedFrames = 0; // Count of skipped frame_ready notifications.
 
     // Round-trip timing (state_get request → UiUpdateEvent received).
     std::chrono::steady_clock::time_point lastStateGetSentTime;
     double lastRoundTripMs = 0.0;
-    double smoothedRoundTripMs = 0.0;  // EMA smoothed round-trip time.
-    uint64_t updateCount = 0;  // Count of received world updates.
-    bool stateGetPending = false;  // Track if a state_get request is awaiting response.
+    double smoothedRoundTripMs = 0.0; // EMA smoothed round-trip time.
+    uint64_t updateCount = 0;         // Count of received world updates.
+    bool stateGetPending = false;     // Track if a state_get request is awaiting response.
 
     void onEnter(StateMachine& sm);
     void onExit(StateMachine& sm);

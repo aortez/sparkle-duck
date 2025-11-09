@@ -2,18 +2,16 @@
 #include "core/MsgPackAdapter.h"
 #include "core/ReflectSerializer.h"
 #include "core/WorldData.h"
-#include <spdlog/spdlog.h>
-#include <zpp_bits.h>
 #include <chrono>
+#include <spdlog/spdlog.h>
 #include <thread>
+#include <zpp_bits.h>
 
 namespace DirtSim {
 namespace Client {
 
-WebSocketClient::WebSocketClient()
-    : responseReceived_(false)
-{
-}
+WebSocketClient::WebSocketClient() : responseReceived_(false)
+{}
 
 WebSocketClient::~WebSocketClient()
 {
@@ -43,7 +41,8 @@ bool WebSocketClient::connect(const std::string& url)
             else if (std::holds_alternative<rtc::binary>(data)) {
                 // zpp_bits binary message - unpack WorldData directly.
                 const auto& binaryData = std::get<rtc::binary>(data);
-                spdlog::debug("WebSocketClient: Received binary response ({} bytes)", binaryData.size());
+                spdlog::debug(
+                    "WebSocketClient: Received binary response ({} bytes)", binaryData.size());
 
                 try {
                     // Unpack binary to WorldData using zpp_bits.

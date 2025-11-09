@@ -19,8 +19,8 @@ void WorldFrictionCalculator::calculateAndApplyFrictionForces(World& world, doub
     applyFrictionForces(world, contacts);
 }
 
-std::vector<WorldFrictionCalculator::ContactInterface>
-WorldFrictionCalculator::detectContactInterfaces(const World& world) const
+std::vector<WorldFrictionCalculator::ContactInterface> WorldFrictionCalculator::
+    detectContactInterfaces(const World& world) const
 {
     std::vector<ContactInterface> contacts;
 
@@ -70,7 +70,8 @@ WorldFrictionCalculator::detectContactInterfaces(const World& world) const
                     contact.cell_B_pos = Vector2i(nx, ny);
 
                     // Calculate interface normal (from A to B).
-                    contact.interface_normal = Vector2d{static_cast<double>(dx), static_cast<double>(dy)};
+                    contact.interface_normal =
+                        Vector2d{ static_cast<double>(dx), static_cast<double>(dy) };
                     contact.interface_normal = contact.interface_normal.normalize();
 
                     // Calculate contact area (cardinal = 1.0, diagonal = 0.707).
@@ -78,7 +79,12 @@ WorldFrictionCalculator::detectContactInterfaces(const World& world) const
 
                     // Calculate normal force.
                     contact.normal_force = calculateNormalForce(
-                        world, cellA, cellB, contact.cell_A_pos, contact.cell_B_pos, contact.interface_normal);
+                        world,
+                        cellA,
+                        cellB,
+                        contact.cell_A_pos,
+                        contact.cell_B_pos,
+                        contact.interface_normal);
 
                     // Skip if normal force is too small.
                     if (contact.normal_force < MIN_NORMAL_FORCE) {
@@ -89,8 +95,8 @@ WorldFrictionCalculator::detectContactInterfaces(const World& world) const
                     contact.relative_velocity = cellA.velocity - cellB.velocity;
 
                     // Calculate tangential velocity.
-                    contact.tangential_velocity =
-                        calculateTangentialVelocity(contact.relative_velocity, contact.interface_normal);
+                    contact.tangential_velocity = calculateTangentialVelocity(
+                        contact.relative_velocity, contact.interface_normal);
 
                     double tangential_speed = contact.tangential_velocity.magnitude();
 
@@ -102,7 +108,8 @@ WorldFrictionCalculator::detectContactInterfaces(const World& world) const
                     // Calculate friction coefficient.
                     const MaterialProperties& propsA = getMaterialProperties(cellA.material_type);
                     const MaterialProperties& propsB = getMaterialProperties(cellB.material_type);
-                    contact.friction_coefficient = calculateFrictionCoefficient(tangential_speed, propsA, propsB);
+                    contact.friction_coefficient =
+                        calculateFrictionCoefficient(tangential_speed, propsA, propsB);
 
                     contacts.push_back(contact);
                 }
@@ -139,12 +146,12 @@ double WorldFrictionCalculator::calculateNormalForce(
     // If B is below A (interface normal points downward), weight of A creates normal force.
     double gravity_magnitude = world.data.gravity;
 
-    if (interface_normal.y > 0.5) {  // B is below A (normal points down).
+    if (interface_normal.y > 0.5) { // B is below A (normal points down).
         double massA = cellA.getMass();
         double weight = massA * gravity_magnitude;
         normal_force += weight;
     }
-    else if (interface_normal.y < -0.5) {  // A is below B (normal points up).
+    else if (interface_normal.y < -0.5) { // A is below B (normal points up).
         double massB = cellB.getMass();
         double weight = massB * gravity_magnitude;
         normal_force += weight;
@@ -159,12 +166,15 @@ double WorldFrictionCalculator::calculateFrictionCoefficient(
     const MaterialProperties& propsB) const
 {
     // Use geometric mean for inter-material friction coefficients.
-    double static_friction = std::sqrt(propsA.static_friction_coefficient * propsB.static_friction_coefficient);
-    double kinetic_friction = std::sqrt(propsA.kinetic_friction_coefficient * propsB.kinetic_friction_coefficient);
+    double static_friction =
+        std::sqrt(propsA.static_friction_coefficient * propsB.static_friction_coefficient);
+    double kinetic_friction =
+        std::sqrt(propsA.kinetic_friction_coefficient * propsB.kinetic_friction_coefficient);
 
     // Use average for velocity thresholds.
     double stick_velocity = (propsA.stick_velocity + propsB.stick_velocity) / 2.0;
-    double transition_width = (propsA.friction_transition_width + propsB.friction_transition_width) / 2.0;
+    double transition_width =
+        (propsA.friction_transition_width + propsB.friction_transition_width) / 2.0;
 
     // Below stick velocity, use full static friction.
     if (tangential_speed < stick_velocity) {
@@ -186,8 +196,7 @@ double WorldFrictionCalculator::calculateFrictionCoefficient(
 }
 
 Vector2d WorldFrictionCalculator::calculateTangentialVelocity(
-    const Vector2d& relative_velocity,
-    const Vector2d& interface_normal) const
+    const Vector2d& relative_velocity, const Vector2d& interface_normal) const
 {
     // Decompose relative velocity into normal and tangential components.
     // Tangential = relative_velocity - (relative_velocity · normal) * normal.
@@ -199,11 +208,13 @@ Vector2d WorldFrictionCalculator::calculateTangentialVelocity(
     return tangential_velocity;
 }
 
-void WorldFrictionCalculator::applyFrictionForces(World& world, const std::vector<ContactInterface>& contacts)
+void WorldFrictionCalculator::applyFrictionForces(
+    World& world, const std::vector<ContactInterface>& contacts)
 {
     for (const ContactInterface& contact : contacts) {
         // Calculate friction force magnitude.
-        double friction_force_magnitude = contact.friction_coefficient * contact.normal_force * friction_strength_;
+        double friction_force_magnitude =
+            contact.friction_coefficient * contact.normal_force * friction_strength_;
 
         // Direction: opposite to tangential relative velocity.
         Vector2d friction_direction = contact.tangential_velocity.normalize() * -1.0;
@@ -215,7 +226,7 @@ void WorldFrictionCalculator::applyFrictionForces(World& world, const std::vecto
         Cell& cellB = world.at(contact.cell_B_pos.x, contact.cell_B_pos.y);
 
         cellA.addPendingForce(friction_force);
-        cellB.addPendingForce(-friction_force);  // Equal and opposite.
+        cellB.addPendingForce(-friction_force); // Equal and opposite.
 
         spdlog::trace(
             "Friction force: ({},{}) <-> ({},{}): normal_force={:.4f}, mu={:.3f}, "

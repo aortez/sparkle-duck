@@ -10,7 +10,6 @@
 
 using namespace DirtSim;
 
-
 // =================================================================
 // COLLISION DETECTION.
 // =================================================================
@@ -83,7 +82,8 @@ MaterialMove WorldCollisionCalculator::createCollisionAwareMove(
     }
 
     move.momentum = fromCell.velocity;
-    move.boundary_normal = Vector2d{static_cast<double>(direction.x), static_cast<double>(direction.y)};
+    move.boundary_normal =
+        Vector2d{ static_cast<double>(direction.x), static_cast<double>(direction.y) };
 
     // Calculate collision physics data.
     move.material_mass = calculateMaterialMass(fromCell);
@@ -95,8 +95,8 @@ MaterialMove WorldCollisionCalculator::createCollisionAwareMove(
     move.com_cohesion_direction = com_cohesion.force_direction;
 
     // Determine collision type based on materials and energy.
-    move.collision_type = determineCollisionType(
-        fromCell.material_type, toCell.material_type, move.collision_energy);
+    move.collision_type =
+        determineCollisionType(fromCell.material_type, toCell.material_type, move.collision_energy);
 
     // Set material-specific restitution coefficient.
     const auto& fromProps = getMaterialProperties(fromCell.material_type);
@@ -556,12 +556,12 @@ void WorldCollisionCalculator::handleInelasticCollision(
             energy);
 
         world.getPressureCalculator().queueBlockedTransfer({ move.fromX,
-                                                              move.fromY,
-                                                              move.toX,
-                                                              move.toY,
-                                                              transfer_deficit,
-                                                              fromCell.velocity,
-                                                              energy });
+                                                             move.fromY,
+                                                             move.toX,
+                                                             move.toY,
+                                                             transfer_deficit,
+                                                             fromCell.velocity,
+                                                             energy });
     }
 
     spdlog::trace(
@@ -572,8 +572,8 @@ void WorldCollisionCalculator::handleInelasticCollision(
         actual_transfer);
 }
 
-void WorldCollisionCalculator::handleFragmentation(World& world, 
-    Cell& fromCell, Cell& toCell, const MaterialMove& move)
+void WorldCollisionCalculator::handleFragmentation(
+    World& world, Cell& fromCell, Cell& toCell, const MaterialMove& move)
 {
     // TODO: Implement fragmentation mechanics.
     // For now, treat as inelastic collision with complete material transfer.
@@ -586,8 +586,8 @@ void WorldCollisionCalculator::handleFragmentation(World& world,
     handleInelasticCollision(world, fromCell, toCell, move);
 }
 
-void WorldCollisionCalculator::handleAbsorption(World& world, 
-    Cell& fromCell, Cell& toCell, const MaterialMove& move)
+void WorldCollisionCalculator::handleAbsorption(
+    World& world, Cell& fromCell, Cell& toCell, const MaterialMove& move)
 {
     // One material absorbs the other - implement absorption logic.
     if (move.material == MaterialType::WATER && toCell.material_type == MaterialType::DIRT) {
@@ -595,8 +595,7 @@ void WorldCollisionCalculator::handleAbsorption(World& world,
         handleTransferMove(world, fromCell, toCell, move);
         spdlog::trace("Absorption: WATER absorbed by DIRT at ({},{})", move.toX, move.toY);
     }
-    else if (
-        move.material == MaterialType::DIRT && toCell.material_type == MaterialType::WATER) {
+    else if (move.material == MaterialType::DIRT && toCell.material_type == MaterialType::WATER) {
         // Dirt falls into water - mix materials.
         handleTransferMove(world, fromCell, toCell, move);
         spdlog::trace("Absorption: DIRT mixed with WATER at ({},{})", move.toX, move.toY);

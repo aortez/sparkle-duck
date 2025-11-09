@@ -1,7 +1,7 @@
 #include "WorldDiagramGeneratorEmoji.h"
-#include "World.h"
 #include "Cell.h"
 #include "MaterialType.h"
+#include "World.h"
 
 #include <cmath>
 #include <sstream>
@@ -20,7 +20,7 @@ std::string WorldDiagramGeneratorEmoji::generateEmojiDiagram(const World& world)
     for (uint32_t x = 0; x < width; ++x) {
         diagram << "━━";
         if (x < width - 1) {
-            diagram << "━";  // Extra for spacing between cells.
+            diagram << "━"; // Extra for spacing between cells.
         }
     }
     diagram << "✨\n";
@@ -84,7 +84,7 @@ std::string WorldDiagramGeneratorEmoji::generateEmojiDiagram(const World& world)
     for (uint32_t x = 0; x < width; ++x) {
         diagram << "━━";
         if (x < width - 1) {
-            diagram << "━";  // Extra for spacing between cells.
+            diagram << "━"; // Extra for spacing between cells.
         }
     }
     diagram << "✨\n";

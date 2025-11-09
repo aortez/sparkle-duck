@@ -1,8 +1,8 @@
-#include "core/World.h"  // Must be first for complete type in variant.
+#include "StateMachine.h"
+#include "core/ScenarioConfig.h"
+#include "core/World.h" // Must be first for complete type in variant.
 #include "core/WorldData.h"
 #include "core/WorldEventGenerator.h"
-#include "core/ScenarioConfig.h"
-#include "StateMachine.h"
 #include "scenarios/Scenario.h"
 #include "scenarios/ScenarioRegistry.h"
 #include <cassert>
@@ -13,9 +13,11 @@
 namespace DirtSim {
 namespace Server {
 
-StateMachine::StateMachine() : eventProcessor(), scenarioRegistry_(ScenarioRegistry::createDefault())
+StateMachine::StateMachine()
+    : eventProcessor(), scenarioRegistry_(ScenarioRegistry::createDefault())
 {
-    spdlog::info("Server::StateMachine initialized in headless mode in state: {}", getCurrentStateName());
+    spdlog::info(
+        "Server::StateMachine initialized in headless mode in state: {}", getCurrentStateName());
     // Note: World will be created by SimRunning state when simulation starts.
 }
 
@@ -33,9 +35,8 @@ void StateMachine::updateCachedWorldData(const WorldData& data)
 std::shared_ptr<WorldData> StateMachine::getCachedWorldData() const
 {
     std::lock_guard<std::mutex> lock(cachedWorldDataMutex_);
-    return cachedWorldData_;  // Returns shared_ptr (may be nullptr).
+    return cachedWorldData_; // Returns shared_ptr (may be nullptr).
 }
-
 
 void StateMachine::mainLoopRun()
 {
@@ -102,8 +103,12 @@ void StateMachine::handleEvent(const Event& event)
                             getEventName(Event{ evt }));
 
                         // If this is an API command with sendResponse, send error.
-                        if constexpr (requires { evt.sendResponse(std::declval<typename std::decay_t<decltype(evt)>::Response>()); }) {
-                            auto errorMsg = std::string("Command not supported in state: ") + State::getCurrentStateName(fsmState);
+                        if constexpr (requires {
+                                          evt.sendResponse(std::declval<typename std::decay_t<
+                                                               decltype(evt)>::Response>());
+                                      }) {
+                            auto errorMsg = std::string("Command not supported in state: ")
+                                + State::getCurrentStateName(fsmState);
                             using EventType = std::decay_t<decltype(evt)>;
                             using ResponseType = typename EventType::Response;
                             evt.sendResponse(ResponseType::error(ApiError(errorMsg)));
@@ -166,7 +171,6 @@ State::Any StateMachine::onEvent(const GetSimStatsCommand& /*cmd.*/)
         },
         fsmState);
 }
-
 
 } // namespace Server
 } // namespace DirtSim

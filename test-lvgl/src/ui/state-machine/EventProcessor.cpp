@@ -10,10 +10,8 @@ struct EventQueue {
     SynchronizedQueue<Event> queue;
 };
 
-EventProcessor::EventProcessor()
-    : eventQueue(std::make_shared<EventQueue>())
-{
-}
+EventProcessor::EventProcessor() : eventQueue(std::make_shared<EventQueue>())
+{}
 
 void EventProcessor::processEvent(StateMachine& sm, const Event& eventVariant)
 {

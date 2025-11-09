@@ -33,7 +33,6 @@ using ApiCommand = std::variant<
     Api::SimRun::Command,
     Api::StateGet::Command,
     Api::StepN::Command,
-    Api::TimerStatsGet::Command
->;
+    Api::TimerStatsGet::Command>;
 
 } // namespace DirtSim

@@ -31,14 +31,14 @@ public:
      * @brief Data structure representing a contact interface between two cells.
      */
     struct ContactInterface {
-        Vector2i cell_A_pos;              // Position of first cell.
-        Vector2i cell_B_pos;              // Position of second cell.
-        Vector2d interface_normal;        // Unit vector pointing from A to B.
-        double contact_area;              // Relative contact area (1.0 cardinal, 0.707 diagonal).
-        double normal_force;              // Force pressing surfaces together.
-        Vector2d relative_velocity;       // Velocity of A relative to B.
-        Vector2d tangential_velocity;     // Tangential component of relative velocity.
-        double friction_coefficient;      // Combined friction coefficient (static or kinetic).
+        Vector2i cell_A_pos;          // Position of first cell.
+        Vector2i cell_B_pos;          // Position of second cell.
+        Vector2d interface_normal;    // Unit vector pointing from A to B.
+        double contact_area;          // Relative contact area (1.0 cardinal, 0.707 diagonal).
+        double normal_force;          // Force pressing surfaces together.
+        Vector2d relative_velocity;   // Velocity of A relative to B.
+        Vector2d tangential_velocity; // Tangential component of relative velocity.
+        double friction_coefficient;  // Combined friction coefficient (static or kinetic).
     };
 
     /**
@@ -105,8 +105,7 @@ private:
      * @return Tangential component of relative velocity.
      */
     Vector2d calculateTangentialVelocity(
-        const Vector2d& relative_velocity,
-        const Vector2d& interface_normal) const;
+        const Vector2d& relative_velocity, const Vector2d& interface_normal) const;
 
     /**
      * @brief Apply friction forces to cells based on contact interfaces.
@@ -119,8 +118,8 @@ private:
     double friction_strength_ = 1.0;
 
     // Physical constants.
-    static constexpr double MIN_NORMAL_FORCE = 0.01;  // Minimum normal force for friction.
-    static constexpr double MIN_TANGENTIAL_SPEED = 1e-6;  // Minimum speed to apply friction.
+    static constexpr double MIN_NORMAL_FORCE = 0.01;     // Minimum normal force for friction.
+    static constexpr double MIN_TANGENTIAL_SPEED = 1e-6; // Minimum speed to apply friction.
 };
 
 } // namespace DirtSim

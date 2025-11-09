@@ -68,8 +68,7 @@ public:
                 doc["value"] = response.value().toJson();
             }
             else if constexpr (
-                std::is_same_v<T, Api::CellSet::Response>
-                || std::is_same_v<T, Api::Exit::Response>
+                std::is_same_v<T, Api::CellSet::Response> || std::is_same_v<T, Api::Exit::Response>
                 || std::is_same_v<T, Api::GravitySet::Response>
                 || std::is_same_v<T, Api::Reset::Response>) {
                 // Empty object for commands with no response data.
@@ -77,7 +76,9 @@ public:
             }
             else {
                 // Compile-time error for unhandled response types.
-                static_assert(sizeof(T) == 0, "ResponseSerializerJson: Unhandled response type - add it to serialize()");
+                static_assert(
+                    sizeof(T) == 0,
+                    "ResponseSerializerJson: Unhandled response type - add it to serialize()");
             }
         }
 

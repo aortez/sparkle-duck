@@ -1,19 +1,18 @@
 #include "SubprocessManager.h"
 #include "WebSocketClient.h"
-#include <spdlog/spdlog.h>
 #include <chrono>
+#include <filesystem>
+#include <signal.h>
+#include <spdlog/spdlog.h>
+#include <sys/wait.h>
 #include <thread>
 #include <unistd.h>
-#include <sys/wait.h>
-#include <signal.h>
-#include <filesystem>
 
 namespace DirtSim {
 namespace Client {
 
 SubprocessManager::SubprocessManager()
-{
-}
+{}
 
 SubprocessManager::~SubprocessManager()
 {
@@ -37,7 +36,8 @@ bool SubprocessManager::launchServer(const std::string& serverPath, const std::s
         // Build argument list.
         if (args.empty()) {
             execl(serverPath.c_str(), serverPath.c_str(), nullptr);
-        } else {
+        }
+        else {
             // Simple args parsing - just pass as single argument for now.
             execl(serverPath.c_str(), serverPath.c_str(), args.c_str(), nullptr);
         }
@@ -102,7 +102,8 @@ void SubprocessManager::killServer()
 
             if (waitResult == 0) {
                 // Still running, force kill.
-                spdlog::warn("SubprocessManager: Server didn't respond to SIGTERM, sending SIGKILL");
+                spdlog::warn(
+                    "SubprocessManager: Server didn't respond to SIGTERM, sending SIGKILL");
                 kill(serverPid_, SIGKILL);
                 waitpid(serverPid_, &status, 0);
             }

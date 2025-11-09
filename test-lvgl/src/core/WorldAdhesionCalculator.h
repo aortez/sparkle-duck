@@ -34,7 +34,8 @@ public:
     AdhesionForce calculateAdhesionForce(const World& world, uint32_t x, uint32_t y) const;
 
     // Adhesion parameters.
-    void setAdhesionEnabled(bool enabled) {
+    void setAdhesionEnabled(bool enabled)
+    {
         // Backward compatibility: set strength to 0 (disabled) or default (enabled).
         adhesion_strength_ = enabled ? 5.0 : 0.0;
     }

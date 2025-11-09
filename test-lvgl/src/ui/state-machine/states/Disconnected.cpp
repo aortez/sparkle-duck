@@ -1,7 +1,7 @@
-#include "ui/state-machine/StateMachine.h"
-#include "ui/state-machine/network/WebSocketClient.h"
-#include "ui/state-machine/network/MessageParser.h"
 #include "State.h"
+#include "ui/state-machine/StateMachine.h"
+#include "ui/state-machine/network/MessageParser.h"
+#include "ui/state-machine/network/WebSocketClient.h"
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
 
@@ -41,12 +41,12 @@ State::Any Disconnected::onEvent(const ConnectToServerCommand& cmd, StateMachine
 
     wsClient->onDisconnected([&sm]() {
         spdlog::warn("Disconnected: DSSM connection lost");
-        sm.queueEvent(ServerDisconnectedEvent{"Connection closed"});
+        sm.queueEvent(ServerDisconnectedEvent{ "Connection closed" });
     });
 
     wsClient->onError([&sm](const std::string& error) {
         spdlog::error("Disconnected: DSSM connection error: {}", error);
-        sm.queueEvent(ServerDisconnectedEvent{error});
+        sm.queueEvent(ServerDisconnectedEvent{ error });
     });
 
     wsClient->onMessage([&sm](const std::string& message) {
@@ -65,14 +65,16 @@ State::Any Disconnected::onEvent(const ConnectToServerCommand& cmd, StateMachine
             // Track when we finish client-side processing.
             auto processingCompleteTime = std::chrono::steady_clock::now();
             double callbackToQueueMs = std::chrono::duration<double, std::milli>(
-                processingCompleteTime - callbackFiredTime).count();
+                                           processingCompleteTime - callbackFiredTime)
+                                           .count();
 
             // Track total client-side processing time.
             timers.startTimer("client_total_processing");
             timers.stopTimer("client_total_processing");
 
             // Log for debugging (will be noisy, but we can track patterns).
-            spdlog::trace("UI: Message processed in {:.2f}ms (callback → queue)", callbackToQueueMs);
+            spdlog::trace(
+                "UI: Message processed in {:.2f}ms (callback → queue)", callbackToQueueMs);
 
             sm.queueEvent(*event);
         }

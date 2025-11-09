@@ -19,8 +19,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#include "ui/state-machine/StateMachine.h"
 #include "lvgl/lvgl.h"
+#include "ui/state-machine/StateMachine.h"
 #include <spdlog/spdlog.h>
 
 #if LV_USE_LINUX_FBDEV
@@ -137,4 +137,3 @@ static void run_loop_fbdev(DirtSim::Ui::StateMachine& sm)
 }
 
 #endif /*LV_USE_LINUX_FBDEV. */
-

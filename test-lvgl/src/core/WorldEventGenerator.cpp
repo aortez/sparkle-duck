@@ -1,8 +1,8 @@
 #include "WorldEventGenerator.h"
-#include "World.h"
 #include "Cell.h"
 #include "MaterialType.h"
 #include "Vector2d.h"
+#include "World.h"
 #include "spdlog/spdlog.h"
 #include <algorithm>
 #include <cmath>
@@ -81,7 +81,8 @@ void WorldEventGenerator::dirtQuadrantToggle(World& world, bool enabled)
                 world.addMaterialAtCell(x, y, MaterialType::DIRT, 1.0);
             }
         }
-    } else {
+    }
+    else {
         spdlog::info("Removing dirt quadrant ({}x{} cells)", sizeX, sizeY);
         for (uint32_t y = startY; y < world.data.height; ++y) {
             for (uint32_t x = startX; x < world.data.width; ++x) {
@@ -102,7 +103,8 @@ void WorldEventGenerator::waterColumnToggle(World& world, bool enabled)
                 cell.addWater(1.0);
             }
         }
-    } else {
+    }
+    else {
         spdlog::info("Removing water column (5 wide × 20 tall) on left side");
         for (uint32_t y = 0; y < 20 && y < world.data.height; ++y) {
             for (uint32_t x = 1; x <= 5 && x < world.data.width; ++x) {
@@ -150,8 +152,7 @@ void DefaultWorldEventGenerator::addParticles(
     if (!topDropDone && simTime >= nextTopDrop) {
         spdlog::info("Adding top drop at time {:.3f}s", simTime);
         uint32_t centerX = world.data.width / 2;
-        Cell& cell =
-            world.at(centerX, 1); // 1 to be just below the top wall.
+        Cell& cell = world.at(centerX, 1); // 1 to be just below the top wall.
         cell.addDirt(1.0);
         topDropDone = true;
     }
@@ -161,7 +162,7 @@ void DefaultWorldEventGenerator::addParticles(
         spdlog::info("Adding initial throw at time {:.3f}s", simTime);
         uint32_t centerY = world.data.height / 2;
         Cell& cell = world.at(2, centerY); // Against the left wall.
-        cell.addDirtWithVelocity(1.0, Vector2d{5, -5});
+        cell.addDirtWithVelocity(1.0, Vector2d{ 5, -5 });
         initialThrowDone = true;
     }
 
@@ -171,7 +172,7 @@ void DefaultWorldEventGenerator::addParticles(
         spdlog::debug("Adding periodic throw at time {:.3f}s", simTime);
         uint32_t centerY = world.data.height / 2;
         Cell& cell = world.at(2, centerY); // Against the left wall.
-        cell.addDirtWithVelocity(1.0, Vector2d{10, -10});
+        cell.addDirtWithVelocity(1.0, Vector2d{ 10, -10 });
         // Schedule next throw.
         nextPeriodicThrow += period;
     }
@@ -180,9 +181,8 @@ void DefaultWorldEventGenerator::addParticles(
     if (simTime >= nextRightThrow) {
         spdlog::debug("Adding right periodic throw at time {:.3f}s", simTime);
         uint32_t centerY = world.data.height / 2 - 2;
-        Cell& cell =
-            world.at(world.data.width - 3, centerY); // Against the right wall.
-        cell.addDirtWithVelocity(1.0, Vector2d{-10, -10});
+        Cell& cell = world.at(world.data.width - 3, centerY); // Against the right wall.
+        cell.addDirtWithVelocity(1.0, Vector2d{ -10, -10 });
         // Schedule next throw.
         nextRightThrow += period;
     }
@@ -362,18 +362,19 @@ void ConfigurableWorldEventGenerator::addParticles(
     // Drop a dirt ball from the top (if enabled).
     if (topDropEnabled && !topDropDone && simTime >= nextTopDrop) {
         uint32_t centerX = world.data.width / 2;
-        uint32_t centerY = 3;  // A few cells below top wall.
-        double radius = world.data.width / 10.0;  // ~1/10 of world width.
+        uint32_t centerY = 3;                    // A few cells below top wall.
+        double radius = world.data.width / 10.0; // ~1/10 of world width.
 
         spdlog::info("Adding top drop ball at time {:.3f}s (radius={:.1f} cells)", simTime, radius);
 
         // Fill cells within circular radius.
         int32_t minX = std::max(1, static_cast<int32_t>(centerX - radius) - 1);
-        int32_t maxX = std::min(static_cast<int32_t>(world.data.width - 2),
-                                static_cast<int32_t>(centerX + radius) + 1);
+        int32_t maxX = std::min(
+            static_cast<int32_t>(world.data.width - 2), static_cast<int32_t>(centerX + radius) + 1);
         int32_t minY = std::max(1, static_cast<int32_t>(centerY - radius) - 1);
-        int32_t maxY = std::min(static_cast<int32_t>(world.data.height - 2),
-                                static_cast<int32_t>(centerY + radius) + 1);
+        int32_t maxY = std::min(
+            static_cast<int32_t>(world.data.height - 2),
+            static_cast<int32_t>(centerY + radius) + 1);
 
         for (int32_t y = minY; y <= maxY; ++y) {
             for (int32_t x = minX; x <= maxX; ++x) {
@@ -396,7 +397,7 @@ void ConfigurableWorldEventGenerator::addParticles(
         uint32_t centerY = world.data.height / 2;
         if (2 < world.data.width && centerY < world.data.height) {
             Cell& cell = world.at(2, centerY); // Against the left wall.
-            cell.addDirtWithVelocity(1.0, Vector2d{5, -5});
+            cell.addDirtWithVelocity(1.0, Vector2d{ 5, -5 });
         }
         initialThrowDone = true;
     }
@@ -408,7 +409,7 @@ void ConfigurableWorldEventGenerator::addParticles(
         uint32_t centerY = world.data.height / 2;
         if (2 < world.data.width && centerY < world.data.height) {
             Cell& cell = world.at(2, centerY); // Against the left wall.
-            cell.addDirtWithVelocity(1.0, Vector2d{10, -10});
+            cell.addDirtWithVelocity(1.0, Vector2d{ 10, -10 });
         }
         // Schedule next throw.
         nextPeriodicThrow += period;
@@ -421,9 +422,8 @@ void ConfigurableWorldEventGenerator::addParticles(
         int32_t centerYSigned = static_cast<int32_t>(world.data.height) / 2 - 2;
         if (rightX < world.data.width && centerYSigned >= 0) {
             uint32_t centerY = static_cast<uint32_t>(centerYSigned);
-            Cell& cell =
-                world.at(rightX, centerY); // Against the right wall.
-            cell.addDirtWithVelocity(1.0, Vector2d{-10, -10});
+            Cell& cell = world.at(rightX, centerY); // Against the right wall.
+            cell.addDirtWithVelocity(1.0, Vector2d{ -10, -10 });
         }
         // Schedule next throw.
         nextRightThrow += period;

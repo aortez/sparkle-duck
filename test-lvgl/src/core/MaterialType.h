@@ -1,8 +1,8 @@
 #pragma once
 
+#include <cstdint>
 #include <msgpack.hpp>
 #include <nlohmann/json.hpp>
-#include <cstdint>
 
 namespace DirtSim {
 

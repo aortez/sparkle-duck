@@ -15,7 +15,7 @@ namespace State {
  * @brief Paused state - simulation stopped but world still displayed.
  */
 struct Paused {
-    std::unique_ptr<WorldData> worldData;  // Preserve world data while paused.
+    std::unique_ptr<WorldData> worldData; // Preserve world data while paused.
 
     void onEnter(StateMachine& sm);
     void onExit(StateMachine& sm);

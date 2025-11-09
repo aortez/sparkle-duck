@@ -18,13 +18,13 @@ namespace State {
 struct SimRunning {
     std::unique_ptr<World> world;
     uint32_t stepCount = 0;
-    uint32_t targetSteps = 0;       // Steps to execute before pausing.
-    double stepDurationMs = 16.0;   // Physics timestep in milliseconds.
-    int frameLimit = -1;            // Optional FPS cap (-1 = unlimited).
+    uint32_t targetSteps = 0;     // Steps to execute before pausing.
+    double stepDurationMs = 16.0; // Physics timestep in milliseconds.
+    int frameLimit = -1;          // Optional FPS cap (-1 = unlimited).
 
     // FPS tracking.
     std::chrono::steady_clock::time_point lastFrameTime;
-    double actualFPS = 0.0;         // Measured FPS (steps/second).
+    double actualFPS = 0.0; // Measured FPS (steps/second).
 
     void onEnter(StateMachine& dsm);
     void onExit(StateMachine& dsm);

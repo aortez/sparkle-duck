@@ -30,13 +30,13 @@ struct SandboxConfig {
     using serialize = zpp::bits::members<5>;
 
     // Initial setup features.
-    bool quadrant_enabled = true;          // Lower-right quadrant filled with dirt.
+    bool quadrant_enabled = true; // Lower-right quadrant filled with dirt.
 
     // Continuous particle generation features.
-    bool water_column_enabled = true;      // Water column on left side (5 wide × 20 tall).
-    bool right_throw_enabled = true;       // Periodic dirt throw from right side.
-    bool top_drop_enabled = true;          // Periodic dirt drop from top.
-    double rain_rate = 0.0;                // Rain rate in drops per second (0 = disabled).
+    bool water_column_enabled = true; // Water column on left side (5 wide × 20 tall).
+    bool right_throw_enabled = true;  // Periodic dirt throw from right side.
+    bool top_drop_enabled = true;     // Periodic dirt drop from top.
+    double rain_rate = 0.0;           // Rain rate in drops per second (0 = disabled).
 };
 
 /**
@@ -45,9 +45,9 @@ struct SandboxConfig {
 struct DamBreakConfig {
     using serialize = zpp::bits::members<3>;
 
-    double dam_height = 10.0;              // Height of dam wall.
-    bool auto_release = false;             // Automatically break dam after delay.
-    double release_time = 2.0;             // Time in seconds before auto-release.
+    double dam_height = 10.0;  // Height of dam wall.
+    bool auto_release = false; // Automatically break dam after delay.
+    double release_time = 2.0; // Time in seconds before auto-release.
 };
 
 /**
@@ -56,8 +56,8 @@ struct DamBreakConfig {
 struct RainingConfig {
     using serialize = zpp::bits::members<2>;
 
-    double rain_rate = 5.0;                // Rain rate in drops per second.
-    bool puddle_floor = true;              // Add floor for puddles to form.
+    double rain_rate = 5.0;   // Rain rate in drops per second.
+    bool puddle_floor = true; // Add floor for puddles to form.
 };
 
 /**
@@ -66,9 +66,9 @@ struct RainingConfig {
 struct WaterEqualizationConfig {
     using serialize = zpp::bits::members<3>;
 
-    double left_height = 15.0;             // Water column height on left.
-    double right_height = 5.0;             // Water column height on right.
-    bool separator_enabled = true;         // Start with separator wall.
+    double left_height = 15.0;     // Water column height on left.
+    double right_height = 5.0;     // Water column height on right.
+    bool separator_enabled = true; // Start with separator wall.
 };
 
 /**
@@ -77,8 +77,8 @@ struct WaterEqualizationConfig {
 struct FallingDirtConfig {
     using serialize = zpp::bits::members<2>;
 
-    double drop_height = 20.0;             // Height from which dirt drops.
-    double drop_rate = 2.0;                // Drop rate in particles per second.
+    double drop_height = 20.0; // Height from which dirt drops.
+    double drop_rate = 2.0;    // Drop rate in particles per second.
 };
 
 /**
@@ -92,8 +92,7 @@ using ScenarioConfig = std::variant<
     DamBreakConfig,
     RainingConfig,
     WaterEqualizationConfig,
-    FallingDirtConfig
->;
+    FallingDirtConfig>;
 
 /**
  * @brief Get scenario ID string from config variant.
@@ -102,53 +101,65 @@ using ScenarioConfig = std::variant<
  */
 inline std::string getScenarioId(const ScenarioConfig& config)
 {
-    return std::visit([](auto&& c) -> std::string {
-        using T = std::decay_t<decltype(c)>;
-        if constexpr (std::is_same_v<T, EmptyConfig>) return "empty";
-        else if constexpr (std::is_same_v<T, SandboxConfig>) return "sandbox";
-        else if constexpr (std::is_same_v<T, DamBreakConfig>) return "dam_break";
-        else if constexpr (std::is_same_v<T, RainingConfig>) return "raining";
-        else if constexpr (std::is_same_v<T, WaterEqualizationConfig>) return "water_equalization";
-        else if constexpr (std::is_same_v<T, FallingDirtConfig>) return "falling_dirt";
-        else return "unknown";
-    }, config);
+    return std::visit(
+        [](auto&& c) -> std::string {
+            using T = std::decay_t<decltype(c)>;
+            if constexpr (std::is_same_v<T, EmptyConfig>)
+                return "empty";
+            else if constexpr (std::is_same_v<T, SandboxConfig>)
+                return "sandbox";
+            else if constexpr (std::is_same_v<T, DamBreakConfig>)
+                return "dam_break";
+            else if constexpr (std::is_same_v<T, RainingConfig>)
+                return "raining";
+            else if constexpr (std::is_same_v<T, WaterEqualizationConfig>)
+                return "water_equalization";
+            else if constexpr (std::is_same_v<T, FallingDirtConfig>)
+                return "falling_dirt";
+            else
+                return "unknown";
+        },
+        config);
 }
 
 } // namespace DirtSim
 
 /**
- * ADL (Argument-Dependent Lookup) functions for nlohmann::json conversion of ScenarioConfig variant.
+ * ADL (Argument-Dependent Lookup) functions for nlohmann::json conversion of ScenarioConfig
+ * variant.
  */
 namespace DirtSim {
 
 inline void to_json(nlohmann::json& j, const ScenarioConfig& config)
 {
-    std::visit([&j](auto&& c) {
-        using T = std::decay_t<decltype(c)>;
+    std::visit(
+        [&j](auto&& c) {
+            using T = std::decay_t<decltype(c)>;
 
-        // Use ReflectSerializer for automatic field serialization.
-        j = ReflectSerializer::to_json(c);
+            // Use ReflectSerializer for automatic field serialization.
+            j = ReflectSerializer::to_json(c);
 
-        // Add type discriminator for variant deserialization.
-        if constexpr (std::is_same_v<T, EmptyConfig>) {
-            j["type"] = "empty";
-        }
-        else if constexpr (std::is_same_v<T, SandboxConfig>) {
-            j["type"] = "sandbox";
-        }
-        else if constexpr (std::is_same_v<T, DamBreakConfig>) {
-            j["type"] = "dam_break";
-        }
-        else if constexpr (std::is_same_v<T, RainingConfig>) {
-            j["type"] = "raining";
-        }
-        else if constexpr (std::is_same_v<T, WaterEqualizationConfig>) {
-            j["type"] = "water_equalization";
-        }
-        else if constexpr (std::is_same_v<T, FallingDirtConfig>) {
-            j["type"] = "falling_dirt";
-        }
-    }, config);
+            // Add type discriminator for variant deserialization.
+            if constexpr (std::is_same_v<T, EmptyConfig>) {
+                j["type"] = "empty";
+            }
+            else if constexpr (std::is_same_v<T, SandboxConfig>) {
+                j["type"] = "sandbox";
+            }
+            else if constexpr (std::is_same_v<T, DamBreakConfig>) {
+                j["type"] = "dam_break";
+            }
+            else if constexpr (std::is_same_v<T, RainingConfig>) {
+                j["type"] = "raining";
+            }
+            else if constexpr (std::is_same_v<T, WaterEqualizationConfig>) {
+                j["type"] = "water_equalization";
+            }
+            else if constexpr (std::is_same_v<T, FallingDirtConfig>) {
+                j["type"] = "falling_dirt";
+            }
+        },
+        config);
 }
 
 inline void from_json(const nlohmann::json& j, ScenarioConfig& config)
@@ -180,4 +191,3 @@ inline void from_json(const nlohmann::json& j, ScenarioConfig& config)
 }
 
 } // namespace DirtSim
-

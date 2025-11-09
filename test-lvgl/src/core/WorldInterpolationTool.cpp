@@ -1,6 +1,5 @@
 #include "WorldInterpolationTool.h"
 #include "Cell.h"
-#include "Cell.h"
 #include "MaterialType.h"
 #include "World.h"
 
@@ -99,7 +98,7 @@ Vector2d WorldInterpolationTool::bilinearInterpolateVector2d(
     // Interpolate x and y components separately.
     double x = bilinearInterpolateDouble(val00.x, val10.x, val01.x, val11.x, fx, fy);
     double y = bilinearInterpolateDouble(val00.y, val10.y, val01.y, val11.y, fx, fy);
-    return Vector2d{x, y};
+    return Vector2d{ x, y };
 }
 
 double WorldInterpolationTool::bilinearInterpolateDouble(
@@ -115,12 +114,7 @@ double WorldInterpolationTool::bilinearInterpolateDouble(
 // =================================================================
 
 MaterialType WorldInterpolationTool::interpolateMaterialType(
-    MaterialType m00,
-    MaterialType m10,
-    MaterialType m01,
-    MaterialType m11,
-    double fx,
-    double fy)
+    MaterialType m00, MaterialType m10, MaterialType m01, MaterialType m11, double fx, double fy)
 {
     // Simple bilinear interpolation - choose based on position.
     // Pick the material from the nearest corner.
@@ -140,30 +134,24 @@ Cell WorldInterpolationTool::createInterpolatedCellB(
 {
     // Interpolate material type (choose dominant).
     MaterialType materialType = interpolateMaterialType(
-        cell00.material_type, cell10.material_type,
-        cell01.material_type, cell11.material_type, fx, fy);
+        cell00.material_type,
+        cell10.material_type,
+        cell01.material_type,
+        cell11.material_type,
+        fx,
+        fy);
 
     // Interpolate fill ratio.
     double fillRatio = bilinearInterpolateDouble(
-        cell00.fill_ratio,
-        cell10.fill_ratio,
-        cell01.fill_ratio,
-        cell11.fill_ratio,
-        fx,
-        fy);
+        cell00.fill_ratio, cell10.fill_ratio, cell01.fill_ratio, cell11.fill_ratio, fx, fy);
 
     // Interpolate center of mass.
-    Vector2d com = bilinearInterpolateVector2d(
-        cell00.com, cell10.com, cell01.com, cell11.com, fx, fy);
+    Vector2d com =
+        bilinearInterpolateVector2d(cell00.com, cell10.com, cell01.com, cell11.com, fx, fy);
 
     // Interpolate velocity.
     Vector2d velocity = bilinearInterpolateVector2d(
-        cell00.velocity,
-        cell10.velocity,
-        cell01.velocity,
-        cell11.velocity,
-        fx,
-        fy);
+        cell00.velocity, cell10.velocity, cell01.velocity, cell11.velocity, fx, fy);
 
     // Create the interpolated cell.
     Cell result(materialType, std::max(0.0, std::min(1.0, fillRatio)));

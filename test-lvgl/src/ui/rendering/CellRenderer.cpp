@@ -72,9 +72,8 @@ void CellRenderer::initialize(lv_obj_t* parent, uint32_t worldWidth, uint32_t wo
                 LV_COLOR_FORMAT_ARGB8888);
 
             // Position canvas to the right of control panel.
-            lv_obj_set_pos(cellCanvas.canvas,
-                          CONTROL_PANEL_WIDTH + x * Cell::WIDTH,
-                          y * Cell::HEIGHT);
+            lv_obj_set_pos(
+                cellCanvas.canvas, CONTROL_PANEL_WIDTH + x * Cell::WIDTH, y * Cell::HEIGHT);
         }
     }
 
@@ -83,7 +82,8 @@ void CellRenderer::initialize(lv_obj_t* parent, uint32_t worldWidth, uint32_t wo
 
 void CellRenderer::resize(lv_obj_t* parent, uint32_t worldWidth, uint32_t worldHeight)
 {
-    spdlog::info("CellRenderer: Resizing from {}x{} to {}x{}", width_, height_, worldWidth, worldHeight);
+    spdlog::info(
+        "CellRenderer: Resizing from {}x{} to {}x{}", width_, height_, worldWidth, worldHeight);
 
     cleanup();
     initialize(parent, worldWidth, worldHeight);
@@ -172,7 +172,8 @@ void CellRenderer::renderCellNormal(Cell& cell, CellCanvas& canvas, uint32_t /*x
     // Render material if not empty.
     if (!cell.isEmpty() && cell.material_type != MaterialType::AIR) {
         lv_color_t material_color = getMaterialColor(cell.material_type);
-        lv_opa_t opacity = static_cast<lv_opa_t>(cell.fill_ratio * static_cast<double>(LV_OPA_COVER));
+        lv_opa_t opacity =
+            static_cast<lv_opa_t>(cell.fill_ratio * static_cast<double>(LV_OPA_COVER));
 
         lv_draw_rect_dsc_t rect_dsc;
         lv_draw_rect_dsc_init(&rect_dsc);
@@ -213,7 +214,8 @@ void CellRenderer::renderCellDebug(Cell& cell, CellCanvas& canvas, uint32_t /*x*
 
     if (!cell.isEmpty() && cell.material_type != MaterialType::AIR) {
         lv_color_t material_color = getMaterialColor(cell.material_type);
-        lv_opa_t opacity = static_cast<lv_opa_t>(cell.fill_ratio * static_cast<double>(LV_OPA_COVER));
+        lv_opa_t opacity =
+            static_cast<lv_opa_t>(cell.fill_ratio * static_cast<double>(LV_OPA_COVER));
 
         // Base material rendering.
         lv_draw_rect_dsc_t rect_dsc;
@@ -242,12 +244,10 @@ void CellRenderer::renderCellDebug(Cell& cell, CellCanvas& canvas, uint32_t /*x*
         com_rect_dsc.border_width = 1;
         com_rect_dsc.radius = 0;
 
-        lv_area_t com_coords = {
-            com_pixel_x - half_size,
-            com_pixel_y - half_size,
-            com_pixel_x + half_size - 1,
-            com_pixel_y + half_size - 1
-        };
+        lv_area_t com_coords = { com_pixel_x - half_size,
+                                 com_pixel_y - half_size,
+                                 com_pixel_x + half_size - 1,
+                                 com_pixel_y + half_size - 1 };
         lv_draw_rect(&layer, &com_rect_dsc, &com_coords);
 
         // Velocity vector (green line).

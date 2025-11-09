@@ -18,22 +18,27 @@ struct CommandInfo {
 };
 
 static const std::vector<CommandInfo> AVAILABLE_COMMANDS = {
-    {"benchmark", "Run performance benchmark (launches server)", ""},
-    {"cell_get", "Get cell state at coordinates", R"({"x": 10, "y": 20})"},
-    {"cell_set", "Place material at coordinates", R"({"x": 50, "y": 50, "material": "WATER", "fill": 1.0})"},
-    {"diagram_get", "Get emoji visualization of world", ""},
-    {"exit", "Shutdown server", ""},
-    {"gravity_set", "Set gravity value", R"({"gravity": 15.0})"},
-    {"perf_stats_get", "Get server performance statistics", ""},
-    {"reset", "Reset simulation to initial state", ""},
-    {"scenario_config_set", "Update scenario configuration", R"({"config": {"type": "sandbox", "quadrant_enabled": true, "water_column_enabled": true, "right_throw_enabled": true, "top_drop_enabled": true, "rain_rate": 0.0}})"},
-    {"sim_run", "Start autonomous simulation", R"({"timestep": 0.016, "max_steps": 100})"},
-    {"state_get", "Get complete world state as JSON", ""},
-    {"timer_stats_get", "Get detailed physics timing breakdown", ""},
-    {"step_n", "Advance simulation N frames", R"({"frames": 1})"},
+    { "benchmark", "Run performance benchmark (launches server)", "" },
+    { "cell_get", "Get cell state at coordinates", R"({"x": 10, "y": 20})" },
+    { "cell_set",
+      "Place material at coordinates",
+      R"({"x": 50, "y": 50, "material": "WATER", "fill": 1.0})" },
+    { "diagram_get", "Get emoji visualization of world", "" },
+    { "exit", "Shutdown server", "" },
+    { "gravity_set", "Set gravity value", R"({"gravity": 15.0})" },
+    { "perf_stats_get", "Get server performance statistics", "" },
+    { "reset", "Reset simulation to initial state", "" },
+    { "scenario_config_set",
+      "Update scenario configuration",
+      R"({"config": {"type": "sandbox", "quadrant_enabled": true, "water_column_enabled": true, "right_throw_enabled": true, "top_drop_enabled": true, "rain_rate": 0.0}})" },
+    { "sim_run", "Start autonomous simulation", R"({"timestep": 0.016, "max_steps": 100})" },
+    { "state_get", "Get complete world state as JSON", "" },
+    { "timer_stats_get", "Get detailed physics timing breakdown", "" },
+    { "step_n", "Advance simulation N frames", R"({"frames": 1})" },
 };
 
-std::string getCommandListHelp() {
+std::string getCommandListHelp()
+{
     std::string help = "Available commands:\n";
     for (const auto& cmd : AVAILABLE_COMMANDS) {
         help += "  " + cmd.name + " - " + cmd.description + "\n";
@@ -41,12 +46,14 @@ std::string getCommandListHelp() {
     return help;
 }
 
-std::string getExamplesHelp() {
+std::string getExamplesHelp()
+{
     std::string examples = "Examples:\n";
     for (const auto& cmd : AVAILABLE_COMMANDS) {
         if (!cmd.example_params.empty()) {
             examples += "  cli ws://localhost:8080 " + cmd.name + " '" + cmd.example_params + "'\n";
-        } else {
+        }
+        else {
             examples += "  cli ws://localhost:8080 " + cmd.name + "\n";
         }
     }
@@ -90,16 +97,17 @@ int main(int argc, char** argv)
 
     // Benchmark-specific flags.
     args::ValueFlag<int> benchSteps(
-        parser, "steps", "Benchmark: number of simulation steps (default: 120)", {"steps"}, 120);
+        parser, "steps", "Benchmark: number of simulation steps (default: 120)", { "steps" }, 120);
     args::ValueFlag<std::string> benchScenario(
-        parser, "scenario", "Benchmark: scenario name (default: sandbox)", {"scenario"}, "sandbox");
-    args::Flag simulateUI(
-        parser, "simulate-ui", "Benchmark: simulate UI client behavior", {"simulate-ui"});
-
-    args::Positional<std::string> command(
         parser,
-        "command",
-        getCommandListHelp());
+        "scenario",
+        "Benchmark: scenario name (default: sandbox)",
+        { "scenario" },
+        "sandbox");
+    args::Flag simulateUI(
+        parser, "simulate-ui", "Benchmark: simulate UI client behavior", { "simulate-ui" });
+
+    args::Positional<std::string> command(parser, "command", getCommandListHelp());
     args::Positional<std::string> address(
         parser, "address", "WebSocket URL (e.g., ws://localhost:8080) - not needed for benchmark");
     args::Positional<std::string> params(
@@ -150,10 +158,7 @@ int main(int argc, char** argv)
         // Run benchmark.
         Client::BenchmarkRunner runner;
         auto results = runner.run(
-            serverPath.string(),
-            args::get(benchSteps),
-            args::get(benchScenario),
-            simulateUI);
+            serverPath.string(), args::get(benchSteps), args::get(benchScenario), simulateUI);
 
         // Output results as JSON using ReflectSerializer.
         nlohmann::json resultJson = ReflectSerializer::to_json(results);
@@ -177,8 +182,7 @@ int main(int argc, char** argv)
     int timeoutMs = timeout ? args::get(timeout) : 5000;
 
     // Build command JSON.
-    std::string commandJson = buildCommand(
-        args::get(command), params ? args::get(params) : "");
+    std::string commandJson = buildCommand(args::get(command), params ? args::get(params) : "");
     if (commandJson.empty()) {
         return 1;
     }

@@ -69,7 +69,8 @@ public:
      * Converts blocked kinetic energy into dynamic pressure at source cells.
      * Updates pressure gradients based on blocked transfer directions.
      */
-    void processBlockedTransfers(World& world, const std::vector<BlockedTransfer>& blocked_transfers);
+    void processBlockedTransfers(
+        World& world, const std::vector<BlockedTransfer>& blocked_transfers);
 
     /**
      * @brief Get material-specific hydrostatic pressure sensitivity.

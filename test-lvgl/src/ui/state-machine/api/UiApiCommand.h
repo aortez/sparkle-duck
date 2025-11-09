@@ -24,8 +24,7 @@ using UiApiCommand = std::variant<
     UiApi::MouseUp::Command,
     UiApi::Screenshot::Command,
     UiApi::SimPause::Command,
-    UiApi::SimRun::Command
->;
+    UiApi::SimRun::Command>;
 
 } // namespace Ui
 } // namespace DirtSim

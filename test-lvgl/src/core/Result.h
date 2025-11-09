@@ -17,17 +17,17 @@ public:
     Result(failureT error) : has_value_(false), error_(std::move(error)) {}
 
     // Static factory method to create a success result with default-constructed value
-    static Result<successT, failureT> okay() {
-        return Result<successT, failureT>(successT());
-    }
+    static Result<successT, failureT> okay() { return Result<successT, failureT>(successT()); }
 
     // Static factory method to create a success result with a specific value
-    static Result<successT, failureT> okay(successT value) {
+    static Result<successT, failureT> okay(successT value)
+    {
         return Result<successT, failureT>(std::move(value));
     }
 
     // Static factory method to create an error result with a specific error
-    static Result<successT, failureT> error(failureT error) {
+    static Result<successT, failureT> error(failureT error)
+    {
         return Result<successT, failureT>(std::move(error));
     }
 
@@ -38,13 +38,15 @@ public:
     bool isError() const { return !has_value_; }
 
     // Access the success value (asserts if not in success state)
-    successT value() const {
+    successT value() const
+    {
         assert(has_value_);
         return value_;
     }
 
     // Access the error value (asserts if not in error state)
-    failureT error() const {
+    failureT error() const
+    {
         assert(!has_value_);
         return error_;
     }
