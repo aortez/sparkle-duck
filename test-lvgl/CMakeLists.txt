@@ -157,8 +157,34 @@ add_library(lvgl_linux STATIC ${LV_LINUX_SRC} ${LV_LINUX_BACKEND_SRC})
 target_include_directories(lvgl_linux PRIVATE ${LV_LINUX_INC} ${PROJECT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/src ${PROJECT_SOURCE_DIR}/src/ui/lib ${zpp_bits_SOURCE_DIR})
 target_link_libraries(lvgl_linux PRIVATE msgpack-cxx nlohmann_json::nlohmann_json spdlog::spdlog)
 
-# Shared API library for command/response serialization (used by server, UI, and CLI).
-add_library(sparkle-duck-api STATIC
+# ============================================================================
+# Component Libraries
+# ============================================================================
+
+# Core library - minimal shared types for serialization.
+add_library(sparkle-duck-core STATIC
+    src/core/Cell.cpp
+    src/core/MaterialType.cpp
+    src/core/StateMachineBase.cpp
+    src/core/Timers.cpp
+    src/core/Vector2d.cpp
+    src/core/Vector2i.cpp
+)
+target_include_directories(sparkle-duck-core PUBLIC ${CMAKE_SOURCE_DIR}/src ${zpp_bits_SOURCE_DIR})
+target_link_libraries(sparkle-duck-core PUBLIC nlohmann_json::nlohmann_json msgpack-cxx spdlog::spdlog)
+
+# Server library - physics engine and server logic.
+add_library(sparkle-duck-server STATIC
+    # Server state machine.
+    src/server/StateMachine.cpp
+    src/server/EventProcessor.cpp
+    src/server/states/Idle.cpp
+    src/server/states/Shutdown.cpp
+    src/server/states/SimPaused.cpp
+    src/server/states/SimRunning.cpp
+    src/server/states/Startup.cpp
+
+    # Server API commands.
     src/server/api/CellGet.cpp
     src/server/api/CellSet.cpp
     src/server/api/DiagramGet.cpp
@@ -171,49 +197,22 @@ add_library(sparkle-duck-api STATIC
     src/server/api/SimRun.cpp
     src/server/api/StateGet.cpp
     src/server/api/StepN.cpp
-    src/server/api/TimerStatsGet.cpp
-)
-target_include_directories(sparkle-duck-api PUBLIC ${CMAKE_SOURCE_DIR}/src ${zpp_bits_SOURCE_DIR})
-target_link_libraries(sparkle-duck-api PUBLIC nlohmann_json::nlohmann_json msgpack-cxx)
 
-add_executable(sparkle-duck-ui
-    # UI application (client only).
-    src/ui/main.cpp
-    src/ui/state-machine/StateMachine.cpp
-    src/ui/state-machine/EventProcessor.cpp
-    src/ui/state-machine/api/DrawDebugToggle.cpp
-    src/ui/state-machine/api/Exit.cpp
-    src/ui/state-machine/api/MouseDown.cpp
-    src/ui/state-machine/api/MouseMove.cpp
-    src/ui/state-machine/api/MouseUp.cpp
-    src/ui/state-machine/api/Screenshot.cpp
-    src/ui/state-machine/api/SimPause.cpp
-    src/ui/state-machine/api/SimRun.cpp
-    src/ui/state-machine/network/CommandDeserializerJson.cpp
-    src/ui/state-machine/network/MessageParser.cpp
-    src/ui/state-machine/network/WebSocketClient.cpp
-    src/ui/state-machine/network/WebSocketServer.cpp
-    src/ui/state-machine/states/Disconnected.cpp
-    src/ui/state-machine/states/Paused.cpp
-    src/ui/state-machine/states/Shutdown.cpp
-    src/ui/state-machine/states/SimRunning.cpp
-    src/ui/state-machine/states/StartMenu.cpp
-    src/ui/state-machine/states/Startup.cpp
-    src/ui/UiComponentManager.cpp
-    src/ui/rendering/CellRenderer.cpp
-    src/ui/controls/ControlPanel.cpp
-    src/ui/ui_builders/LVGLBuilder.cpp
+    # Server network.
+    src/server/network/CommandDeserializerJson.cpp
+    src/server/network/WebSocketServer.cpp
 
-    # Server API (used by UI for command serialization).
-    src/server/api/SeedAdd.cpp
+    # Scenarios.
+    src/server/scenarios/ScenarioRegistry.cpp
+    src/server/scenarios/ScenarioWorldEventGenerator.cpp
+    src/server/scenarios/scenarios/DamBreakScenario.cpp
+    src/server/scenarios/scenarios/EmptyScenario.cpp
+    src/server/scenarios/scenarios/FallingDirtScenario.cpp
+    src/server/scenarios/scenarios/RainingScenario.cpp
+    src/server/scenarios/scenarios/SandboxScenario.cpp
+    src/server/scenarios/scenarios/WaterEqualizationScenario.cpp
 
-    # Core components.
-    src/core/Cell.cpp
-    src/core/MaterialType.cpp
-    src/core/StateMachineBase.cpp
-    src/core/Timers.cpp
-    src/core/Vector2d.cpp
-    src/core/Vector2i.cpp
+    # Physics engine.
     src/core/World.cpp
     src/core/WorldAdhesionCalculator.cpp
     src/core/WorldAirResistanceCalculator.cpp
@@ -226,11 +225,60 @@ add_executable(sparkle-duck-ui
     src/core/WorldInterpolationTool.cpp
     src/core/WorldPressureCalculator.cpp
     src/core/WorldSupportCalculator.cpp
+)
+target_include_directories(sparkle-duck-server PUBLIC ${CMAKE_SOURCE_DIR}/src ${zpp_bits_SOURCE_DIR})
+target_link_libraries(sparkle-duck-server PUBLIC sparkle-duck-core datachannel-static)
 
-    # LVGL backend.
-    ${LV_LINUX_SRC}
-    ${LV_LINUX_BACKEND_SRC})
-target_link_libraries(sparkle-duck-ui lvgl_linux lvgl lvgl::thorvg msgpack-cxx nlohmann_json::nlohmann_json spdlog::spdlog datachannel-static m pthread ${PKG_CONFIG_LIB} ${SDL2_LIBRARIES} ${SDL2_IMAGE_LIBRARIES})
+# UI library - UI components and client logic.
+add_library(sparkle-duck-ui-lib STATIC
+    # UI state machine.
+    src/ui/state-machine/StateMachine.cpp
+    src/ui/state-machine/EventProcessor.cpp
+    src/ui/state-machine/states/Disconnected.cpp
+    src/ui/state-machine/states/Paused.cpp
+    src/ui/state-machine/states/Shutdown.cpp
+    src/ui/state-machine/states/SimRunning.cpp
+    src/ui/state-machine/states/StartMenu.cpp
+    src/ui/state-machine/states/Startup.cpp
+
+    # UI API commands.
+    src/ui/state-machine/api/DrawDebugToggle.cpp
+    src/ui/state-machine/api/Exit.cpp
+    src/ui/state-machine/api/MouseDown.cpp
+    src/ui/state-machine/api/MouseMove.cpp
+    src/ui/state-machine/api/MouseUp.cpp
+    src/ui/state-machine/api/Screenshot.cpp
+    src/ui/state-machine/api/SimPause.cpp
+    src/ui/state-machine/api/SimRun.cpp
+
+    # UI network.
+    src/ui/state-machine/network/CommandDeserializerJson.cpp
+    src/ui/state-machine/network/MessageParser.cpp
+    src/ui/state-machine/network/WebSocketClient.cpp
+    src/ui/state-machine/network/WebSocketServer.cpp
+
+    # UI components.
+    src/ui/UiComponentManager.cpp
+    src/ui/rendering/CellRenderer.cpp
+    src/ui/controls/ControlPanel.cpp
+    src/ui/ui_builders/LVGLBuilder.cpp
+)
+target_include_directories(sparkle-duck-ui-lib PUBLIC ${CMAKE_SOURCE_DIR}/src ${zpp_bits_SOURCE_DIR})
+target_link_libraries(sparkle-duck-ui-lib PUBLIC sparkle-duck-core sparkle-duck-server lvgl_linux lvgl ${PKG_CONFIG_LIB})
+
+add_executable(sparkle-duck-ui
+    src/ui/main.cpp
+)
+target_link_libraries(sparkle-duck-ui PRIVATE
+    sparkle-duck-ui-lib
+    lvgl::thorvg
+    ${PKG_CONFIG_LIB}
+    ${SDL2_LIBRARIES}
+    ${SDL2_IMAGE_LIBRARIES}
+    datachannel-static
+    m
+    pthread
+)
 target_include_directories(sparkle-duck-ui PRIVATE ${CMAKE_SOURCE_DIR}/src ${SDL2_INCLUDE_DIRS} ${SDL2_IMAGE_INCLUDE_DIRS} ${CMAKE_SOURCE_DIR}/external/args ${zpp_bits_SOURCE_DIR})
 
 # Enable warnings and treat them as errors for UI executable.
@@ -250,162 +298,53 @@ install(TARGETS lvgl_linux
 add_custom_target (run COMMAND ${EXECUTABLE_OUTPUT_PATH}/sparkle-duck-ui DEPENDS sparkle-duck-ui)
 
 # Headless WebSocket server executable.
-add_executable(sparkle-duck-server
-    # Server application.
+add_executable(sparkle-duck-server-exe
     src/server/main.cpp
-    src/server/StateMachine.cpp
-    src/server/EventProcessor.cpp
-    src/server/states/Startup.cpp
-    src/server/states/Idle.cpp
-    src/server/states/SimRunning.cpp
-    src/server/states/SimPaused.cpp
-    src/server/states/Shutdown.cpp
-    src/server/scenarios/ScenarioWorldEventGenerator.cpp
-    src/server/scenarios/ScenarioRegistry.cpp
-    src/server/scenarios/scenarios/EmptyScenario.cpp
-    src/server/scenarios/scenarios/SandboxScenario.cpp
-    src/server/scenarios/scenarios/RainingScenario.cpp
-    src/server/scenarios/scenarios/DamBreakScenario.cpp
-    src/server/scenarios/scenarios/WaterEqualizationScenario.cpp
-    src/server/scenarios/scenarios/FallingDirtScenario.cpp
-    src/server/network/CommandDeserializerJson.cpp
-    src/server/network/WebSocketServer.cpp
-    src/server/api/CellGet.cpp
-    src/server/api/CellSet.cpp
-    src/server/api/DiagramGet.cpp
-    src/server/api/Exit.cpp
-    src/server/api/GravitySet.cpp
-    src/server/api/PerfStatsGet.cpp
-    src/server/api/Reset.cpp
-    src/server/api/ScenarioConfigSet.cpp
-    src/server/api/SeedAdd.cpp
-    src/server/api/SimRun.cpp
-    src/server/api/StateGet.cpp
-    src/server/api/StepN.cpp
-
-    # Core components.
-    src/core/Cell.cpp
-    src/core/Vector2d.cpp
-    src/core/Vector2i.cpp
-    src/core/World.cpp
-    src/core/Timers.cpp
-    src/core/WorldEventGenerator.cpp
-    src/core/MaterialType.cpp
-    src/core/WorldCalculatorBase.cpp
-    src/core/WorldCohesionCalculator.cpp
-    src/core/WorldSupportCalculator.cpp
-    src/core/WorldPressureCalculator.cpp
-    src/core/WorldAirResistanceCalculator.cpp
-    src/core/WorldCollisionCalculator.cpp
-    src/core/WorldAdhesionCalculator.cpp
-    src/core/WorldFrictionCalculator.cpp
-    src/core/WorldInterpolationTool.cpp
-    src/core/WorldDiagramGeneratorEmoji.cpp
-    src/core/StateMachineBase.cpp)
-target_link_libraries(sparkle-duck-server nlohmann_json::nlohmann_json msgpack-cxx spdlog::spdlog datachannel-static m pthread)
-target_include_directories(sparkle-duck-server PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/external/args ${zpp_bits_SOURCE_DIR})
+)
+target_link_libraries(sparkle-duck-server-exe PRIVATE sparkle-duck-server m pthread)
+target_include_directories(sparkle-duck-server-exe PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/external/args ${zpp_bits_SOURCE_DIR})
 
 # Enable warnings and treat them as errors for server executable.
-target_compile_options(sparkle-duck-server PRIVATE -Wall -Wextra -Werror)
+target_compile_options(sparkle-duck-server-exe PRIVATE -Wall -Wextra -Werror)
 
-add_custom_target (run-server COMMAND ${EXECUTABLE_OUTPUT_PATH}/sparkle-duck-server DEPENDS sparkle-duck-server)
+# Create sparkle-duck-server symlink for backwards compatibility.
+set_target_properties(sparkle-duck-server-exe PROPERTIES OUTPUT_NAME sparkle-duck-server)
+
+add_custom_target (run-server COMMAND ${EXECUTABLE_OUTPUT_PATH}/sparkle-duck-server DEPENDS sparkle-duck-server-exe)
 
 # CLI client executable.
 add_executable(cli
-    # CLI application.
     src/cli/main.cpp
     src/cli/BenchmarkRunner.cpp
     src/cli/SubprocessManager.cpp
     src/cli/WebSocketClient.cpp
-
-    # Core dependencies (for WorldData deserialization).
-    src/core/Cell.cpp
-    src/core/MaterialType.cpp
-    src/core/Vector2d.cpp)
-target_link_libraries(cli nlohmann_json::nlohmann_json msgpack-cxx spdlog::spdlog datachannel-static pthread)
+)
+target_link_libraries(cli PRIVATE sparkle-duck-core datachannel-static pthread)
 target_include_directories(cli PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/external/args ${zpp_bits_SOURCE_DIR})
 
 # Enable warnings and treat them as errors for CLI executable.
 target_compile_options(cli PRIVATE -Wall -Wextra -Werror)
 
-# Add test executable.
-# Note: Removed obsolete physics, UI, and state machine tests.
-# Long-term TODO: Re-implement physics tests for new architecture.
+# Test executable.
 add_executable(sparkle-duck-tests
-    # Test files.
     src/server/tests/StateIdle_test.cpp
     src/server/tests/StateSimRunning_test.cpp
     src/tests/ResultTest.cpp
     src/tests/TimersTest.cpp
     src/tests/Vector2d_test.cpp
     src/tests/Vector2i_test.cpp
-
-    # Core components.
-    src/core/Cell.cpp
-    src/core/Vector2d.cpp
-    src/core/Vector2i.cpp
-    src/core/World.cpp
-    src/core/Timers.cpp
-    src/core/WorldEventGenerator.cpp
-    src/core/MaterialType.cpp
-    src/core/WorldCalculatorBase.cpp
-    src/core/WorldCohesionCalculator.cpp
-    src/core/WorldSupportCalculator.cpp
-    src/core/WorldPressureCalculator.cpp
-    src/core/WorldAirResistanceCalculator.cpp
-    src/core/WorldCollisionCalculator.cpp
-    src/core/WorldAdhesionCalculator.cpp
-    src/core/WorldFrictionCalculator.cpp
-    src/core/WorldDiagramGeneratorEmoji.cpp
-    src/core/WorldInterpolationTool.cpp
-    src/core/StateMachineBase.cpp
-
-    # Server components (for test infrastructure).
-    src/server/StateMachine.cpp
-    src/server/EventProcessor.cpp
-    src/server/api/CellGet.cpp
-    src/server/api/CellSet.cpp
-    src/server/api/DiagramGet.cpp
-    src/server/api/Exit.cpp
-    src/server/api/GravitySet.cpp
-    src/server/api/PerfStatsGet.cpp
-    src/server/api/Reset.cpp
-    src/server/api/ScenarioConfigSet.cpp
-    src/server/api/SeedAdd.cpp
-    src/server/api/SimRun.cpp
-    src/server/api/StateGet.cpp
-    src/server/api/StepN.cpp
-    src/server/network/CommandDeserializerJson.cpp
-    src/server/network/WebSocketServer.cpp
-    src/server/scenarios/ScenarioRegistry.cpp
-    src/server/scenarios/ScenarioWorldEventGenerator.cpp
-    src/server/scenarios/scenarios/DamBreakScenario.cpp
-    src/server/scenarios/scenarios/EmptyScenario.cpp
-    src/server/scenarios/scenarios/FallingDirtScenario.cpp
-    src/server/scenarios/scenarios/RainingScenario.cpp
-    src/server/scenarios/scenarios/SandboxScenario.cpp
-    src/server/scenarios/scenarios/WaterEqualizationScenario.cpp
-    src/server/states/Idle.cpp
-    src/server/states/Shutdown.cpp
-    src/server/states/SimPaused.cpp
-    src/server/states/SimRunning.cpp
-    src/server/states/Startup.cpp
-
 )
 target_link_libraries(sparkle-duck-tests
     PRIVATE
+    sparkle-duck-server
     GTest::gtest_main
     GTest::gmock_main
-    msgpack-cxx
-    nlohmann_json::nlohmann_json
-    spdlog::spdlog
-    datachannel-static
     m
     pthread
 )
 target_include_directories(sparkle-duck-tests PRIVATE ${CMAKE_SOURCE_DIR}/src ${PKG_CONFIG_INC})
 
-# Enable warnings and treat them as errors for test executable
+# Enable warnings and treat them as errors for test executable.
 target_compile_options(sparkle-duck-tests PRIVATE -Wall -Wextra -Werror)
 
 # Enable testing

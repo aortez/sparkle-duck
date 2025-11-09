@@ -388,7 +388,7 @@ State::Any SimRunning::onEvent(const Api::SeedAdd::Cwc& cwc, StateMachine& /*dsm
     spdlog::info("SeedAdd: Adding SEED at ({}, {})", cwc.command.x, cwc.command.y);
     world->addMaterialAtCell(cwc.command.x, cwc.command.y, MaterialType::SEED, 1.0);
 
-    cwc.sendResponse(Response::ok(std::monostate{}));
+    cwc.sendResponse(Response::okay(std::monostate{}));
     return std::move(*this);
 }
 

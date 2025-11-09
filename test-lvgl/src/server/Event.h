@@ -8,6 +8,7 @@
 #include "api/PerfStatsGet.h"
 #include "api/Reset.h"
 #include "api/ScenarioConfigSet.h"
+#include "api/SeedAdd.h"
 #include "api/SimRun.h"
 #include "api/StateGet.h"
 #include "api/StepN.h"
@@ -605,6 +606,7 @@ using Event = std::variant<
     DirtSim::Api::PerfStatsGet::Cwc,
     DirtSim::Api::Reset::Cwc,
     DirtSim::Api::ScenarioConfigSet::Cwc,
+    DirtSim::Api::SeedAdd::Cwc,
     DirtSim::Api::SimRun::Cwc,
     DirtSim::Api::StateGet::Cwc,
     DirtSim::Api::StepN::Cwc,
