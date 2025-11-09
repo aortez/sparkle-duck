@@ -20,12 +20,6 @@ jobs:
       with:
         submodules: recursive
 
-    - name: Build debug version
-      run: make debug
-
-    - name: Run unit tests
-      run: ./build/bin/sparkle-duck-tests
-
     - name: Check code formatting
       run: |
         # Check if any files would change after formatting.
@@ -35,3 +29,9 @@ jobs:
           git diff
           exit 1
         fi
+
+    - name: Build debug version
+      run: make -j$(nproc) debug
+
+    - name: Run unit tests
+      run: ./build/bin/sparkle-duck-tests
