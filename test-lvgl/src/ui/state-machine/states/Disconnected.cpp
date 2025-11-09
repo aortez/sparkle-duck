@@ -50,6 +50,9 @@ State::Any Disconnected::onEvent(const ConnectToServerCommand& cmd, StateMachine
     });
 
     wsClient->onMessage([&sm](const std::string& message) {
+        // Capture callback fire time immediately for latency tracking.
+        auto callbackFiredTime = std::chrono::steady_clock::now();
+
         spdlog::debug("UI: Received message from DSSM (length: {})", message.length());
 
         // Time message parsing (JSON parse + WorldData deserialization).
@@ -59,6 +62,18 @@ State::Any Disconnected::onEvent(const ConnectToServerCommand& cmd, StateMachine
         timers.stopTimer("parse_message");
 
         if (event) {
+            // Track when we finish client-side processing.
+            auto processingCompleteTime = std::chrono::steady_clock::now();
+            double callbackToQueueMs = std::chrono::duration<double, std::milli>(
+                processingCompleteTime - callbackFiredTime).count();
+
+            // Track total client-side processing time.
+            timers.startTimer("client_total_processing");
+            timers.stopTimer("client_total_processing");
+
+            // Log for debugging (will be noisy, but we can track patterns).
+            spdlog::trace("UI: Message processed in {:.2f}ms (callback → queue)", callbackToQueueMs);
+
             sm.queueEvent(*event);
         }
     });

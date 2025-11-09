@@ -86,21 +86,21 @@ State::Any SimRunning::onEvent(const AdvanceSimulationCommand& /*cmd*/, StateMac
                         timers.getAccumulatedTime("cache_update") / timers.getCallCount("cache_update") : 0.0,
                     timers.getCallCount("cache_update"),
                     timers.getAccumulatedTime("cache_update"));
-                spdlog::info("  Serialization: {:.1f}ms avg ({} calls, {:.1f}ms total)",
+                spdlog::info("  zpp_bits pack: {:.2f}ms avg ({} calls, {:.1f}ms total)",
                     timers.getCallCount("serialize_worlddata") > 0 ?
                         timers.getAccumulatedTime("serialize_worlddata") / timers.getCallCount("serialize_worlddata") : 0.0,
                     timers.getCallCount("serialize_worlddata"),
                     timers.getAccumulatedTime("serialize_worlddata"));
-                spdlog::info("  JSON dump: {:.1f}ms avg ({} calls, {:.1f}ms total)",
-                    timers.getCallCount("json_dump") > 0 ?
-                        timers.getAccumulatedTime("json_dump") / timers.getCallCount("json_dump") : 0.0,
-                    timers.getCallCount("json_dump"),
-                    timers.getAccumulatedTime("json_dump"));
-                spdlog::info("  Network send: {:.1f}ms avg ({} calls, {:.1f}ms total)",
+                spdlog::info("  Network send: {:.2f}ms avg ({} calls, {:.1f}ms total)",
                     timers.getCallCount("network_send") > 0 ?
                         timers.getAccumulatedTime("network_send") / timers.getCallCount("network_send") : 0.0,
                     timers.getCallCount("network_send"),
                     timers.getAccumulatedTime("network_send"));
+                spdlog::info("  state_get immediate (total): {:.2f}ms avg ({} calls, {:.1f}ms total)",
+                    timers.getCallCount("state_get_immediate_total") > 0 ?
+                        timers.getAccumulatedTime("state_get_immediate_total") / timers.getCallCount("state_get_immediate_total") : 0.0,
+                    timers.getCallCount("state_get_immediate_total"),
+                    timers.getAccumulatedTime("state_get_immediate_total"));
             }
         }
     }
@@ -111,6 +111,12 @@ State::Any SimRunning::onEvent(const AdvanceSimulationCommand& /*cmd*/, StateMac
     world->advanceTime(0.016);
     dsm.getTimers().stopTimer("physics_step");
     stepCount++;
+
+    // Check if we've reached target steps.
+    if (targetSteps > 0 && stepCount >= targetSteps) {
+        spdlog::info("SimRunning: Reached target steps ({}/{}), transitioning to Paused", stepCount, targetSteps);
+        return SimPaused{std::move(*this)};
+    }
 
     // Update StateMachine's cached WorldData for fast state_get responses (cheap ~1ms).
     dsm.getTimers().startTimer("cache_update");
@@ -365,6 +371,9 @@ State::Any SimRunning::onEvent(const Api::StateGet::Cwc& cwc, StateMachine& dsm)
 {
     using Response = Api::StateGet::Response;
 
+    // Track total server-side processing time.
+    auto requestStart = std::chrono::steady_clock::now();
+
     if (!world) {
         cwc.sendResponse(Response::error(ApiError("No world available")));
         return std::move(*this);
@@ -382,6 +391,12 @@ State::Any SimRunning::onEvent(const Api::StateGet::Cwc& cwc, StateMachine& dsm)
         responseData.worldData = world->data;
         cwc.sendResponse(Response::okay(std::move(responseData)));
     }
+
+    // Log server processing time for state_get requests (includes serialization + send).
+    auto requestEnd = std::chrono::steady_clock::now();
+    double processingMs = std::chrono::duration<double, std::milli>(requestEnd - requestStart).count();
+    spdlog::trace("SimRunning: state_get processed in {:.2f}ms (server-side total)", processingMs);
+
     return std::move(*this);
 }
 

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <msgpack.hpp>
 #include <nlohmann/json.hpp>
 #include <cstdint>
 
@@ -87,3 +88,5 @@ void to_json(nlohmann::json& j, MaterialType type);
 void from_json(const nlohmann::json& j, MaterialType& type);
 
 } // namespace DirtSim
+
+MSGPACK_ADD_ENUM(DirtSim::MaterialType);

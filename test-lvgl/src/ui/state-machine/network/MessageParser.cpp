@@ -60,9 +60,6 @@ std::optional<Event> MessageParser::parseWorldDataResponse(const nlohmann::json&
         // Automatic deserialization via ADL functions!
         WorldData worldData = value.get<WorldData>();
 
-        spdlog::info("MessageParser: Parsed WorldData ({}x{}, step {}) - WORLD UPDATE",
-                     worldData.width, worldData.height, worldData.timestep);
-
         // Create UiUpdateEvent with the received data.
         uint64_t stepCount = worldData.timestep;  // Save before move.
         UiUpdateEvent evt{

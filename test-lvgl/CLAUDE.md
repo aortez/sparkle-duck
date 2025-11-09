@@ -140,6 +140,45 @@ Uses GoogleTest for unit and state machine testing.
 - WebSocket API enables external test drivers (Python, bash scripts, etc.)
 - Server and UI can be tested independently
 
+## Performance Testing
+
+### Benchmark Tool
+The CLI tool includes a benchmark mode for measuring physics performance:
+
+```bash
+# Basic benchmark (headless server, 120 steps)
+./build/bin/cli benchmark --steps 120
+
+# Simulate UI client load (realistic with frame_ready responses)
+./build/bin/cli benchmark --steps 120 --simulate-ui
+
+# Different scenario
+./build/bin/cli benchmark --scenario dam_break --steps 120
+```
+
+The benchmark auto-launches the server, runs the simulation, collects performance metrics from both server and client, then outputs JSON results including FPS, physics timing, serialization timing, and round-trip latencies.
+
+## Coding Practices
+
+### Serialization
+
+**Use ReflectSerializer for automatic JSON conversion:**
+```cpp
+// Define aggregate struct
+struct MyData {
+    int x = 0;
+    double y = 0.0;
+    std::string name;
+};
+
+// Automatic serialization (zero boilerplate!)
+MyData data{42, 3.14, "test"};
+nlohmann::json j = ReflectSerializer::to_json(data);
+MyData data2 = ReflectSerializer::from_json<MyData>(j);
+```
+
+ReflectSerializer uses qlibs/reflect for compile-time introspection. It works automatically with any aggregate type - no manual field listing needed. See existing usage in Cell, WorldData, Vector2d, and API command/response types.
+
 ## Development Environment
 
 ### Display Backends
@@ -237,9 +276,8 @@ Can be found here:
 - Fix AdvanceSimulation targetSteps enforcement (doesn't pause at limit)
 - Performance testing
 - Optimization
-- Python/bash integration test scripts
+- Python/bash/cli integration test scripts
 - More state machine tests (StartMenu, Paused, etc.)
-- More state machine events (StartMenu, Paused, etc.)
 - WebRTC video streaming for remote UI
 
 ## Misc TODO

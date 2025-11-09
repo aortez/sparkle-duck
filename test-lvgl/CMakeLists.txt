@@ -29,6 +29,28 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(nlohmann_json)
 
+# Add msgpack-c for binary serialization.
+FetchContent_Declare(
+    msgpack
+    GIT_REPOSITORY https://github.com/msgpack/msgpack-c.git
+    GIT_TAG cpp-6.1.0
+)
+set(MSGPACK_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(MSGPACK_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(MSGPACK_USE_BOOST ON CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(msgpack)
+
+# Find Boost for msgpack variant support.
+find_package(Boost REQUIRED)
+
+# Add zpp_bits for high-performance binary serialization.
+FetchContent_Declare(
+    zpp_bits
+    GIT_REPOSITORY https://github.com/eyalz800/zpp_bits.git
+    GIT_TAG v4.4.25
+)
+FetchContent_MakeAvailable(zpp_bits)
+
 # qlibs/reflect is header-only, downloaded to src/core/reflect
 
 set(CONF_PATH "${PROJECT_SOURCE_DIR}/lv_conf.h")
@@ -133,7 +155,7 @@ add_subdirectory(./external/args ${CMAKE_BINARY_DIR}/args)
 
 add_library(lvgl_linux STATIC ${LV_LINUX_SRC} ${LV_LINUX_BACKEND_SRC})
 target_include_directories(lvgl_linux PRIVATE ${LV_LINUX_INC} ${PROJECT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/src ${PROJECT_SOURCE_DIR}/src/ui/lib)
-target_link_libraries(lvgl_linux PRIVATE nlohmann_json::nlohmann_json spdlog::spdlog)
+target_link_libraries(lvgl_linux PRIVATE msgpack-cxx nlohmann_json::nlohmann_json spdlog::spdlog)
 
 add_executable(sparkle-duck-ui
     # UI application (client only).
@@ -186,8 +208,8 @@ add_executable(sparkle-duck-ui
     # LVGL backend.
     ${LV_LINUX_SRC}
     ${LV_LINUX_BACKEND_SRC})
-target_link_libraries(sparkle-duck-ui lvgl_linux lvgl lvgl::thorvg nlohmann_json::nlohmann_json spdlog::spdlog datachannel-static m pthread ${PKG_CONFIG_LIB} ${SDL2_LIBRARIES} ${SDL2_IMAGE_LIBRARIES})
-target_include_directories(sparkle-duck-ui PRIVATE ${CMAKE_SOURCE_DIR}/src ${SDL2_INCLUDE_DIRS} ${SDL2_IMAGE_INCLUDE_DIRS} ${CMAKE_SOURCE_DIR}/external/args)
+target_link_libraries(sparkle-duck-ui lvgl_linux lvgl lvgl::thorvg msgpack-cxx nlohmann_json::nlohmann_json spdlog::spdlog datachannel-static m pthread ${PKG_CONFIG_LIB} ${SDL2_LIBRARIES} ${SDL2_IMAGE_LIBRARIES})
+target_include_directories(sparkle-duck-ui PRIVATE ${CMAKE_SOURCE_DIR}/src ${SDL2_INCLUDE_DIRS} ${SDL2_IMAGE_INCLUDE_DIRS} ${CMAKE_SOURCE_DIR}/external/args ${zpp_bits_SOURCE_DIR})
 
 # Enable warnings and treat them as errors for UI executable.
 target_compile_options(sparkle-duck-ui PRIVATE -Wall -Wextra -Werror)
@@ -257,8 +279,8 @@ add_executable(sparkle-duck-server
     src/core/WorldInterpolationTool.cpp
     src/core/WorldDiagramGeneratorEmoji.cpp
     src/core/StateMachineBase.cpp)
-target_link_libraries(sparkle-duck-server nlohmann_json::nlohmann_json spdlog::spdlog datachannel-static m pthread)
-target_include_directories(sparkle-duck-server PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/external/args)
+target_link_libraries(sparkle-duck-server nlohmann_json::nlohmann_json msgpack-cxx spdlog::spdlog datachannel-static m pthread)
+target_include_directories(sparkle-duck-server PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/external/args ${zpp_bits_SOURCE_DIR})
 
 # Enable warnings and treat them as errors for server executable.
 target_compile_options(sparkle-duck-server PRIVATE -Wall -Wextra -Werror)
@@ -277,8 +299,8 @@ add_executable(cli
     src/core/Cell.cpp
     src/core/MaterialType.cpp
     src/core/Vector2d.cpp)
-target_link_libraries(cli nlohmann_json::nlohmann_json spdlog::spdlog datachannel-static pthread)
-target_include_directories(cli PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/external/args)
+target_link_libraries(cli nlohmann_json::nlohmann_json msgpack-cxx spdlog::spdlog datachannel-static pthread)
+target_include_directories(cli PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/external/args ${zpp_bits_SOURCE_DIR})
 
 # Enable warnings and treat them as errors for CLI executable.
 target_compile_options(cli PRIVATE -Wall -Wextra -Werror)
@@ -350,6 +372,7 @@ target_link_libraries(sparkle-duck-tests
     PRIVATE
     GTest::gtest_main
     GTest::gmock_main
+    msgpack-cxx
     nlohmann_json::nlohmann_json
     spdlog::spdlog
     datachannel-static

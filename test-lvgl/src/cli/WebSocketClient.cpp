@@ -1,5 +1,9 @@
 #include "WebSocketClient.h"
+#include "core/MsgPackAdapter.h"
+#include "core/ReflectSerializer.h"
+#include "core/WorldData.h"
 #include <spdlog/spdlog.h>
+#include <zpp_bits.h>
 #include <chrono>
 #include <thread>
 
@@ -27,21 +31,44 @@ bool WebSocketClient::connect(const std::string& url)
 
         ws_ = std::make_shared<rtc::WebSocket>(config);
 
-        // Set up message handler (supports both blocking and async modes).
+        // Set up message handler (supports both blocking and async modes, JSON and CBOR).
         ws_->onMessage([this](std::variant<rtc::binary, rtc::string> data) {
+            std::string message;
+
             if (std::holds_alternative<rtc::string>(data)) {
-                std::string message = std::get<rtc::string>(data);
+                // JSON string message.
+                message = std::get<rtc::string>(data);
+                spdlog::debug("WebSocketClient: Received JSON response ({} bytes)", message.size());
+            }
+            else if (std::holds_alternative<rtc::binary>(data)) {
+                // zpp_bits binary message - unpack WorldData directly.
+                const auto& binaryData = std::get<rtc::binary>(data);
+                spdlog::debug("WebSocketClient: Received binary response ({} bytes)", binaryData.size());
 
-                // For blocking mode (sendAndReceive).
-                response_ = message;
-                responseReceived_ = true;
+                try {
+                    // Unpack binary to WorldData using zpp_bits.
+                    WorldData worldData;
+                    zpp::bits::in in(binaryData);
+                    in(worldData).or_throw();
 
-                // For async mode (callbacks).
-                if (messageCallback_) {
-                    messageCallback_(message);
+                    // Convert to JSON string for MessageParser compatibility.
+                    nlohmann::json doc;
+                    doc["value"] = ReflectSerializer::to_json(worldData);
+                    message = doc.dump();
                 }
+                catch (const std::exception& e) {
+                    spdlog::error("WebSocketClient: Failed to decode binary: {}", e.what());
+                    return;
+                }
+            }
 
-                spdlog::debug("WebSocketClient: Received response");
+            // For blocking mode (sendAndReceive).
+            response_ = message;
+            responseReceived_ = true;
+
+            // For async mode (callbacks).
+            if (messageCallback_) {
+                messageCallback_(message);
             }
         });
 

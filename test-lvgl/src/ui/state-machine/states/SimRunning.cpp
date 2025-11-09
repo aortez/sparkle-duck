@@ -200,10 +200,19 @@ State::Any SimRunning::onEvent(const UiUpdateEvent& evt, StateMachine& sm)
     updateCount++;
     if (updateCount % 20 == 0) {
         auto& timers = sm.getTimers();
+
+        double avgParse = timers.getCallCount("parse_message") > 0 ?
+            timers.getAccumulatedTime("parse_message") / timers.getCallCount("parse_message") : 0.0;
+
+        // Calculate network latency (round-trip - client processing).
+        double networkLatency = smoothedRoundTripMs - avgParse;
+
         spdlog::info("UI Performance Stats (after {} updates):", updateCount);
+        spdlog::info("  Round-trip total: {:.1f}ms (smoothed)", smoothedRoundTripMs);
+        spdlog::info("  - Network + WebSocket: {:.1f}ms (estimated)", networkLatency);
+        spdlog::info("  - Client processing: {:.1f}ms avg", avgParse);
         spdlog::info("  Message parse: {:.1f}ms avg ({} calls, {:.1f}ms total)",
-            timers.getCallCount("parse_message") > 0 ?
-                timers.getAccumulatedTime("parse_message") / timers.getCallCount("parse_message") : 0.0,
+            avgParse,
             timers.getCallCount("parse_message"),
             timers.getAccumulatedTime("parse_message"));
         spdlog::info("  World render: {:.1f}ms avg ({} calls, {:.1f}ms total)",

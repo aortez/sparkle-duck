@@ -66,6 +66,12 @@ private:
      * @return Event variant containing the Cwc.
      */
     Event createCwcForCommand(const ApiCommand& command, std::shared_ptr<rtc::WebSocket> ws);
+
+    /**
+     * @brief Handle state_get immediately without queuing (low latency path).
+     * @param ws The WebSocket connection for sending response.
+     */
+    void handleStateGetImmediate(std::shared_ptr<rtc::WebSocket> ws);
 };
 
 } // namespace Server
