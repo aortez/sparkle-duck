@@ -157,6 +157,25 @@ add_library(lvgl_linux STATIC ${LV_LINUX_SRC} ${LV_LINUX_BACKEND_SRC})
 target_include_directories(lvgl_linux PRIVATE ${LV_LINUX_INC} ${PROJECT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/src ${PROJECT_SOURCE_DIR}/src/ui/lib ${zpp_bits_SOURCE_DIR})
 target_link_libraries(lvgl_linux PRIVATE msgpack-cxx nlohmann_json::nlohmann_json spdlog::spdlog)
 
+# Shared API library for command/response serialization (used by server, UI, and CLI).
+add_library(sparkle-duck-api STATIC
+    src/server/api/CellGet.cpp
+    src/server/api/CellSet.cpp
+    src/server/api/DiagramGet.cpp
+    src/server/api/Exit.cpp
+    src/server/api/GravitySet.cpp
+    src/server/api/PerfStatsGet.cpp
+    src/server/api/Reset.cpp
+    src/server/api/ScenarioConfigSet.cpp
+    src/server/api/SeedAdd.cpp
+    src/server/api/SimRun.cpp
+    src/server/api/StateGet.cpp
+    src/server/api/StepN.cpp
+    src/server/api/TimerStatsGet.cpp
+)
+target_include_directories(sparkle-duck-api PUBLIC ${CMAKE_SOURCE_DIR}/src ${zpp_bits_SOURCE_DIR})
+target_link_libraries(sparkle-duck-api PUBLIC nlohmann_json::nlohmann_json msgpack-cxx)
+
 add_executable(sparkle-duck-ui
     # UI application (client only).
     src/ui/main.cpp
@@ -184,6 +203,9 @@ add_executable(sparkle-duck-ui
     src/ui/rendering/CellRenderer.cpp
     src/ui/controls/ControlPanel.cpp
     src/ui/ui_builders/LVGLBuilder.cpp
+
+    # Server API (used by UI for command serialization).
+    src/server/api/SeedAdd.cpp
 
     # Core components.
     src/core/Cell.cpp
@@ -256,6 +278,7 @@ add_executable(sparkle-duck-server
     src/server/api/PerfStatsGet.cpp
     src/server/api/Reset.cpp
     src/server/api/ScenarioConfigSet.cpp
+    src/server/api/SeedAdd.cpp
     src/server/api/SimRun.cpp
     src/server/api/StateGet.cpp
     src/server/api/StepN.cpp
@@ -348,6 +371,7 @@ add_executable(sparkle-duck-tests
     src/server/api/PerfStatsGet.cpp
     src/server/api/Reset.cpp
     src/server/api/ScenarioConfigSet.cpp
+    src/server/api/SeedAdd.cpp
     src/server/api/SimRun.cpp
     src/server/api/StateGet.cpp
     src/server/api/StepN.cpp

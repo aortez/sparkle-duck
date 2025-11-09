@@ -10,22 +10,24 @@ namespace Ui {
 static lv_color_t getMaterialColor(MaterialType type)
 {
     switch (type) {
+        case MaterialType::AIR:
+            return lv_color_hex(0x000000); // Black.
         case MaterialType::DIRT:
             return lv_color_hex(0xA0522D); // Sienna brown.
+        case MaterialType::LEAF:
+            return lv_color_hex(0x00FF32); // Bright lime green.
+        case MaterialType::METAL:
+            return lv_color_hex(0xC0C0C0); // Silver.
+        case MaterialType::SAND:
+            return lv_color_hex(0xFFB347); // Sandy orange.
+        case MaterialType::SEED:
+            return lv_color_hex(0x8B4513); // Saddle brown.
+        case MaterialType::WALL:
+            return lv_color_hex(0x808080); // Gray.
         case MaterialType::WATER:
             return lv_color_hex(0x00BFFF); // Deep sky blue.
         case MaterialType::WOOD:
             return lv_color_hex(0xDEB887); // Burlywood.
-        case MaterialType::SAND:
-            return lv_color_hex(0xFFB347); // Sandy orange.
-        case MaterialType::METAL:
-            return lv_color_hex(0xC0C0C0); // Silver.
-        case MaterialType::LEAF:
-            return lv_color_hex(0x00FF32); // Bright lime green.
-        case MaterialType::WALL:
-            return lv_color_hex(0x808080); // Gray.
-        case MaterialType::AIR:
-            return lv_color_hex(0x000000); // Black.
         default:
             return lv_color_hex(0xFF00FF); // Magenta for unknown.
     }

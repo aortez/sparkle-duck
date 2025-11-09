@@ -371,6 +371,27 @@ State::Any SimRunning::onEvent(const Api::ScenarioConfigSet::Cwc& cwc, StateMach
     return std::move(*this);
 }
 
+State::Any SimRunning::onEvent(const Api::SeedAdd::Cwc& cwc, StateMachine& /*dsm*/)
+{
+    using Response = Api::SeedAdd::Response;
+
+    // Validate coordinates.
+    if (cwc.command.x < 0 || cwc.command.y < 0 ||
+        static_cast<uint32_t>(cwc.command.x) >= world->data.width ||
+        static_cast<uint32_t>(cwc.command.y) >= world->data.height)
+    {
+        cwc.sendResponse(Response::error(ApiError("Invalid coordinates")));
+        return std::move(*this);
+    }
+
+    // Add the seed.
+    spdlog::info("SeedAdd: Adding SEED at ({}, {})", cwc.command.x, cwc.command.y);
+    world->addMaterialAtCell(cwc.command.x, cwc.command.y, MaterialType::SEED, 1.0);
+
+    cwc.sendResponse(Response::ok(std::monostate{}));
+    return std::move(*this);
+}
+
 State::Any SimRunning::onEvent(const Api::StateGet::Cwc& cwc, StateMachine& dsm)
 {
     using Response = Api::StateGet::Response;

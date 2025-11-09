@@ -8,6 +8,7 @@
 #include "PerfStatsGet.h"
 #include "Reset.h"
 #include "ScenarioConfigSet.h"
+#include "SeedAdd.h"
 #include "SimRun.h"
 #include "StateGet.h"
 #include "StepN.h"
@@ -27,6 +28,7 @@ using ApiCommand = std::variant<
     Api::PerfStatsGet::Command,
     Api::Reset::Command,
     Api::ScenarioConfigSet::Command,
+    Api::SeedAdd::Command,
     Api::SimRun::Command,
     Api::StateGet::Command,
     Api::StepN::Command

@@ -64,11 +64,12 @@ private:
     lv_obj_t* scenarioPanel_ = nullptr;
 
     // Sandbox scenario controls.
+    lv_obj_t* sandboxAddSeedButton_ = nullptr;
     lv_obj_t* sandboxQuadrantSwitch_ = nullptr;
-    lv_obj_t* sandboxWaterColumnSwitch_ = nullptr;
+    lv_obj_t* sandboxRainSlider_ = nullptr;
     lv_obj_t* sandboxRightThrowSwitch_ = nullptr;
     lv_obj_t* sandboxTopDropSwitch_ = nullptr;
-    lv_obj_t* sandboxRainSlider_ = nullptr;
+    lv_obj_t* sandboxWaterColumnSwitch_ = nullptr;
 
     /**
      * @brief Create core controls (Quit, Debug).
@@ -94,13 +95,14 @@ private:
     void createSandboxControls(const SandboxConfig& config);
 
     // Event handlers (static for LVGL callbacks).
-    static void onQuitClicked(lv_event_t* e);
+    static void onAddSeedClicked(lv_event_t* e);
     static void onDebugToggled(lv_event_t* e);
+    static void onQuitClicked(lv_event_t* e);
     static void onSandboxQuadrantToggled(lv_event_t* e);
-    static void onSandboxWaterColumnToggled(lv_event_t* e);
+    static void onSandboxRainSliderChanged(lv_event_t* e);
     static void onSandboxRightThrowToggled(lv_event_t* e);
     static void onSandboxTopDropToggled(lv_event_t* e);
-    static void onSandboxRainSliderChanged(lv_event_t* e);
+    static void onSandboxWaterColumnToggled(lv_event_t* e);
 
     /**
      * @brief Send scenario config update to DSSM.
