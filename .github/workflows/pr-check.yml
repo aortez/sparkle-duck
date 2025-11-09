@@ -21,9 +21,7 @@ jobs:
       run: make debug
 
     - name: Run unit tests
-      run: |
-        # Run only non-visual tests in CI environment.
-        ./build/bin/sparkle-duck-tests --gtest_filter=-*Visual*
+      run: ./build/bin/sparkle-duck-tests
 
     - name: Check code formatting
       run: |
