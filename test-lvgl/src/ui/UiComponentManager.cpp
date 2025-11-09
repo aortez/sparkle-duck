@@ -153,12 +153,14 @@ void UiComponentManager::createSimulationLayout()
     lv_obj_set_style_pad_all(simulationScreen, 0, 0);
     lv_obj_set_style_pad_gap(simulationScreen, 0, 0);
 
-    // Top row: left panel + world display (horizontal layout, grows to fill space above bottom panel).
+    // Top row: left panel + world display (horizontal layout, grows to fill space above bottom
+    // panel).
     simTopRow_ = lv_obj_create(simulationScreen);
     lv_obj_set_width(simTopRow_, LV_PCT(100));
     lv_obj_set_flex_grow(simTopRow_, 1); // Grow to fill vertical space.
     lv_obj_set_flex_flow(simTopRow_, LV_FLEX_FLOW_ROW);
-    lv_obj_set_flex_align(simTopRow_, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
+    lv_obj_set_flex_align(
+        simTopRow_, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
     lv_obj_set_style_pad_all(simTopRow_, 0, 0);
     lv_obj_set_style_pad_gap(simTopRow_, 0, 0);
     lv_obj_set_style_border_width(simTopRow_, 0, 0);

@@ -74,7 +74,8 @@ public:
             else if constexpr (
                 std::is_same_v<T, Api::CellSet::Response> || std::is_same_v<T, Api::Exit::Response>
                 || std::is_same_v<T, Api::GravitySet::Response>
-                || std::is_same_v<T, Api::Reset::Response> || std::is_same_v<T, Api::SeedAdd::Response>
+                || std::is_same_v<T, Api::Reset::Response>
+                || std::is_same_v<T, Api::SeedAdd::Response>
                 || std::is_same_v<T, Api::SpawnDirtBall::Response>) {
                 // Empty object for commands with no response data.
                 doc["value"] = nlohmann::json::object();

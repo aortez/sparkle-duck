@@ -363,7 +363,6 @@ void ControlPanel::onSandboxRightThrowToggled(lv_event_t* e)
     panel->sendConfigUpdate(config);
 }
 
-
 void ControlPanel::onSandboxRainSliderChanged(lv_event_t* e)
 {
     auto* panel = static_cast<ControlPanel*>(

@@ -12,8 +12,7 @@ namespace Ui {
 
 SandboxControls::SandboxControls(
     lv_obj_t* container, WebSocketClient* wsClient, const SandboxConfig& config)
-    : container_(container)
-    , wsClient_(wsClient)
+    : container_(container), wsClient_(wsClient)
 {
     // Scenario label.
     lv_obj_t* scenarioLabel = lv_label_create(container_);
@@ -79,8 +78,7 @@ void SandboxControls::updateFromConfig(const SandboxConfig& config)
 
 void SandboxControls::sendConfigUpdate(const ScenarioConfig& config)
 {
-    if (!wsClient_ || !wsClient_->isConnected())
-        return;
+    if (!wsClient_ || !wsClient_->isConnected()) return;
 
     Api::ScenarioConfigSet::Command cmd;
     cmd.config = config;

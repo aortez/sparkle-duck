@@ -20,7 +20,7 @@ class EventSink;
 
 /**
  * @brief Coordinates the simulation playground view.
- * 
+ *
  * SimPlayground ties together all the UI components for the simulation:
  * - Core controls (quit, stats, debug)
  * - Scenario controls (sandbox toggles)
@@ -29,8 +29,7 @@ class EventSink;
  */
 class SimPlayground {
 public:
-    SimPlayground(
-        UiComponentManager* uiManager, WebSocketClient* wsClient, EventSink& eventSink);
+    SimPlayground(UiComponentManager* uiManager, WebSocketClient* wsClient, EventSink& eventSink);
     ~SimPlayground();
 
     /**

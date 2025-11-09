@@ -11,7 +11,7 @@ class WebSocketClient;
 
 /**
  * @brief Sandbox scenario-specific controls.
- * 
+ *
  * Includes: Add Seed, Drop Dirt Ball, Quadrant, Water Column, Right Throw toggles.
  */
 class SandboxControls {

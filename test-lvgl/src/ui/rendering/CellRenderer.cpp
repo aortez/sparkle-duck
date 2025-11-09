@@ -85,7 +85,8 @@ void CellRenderer::initialize(lv_obj_t* parent, uint32_t worldWidth, uint32_t wo
                 LV_COLOR_FORMAT_ARGB8888);
 
             // Position canvas centered in container.
-            lv_obj_set_pos(cellCanvas.canvas, offsetX + x * Cell::WIDTH, offsetY + y * Cell::HEIGHT);
+            lv_obj_set_pos(
+                cellCanvas.canvas, offsetX + x * Cell::WIDTH, offsetY + y * Cell::HEIGHT);
         }
     }
 

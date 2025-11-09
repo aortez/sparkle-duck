@@ -12,7 +12,7 @@ class EventSink;
 
 /**
  * @brief Core controls always present in simulation view.
- * 
+ *
  * Includes: Quit button, FPS stats display, Debug Draw toggle.
  */
 class CoreControls {

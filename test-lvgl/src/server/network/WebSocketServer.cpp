@@ -146,13 +146,13 @@ namespace {
 template <typename CommandType>
 struct ApiInfo;
 
-#define REGISTER_API_NAMESPACE(NS)                          \
-    template <>                                             \
-    struct ApiInfo<DirtSim::Api::NS::Command> {             \
-        using CommandType = DirtSim::Api::NS::Command;      \
-        using CwcType = DirtSim::Api::NS::Cwc;              \
-        using ResponseType = DirtSim::Api::NS::Response;    \
-        static constexpr const char* name = #NS;            \
+#define REGISTER_API_NAMESPACE(NS)                       \
+    template <>                                          \
+    struct ApiInfo<DirtSim::Api::NS::Command> {          \
+        using CommandType = DirtSim::Api::NS::Command;   \
+        using CwcType = DirtSim::Api::NS::Cwc;           \
+        using ResponseType = DirtSim::Api::NS::Response; \
+        static constexpr const char* name = #NS;         \
     };
 
 // Register all API command namespaces.
@@ -170,7 +170,7 @@ REGISTER_API_NAMESPACE(SimRun)
 REGISTER_API_NAMESPACE(SpawnDirtBall)
 REGISTER_API_NAMESPACE(StateGet)
 REGISTER_API_NAMESPACE(StepN)
-REGISTER_API_NAMESPACE(TimerStatsGet)  // Note: Not in deserializer yet, but needed for compile.
+REGISTER_API_NAMESPACE(TimerStatsGet) // Note: Not in deserializer yet, but needed for compile.
 
 #undef REGISTER_API_NAMESPACE
 

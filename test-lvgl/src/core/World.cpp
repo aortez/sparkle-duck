@@ -1130,7 +1130,8 @@ void from_json(const nlohmann::json& j, World::MotionState& state)
     }
 }
 
-void World::spawnMaterialBall(MaterialType material, uint32_t centerX, uint32_t centerY, uint32_t radius)
+void World::spawnMaterialBall(
+    MaterialType material, uint32_t centerX, uint32_t centerY, uint32_t radius)
 {
     // Spawn a ball of material centered at (centerX, centerY) with given radius.
     for (uint32_t y = 0; y < data.height; ++y) {

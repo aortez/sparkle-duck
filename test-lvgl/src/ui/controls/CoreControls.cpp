@@ -10,9 +10,7 @@ namespace DirtSim {
 namespace Ui {
 
 CoreControls::CoreControls(lv_obj_t* container, WebSocketClient* wsClient, EventSink& eventSink)
-    : container_(container)
-    , wsClient_(wsClient)
-    , eventSink_(eventSink)
+    : container_(container), wsClient_(wsClient), eventSink_(eventSink)
 {
     // Quit button.
     quitButton_ = lv_btn_create(container_);

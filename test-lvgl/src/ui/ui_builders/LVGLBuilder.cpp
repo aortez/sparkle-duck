@@ -756,12 +756,10 @@ struct ToggleSliderState {
 
 static void toggleSliderSwitchCallback(lv_event_t* e)
 {
-    if (lv_event_get_code(e) != LV_EVENT_VALUE_CHANGED)
-        return;
+    if (lv_event_get_code(e) != LV_EVENT_VALUE_CHANGED) return;
 
     ToggleSliderState* state = static_cast<ToggleSliderState*>(lv_event_get_user_data(e));
-    if (!state)
-        return;
+    if (!state) return;
 
     bool isEnabled = lv_obj_has_state(state->switch_obj, LV_STATE_CHECKED);
 
@@ -772,7 +770,8 @@ static void toggleSliderSwitchCallback(lv_event_t* e)
         lv_obj_clear_state(state->slider, LV_STATE_DISABLED);
 
         // Restore blue color.
-        lv_obj_set_style_bg_color(state->slider, lv_palette_main(LV_PALETTE_BLUE), LV_PART_INDICATOR);
+        lv_obj_set_style_bg_color(
+            state->slider, lv_palette_main(LV_PALETTE_BLUE), LV_PART_INDICATOR);
         lv_obj_set_style_bg_color(state->slider, lv_palette_main(LV_PALETTE_BLUE), LV_PART_KNOB);
 
         // Update value label.
@@ -809,12 +808,10 @@ static void toggleSliderSwitchCallback(lv_event_t* e)
 
 static void toggleSliderValueCallback(lv_event_t* e)
 {
-    if (lv_event_get_code(e) != LV_EVENT_VALUE_CHANGED)
-        return;
+    if (lv_event_get_code(e) != LV_EVENT_VALUE_CHANGED) return;
 
     ToggleSliderState* state = static_cast<ToggleSliderState*>(lv_event_get_user_data(e));
-    if (!state)
-        return;
+    if (!state) return;
 
     lv_obj_t* slider = static_cast<lv_obj_t*>(lv_event_get_target(e));
     int value = lv_slider_get_value(slider);
@@ -838,14 +835,13 @@ static void toggleSliderDeleteCallback(lv_event_t* e)
 }
 
 LVGLBuilder::ToggleSliderBuilder::ToggleSliderBuilder(lv_obj_t* parent)
-    : parent_(parent)
-    , container_(nullptr)
-    , switch_(nullptr)
-    , slider_(nullptr)
-    , label_(nullptr)
-    , valueLabel_(nullptr)
-{
-}
+    : parent_(parent),
+      container_(nullptr),
+      switch_(nullptr),
+      slider_(nullptr),
+      label_(nullptr),
+      valueLabel_(nullptr)
+{}
 
 LVGLBuilder::ToggleSliderBuilder& LVGLBuilder::ToggleSliderBuilder::label(const char* text)
 {
@@ -965,17 +961,11 @@ Result<lv_obj_t*, std::string> LVGLBuilder::ToggleSliderBuilder::createToggleSli
     lv_obj_set_style_text_font(valueLabel_, &lv_font_montserrat_12, 0);
 
     // Create persistent state for callbacks.
-    ToggleSliderState* state = new ToggleSliderState{ slider_,
-                                                       valueLabel_,
-                                                       switch_,
-                                                       value_scale_,
-                                                       value_format_,
-                                                       initial_value_,
-                                                       default_value_,
-                                                       slider_callback_,
-                                                       slider_user_data_,
-                                                       toggle_callback_,
-                                                       toggle_user_data_ };
+    ToggleSliderState* state =
+        new ToggleSliderState{ slider_,          valueLabel_,      switch_,
+                               value_scale_,     value_format_,    initial_value_,
+                               default_value_,   slider_callback_, slider_user_data_,
+                               toggle_callback_, toggle_user_data_ };
 
     // Set up callbacks.
     lv_obj_add_event_cb(switch_, toggleSliderSwitchCallback, LV_EVENT_VALUE_CHANGED, state);

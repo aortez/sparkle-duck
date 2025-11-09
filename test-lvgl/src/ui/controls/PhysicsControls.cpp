@@ -8,8 +8,7 @@ namespace DirtSim {
 namespace Ui {
 
 PhysicsControls::PhysicsControls(lv_obj_t* container, WebSocketClient* wsClient)
-    : container_(container)
-    , wsClient_(wsClient)
+    : container_(container), wsClient_(wsClient)
 {
     // Create 3-column layout.
     lv_obj_set_flex_flow(container_, LV_FLEX_FLOW_ROW);
@@ -20,7 +19,8 @@ PhysicsControls::PhysicsControls(lv_obj_t* container, WebSocketClient* wsClient)
     column1_ = lv_obj_create(container_);
     lv_obj_set_size(column1_, LV_PCT(30), LV_SIZE_CONTENT);
     lv_obj_set_flex_flow(column1_, LV_FLEX_FLOW_COLUMN);
-    lv_obj_set_flex_align(column1_, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_flex_align(
+        column1_, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
     lv_obj_set_style_pad_row(column1_, 4, 0);
     lv_obj_set_style_pad_all(column1_, 8, 0);
 
@@ -84,7 +84,8 @@ PhysicsControls::PhysicsControls(lv_obj_t* container, WebSocketClient* wsClient)
     column2_ = lv_obj_create(container_);
     lv_obj_set_size(column2_, LV_PCT(30), LV_SIZE_CONTENT);
     lv_obj_set_flex_flow(column2_, LV_FLEX_FLOW_COLUMN);
-    lv_obj_set_flex_align(column2_, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_flex_align(
+        column2_, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
     lv_obj_set_style_pad_row(column2_, 4, 0);
     lv_obj_set_style_pad_all(column2_, 8, 0);
 
@@ -135,7 +136,8 @@ PhysicsControls::PhysicsControls(lv_obj_t* container, WebSocketClient* wsClient)
     column3_ = lv_obj_create(container_);
     lv_obj_set_size(column3_, LV_PCT(30), LV_SIZE_CONTENT);
     lv_obj_set_flex_flow(column3_, LV_FLEX_FLOW_COLUMN);
-    lv_obj_set_flex_align(column3_, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_flex_align(
+        column3_, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
     lv_obj_set_style_pad_row(column3_, 4, 0);
     lv_obj_set_style_pad_all(column3_, 8, 0);
 
