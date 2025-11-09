@@ -5,6 +5,8 @@
 #include "server/api/Exit.h"
 #include "server/api/GravitySet.h"
 #include "server/api/PerfStatsGet.h"
+#include "server/api/PhysicsSettingsGet.h"
+#include "server/api/PhysicsSettingsSet.h"
 #include "server/api/Reset.h"
 #include "server/api/ScenarioConfigSet.h"
 #include "server/api/SeedAdd.h"
@@ -64,6 +66,12 @@ Result<ApiCommand, ApiError> CommandDeserializerJson::deserialize(const std::str
         }
         else if (commandName == "perf_stats_get") {
             return Result<ApiCommand, ApiError>::okay(Api::PerfStatsGet::Command::fromJson(cmd));
+        }
+        else if (commandName == "physics_settings_get") {
+            return Result<ApiCommand, ApiError>::okay(Api::PhysicsSettingsGet::Command::fromJson(cmd));
+        }
+        else if (commandName == "physics_settings_set") {
+            return Result<ApiCommand, ApiError>::okay(Api::PhysicsSettingsSet::Command::fromJson(cmd));
         }
         else if (commandName == "reset") {
             return Result<ApiCommand, ApiError>::okay(Api::Reset::Command::fromJson(cmd));

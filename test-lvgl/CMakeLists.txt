@@ -196,6 +196,8 @@ add_library(sparkle-duck-server-lib STATIC
     src/server/api/Exit.cpp
     src/server/api/GravitySet.cpp
     src/server/api/PerfStatsGet.cpp
+    src/server/api/PhysicsSettingsGet.cpp
+    src/server/api/PhysicsSettingsSet.cpp
     src/server/api/Reset.cpp
     src/server/api/ScenarioConfigSet.cpp
     src/server/api/SeedAdd.cpp

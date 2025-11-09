@@ -7,6 +7,8 @@
 #include "server/api/Exit.h"
 #include "server/api/GravitySet.h"
 #include "server/api/PerfStatsGet.h"
+#include "server/api/PhysicsSettingsGet.h"
+#include "server/api/PhysicsSettingsSet.h"
 #include "server/api/Reset.h"
 #include "server/api/ScenarioConfigSet.h"
 #include "server/api/SimRun.h"
@@ -56,6 +58,9 @@ public:
             else if constexpr (std::is_same_v<T, Api::PerfStatsGet::Response>) {
                 doc["value"] = response.value().toJson();
             }
+            else if constexpr (std::is_same_v<T, Api::PhysicsSettingsGet::Response>) {
+                doc["value"] = response.value().toJson();
+            }
             else if constexpr (std::is_same_v<T, Api::ScenarioConfigSet::Response>) {
                 doc["value"] = response.value().toJson();
             }
@@ -74,6 +79,7 @@ public:
             else if constexpr (
                 std::is_same_v<T, Api::CellSet::Response> || std::is_same_v<T, Api::Exit::Response>
                 || std::is_same_v<T, Api::GravitySet::Response>
+                || std::is_same_v<T, Api::PhysicsSettingsSet::Response>
                 || std::is_same_v<T, Api::Reset::Response>
                 || std::is_same_v<T, Api::SeedAdd::Response>
                 || std::is_same_v<T, Api::SpawnDirtBall::Response>) {

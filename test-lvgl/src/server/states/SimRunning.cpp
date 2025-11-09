@@ -441,6 +441,45 @@ State::Any SimRunning::onEvent(const Api::SpawnDirtBall::Cwc& cwc, StateMachine&
     return std::move(*this);
 }
 
+State::Any SimRunning::onEvent(const Api::PhysicsSettingsGet::Cwc& cwc, StateMachine& /*dsm*/)
+{
+    using Response = Api::PhysicsSettingsGet::Response;
+
+    if (!world) {
+        cwc.sendResponse(Response::error(ApiError("No world available")));
+        return std::move(*this);
+    }
+
+    spdlog::info("PhysicsSettingsGet: Sending current physics settings");
+
+    Api::PhysicsSettingsGet::Okay okay;
+    okay.settings = world->physicsSettings;
+
+    cwc.sendResponse(Response::okay(std::move(okay)));
+    return std::move(*this);
+}
+
+State::Any SimRunning::onEvent(const Api::PhysicsSettingsSet::Cwc& cwc, StateMachine& /*dsm*/)
+{
+    using Response = Api::PhysicsSettingsSet::Response;
+
+    if (!world) {
+        cwc.sendResponse(Response::error(ApiError("No world available")));
+        return std::move(*this);
+    }
+
+    spdlog::info("PhysicsSettingsSet: Applying new physics settings");
+
+    // Update world's physics settings.
+    world->physicsSettings = cwc.command.settings;
+
+    // TODO: Apply settings to World calculators (timescale, gravity, etc.).
+    // For now, just store them - actual application will be added next.
+
+    cwc.sendResponse(Response::okay(std::monostate{}));
+    return std::move(*this);
+}
+
 State::Any SimRunning::onEvent(const Api::StateGet::Cwc& cwc, StateMachine& dsm)
 {
     using Response = Api::StateGet::Response;

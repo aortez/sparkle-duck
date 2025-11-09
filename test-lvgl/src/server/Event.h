@@ -6,6 +6,8 @@
 #include "api/Exit.h"
 #include "api/GravitySet.h"
 #include "api/PerfStatsGet.h"
+#include "api/PhysicsSettingsGet.h"
+#include "api/PhysicsSettingsSet.h"
 #include "api/Reset.h"
 #include "api/ScenarioConfigSet.h"
 #include "api/SeedAdd.h"
@@ -606,6 +608,8 @@ using Event = std::variant<
     DirtSim::Api::Exit::Cwc,
     DirtSim::Api::GravitySet::Cwc,
     DirtSim::Api::PerfStatsGet::Cwc,
+    DirtSim::Api::PhysicsSettingsGet::Cwc,
+    DirtSim::Api::PhysicsSettingsSet::Cwc,
     DirtSim::Api::Reset::Cwc,
     DirtSim::Api::ScenarioConfigSet::Cwc,
     DirtSim::Api::SeedAdd::Cwc,

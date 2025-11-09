@@ -6,6 +6,8 @@
 #include "Exit.h"
 #include "GravitySet.h"
 #include "PerfStatsGet.h"
+#include "PhysicsSettingsGet.h"
+#include "PhysicsSettingsSet.h"
 #include "Reset.h"
 #include "ScenarioConfigSet.h"
 #include "SeedAdd.h"
@@ -28,6 +30,8 @@ using ApiCommand = std::variant<
     Api::Exit::Command,
     Api::GravitySet::Command,
     Api::PerfStatsGet::Command,
+    Api::PhysicsSettingsGet::Command,
+    Api::PhysicsSettingsSet::Command,
     Api::Reset::Command,
     Api::ScenarioConfigSet::Command,
     Api::SeedAdd::Command,

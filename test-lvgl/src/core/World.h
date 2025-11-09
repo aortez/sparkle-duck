@@ -8,6 +8,7 @@
 #include "WorldAdhesionCalculator.h"
 #include "WorldCohesionCalculator.h"
 #include "WorldCollisionCalculator.h"
+#include "PhysicsSettings.h"
 #include "WorldData.h"
 #include "WorldEventGenerator.h"
 #include "WorldFrictionCalculator.h"
@@ -283,6 +284,9 @@ public:
 
     // World state data - public source of truth for all serializable state.
     WorldData data;
+
+    // Physics settings - public source of truth for physics parameters.
+    PhysicsSettings physicsSettings;
 
     // WorldInterface hook implementations (rarely overridden - can be public).
     void onPostResize();

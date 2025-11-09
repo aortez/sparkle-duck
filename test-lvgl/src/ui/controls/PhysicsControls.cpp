@@ -1,4 +1,5 @@
 #include "PhysicsControls.h"
+#include "server/api/PhysicsSettingsSet.h"
 #include "ui/state-machine/network/WebSocketClient.h"
 #include "ui/ui_builders/LVGLBuilder.h"
 #include <nlohmann/json.hpp>
@@ -197,27 +198,15 @@ PhysicsControls::PhysicsControls(lv_obj_t* container, WebSocketClient* wsClient)
                            .onSliderChange(onFrictionChanged, this)
                            .buildOrLog();
 
+    // Fetch initial settings from server.
+    fetchSettings();
+
     spdlog::info("PhysicsControls: Initialized");
 }
 
 PhysicsControls::~PhysicsControls()
 {
     spdlog::info("PhysicsControls: Destroyed");
-}
-
-void PhysicsControls::sendPhysicsCommand(const char* commandName, double value)
-{
-    if (!wsClient_ || !wsClient_->isConnected()) {
-        spdlog::warn("PhysicsControls: Cannot send command '{}' - not connected", commandName);
-        return;
-    }
-
-    nlohmann::json cmd;
-    cmd["command"] = commandName;
-    cmd["value"] = value;
-
-    spdlog::debug("PhysicsControls: Sending {} = {:.2f}", commandName, value);
-    wsClient_->send(cmd.dump());
 }
 
 // Column 1: General Physics event handlers.
@@ -239,7 +228,14 @@ void PhysicsControls::onTimescaleChanged(lv_event_t* e)
 
     int value = lv_slider_get_value(target);
     double scaledValue = value * 0.01;
-    self->sendPhysicsCommand("timescale_set", scaledValue);
+
+    spdlog::info("PhysicsControls: Timescale changed to {:.2f}", scaledValue);
+
+    // Update local settings.
+    self->settings_.timescale = scaledValue;
+
+    // Sync to server.
+    self->syncSettings();
 }
 
 void PhysicsControls::onGravityToggled(lv_event_t* e)
@@ -260,7 +256,9 @@ void PhysicsControls::onGravityChanged(lv_event_t* e)
 
     int value = lv_slider_get_value(target);
     double scaledValue = value * 0.01;
-    self->sendPhysicsCommand("gravity_set", scaledValue);
+    spdlog::info("PhysicsControls: Gravity changed to {:.2f}", scaledValue);
+    self->settings_.gravity = scaledValue;
+    self->syncSettings();
 }
 
 void PhysicsControls::onElasticityToggled(lv_event_t* e)
@@ -281,7 +279,9 @@ void PhysicsControls::onElasticityChanged(lv_event_t* e)
 
     int value = lv_slider_get_value(target);
     double scaledValue = value * 0.01;
-    self->sendPhysicsCommand("elasticity_set", scaledValue);
+    spdlog::info("PhysicsControls: Elasticity changed to {:.2f}", scaledValue);
+    self->settings_.elasticity = scaledValue;
+    self->syncSettings();
 }
 
 void PhysicsControls::onAirResistanceToggled(lv_event_t* e)
@@ -302,7 +302,9 @@ void PhysicsControls::onAirResistanceChanged(lv_event_t* e)
 
     int value = lv_slider_get_value(target);
     double scaledValue = value * 0.01;
-    self->sendPhysicsCommand("air_resistance_set", scaledValue);
+    spdlog::info("PhysicsControls: Air Resistance changed to {:.2f}", scaledValue);
+    self->settings_.air_resistance = scaledValue;
+    self->syncSettings();
 }
 
 // Column 2: Pressure event handlers.
@@ -324,7 +326,9 @@ void PhysicsControls::onHydrostaticPressureChanged(lv_event_t* e)
 
     int value = lv_slider_get_value(target);
     double scaledValue = value * 0.01;
-    self->sendPhysicsCommand("hydrostatic_pressure_set", scaledValue);
+    spdlog::info("PhysicsControls: Hydrostatic Pressure changed to {:.2f}", scaledValue);
+    self->settings_.hydrostatic_pressure_strength = scaledValue;
+    self->syncSettings();
 }
 
 void PhysicsControls::onDynamicPressureToggled(lv_event_t* e)
@@ -345,7 +349,9 @@ void PhysicsControls::onDynamicPressureChanged(lv_event_t* e)
 
     int value = lv_slider_get_value(target);
     double scaledValue = value * 0.01;
-    self->sendPhysicsCommand("dynamic_pressure_set", scaledValue);
+    spdlog::info("PhysicsControls: Dynamic Pressure changed to {:.2f}", scaledValue);
+    self->settings_.dynamic_pressure_strength = scaledValue;
+    self->syncSettings();
 }
 
 void PhysicsControls::onPressureDiffusionToggled(lv_event_t* e)
@@ -366,7 +372,9 @@ void PhysicsControls::onPressureDiffusionChanged(lv_event_t* e)
 
     int value = lv_slider_get_value(target);
     double scaledValue = value * 0.01;
-    self->sendPhysicsCommand("pressure_diffusion_set", scaledValue);
+    spdlog::info("PhysicsControls: Pressure Diffusion changed to {:.2f}", scaledValue);
+    self->settings_.pressure_diffusion_enabled = (scaledValue > 0);
+    self->syncSettings();
 }
 
 // Column 3: Forces event handlers.
@@ -388,7 +396,9 @@ void PhysicsControls::onCohesionForceChanged(lv_event_t* e)
 
     int value = lv_slider_get_value(target);
     double scaledValue = value * 0.01;
-    self->sendPhysicsCommand("cohesion_force_set", scaledValue);
+    spdlog::info("PhysicsControls: Cohesion Force changed to {:.1f}", scaledValue);
+    self->settings_.cohesion_force_strength = scaledValue;
+    self->syncSettings();
 }
 
 void PhysicsControls::onAdhesionToggled(lv_event_t* e)
@@ -409,7 +419,9 @@ void PhysicsControls::onAdhesionChanged(lv_event_t* e)
 
     int value = lv_slider_get_value(target);
     double scaledValue = value * 0.01;
-    self->sendPhysicsCommand("adhesion_set", scaledValue);
+    spdlog::info("PhysicsControls: Adhesion changed to {:.1f}", scaledValue);
+    self->settings_.adhesion_strength = scaledValue;
+    self->syncSettings();
 }
 
 void PhysicsControls::onViscosityToggled(lv_event_t* e)
@@ -430,7 +442,9 @@ void PhysicsControls::onViscosityChanged(lv_event_t* e)
 
     int value = lv_slider_get_value(target);
     double scaledValue = value * 0.01;
-    self->sendPhysicsCommand("viscosity_set", scaledValue);
+    spdlog::info("PhysicsControls: Viscosity changed to {:.2f}", scaledValue);
+    self->settings_.viscosity_strength = scaledValue;
+    self->syncSettings();
 }
 
 void PhysicsControls::onFrictionToggled(lv_event_t* e)
@@ -451,7 +465,46 @@ void PhysicsControls::onFrictionChanged(lv_event_t* e)
 
     int value = lv_slider_get_value(target);
     double scaledValue = value * 0.01;
-    self->sendPhysicsCommand("friction_set", scaledValue);
+
+    spdlog::info("PhysicsControls: Friction changed to {:.2f}", scaledValue);
+
+    self->settings_.friction_strength = scaledValue;
+    self->syncSettings();
+}
+
+void PhysicsControls::fetchSettings()
+{
+    if (!wsClient_ || !wsClient_->isConnected()) {
+        spdlog::warn("PhysicsControls: Cannot fetch settings - not connected");
+        return;
+    }
+
+    spdlog::info("PhysicsControls: Fetching physics settings from server");
+
+    nlohmann::json cmd;
+    cmd["command"] = "physics_settings_get";
+    wsClient_->send(cmd.dump());
+
+    // Response will be handled by UI state machine and used to update controls.
+    // For now, we just use default values.
+}
+
+void PhysicsControls::syncSettings()
+{
+    if (!wsClient_ || !wsClient_->isConnected()) {
+        spdlog::warn("PhysicsControls: Cannot sync settings - not connected");
+        return;
+    }
+
+    spdlog::debug("PhysicsControls: Syncing physics settings to server");
+
+    Api::PhysicsSettingsSet::Command cmd;
+    cmd.settings = settings_;
+
+    nlohmann::json j = cmd.toJson();
+    j["command"] = "physics_settings_set";
+
+    wsClient_->send(j.dump());
 }
 
 } // namespace Ui
