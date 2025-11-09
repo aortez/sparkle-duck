@@ -20,6 +20,7 @@ StateMachine::StateMachine(_lv_display_t* disp, uint16_t wsPort)
 
     // Create WebSocket client for connecting to DSSM server.
     wsClient_ = std::make_unique<WebSocketClient>();
+    wsClient_->setEventSink(this);  // StateMachine implements EventSink.
     spdlog::info("Ui::StateMachine: WebSocket client created (not yet connected)");
 
     // Create UI manager for LVGL screen/container management.

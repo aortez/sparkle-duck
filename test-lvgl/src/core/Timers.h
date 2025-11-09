@@ -3,6 +3,8 @@
 #include <chrono>
 #include <string>
 #include <unordered_map>
+#include <vector>
+#include <nlohmann/json_fwd.hpp>
 
 class Timers {
 public:
@@ -30,8 +32,10 @@ public:
     // Reset a timer's call count to 0
     void resetCallCount(const std::string& name);
 
-    // Dump statistics for all timers
     void dumpTimerStats() const;
+    std::vector<std::string> getAllTimerNames() const;
+
+    nlohmann::json exportAllTimersAsJson() const;
 
 private:
     using TimePoint = std::chrono::steady_clock::time_point;

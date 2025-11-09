@@ -106,26 +106,47 @@ void World::advanceTime(double deltaTimeSeconds)
         worldEventGenerator_->addParticles(*this, data.timestep, deltaTimeSeconds);
     }
 
+    // Pre-compute support map for all cells (bottom-up pass).
+    {
+        ScopeTimer supportMapTimer(timers_, "compute_support_map");
+        WorldSupportCalculator support_calc{};
+        support_calc.computeSupportMapBottomUp(*this);
+    }
+
     // Accumulate and apply all forces based on resistance.
     // This now includes pressure forces from the previous frame.
-    resolveForces(scaledDeltaTime);
+    {
+        ScopeTimer resolveTimer(timers_, "resolve_forces_total");
+        resolveForces(scaledDeltaTime);
+    }
 
-    processVelocityLimiting(scaledDeltaTime);
+    {
+        ScopeTimer velocityTimer(timers_, "velocity_limiting");
+        processVelocityLimiting(scaledDeltaTime);
+    }
 
-    updateTransfers(scaledDeltaTime);
+    {
+        ScopeTimer transfersTimer(timers_, "update_transfers");
+        updateTransfers(scaledDeltaTime);
+    }
 
     // Process queued material moves - this detects NEW blocked transfers.
-    processMaterialMoves();
+    {
+        ScopeTimer movesTimer(timers_, "process_moves_total");
+        processMaterialMoves();
+    }
 
     // Calculate pressures for NEXT frame after moves are complete.
     // This follows the two-frame model where pressure calculated in frame N
     // affects velocities in frame N+1.
     if (hydrostatic_pressure_strength_ > 0.0) {
+        ScopeTimer hydroTimer(timers_, "hydrostatic_pressure");
         pressure_calculator_.calculateHydrostaticPressure(*this);
     }
 
     // Process any blocked transfers that were queued during processMaterialMoves.
     if (dynamic_pressure_strength_ > 0.0) {
+        ScopeTimer dynamicTimer(timers_, "dynamic_pressure");
         // Generate virtual gravity transfers to create pressure from gravity forces.
         // This allows dynamic pressure to model hydrostatic-like behavior.
         //        pressure_calculator_.generateVirtualGravityTransfers(scaledDeltaTime);
@@ -136,11 +157,15 @@ void World::advanceTime(double deltaTimeSeconds)
 
     // Apply pressure diffusion before decay.
     if (pressure_diffusion_enabled_) {
+        ScopeTimer diffusionTimer(timers_, "pressure_diffusion");
         pressure_calculator_.applyPressureDiffusion(*this, scaledDeltaTime);
     }
 
     // Apply pressure decay after material moves.
-    pressure_calculator_.applyPressureDecay(*this, scaledDeltaTime);
+    {
+        ScopeTimer decayTimer(timers_, "pressure_decay");
+        pressure_calculator_.applyPressureDecay(*this, scaledDeltaTime);
+    }
 
     data.timestep++;
 }
@@ -344,28 +369,44 @@ void World::applyCohesionForces()
 
     ScopeTimer timer(timers_, "apply_cohesion_forces");
 
-    for (uint32_t y = 0; y < data.height; ++y) {
-        for (uint32_t x = 0; x < data.width; ++x) {
-            Cell& cell = at(x, y);
+    // Create calculators once outside the loop.
+    WorldCohesionCalculator cohesion_calc{};
 
-            if (cell.isEmpty() || cell.isWall()) {
-                continue;
+    {
+        ScopeTimer cohesionTimer(timers_, "cohesion_calculation");
+        for (uint32_t y = 0; y < data.height; ++y) {
+            for (uint32_t x = 0; x < data.width; ++x) {
+                Cell& cell = at(x, y);
+
+                if (cell.isEmpty() || cell.isWall()) {
+                    continue;
+                }
+
+                // Calculate COM cohesion force.
+                WorldCohesionCalculator::COMCohesionForce com_cohesion =
+                    cohesion_calc.calculateCOMCohesionForce(*this, x, y, com_cohesion_range_);
+
+                // COM cohesion force accumulation (only if force is active).
+                if (com_cohesion.force_active) {
+                    Vector2d com_cohesion_force = com_cohesion.force_direction
+                        * com_cohesion.force_magnitude * cohesion_com_force_strength_;
+                    cell.addPendingForce(com_cohesion_force);
+                }
             }
+        }
+    }
 
-            // Calculate COM cohesion force.
-            WorldCohesionCalculator cohesion_calc{};
-            WorldCohesionCalculator::COMCohesionForce com_cohesion =
-                cohesion_calc.calculateCOMCohesionForce(*this, x, y, com_cohesion_range_);
+    // Adhesion force accumulation (only if enabled).
+    if (adhesion_calculator_.isAdhesionEnabled()) {
+        ScopeTimer adhesionTimer(timers_, "adhesion_calculation");
+        for (uint32_t y = 0; y < data.height; ++y) {
+            for (uint32_t x = 0; x < data.width; ++x) {
+                Cell& cell = at(x, y);
 
-            // COM cohesion force accumulation (only if force is active).
-            if (com_cohesion.force_active) {
-                Vector2d com_cohesion_force = com_cohesion.force_direction
-                    * com_cohesion.force_magnitude * cohesion_com_force_strength_;
-                cell.addPendingForce(com_cohesion_force);
-            }
+                if (cell.isEmpty() || cell.isWall()) {
+                    continue;
+                }
 
-            // Adhesion force accumulation (only if enabled).
-            if (adhesion_calculator_.isAdhesionEnabled()) {
                 WorldAdhesionCalculator::AdhesionForce adhesion =
                     adhesion_calculator_.calculateAdhesionForce(*this, x, y);
                 Vector2d adhesion_force = adhesion.force_direction * adhesion.force_magnitude
@@ -472,8 +513,6 @@ void World::resolveForces(double deltaTime)
     friction_calculator_.calculateAndApplyFrictionForces(*this, deltaTime);
 
     // Now resolve all accumulated forces using viscosity model.
-    WorldSupportCalculator support_calc{};
-
     for (uint32_t y = 0; y < data.height; ++y) {
         for (uint32_t x = 0; x < data.width; ++x) {
             Cell& cell = at(x, y);
@@ -488,8 +527,8 @@ void World::resolveForces(double deltaTime)
             // Get material properties.
             const MaterialProperties& props = getMaterialProperties(cell.material_type);
 
-            // Calculate support factor (1.0 if supported, 0.0 if not).
-            double support_factor = support_calc.hasStructuralSupport(*this, x, y) ? 1.0 : 0.0;
+            // Use pre-computed support from bottom-up scan.
+            double support_factor = cell.has_support ? 1.0 : 0.0;
 
             // For now, assume STATIC motion state when supported, FALLING otherwise.
             // TODO: Implement proper motion state detection.

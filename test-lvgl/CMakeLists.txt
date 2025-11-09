@@ -259,6 +259,7 @@ add_executable(sparkle-duck-server
     src/server/api/SimRun.cpp
     src/server/api/StateGet.cpp
     src/server/api/StepN.cpp
+    src/server/api/TimerStatsGet.cpp
 
     # Core components.
     src/core/Cell.cpp
@@ -351,6 +352,7 @@ add_executable(sparkle-duck-tests
     src/server/api/SimRun.cpp
     src/server/api/StateGet.cpp
     src/server/api/StepN.cpp
+    src/server/api/TimerStatsGet.cpp
     src/server/network/CommandDeserializerJson.cpp
     src/server/network/WebSocketServer.cpp
     src/server/scenarios/ScenarioRegistry.cpp
@@ -379,7 +381,7 @@ target_link_libraries(sparkle-duck-tests
     m
     pthread
 )
-target_include_directories(sparkle-duck-tests PRIVATE ${CMAKE_SOURCE_DIR}/src ${PKG_CONFIG_INC})
+target_include_directories(sparkle-duck-tests PRIVATE ${CMAKE_SOURCE_DIR}/src ${PKG_CONFIG_INC} ${zpp_bits_SOURCE_DIR})
 
 # Enable warnings and treat them as errors for test executable
 target_compile_options(sparkle-duck-tests PRIVATE -Wall -Wextra -Werror)

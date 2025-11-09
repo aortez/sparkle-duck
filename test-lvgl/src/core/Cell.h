@@ -61,6 +61,9 @@ struct Cell {
     // Cached physics values for visualization.
     double cached_friction_coefficient = 1.0;
 
+    // Computed structural support (updated via bottom-up scan each frame).
+    bool has_support = false;
+
     // =================================================================
     // MATERIAL PROPERTIES
     // =================================================================
@@ -93,6 +96,7 @@ struct Cell {
     bool isFull() const { return fill_ratio > MAX_FILL_THRESHOLD; }
     bool isAir() const { return material_type == MaterialType::AIR; }
     bool isWall() const { return material_type == MaterialType::WALL; }
+
 
     // =================================================================
     // PHYSICS PROPERTIES

@@ -6,7 +6,7 @@ This file provides guidance when working with code in this repository.
 
 Sparkle Duck is a playground for experimenting with Yocto, Zephyr, and LVGL technologies. The main application is a **cell-based multi-material physics simulation** located in the `test-lvgl` directory that demonstrates advanced physics simulation with interactive UI controls.
 
-The project features a **pure-material physics system** with fill ratios and 8 material types (AIR, DIRT, WATER, WOOD, SAND, METAL, LEAF, WALL).
+The project features a **pure-material physics system** with fill ratios and 9 material types (AIR, DIRT, LEAF, METAL, SAND, SEED, WALL, WATER, WOOD).
 
 Read design_docs/coding_convention.md for coding guidelines.
 
@@ -85,11 +85,21 @@ make test ARGS='--gtest_filter=State*'
 
 ## Architecture
 
+### Component Libraries
+
+The project is organized into three component libraries:
+
+- **sparkle-duck-core**: Shared types for serialization (MaterialType, Vector2d/i, Cell, WorldData, ScenarioConfig)
+- **sparkle-duck-server**: Physics engine (World + calculators), server logic, scenarios, server API commands
+- **sparkle-duck-ui**: UI components (controls, rendering, LVGL builders), UI state machine, UI API commands
+
+Executables (server, UI, CLI, tests) link against these libraries.
+
 ### Physics System
 
 - **World**: Grid-based physics simulation with pure-material cells
 - **Cell**: Fill ratio [0,1] with single material type per cell
-- **MaterialType**: Enum-based material system (AIR, DIRT, WATER, WOOD, SAND, METAL, LEAF, WALL)
+- **MaterialType**: Enum-based material system (AIR, DIRT, LEAF, METAL, SAND, SEED, WALL, WATER, WOOD)
 - **Material Properties**: Each material has density, cohesion, adhesion, viscosity, friction, elasticity
 
 ### Core Components
@@ -214,7 +224,8 @@ Can be found here:
 - @design_docs/GridMechanics.md           #<-- Physics system foundations (pressure, friction, cohesion, etc.)
 - design_docs/WebRTC-test-driver.md       #<-- Client/Server architecture (DSSM server + UI client)
 - design_docs/coding_convention.md        #<-- Code style guidelines
-- design_docs/plant.md                    #<-- Tree/organism feature (future)
+- design_docs/plant.md                    #<-- Tree/organism feature (Phase 1 in progress)
+- design_docs/ai-integration-ideas.md     #<-- AI/LLM integration ideas for future
 
 ## Project Directory Structure
 
@@ -282,7 +293,14 @@ Can be found here:
 
 ## Misc TODO
 - How can we make denser materials sink below less dense ones?
-- Add Tree organism to simulation
+
+### Tree Organisms (In Progress - Phase 1)
+- ✅ SEED material type added
+- ✅ SeedAdd API command with UI button
+- ❌ TreeManager for organism lifecycle
+- ❌ Tree class with brain interface
+- ❌ Neural network and LLM brain implementations
+See design_docs/plant.md and design_docs/ai-integration-ideas.md for details.
 
 ## Interaction Guidelines
 Let me know if you have any questions!

@@ -2,6 +2,7 @@
 #include "core/MsgPackAdapter.h"
 #include "core/ReflectSerializer.h"
 #include "core/WorldData.h"
+#include "core/api/UiUpdateEvent.h"
 #include <spdlog/spdlog.h>
 #include <zpp_bits.h>
 #include <chrono>
@@ -17,6 +18,11 @@ WebSocketClient::WebSocketClient()
 WebSocketClient::~WebSocketClient()
 {
     disconnect();
+}
+
+void WebSocketClient::setEventSink(EventSink* sink)
+{
+    eventSink_ = sink;
 }
 
 bool WebSocketClient::connect(const std::string& url)
@@ -53,12 +59,39 @@ bool WebSocketClient::connect(const std::string& url)
                 spdlog::debug("UI WebSocketClient: Received binary message ({} bytes)", binaryData.size());
 
                 try {
-                    // Unpack binary to WorldData using zpp_bits.
+                    // Unpack binary to WorldData using zpp_bits (fast!).
                     WorldData worldData;
                     zpp::bits::in in(binaryData);
                     in(worldData).or_throw();
 
-                    // Convert to JSON string for MessageParser compatibility.
+                    // Fast path: queue UiUpdateEvent directly via EventSink.
+                    if (eventSink_) {
+                        // Throttle to 60 FPS to prevent event queue overflow.
+                        auto now = std::chrono::steady_clock::now();
+                        auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+                            now - lastEventQueueTime_).count();
+
+                        if (elapsed < 16) {
+                            // Drop frame - too soon since last update.
+                            return;
+                        }
+
+                        lastEventQueueTime_ = now;
+                        uint64_t stepCount = worldData.timestep;
+                        UiUpdateEvent evt{
+                            .sequenceNum = 0,
+                            .worldData = std::move(worldData),
+                            .fps = 0,
+                            .stepCount = stepCount,
+                            .isPaused = false,
+                            .timestamp = now
+                        };
+
+                        eventSink_->queueEvent(evt);
+                        return;  // Done - skip JSON conversion entirely.
+                    }
+
+                    // Legacy fallback: convert to JSON for MessageParser.
                     nlohmann::json doc;
                     doc["value"] = ReflectSerializer::to_json(worldData);
                     message = doc.dump();

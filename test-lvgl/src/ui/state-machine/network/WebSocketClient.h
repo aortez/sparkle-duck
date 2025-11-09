@@ -1,5 +1,7 @@
 #pragma once
 
+#include "core/WorldData.h"
+#include "ui/state-machine/EventSink.h"
 #include <rtc/rtc.hpp>
 #include <functional>
 #include <memory>
@@ -21,6 +23,8 @@ public:
 
     WebSocketClient();
     ~WebSocketClient();
+
+    void setEventSink(EventSink* sink);
 
     /**
      * @brief Connect to WebSocket server.
@@ -56,7 +60,7 @@ public:
     bool isConnected() const;
 
     /**
-     * @brief Set callback for received messages.
+     * @brief Set callback for received messages (legacy JSON messages).
      * @param callback Function called when message received.
      */
     void onMessage(MessageCallback callback);
@@ -81,6 +85,7 @@ public:
 
 private:
     std::shared_ptr<rtc::WebSocket> ws_;
+    EventSink* eventSink_ = nullptr;
     MessageCallback messageCallback_;
     ConnectionCallback connectedCallback_;
     ConnectionCallback disconnectedCallback_;
@@ -89,6 +94,9 @@ private:
     // For blocking sendAndReceive().
     std::string response_;
     bool responseReceived_ = false;
+
+    // Frame dropping: throttle to 60 FPS max.
+    std::chrono::steady_clock::time_point lastEventQueueTime_;
 };
 
 } // namespace Ui
