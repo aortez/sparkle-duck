@@ -150,14 +150,18 @@ State::Any SimRunning::onEvent(const FrameReadyNotification& evt, StateMachine& 
                          measuredUIFPS, smoothedUIFPS);
         }
 
-        // Request world state from DSSM.
+        // Request world state from DSSM (only if no request is pending).
         auto* wsClient = sm.getWebSocketClient();
-        if (wsClient && wsClient->isConnected()) {
+        if (wsClient && wsClient->isConnected() && !stateGetPending) {
             nlohmann::json stateGetCmd = {{"command", "state_get"}};
             wsClient->send(stateGetCmd.dump());
 
             // Record when request was sent for round-trip timing.
             lastStateGetSentTime = std::chrono::steady_clock::now();
+            stateGetPending = true;
+            spdlog::debug("SimRunning: Sent state_get request (step {})", evt.stepNumber);
+        } else if (stateGetPending) {
+            spdlog::debug("SimRunning: Skipping state_get request - previous request still pending (step {})", evt.stepNumber);
         }
 
         lastFrameRequestTime = now;
@@ -174,20 +178,25 @@ State::Any SimRunning::onEvent(const FrameReadyNotification& evt, StateMachine& 
 
 State::Any SimRunning::onEvent(const UiUpdateEvent& evt, StateMachine& sm)
 {
-    // Calculate round-trip time for frame request.
-    auto now = std::chrono::steady_clock::now();
-    auto roundTrip = std::chrono::duration_cast<std::chrono::microseconds>(now - lastStateGetSentTime);
-    lastRoundTripMs = roundTrip.count() / 1000.0;  // Convert to milliseconds.
+    spdlog::debug("SimRunning: Received world update (step {}) via push", evt.stepCount);
 
-    // Smooth with EMA.
-    if (smoothedRoundTripMs == 0.0) {
-        smoothedRoundTripMs = lastRoundTripMs;
-    } else {
-        smoothedRoundTripMs = 0.9 * smoothedRoundTripMs + 0.1 * lastRoundTripMs;
+    // Log performance stats every 20 updates.
+    updateCount++;
+    if (updateCount % 20 == 0) {
+        auto& timers = sm.getTimers();
+
+        spdlog::info("UI Performance Stats (after {} updates):", updateCount);
+        spdlog::info("  Message parse: {:.1f}ms avg ({} calls, {:.1f}ms total)",
+            timers.getCallCount("parse_message") > 0 ?
+                timers.getAccumulatedTime("parse_message") / timers.getCallCount("parse_message") : 0.0,
+            timers.getCallCount("parse_message"),
+            timers.getAccumulatedTime("parse_message"));
+        spdlog::info("  World render: {:.1f}ms avg ({} calls, {:.1f}ms total)",
+            timers.getCallCount("render_world") > 0 ?
+                timers.getAccumulatedTime("render_world") / timers.getCallCount("render_world") : 0.0,
+            timers.getCallCount("render_world"),
+            timers.getAccumulatedTime("render_world"));
     }
-
-    spdlog::info("SimRunning: Received world update (step {}), round-trip: {:.1f}ms (smoothed: {:.1f}ms)",
-                 evt.stepCount, lastRoundTripMs, smoothedRoundTripMs);
 
     // Update local worldData with received state.
     worldData = std::make_unique<WorldData>(evt.worldData);
@@ -202,7 +211,12 @@ State::Any SimRunning::onEvent(const UiUpdateEvent& evt, StateMachine& sm)
         auto* uiManager = sm.getUiComponentManager();
         if (uiManager) {
             lv_obj_t* container = uiManager->getSimulationContainer();
+
+            // Time rendering.
+            sm.getTimers().startTimer("render_world");
             renderer_->renderWorldData(*worldData, container, debugDrawEnabled);
+            sm.getTimers().stopTimer("render_world");
+
             spdlog::debug("SimRunning: Rendered world ({}x{}, step {})",
                          worldData->width, worldData->height, worldData->timestep);
         }

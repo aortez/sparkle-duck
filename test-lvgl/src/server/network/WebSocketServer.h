@@ -39,6 +39,12 @@ public:
      */
     void broadcast(const std::string& message);
 
+    /**
+     * @brief Broadcast binary data to all connected clients.
+     * @param data Binary data to broadcast.
+     */
+    void broadcastBinary(const rtc::binary& data);
+
 private:
     std::vector<std::shared_ptr<rtc::WebSocket>> connectedClients_;
     DirtSim::StateMachineInterface<Event>& stateMachine_;
@@ -66,6 +72,12 @@ private:
      * @return Event variant containing the Cwc.
      */
     Event createCwcForCommand(const ApiCommand& command, std::shared_ptr<rtc::WebSocket> ws);
+
+    /**
+     * @brief Handle state_get immediately without queuing (low latency path).
+     * @param ws The WebSocket connection for sending response.
+     */
+    void handleStateGetImmediate(std::shared_ptr<rtc::WebSocket> ws);
 };
 
 } // namespace Server

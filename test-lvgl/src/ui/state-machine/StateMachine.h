@@ -5,6 +5,7 @@
 #include "states/State.h"
 #include "core/StateMachineBase.h"
 #include "core/StateMachineInterface.h"
+#include "core/Timers.h"
 #include "EventProcessor.h"
 #include <memory>
 #include <string>
@@ -58,7 +59,14 @@ public:
      */
     UiComponentManager* getUiComponentManager() { return uiManager_.get(); }
 
+    /**
+     * @brief Get performance timers for instrumentation.
+     * @return Reference to timers.
+     */
+    Timers& getTimers() { return timers_; }
+
 private:
+    Timers timers_;  // Performance instrumentation timers.
     State::Any fsmState{ State::Startup{} };
 
     void transitionTo(State::Any newState);

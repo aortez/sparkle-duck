@@ -17,6 +17,7 @@ struct StartMenu {
 
     Any onEvent(const FrameReadyNotification& evt, StateMachine& sm);
     Any onEvent(const ServerDisconnectedEvent& evt, StateMachine& sm);
+    Any onEvent(const ServerRunningConfirmedEvent& evt, StateMachine& sm);
     Any onEvent(const UiApi::Exit::Cwc& cwc, StateMachine& sm);
     Any onEvent(const UiApi::SimRun::Cwc& cwc, StateMachine& sm);
 

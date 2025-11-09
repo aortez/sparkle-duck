@@ -1,0 +1,68 @@
+#pragma once
+
+#include "SubprocessManager.h"
+#include "WebSocketClient.h"
+
+#include <nlohmann/json.hpp>
+#include <string>
+#include <vector>
+
+namespace DirtSim {
+namespace Client {
+
+/**
+ * @brief Results from benchmark run (flattened for ReflectSerializer).
+ */
+struct BenchmarkResults {
+    std::string scenario = "sandbox";
+    std::string grid_size = "28x28";
+    uint32_t steps = 0;
+    double duration_sec = 0.0;
+
+    // Server metrics.
+    double server_fps = 0.0;
+    double server_physics_avg_ms = 0.0;
+    double server_physics_total_ms = 0.0;
+    uint32_t server_physics_calls = 0;
+    double server_serialization_avg_ms = 0.0;
+    double server_serialization_total_ms = 0.0;
+    uint32_t server_serialization_calls = 0;
+    double server_cache_update_avg_ms = 0.0;
+    double server_network_send_avg_ms = 0.0;
+
+    // Client metrics.
+    bool client_polling_enabled = false;
+    uint32_t client_requests_sent = 0;
+    double client_avg_round_trip_ms = 0.0;
+    double client_avg_deserialize_ms = 0.0;
+    double client_total_data_kb = 0.0;
+};
+
+/**
+ * @brief Runs performance benchmark on Sparkle Duck server.
+ *
+ * Launches server, runs simulation, collects performance metrics,
+ * and outputs JSON results.
+ */
+class BenchmarkRunner {
+public:
+    BenchmarkRunner();
+    ~BenchmarkRunner();
+
+    BenchmarkResults run(
+        const std::string& serverPath,
+        uint32_t steps,
+        const std::string& scenario = "sandbox",
+        bool simulateUI = false);
+
+private:
+    SubprocessManager subprocessManager_;
+    WebSocketClient client_;
+
+    bool waitForCompletion(uint32_t targetSteps, int timeoutSec);
+
+    nlohmann::json queryPerfStats();
+};
+
+} // namespace Client
+} // namespace DirtSim

@@ -9,6 +9,7 @@
 #include <chrono>
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
+#include <zpp_bits.h>
 
 namespace DirtSim {
 namespace Server {
@@ -70,36 +71,77 @@ State::Any SimRunning::onEvent(const AdvanceSimulationCommand& /*cmd*/, StateMac
         if (elapsed > 0) {
             actualFPS = 1000000.0 / elapsed;  // Microseconds to FPS.
 
-            // Log FPS every 60 frames.
+            // Log FPS and performance stats every 60 frames.
             if (stepCount % 60 == 0) {
                 spdlog::info("SimRunning: Actual FPS: {:.1f} (step {})", actualFPS, stepCount);
+
+                // Log performance timing stats.
+                auto& timers = dsm.getTimers();
+                spdlog::info("  Physics: {:.1f}ms avg ({} calls, {:.1f}ms total)",
+                    timers.getCallCount("physics_step") > 0 ?
+                        timers.getAccumulatedTime("physics_step") / timers.getCallCount("physics_step") : 0.0,
+                    timers.getCallCount("physics_step"),
+                    timers.getAccumulatedTime("physics_step"));
+                spdlog::info("  Cache update: {:.1f}ms avg ({} calls, {:.1f}ms total)",
+                    timers.getCallCount("cache_update") > 0 ?
+                        timers.getAccumulatedTime("cache_update") / timers.getCallCount("cache_update") : 0.0,
+                    timers.getCallCount("cache_update"),
+                    timers.getAccumulatedTime("cache_update"));
+                spdlog::info("  zpp_bits pack: {:.2f}ms avg ({} calls, {:.1f}ms total)",
+                    timers.getCallCount("serialize_worlddata") > 0 ?
+                        timers.getAccumulatedTime("serialize_worlddata") / timers.getCallCount("serialize_worlddata") : 0.0,
+                    timers.getCallCount("serialize_worlddata"),
+                    timers.getAccumulatedTime("serialize_worlddata"));
+                spdlog::info("  Network send: {:.2f}ms avg ({} calls, {:.1f}ms total)",
+                    timers.getCallCount("network_send") > 0 ?
+                        timers.getAccumulatedTime("network_send") / timers.getCallCount("network_send") : 0.0,
+                    timers.getCallCount("network_send"),
+                    timers.getAccumulatedTime("network_send"));
+                spdlog::info("  state_get immediate (total): {:.2f}ms avg ({} calls, {:.1f}ms total)",
+                    timers.getCallCount("state_get_immediate_total") > 0 ?
+                        timers.getAccumulatedTime("state_get_immediate_total") / timers.getCallCount("state_get_immediate_total") : 0.0,
+                    timers.getCallCount("state_get_immediate_total"),
+                    timers.getAccumulatedTime("state_get_immediate_total"));
             }
         }
     }
     lastFrameTime = now;
 
     // Advance physics by one timestep (~60 FPS).
+    dsm.getTimers().startTimer("physics_step");
     world->advanceTime(0.016);
+    dsm.getTimers().stopTimer("physics_step");
     stepCount++;
 
+    // Check if we've reached target steps.
+    if (targetSteps > 0 && stepCount >= targetSteps) {
+        spdlog::info("SimRunning: Reached target steps ({}/{}), transitioning to Paused", stepCount, targetSteps);
+        return SimPaused{std::move(*this)};
+    }
+
     // Update StateMachine's cached WorldData for fast state_get responses (cheap ~1ms).
+    dsm.getTimers().startTimer("cache_update");
     dsm.updateCachedWorldData(world->data);
+    dsm.getTimers().stopTimer("cache_update");
 
     spdlog::debug("SimRunning: Advanced simulation (step {})", stepCount);
 
-    // Broadcast frame notification to all connected UI clients.
+    // Push WorldData to all connected UI clients (eliminates request latency!).
     if (dsm.getWebSocketServer()) {
-        auto timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
-            now.time_since_epoch()).count();
+        auto& timers = dsm.getTimers();
 
-        nlohmann::json notification = {
-            {"type", "frame_ready"},
-            {"stepNumber", stepCount},
-            {"timestamp", timestamp},
-            {"fps", actualFPS}
-        };
+        // Pack WorldData to binary.
+        timers.startTimer("serialize_worlddata");
+        std::vector<std::byte> data;
+        zpp::bits::out out(data);
+        out(world->data).or_throw();
+        timers.stopTimer("serialize_worlddata");
 
-        dsm.getWebSocketServer()->broadcast(notification.dump());
+        // Broadcast binary WorldData to all clients.
+        rtc::binary binaryMsg(data.begin(), data.end());
+        timers.startTimer("network_send");
+        dsm.getWebSocketServer()->broadcastBinary(binaryMsg);
+        timers.stopTimer("network_send");
     }
 
     return std::move(*this);  // Stay in SimRunning (move because unique_ptr).
@@ -227,6 +269,47 @@ State::Any SimRunning::onEvent(const Api::GravitySet::Cwc& cwc, StateMachine& /*
     return std::move(*this);
 }
 
+State::Any SimRunning::onEvent(const Api::PerfStatsGet::Cwc& cwc, StateMachine& dsm)
+{
+    using Response = Api::PerfStatsGet::Response;
+
+    // Gather performance statistics from timers.
+    auto& timers = dsm.getTimers();
+
+    Api::PerfStatsGet::Okay stats;
+    stats.fps = actualFPS;
+
+    // Physics timing.
+    stats.physics_calls = timers.getCallCount("physics_step");
+    stats.physics_total_ms = timers.getAccumulatedTime("physics_step");
+    stats.physics_avg_ms = stats.physics_calls > 0 ?
+        stats.physics_total_ms / stats.physics_calls : 0.0;
+
+    // Serialization timing.
+    stats.serialization_calls = timers.getCallCount("serialize_worlddata");
+    stats.serialization_total_ms = timers.getAccumulatedTime("serialize_worlddata");
+    stats.serialization_avg_ms = stats.serialization_calls > 0 ?
+        stats.serialization_total_ms / stats.serialization_calls : 0.0;
+
+    // Cache update timing.
+    stats.cache_update_calls = timers.getCallCount("cache_update");
+    stats.cache_update_total_ms = timers.getAccumulatedTime("cache_update");
+    stats.cache_update_avg_ms = stats.cache_update_calls > 0 ?
+        stats.cache_update_total_ms / stats.cache_update_calls : 0.0;
+
+    // Network send timing.
+    stats.network_send_calls = timers.getCallCount("network_send");
+    stats.network_send_total_ms = timers.getAccumulatedTime("network_send");
+    stats.network_send_avg_ms = stats.network_send_calls > 0 ?
+        stats.network_send_total_ms / stats.network_send_calls : 0.0;
+
+    spdlog::info("SimRunning: API perf_stats_get returning {} physics steps, {} serializations",
+                 stats.physics_calls, stats.serialization_calls);
+
+    cwc.sendResponse(Response::okay(std::move(stats)));
+    return std::move(*this);
+}
+
 State::Any SimRunning::onEvent(const Api::Reset::Cwc& cwc, StateMachine& /*dsm*/)
 {
     using Response = Api::Reset::Response;
@@ -288,9 +371,33 @@ State::Any SimRunning::onEvent(const Api::ScenarioConfigSet::Cwc& cwc, StateMach
     return std::move(*this);
 }
 
+State::Any SimRunning::onEvent(const Api::SeedAdd::Cwc& cwc, StateMachine& /*dsm*/)
+{
+    using Response = Api::SeedAdd::Response;
+
+    // Validate coordinates.
+    if (cwc.command.x < 0 || cwc.command.y < 0 ||
+        static_cast<uint32_t>(cwc.command.x) >= world->data.width ||
+        static_cast<uint32_t>(cwc.command.y) >= world->data.height)
+    {
+        cwc.sendResponse(Response::error(ApiError("Invalid coordinates")));
+        return std::move(*this);
+    }
+
+    // Add the seed.
+    spdlog::info("SeedAdd: Adding SEED at ({}, {})", cwc.command.x, cwc.command.y);
+    world->addMaterialAtCell(cwc.command.x, cwc.command.y, MaterialType::SEED, 1.0);
+
+    cwc.sendResponse(Response::okay(std::monostate{}));
+    return std::move(*this);
+}
+
 State::Any SimRunning::onEvent(const Api::StateGet::Cwc& cwc, StateMachine& dsm)
 {
     using Response = Api::StateGet::Response;
+
+    // Track total server-side processing time.
+    auto requestStart = std::chrono::steady_clock::now();
 
     if (!world) {
         cwc.sendResponse(Response::error(ApiError("No world available")));
@@ -309,6 +416,12 @@ State::Any SimRunning::onEvent(const Api::StateGet::Cwc& cwc, StateMachine& dsm)
         responseData.worldData = world->data;
         cwc.sendResponse(Response::okay(std::move(responseData)));
     }
+
+    // Log server processing time for state_get requests (includes serialization + send).
+    auto requestEnd = std::chrono::steady_clock::now();
+    double processingMs = std::chrono::duration<double, std::milli>(requestEnd - requestStart).count();
+    spdlog::trace("SimRunning: state_get processed in {:.2f}ms (server-side total)", processingMs);
+
     return std::move(*this);
 }
 

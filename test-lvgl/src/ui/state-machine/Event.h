@@ -91,6 +91,13 @@ struct FrameReadyNotification {
     static constexpr const char* name() { return "FrameReadyNotification"; }
 };
 
+/**
+ * @brief Server confirmed it's running (response to sim_run command).
+ */
+struct ServerRunningConfirmedEvent {
+    static constexpr const char* name() { return "ServerRunningConfirmedEvent"; }
+};
+
 // =================================================================
 // EVENT VARIANT
 // =================================================================
@@ -106,6 +113,7 @@ using Event = std::variant<
     ConnectToServerCommand,
     ServerConnectedEvent,
     ServerDisconnectedEvent,
+    ServerRunningConfirmedEvent,
     RequestWorldUpdateCommand,
     FrameReadyNotification,
 

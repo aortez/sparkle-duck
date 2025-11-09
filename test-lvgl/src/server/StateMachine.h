@@ -5,6 +5,7 @@
 #include "scenarios/ScenarioRegistry.h"
 #include "core/StateMachineBase.h"
 #include "core/StateMachineInterface.h"
+#include "core/Timers.h"
 #include "states/State.h"
 #include <functional>
 #include <memory>
@@ -76,8 +77,15 @@ public:
      */
     ScenarioRegistry& getScenarioRegistry() { return scenarioRegistry_; }
 
+    /**
+     * @brief Get performance timers for instrumentation.
+     * @return Reference to timers.
+     */
+    Timers& getTimers() { return timers_; }
+
 private:
     ScenarioRegistry scenarioRegistry_;  // Owned scenario registry.
+    Timers timers_;  // Performance instrumentation timers.
     State::Any fsmState{ State::Startup{} };
 
     /**

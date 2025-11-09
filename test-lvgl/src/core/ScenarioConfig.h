@@ -1,9 +1,10 @@
 #pragma once
 
-#include <variant>
-#include <string>
-#include <nlohmann/json.hpp>
 #include "ReflectSerializer.h"
+#include <nlohmann/json.hpp>
+#include <string>
+#include <variant>
+#include <zpp_bits.h>
 
 namespace DirtSim {
 
@@ -19,13 +20,15 @@ namespace DirtSim {
  * @brief Empty scenario - no configuration needed.
  */
 struct EmptyConfig {
-    // No configurable parameters.
+    using serialize = zpp::bits::members<0>;
 };
 
 /**
  * @brief Sandbox scenario - interactive playground with configurable features.
  */
 struct SandboxConfig {
+    using serialize = zpp::bits::members<5>;
+
     // Initial setup features.
     bool quadrant_enabled = true;          // Lower-right quadrant filled with dirt.
 
@@ -40,6 +43,8 @@ struct SandboxConfig {
  * @brief Dam break scenario - water behind barrier.
  */
 struct DamBreakConfig {
+    using serialize = zpp::bits::members<3>;
+
     double dam_height = 10.0;              // Height of dam wall.
     bool auto_release = false;             // Automatically break dam after delay.
     double release_time = 2.0;             // Time in seconds before auto-release.
@@ -49,6 +54,8 @@ struct DamBreakConfig {
  * @brief Raining scenario - continuous rain.
  */
 struct RainingConfig {
+    using serialize = zpp::bits::members<2>;
+
     double rain_rate = 5.0;                // Rain rate in drops per second.
     bool puddle_floor = true;              // Add floor for puddles to form.
 };
@@ -57,6 +64,8 @@ struct RainingConfig {
  * @brief Water equalization scenario - pressure equilibration test.
  */
 struct WaterEqualizationConfig {
+    using serialize = zpp::bits::members<3>;
+
     double left_height = 15.0;             // Water column height on left.
     double right_height = 5.0;             // Water column height on right.
     bool separator_enabled = true;         // Start with separator wall.
@@ -66,6 +75,8 @@ struct WaterEqualizationConfig {
  * @brief Falling dirt scenario - gravity and pile formation.
  */
 struct FallingDirtConfig {
+    using serialize = zpp::bits::members<2>;
+
     double drop_height = 20.0;             // Height from which dirt drops.
     double drop_rate = 2.0;                // Drop rate in particles per second.
 };

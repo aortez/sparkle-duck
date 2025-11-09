@@ -9,39 +9,36 @@ namespace DirtSim {
 namespace Client {
 
 /**
- * @brief Simple WebSocket client for sending commands and receiving responses.
- *
- * Single-request client: connects, sends one message, waits for response, disconnects.
+ * @brief WebSocket client supporting both blocking (sendAndReceive) and async (callbacks) modes.
  */
 class WebSocketClient {
 public:
+    using MessageCallback = std::function<void(const std::string&)>;
+    using ConnectionCallback = std::function<void()>;
+    using ErrorCallback = std::function<void(const std::string&)>;
+
     WebSocketClient();
     ~WebSocketClient();
 
-    /**
-     * @brief Connect to WebSocket server.
-     * @param url WebSocket URL (e.g., "ws://localhost:8080")
-     * @return true if connected successfully.
-     */
     bool connect(const std::string& url);
-
-    /**
-     * @brief Send a message and wait for response.
-     * @param message JSON message to send.
-     * @param timeoutMs Timeout in milliseconds (default: 5000).
-     * @return Response string, or empty string on timeout/error.
-     */
+    bool send(const std::string& message);
     std::string sendAndReceive(const std::string& message, int timeoutMs = 5000);
-
-    /**
-     * @brief Disconnect from server.
-     */
     void disconnect();
+    bool isConnected() const;
+
+    void onMessage(MessageCallback callback);
+    void onConnected(ConnectionCallback callback);
+    void onDisconnected(ConnectionCallback callback);
+    void onError(ErrorCallback callback);
 
 private:
     std::shared_ptr<rtc::WebSocket> ws_;
     std::string response_;
     bool responseReceived_;
+    MessageCallback messageCallback_;
+    ConnectionCallback connectedCallback_;
+    ConnectionCallback disconnectedCallback_;
+    ErrorCallback errorCallback_;
 };
 
 } // namespace Client

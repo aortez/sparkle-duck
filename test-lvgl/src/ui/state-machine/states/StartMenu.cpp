@@ -47,16 +47,41 @@ void StartMenu::onStartButtonClicked(lv_event_t* e)
 
     spdlog::info("StartMenu: Start button clicked, sending sim_run to DSSM");
 
-    // Send sim_run command to DSSM using typed Command object.
+    // Send sim_run command and wait for response.
     auto* wsClient = sm->getWebSocketClient();
     if (wsClient && wsClient->isConnected()) {
-        UiApi::SimRun::Command cmd;  // Create command object.
-        nlohmann::json json = cmd.toJson();  // Convert to JSON.
-        wsClient->send(json.dump());  // Send to DSSM.
+        nlohmann::json cmd = {{"command", "sim_run"}};
+        std::string response = wsClient->sendAndReceive(cmd.dump(), 1000);
+
+        if (response.empty()) {
+            spdlog::error("StartMenu: No response from sim_run");
+            return;
+        }
+
+        // Parse response to check if server is now running.
+        try {
+            nlohmann::json responseJson = nlohmann::json::parse(response);
+            if (responseJson.contains("value") && responseJson["value"]["running"] == true) {
+                spdlog::info("StartMenu: Server confirmed running, transitioning to SimRunning");
+                // Queue transition event.
+                sm->queueEvent(ServerRunningConfirmedEvent{});
+            } else {
+                spdlog::warn("StartMenu: Server not running after sim_run");
+            }
+        }
+        catch (const std::exception& ex) {
+            spdlog::error("StartMenu: Failed to parse sim_run response: {}", ex.what());
+        }
     }
     else {
         spdlog::error("StartMenu: Cannot start simulation, not connected to DSSM");
     }
+}
+
+State::Any StartMenu::onEvent(const ServerRunningConfirmedEvent& /*evt*/, StateMachine& /*sm*/)
+{
+    spdlog::info("StartMenu: Server confirmed running, transitioning to SimRunning");
+    return SimRunning{};
 }
 
 State::Any StartMenu::onEvent(const FrameReadyNotification& evt, StateMachine& /*sm*/)

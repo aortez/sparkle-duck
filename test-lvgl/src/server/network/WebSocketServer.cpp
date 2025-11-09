@@ -1,5 +1,8 @@
 #include "WebSocketServer.h"
+#include "core/MsgPackAdapter.h"
+#include "server/StateMachine.h"
 #include <spdlog/spdlog.h>
+#include <zpp_bits.h>
 
 namespace DirtSim {
 namespace Server {
@@ -88,6 +91,24 @@ void WebSocketServer::broadcast(const std::string& message)
     }
 }
 
+void WebSocketServer::broadcastBinary(const rtc::binary& data)
+{
+    spdlog::trace("WebSocketServer: Broadcasting binary ({} bytes) to {} clients",
+                 data.size(), connectedClients_.size());
+
+    // Send to all connected clients.
+    for (auto& ws : connectedClients_) {
+        if (ws && ws->isOpen()) {
+            try {
+                ws->send(data);
+            }
+            catch (const std::exception& e) {
+                spdlog::error("WebSocketServer: Binary broadcast failed for client: {}", e.what());
+            }
+        }
+    }
+}
+
 void WebSocketServer::onMessage(std::shared_ptr<rtc::WebSocket> ws, const std::string& message)
 {
     spdlog::info("WebSocket received command: {}", message);
@@ -99,6 +120,12 @@ void WebSocketServer::onMessage(std::shared_ptr<rtc::WebSocket> ws, const std::s
         // Send error response back immediately.
         std::string errorJson = R"({"error": ")" + cmdResult.error().message + R"("})";
         ws->send(errorJson);
+        return;
+    }
+
+    // Handle state_get immediately (no queue latency for high-frequency queries).
+    if (std::holds_alternative<Api::StateGet::Command>(cmdResult.value())) {
+        handleStateGetImmediate(ws);
         return;
     }
 
@@ -154,6 +181,15 @@ Event WebSocketServer::createCwcForCommand(
                 };
                 return cwc;
             }
+            else if constexpr (std::is_same_v<CommandType, Api::PerfStatsGet::Command>) {
+                Api::PerfStatsGet::Cwc cwc;
+                cwc.command = cmd;
+                cwc.callback = [this, ws](Api::PerfStatsGet::Response&& response) {
+                    std::string jsonResponse = serializer_.serialize(std::move(response));
+                    ws->send(jsonResponse);
+                };
+                return cwc;
+            }
             else if constexpr (std::is_same_v<CommandType, Api::Reset::Command>) {
                 Api::Reset::Cwc cwc;
                 cwc.command = cmd;
@@ -176,8 +212,34 @@ Event WebSocketServer::createCwcForCommand(
                 Api::StateGet::Cwc cwc;
                 cwc.command = cmd;
                 cwc.callback = [this, ws](Api::StateGet::Response&& response) {
-                    std::string jsonResponse = serializer_.serialize(std::move(response));
-                    ws->send(jsonResponse);
+                    // Get timers for instrumentation.
+                    auto& dsm = static_cast<StateMachine&>(stateMachine_);
+                    auto& timers = dsm.getTimers();
+
+                    if (response.isError()) {
+                        // Send errors as JSON still.
+                        std::string jsonResponse = serializer_.serialize(std::move(response));
+                        timers.startTimer("network_send");
+                        ws->send(jsonResponse);
+                        timers.stopTimer("network_send");
+                    } else {
+                        // Pack WorldData directly to binary with zpp_bits.
+                        timers.startTimer("serialize_worlddata");
+
+                        std::vector<std::byte> data;
+                        zpp::bits::out out(data);
+                        out(response.value().worldData).or_throw();
+
+                        timers.stopTimer("serialize_worlddata");
+
+                        // Convert to rtc::binary (already std::vector<std::byte>).
+                        rtc::binary binaryMsg(data.begin(), data.end());
+
+                        // Send as binary message.
+                        timers.startTimer("network_send");
+                        ws->send(binaryMsg);
+                        timers.stopTimer("network_send");
+                    }
                 };
                 return cwc;
             }
@@ -214,6 +276,43 @@ Event WebSocketServer::createCwcForCommand(
             }
         },
         command);
+}
+
+void WebSocketServer::handleStateGetImmediate(std::shared_ptr<rtc::WebSocket> ws)
+{
+    // Cast to concrete StateMachine type to access cached WorldData.
+    auto& dsm = static_cast<StateMachine&>(stateMachine_);
+    auto& timers = dsm.getTimers();
+
+    // Track total server processing time.
+    timers.startTimer("state_get_immediate_total");
+
+    // Get cached WorldData (already updated by physics thread).
+    auto cachedPtr = dsm.getCachedWorldData();
+    if (!cachedPtr) {
+        spdlog::warn("WebSocketServer: state_get immediate - no cached data available");
+        std::string errorJson = R"({"error": "No world data available"})";
+        ws->send(errorJson);
+        timers.stopTimer("state_get_immediate_total");
+        return;
+    }
+
+    // Pack WorldData directly to binary with zpp_bits.
+    timers.startTimer("serialize_worlddata");
+    std::vector<std::byte> data;
+    zpp::bits::out out(data);
+    out(*cachedPtr).or_throw();
+    timers.stopTimer("serialize_worlddata");
+
+    // Convert to rtc::binary.
+    rtc::binary binaryMsg(data.begin(), data.end());
+
+    // Send immediately.
+    timers.startTimer("network_send");
+    ws->send(binaryMsg);
+    timers.stopTimer("network_send");
+
+    timers.stopTimer("state_get_immediate_total");
 }
 
 } // namespace Server

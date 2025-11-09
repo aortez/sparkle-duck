@@ -1,4 +1,5 @@
 #include "ControlPanel.h"
+#include "server/api/SeedAdd.h"
 #include "ui/state-machine/EventSink.h"
 #include "ui/state-machine/network/WebSocketClient.h"
 #include "ui/ui_builders/LVGLBuilder.h"
@@ -100,11 +101,12 @@ void ControlPanel::clearScenarioControls()
     if (scenarioPanel_) {
         lv_obj_del(scenarioPanel_);
         scenarioPanel_ = nullptr;
+        sandboxAddSeedButton_ = nullptr;
         sandboxQuadrantSwitch_ = nullptr;
-        sandboxWaterColumnSwitch_ = nullptr;
+        sandboxRainSlider_ = nullptr;
         sandboxRightThrowSwitch_ = nullptr;
         sandboxTopDropSwitch_ = nullptr;
-        sandboxRainSlider_ = nullptr;
+        sandboxWaterColumnSwitch_ = nullptr;
     }
 }
 
@@ -113,6 +115,13 @@ void ControlPanel::createSandboxControls(const SandboxConfig& config)
     // Scenario label.
     lv_obj_t* scenarioLabel = lv_label_create(scenarioPanel_);
     lv_label_set_text(scenarioLabel, "--- Sandbox ---");
+
+    // Add Seed button.
+    sandboxAddSeedButton_ = LVGLBuilder::button(scenarioPanel_)
+        .size(LV_PCT(90), 40)
+        .text("Add Seed")
+        .callback(onAddSeedClicked, this)
+        .buildOrLog();
 
     // Quadrant toggle.
     sandboxQuadrantSwitch_ = LVGLBuilder::labeledSwitch(scenarioPanel_)
@@ -157,6 +166,26 @@ void ControlPanel::createSandboxControls(const SandboxConfig& config)
 // ============================================================================
 // Event Handlers
 // ============================================================================
+
+void ControlPanel::onAddSeedClicked(lv_event_t* e)
+{
+    auto* panel = static_cast<ControlPanel*>(lv_obj_get_user_data(static_cast<lv_obj_t*>(lv_event_get_target(e))));
+    if (!panel) return;
+
+    spdlog::info("ControlPanel: Add Seed button clicked");
+
+    // Send seed_add command to DSSM server (top center position).
+    if (panel->wsClient_ && panel->wsClient_->isConnected()) {
+        DirtSim::Api::SeedAdd::Command cmd;
+        cmd.x = 100;
+        cmd.y = 10;
+
+        nlohmann::json json = cmd.toJson();
+        json["command"] = "seed_add";
+
+        panel->wsClient_->send(json.dump());
+    }
+}
 
 void ControlPanel::onQuitClicked(lv_event_t* e)
 {
