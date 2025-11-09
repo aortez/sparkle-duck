@@ -96,12 +96,10 @@ public:
 
     // Event generation state.
     double lastSimTime = 0.0;
-    double nextTopDrop = 0.33;
     double nextInitialThrow = 0.17;
     double nextPeriodicThrow = 0.83;
     double nextRightThrow = 1.0;
     bool initialThrowDone = false;
-    bool topDropDone = false;
 };
 
 /**
@@ -123,7 +121,6 @@ public:
     // Control flags for particle generation features
     void setLeftThrowEnabled(bool enabled) { leftThrowEnabled = enabled; }
     void setRightThrowEnabled(bool enabled) { rightThrowEnabled = enabled; }
-    void setTopDropEnabled(bool enabled) { topDropEnabled = enabled; }
     void setSweepEnabled(bool enabled) { sweepEnabled = enabled; }
     void setRainRate(double rate) { rainRate = rate; }
     void setWaterColumnEnabled(bool enabled) { waterColumnEnabled = enabled; }
@@ -134,7 +131,6 @@ public:
     bool isMiddleMetalWallEnabled() const { return middleMetalWallEnabled; }
     bool isLeftThrowEnabled() const { return leftThrowEnabled; }
     bool isRightThrowEnabled() const { return rightThrowEnabled; }
-    bool isTopDropEnabled() const { return topDropEnabled; }
     bool isSweepEnabled() const { return sweepEnabled; }
     double getRainRate() const { return rainRate; }
     bool isWaterColumnEnabled() const { return waterColumnEnabled; }
@@ -148,20 +144,17 @@ private:
     // Particle generation control flags.
     bool leftThrowEnabled = true;
     bool rightThrowEnabled = true;
-    bool topDropEnabled = true;
     bool sweepEnabled = false;       // Currently disabled.
     double rainRate = 0.0;           // Rain rate in drops per second, 0 = disabled.
     bool waterColumnEnabled = false; // Water column on left side (5 wide × 20 tall).
 
     // Event generation state (moved from static variables).
     double lastSimTime = 0.0;
-    double nextTopDrop = 0.33;
     double nextInitialThrow = 0.17;
     double nextPeriodicThrow = 0.83;
     double nextRightThrow = 1.0;
     double nextRainDrop = 0.0;
     bool initialThrowDone = false;
-    bool topDropDone = false;
 };
 
 } // namespace DirtSim

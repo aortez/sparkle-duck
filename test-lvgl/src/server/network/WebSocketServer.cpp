@@ -125,167 +125,131 @@ void WebSocketServer::onMessage(std::shared_ptr<rtc::WebSocket> ws, const std::s
         return;
     }
 
-    // Handle state_get immediately (no queue latency for high-frequency queries).
+    // Some commands are handled immedately, by the websocket thread.
     if (std::holds_alternative<Api::StateGet::Command>(cmdResult.value())) {
         handleStateGetImmediate(ws);
         return;
     }
 
-    // Wrap Command in Cwc with response callback.
+    // Others are queued for processing in FIFO order.
     Event cwcEvent = createCwcForCommand(cmdResult.value(), ws);
-
-    // Queue to state machine.
     stateMachine_.queueEvent(cwcEvent);
 }
+
+// =============================================================================
+// GENERIC CWC CREATION HELPERS
+// =============================================================================
+
+namespace {
+
+// Helper trait to map Command type to Cwc type and provide clean name.
+template <typename CommandType>
+struct ApiInfo;
+
+#define REGISTER_API_NAMESPACE(NS)                       \
+    template <>                                          \
+    struct ApiInfo<DirtSim::Api::NS::Command> {          \
+        using CommandType = DirtSim::Api::NS::Command;   \
+        using CwcType = DirtSim::Api::NS::Cwc;           \
+        using ResponseType = DirtSim::Api::NS::Response; \
+        static constexpr const char* name = #NS;         \
+    };
+
+// Register all API command namespaces.
+// Compile-time error if a command is added to ApiCommand variant but not listed here.
+REGISTER_API_NAMESPACE(CellGet)
+REGISTER_API_NAMESPACE(CellSet)
+REGISTER_API_NAMESPACE(DiagramGet)
+REGISTER_API_NAMESPACE(Exit)
+REGISTER_API_NAMESPACE(GravitySet)
+REGISTER_API_NAMESPACE(PerfStatsGet)
+REGISTER_API_NAMESPACE(Reset)
+REGISTER_API_NAMESPACE(ScenarioConfigSet)
+REGISTER_API_NAMESPACE(SeedAdd)
+REGISTER_API_NAMESPACE(SimRun)
+REGISTER_API_NAMESPACE(SpawnDirtBall)
+REGISTER_API_NAMESPACE(StateGet)
+REGISTER_API_NAMESPACE(StepN)
+REGISTER_API_NAMESPACE(TimerStatsGet) // Note: Not in deserializer yet, but needed for compile.
+
+#undef REGISTER_API_NAMESPACE
+
+// Primary template: creates Cwc with standard JSON serialization callback and logging.
+template <typename Info>
+auto makeStandardCwc(
+    WebSocketServer* self,
+    std::shared_ptr<rtc::WebSocket> ws,
+    const typename Info::CommandType& cmd) -> typename Info::CwcType
+{
+    typename Info::CwcType cwc;
+    cwc.command = cmd;
+    cwc.callback = [self, ws](typename Info::ResponseType&& response) {
+        std::string jsonResponse = self->serializer_.serialize(std::move(response));
+        spdlog::info("{}: Sending response ({} bytes)", Info::name, jsonResponse.size());
+        ws->send(jsonResponse);
+    };
+    return cwc;
+}
+
+// Specialization for StateGet: binary serialization with zpp_bits.
+template <>
+auto makeStandardCwc<ApiInfo<DirtSim::Api::StateGet::Command>>(
+    WebSocketServer* self,
+    std::shared_ptr<rtc::WebSocket> ws,
+    const DirtSim::Api::StateGet::Command& cmd) -> DirtSim::Api::StateGet::Cwc
+{
+    DirtSim::Api::StateGet::Cwc cwc;
+    cwc.command = cmd;
+    cwc.callback = [self, ws](DirtSim::Api::StateGet::Response&& response) {
+        // Get timers for instrumentation.
+        auto& dsm = static_cast<StateMachine&>(self->stateMachine_);
+        auto& timers = dsm.getTimers();
+
+        if (response.isError()) {
+            // Send errors as JSON still.
+            std::string jsonResponse = self->serializer_.serialize(std::move(response));
+            spdlog::info("StateGet: Sending error response ({} bytes)", jsonResponse.size());
+            timers.startTimer("network_send");
+            ws->send(jsonResponse);
+            timers.stopTimer("network_send");
+        }
+        else {
+            // Pack WorldData directly to binary with zpp_bits.
+            timers.startTimer("serialize_worlddata");
+
+            std::vector<std::byte> data;
+            zpp::bits::out out(data);
+            out(response.value().worldData).or_throw();
+
+            timers.stopTimer("serialize_worlddata");
+
+            // Convert to rtc::binary (already std::vector<std::byte>).
+            rtc::binary binaryMsg(data.begin(), data.end());
+
+            spdlog::debug("StateGet: Sending binary response ({} bytes)", data.size());
+
+            // Send as binary message.
+            timers.startTimer("network_send");
+            ws->send(binaryMsg);
+            timers.stopTimer("network_send");
+        }
+    };
+    return cwc;
+}
+
+} // anonymous namespace
 
 Event WebSocketServer::createCwcForCommand(
     const ApiCommand& command, std::shared_ptr<rtc::WebSocket> ws)
 {
+    // Generic visitor that works for ALL command types.
+    // Compile-time error if a command type is added to ApiCommand but not registered above.
     return std::visit(
         [this, ws](auto&& cmd) -> Event {
             using CommandType = std::decay_t<decltype(cmd)>;
+            using Info = ApiInfo<CommandType>;
 
-            // Determine the Cwc type based on command type.
-            if constexpr (std::is_same_v<CommandType, Api::CellGet::Command>) {
-                Api::CellGet::Cwc cwc;
-                cwc.command = cmd;
-                cwc.callback = [this, ws](Api::CellGet::Response&& response) {
-                    std::string jsonResponse = serializer_.serialize(std::move(response));
-                    ws->send(jsonResponse);
-                };
-                return cwc;
-            }
-            else if constexpr (std::is_same_v<CommandType, Api::CellSet::Command>) {
-                Api::CellSet::Cwc cwc;
-                cwc.command = cmd;
-                cwc.callback = [this, ws](Api::CellSet::Response&& response) {
-                    std::string jsonResponse = serializer_.serialize(std::move(response));
-                    ws->send(jsonResponse);
-                };
-                return cwc;
-            }
-            else if constexpr (std::is_same_v<CommandType, Api::DiagramGet::Command>) {
-                Api::DiagramGet::Cwc cwc;
-                cwc.command = cmd;
-                cwc.callback = [this, ws](Api::DiagramGet::Response&& response) {
-                    std::string jsonResponse = serializer_.serialize(std::move(response));
-                    spdlog::info("DiagramGet: Sending response ({} bytes)", jsonResponse.size());
-                    ws->send(jsonResponse);
-                };
-                return cwc;
-            }
-            else if constexpr (std::is_same_v<CommandType, Api::GravitySet::Command>) {
-                Api::GravitySet::Cwc cwc;
-                cwc.command = cmd;
-                cwc.callback = [this, ws](Api::GravitySet::Response&& response) {
-                    std::string jsonResponse = serializer_.serialize(std::move(response));
-                    ws->send(jsonResponse);
-                };
-                return cwc;
-            }
-            else if constexpr (std::is_same_v<CommandType, Api::PerfStatsGet::Command>) {
-                Api::PerfStatsGet::Cwc cwc;
-                cwc.command = cmd;
-                cwc.callback = [this, ws](Api::PerfStatsGet::Response&& response) {
-                    std::string jsonResponse = serializer_.serialize(std::move(response));
-                    ws->send(jsonResponse);
-                };
-                return cwc;
-            }
-            else if constexpr (std::is_same_v<CommandType, Api::Reset::Command>) {
-                Api::Reset::Cwc cwc;
-                cwc.command = cmd;
-                cwc.callback = [this, ws](Api::Reset::Response&& response) {
-                    std::string jsonResponse = serializer_.serialize(std::move(response));
-                    ws->send(jsonResponse);
-                };
-                return cwc;
-            }
-            else if constexpr (std::is_same_v<CommandType, Api::ScenarioConfigSet::Command>) {
-                Api::ScenarioConfigSet::Cwc cwc;
-                cwc.command = cmd;
-                cwc.callback = [this, ws](Api::ScenarioConfigSet::Response&& response) {
-                    std::string jsonResponse = serializer_.serialize(std::move(response));
-                    ws->send(jsonResponse);
-                };
-                return cwc;
-            }
-            else if constexpr (std::is_same_v<CommandType, Api::StateGet::Command>) {
-                Api::StateGet::Cwc cwc;
-                cwc.command = cmd;
-                cwc.callback = [this, ws](Api::StateGet::Response&& response) {
-                    // Get timers for instrumentation.
-                    auto& dsm = static_cast<StateMachine&>(stateMachine_);
-                    auto& timers = dsm.getTimers();
-
-                    if (response.isError()) {
-                        // Send errors as JSON still.
-                        std::string jsonResponse = serializer_.serialize(std::move(response));
-                        timers.startTimer("network_send");
-                        ws->send(jsonResponse);
-                        timers.stopTimer("network_send");
-                    }
-                    else {
-                        // Pack WorldData directly to binary with zpp_bits.
-                        timers.startTimer("serialize_worlddata");
-
-                        std::vector<std::byte> data;
-                        zpp::bits::out out(data);
-                        out(response.value().worldData).or_throw();
-
-                        timers.stopTimer("serialize_worlddata");
-
-                        // Convert to rtc::binary (already std::vector<std::byte>).
-                        rtc::binary binaryMsg(data.begin(), data.end());
-
-                        // Send as binary message.
-                        timers.startTimer("network_send");
-                        ws->send(binaryMsg);
-                        timers.stopTimer("network_send");
-                    }
-                };
-                return cwc;
-            }
-            else if constexpr (std::is_same_v<CommandType, Api::SimRun::Command>) {
-                Api::SimRun::Cwc cwc;
-                cwc.command = cmd;
-                cwc.callback = [this, ws](Api::SimRun::Response&& response) {
-                    std::string jsonResponse = serializer_.serialize(std::move(response));
-                    ws->send(jsonResponse);
-                };
-                return cwc;
-            }
-            else if constexpr (std::is_same_v<CommandType, Api::StepN::Command>) {
-                Api::StepN::Cwc cwc;
-                cwc.command = cmd;
-                cwc.callback = [this, ws](Api::StepN::Response&& response) {
-                    std::string jsonResponse = serializer_.serialize(std::move(response));
-                    ws->send(jsonResponse);
-                };
-                return cwc;
-            }
-            else if constexpr (std::is_same_v<CommandType, Api::Exit::Command>) {
-                Api::Exit::Cwc cwc;
-                cwc.command = cmd;
-                cwc.callback = [this, ws](Api::Exit::Response&& response) {
-                    std::string jsonResponse = serializer_.serialize(std::move(response));
-                    ws->send(jsonResponse);
-                };
-                return cwc;
-            }
-            else if constexpr (std::is_same_v<CommandType, Api::SeedAdd::Command>) {
-                Api::SeedAdd::Cwc cwc;
-                cwc.command = cmd;
-                cwc.callback = [this, ws](Api::SeedAdd::Response&& response) {
-                    std::string jsonResponse = serializer_.serialize(std::move(response));
-                    ws->send(jsonResponse);
-                };
-                return cwc;
-            }
-            else {
-                // This should never happen if ApiCommand variant is complete.
-                throw std::runtime_error("Unknown command type in createCwcForCommand");
-            }
+            return makeStandardCwc<Info>(this, ws, cmd);
         },
         command);
 }

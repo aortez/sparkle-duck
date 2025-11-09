@@ -1,0 +1,58 @@
+#pragma once
+
+#include "core/ScenarioConfig.h"
+#include "lvgl/lvgl.h"
+
+namespace DirtSim {
+namespace Ui {
+
+// Forward declarations.
+class WebSocketClient;
+
+/**
+ * @brief Sandbox scenario-specific controls.
+ *
+ * Includes: Add Seed, Drop Dirt Ball, Quadrant, Water Column, Right Throw toggles.
+ */
+class SandboxControls {
+public:
+    SandboxControls(lv_obj_t* container, WebSocketClient* wsClient, const SandboxConfig& config);
+    ~SandboxControls();
+
+    /**
+     * @brief Update controls from sandbox configuration.
+     */
+    void updateFromConfig(const SandboxConfig& config);
+
+private:
+    lv_obj_t* container_;
+    WebSocketClient* wsClient_;
+
+    // Widgets.
+    lv_obj_t* addSeedButton_ = nullptr;
+    lv_obj_t* dropDirtBallButton_ = nullptr;
+    lv_obj_t* quadrantSwitch_ = nullptr;
+    lv_obj_t* waterColumnSwitch_ = nullptr;
+    lv_obj_t* rightThrowSwitch_ = nullptr;
+    lv_obj_t* rainSlider_ = nullptr;
+
+    // World dimensions for seed placement.
+    uint32_t worldWidth_ = 28;
+    uint32_t worldHeight_ = 28;
+
+    // Event handlers.
+    static void onAddSeedClicked(lv_event_t* e);
+    static void onDropDirtBallClicked(lv_event_t* e);
+    static void onQuadrantToggled(lv_event_t* e);
+    static void onWaterColumnToggled(lv_event_t* e);
+    static void onRightThrowToggled(lv_event_t* e);
+    static void onRainSliderChanged(lv_event_t* e);
+
+    /**
+     * @brief Send scenario config update to server.
+     */
+    void sendConfigUpdate(const ScenarioConfig& config);
+};
+
+} // namespace Ui
+} // namespace DirtSim

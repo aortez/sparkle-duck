@@ -261,12 +261,74 @@ public:
         Result<lv_obj_t*, std::string> createLabeledSwitch();
     };
 
+    /**
+     * @brief ToggleSliderBuilder - Creates a toggle switch + slider combo control.
+     *
+     * Layout: [Label] [Switch]
+     *                [Slider]
+     *                [Value]
+     */
+    class ToggleSliderBuilder {
+    public:
+        explicit ToggleSliderBuilder(lv_obj_t* parent);
+
+        // Configuration.
+        ToggleSliderBuilder& label(const char* text);
+        ToggleSliderBuilder& sliderWidth(int width);
+        ToggleSliderBuilder& range(int min, int max);
+        ToggleSliderBuilder& value(int initialValue);
+        ToggleSliderBuilder& defaultValue(int defValue);
+        ToggleSliderBuilder& valueScale(double scale);
+        ToggleSliderBuilder& valueFormat(const char* format);
+        ToggleSliderBuilder& initiallyEnabled(bool enabled);
+        ToggleSliderBuilder& onToggle(lv_event_cb_t cb, void* user_data = nullptr);
+        ToggleSliderBuilder& onSliderChange(lv_event_cb_t cb, void* user_data = nullptr);
+
+        // Build the toggle slider (returns the container).
+        Result<lv_obj_t*, std::string> build();
+
+        // Build with automatic error logging (returns container or nullptr).
+        lv_obj_t* buildOrLog();
+
+        // Access to created objects.
+        lv_obj_t* getContainer() const { return container_; }
+        lv_obj_t* getSwitch() const { return switch_; }
+        lv_obj_t* getSlider() const { return slider_; }
+        lv_obj_t* getLabel() const { return label_; }
+        lv_obj_t* getValueLabel() const { return valueLabel_; }
+
+    private:
+        lv_obj_t* parent_;
+        lv_obj_t* container_;
+        lv_obj_t* switch_;
+        lv_obj_t* slider_;
+        lv_obj_t* label_;
+        lv_obj_t* valueLabel_;
+
+        std::string label_text_ = "Feature";
+        int slider_width_ = 200;
+        int range_min_ = 0;
+        int range_max_ = 100;
+        int initial_value_ = 0;
+        int default_value_ = 50;
+        double value_scale_ = 1.0;
+        std::string value_format_ = "%.1f";
+        bool initially_enabled_ = false;
+        lv_event_cb_t toggle_callback_ = nullptr;
+        lv_event_cb_t slider_callback_ = nullptr;
+        void* toggle_user_data_ = nullptr;
+        void* slider_user_data_ = nullptr;
+
+        Result<lv_obj_t*, std::string> createToggleSlider();
+    };
+
     // Static factory methods for fluent interface.
     static SliderBuilder slider(lv_obj_t* parent);
     static ButtonBuilder button(lv_obj_t* parent);
     static LabelBuilder label(lv_obj_t* parent);
     static DropdownBuilder dropdown(lv_obj_t* parent);
     static LabeledSwitchBuilder labeledSwitch(lv_obj_t* parent);
+    static ToggleSliderBuilder toggleSlider(lv_obj_t* parent);
 
     // Common value transform functions for sliders.
     struct Transforms {

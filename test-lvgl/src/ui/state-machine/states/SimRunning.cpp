@@ -1,6 +1,6 @@
 #include "State.h"
+#include "ui/SimPlayground.h"
 #include "ui/UiComponentManager.h"
-#include "ui/rendering/CellRenderer.h"
 #include "ui/state-machine/StateMachine.h"
 #include "ui/state-machine/network/WebSocketClient.h"
 #include <nlohmann/json.hpp>
@@ -14,24 +14,12 @@ void SimRunning::onEnter(StateMachine& sm)
 {
     spdlog::info("SimRunning: Simulation is running, displaying world updates");
 
-    // Get simulation container from UiComponentManager.
-    auto* uiManager = sm.getUiComponentManager();
-    if (!uiManager) return;
-
-    lv_obj_t* container = uiManager->getSimulationContainer();
-
-    // Create renderer if not already created.
-    if (!renderer_) {
-        renderer_ = std::make_unique<CellRenderer>();
+    // Create playground if not already created.
+    if (!playground_) {
+        playground_ = std::make_unique<SimPlayground>(
+            sm.getUiComponentManager(), sm.getWebSocketClient(), sm);
+        spdlog::info("SimRunning: Created simulation playground");
     }
-
-    // Create control panel if not already created.
-    if (!controls_) {
-        controls_ = std::make_unique<ControlPanel>(container, sm.getWebSocketClient(), sm);
-        spdlog::info("SimRunning: Created control panel");
-    }
-
-    spdlog::info("SimRunning: Got simulation container for rendering");
 }
 
 void SimRunning::onExit(StateMachine& /*sm*/)
@@ -216,28 +204,21 @@ State::Any SimRunning::onEvent(const UiUpdateEvent& evt, StateMachine& sm)
     // Update local worldData with received state.
     worldData = std::make_unique<WorldData>(evt.worldData);
 
-    // Update control panel with new world state.
-    if (controls_ && worldData) {
-        controls_->updateFromWorldData(*worldData);
-    }
+    // Update and render via playground.
+    if (playground_ && worldData) {
+        // Update controls with new world state.
+        playground_->updateFromWorldData(*worldData);
 
-    // Render worldData to LVGL.
-    if (renderer_ && worldData) {
-        auto* uiManager = sm.getUiComponentManager();
-        if (uiManager) {
-            lv_obj_t* container = uiManager->getSimulationContainer();
+        // Render world.
+        sm.getTimers().startTimer("render_world");
+        playground_->render(*worldData, debugDrawEnabled);
+        sm.getTimers().stopTimer("render_world");
 
-            // Time rendering.
-            sm.getTimers().startTimer("render_world");
-            renderer_->renderWorldData(*worldData, container, debugDrawEnabled);
-            sm.getTimers().stopTimer("render_world");
-
-            spdlog::debug(
-                "SimRunning: Rendered world ({}x{}, step {})",
-                worldData->width,
-                worldData->height,
-                worldData->timestep);
-        }
+        spdlog::debug(
+            "SimRunning: Rendered world ({}x{}, step {})",
+            worldData->width,
+            worldData->height,
+            worldData->timestep);
     }
 
     return std::move(*this);

@@ -179,7 +179,7 @@ target_include_directories(sparkle-duck-core PUBLIC ${CMAKE_SOURCE_DIR}/src ${zp
 target_link_libraries(sparkle-duck-core PUBLIC nlohmann_json::nlohmann_json msgpack-cxx spdlog::spdlog)
 
 # Server library - physics engine and server logic.
-add_library(sparkle-duck-server STATIC
+add_library(sparkle-duck-server-lib STATIC
     # Server state machine.
     src/server/StateMachine.cpp
     src/server/EventProcessor.cpp
@@ -200,6 +200,7 @@ add_library(sparkle-duck-server STATIC
     src/server/api/ScenarioConfigSet.cpp
     src/server/api/SeedAdd.cpp
     src/server/api/SimRun.cpp
+    src/server/api/SpawnDirtBall.cpp
     src/server/api/StateGet.cpp
     src/server/api/StepN.cpp
     src/server/api/TimerStatsGet.cpp
@@ -232,8 +233,8 @@ add_library(sparkle-duck-server STATIC
     src/core/WorldPressureCalculator.cpp
     src/core/WorldSupportCalculator.cpp
 )
-target_include_directories(sparkle-duck-server PUBLIC ${CMAKE_SOURCE_DIR}/src ${zpp_bits_SOURCE_DIR})
-target_link_libraries(sparkle-duck-server PUBLIC sparkle-duck-core datachannel-static)
+target_include_directories(sparkle-duck-server-lib PUBLIC ${CMAKE_SOURCE_DIR}/src ${zpp_bits_SOURCE_DIR})
+target_link_libraries(sparkle-duck-server-lib PUBLIC sparkle-duck-core datachannel-static)
 
 # UI library - UI components and client logic.
 add_library(sparkle-duck-ui-lib STATIC
@@ -265,12 +266,16 @@ add_library(sparkle-duck-ui-lib STATIC
 
     # UI components.
     src/ui/UiComponentManager.cpp
+    src/ui/SimPlayground.cpp
     src/ui/rendering/CellRenderer.cpp
     src/ui/controls/ControlPanel.cpp
+    src/ui/controls/CoreControls.cpp
+    src/ui/controls/PhysicsControls.cpp
+    src/ui/controls/SandboxControls.cpp
     src/ui/ui_builders/LVGLBuilder.cpp
 )
 target_include_directories(sparkle-duck-ui-lib PUBLIC ${CMAKE_SOURCE_DIR}/src ${zpp_bits_SOURCE_DIR})
-target_link_libraries(sparkle-duck-ui-lib PUBLIC sparkle-duck-core sparkle-duck-server lvgl_linux lvgl)
+target_link_libraries(sparkle-duck-ui-lib PUBLIC sparkle-duck-core sparkle-duck-server-lib lvgl_linux lvgl)
 
 add_executable(sparkle-duck-ui
     src/ui/main.cpp
@@ -308,19 +313,16 @@ install(TARGETS lvgl_linux
 add_custom_target (run COMMAND ${EXECUTABLE_OUTPUT_PATH}/sparkle-duck-ui DEPENDS sparkle-duck-ui)
 
 # Headless WebSocket server executable.
-add_executable(sparkle-duck-server-exe
+add_executable(sparkle-duck-server
     src/server/main.cpp
 )
-target_link_libraries(sparkle-duck-server-exe PRIVATE sparkle-duck-server m pthread)
-target_include_directories(sparkle-duck-server-exe PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/external/args ${zpp_bits_SOURCE_DIR})
+target_link_libraries(sparkle-duck-server PRIVATE sparkle-duck-server-lib m pthread)
+target_include_directories(sparkle-duck-server PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/external/args ${zpp_bits_SOURCE_DIR})
 
 # Enable warnings and treat them as errors for server executable.
-target_compile_options(sparkle-duck-server-exe PRIVATE -Wall -Wextra -Werror)
+target_compile_options(sparkle-duck-server PRIVATE -Wall -Wextra -Werror)
 
-# Create sparkle-duck-server symlink for backwards compatibility.
-set_target_properties(sparkle-duck-server-exe PROPERTIES OUTPUT_NAME sparkle-duck-server)
-
-add_custom_target (run-server COMMAND ${EXECUTABLE_OUTPUT_PATH}/sparkle-duck-server DEPENDS sparkle-duck-server-exe)
+add_custom_target (run-server COMMAND ${EXECUTABLE_OUTPUT_PATH}/sparkle-duck-server DEPENDS sparkle-duck-server)
 
 # CLI client executable.
 add_executable(cli
@@ -346,7 +348,7 @@ add_executable(sparkle-duck-tests
 )
 target_link_libraries(sparkle-duck-tests
     PRIVATE
-    sparkle-duck-server
+    sparkle-duck-server-lib
     GTest::gtest_main
     GTest::gmock_main
     m

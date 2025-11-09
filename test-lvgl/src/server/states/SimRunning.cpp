@@ -73,10 +73,11 @@ State::Any SimRunning::onEvent(const AdvanceSimulationCommand& /*cmd*/, StateMac
         auto elapsed =
             std::chrono::duration_cast<std::chrono::microseconds>(now - lastFrameTime).count();
         if (elapsed > 0) {
-            actualFPS = 1000000.0 / elapsed; // Microseconds to FPS.
+            actualFPS = 1000000.0 / elapsed;    // Microseconds to FPS.
+            world->data.fps_server = actualFPS; // Update WorldData for UI.
 
-            // Log FPS and performance stats every 60 frames.
-            if (stepCount % 60 == 0) {
+            // Log FPS and performance stats intermittently.
+            if (stepCount == 100 || stepCount % 1000 == 0) {
                 spdlog::info("SimRunning: Actual FPS: {:.1f} (step {})", actualFPS, stepCount);
 
                 // Log performance timing stats.
@@ -412,6 +413,29 @@ State::Any SimRunning::onEvent(const Api::SeedAdd::Cwc& cwc, StateMachine& /*dsm
     // Add the seed.
     spdlog::info("SeedAdd: Adding SEED at ({}, {})", cwc.command.x, cwc.command.y);
     world->addMaterialAtCell(cwc.command.x, cwc.command.y, MaterialType::SEED, 1.0);
+
+    cwc.sendResponse(Response::okay(std::monostate{}));
+    return std::move(*this);
+}
+
+State::Any SimRunning::onEvent(const Api::SpawnDirtBall::Cwc& cwc, StateMachine& /*dsm*/)
+{
+    using Response = Api::SpawnDirtBall::Response;
+
+    if (!world) {
+        cwc.sendResponse(Response::error(ApiError("No world available")));
+        return std::move(*this);
+    }
+
+    // Spawn a dirt ball at top center.
+    uint32_t centerX = world->data.width / 2;
+    uint32_t topY = 2; // Start at row 2 to avoid the very top edge.
+
+    spdlog::info("SpawnDirtBall: Spawning dirt ball at ({}, {})", centerX, topY);
+
+    // Spawn a ball of the currently selected material.
+    MaterialType selectedMaterial = world->getSelectedMaterial();
+    world->spawnMaterialBall(selectedMaterial, centerX, topY, 2);
 
     cwc.sendResponse(Response::okay(std::monostate{}));
     return std::move(*this);

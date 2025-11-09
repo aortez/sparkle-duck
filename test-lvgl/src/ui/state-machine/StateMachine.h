@@ -15,8 +15,8 @@ struct _lv_display_t;
 
 // Forward declarations for network and UI components.
 namespace DirtSim {
-class UiComponentManager;
 namespace Ui {
+class UiComponentManager;
 class WebSocketServer;
 class WebSocketClient;
 } // namespace Ui

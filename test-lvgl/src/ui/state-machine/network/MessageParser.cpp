@@ -61,10 +61,11 @@ std::optional<Event> MessageParser::parseWorldDataResponse(const nlohmann::json&
         WorldData worldData = value.get<WorldData>();
 
         // Create UiUpdateEvent with the received data.
-        uint64_t stepCount = worldData.timestep; // Save before move.
+        uint64_t stepCount = worldData.timestep;
+        double fps = worldData.fps_server;
         UiUpdateEvent evt{ .sequenceNum = 0,
                            .worldData = std::move(worldData),
-                           .fps = 60, // TODO: Get actual FPS from server.
+                           .fps = fps,
                            .stepCount = stepCount,
                            .isPaused = false,
                            .timestamp = std::chrono::steady_clock::now() };

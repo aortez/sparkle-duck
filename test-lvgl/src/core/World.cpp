@@ -1130,4 +1130,23 @@ void from_json(const nlohmann::json& j, World::MotionState& state)
     }
 }
 
+void World::spawnMaterialBall(
+    MaterialType material, uint32_t centerX, uint32_t centerY, uint32_t radius)
+{
+    // Spawn a ball of material centered at (centerX, centerY) with given radius.
+    for (uint32_t y = 0; y < data.height; ++y) {
+        for (uint32_t x = 0; x < data.width; ++x) {
+            // Calculate distance from center.
+            int dx = static_cast<int>(x) - static_cast<int>(centerX);
+            int dy = static_cast<int>(y) - static_cast<int>(centerY);
+            double distance = std::sqrt(dx * dx + dy * dy);
+
+            // If within radius, fill the cell.
+            if (distance <= static_cast<double>(radius)) {
+                addMaterialAtCell(x, y, material, 1.0);
+            }
+        }
+    }
+}
+
 } // namespace DirtSim

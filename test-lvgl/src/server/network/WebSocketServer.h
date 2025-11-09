@@ -46,12 +46,14 @@ public:
      */
     void broadcastBinary(const rtc::binary& data);
 
+    // Public for generic Cwc creation helpers.
+    ResponseSerializerJson serializer_;
+    DirtSim::StateMachineInterface<Event>& stateMachine_;
+
 private:
     std::vector<std::shared_ptr<rtc::WebSocket>> connectedClients_;
-    DirtSim::StateMachineInterface<Event>& stateMachine_;
     std::unique_ptr<rtc::WebSocketServer> server_;
     CommandDeserializerJson deserializer_;
-    ResponseSerializerJson serializer_;
 
     /**
      * @brief Handle new WebSocket connection.

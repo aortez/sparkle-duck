@@ -25,7 +25,6 @@ public:
         config_.quadrant_enabled = true;
         config_.water_column_enabled = true;
         config_.right_throw_enabled = true;
-        config_.top_drop_enabled = true;
         config_.rain_rate = 0.0;
     }
 
@@ -56,7 +55,6 @@ public:
         configurableSetup->setMiddleMetalWallEnabled(false);
         configurableSetup->setLeftThrowEnabled(false);
         configurableSetup->setRightThrowEnabled(config_.right_throw_enabled);
-        configurableSetup->setTopDropEnabled(config_.top_drop_enabled);
         configurableSetup->setRainRate(config_.rain_rate);
         configurableSetup->setWaterColumnEnabled(config_.water_column_enabled);
 

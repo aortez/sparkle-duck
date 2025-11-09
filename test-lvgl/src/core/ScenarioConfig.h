@@ -27,7 +27,7 @@ struct EmptyConfig {
  * @brief Sandbox scenario - interactive playground with configurable features.
  */
 struct SandboxConfig {
-    using serialize = zpp::bits::members<5>;
+    using serialize = zpp::bits::members<4>;
 
     // Initial setup features.
     bool quadrant_enabled = true; // Lower-right quadrant filled with dirt.
@@ -35,7 +35,6 @@ struct SandboxConfig {
     // Continuous particle generation features.
     bool water_column_enabled = true; // Water column on left side (5 wide × 20 tall).
     bool right_throw_enabled = true;  // Periodic dirt throw from right side.
-    bool top_drop_enabled = true;     // Periodic dirt drop from top.
     double rain_rate = 0.0;           // Rain rate in drops per second (0 = disabled).
 };
 

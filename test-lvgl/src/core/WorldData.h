@@ -26,6 +26,7 @@ struct WorldData {
     uint32_t timestep = 0;
     double timescale = 1.0;
     double removed_mass = 0.0;
+    double fps_server = 0.0;
 
     // Physics parameters.
     double gravity = 0.5;

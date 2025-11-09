@@ -5,6 +5,7 @@
 #include <string>
 
 namespace DirtSim {
+namespace Ui {
 
 /**
  * @brief Lightweight manager for LVGL resources and screen management.
@@ -24,6 +25,30 @@ public:
      * Creates/prepares the simulation screen if needed.
      */
     lv_obj_t* getSimulationContainer();
+
+    /**
+     * @brief Get container for core controls (quit, stats, debug).
+     * Creates layout on simulation screen if needed.
+     */
+    lv_obj_t* getCoreControlsContainer();
+
+    /**
+     * @brief Get container for scenario-specific controls.
+     * Creates layout on simulation screen if needed.
+     */
+    lv_obj_t* getScenarioControlsContainer();
+
+    /**
+     * @brief Get container for physics parameter controls (3-column bottom panel).
+     * Creates layout on simulation screen if needed.
+     */
+    lv_obj_t* getPhysicsControlsContainer();
+
+    /**
+     * @brief Get container for world display area (canvas grid).
+     * Creates layout on simulation screen if needed.
+     */
+    lv_obj_t* getWorldDisplayArea();
 
     /**
      * @brief Get container for main menu UI.
@@ -64,6 +89,15 @@ private:
     // Current active screen.
     lv_obj_t* currentScreen = nullptr;
 
+    // Simulation screen layout containers (created lazily).
+    lv_obj_t* simTopRow_ = nullptr;
+    lv_obj_t* simLeftPanel_ = nullptr;
+    lv_obj_t* simCoreControlsArea_ = nullptr;
+    lv_obj_t* simScenarioControlsArea_ = nullptr;
+    lv_obj_t* simWorldDisplayArea_ = nullptr;
+    lv_obj_t* simBottomPanel_ = nullptr;
+    lv_obj_t* simPhysicsControlsArea_ = nullptr;
+
     /**
      * @brief Create a screen if it doesn't exist.
      */
@@ -73,6 +107,13 @@ private:
      * @brief Clean up a screen and its children.
      */
     void cleanupScreen(lv_obj_t*& screen);
+
+    /**
+     * @brief Create the simulation screen layout structure.
+     * Called lazily when first simulation container is requested.
+     */
+    void createSimulationLayout();
 };
 
+} // namespace Ui
 } // namespace DirtSim

@@ -270,7 +270,8 @@ public:
     // Stub methods for unimplemented features (TODO: remove event handlers that call these).
     void setRainRate(double) {}
     double getRainRate() const { return 0.0; }
-    void spawnMaterialBall(MaterialType, uint32_t, uint32_t, uint32_t) {}
+    void spawnMaterialBall(
+        MaterialType material, uint32_t centerX, uint32_t centerY, uint32_t radius);
     void setWaterColumnEnabled(bool) {}
     bool isWaterColumnEnabled() const { return false; }
     void setLeftThrowEnabled(bool) {}

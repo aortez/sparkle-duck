@@ -9,6 +9,7 @@
 #include "server/api/ScenarioConfigSet.h"
 #include "server/api/SeedAdd.h"
 #include "server/api/SimRun.h"
+#include "server/api/SpawnDirtBall.h"
 #include "server/api/StateGet.h"
 #include "server/api/StepN.h"
 #include <spdlog/spdlog.h>
@@ -76,6 +77,9 @@ Result<ApiCommand, ApiError> CommandDeserializerJson::deserialize(const std::str
         }
         else if (commandName == "sim_run") {
             return Result<ApiCommand, ApiError>::okay(Api::SimRun::Command::fromJson(cmd));
+        }
+        else if (commandName == "spawn_dirt_ball") {
+            return Result<ApiCommand, ApiError>::okay(Api::SpawnDirtBall::Command::fromJson(cmd));
         }
         else if (commandName == "state_get") {
             return Result<ApiCommand, ApiError>::okay(Api::StateGet::Command::fromJson(cmd));
