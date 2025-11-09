@@ -17,16 +17,6 @@ jobs:
       with:
         submodules: recursive
 
-    - name: Install dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y \
-          build-essential \
-          cmake \
-          pkg-config \
-          libboost-dev \
-          clang-format
-
     - name: Build debug version
       run: make debug
 
