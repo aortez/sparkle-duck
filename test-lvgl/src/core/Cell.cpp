@@ -7,7 +7,6 @@
 #include <sstream>
 #include <string>
 
-#include "lvgl/lvgl.h"
 #include "spdlog/spdlog.h"
 
 using namespace DirtSim;
