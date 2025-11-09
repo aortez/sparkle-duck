@@ -1,0 +1,41 @@
+name: PR Check
+
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: self-hosted
+    defaults:
+      run:
+        working-directory: test-lvgl
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Check code formatting
+      run: |
+        # Check if any files would change after formatting.
+        make format
+        if ! git diff --quiet; then
+          echo "Code formatting issues detected. Run 'make format' locally."
+          git diff
+          exit 1
+        fi
+
+    - name: Build debug version
+      run: make -j$(nproc) debug
+
+    - name: Run unit tests
+      run: ./build/bin/sparkle-duck-tests
