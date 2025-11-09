@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.10)
 project(lvgl)
 
+# Allow linking to targets from subdirectories.
+cmake_policy(SET CMP0079 NEW)
+
 # Add Google Test
 include(FetchContent)
 FetchContent_Declare(
@@ -142,9 +145,11 @@ set(LV_LINUX_INC src/ui/lib)
 
 set(CONFIG_LV_BUILD_DEMOS OFF CACHE BOOL "" FORCE)
 set(CONFIG_LV_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build static libraries" FORCE)
 
 add_subdirectory(./lvgl ${CMAKE_BINARY_DIR}/lvgl)
 target_include_directories(lvgl PUBLIC ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/src/lib ${PKG_CONFIG_INC})
+target_link_libraries(lvgl PUBLIC ${PKG_CONFIG_LIB})
 
 add_subdirectory(./spdlog ${CMAKE_BINARY_DIR}/spdlog)
 
@@ -154,8 +159,8 @@ set(ARGS_BUILD_UNITTESTS OFF CACHE BOOL "Build unit tests" FORCE)
 add_subdirectory(./external/args ${CMAKE_BINARY_DIR}/args)
 
 add_library(lvgl_linux STATIC ${LV_LINUX_SRC} ${LV_LINUX_BACKEND_SRC})
-target_include_directories(lvgl_linux PRIVATE ${LV_LINUX_INC} ${PROJECT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/src ${PROJECT_SOURCE_DIR}/src/ui/lib ${zpp_bits_SOURCE_DIR})
-target_link_libraries(lvgl_linux PRIVATE msgpack-cxx nlohmann_json::nlohmann_json spdlog::spdlog)
+target_include_directories(lvgl_linux PRIVATE ${LV_LINUX_INC} ${PROJECT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/src ${PROJECT_SOURCE_DIR}/src/ui/lib ${zpp_bits_SOURCE_DIR} ${PKG_CONFIG_INC})
+target_link_libraries(lvgl_linux PUBLIC msgpack-cxx nlohmann_json::nlohmann_json spdlog::spdlog ${PKG_CONFIG_LIB})
 
 # ============================================================================
 # Component Libraries
@@ -264,20 +269,24 @@ add_library(sparkle-duck-ui-lib STATIC
     src/ui/ui_builders/LVGLBuilder.cpp
 )
 target_include_directories(sparkle-duck-ui-lib PUBLIC ${CMAKE_SOURCE_DIR}/src ${zpp_bits_SOURCE_DIR})
-target_link_libraries(sparkle-duck-ui-lib PUBLIC sparkle-duck-core sparkle-duck-server lvgl_linux lvgl ${PKG_CONFIG_LIB})
+target_link_libraries(sparkle-duck-ui-lib PUBLIC sparkle-duck-core sparkle-duck-server lvgl_linux lvgl)
 
 add_executable(sparkle-duck-ui
     src/ui/main.cpp
 )
 target_link_libraries(sparkle-duck-ui PRIVATE
     sparkle-duck-ui-lib
+    -Wl,--start-group
+    lvgl_linux
+    lvgl
+    -Wl,--end-group
     lvgl::thorvg
-    ${PKG_CONFIG_LIB}
-    ${SDL2_LIBRARIES}
-    ${SDL2_IMAGE_LIBRARIES}
     datachannel-static
     m
     pthread
+    ${PKG_CONFIG_LIB}
+    ${SDL2_LIBRARIES}
+    ${SDL2_IMAGE_LIBRARIES}
 )
 target_include_directories(sparkle-duck-ui PRIVATE ${CMAKE_SOURCE_DIR}/src ${SDL2_INCLUDE_DIRS} ${SDL2_IMAGE_INCLUDE_DIRS} ${CMAKE_SOURCE_DIR}/external/args ${zpp_bits_SOURCE_DIR})
 
