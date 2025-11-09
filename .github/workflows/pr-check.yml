@@ -1,0 +1,46 @@
+name: PR Check
+
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    runs-on: self-hosted
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          build-essential \
+          cmake \
+          pkg-config \
+          libboost-dev \
+          clang-format
+
+    - name: Build debug version
+      run: make debug
+
+    - name: Run unit tests
+      run: |
+        # Run only non-visual tests in CI environment.
+        ./build/bin/sparkle-duck-tests --gtest_filter=-*Visual*
+
+    - name: Check code formatting
+      run: |
+        # Check if any files would change after formatting.
+        make format
+        if ! git diff --quiet; then
+          echo "Code formatting issues detected. Run 'make format' locally."
+          git diff
+          exit 1
+        fi

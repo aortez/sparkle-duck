@@ -1,11 +1,17 @@
 *CMakeFiles*
 *CMakeCache.txt
 .*
+!.env.example
+!.github/
 
 .cmake/
 .idea/
 .venv/
 .vscode/
+
+# Environment files with secrets.
+.env
+.github/.env
 
 *.json
 *.log
