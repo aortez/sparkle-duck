@@ -116,7 +116,7 @@ TEST_F(StateSimRunningTest, AdvanceSimulation_StepsPhysicsAndDirtFalls)
         "TEST: World dimensions: {}x{}",
         simRunning.world->data.width,
         simRunning.world->data.height);
-    spdlog::info("TEST: Gravity: {}", simRunning.world->data.gravity);
+    spdlog::info("TEST: Gravity: {}", simRunning.world->physicsSettings.gravity);
     spdlog::info("TEST: Total mass before adding dirt: {}", simRunning.world->getTotalMass());
 
     simRunning.world->at(testX, testY).addDirt(1.0);

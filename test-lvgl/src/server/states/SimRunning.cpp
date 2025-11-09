@@ -285,7 +285,7 @@ State::Any SimRunning::onEvent(const Api::GravitySet::Cwc& cwc, StateMachine& /*
         return std::move(*this);
     }
 
-    world->data.gravity = cwc.command.gravity;
+    world->physicsSettings.gravity = cwc.command.gravity;
     spdlog::info("SimRunning: API set gravity to {}", cwc.command.gravity);
 
     cwc.sendResponse(Response::okay(std::monostate{}));
@@ -705,7 +705,7 @@ State::Any SimRunning::onEvent(const SetTimescaleCommand& cmd, StateMachine& /*d
 {
     // Update world directly (source of truth).
     if (world) {
-        world->data.timescale = cmd.timescale;
+        world->physicsSettings.timescale = cmd.timescale;
         spdlog::info("SimRunning: Set timescale to {}", cmd.timescale);
     }
     return std::move(*this);
@@ -715,7 +715,7 @@ State::Any SimRunning::onEvent(const SetElasticityCommand& cmd, StateMachine& /*
 {
     // Update world directly (source of truth).
     if (world) {
-        world->data.elasticity_factor = cmd.elasticity;
+        world->physicsSettings.elasticity = cmd.elasticity;
         spdlog::info("SimRunning: Set elasticity to {}", cmd.elasticity);
     }
     return std::move(*this);
@@ -735,7 +735,7 @@ State::Any SimRunning::onEvent(const SetGravityCommand& cmd, StateMachine& /*dsm
 {
     // Update world directly (source of truth).
     if (world) {
-        world->data.gravity = cmd.gravity;
+        world->physicsSettings.gravity = cmd.gravity;
         spdlog::info("SimRunning: Set gravity to {}", cmd.gravity);
     }
     return std::move(*this);
@@ -745,7 +745,7 @@ State::Any SimRunning::onEvent(const SetPressureScaleCommand& cmd, StateMachine&
 {
     // Apply to world.
     if (world) {
-        world->data.pressure_scale = cmd.scale;
+        world->physicsSettings.pressure_scale = cmd.scale;
     }
 
     spdlog::debug("SimRunning: Set pressure scale to {}", cmd.scale);
@@ -756,7 +756,7 @@ State::Any SimRunning::onEvent(const SetPressureScaleWorldBCommand& cmd, StateMa
 {
     // Apply to world.
     if (world) {
-        world->data.pressure_scale = cmd.scale;
+        world->physicsSettings.pressure_scale = cmd.scale;
     }
 
     spdlog::debug("SimRunning: Set World pressure scale to {}", cmd.scale);

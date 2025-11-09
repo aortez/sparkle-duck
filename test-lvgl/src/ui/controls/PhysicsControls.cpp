@@ -327,7 +327,7 @@ void PhysicsControls::onHydrostaticPressureChanged(lv_event_t* e)
     int value = lv_slider_get_value(target);
     double scaledValue = value * 0.01;
     spdlog::info("PhysicsControls: Hydrostatic Pressure changed to {:.2f}", scaledValue);
-    self->settings_.hydrostatic_pressure_strength = scaledValue;
+    self->settings_.pressure_hydrostatic_strength = scaledValue;
     self->syncSettings();
 }
 
@@ -350,7 +350,7 @@ void PhysicsControls::onDynamicPressureChanged(lv_event_t* e)
     int value = lv_slider_get_value(target);
     double scaledValue = value * 0.01;
     spdlog::info("PhysicsControls: Dynamic Pressure changed to {:.2f}", scaledValue);
-    self->settings_.dynamic_pressure_strength = scaledValue;
+    self->settings_.pressure_dynamic_strength = scaledValue;
     self->syncSettings();
 }
 
@@ -397,7 +397,7 @@ void PhysicsControls::onCohesionForceChanged(lv_event_t* e)
     int value = lv_slider_get_value(target);
     double scaledValue = value * 0.01;
     spdlog::info("PhysicsControls: Cohesion Force changed to {:.1f}", scaledValue);
-    self->settings_.cohesion_force_strength = scaledValue;
+    self->settings_.cohesion_strength = scaledValue;
     self->syncSettings();
 }
 

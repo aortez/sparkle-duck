@@ -27,6 +27,8 @@ static const std::vector<CommandInfo> AVAILABLE_COMMANDS = {
     { "exit", "Shutdown server", "" },
     { "gravity_set", "Set gravity value", R"({"gravity": 15.0})" },
     { "perf_stats_get", "Get server performance statistics", "" },
+    { "physics_settings_get", "Get current physics settings", "" },
+    { "physics_settings_set", "Set physics parameters", R"({"settings": {"timescale": 1.5, "gravity": 0.8}})" },
     { "reset", "Reset simulation to initial state", "" },
     { "scenario_config_set",
       "Update scenario configuration",

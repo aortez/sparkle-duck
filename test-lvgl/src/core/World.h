@@ -55,6 +55,7 @@ public:
     void advanceTime(double deltaTimeSeconds);
     void reset();
     void setup();
+    void applyPhysicsSettings(const PhysicsSettings& settings);
 
     // =================================================================
     // WORLDINTERFACE IMPLEMENTATION - GRID ACCESS
@@ -70,7 +71,7 @@ public:
     // WORLDINTERFACE IMPLEMENTATION - SIMULATION CONTROL
     // =================================================================
 
-    // NOTE: Use data.timescale, data.removed_mass, data.add_particles_enabled directly.
+    // NOTE: Use physicsSettings.timescale for physics, data.removed_mass, data.add_particles_enabled directly.
     double getTotalMass() const;
 
     // =================================================================
@@ -88,7 +89,7 @@ public:
     // WORLDINTERFACE IMPLEMENTATION - PHYSICS PARAMETERS
     // =================================================================
 
-    Vector2d getGravityVector() const { return Vector2d{ 0.0, data.gravity }; }
+    Vector2d getGravityVector() const { return Vector2d{ 0.0, physicsSettings.gravity }; }
     void setDirtFragmentationFactor(double /* factor */) { /* no-op for World */ }
 
     // =================================================================

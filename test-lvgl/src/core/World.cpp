@@ -90,7 +90,7 @@ void World::advanceTime(double deltaTimeSeconds)
 {
     ScopeTimer timer(timers_, "advance_time");
 
-    const double scaledDeltaTime = deltaTimeSeconds * data.timescale;
+    const double scaledDeltaTime = deltaTimeSeconds * physicsSettings.timescale;
     spdlog::trace(
         "World::advanceTime: deltaTime={:.4f}s, timestep={}", deltaTimeSeconds, data.timestep);
     if (scaledDeltaTime <= 0.0) {
@@ -326,7 +326,7 @@ void World::applyGravity()
 {
     ScopeTimer timer(timers_, "apply_gravity");
 
-    const Vector2d gravityForce(0.0, data.gravity);
+    const Vector2d gravityForce(0.0, physicsSettings.gravity);
 
     for (auto& cell : data.cells) {
         if (!cell.isEmpty() && !cell.isWall()) {
@@ -446,7 +446,7 @@ void World::applyPressureForces()
 
             // Only apply force if system is out of equilibrium.
             if (gradient.magnitude() > 0.001) {
-                Vector2d pressure_force = gradient * data.pressure_scale;
+                Vector2d pressure_force = gradient * physicsSettings.pressure_scale;
                 cell.addPendingForce(pressure_force);
 
                 spdlog::debug(
@@ -1022,12 +1022,12 @@ std::string World::settingsToString() const
     std::stringstream ss;
     ss << "=== World Settings ===\n";
     ss << "Grid size: " << data.width << "x" << data.height << "\n";
-    ss << "Gravity: " << data.gravity << "\n";
+    ss << "Gravity: " << physicsSettings.gravity << "\n";
     ss << "Hydrostatic pressure enabled: " << (isHydrostaticPressureEnabled() ? "true" : "false")
        << "\n";
     ss << "Dynamic pressure enabled: " << (isDynamicPressureEnabled() ? "true" : "false") << "\n";
-    ss << "Pressure scale: " << data.pressure_scale << "\n";
-    ss << "Elasticity factor: " << data.elasticity_factor << "\n";
+    ss << "Pressure scale: " << physicsSettings.pressure_scale << "\n";
+    ss << "Elasticity factor: " << physicsSettings.elasticity << "\n";
     ss << "Add particles enabled: " << (data.add_particles_enabled ? "true" : "false") << "\n";
     ss << "Walls enabled: " << (areWallsEnabled() ? "true" : "false") << "\n";
     ss << "Rain rate: " << getRainRate() /* stub */ << "\n";

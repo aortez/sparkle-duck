@@ -24,14 +24,8 @@ struct WorldData {
 
     // Simulation state.
     uint32_t timestep = 0;
-    double timescale = 1.0;
     double removed_mass = 0.0;
     double fps_server = 0.0;
-
-    // Physics parameters.
-    double gravity = 0.5;
-    double elasticity_factor = 0.8;
-    double pressure_scale = 1.0;
 
     // Feature flags.
     bool add_particles_enabled = true;
