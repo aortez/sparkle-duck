@@ -8,8 +8,6 @@
 #include <string>
 #include <vector>
 
-#include "lvgl/lvgl.h"
-
 namespace DirtSim {
 
 /**

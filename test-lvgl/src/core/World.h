@@ -18,8 +18,6 @@
 #include <memory>
 #include <vector>
 
-#include "lvgl/src/libs/thorvg/rapidjson/document.h"
-
 /**
  * \file
  * World implements the pure-material physics system based on GridMechanics.md.
