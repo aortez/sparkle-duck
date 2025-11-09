@@ -446,6 +446,10 @@ void LVGLBuilder::ButtonBuilder::setupBehavior() {
 }
 
 void LVGLBuilder::ButtonBuilder::setupEvents() {
+    // Set user_data on the button object itself so event handlers can retrieve it.
+    if (user_data_) {
+        lv_obj_set_user_data(button_, user_data_);
+    }
     lv_obj_add_event_cb(button_, callback_, event_code_, user_data_);
 }
 

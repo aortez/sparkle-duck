@@ -48,6 +48,10 @@ ControlPanel::~ControlPanel()
 
 void ControlPanel::updateFromWorldData(const WorldData& data)
 {
+    // Update world dimensions.
+    worldWidth_ = data.width;
+    worldHeight_ = data.height;
+
     // Rebuild scenario controls if scenario changed.
     if (data.scenario_id != currentScenarioId_) {
         spdlog::info("ControlPanel: Scenario changed to '{}'", data.scenario_id);
@@ -174,15 +178,17 @@ void ControlPanel::onAddSeedClicked(lv_event_t* e)
 
     spdlog::info("ControlPanel: Add Seed button clicked");
 
-    // Send seed_add command to DSSM server (top center position).
+    // Send seed_add command to DSSM server.
+    // Place seed at top-center of world (world is typically 28x28, so use 14, 5).
     if (panel->wsClient_ && panel->wsClient_->isConnected()) {
         DirtSim::Api::SeedAdd::Command cmd;
-        cmd.x = 100;
-        cmd.y = 10;
+        cmd.x = panel->worldWidth_ / 2;   // Horizontal center.
+        cmd.y = 5;                         // Near top (below wall boundary).
 
         nlohmann::json json = cmd.toJson();
         json["command"] = "seed_add";
 
+        spdlog::info("ControlPanel: Sending seed_add at ({}, {})", cmd.x, cmd.y);
         panel->wsClient_->send(json.dump());
     }
 }
