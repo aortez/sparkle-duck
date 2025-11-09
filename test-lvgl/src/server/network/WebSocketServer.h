@@ -39,6 +39,12 @@ public:
      */
     void broadcast(const std::string& message);
 
+    /**
+     * @brief Broadcast binary data to all connected clients.
+     * @param data Binary data to broadcast.
+     */
+    void broadcastBinary(const rtc::binary& data);
+
 private:
     std::vector<std::shared_ptr<rtc::WebSocket>> connectedClients_;
     DirtSim::StateMachineInterface<Event>& stateMachine_;

@@ -154,7 +154,7 @@ set(ARGS_BUILD_UNITTESTS OFF CACHE BOOL "Build unit tests" FORCE)
 add_subdirectory(./external/args ${CMAKE_BINARY_DIR}/args)
 
 add_library(lvgl_linux STATIC ${LV_LINUX_SRC} ${LV_LINUX_BACKEND_SRC})
-target_include_directories(lvgl_linux PRIVATE ${LV_LINUX_INC} ${PROJECT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/src ${PROJECT_SOURCE_DIR}/src/ui/lib)
+target_include_directories(lvgl_linux PRIVATE ${LV_LINUX_INC} ${PROJECT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/src ${PROJECT_SOURCE_DIR}/src/ui/lib ${zpp_bits_SOURCE_DIR})
 target_link_libraries(lvgl_linux PRIVATE msgpack-cxx nlohmann_json::nlohmann_json spdlog::spdlog)
 
 add_executable(sparkle-duck-ui

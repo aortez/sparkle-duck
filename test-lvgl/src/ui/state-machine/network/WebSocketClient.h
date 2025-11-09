@@ -30,11 +30,19 @@ public:
     bool connect(const std::string& url);
 
     /**
-     * @brief Send a message to the server.
+     * @brief Send a message to the server (async).
      * @param message JSON message to send.
      * @return true if sent successfully.
      */
     bool send(const std::string& message);
+
+    /**
+     * @brief Send a message and wait for response (blocking).
+     * @param message JSON message to send.
+     * @param timeoutMs Timeout in milliseconds.
+     * @return Response string, or empty on timeout.
+     */
+    std::string sendAndReceive(const std::string& message, int timeoutMs = 5000);
 
     /**
      * @brief Disconnect from server.
@@ -77,6 +85,10 @@ private:
     ConnectionCallback connectedCallback_;
     ConnectionCallback disconnectedCallback_;
     ErrorCallback errorCallback_;
+
+    // For blocking sendAndReceive().
+    std::string response_;
+    bool responseReceived_ = false;
 };
 
 } // namespace Ui

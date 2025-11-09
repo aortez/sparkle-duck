@@ -9,6 +9,7 @@
 #include <chrono>
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
+#include <zpp_bits.h>
 
 namespace DirtSim {
 namespace Server {
@@ -125,19 +126,22 @@ State::Any SimRunning::onEvent(const AdvanceSimulationCommand& /*cmd*/, StateMac
 
     spdlog::debug("SimRunning: Advanced simulation (step {})", stepCount);
 
-    // Broadcast frame notification to all connected UI clients.
+    // Push WorldData to all connected UI clients (eliminates request latency!).
     if (dsm.getWebSocketServer()) {
-        auto timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
-            now.time_since_epoch()).count();
+        auto& timers = dsm.getTimers();
 
-        nlohmann::json notification = {
-            {"type", "frame_ready"},
-            {"stepNumber", stepCount},
-            {"timestamp", timestamp},
-            {"fps", actualFPS}
-        };
+        // Pack WorldData to binary.
+        timers.startTimer("serialize_worlddata");
+        std::vector<std::byte> data;
+        zpp::bits::out out(data);
+        out(world->data).or_throw();
+        timers.stopTimer("serialize_worlddata");
 
-        dsm.getWebSocketServer()->broadcast(notification.dump());
+        // Broadcast binary WorldData to all clients.
+        rtc::binary binaryMsg(data.begin(), data.end());
+        timers.startTimer("network_send");
+        dsm.getWebSocketServer()->broadcastBinary(binaryMsg);
+        timers.stopTimer("network_send");
     }
 
     return std::move(*this);  // Stay in SimRunning (move because unique_ptr).

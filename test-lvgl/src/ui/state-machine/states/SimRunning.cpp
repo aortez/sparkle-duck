@@ -178,41 +178,17 @@ State::Any SimRunning::onEvent(const FrameReadyNotification& evt, StateMachine& 
 
 State::Any SimRunning::onEvent(const UiUpdateEvent& evt, StateMachine& sm)
 {
-    // Clear the pending request flag.
-    stateGetPending = false;
-
-    // Calculate round-trip time for frame request.
-    auto now = std::chrono::steady_clock::now();
-    auto roundTrip = std::chrono::duration_cast<std::chrono::microseconds>(now - lastStateGetSentTime);
-    lastRoundTripMs = roundTrip.count() / 1000.0;  // Convert to milliseconds.
-
-    // Smooth with EMA.
-    if (smoothedRoundTripMs == 0.0) {
-        smoothedRoundTripMs = lastRoundTripMs;
-    } else {
-        smoothedRoundTripMs = 0.9 * smoothedRoundTripMs + 0.1 * lastRoundTripMs;
-    }
-
-    spdlog::info("SimRunning: Received world update (step {}), round-trip: {:.1f}ms (smoothed: {:.1f}ms)",
-                 evt.stepCount, lastRoundTripMs, smoothedRoundTripMs);
+    spdlog::debug("SimRunning: Received world update (step {}) via push", evt.stepCount);
 
     // Log performance stats every 20 updates.
     updateCount++;
     if (updateCount % 20 == 0) {
         auto& timers = sm.getTimers();
 
-        double avgParse = timers.getCallCount("parse_message") > 0 ?
-            timers.getAccumulatedTime("parse_message") / timers.getCallCount("parse_message") : 0.0;
-
-        // Calculate network latency (round-trip - client processing).
-        double networkLatency = smoothedRoundTripMs - avgParse;
-
         spdlog::info("UI Performance Stats (after {} updates):", updateCount);
-        spdlog::info("  Round-trip total: {:.1f}ms (smoothed)", smoothedRoundTripMs);
-        spdlog::info("  - Network + WebSocket: {:.1f}ms (estimated)", networkLatency);
-        spdlog::info("  - Client processing: {:.1f}ms avg", avgParse);
         spdlog::info("  Message parse: {:.1f}ms avg ({} calls, {:.1f}ms total)",
-            avgParse,
+            timers.getCallCount("parse_message") > 0 ?
+                timers.getAccumulatedTime("parse_message") / timers.getCallCount("parse_message") : 0.0,
             timers.getCallCount("parse_message"),
             timers.getAccumulatedTime("parse_message"));
         spdlog::info("  World render: {:.1f}ms avg ({} calls, {:.1f}ms total)",

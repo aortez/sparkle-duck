@@ -69,11 +69,15 @@ bool WebSocketClient::connect(const std::string& url)
                 }
             }
 
+            // Always store message for potential blocking mode.
+            response_ = message;
+            responseReceived_ = true;
+
+            // Only call async callback if not waiting for blocking response.
+            // If responseReceived was already true, we're processing a WorldData push.
             if (messageCallback_) {
                 spdlog::trace("UI WebSocketClient: Calling messageCallback_");
                 messageCallback_(message);
-            } else {
-                spdlog::warn("UI WebSocketClient: Received message but no messageCallback_ set!");
             }
         });
 
@@ -129,6 +133,35 @@ bool WebSocketClient::send(const std::string& message)
         spdlog::error("UI WebSocketClient: Send failed: {}", e.what());
         return false;
     }
+}
+
+std::string WebSocketClient::sendAndReceive(const std::string& message, int timeoutMs)
+{
+    if (!ws_ || !ws_->isOpen()) {
+        spdlog::error("UI WebSocketClient: Not connected");
+        return "";
+    }
+
+    // Reset response state.
+    response_.clear();
+    responseReceived_ = false;
+
+    // Send message.
+    spdlog::debug("UI WebSocketClient: Sending and waiting for response: {}", message);
+    ws_->send(message);
+
+    // Wait for response.
+    auto startTime = std::chrono::steady_clock::now();
+    while (!responseReceived_) {
+        auto elapsed = std::chrono::steady_clock::now() - startTime;
+        if (std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count() > timeoutMs) {
+            spdlog::error("UI WebSocketClient: Response timeout");
+            return "";
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+
+    return response_;
 }
 
 void WebSocketClient::disconnect()

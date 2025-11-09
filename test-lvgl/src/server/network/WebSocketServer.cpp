@@ -91,6 +91,24 @@ void WebSocketServer::broadcast(const std::string& message)
     }
 }
 
+void WebSocketServer::broadcastBinary(const rtc::binary& data)
+{
+    spdlog::trace("WebSocketServer: Broadcasting binary ({} bytes) to {} clients",
+                 data.size(), connectedClients_.size());
+
+    // Send to all connected clients.
+    for (auto& ws : connectedClients_) {
+        if (ws && ws->isOpen()) {
+            try {
+                ws->send(data);
+            }
+            catch (const std::exception& e) {
+                spdlog::error("WebSocketServer: Binary broadcast failed for client: {}", e.what());
+            }
+        }
+    }
+}
+
 void WebSocketServer::onMessage(std::shared_ptr<rtc::WebSocket> ws, const std::string& message)
 {
     spdlog::info("WebSocket received command: {}", message);
