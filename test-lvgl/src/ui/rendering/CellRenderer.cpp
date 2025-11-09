@@ -21,7 +21,7 @@ static lv_color_t getMaterialColor(MaterialType type)
         case MaterialType::SAND:
             return lv_color_hex(0xFFB347); // Sandy orange.
         case MaterialType::SEED:
-            return lv_color_hex(0x8B4513); // Saddle brown.
+            return lv_color_hex(0xFFD700); // Gold (bright and distinctive).
         case MaterialType::WALL:
             return lv_color_hex(0x808080); // Gray.
         case MaterialType::WATER:

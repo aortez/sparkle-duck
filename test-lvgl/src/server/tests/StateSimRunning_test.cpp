@@ -392,3 +392,91 @@ TEST_F(StateSimRunningTest, SimRun_UpdatesRunParameters)
     EXPECT_EQ(simRunning.stepCount, 5u) << "Step count should be preserved (world not recreated)";
     EXPECT_TRUE(std::holds_alternative<SimRunning>(newState)) << "Should stay in SimRunning";
 }
+
+/**
+ * @brief Test that SeedAdd command places SEED material at the specified coordinates.
+ */
+TEST_F(StateSimRunningTest, SeedAdd_PlacesSeedAtCoordinates)
+{
+    // Setup: Create initialized SimRunning with clean scenario.
+    SimRunning simRunning = createSimRunningWithWorld();
+    applyCleanScenario(simRunning);
+
+    // Setup: Choose test coordinates (world is 28x28, avoid walls at boundaries).
+    const uint32_t testX = 14;
+    const uint32_t testY = 14;
+
+    // Verify: Cell is initially empty (AIR).
+    const Cell& cellBefore = simRunning.world->at(testX, testY);
+    EXPECT_EQ(cellBefore.material_type, MaterialType::AIR) << "Cell should be empty initially";
+    EXPECT_LT(cellBefore.fill_ratio, 0.1) << "Cell should have minimal fill initially";
+
+    // Execute: Send SeedAdd command.
+    bool callbackInvoked = false;
+    Api::SeedAdd::Command cmd;
+    cmd.x = testX;
+    cmd.y = testY;
+    Api::SeedAdd::Cwc cwc(cmd, [&](Api::SeedAdd::Response&& response) {
+        callbackInvoked = true;
+        EXPECT_TRUE(response.isValue()) << "SeedAdd should succeed";
+    });
+
+    State::Any newState = simRunning.onEvent(cwc, *stateMachine);
+
+    // Verify: Stays in SimRunning.
+    ASSERT_TRUE(std::holds_alternative<SimRunning>(newState));
+    simRunning = std::move(std::get<SimRunning>(newState));
+
+    // Verify: Callback was invoked.
+    ASSERT_TRUE(callbackInvoked) << "SeedAdd callback should be invoked";
+
+    // Verify: Cell now contains SEED material.
+    const Cell& cellAfter = simRunning.world->at(testX, testY);
+    EXPECT_EQ(cellAfter.material_type, MaterialType::SEED) << "Cell should contain SEED material";
+    EXPECT_GT(cellAfter.fill_ratio, 0.9) << "Cell should be nearly full with SEED";
+
+    spdlog::info("TEST: Seed placed at ({},{}) - material={}, fill={:.2f}",
+                 testX, testY, static_cast<int>(cellAfter.material_type), cellAfter.fill_ratio);
+}
+
+/**
+ * @brief Test that SeedAdd rejects invalid coordinates.
+ */
+TEST_F(StateSimRunningTest, SeedAdd_RejectsInvalidCoordinates)
+{
+    // Setup: Create initialized SimRunning.
+    SimRunning simRunning = createSimRunningWithWorld();
+
+    // Test negative coordinates.
+    bool callbackInvoked = false;
+    Api::SeedAdd::Command cmd;
+    cmd.x = -1;
+    cmd.y = 10;
+    Api::SeedAdd::Cwc cwc(cmd, [&](Api::SeedAdd::Response&& response) {
+        callbackInvoked = true;
+        EXPECT_TRUE(response.isError()) << "SeedAdd should fail for negative x";
+        EXPECT_EQ(response.error().message, "Invalid coordinates");
+    });
+
+    State::Any newState = simRunning.onEvent(cwc, *stateMachine);
+    ASSERT_TRUE(callbackInvoked) << "Callback should be invoked for invalid coordinates";
+    ASSERT_TRUE(std::holds_alternative<SimRunning>(newState)) << "Should stay in SimRunning";
+
+    // Move to updated state.
+    simRunning = std::move(std::get<SimRunning>(newState));
+
+    // Test coordinates beyond world bounds.
+    callbackInvoked = false;
+    Api::SeedAdd::Command cmd2;
+    cmd2.x = simRunning.world->data.width + 10;
+    cmd2.y = 10;
+    Api::SeedAdd::Cwc cwc2(cmd2, [&](Api::SeedAdd::Response&& response) {
+        callbackInvoked = true;
+        EXPECT_TRUE(response.isError()) << "SeedAdd should fail for out-of-bounds x";
+        EXPECT_EQ(response.error().message, "Invalid coordinates");
+    });
+
+    newState = simRunning.onEvent(cwc2, *stateMachine);
+    ASSERT_TRUE(callbackInvoked) << "Callback should be invoked for out-of-bounds coordinates";
+    ASSERT_TRUE(std::holds_alternative<SimRunning>(newState)) << "Should stay in SimRunning";
+}
