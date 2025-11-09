@@ -78,7 +78,7 @@ run-asan: asan
 
 format:
 	@echo "Formatting source code..."
-	@clang-format --style=file -i src/*.cpp src/*.h
+	@find src -name "*.cpp" -o -name "*.h" | xargs clang-format --style=file -i
 
 clean:
 	@echo "Cleaning build artifacts..."
