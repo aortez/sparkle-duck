@@ -55,6 +55,13 @@ void ControlPanel::updateFromWorldData(const WorldData& data)
     worldWidth_ = data.width;
     worldHeight_ = data.height;
 
+    // Update stats display.
+    if (statsLabel_) {
+        char buf[64];
+        snprintf(buf, sizeof(buf), "Server: %.1f FPS", data.fps_server);
+        lv_label_set_text(statsLabel_, buf);
+    }
+
     // Rebuild scenario controls if scenario changed.
     if (data.scenario_id != currentScenarioId_) {
         spdlog::info("ControlPanel: Scenario changed to '{}'", data.scenario_id);
@@ -74,6 +81,27 @@ void ControlPanel::createCoreControls()
     lv_obj_center(quitLabel);
     lv_obj_set_user_data(quitButton_, this);
     lv_obj_add_event_cb(quitButton_, onQuitClicked, LV_EVENT_CLICKED, nullptr);
+
+    // Add spacing after quit button.
+    lv_obj_t* spacer1 = lv_obj_create(panelContainer_);
+    lv_obj_set_size(spacer1, LV_PCT(100), 10);
+    lv_obj_set_style_bg_opa(spacer1, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_border_width(spacer1, 0, 0);
+
+    // Stats display.
+    statsLabel_ = lv_label_create(panelContainer_);
+    lv_label_set_text(statsLabel_, "Server: -- FPS");
+    lv_obj_set_style_text_font(statsLabel_, &lv_font_montserrat_12, 0);
+
+    statsLabelUI_ = lv_label_create(panelContainer_);
+    lv_label_set_text(statsLabelUI_, "UI: -- FPS");
+    lv_obj_set_style_text_font(statsLabelUI_, &lv_font_montserrat_12, 0);
+
+    // Add spacing after stats labels.
+    lv_obj_t* spacer2 = lv_obj_create(panelContainer_);
+    lv_obj_set_size(spacer2, LV_PCT(100), 10);
+    lv_obj_set_style_bg_opa(spacer2, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_border_width(spacer2, 0, 0);
 
     // Debug toggle.
     debugSwitch_ = lv_switch_create(panelContainer_);

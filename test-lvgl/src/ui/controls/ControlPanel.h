@@ -61,6 +61,8 @@ private:
     // Core controls (always present).
     lv_obj_t* quitButton_ = nullptr;
     lv_obj_t* debugSwitch_ = nullptr;
+    lv_obj_t* statsLabel_ = nullptr;
+    lv_obj_t* statsLabelUI_ = nullptr;
 
     // Scenario-specific controls container.
     lv_obj_t* scenarioPanel_ = nullptr;

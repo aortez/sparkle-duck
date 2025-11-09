@@ -74,6 +74,7 @@ State::Any SimRunning::onEvent(const AdvanceSimulationCommand& /*cmd*/, StateMac
             std::chrono::duration_cast<std::chrono::microseconds>(now - lastFrameTime).count();
         if (elapsed > 0) {
             actualFPS = 1000000.0 / elapsed; // Microseconds to FPS.
+            world->data.fps_server = actualFPS;     // Update WorldData for UI.
 
             // Log FPS and performance stats intermittently.
             if (stepCount == 100 || stepCount % 1000 == 0) {
