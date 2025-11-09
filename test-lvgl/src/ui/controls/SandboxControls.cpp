@@ -26,6 +26,13 @@ SandboxControls::SandboxControls(
                          .callback(onAddSeedClicked, this)
                          .buildOrLog();
 
+    // Drop Dirt Ball button.
+    dropDirtBallButton_ = LVGLBuilder::button(container_)
+                              .size(LV_PCT(90), 40)
+                              .text("Drop Dirt Ball")
+                              .callback(onDropDirtBallClicked, this)
+                              .buildOrLog();
+
     // Quadrant toggle.
     quadrantSwitch_ = LVGLBuilder::labeledSwitch(container_)
                           .label("Quadrant")
@@ -46,13 +53,6 @@ SandboxControls::SandboxControls(
                             .initialState(config.right_throw_enabled)
                             .callback(onRightThrowToggled, this)
                             .buildOrLog();
-
-    // Drop Dirt Ball button.
-    dropDirtBallButton_ = LVGLBuilder::button(container_)
-                              .size(LV_PCT(90), 40)
-                              .text("Drop Dirt Ball")
-                              .callback(onDropDirtBallClicked, this)
-                              .buildOrLog();
 
     // Rain slider.
     rainSlider_ = LVGLBuilder::slider(container_)

@@ -1,8 +1,7 @@
 #pragma once
 
 #include "StateForward.h"
-#include "ui/controls/ControlPanel.h"
-#include "ui/rendering/CellRenderer.h"
+#include "ui/SimPlayground.h"
 #include "ui/state-machine/Event.h"
 #include <memory>
 
@@ -11,15 +10,17 @@ namespace DirtSim {
 struct WorldData;
 
 namespace Ui {
+
+class SimPlayground;
+
 namespace State {
 
 /**
  * @brief Simulation running state - active display and interaction.
  */
 struct SimRunning {
-    std::unique_ptr<WorldData> worldData;    // Local copy of world data for rendering.
-    std::unique_ptr<CellRenderer> renderer_; // Manages LVGL canvases for cells.
-    std::unique_ptr<ControlPanel> controls_; // UI controls for interaction.
+    std::unique_ptr<WorldData> worldData;       // Local copy of world data for rendering.
+    std::unique_ptr<SimPlayground> playground_; // Coordinates all UI components.
 
     // UI-local draw mode toggle.
     bool debugDrawEnabled = false;

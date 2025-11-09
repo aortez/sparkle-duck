@@ -2,6 +2,7 @@
 
 #include "StateForward.h"
 #include "ui/state-machine/Event.h"
+#include <lvgl/lvgl.h>
 
 namespace DirtSim {
 namespace Ui {

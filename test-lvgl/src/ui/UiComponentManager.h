@@ -5,6 +5,7 @@
 #include <string>
 
 namespace DirtSim {
+namespace Ui {
 
 /**
  * @brief Lightweight manager for LVGL resources and screen management.
@@ -114,4 +115,5 @@ private:
     void createSimulationLayout();
 };
 
+} // namespace Ui
 } // namespace DirtSim

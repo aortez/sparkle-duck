@@ -7,13 +7,10 @@
 typedef struct _lv_obj_t lv_obj_t;
 
 namespace DirtSim {
-
-// Forward declaration (UiComponentManager is in DirtSim namespace, not Ui).
-class UiComponentManager;
-
 namespace Ui {
 
 // Forward declarations.
+class UiComponentManager;
 class CoreControls;
 class SandboxControls;
 class PhysicsControls;
