@@ -10,6 +10,7 @@
 #include "api/ScenarioConfigSet.h"
 #include "api/SeedAdd.h"
 #include "api/SimRun.h"
+#include "api/SpawnDirtBall.h"
 #include "api/StateGet.h"
 #include "api/StepN.h"
 #include "api/TimerStatsGet.h"
@@ -609,6 +610,7 @@ using Event = std::variant<
     DirtSim::Api::ScenarioConfigSet::Cwc,
     DirtSim::Api::SeedAdd::Cwc,
     DirtSim::Api::SimRun::Cwc,
+    DirtSim::Api::SpawnDirtBall::Cwc,
     DirtSim::Api::StateGet::Cwc,
     DirtSim::Api::StepN::Cwc,
     DirtSim::Api::TimerStatsGet::Cwc,

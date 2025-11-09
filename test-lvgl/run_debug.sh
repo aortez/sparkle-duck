@@ -14,7 +14,7 @@ if pgrep -f "sparkle-duck-ui" > /dev/null; then
     exit 1
 fi
 
-# Build debug version (server and UI only, skip broken tests).
+# Build debug version (server and UI executables).
 echo "Building debug version..."
 if ! make -C build sparkle-duck-server sparkle-duck-ui -j12; then
     echo "Build failed!"

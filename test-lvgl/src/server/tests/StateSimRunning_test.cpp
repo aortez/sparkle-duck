@@ -54,7 +54,6 @@ protected:
         cleanConfig.quadrant_enabled = false;
         cleanConfig.water_column_enabled = false;
         cleanConfig.right_throw_enabled = false;
-        cleanConfig.top_drop_enabled = false;
         cleanConfig.rain_rate = 0.0;
 
         Api::ScenarioConfigSet::Command cmd;
@@ -248,7 +247,6 @@ TEST_F(StateSimRunningTest, ScenarioConfigSet_TogglesWaterColumn)
     configOff.quadrant_enabled = true;      // Keep quadrant.
     configOff.water_column_enabled = false; // Turn off water column.
     configOff.right_throw_enabled = false;
-    configOff.top_drop_enabled = false;
     configOff.rain_rate = 0.0;
 
     bool callbackInvoked = false;
@@ -315,7 +313,6 @@ TEST_F(StateSimRunningTest, ScenarioConfigSet_TogglesDirtQuadrant)
     configOff.quadrant_enabled = false; // Turn off quadrant.
     configOff.water_column_enabled = false;
     configOff.right_throw_enabled = false;
-    configOff.top_drop_enabled = false;
     configOff.rain_rate = 0.0;
 
     bool callbackInvoked = false;

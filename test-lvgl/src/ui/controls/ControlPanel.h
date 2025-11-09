@@ -70,7 +70,7 @@ private:
     lv_obj_t* sandboxQuadrantSwitch_ = nullptr;
     lv_obj_t* sandboxRainSlider_ = nullptr;
     lv_obj_t* sandboxRightThrowSwitch_ = nullptr;
-    lv_obj_t* sandboxTopDropSwitch_ = nullptr;
+    lv_obj_t* sandboxDropDirtBallButton_ = nullptr;
     lv_obj_t* sandboxWaterColumnSwitch_ = nullptr;
 
     /**
@@ -99,11 +99,11 @@ private:
     // Event handlers (static for LVGL callbacks).
     static void onAddSeedClicked(lv_event_t* e);
     static void onDebugToggled(lv_event_t* e);
+    static void onDropDirtBallClicked(lv_event_t* e);
     static void onQuitClicked(lv_event_t* e);
     static void onSandboxQuadrantToggled(lv_event_t* e);
     static void onSandboxRainSliderChanged(lv_event_t* e);
     static void onSandboxRightThrowToggled(lv_event_t* e);
-    static void onSandboxTopDropToggled(lv_event_t* e);
     static void onSandboxWaterColumnToggled(lv_event_t* e);
 
     /**

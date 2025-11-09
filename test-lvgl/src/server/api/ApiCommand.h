@@ -10,6 +10,7 @@
 #include "ScenarioConfigSet.h"
 #include "SeedAdd.h"
 #include "SimRun.h"
+#include "SpawnDirtBall.h"
 #include "StateGet.h"
 #include "StepN.h"
 #include "TimerStatsGet.h"
@@ -31,6 +32,7 @@ using ApiCommand = std::variant<
     Api::ScenarioConfigSet::Command,
     Api::SeedAdd::Command,
     Api::SimRun::Command,
+    Api::SpawnDirtBall::Command,
     Api::StateGet::Command,
     Api::StepN::Command,
     Api::TimerStatsGet::Command>;
