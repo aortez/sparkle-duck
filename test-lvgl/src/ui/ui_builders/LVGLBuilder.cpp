@@ -967,6 +967,14 @@ Result<lv_obj_t*, std::string> LVGLBuilder::ToggleSliderBuilder::createToggleSli
                                default_value_,   slider_callback_, slider_user_data_,
                                toggle_callback_, toggle_user_data_ };
 
+    // Set user_data on widgets so user callbacks can access it.
+    if (toggle_user_data_) {
+        lv_obj_set_user_data(switch_, toggle_user_data_);
+    }
+    if (slider_user_data_) {
+        lv_obj_set_user_data(slider_, slider_user_data_);
+    }
+
     // Set up callbacks.
     lv_obj_add_event_cb(switch_, toggleSliderSwitchCallback, LV_EVENT_VALUE_CHANGED, state);
     lv_obj_add_event_cb(slider_, toggleSliderValueCallback, LV_EVENT_VALUE_CHANGED, state);

@@ -231,10 +231,7 @@ void PhysicsControls::onTimescaleChanged(lv_event_t* e)
 
     spdlog::info("PhysicsControls: Timescale changed to {:.2f}", scaledValue);
 
-    // Update local settings.
     self->settings_.timescale = scaledValue;
-
-    // Sync to server.
     self->syncSettings();
 }
 
