@@ -25,12 +25,11 @@ struct SimRunning {
     // UI-local draw mode toggle.
     bool debugDrawEnabled = false;
 
-    // Time-based frame limiting.
-    std::chrono::steady_clock::time_point lastFrameRequestTime;
-    std::chrono::milliseconds targetFrameInterval{ 16 };
-    double measuredUIFPS = 0.0; // Instantaneous UI frame rate.
-    double smoothedUIFPS = 0.0; // Exponentially smoothed UI FPS for display.
-    uint64_t skippedFrames = 0; // Count of skipped frame_ready notifications.
+    // UI FPS tracking.
+    std::chrono::steady_clock::time_point lastFrameTime;
+    double measuredUiFps = 0.0; // Instantaneous UI frame rate.
+    double smoothedUiFps = 0.0; // Exponentially smoothed UI FPS for display.
+    uint64_t skippedFrames = 0; // Count of skipped frames.
 
     // Round-trip timing (state_get request → UiUpdateEvent received).
     std::chrono::steady_clock::time_point lastStateGetSentTime;

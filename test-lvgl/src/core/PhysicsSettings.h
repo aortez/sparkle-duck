@@ -26,7 +26,7 @@ struct PhysicsSettings {
     double pressure_hydrostatic_strength = 1.0;
     bool pressure_hydrostatic_enabled = true;
     double pressure_scale = 1.0;
-    bool pressure_diffusion_enabled = true;
+    double pressure_diffusion_strength = 1.0;
     double timescale = 1.0;
     double viscosity_strength = 1.0;
     bool viscosity_enabled = true;

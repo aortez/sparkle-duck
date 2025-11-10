@@ -288,6 +288,7 @@ Can be found here:
 - Performance testing
 - Optimization
 - Python/bash/cli integration test scripts
+   - Sanity check - can server and ui start, connect, and then exit cleanly?
 - More state machine tests (StartMenu, Paused, etc.)
 - WebRTC video streaming for remote UI
 

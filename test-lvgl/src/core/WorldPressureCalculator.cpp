@@ -772,7 +772,7 @@ void WorldPressureCalculator::applyPressureDiffusion(World& world, double deltaT
 
             // Get material diffusion coefficient.
             const MaterialProperties& props = getMaterialProperties(cell.material_type);
-            double diffusion_rate = props.pressure_diffusion;
+            double diffusion_rate = props.pressure_diffusion * world.physicsSettings.pressure_diffusion_strength;
 
             // Calculate pressure flux with neighbors.
             double pressure_flux = 0.0;

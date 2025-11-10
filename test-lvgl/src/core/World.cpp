@@ -27,9 +27,6 @@ World::World() : World(1, 1)
 
 World::World(uint32_t width, uint32_t height)
     : water_pressure_threshold_(0.0004),
-      pressure_diffusion_enabled_(false),
-      hydrostatic_pressure_strength_(0.0),
-      dynamic_pressure_strength_(0.0),
       cohesion_bind_force_enabled_(false),
       cohesion_com_force_strength_(0.0),
       cohesion_bind_force_strength_(1.0),
@@ -136,13 +133,13 @@ void World::advanceTime(double deltaTimeSeconds)
     // Calculate pressures for NEXT frame after moves are complete.
     // This follows the two-frame model where pressure calculated in frame N
     // affects velocities in frame N+1.
-    if (hydrostatic_pressure_strength_ > 0.0) {
+    if (physicsSettings.pressure_hydrostatic_strength > 0.0) {
         ScopeTimer hydroTimer(timers_, "hydrostatic_pressure");
         pressure_calculator_.calculateHydrostaticPressure(*this);
     }
 
     // Process any blocked transfers that were queued during processMaterialMoves.
-    if (dynamic_pressure_strength_ > 0.0) {
+    if (physicsSettings.pressure_dynamic_strength > 0.0) {
         ScopeTimer dynamicTimer(timers_, "dynamic_pressure");
         // Generate virtual gravity transfers to create pressure from gravity forces.
         // This allows dynamic pressure to model hydrostatic-like behavior.
@@ -154,7 +151,7 @@ void World::advanceTime(double deltaTimeSeconds)
     }
 
     // Apply pressure diffusion before decay.
-    if (pressure_diffusion_enabled_) {
+    if (physicsSettings.pressure_diffusion_strength > 0.0) {
         ScopeTimer diffusionTimer(timers_, "pressure_diffusion");
         pressure_calculator_.applyPressureDiffusion(*this, scaledDeltaTime);
     }
@@ -417,7 +414,7 @@ void World::applyCohesionForces()
 
 void World::applyPressureForces()
 {
-    if (hydrostatic_pressure_strength_ <= 0.0 && dynamic_pressure_strength_ <= 0.0) {
+    if (physicsSettings.pressure_hydrostatic_strength <= 0.0 && physicsSettings.pressure_dynamic_strength <= 0.0) {
         return;
     }
 
@@ -967,7 +964,7 @@ bool World::areWallsEnabled() const
 void World::setHydrostaticPressureEnabled(bool enabled)
 {
     // Backward compatibility: set strength to 0 (disabled) or default (enabled).
-    hydrostatic_pressure_strength_ = enabled ? 1.0 : 0.0;
+    physicsSettings.pressure_hydrostatic_strength = enabled ? 1.0 : 0.0;
 
     spdlog::info("Clearing all pressure values");
     for (auto& cell : data.cells) {
@@ -981,7 +978,7 @@ void World::setHydrostaticPressureEnabled(bool enabled)
 void World::setDynamicPressureEnabled(bool enabled)
 {
     // Backward compatibility: set strength to 0 (disabled) or default (enabled).
-    dynamic_pressure_strength_ = enabled ? 1.0 : 0.0;
+    physicsSettings.pressure_dynamic_strength = enabled ? 1.0 : 0.0;
 
     spdlog::info("Clearing all pressure values");
     for (auto& cell : data.cells) {
@@ -997,24 +994,24 @@ void World::setDynamicPressureEnabled(bool enabled)
 
 void World::setHydrostaticPressureStrength(double strength)
 {
-    hydrostatic_pressure_strength_ = strength;
+    physicsSettings.pressure_hydrostatic_strength = strength;
     spdlog::info("Hydrostatic pressure strength set to {:.2f}", strength);
 }
 
 double World::getHydrostaticPressureStrength() const
 {
-    return hydrostatic_pressure_strength_;
+    return physicsSettings.pressure_hydrostatic_strength;
 }
 
 void World::setDynamicPressureStrength(double strength)
 {
-    dynamic_pressure_strength_ = strength;
+    physicsSettings.pressure_dynamic_strength = strength;
     spdlog::info("Dynamic pressure strength set to {:.2f}", strength);
 }
 
 double World::getDynamicPressureStrength() const
 {
-    return dynamic_pressure_strength_;
+    return physicsSettings.pressure_dynamic_strength;
 }
 
 std::string World::settingsToString() const

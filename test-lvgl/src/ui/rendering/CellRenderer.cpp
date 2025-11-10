@@ -279,6 +279,73 @@ void CellRenderer::renderCellDebug(Cell& cell, CellCanvas& canvas, uint32_t /*x*
             line_dsc.p2.y = end_y;
             lv_draw_line(&layer, &line_dsc);
         }
+
+        // Pressure visualization as dual-layer borders.
+        const double MAX_BORDER_WIDTH = 8.0;
+        int hydrostatic_border_width = 0;
+        int dynamic_border_width = 0;
+
+        if (cell.hydrostatic_component > 0.01) {
+            hydrostatic_border_width = static_cast<int>(
+                std::min(MAX_BORDER_WIDTH, 1.0 + std::log1p(cell.hydrostatic_component * 10) * 2.0));
+        }
+
+        if (cell.dynamic_component > 0.01) {
+            dynamic_border_width = static_cast<int>(
+                std::min(MAX_BORDER_WIDTH, 1.0 + std::log1p(cell.dynamic_component * 10) * 2.0));
+        }
+
+        // Draw outer border (dynamic pressure - magenta).
+        if (dynamic_border_width > 0) {
+            lv_draw_rect_dsc_t dynamic_border_dsc;
+            lv_draw_rect_dsc_init(&dynamic_border_dsc);
+            dynamic_border_dsc.bg_opa = LV_OPA_TRANSP;
+            dynamic_border_dsc.border_color = lv_color_hex(0xFF00FF); // Magenta.
+            dynamic_border_dsc.border_opa = LV_OPA_COVER;
+            dynamic_border_dsc.border_width = dynamic_border_width;
+            dynamic_border_dsc.radius = 0;
+
+            lv_area_t dynamic_area = coords;
+            lv_draw_rect(&layer, &dynamic_border_dsc, &dynamic_area);
+        }
+
+        // Draw inner border (hydrostatic pressure - red).
+        if (hydrostatic_border_width > 0) {
+            lv_draw_rect_dsc_t hydrostatic_border_dsc;
+            lv_draw_rect_dsc_init(&hydrostatic_border_dsc);
+            hydrostatic_border_dsc.bg_opa = LV_OPA_TRANSP;
+            hydrostatic_border_dsc.border_color = lv_color_hex(0xFF0000); // Red.
+            hydrostatic_border_dsc.border_opa = LV_OPA_COVER;
+            hydrostatic_border_dsc.border_width = hydrostatic_border_width;
+            hydrostatic_border_dsc.radius = 0;
+
+            lv_area_t hydrostatic_area;
+            hydrostatic_area.x1 = dynamic_border_width;
+            hydrostatic_area.y1 = dynamic_border_width;
+            hydrostatic_area.x2 = Cell::WIDTH - 1 - dynamic_border_width;
+            hydrostatic_area.y2 = Cell::HEIGHT - 1 - dynamic_border_width;
+            lv_draw_rect(&layer, &hydrostatic_border_dsc, &hydrostatic_area);
+        }
+
+        // Draw pressure gradient vector (magenta line from center).
+        if (cell.pressure_gradient.magnitude() > 0.001) {
+            int center_x = Cell::WIDTH / 2;
+            int center_y = Cell::HEIGHT / 2;
+            const double GRADIENT_SCALE = 30.0;
+
+            int end_x = center_x + static_cast<int>(cell.pressure_gradient.x * GRADIENT_SCALE);
+            int end_y = center_y + static_cast<int>(cell.pressure_gradient.y * GRADIENT_SCALE);
+
+            lv_draw_line_dsc_t gradient_line_dsc;
+            lv_draw_line_dsc_init(&gradient_line_dsc);
+            gradient_line_dsc.color = lv_color_hex(0xFF0080); // Magenta.
+            gradient_line_dsc.width = 3;
+            gradient_line_dsc.p1.x = center_x;
+            gradient_line_dsc.p1.y = center_y;
+            gradient_line_dsc.p2.x = end_x;
+            gradient_line_dsc.p2.y = end_y;
+            lv_draw_line(&layer, &gradient_line_dsc);
+        }
     }
 
     lv_canvas_finish_layer(canvas.canvas, &layer);

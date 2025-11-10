@@ -34,8 +34,9 @@ public:
 
     /**
      * @brief Update UI from world data.
+     * @param uiFPS Current UI frame rate for display.
      */
-    void updateFromWorldData(const WorldData& data);
+    void updateFromWorldData(const WorldData& data, double uiFPS = 0.0);
 
     /**
      * @brief Render world state.

@@ -34,10 +34,10 @@ SimPlayground::~SimPlayground()
     spdlog::info("SimPlayground: Destroyed");
 }
 
-void SimPlayground::updateFromWorldData(const WorldData& data)
+void SimPlayground::updateFromWorldData(const WorldData& data, double uiFPS)
 {
     // Update stats display.
-    coreControls_->updateStats(data.fps_server, 0.0); // TODO: Add UI FPS tracking.
+    coreControls_->updateStats(data.fps_server, uiFPS);
 
     // Handle scenario changes.
     if (data.scenario_id != currentScenarioId_) {

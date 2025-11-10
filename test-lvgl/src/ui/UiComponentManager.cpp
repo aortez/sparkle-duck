@@ -209,7 +209,7 @@ void UiComponentManager::createSimulationLayout()
 
     // Bottom panel: physics controls (3-column horizontal layout).
     simBottomPanel_ = lv_obj_create(simulationScreen);
-    lv_obj_set_size(simBottomPanel_, LV_PCT(100), 200);
+    lv_obj_set_size(simBottomPanel_, LV_PCT(100), 500);
     lv_obj_set_flex_flow(simBottomPanel_, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(
         simBottomPanel_, LV_FLEX_ALIGN_SPACE_EVENLY, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);

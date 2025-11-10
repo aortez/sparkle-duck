@@ -108,13 +108,13 @@ public:
     // =================================================================
 
     void setHydrostaticPressureEnabled(bool enabled);
-    bool isHydrostaticPressureEnabled() const { return hydrostatic_pressure_strength_ > 0.0; }
+    bool isHydrostaticPressureEnabled() const { return physicsSettings.pressure_hydrostatic_strength > 0.0; }
 
     void setDynamicPressureEnabled(bool enabled);
-    bool isDynamicPressureEnabled() const { return dynamic_pressure_strength_ > 0.0; }
+    bool isDynamicPressureEnabled() const { return physicsSettings.pressure_dynamic_strength > 0.0; }
 
-    void setPressureDiffusionEnabled(bool enabled) { pressure_diffusion_enabled_ = enabled; }
-    bool isPressureDiffusionEnabled() const { return pressure_diffusion_enabled_; }
+    void setPressureDiffusionEnabled(bool enabled) { physicsSettings.pressure_diffusion_strength = enabled ? 1.0 : 0.0; }
+    bool isPressureDiffusionEnabled() const { return physicsSettings.pressure_diffusion_strength > 0.0; }
 
     void setHydrostaticPressureStrength(double strength);
     double getHydrostaticPressureStrength() const;
@@ -300,9 +300,6 @@ public:
 
     // Physics parameters (TODO: migrate to WorldData).
     double water_pressure_threshold_;
-    bool pressure_diffusion_enabled_;
-    double hydrostatic_pressure_strength_;
-    double dynamic_pressure_strength_;
     bool cohesion_bind_force_enabled_;
     double cohesion_com_force_strength_;
     double cohesion_bind_force_strength_;
