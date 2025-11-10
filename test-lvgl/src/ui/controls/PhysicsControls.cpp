@@ -31,12 +31,12 @@ PhysicsControls::PhysicsControls(lv_obj_t* container, WebSocketClient* wsClient)
 
     timescaleControl_ = LVGLBuilder::toggleSlider(column1_)
                             .label("Timescale")
-                            .range(0, 200)
+                            .range(0, 500)
                             .value(100)
                             .defaultValue(100)
                             .valueScale(0.01)
                             .valueFormat("%.2fx")
-                            .initiallyEnabled(false)
+                            .initiallyEnabled(true)
                             .sliderWidth(180)
                             .onToggle(onTimescaleToggled, this)
                             .onSliderChange(onTimescaleChanged, this)
@@ -49,7 +49,7 @@ PhysicsControls::PhysicsControls(lv_obj_t* container, WebSocketClient* wsClient)
                           .defaultValue(50)
                           .valueScale(0.01)
                           .valueFormat("%.2f")
-                          .initiallyEnabled(false)
+                          .initiallyEnabled(true)
                           .sliderWidth(180)
                           .onToggle(onGravityToggled, this)
                           .onSliderChange(onGravityChanged, this)
@@ -218,6 +218,28 @@ void PhysicsControls::onTimescaleToggled(lv_event_t* e)
 
     bool enabled = lv_obj_has_state(target, LV_STATE_CHECKED);
     spdlog::info("PhysicsControls: Timescale toggled to {}", enabled ? "ON" : "OFF");
+
+    if (!enabled) {
+        // When disabled, set timescale to 0 to pause simulation time.
+        self->settings_.timescale = 0.0;
+        self->syncSettings();
+    } else {
+        // When re-enabled, LVGLBuilder has restored the slider value.
+        // Read it from the slider and sync to server.
+        // Note: We need to access the slider widget, which is a sibling of the switch.
+        lv_obj_t* container = lv_obj_get_parent(target);
+        if (container) {
+            // Find the slider child (it's the 3rd child: label, switch, slider, value).
+            lv_obj_t* slider = lv_obj_get_child(container, 2);
+            if (slider) {
+                int value = lv_slider_get_value(slider);
+                double scaledValue = value * 0.01;
+                self->settings_.timescale = scaledValue;
+                self->syncSettings();
+                spdlog::debug("PhysicsControls: Restored timescale to {:.2f}", scaledValue);
+            }
+        }
+    }
 }
 
 void PhysicsControls::onTimescaleChanged(lv_event_t* e)
