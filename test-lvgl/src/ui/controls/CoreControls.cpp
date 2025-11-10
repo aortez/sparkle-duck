@@ -1,8 +1,10 @@
 #include "CoreControls.h"
 #include "server/api/Exit.h"
+#include "server/api/Reset.h"
 #include "ui/state-machine/EventSink.h"
 #include "ui/state-machine/api/DrawDebugToggle.h"
 #include "ui/state-machine/network/WebSocketClient.h"
+#include <lvgl/src/misc/lv_palette.h>
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
 
@@ -15,13 +17,24 @@ CoreControls::CoreControls(lv_obj_t* container, WebSocketClient* wsClient, Event
     // Quit button.
     quitButton_ = lv_btn_create(container_);
     lv_obj_set_width(quitButton_, LV_PCT(90));
+    lv_obj_set_style_bg_color(quitButton_, lv_palette_main(LV_PALETTE_RED), 0);
     lv_obj_t* quitLabel = lv_label_create(quitButton_);
     lv_label_set_text(quitLabel, "Quit");
     lv_obj_center(quitLabel);
     lv_obj_set_user_data(quitButton_, this);
     lv_obj_add_event_cb(quitButton_, onQuitClicked, LV_EVENT_CLICKED, nullptr);
 
-    // Add spacing after quit button.
+    // Reset button.
+    resetButton_ = lv_btn_create(container_);
+    lv_obj_set_width(resetButton_, LV_PCT(90));
+    lv_obj_set_style_bg_color(resetButton_, lv_palette_main(LV_PALETTE_ORANGE), 0);
+    lv_obj_t* resetLabel = lv_label_create(resetButton_);
+    lv_label_set_text(resetLabel, "Reset");
+    lv_obj_center(resetLabel);
+    lv_obj_set_user_data(resetButton_, this);
+    lv_obj_add_event_cb(resetButton_, onResetClicked, LV_EVENT_CLICKED, nullptr);
+
+    // Add spacing after buttons.
     lv_obj_t* spacer1 = lv_obj_create(container_);
     lv_obj_set_size(spacer1, LV_PCT(100), 10);
     lv_obj_set_style_bg_opa(spacer1, LV_OPA_TRANSP, 0);
@@ -31,10 +44,12 @@ CoreControls::CoreControls(lv_obj_t* container, WebSocketClient* wsClient, Event
     statsLabel_ = lv_label_create(container_);
     lv_label_set_text(statsLabel_, "Server: -- FPS");
     lv_obj_set_style_text_font(statsLabel_, &lv_font_montserrat_12, 0);
+    lv_obj_set_style_text_color(statsLabel_, lv_color_white(), 0);
 
     statsLabelUI_ = lv_label_create(container_);
     lv_label_set_text(statsLabelUI_, "UI: -- FPS");
     lv_obj_set_style_text_font(statsLabelUI_, &lv_font_montserrat_12, 0);
+    lv_obj_set_style_text_color(statsLabelUI_, lv_color_white(), 0);
 
     // Add spacing after stats labels.
     lv_obj_t* spacer2 = lv_obj_create(container_);
@@ -85,6 +100,21 @@ void CoreControls::onQuitClicked(lv_event_t* e)
     Api::Exit::Command cmd;
     nlohmann::json j = cmd.toJson();
     j["command"] = "exit";
+    self->wsClient_->send(j.dump());
+}
+
+void CoreControls::onResetClicked(lv_event_t* e)
+{
+    lv_obj_t* target = static_cast<lv_obj_t*>(lv_event_get_target(e));
+    CoreControls* self = static_cast<CoreControls*>(lv_obj_get_user_data(target));
+    if (!self) return;
+
+    spdlog::info("CoreControls: Reset button clicked");
+
+    // Send reset command to server.
+    Api::Reset::Command cmd;
+    nlohmann::json j = cmd.toJson();
+    j["command"] = "reset";
     self->wsClient_->send(j.dump());
 }
 

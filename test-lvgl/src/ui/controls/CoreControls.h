@@ -13,7 +13,7 @@ class EventSink;
 /**
  * @brief Core controls always present in simulation view.
  *
- * Includes: Quit button, FPS stats display, Debug Draw toggle.
+ * Includes: Quit button, Reset button, FPS stats display, Debug Draw toggle.
  */
 class CoreControls {
 public:
@@ -32,12 +32,14 @@ private:
 
     // Widgets.
     lv_obj_t* quitButton_ = nullptr;
+    lv_obj_t* resetButton_ = nullptr;
     lv_obj_t* statsLabel_ = nullptr;
     lv_obj_t* statsLabelUI_ = nullptr;
     lv_obj_t* debugSwitch_ = nullptr;
 
     // Event handlers.
     static void onQuitClicked(lv_event_t* e);
+    static void onResetClicked(lv_event_t* e);
     static void onDebugToggled(lv_event_t* e);
 };
 

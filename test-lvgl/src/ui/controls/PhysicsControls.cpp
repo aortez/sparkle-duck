@@ -44,7 +44,7 @@ PhysicsControls::PhysicsControls(lv_obj_t* container, WebSocketClient* wsClient)
 
     gravityControl_ = LVGLBuilder::toggleSlider(column1_)
                           .label("Gravity")
-                          .range(0, 200)
+                          .range(-200, 200)
                           .value(50)
                           .defaultValue(50)
                           .valueScale(0.01)
@@ -265,6 +265,27 @@ void PhysicsControls::onGravityToggled(lv_event_t* e)
 
     bool enabled = lv_obj_has_state(target, LV_STATE_CHECKED);
     spdlog::info("PhysicsControls: Gravity toggled to {}", enabled ? "ON" : "OFF");
+
+    if (!enabled) {
+        // When disabled, set gravity to 0.
+        self->settings_.gravity = 0.0;
+        self->syncSettings();
+    } else {
+        // When re-enabled, LVGLBuilder has restored the slider value.
+        // Read it from the slider and sync to server.
+        lv_obj_t* container = lv_obj_get_parent(target);
+        if (container) {
+            // Find the slider child (it's the 3rd child: label, switch, slider, value).
+            lv_obj_t* slider = lv_obj_get_child(container, 2);
+            if (slider) {
+                int value = lv_slider_get_value(slider);
+                double scaledValue = value * 0.01;
+                self->settings_.gravity = scaledValue;
+                self->syncSettings();
+                spdlog::debug("PhysicsControls: Restored gravity to {:.2f}", scaledValue);
+            }
+        }
+    }
 }
 
 void PhysicsControls::onGravityChanged(lv_event_t* e)

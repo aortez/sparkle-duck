@@ -49,6 +49,8 @@ public:
     }
 
     // WorldEventGenerator interface implementation
+    void clear(World& world) override;
+
     void setup(World& world) override
     {
         if (setup_fn_) {

@@ -343,6 +343,8 @@ State::Any SimRunning::onEvent(const Api::Reset::Cwc& cwc, StateMachine& /*dsm*/
     spdlog::info("SimRunning: API reset simulation");
 
     if (world) {
+        // Clear world to empty state, then re-initialize with scenario.
+        world->worldEventGenerator_->clear(*world);
         world->setup();
     }
 
