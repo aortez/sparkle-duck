@@ -572,11 +572,75 @@ State::Any SimRunning::onEvent(const Api::StateGet::Cwc& cwc, StateMachine& dsm)
     return std::move(*this);
 }
 
-State::Any SimRunning::onEvent(const Api::SimRun::Cwc& cwc, StateMachine& /*dsm*/)
+State::Any SimRunning::onEvent(const Api::SimRun::Cwc& cwc, StateMachine& dsm)
 {
     using Response = Api::SimRun::Response;
 
     assert(world && "World must exist in SimRunning state");
+
+    // Check if scenario has changed - if so, reload the world.
+    if (cwc.command.scenario_id != world->data.scenario_id) {
+        spdlog::info(
+            "SimRunning: Switching scenario from '{}' to '{}'",
+            world->data.scenario_id,
+            cwc.command.scenario_id);
+
+        // Validate scenario exists.
+        auto& registry = dsm.getScenarioRegistry();
+        auto* scenario = registry.getScenario(cwc.command.scenario_id);
+
+        if (!scenario) {
+            spdlog::error("SimRunning: Scenario '{}' not found in registry", cwc.command.scenario_id);
+            cwc.sendResponse(Response::error(ApiError("Scenario not found: " + cwc.command.scenario_id)));
+            return std::move(*this);
+        }
+
+        // Check if scenario requires specific world dimensions.
+        const auto& metadata = scenario->getMetadata();
+        uint32_t targetWidth, targetHeight;
+
+        if (metadata.requiredWidth > 0 && metadata.requiredHeight > 0) {
+            // Scenario requires specific dimensions.
+            targetWidth = metadata.requiredWidth;
+            targetHeight = metadata.requiredHeight;
+        }
+        else {
+            // Scenario is flexible - use default dimensions.
+            targetWidth = dsm.defaultWidth;
+            targetHeight = dsm.defaultHeight;
+        }
+
+        // Resize if needed.
+        if (world->data.width != targetWidth || world->data.height != targetHeight) {
+            spdlog::info(
+                "SimRunning: Resizing world from {}x{} to {}x{} for scenario '{}'",
+                world->data.width,
+                world->data.height,
+                targetWidth,
+                targetHeight,
+                cwc.command.scenario_id);
+            world->resizeGrid(targetWidth, targetHeight);
+        }
+
+        // Clear current world.
+        world->worldEventGenerator_->clear(*world);
+
+        // Create and apply new WorldEventGenerator from scenario.
+        auto newGenerator = scenario->createWorldEventGenerator();
+        world->setWorldEventGenerator(std::move(newGenerator));
+
+        // Update world data.
+        world->data.scenario_id = cwc.command.scenario_id;
+        world->data.scenario_config = scenario->getConfig();
+
+        // Re-initialize world with new scenario.
+        world->setup();
+
+        // Reset step counter.
+        stepCount = 0;
+
+        spdlog::info("SimRunning: Scenario '{}' loaded and initialized", cwc.command.scenario_id);
+    }
 
     // Store run parameters.
     stepDurationMs = cwc.command.timestep * 1000.0; // Convert seconds to milliseconds.

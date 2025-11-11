@@ -1,5 +1,6 @@
 #include "ControlPanel.h"
 #include "server/api/SeedAdd.h"
+#include "server/api/SimRun.h"
 #include "server/api/SpawnDirtBall.h"
 #include "ui/state-machine/EventSink.h"
 #include "ui/state-machine/network/WebSocketClient.h"
@@ -125,6 +126,26 @@ void ControlPanel::createScenarioControls(
     lv_obj_set_flex_align(
         scenarioPanel_, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
 
+    // Scenario dropdown selector (always visible, regardless of scenario type).
+    lv_obj_t* scenarioLabel = lv_label_create(scenarioPanel_);
+    lv_label_set_text(scenarioLabel, "Scenario:");
+
+    scenarioDropdown_ = LVGLBuilder::dropdown(scenarioPanel_)
+                            .options("Sandbox\nDam Break\nRaining\nWater Equalization\nFalling Dirt\nEmpty")
+                            .selected(0)  // "Sandbox" selected by default.
+                            .size(LV_PCT(90), 40)
+                            .buildOrLog();
+
+    // Add event handler for dropdown.
+    if (scenarioDropdown_) {
+        spdlog::info("ControlPanel: Scenario dropdown created successfully");
+        lv_obj_set_user_data(scenarioDropdown_, this);
+        lv_obj_add_event_cb(scenarioDropdown_, onScenarioChanged, LV_EVENT_VALUE_CHANGED, this);
+    }
+    else {
+        spdlog::error("ControlPanel: Failed to create scenario dropdown!");
+    }
+
     // Create controls based on scenario type.
     if (scenarioId == "sandbox" && std::holds_alternative<SandboxConfig>(config)) {
         createSandboxControls(std::get<SandboxConfig>(config));
@@ -139,6 +160,7 @@ void ControlPanel::clearScenarioControls()
     if (scenarioPanel_) {
         lv_obj_del(scenarioPanel_);
         scenarioPanel_ = nullptr;
+        scenarioDropdown_ = nullptr;
         sandboxAddSeedButton_ = nullptr;
         sandboxQuadrantSwitch_ = nullptr;
         sandboxRainSlider_ = nullptr;
@@ -150,9 +172,9 @@ void ControlPanel::clearScenarioControls()
 
 void ControlPanel::createSandboxControls(const SandboxConfig& config)
 {
-    // Scenario label.
-    lv_obj_t* scenarioLabel = lv_label_create(scenarioPanel_);
-    lv_label_set_text(scenarioLabel, "--- Sandbox ---");
+    // Sandbox-specific controls label.
+    lv_obj_t* sandboxLabel = lv_label_create(scenarioPanel_);
+    lv_label_set_text(sandboxLabel, "--- Sandbox Controls ---");
 
     // Add Seed button.
     sandboxAddSeedButton_ = LVGLBuilder::button(scenarioPanel_)
@@ -204,6 +226,50 @@ void ControlPanel::createSandboxControls(const SandboxConfig& config)
 // ============================================================================
 // Event Handlers
 // ============================================================================
+
+void ControlPanel::onScenarioChanged(lv_event_t* e)
+{
+    auto* panel = static_cast<ControlPanel*>(
+        lv_obj_get_user_data(static_cast<lv_obj_t*>(lv_event_get_target(e))));
+    if (!panel) return;
+
+    lv_obj_t* dropdown = static_cast<lv_obj_t*>(lv_event_get_target(e));
+    uint16_t selectedIdx = lv_dropdown_get_selected(dropdown);
+
+    // Map dropdown index to scenario_id.
+    const char* scenarioIds[] = {
+        "sandbox",
+        "dam_break",
+        "raining",
+        "water_equalization",
+        "falling_dirt",
+        "empty"
+    };
+
+    if (selectedIdx >= 6) {
+        spdlog::error("ControlPanel: Invalid scenario index {}", selectedIdx);
+        return;
+    }
+
+    std::string scenario_id = scenarioIds[selectedIdx];
+    spdlog::info("ControlPanel: Scenario changed to '{}'", scenario_id);
+
+    // Send sim_run command with new scenario_id to DSSM server.
+    if (panel->wsClient_ && panel->wsClient_->isConnected()) {
+        DirtSim::Api::SimRun::Command cmd;
+        cmd.scenario_id = scenario_id;
+        // Keep default timestep and max_steps.
+
+        nlohmann::json json = cmd.toJson();
+        json["command"] = "sim_run";
+
+        spdlog::info("ControlPanel: Sending sim_run with scenario '{}'", scenario_id);
+        panel->wsClient_->send(json.dump());
+    }
+    else {
+        spdlog::warn("ControlPanel: WebSocket not connected, cannot switch scenario");
+    }
+}
 
 void ControlPanel::onAddSeedClicked(lv_event_t* e)
 {
