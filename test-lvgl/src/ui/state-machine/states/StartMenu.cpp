@@ -1,8 +1,11 @@
 #include "State.h"
 #include "server/api/SimRun.h"
 #include "ui/UiComponentManager.h"
+#include "ui/rendering/JuliaFractal.h"
 #include "ui/state-machine/StateMachine.h"
 #include "ui/state-machine/network/WebSocketClient.h"
+#include <lvgl/lvgl.h>
+#include <lvgl/src/misc/lv_timer_private.h>
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
 
@@ -19,6 +22,19 @@ void StartMenu::onEnter(StateMachine& sm)
     if (!uiManager) return;
 
     lv_obj_t* container = uiManager->getMainMenuContainer();
+
+    // Get display dimensions for full-screen fractal.
+    lv_disp_t* disp = lv_disp_get_default();
+    int windowWidth = lv_disp_get_hor_res(disp);
+    int windowHeight = lv_disp_get_ver_res(disp);
+
+    // Create Julia fractal background (allocated on heap, will be deleted by timer cleanup).
+    auto* fractal = new JuliaFractal(container, windowWidth, windowHeight);
+    spdlog::info("StartMenu: Created fractal background");
+
+    // Create animation timer (30 FPS palette cycling).
+    animationTimer_ = lv_timer_create(onAnimationTimer, 33, fractal);
+    spdlog::info("StartMenu: Started fractal animation timer");
 
     // Create centered "Start Simulation" button.
     lv_obj_t* startButton = lv_btn_create(container);
@@ -37,7 +53,16 @@ void StartMenu::onEnter(StateMachine& sm)
 void StartMenu::onExit(StateMachine& /*sm*/)
 {
     spdlog::info("StartMenu: Exiting");
-    // No cleanup needed - screen switch will clean up widgets automatically.
+
+    // Stop animation timer and clean up fractal.
+    if (animationTimer_) {
+        auto* fractal = static_cast<JuliaFractal*>(animationTimer_->user_data);
+        lv_timer_del(animationTimer_);
+        delete fractal;
+        animationTimer_ = nullptr;
+    }
+
+    // Screen switch will clean up other widgets automatically.
 }
 
 void StartMenu::onStartButtonClicked(lv_event_t* e)
@@ -77,6 +102,14 @@ void StartMenu::onStartButtonClicked(lv_event_t* e)
     }
     else {
         spdlog::error("StartMenu: Cannot start simulation, not connected to DSSM");
+    }
+}
+
+void StartMenu::onAnimationTimer(lv_timer_t* timer)
+{
+    auto* fractal = static_cast<JuliaFractal*>(timer->user_data);
+    if (fractal) {
+        fractal->update();
     }
 }
 
