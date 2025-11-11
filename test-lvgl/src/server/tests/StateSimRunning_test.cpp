@@ -33,7 +33,7 @@ protected:
     {
         // Create Idle and transition to SimRunning.
         Idle idleState;
-        Api::SimRun::Command cmd{ 0.016, 150 };
+        Api::SimRun::Command cmd{ 0.016, 150, "sandbox", false }; // use_realtime=false for testing.
         Api::SimRun::Cwc cwc(cmd, [](auto&&) {});
         State::Any state = idleState.onEvent(cwc, *stateMachine);
 

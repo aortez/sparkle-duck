@@ -72,11 +72,13 @@ State::Any Idle::onEvent(const Api::SimRun::Cwc& cwc, StateMachine& dsm)
     newState.targetSteps =
         cwc.command.max_steps > 0 ? static_cast<uint32_t>(cwc.command.max_steps) : 0;
     newState.stepCount = 0;
+    newState.useRealtime = cwc.command.use_realtime;
 
     spdlog::info(
-        "Idle: World created, transitioning to SimRunning (timestep={}ms, max_steps={})",
+        "Idle: World created, transitioning to SimRunning (timestep={}ms, max_steps={}, use_realtime={})",
         newState.stepDurationMs,
-        cwc.command.max_steps);
+        cwc.command.max_steps,
+        newState.useRealtime);
 
     // Send response immediately (before transition).
     cwc.sendResponse(Api::SimRun::Response::okay({ true, 0 }));

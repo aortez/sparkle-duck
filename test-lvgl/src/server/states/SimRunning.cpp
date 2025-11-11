@@ -71,20 +71,27 @@ State::Any SimRunning::onEvent(const AdvanceSimulationCommand& /*cmd*/, StateMac
     auto now = std::chrono::steady_clock::now();
     double elapsedSeconds = 0.0;
 
-    if (stepCount == 0) {
-        // Initialize timing on first step - seed accumulator with one timestep to start
-        // immediately.
-        lastPhysicsTime = now;
-        lastFrameTime = now;
-        elapsedSeconds = FIXED_TIMESTEP_SECONDS; // Start with one timestep ready.
+    if (useRealtime) {
+        // Real-time mode: use actual elapsed time.
+        if (stepCount == 0) {
+            // Initialize timing on first step - seed accumulator with one timestep to start
+            // immediately.
+            lastPhysicsTime = now;
+            lastFrameTime = now;
+            elapsedSeconds = FIXED_TIMESTEP_SECONDS; // Start with one timestep ready.
+        }
+        else {
+            elapsedSeconds = std::chrono::duration<double>(now - lastPhysicsTime).count();
+            lastPhysicsTime = now;
+        }
+
+        // Accumulate real time.
+        physicsAccumulatorSeconds += elapsedSeconds;
     }
     else {
-        elapsedSeconds = std::chrono::duration<double>(now - lastPhysicsTime).count();
-        lastPhysicsTime = now;
+        // Testing mode: force at least one timestep per command.
+        physicsAccumulatorSeconds = FIXED_TIMESTEP_SECONDS;
     }
-
-    // Accumulate real time.
-    physicsAccumulatorSeconds += elapsedSeconds;
 
     // Step physics as many times as needed to catch up with real time.
     int stepsThisFrame = 0;
@@ -655,11 +662,13 @@ State::Any SimRunning::onEvent(const Api::SimRun::Cwc& cwc, StateMachine& dsm)
     // Store run parameters.
     stepDurationMs = cwc.command.timestep * 1000.0; // Convert seconds to milliseconds.
     targetSteps = cwc.command.max_steps > 0 ? static_cast<uint32_t>(cwc.command.max_steps) : 0;
+    useRealtime = cwc.command.use_realtime;
 
     spdlog::info(
-        "SimRunning: Starting autonomous simulation (timestep={}ms, max_steps={})",
+        "SimRunning: Starting autonomous simulation (timestep={}ms, max_steps={}, use_realtime={})",
         stepDurationMs,
-        cwc.command.max_steps);
+        cwc.command.max_steps,
+        useRealtime);
 
     // Send response indicating simulation is running.
     cwc.sendResponse(Response::okay({ true, stepCount }));

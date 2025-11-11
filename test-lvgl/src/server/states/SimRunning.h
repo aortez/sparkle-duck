@@ -21,6 +21,7 @@ struct SimRunning {
     uint32_t targetSteps = 0;     // Steps to execute before pausing.
     double stepDurationMs = 16.0; // Physics timestep in milliseconds.
     int frameLimit = -1;          // Optional FPS cap (-1 = unlimited).
+    bool useRealtime = true;      // True: real-time accumulation, False: force steps (for testing).
 
     // FPS tracking.
     std::chrono::steady_clock::time_point lastFrameTime;
