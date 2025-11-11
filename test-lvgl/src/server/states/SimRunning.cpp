@@ -64,21 +64,70 @@ void SimRunning::onExit(StateMachine& /*dsm. */)
 
 State::Any SimRunning::onEvent(const AdvanceSimulationCommand& /*cmd*/, StateMachine& dsm)
 {
-    // Headless server: advance physics simulation by one timestep.
+    // Headless server: advance physics simulation with fixed timestep accumulator.
     assert(world && "World must exist in SimRunning state");
 
-    // Calculate actual FPS.
+    // Measure real elapsed time since last physics update.
     auto now = std::chrono::steady_clock::now();
-    if (stepCount > 0) {
-        auto elapsed =
+    double elapsedSeconds = 0.0;
+
+    if (stepCount == 0) {
+        // Initialize timing on first step - seed accumulator with one timestep to start immediately.
+        lastPhysicsTime = now;
+        lastFrameTime = now;
+        elapsedSeconds = FIXED_TIMESTEP_SECONDS;  // Start with one timestep ready.
+    } else {
+        elapsedSeconds = std::chrono::duration<double>(now - lastPhysicsTime).count();
+        lastPhysicsTime = now;
+    }
+
+    // Accumulate real time.
+    physicsAccumulatorSeconds += elapsedSeconds;
+
+    // Step physics as many times as needed to catch up with real time.
+    int stepsThisFrame = 0;
+    while (physicsAccumulatorSeconds >= FIXED_TIMESTEP_SECONDS) {
+        // Advance physics by fixed timestep.
+        dsm.getTimers().startTimer("physics_step");
+        world->advanceTime(FIXED_TIMESTEP_SECONDS);
+        dsm.getTimers().stopTimer("physics_step");
+
+        stepCount++;
+        stepsThisFrame++;
+        physicsAccumulatorSeconds -= FIXED_TIMESTEP_SECONDS;
+
+        // Check if we've reached target steps.
+        if (targetSteps > 0 && stepCount >= targetSteps) {
+            spdlog::info(
+                "SimRunning: Reached target steps ({}/{}), transitioning to Paused",
+                stepCount,
+                targetSteps);
+            return SimPaused{ std::move(*this) };
+        }
+
+        // Safety: prevent spiral of death (too many steps per frame).
+        if (stepsThisFrame >= 5) {
+            spdlog::warn(
+                "SimRunning: Physics running slow, dropping {:.3f} seconds (accumulated time)",
+                physicsAccumulatorSeconds);
+            physicsAccumulatorSeconds = 0.0;  // Reset to prevent infinite catchup.
+            break;
+        }
+    }
+
+    // Calculate actual FPS (physics steps per second).
+    if (stepCount > 0 && stepsThisFrame > 0) {
+        auto frameElapsed =
             std::chrono::duration_cast<std::chrono::microseconds>(now - lastFrameTime).count();
-        if (elapsed > 0) {
-            actualFPS = 1000000.0 / elapsed;    // Microseconds to FPS.
-            world->data.fps_server = actualFPS; // Update WorldData for UI.
+        if (frameElapsed > 0) {
+            actualFPS = 1000000.0 / frameElapsed;    // Microseconds to FPS.
+            world->data.fps_server = actualFPS;      // Update WorldData for UI.
+            lastFrameTime = now;
 
             // Log FPS and performance stats intermittently.
-            if (stepCount == 100 || stepCount % 10000 == 0) {
-                spdlog::info("SimRunning: Actual FPS: {:.1f} (step {})", actualFPS, stepCount);
+            if (stepCount == 100 || stepCount % 1000 == 0) {
+                spdlog::info("SimRunning: Actual FPS: {:.1f} (step {}, {} steps this frame)",
+                             actualFPS, stepCount, stepsThisFrame);
 
                 // Log performance timing stats.
                 auto& timers = dsm.getTimers();
@@ -125,46 +174,39 @@ State::Any SimRunning::onEvent(const AdvanceSimulationCommand& /*cmd*/, StateMac
             }
         }
     }
-    lastFrameTime = now;
 
-    // Advance physics by one timestep (~60 FPS).
-    dsm.getTimers().startTimer("physics_step");
-    world->advanceTime(0.016);
-    dsm.getTimers().stopTimer("physics_step");
-    stepCount++;
+    // Update StateMachine's cached WorldData after all physics steps complete.
+    if (stepsThisFrame > 0) {
+        dsm.getTimers().startTimer("cache_update");
+        dsm.updateCachedWorldData(world->data);
+        dsm.getTimers().stopTimer("cache_update");
 
-    // Check if we've reached target steps.
-    if (targetSteps > 0 && stepCount >= targetSteps) {
-        spdlog::info(
-            "SimRunning: Reached target steps ({}/{}), transitioning to Paused",
-            stepCount,
-            targetSteps);
-        return SimPaused{ std::move(*this) };
-    }
+        spdlog::debug("SimRunning: Advanced simulation {} step(s) (total step {})",
+                      stepsThisFrame, stepCount);
 
-    // Update StateMachine's cached WorldData for fast state_get responses (cheap ~1ms).
-    dsm.getTimers().startTimer("cache_update");
-    dsm.updateCachedWorldData(world->data);
-    dsm.getTimers().stopTimer("cache_update");
+        // Push WorldData to UI clients only if UI is ready (backpressure control).
+        if (dsm.getWebSocketServer() && uiReadyForNextFrame) {
+            auto& timers = dsm.getTimers();
 
-    spdlog::debug("SimRunning: Advanced simulation (step {})", stepCount);
+            // Pack WorldData to binary.
+            timers.startTimer("serialize_worlddata");
+            std::vector<std::byte> data;
+            zpp::bits::out out(data);
+            out(world->data).or_throw();
+            timers.stopTimer("serialize_worlddata");
 
-    // Push WorldData to all connected UI clients (eliminates request latency!).
-    if (dsm.getWebSocketServer()) {
-        auto& timers = dsm.getTimers();
+            // Broadcast binary WorldData to all clients.
+            rtc::binary binaryMsg(data.begin(), data.end());
+            timers.startTimer("network_send");
+            dsm.getWebSocketServer()->broadcastBinary(binaryMsg);
+            timers.stopTimer("network_send");
 
-        // Pack WorldData to binary.
-        timers.startTimer("serialize_worlddata");
-        std::vector<std::byte> data;
-        zpp::bits::out out(data);
-        out(world->data).or_throw();
-        timers.stopTimer("serialize_worlddata");
-
-        // Broadcast binary WorldData to all clients.
-        rtc::binary binaryMsg(data.begin(), data.end());
-        timers.startTimer("network_send");
-        dsm.getWebSocketServer()->broadcastBinary(binaryMsg);
-        timers.stopTimer("network_send");
+            // Clear ready flag - wait for UI to signal ready for next frame.
+            uiReadyForNextFrame = false;
+            spdlog::info("SimRunning: Sent frame to UI, waiting for frame_ready");
+        } else if (!uiReadyForNextFrame) {
+            spdlog::info("SimRunning: Skipping frame broadcast - UI not ready yet");
+        }
     }
 
     return std::move(*this); // Stay in SimRunning (move because unique_ptr).
@@ -349,6 +391,19 @@ State::Any SimRunning::onEvent(const Api::Reset::Cwc& cwc, StateMachine& /*dsm*/
     }
 
     stepCount = 0;
+
+    cwc.sendResponse(Response::okay(std::monostate{}));
+    return std::move(*this);
+}
+
+State::Any SimRunning::onEvent(const Api::FrameReady::Cwc& cwc, StateMachine& /*dsm*/)
+{
+    using Response = Api::FrameReady::Response;
+
+    spdlog::info("SimRunning: UI ready for next frame - enabling broadcast");
+
+    // UI signals it's ready - allow next frame broadcast.
+    uiReadyForNextFrame = true;
 
     cwc.sendResponse(Response::okay(std::monostate{}));
     return std::move(*this);

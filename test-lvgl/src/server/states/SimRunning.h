@@ -26,6 +26,14 @@ struct SimRunning {
     std::chrono::steady_clock::time_point lastFrameTime;
     double actualFPS = 0.0; // Measured FPS (steps/second).
 
+    // Fixed timestep accumulator for deterministic physics.
+    double physicsAccumulatorSeconds = 0.0;              // Accumulated real time.
+    static constexpr double FIXED_TIMESTEP_SECONDS = 0.016;  // 16ms = 60 FPS physics.
+    std::chrono::steady_clock::time_point lastPhysicsTime;
+
+    // UI frame delivery backpressure.
+    bool uiReadyForNextFrame = true; // Start true to send first frame.
+
     void onEnter(StateMachine& dsm);
     void onExit(StateMachine& dsm);
 
@@ -36,6 +44,7 @@ struct SimRunning {
     Any onEvent(const DirtSim::Api::CellSet::Cwc& cwc, StateMachine& dsm);
     Any onEvent(const DirtSim::Api::DiagramGet::Cwc& cwc, StateMachine& dsm);
     Any onEvent(const DirtSim::Api::Exit::Cwc& cwc, StateMachine& dsm);
+    Any onEvent(const DirtSim::Api::FrameReady::Cwc& cwc, StateMachine& dsm);
     Any onEvent(const DirtSim::Api::GravitySet::Cwc& cwc, StateMachine& dsm);
     Any onEvent(const DirtSim::Api::PerfStatsGet::Cwc& cwc, StateMachine& dsm);
     Any onEvent(const DirtSim::Api::PhysicsSettingsGet::Cwc& cwc, StateMachine& dsm);

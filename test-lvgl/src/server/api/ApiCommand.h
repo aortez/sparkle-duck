@@ -4,6 +4,7 @@
 #include "CellSet.h"
 #include "DiagramGet.h"
 #include "Exit.h"
+#include "FrameReady.h"
 #include "GravitySet.h"
 #include "PerfStatsGet.h"
 #include "PhysicsSettingsGet.h"
@@ -28,6 +29,7 @@ using ApiCommand = std::variant<
     Api::CellSet::Command,
     Api::DiagramGet::Command,
     Api::Exit::Command,
+    Api::FrameReady::Command,
     Api::GravitySet::Command,
     Api::PerfStatsGet::Command,
     Api::PhysicsSettingsGet::Command,

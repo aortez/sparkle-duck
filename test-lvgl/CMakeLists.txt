@@ -194,6 +194,7 @@ add_library(sparkle-duck-server-lib STATIC
     src/server/api/CellSet.cpp
     src/server/api/DiagramGet.cpp
     src/server/api/Exit.cpp
+    src/server/api/FrameReady.cpp
     src/server/api/GravitySet.cpp
     src/server/api/PerfStatsGet.cpp
     src/server/api/PhysicsSettingsGet.cpp

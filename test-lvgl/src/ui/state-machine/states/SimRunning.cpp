@@ -20,6 +20,14 @@ void SimRunning::onEnter(StateMachine& sm)
             sm.getUiComponentManager(), sm.getWebSocketClient(), sm);
         spdlog::info("SimRunning: Created simulation playground");
     }
+
+    // Send initial frame_ready to kickstart the pipelined frame delivery.
+    auto* wsClient = sm.getWebSocketClient();
+    if (wsClient && wsClient->isConnected()) {
+        nlohmann::json frameReadyCmd = { { "command", "frame_ready" } };
+        wsClient->send(frameReadyCmd.dump());
+        spdlog::info("SimRunning: Sent initial frame_ready to start frame delivery");
+    }
 }
 
 void SimRunning::onExit(StateMachine& /*sm*/)
@@ -179,6 +187,14 @@ State::Any SimRunning::onEvent(const FrameReadyNotification& evt, StateMachine& 
 State::Any SimRunning::onEvent(const UiUpdateEvent& evt, StateMachine& sm)
 {
     spdlog::debug("SimRunning: Received world update (step {}) via push", evt.stepCount);
+
+    // Send frame_ready IMMEDIATELY to pipeline next frame (hide network latency).
+    auto* wsClient = sm.getWebSocketClient();
+    if (wsClient && wsClient->isConnected()) {
+        nlohmann::json frameReadyCmd = { { "command", "frame_ready" } };
+        wsClient->send(frameReadyCmd.dump());
+        spdlog::trace("SimRunning: Sent frame_ready to server (pipelining next frame)");
+    }
 
     // Calculate UI FPS based on time between updates.
     auto now = std::chrono::steady_clock::now();

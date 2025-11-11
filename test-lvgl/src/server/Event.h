@@ -4,6 +4,7 @@
 #include "api/CellSet.h"
 #include "api/DiagramGet.h"
 #include "api/Exit.h"
+#include "api/FrameReady.h"
 #include "api/GravitySet.h"
 #include "api/PerfStatsGet.h"
 #include "api/PhysicsSettingsGet.h"
@@ -606,6 +607,7 @@ using Event = std::variant<
     DirtSim::Api::CellSet::Cwc,
     DirtSim::Api::DiagramGet::Cwc,
     DirtSim::Api::Exit::Cwc,
+    DirtSim::Api::FrameReady::Cwc,
     DirtSim::Api::GravitySet::Cwc,
     DirtSim::Api::PerfStatsGet::Cwc,
     DirtSim::Api::PhysicsSettingsGet::Cwc,

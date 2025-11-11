@@ -1,5 +1,0 @@
-[2025-07-04 20:36:35.055] [sparkle-duck] [info] 🦆 Sparkle Duck Dirt Simulator starting up! 🦆
-[DEBUG] Registered backend: FBDEV
-[DEBUG] Registered backend: WAYLAND
-[DEBUG] Registered backend: X11
-Error: no such backend: sdl

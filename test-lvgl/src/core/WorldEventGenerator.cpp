@@ -182,7 +182,7 @@ void DefaultWorldEventGenerator::addParticles(
         spdlog::debug("Adding right periodic throw at time {:.3f}s", simTime);
         uint32_t centerY = world.data.height / 2 - 2;
         Cell& cell = world.at(world.data.width - 3, centerY); // Against the right wall.
-        cell.addDirtWithVelocity(1.0, Vector2d{ -10, -10 });
+        cell.addDirtWithVelocity(1.0, Vector2d{ -20, -10 });
         // Schedule next throw.
         nextRightThrow += period;
     }
