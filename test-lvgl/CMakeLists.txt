@@ -234,6 +234,10 @@ add_library(sparkle-duck-server-lib STATIC
     src/core/WorldInterpolationTool.cpp
     src/core/WorldPressureCalculator.cpp
     src/core/WorldSupportCalculator.cpp
+
+    # Organism system.
+    src/core/organisms/Tree.cpp
+    src/core/organisms/TreeManager.cpp
 )
 target_include_directories(sparkle-duck-server-lib PUBLIC ${CMAKE_SOURCE_DIR}/src ${zpp_bits_SOURCE_DIR})
 target_link_libraries(sparkle-duck-server-lib PUBLIC sparkle-duck-core datachannel-static)

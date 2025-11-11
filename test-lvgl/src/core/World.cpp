@@ -9,6 +9,7 @@
 #include "WorldDiagramGeneratorEmoji.h"
 #include "WorldInterpolationTool.h"
 #include "WorldSupportCalculator.h"
+#include "organisms/TreeManager.h"
 #include "spdlog/spdlog.h"
 
 #include <algorithm>
@@ -46,7 +47,8 @@ World::World(uint32_t width, uint32_t height)
       collision_calculator_(),
       adhesion_calculator_(),
       friction_calculator_(),
-      worldEventGenerator_(nullptr)
+      worldEventGenerator_(nullptr),
+      tree_manager_(std::make_unique<TreeManager>())
 {
     // Set dimensions (other WorldData members use defaults from struct declaration).
     data.width = width;
@@ -165,6 +167,12 @@ void World::advanceTime(double deltaTimeSeconds)
     {
         ScopeTimer decayTimer(timers_, "pressure_decay");
         pressure_calculator_.applyPressureDecay(*this, scaledDeltaTime);
+    }
+
+    // Update tree organisms after physics is complete.
+    if (tree_manager_) {
+        ScopeTimer treeTimer(timers_, "tree_organisms");
+        tree_manager_->update(*this, scaledDeltaTime);
     }
 
     data.timestep++;

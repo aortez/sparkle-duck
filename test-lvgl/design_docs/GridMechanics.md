@@ -163,6 +163,42 @@ The actual viscosity multiplier is interpolated based on motion_sensitivity:
 
 This allows rigid materials like METAL to maintain high viscosity even when falling, while fluids like WATER flow freely in all motion states.
 
+## Air Resistance
+
+Air resistance is a material-specific property that provides velocity-dependent damping. Unlike viscosity (which is internal flow resistance), air resistance models drag from the surrounding medium.
+
+### Material Air Resistance Values (0.0 - 1.0)
+- **AIR**: 0.0 (no self-drag)
+- **WATER**: 0.01 (very low - fluid)
+- **METAL**: 0.1 (low - dense, compact)
+- **SAND**: 0.2 (low - small, heavy particles)
+- **SEED**: 0.2 (low-moderate - compact, dense)
+- **DIRT**: 0.3 (moderate - chunky particles)
+- **WOOD**: 0.4 (moderate - shape-dependent)
+- **LEAF**: 0.8 (high - large surface area, light)
+- **WALL**: 0.0 (immobile, n/a)
+
+### Physical Basis
+
+In reality, all objects fall at the same rate in a vacuum (9.81 m/s²). The difference in falling speeds comes from air resistance, which depends on:
+- Shape and cross-sectional area (drag coefficient)
+- Material density (affects terminal velocity)
+- Surface roughness
+
+By making air resistance a material property, we correctly model why:
+- Heavy, compact objects (METAL, SEED) fall quickly
+- Light, flat objects (LEAF) fall slowly
+- All objects experience the same gravitational acceleration
+
+### Implementation
+
+Air resistance is applied in `WorldAirResistanceCalculator.cpp`:
+```cpp
+double force_magnitude = strength * props.air_resistance * velocity_magnitude²
+```
+
+The force opposes motion and scales quadratically with velocity, creating realistic terminal velocity behavior.
+
 ## Friction (Static and Kinetic)
 
 Friction provides velocity-dependent resistance that simulates the difference between static friction (resistance to start moving) and kinetic friction (resistance while moving). This creates realistic "stick-slip" behavior where materials resist initial movement but flow more freely once in motion.
@@ -536,13 +572,14 @@ This approach models how fluid pressure naturally redistributes when encounterin
   Force Hierarchy
 
   1. Driving Forces (cause movement)
-    - Gravity: gravity_vector * material_density * fill_ratio * deltaTime
+    - Gravity: gravity_vector (constant acceleration for all materials)
     - Adhesion: Vector sum of attractions to different adjacent materials
     - Cohesion: Attractive forces toward same-material neighbors
     - Pressure: Gradient-based forces from pressure differences
     - External Forces: User interactions
 
   2. Damping Forces (resist movement)
+    - Air Resistance: Material-specific drag coefficient [0.0-1.0]
     - Viscosity: Continuous flow resistance based on material properties
     - Friction: Velocity-dependent resistance (static vs kinetic)
     - Support Factor: Modifies damping based on structural support

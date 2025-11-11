@@ -323,6 +323,13 @@ public:
     // World event generator for dynamic particles.
     std::shared_ptr<WorldEventGenerator> worldEventGenerator_;
 
+    // Tree organism manager.
+    std::unique_ptr<class TreeManager> tree_manager_;
+
+    // Accessor for tree manager.
+    class TreeManager& getTreeManager() { return *tree_manager_; }
+    const class TreeManager& getTreeManager() const { return *tree_manager_; }
+
 private:
     // =================================================================
     // INTERNAL PHYSICS METHODS (implementation details)

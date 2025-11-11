@@ -40,6 +40,7 @@ struct Cell {
     double fill_ratio = 0.0;
     Vector2d com = {};
     Vector2d velocity = {};
+    uint32_t organism_id = 0; // Tree organism ownership (0 = no organism).
 
     // Unified pressure system.
     double pressure = 0.0;
