@@ -62,6 +62,12 @@ make -C build -j12
 ./build/bin/cli ws://localhost:8080 state_get
 ./build/bin/cli ws://localhost:8080 step_n '{"frames": 1}'
 ./build/bin/cli ws://localhost:8080 diagram_get
+
+# CLI integration test
+./build/bin/cli integration_test
+
+# For complete CLI documentation, see:
+# src/cli/README.md
 ```
 
 ### Testing

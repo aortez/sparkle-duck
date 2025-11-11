@@ -331,6 +331,7 @@ add_custom_target (run-server COMMAND ${EXECUTABLE_OUTPUT_PATH}/sparkle-duck-ser
 add_executable(cli
     src/cli/main.cpp
     src/cli/BenchmarkRunner.cpp
+    src/cli/IntegrationTest.cpp
     src/cli/SubprocessManager.cpp
     src/cli/WebSocketClient.cpp
 )
