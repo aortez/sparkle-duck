@@ -170,7 +170,7 @@ std::string WorldDiagramGeneratorEmoji::generateMixedDiagram(const World& world)
                     }
                 }
                 else {
-                    // WorldA fallback.
+                    // Safety fallback for unexpected cell type.
                     diagram << "? ";
                 }
             }

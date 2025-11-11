@@ -62,10 +62,6 @@ struct SimRunning {
     Any onEvent(const StepBackwardCommand& cmd, StateMachine& dsm);
     Any onEvent(const StepForwardCommand& cmd, StateMachine& dsm);
     Any onEvent(const ToggleTimeReversalCommand& cmd, StateMachine& dsm);
-    Any onEvent(const SetWaterCohesionCommand& cmd, StateMachine& dsm);
-    Any onEvent(const SetWaterViscosityCommand& cmd, StateMachine& dsm);
-    Any onEvent(const SetWaterPressureThresholdCommand& cmd, StateMachine& dsm);
-    Any onEvent(const SetWaterBuoyancyCommand& cmd, StateMachine& dsm);
     Any onEvent(const LoadWorldCommand& cmd, StateMachine& dsm);
     Any onEvent(const SetTimestepCommand& cmd, StateMachine& dsm);
     Any onEvent(const MouseDownEvent& evt, StateMachine& dsm);

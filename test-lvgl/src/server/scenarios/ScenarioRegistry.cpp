@@ -64,21 +64,6 @@ std::vector<std::string> ScenarioRegistry::getScenarioIds() const
     return ids;
 }
 
-std::vector<std::string> ScenarioRegistry::getScenariosForWorldType(bool isWorldB) const
-{
-    std::vector<std::string> ids;
-
-    for (const auto& [id, scenario] : scenarios_) {
-        const auto& metadata = scenario->getMetadata();
-        if ((isWorldB && metadata.supportsWorldB) || (!isWorldB && metadata.supportsWorldA)) {
-            ids.push_back(id);
-        }
-    }
-
-    std::sort(ids.begin(), ids.end());
-    return ids;
-}
-
 std::vector<std::string> ScenarioRegistry::getScenariosByCategory(const std::string& category) const
 {
     std::vector<std::string> ids;

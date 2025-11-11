@@ -744,36 +744,6 @@ State::Any SimRunning::onEvent(const ToggleTimeReversalCommand& /*cmd*/, StateMa
     return std::move(*this); // Stay in SimRunning (move because unique_ptr).
 }
 
-State::Any SimRunning::onEvent(const SetWaterCohesionCommand& cmd, StateMachine& /*dsm*/)
-{
-    // Cell::setCohesionStrength(cmd.cohesion_value);
-    spdlog::info("SimRunning: Set water cohesion to {}", cmd.cohesion_value);
-    return std::move(*this);
-}
-
-State::Any SimRunning::onEvent(const SetWaterViscosityCommand& cmd, StateMachine& /*dsm*/)
-{
-    // Cell::setViscosityFactor(cmd.viscosity_value);
-    spdlog::info("SimRunning: Set water viscosity to {}", cmd.viscosity_value);
-    return std::move(*this);
-}
-
-State::Any SimRunning::onEvent(const SetWaterPressureThresholdCommand& cmd, StateMachine& /*dsm*/)
-{
-    if (world) {
-        world->setWaterPressureThreshold(cmd.threshold_value);
-        spdlog::info("SimRunning: Set water pressure threshold to {}", cmd.threshold_value);
-    }
-    return std::move(*this);
-}
-
-State::Any SimRunning::onEvent(const SetWaterBuoyancyCommand& cmd, StateMachine& /*dsm*/)
-{
-    // Cell::setBuoyancyStrength(cmd.buoyancy_value);
-    spdlog::info("SimRunning: Set water buoyancy to {}", cmd.buoyancy_value);
-    return std::move(*this);
-}
-
 State::Any SimRunning::onEvent(const LoadWorldCommand& /*cmd*/, StateMachine& /*dsm*/)
 {
     spdlog::warn("SimRunning: LoadWorld not implemented yet");

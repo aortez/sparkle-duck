@@ -31,8 +31,7 @@ World::World() : World(1, 1)
 {}
 
 World::World(uint32_t width, uint32_t height)
-    : water_pressure_threshold_(0.0004),
-      cohesion_bind_force_enabled_(false),
+    : cohesion_bind_force_enabled_(false),
       cohesion_com_force_strength_(0.0),
       cohesion_bind_force_strength_(1.0),
       com_cohesion_range_(1),

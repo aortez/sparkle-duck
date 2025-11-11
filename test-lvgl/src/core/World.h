@@ -94,13 +94,6 @@ public:
     void setDirtFragmentationFactor(double /* factor */) { /* no-op for World */ }
 
     // =================================================================
-    // WORLDINTERFACE IMPLEMENTATION - WATER PHYSICS (SIMPLIFIED)
-    // =================================================================
-
-    void setWaterPressureThreshold(double threshold) { water_pressure_threshold_ = threshold; }
-    double getWaterPressureThreshold() const { return water_pressure_threshold_; }
-
-    // =================================================================
     // WORLDINTERFACE IMPLEMENTATION - PRESSURE SYSTEM
     // =================================================================
 
@@ -306,7 +299,6 @@ public:
     // =================================================================
 
     // Physics parameters (TODO: migrate to WorldData).
-    double water_pressure_threshold_;
     bool cohesion_bind_force_enabled_;
     double cohesion_com_force_strength_;
     double cohesion_bind_force_strength_;

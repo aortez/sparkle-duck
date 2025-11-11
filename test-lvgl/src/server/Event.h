@@ -164,38 +164,6 @@ struct ToggleTimeReversalCommand {
 };
 
 /**
- * @brief Set water cohesion parameter for WorldA/RulesA.
- */
-struct SetWaterCohesionCommand {
-    double cohesion_value;
-    static constexpr const char* name() { return "SetWaterCohesionCommand"; }
-};
-
-/**
- * @brief Set water viscosity parameter for WorldA/RulesA.
- */
-struct SetWaterViscosityCommand {
-    double viscosity_value;
-    static constexpr const char* name() { return "SetWaterViscosityCommand"; }
-};
-
-/**
- * @brief Set water pressure threshold parameter for WorldA/RulesA.
- */
-struct SetWaterPressureThresholdCommand {
-    double threshold_value;
-    static constexpr const char* name() { return "SetWaterPressureThresholdCommand"; }
-};
-
-/**
- * @brief Set water buoyancy parameter for WorldA/RulesA.
- */
-struct SetWaterBuoyancyCommand {
-    double buoyancy_value;
-    static constexpr const char* name() { return "SetWaterBuoyancyCommand"; }
-};
-
-/**
  * @brief Set simulation timestep parameter.
  */
 struct SetTimestepCommand {
@@ -550,10 +518,6 @@ using Event = std::variant<
     StepBackwardCommand,
     StepForwardCommand,
     ToggleTimeReversalCommand,
-    SetWaterCohesionCommand,
-    SetWaterViscosityCommand,
-    SetWaterPressureThresholdCommand,
-    SetWaterBuoyancyCommand,
     SetTimestepCommand,
 
     // Mouse events

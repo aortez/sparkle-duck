@@ -72,8 +72,6 @@ public:
         metadata_.name = "Dam Break";
         metadata_.description = "Water column held by wall dam that breaks at timestep 30";
         metadata_.category = "demo";
-        metadata_.supportsWorldA = false; // Uses pressure systems
-        metadata_.supportsWorldB = true;  // Primary target
         metadata_.requiredWidth = 6;      // Match test specifications
         metadata_.requiredHeight = 6;     // Match test specifications
 
