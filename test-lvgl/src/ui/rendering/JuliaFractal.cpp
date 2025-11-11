@@ -353,13 +353,33 @@ void JuliaFractal::render()
 {
     if (!canvasBuffer_) return;
 
-    // Render fractal pixel by pixel.
+    // Resize iteration cache if needed.
+    size_t totalPixels = width_ * height_;
+    if (iterationCache_.size() != totalPixels) {
+        iterationCache_.resize(totalPixels);
+    }
+
+    // Calculate Julia set and cache iteration counts.
     for (int y = 0; y < height_; y++) {
         for (int x = 0; x < width_; x++) {
             int iteration = calculateJuliaPoint(x, y);
-            uint32_t color = getPaletteColor(iteration);
+            iterationCache_[y * width_ + x] = iteration;
 
-            // Set pixel color (LVGL uses ARGB8888).
+            uint32_t color = getPaletteColor(iteration);
+            lv_canvas_set_px(canvas_, x, y, lv_color_hex(color), LV_OPA_COVER);
+        }
+    }
+}
+
+void JuliaFractal::updateColors()
+{
+    if (!canvasBuffer_ || iterationCache_.empty()) return;
+
+    // Fast update - only recolor pixels using cached iteration counts.
+    for (int y = 0; y < height_; y++) {
+        for (int x = 0; x < width_; x++) {
+            int iteration = iterationCache_[y * width_ + x];
+            uint32_t color = getPaletteColor(iteration);
             lv_canvas_set_px(canvas_, x, y, lv_color_hex(color), LV_OPA_COVER);
         }
     }
@@ -370,8 +390,8 @@ void JuliaFractal::update()
     // Cycle palette offset for animation.
     paletteOffset_ = (paletteOffset_ + 1) % PALETTE_SIZE;
 
-    // Re-render with new palette offset.
-    render();
+    // Fast update - only recolor pixels, don't recalculate fractal.
+    updateColors();
 }
 
 void JuliaFractal::resize(int newWidth, int newHeight)

@@ -2,6 +2,7 @@
 
 #include <lvgl/lvgl.h>
 #include <cstdint>
+#include <vector>
 
 namespace DirtSim {
 namespace Ui {
@@ -54,6 +55,11 @@ private:
     void render();
 
     /**
+     * @brief Update only colors (fast palette cycling without recalculating fractal).
+     */
+    void updateColors();
+
+    /**
      * @brief Get color from palette with cycling offset.
      * @param iteration Iteration count from Julia calculation.
      * @return ARGB color value.
@@ -66,6 +72,9 @@ private:
     int height_ = 0;
     int paletteOffset_ = 0; // For palette cycling animation.
     int maxIterations_ = 128;
+
+    // Cached iteration counts to avoid recalculating fractal every frame.
+    std::vector<int> iterationCache_;
 
     // Julia set parameters (c = cReal + cImag*i).
     double cReal_ = -0.7;
