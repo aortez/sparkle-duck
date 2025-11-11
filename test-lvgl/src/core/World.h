@@ -217,13 +217,7 @@ public:
     // Add material at specific cell coordinates.
     void addMaterialAtCell(uint32_t x, uint32_t y, MaterialType type, double amount = 1.0);
 
-    // Physics constants from GridMechanics.md (all per-timestep values)
-    static constexpr double MAX_VELOCITY_PER_TIMESTEP = 20.0; // cells/timestep
-    static constexpr double VELOCITY_DAMPING_THRESHOLD_PER_TIMESTEP =
-        10.0; // velocity threshold for damping (cells/timestep)
-    static constexpr double VELOCITY_DAMPING_FACTOR_PER_TIMESTEP =
-        0.10;                                             // 10% slowdown per timestep
-    static constexpr double MIN_MATTER_THRESHOLD = 0.001; // minimum matter to process
+    static constexpr double MIN_MATTER_THRESHOLD = 0.001; // minimum matter to process.
 
     // Distance-based cohesion decay constants
     static constexpr double SUPPORT_DECAY_RATE = 0.3; // Decay rate per distance unit

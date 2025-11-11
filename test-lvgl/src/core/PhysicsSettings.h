@@ -20,7 +20,7 @@ struct PhysicsSettings {
     double elasticity = 0.8;
     double friction_strength = 1.0;
     bool friction_enabled = true;
-    double gravity = 0.5;
+    double gravity = 1.0;
     double pressure_dynamic_strength = 1.0;
     bool pressure_dynamic_enabled = true;
     double pressure_hydrostatic_strength = 1.0;
