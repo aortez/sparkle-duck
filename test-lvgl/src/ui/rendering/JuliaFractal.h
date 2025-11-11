@@ -77,6 +77,7 @@ private:
     // Sinusoidal animation phases.
     double animationPhase_ = 0.0;   // Phase for palette cycling (0 to 2π).
     double detailPhase_ = 0.0;      // Phase for detail oscillation (0 to 2π).
+    double cPhase_ = 0.0;           // Phase for Julia constant morphing (0 to 2π).
 
     // Cached iteration counts to avoid recalculating fractal every frame.
     std::vector<int> iterationCache_;

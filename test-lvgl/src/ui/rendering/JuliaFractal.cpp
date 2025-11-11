@@ -7,10 +7,17 @@ namespace Ui {
 
 // Animation constants.
 constexpr double PHASE_SPEED = 0.05;          // Palette cycling oscillation speed.
-constexpr double MAX_CYCLE_SPEED = 8.0;       // Maximum palette advance per frame.
-constexpr double DETAIL_PHASE_SPEED = 0.02;   // Detail level oscillation speed (slower).
-constexpr int MIN_ITERATIONS = 32;            // Minimum iteration count (less detail).
+constexpr double MAX_CYCLE_SPEED = 4.0;       // Maximum palette advance per frame.
+constexpr double DETAIL_PHASE_SPEED = 0.01;   // Detail level oscillation speed (slower).
+constexpr int MIN_ITERATIONS = 1;             // Minimum iteration count (less detail).
 constexpr int MAX_ITERATIONS = 128;           // Maximum iteration count (more detail).
+
+// Julia set constant (c) oscillation for shape morphing.
+constexpr double C_PHASE_SPEED = 0.008;       // Very slow shape morphing.
+constexpr double C_REAL_CENTER = -0.7;        // Center value for cReal.
+constexpr double C_REAL_AMPLITUDE = 0.15;     // How far cReal oscillates (+/-).
+constexpr double C_IMAG_CENTER = 0.27;        // Center value for cImag.
+constexpr double C_IMAG_AMPLITUDE = 0.1;      // How far cImag oscillates (+/-).
 
 // Palette extracted from pal.png (256x1).
 constexpr int PALETTE_SIZE = 256;
@@ -440,11 +447,32 @@ void JuliaFractal::update()
     double detailFactor = (std::sin(detailPhase_) + 1.0) / 2.0;
     int newMaxIterations = MIN_ITERATIONS + static_cast<int>(detailFactor * (MAX_ITERATIONS - MIN_ITERATIONS));
 
-    // Check if we need to recalculate fractal (iteration count changed significantly).
-    if (std::abs(newMaxIterations - lastRenderedMaxIterations_) >= 4) {
+    // Advance Julia constant phase for shape morphing.
+    cPhase_ += C_PHASE_SPEED;
+    if (cPhase_ > 2.0 * M_PI) {
+        cPhase_ -= 2.0 * M_PI;
+    }
+
+    // Calculate current Julia constant values using sine waves.
+    // Use different phase offsets for cReal and cImag to create complex morphing.
+    double cRealFactor = std::sin(cPhase_);
+    double cImagFactor = std::sin(cPhase_ + M_PI / 2.0); // 90 degree phase shift.
+
+    double newCReal = C_REAL_CENTER + cRealFactor * C_REAL_AMPLITUDE;
+    double newCImag = C_IMAG_CENTER + cImagFactor * C_IMAG_AMPLITUDE;
+
+    // Check if Julia constant changed significantly (requires recalculation).
+    bool cChanged = (std::abs(newCReal - cReal_) > 0.01) || (std::abs(newCImag - cImag_) > 0.01);
+    bool iterationsChanged = std::abs(newMaxIterations - lastRenderedMaxIterations_) >= 4;
+
+    if (cChanged || iterationsChanged) {
+        // Update parameters.
+        cReal_ = newCReal;
+        cImag_ = newCImag;
         maxIterations_ = newMaxIterations;
         lastRenderedMaxIterations_ = newMaxIterations;
-        // Recalculate fractal with new detail level.
+
+        // Recalculate fractal with new parameters.
         render();
     }
     else {
