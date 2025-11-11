@@ -1,7 +1,7 @@
 #pragma once
 
-#include <lvgl/lvgl.h>
 #include <cstdint>
+#include <lvgl/lvgl.h>
 #include <vector>
 
 namespace DirtSim {

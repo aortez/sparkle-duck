@@ -72,8 +72,8 @@ public:
         metadata_.name = "Dam Break";
         metadata_.description = "Water column held by wall dam that breaks at timestep 30";
         metadata_.category = "demo";
-        metadata_.requiredWidth = 6;      // Match test specifications
-        metadata_.requiredHeight = 6;     // Match test specifications
+        metadata_.requiredWidth = 6;  // Match test specifications
+        metadata_.requiredHeight = 6; // Match test specifications
 
         // Initialize with default config.
         config_.dam_height = 10.0;
