@@ -453,25 +453,27 @@ void JuliaFractal::updateColors()
 void JuliaFractal::update()
 {
     // Check if background thread has a new frame ready.
-    if (!backBufferReady_) {
+    if (!backBufferReady_.load(std::memory_order_acquire)) {
         return; // Nothing to do, wait for next frame.
     }
 
     // Swap buffers (main thread only reads/writes pointers, very fast).
-    std::lock_guard<std::mutex> lock(bufferMutex_);
+    {
+        std::lock_guard<std::mutex> lock(bufferMutex_);
 
-    // Swap the buffer pointers.
-    std::swap(canvasBuffer_, backBuffer_);
-    std::swap(iterationCache_, backIterationCache_);
+        // Swap the buffer pointers.
+        std::swap(canvasBuffer_, backBuffer_);
+        std::swap(iterationCache_, backIterationCache_);
 
-    // Update the canvas to use the new front buffer.
-    lv_canvas_set_buffer(canvas_, canvasBuffer_, width_, height_, LV_COLOR_FORMAT_ARGB8888);
+        // Update the canvas to use the new front buffer.
+        lv_canvas_set_buffer(canvas_, canvasBuffer_, width_, height_, LV_COLOR_FORMAT_ARGB8888);
+    }
 
-    // Mark canvas as dirty to trigger redraw.
+    // Mark canvas as dirty to trigger redraw (outside mutex).
     lv_obj_invalidate(canvas_);
 
     // Reset ready flag so background thread can prepare next frame.
-    backBufferReady_ = false;
+    backBufferReady_.store(false, std::memory_order_release);
 }
 
 void JuliaFractal::resize(int newWidth, int newHeight)
@@ -587,6 +589,15 @@ void JuliaFractal::renderThreadFunc()
             backIterationCache_.resize(totalPixels);
         }
 
+        // Wait until main thread consumes the previous frame before rendering next.
+        while (backBufferReady_.load(std::memory_order_acquire) && !shouldExit_) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        }
+
+        if (shouldExit_) break;
+
+        // Render to back buffer (safe now, main thread not touching it).
+        // No mutex needed here - backBufferReady=false guarantees exclusive access.
         uint32_t* backBufferPtr = reinterpret_cast<uint32_t*>(backBuffer_);
 
         if (cChanged || iterationsChanged) {
@@ -613,18 +624,8 @@ void JuliaFractal::renderThreadFunc()
             }
         }
 
-        // Wait until main thread consumes the current frame before rendering next.
-        while (backBufferReady_ && !shouldExit_) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(10));
-        }
-
-        if (shouldExit_) break;
-
-        // Signal that back buffer is ready.
-        backBufferReady_ = true;
-
-        // Brief sleep to yield CPU.
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        // Signal that back buffer is ready (after rendering complete).
+        backBufferReady_.store(true, std::memory_order_release);
     }
 
     spdlog::info("JuliaFractal: Render thread exiting");
