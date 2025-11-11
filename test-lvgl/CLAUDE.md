@@ -172,6 +172,12 @@ The CLI tool includes a benchmark mode for measuring physics performance:
 ./build/bin/cli benchmark --scenario dam_break --steps 120
 ```
 
+### Code Formatter
+Run the formatter before committing.
+```bash
+make format
+```
+
 The benchmark auto-launches the server, runs the simulation, collects performance metrics from both server and client, then outputs JSON results including FPS, physics timing, serialization timing, and round-trip latencies.
 
 ## Coding Practices
@@ -290,7 +296,6 @@ Can be found here:
 ### Current Focus: Client/Server Architecture (DSSM + UI Client)
 
 **Next Steps:**
-- Fix AdvanceSimulation targetSteps enforcement (doesn't pause at limit)
 - Performance testing
 - Optimization
 - Python/bash/cli integration test scripts

@@ -75,7 +75,8 @@ State::Any Idle::onEvent(const Api::SimRun::Cwc& cwc, StateMachine& dsm)
     newState.useRealtime = cwc.command.use_realtime;
 
     spdlog::info(
-        "Idle: World created, transitioning to SimRunning (timestep={}ms, max_steps={}, use_realtime={})",
+        "Idle: World created, transitioning to SimRunning (timestep={}ms, max_steps={}, "
+        "use_realtime={})",
         newState.stepDurationMs,
         cwc.command.max_steps,
         newState.useRealtime);

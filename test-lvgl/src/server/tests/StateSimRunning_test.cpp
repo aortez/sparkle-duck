@@ -87,8 +87,7 @@ TEST_F(StateSimRunningTest, OnEnter_AppliesDefaultScenario)
     simRunning.onEnter(*stateMachine);
 
     // Verify: Sandbox scenario is still applied.
-    EXPECT_EQ(simRunning.world->data.scenario_id, "sandbox")
-        << "Scenario should remain sandbox";
+    EXPECT_EQ(simRunning.world->data.scenario_id, "sandbox") << "Scenario should remain sandbox";
 
     // Verify: Walls exist (basic scenario setup check).
     const Cell& topLeft = simRunning.world->at(0, 0);
