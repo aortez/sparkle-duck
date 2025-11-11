@@ -144,7 +144,7 @@ double WorldFrictionCalculator::calculateNormalForce(
 
     // Source 2: Weight for vertical contacts.
     // If B is below A (interface normal points downward), weight of A creates normal force.
-    double gravity_magnitude = world.data.gravity;
+    double gravity_magnitude = world.physicsSettings.gravity;
 
     if (interface_normal.y > 0.5) { // B is below A (normal points down).
         double massA = cellA.getMass();

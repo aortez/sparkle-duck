@@ -1,5 +1,6 @@
 #pragma once
 
+#include "core/PhysicsSettings.h"
 #include "lvgl/lvgl.h"
 
 namespace DirtSim {
@@ -23,6 +24,9 @@ public:
 private:
     lv_obj_t* container_;
     WebSocketClient* wsClient_;
+
+    // Current physics settings (local copy, synced with server).
+    PhysicsSettings settings_;
 
     // Column containers.
     lv_obj_t* column1_ = nullptr;
@@ -75,9 +79,14 @@ private:
     static void onFrictionChanged(lv_event_t* e);
 
     /**
-     * @brief Send physics parameter command to server.
+     * @brief Fetch current physics settings from server.
      */
-    void sendPhysicsCommand(const char* commandName, double value);
+    void fetchSettings();
+
+    /**
+     * @brief Send updated physics settings to server.
+     */
+    void syncSettings();
 };
 
 } // namespace Ui

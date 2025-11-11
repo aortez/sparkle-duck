@@ -20,6 +20,14 @@ void SimRunning::onEnter(StateMachine& sm)
             sm.getUiComponentManager(), sm.getWebSocketClient(), sm);
         spdlog::info("SimRunning: Created simulation playground");
     }
+
+    // Send initial frame_ready to kickstart the pipelined frame delivery.
+    auto* wsClient = sm.getWebSocketClient();
+    if (wsClient && wsClient->isConnected()) {
+        nlohmann::json frameReadyCmd = { { "command", "frame_ready" } };
+        wsClient->send(frameReadyCmd.dump());
+        spdlog::info("SimRunning: Sent initial frame_ready to start frame delivery");
+    }
 }
 
 void SimRunning::onExit(StateMachine& /*sm*/)
@@ -116,9 +124,9 @@ State::Any SimRunning::onEvent(const FrameReadyNotification& evt, StateMachine& 
 {
     // Time-based frame limiting: only request updates at target frame rate.
     auto now = std::chrono::steady_clock::now();
-    auto elapsed =
-        std::chrono::duration_cast<std::chrono::milliseconds>(now - lastFrameRequestTime);
+    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastFrameTime);
 
+    const std::chrono::milliseconds targetFrameInterval{ 16 }; // 60 FPS target.
     if (elapsed >= targetFrameInterval) {
         // Enough time passed - request new frame.
         spdlog::info(
@@ -128,18 +136,18 @@ State::Any SimRunning::onEvent(const FrameReadyNotification& evt, StateMachine& 
 
         // Calculate actual UI FPS.
         if (elapsed.count() > 0) {
-            measuredUIFPS = 1000.0 / elapsed.count();
+            measuredUiFps = 1000.0 / elapsed.count();
 
             // Exponentially weighted moving average (90% old, 10% new) for smooth display.
-            if (smoothedUIFPS == 0.0) {
-                smoothedUIFPS = measuredUIFPS; // Initialize.
+            if (smoothedUiFps == 0.0) {
+                smoothedUiFps = measuredUiFps; // Initialize.
             }
             else {
-                smoothedUIFPS = 0.9 * smoothedUIFPS + 0.1 * measuredUIFPS;
+                smoothedUiFps = 0.9 * smoothedUiFps + 0.1 * measuredUiFps;
             }
 
             spdlog::info(
-                "SimRunning: UI FPS: {:.1f} (smoothed: {:.1f})", measuredUIFPS, smoothedUIFPS);
+                "SimRunning: UI FPS: {:.1f} (smoothed: {:.1f})", measuredUiFps, smoothedUiFps);
         }
 
         // Request world state from DSSM (only if no request is pending).
@@ -159,7 +167,7 @@ State::Any SimRunning::onEvent(const FrameReadyNotification& evt, StateMachine& 
                 evt.stepNumber);
         }
 
-        lastFrameRequestTime = now;
+        lastFrameTime = now;
         skippedFrames = 0;
     }
     else {
@@ -178,6 +186,35 @@ State::Any SimRunning::onEvent(const FrameReadyNotification& evt, StateMachine& 
 State::Any SimRunning::onEvent(const UiUpdateEvent& evt, StateMachine& sm)
 {
     spdlog::debug("SimRunning: Received world update (step {}) via push", evt.stepCount);
+
+    // Send frame_ready IMMEDIATELY to pipeline next frame (hide network latency).
+    auto* wsClient = sm.getWebSocketClient();
+    if (wsClient && wsClient->isConnected()) {
+        nlohmann::json frameReadyCmd = { { "command", "frame_ready" } };
+        wsClient->send(frameReadyCmd.dump());
+        spdlog::trace("SimRunning: Sent frame_ready to server (pipelining next frame)");
+    }
+
+    // Calculate UI FPS based on time between updates.
+    auto now = std::chrono::steady_clock::now();
+    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastFrameTime);
+
+    if (elapsed.count() > 0) {
+        measuredUiFps = 1000.0 / elapsed.count();
+
+        // Exponentially weighted moving average (90% old, 10% new) for smooth display.
+        if (smoothedUiFps == 0.0) {
+            smoothedUiFps = measuredUiFps; // Initialize.
+        }
+        else {
+            smoothedUiFps = 0.9 * smoothedUiFps + 0.1 * measuredUiFps;
+        }
+
+        spdlog::debug(
+            "SimRunning: UI FPS: {:.1f} (smoothed: {:.1f})", measuredUiFps, smoothedUiFps);
+    }
+
+    lastFrameTime = now;
 
     // Log performance stats every 20 updates.
     updateCount++;
@@ -207,7 +244,7 @@ State::Any SimRunning::onEvent(const UiUpdateEvent& evt, StateMachine& sm)
     // Update and render via playground.
     if (playground_ && worldData) {
         // Update controls with new world state.
-        playground_->updateFromWorldData(*worldData);
+        playground_->updateFromWorldData(*worldData, smoothedUiFps);
 
         // Render world.
         sm.getTimers().startTimer("render_world");

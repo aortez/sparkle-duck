@@ -3,6 +3,7 @@
 #include "Cell.h"
 #include "MaterialMove.h"
 #include "MaterialType.h"
+#include "PhysicsSettings.h"
 #include "Timers.h"
 #include "Vector2i.h"
 #include "WorldAdhesionCalculator.h"
@@ -54,6 +55,7 @@ public:
     void advanceTime(double deltaTimeSeconds);
     void reset();
     void setup();
+    void applyPhysicsSettings(const PhysicsSettings& settings);
 
     // =================================================================
     // WORLDINTERFACE IMPLEMENTATION - GRID ACCESS
@@ -69,7 +71,8 @@ public:
     // WORLDINTERFACE IMPLEMENTATION - SIMULATION CONTROL
     // =================================================================
 
-    // NOTE: Use data.timescale, data.removed_mass, data.add_particles_enabled directly.
+    // NOTE: Use physicsSettings.timescale for physics, data.removed_mass,
+    // data.add_particles_enabled directly.
     double getTotalMass() const;
 
     // =================================================================
@@ -87,7 +90,7 @@ public:
     // WORLDINTERFACE IMPLEMENTATION - PHYSICS PARAMETERS
     // =================================================================
 
-    Vector2d getGravityVector() const { return Vector2d{ 0.0, data.gravity }; }
+    Vector2d getGravityVector() const { return Vector2d{ 0.0, physicsSettings.gravity }; }
     void setDirtFragmentationFactor(double /* factor */) { /* no-op for World */ }
 
     // =================================================================
@@ -106,13 +109,25 @@ public:
     // =================================================================
 
     void setHydrostaticPressureEnabled(bool enabled);
-    bool isHydrostaticPressureEnabled() const { return hydrostatic_pressure_strength_ > 0.0; }
+    bool isHydrostaticPressureEnabled() const
+    {
+        return physicsSettings.pressure_hydrostatic_strength > 0.0;
+    }
 
     void setDynamicPressureEnabled(bool enabled);
-    bool isDynamicPressureEnabled() const { return dynamic_pressure_strength_ > 0.0; }
+    bool isDynamicPressureEnabled() const
+    {
+        return physicsSettings.pressure_dynamic_strength > 0.0;
+    }
 
-    void setPressureDiffusionEnabled(bool enabled) { pressure_diffusion_enabled_ = enabled; }
-    bool isPressureDiffusionEnabled() const { return pressure_diffusion_enabled_; }
+    void setPressureDiffusionEnabled(bool enabled)
+    {
+        physicsSettings.pressure_diffusion_strength = enabled ? 1.0 : 0.0;
+    }
+    bool isPressureDiffusionEnabled() const
+    {
+        return physicsSettings.pressure_diffusion_strength > 0.0;
+    }
 
     void setHydrostaticPressureStrength(double strength);
     double getHydrostaticPressureStrength() const;
@@ -215,13 +230,7 @@ public:
     // Add material at specific cell coordinates.
     void addMaterialAtCell(uint32_t x, uint32_t y, MaterialType type, double amount = 1.0);
 
-    // Physics constants from GridMechanics.md (all per-timestep values)
-    static constexpr double MAX_VELOCITY_PER_TIMESTEP = 20.0; // cells/timestep
-    static constexpr double VELOCITY_DAMPING_THRESHOLD_PER_TIMESTEP =
-        10.0; // velocity threshold for damping (cells/timestep)
-    static constexpr double VELOCITY_DAMPING_FACTOR_PER_TIMESTEP =
-        0.10;                                             // 10% slowdown per timestep
-    static constexpr double MIN_MATTER_THRESHOLD = 0.001; // minimum matter to process
+    static constexpr double MIN_MATTER_THRESHOLD = 0.001; // minimum matter to process.
 
     // Distance-based cohesion decay constants
     static constexpr double SUPPORT_DECAY_RATE = 0.3; // Decay rate per distance unit
@@ -284,6 +293,9 @@ public:
     // World state data - public source of truth for all serializable state.
     WorldData data;
 
+    // Physics settings - public source of truth for physics parameters.
+    PhysicsSettings physicsSettings;
+
     // WorldInterface hook implementations (rarely overridden - can be public).
     void onPostResize();
     void onPreResize(uint32_t newWidth, uint32_t newHeight);
@@ -295,9 +307,6 @@ public:
 
     // Physics parameters (TODO: migrate to WorldData).
     double water_pressure_threshold_;
-    bool pressure_diffusion_enabled_;
-    double hydrostatic_pressure_strength_;
-    double dynamic_pressure_strength_;
     bool cohesion_bind_force_enabled_;
     double cohesion_com_force_strength_;
     double cohesion_bind_force_strength_;

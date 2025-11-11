@@ -33,12 +33,6 @@ std::string ResponseSerializerJson::serialize(const ApiResponse& response)
                     valueObj.CopyFrom(resp.value().worldJson, allocator);
                     doc.AddMember("value", valueObj, allocator);
                 }
-                else if constexpr (std::is_same_v<T, Api::StepN::Response>) {
-                    // StepN returns timestep.
-                    rapidjson::Value valueObj(rapidjson::kObjectType);
-                    valueObj.AddMember("timestep", resp.value().timestep, allocator);
-                    doc.AddMember("value", valueObj, allocator);
-                }
                 else if constexpr (
                     std::is_same_v<T, Api::CellSet::Response>
                     || std::is_same_v<T, Api::GravitySet::Response>

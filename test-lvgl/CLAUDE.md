@@ -60,8 +60,14 @@ make -C build -j12
 
 # CLI client for sending commands
 ./build/bin/cli ws://localhost:8080 state_get
-./build/bin/cli ws://localhost:8080 step_n '{"frames": 1}'
+./build/bin/cli ws://localhost:8080 sim_run '{"timestep": 0.016, "max_steps": 1}'
 ./build/bin/cli ws://localhost:8080 diagram_get
+
+# CLI integration test
+./build/bin/cli integration_test
+
+# For complete CLI documentation, see:
+# src/cli/README.md
 ```
 
 ### Testing
@@ -164,6 +170,12 @@ The CLI tool includes a benchmark mode for measuring physics performance:
 
 # Different scenario
 ./build/bin/cli benchmark --scenario dam_break --steps 120
+```
+
+### Code Formatter
+Run the formatter before committing.
+```bash
+make format
 ```
 
 The benchmark auto-launches the server, runs the simulation, collects performance metrics from both server and client, then outputs JSON results including FPS, physics timing, serialization timing, and round-trip latencies.
@@ -284,10 +296,10 @@ Can be found here:
 ### Current Focus: Client/Server Architecture (DSSM + UI Client)
 
 **Next Steps:**
-- Fix AdvanceSimulation targetSteps enforcement (doesn't pause at limit)
 - Performance testing
 - Optimization
 - Python/bash/cli integration test scripts
+   - Sanity check - can server and ui start, connect, and then exit cleanly?
 - More state machine tests (StartMenu, Paused, etc.)
 - WebRTC video streaming for remote UI
 

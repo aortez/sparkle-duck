@@ -50,7 +50,7 @@ public:
         setup->setSetupFunction([](World& world) {
             spdlog::info("Setting up Falling Dirt scenario");
 
-            world.data.gravity = 9.81;
+            world.physicsSettings.gravity = 9.81;
             world.setWallsEnabled(false);
             world.setLeftThrowEnabled(false);
             world.setRightThrowEnabled(false);

@@ -194,15 +194,17 @@ add_library(sparkle-duck-server-lib STATIC
     src/server/api/CellSet.cpp
     src/server/api/DiagramGet.cpp
     src/server/api/Exit.cpp
+    src/server/api/FrameReady.cpp
     src/server/api/GravitySet.cpp
     src/server/api/PerfStatsGet.cpp
+    src/server/api/PhysicsSettingsGet.cpp
+    src/server/api/PhysicsSettingsSet.cpp
     src/server/api/Reset.cpp
     src/server/api/ScenarioConfigSet.cpp
     src/server/api/SeedAdd.cpp
     src/server/api/SimRun.cpp
     src/server/api/SpawnDirtBall.cpp
     src/server/api/StateGet.cpp
-    src/server/api/StepN.cpp
     src/server/api/TimerStatsGet.cpp
 
     # Server network.
@@ -328,6 +330,7 @@ add_custom_target (run-server COMMAND ${EXECUTABLE_OUTPUT_PATH}/sparkle-duck-ser
 add_executable(cli
     src/cli/main.cpp
     src/cli/BenchmarkRunner.cpp
+    src/cli/IntegrationTest.cpp
     src/cli/SubprocessManager.cpp
     src/cli/WebSocketClient.cpp
 )

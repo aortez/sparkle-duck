@@ -3,15 +3,17 @@
 #include "server/api/CellSet.h"
 #include "server/api/DiagramGet.h"
 #include "server/api/Exit.h"
+#include "server/api/FrameReady.h"
 #include "server/api/GravitySet.h"
 #include "server/api/PerfStatsGet.h"
+#include "server/api/PhysicsSettingsGet.h"
+#include "server/api/PhysicsSettingsSet.h"
 #include "server/api/Reset.h"
 #include "server/api/ScenarioConfigSet.h"
 #include "server/api/SeedAdd.h"
 #include "server/api/SimRun.h"
 #include "server/api/SpawnDirtBall.h"
 #include "server/api/StateGet.h"
-#include "server/api/StepN.h"
 #include <spdlog/spdlog.h>
 
 namespace DirtSim {
@@ -44,10 +46,7 @@ Result<ApiCommand, ApiError> CommandDeserializerJson::deserialize(const std::str
 
     // Dispatch to appropriate handler.
     try {
-        if (commandName == "step") {
-            return Result<ApiCommand, ApiError>::okay(Api::StepN::Command::fromJson(cmd));
-        }
-        else if (commandName == "cell_get") {
+        if (commandName == "cell_get") {
             return Result<ApiCommand, ApiError>::okay(Api::CellGet::Command::fromJson(cmd));
         }
         else if (commandName == "cell_set") {
@@ -64,6 +63,17 @@ Result<ApiCommand, ApiError> CommandDeserializerJson::deserialize(const std::str
         }
         else if (commandName == "perf_stats_get") {
             return Result<ApiCommand, ApiError>::okay(Api::PerfStatsGet::Command::fromJson(cmd));
+        }
+        else if (commandName == "frame_ready") {
+            return Result<ApiCommand, ApiError>::okay(Api::FrameReady::Command::fromJson(cmd));
+        }
+        else if (commandName == "physics_settings_get") {
+            return Result<ApiCommand, ApiError>::okay(
+                Api::PhysicsSettingsGet::Command::fromJson(cmd));
+        }
+        else if (commandName == "physics_settings_set") {
+            return Result<ApiCommand, ApiError>::okay(
+                Api::PhysicsSettingsSet::Command::fromJson(cmd));
         }
         else if (commandName == "reset") {
             return Result<ApiCommand, ApiError>::okay(Api::Reset::Command::fromJson(cmd));

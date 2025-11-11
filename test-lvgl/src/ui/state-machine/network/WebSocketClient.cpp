@@ -69,18 +69,8 @@ bool WebSocketClient::connect(const std::string& url)
 
                     // Fast path: queue UiUpdateEvent directly via EventSink.
                     if (eventSink_) {
-                        // Throttle to 60 FPS to prevent event queue overflow.
+                        // No throttling needed - backpressure via frame_ready handles flow control.
                         auto now = std::chrono::steady_clock::now();
-                        auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
-                                           now - lastEventQueueTime_)
-                                           .count();
-
-                        if (elapsed < 16) {
-                            // Drop frame - too soon since last update.
-                            return;
-                        }
-
-                        lastEventQueueTime_ = now;
                         uint64_t stepCount = worldData.timestep;
                         UiUpdateEvent evt{ .sequenceNum = 0,
                                            .worldData = std::move(worldData),
@@ -90,6 +80,8 @@ bool WebSocketClient::connect(const std::string& url)
                                            .timestamp = now };
 
                         eventSink_->queueEvent(evt);
+                        spdlog::debug(
+                            "UI WebSocketClient: Queued UiUpdateEvent (step {})", stepCount);
                         return; // Done - skip JSON conversion entirely.
                     }
 

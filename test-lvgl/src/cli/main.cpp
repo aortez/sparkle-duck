@@ -1,4 +1,5 @@
 #include "BenchmarkRunner.h"
+#include "IntegrationTest.h"
 #include "WebSocketClient.h"
 #include "core/ReflectSerializer.h"
 #include <args.hxx>
@@ -19,6 +20,7 @@ struct CommandInfo {
 
 static const std::vector<CommandInfo> AVAILABLE_COMMANDS = {
     { "benchmark", "Run performance benchmark (launches server)", "" },
+    { "integration_test", "Run integration test (launches server + UI)", "" },
     { "cell_get", "Get cell state at coordinates", R"({"x": 10, "y": 20})" },
     { "cell_set",
       "Place material at coordinates",
@@ -27,6 +29,10 @@ static const std::vector<CommandInfo> AVAILABLE_COMMANDS = {
     { "exit", "Shutdown server", "" },
     { "gravity_set", "Set gravity value", R"({"gravity": 15.0})" },
     { "perf_stats_get", "Get server performance statistics", "" },
+    { "physics_settings_get", "Get current physics settings", "" },
+    { "physics_settings_set",
+      "Set physics parameters",
+      R"({"settings": {"timescale": 1.5, "gravity": 0.8}})" },
     { "reset", "Reset simulation to initial state", "" },
     { "scenario_config_set",
       "Update scenario configuration",
@@ -34,7 +40,6 @@ static const std::vector<CommandInfo> AVAILABLE_COMMANDS = {
     { "sim_run", "Start autonomous simulation", R"({"timestep": 0.016, "max_steps": 100})" },
     { "state_get", "Get complete world state as JSON", "" },
     { "timer_stats_get", "Get detailed physics timing breakdown", "" },
-    { "step_n", "Advance simulation N frames", R"({"frames": 1})" },
 };
 
 std::string getCommandListHelp()
@@ -170,6 +175,29 @@ int main(int argc, char** argv)
 
         std::cout << resultJson.dump(2) << std::endl;
         return 0;
+    }
+
+    // Handle integration_test command (auto-launches server and UI).
+    if (commandName == "integration_test") {
+        // Find server and UI binaries (assume they're in same directory as CLI).
+        std::filesystem::path exePath = std::filesystem::read_symlink("/proc/self/exe");
+        std::filesystem::path binDir = exePath.parent_path();
+        std::filesystem::path serverPath = binDir / "sparkle-duck-server";
+        std::filesystem::path uiPath = binDir / "sparkle-duck-ui";
+
+        if (!std::filesystem::exists(serverPath)) {
+            std::cerr << "Error: Cannot find server binary at " << serverPath << std::endl;
+            return 1;
+        }
+
+        if (!std::filesystem::exists(uiPath)) {
+            std::cerr << "Error: Cannot find UI binary at " << uiPath << std::endl;
+            return 1;
+        }
+
+        // Run integration test.
+        Client::IntegrationTest test;
+        return test.run(serverPath.string(), uiPath.string());
     }
 
     // Normal command mode - require address.

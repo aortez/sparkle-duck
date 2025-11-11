@@ -64,21 +64,82 @@ void SimRunning::onExit(StateMachine& /*dsm. */)
 
 State::Any SimRunning::onEvent(const AdvanceSimulationCommand& /*cmd*/, StateMachine& dsm)
 {
-    // Headless server: advance physics simulation by one timestep.
+    // Headless server: advance physics simulation with fixed timestep accumulator.
     assert(world && "World must exist in SimRunning state");
 
-    // Calculate actual FPS.
+    // Measure real elapsed time since last physics update.
     auto now = std::chrono::steady_clock::now();
-    if (stepCount > 0) {
-        auto elapsed =
+    double elapsedSeconds = 0.0;
+
+    if (useRealtime) {
+        // Real-time mode: use actual elapsed time.
+        if (stepCount == 0) {
+            // Initialize timing on first step - seed accumulator with one timestep to start
+            // immediately.
+            lastPhysicsTime = now;
+            lastFrameTime = now;
+            elapsedSeconds = FIXED_TIMESTEP_SECONDS; // Start with one timestep ready.
+        }
+        else {
+            elapsedSeconds = std::chrono::duration<double>(now - lastPhysicsTime).count();
+            lastPhysicsTime = now;
+        }
+
+        // Accumulate real time.
+        physicsAccumulatorSeconds += elapsedSeconds;
+    }
+    else {
+        // Testing mode: force at least one timestep per command.
+        physicsAccumulatorSeconds = FIXED_TIMESTEP_SECONDS;
+    }
+
+    // Step physics as many times as needed to catch up with real time.
+    int stepsThisFrame = 0;
+    while (physicsAccumulatorSeconds >= FIXED_TIMESTEP_SECONDS) {
+        // Advance physics by fixed timestep.
+        dsm.getTimers().startTimer("physics_step");
+        world->advanceTime(FIXED_TIMESTEP_SECONDS);
+        dsm.getTimers().stopTimer("physics_step");
+
+        stepCount++;
+        stepsThisFrame++;
+        physicsAccumulatorSeconds -= FIXED_TIMESTEP_SECONDS;
+
+        // Check if we've reached target steps.
+        if (targetSteps > 0 && stepCount >= targetSteps) {
+            spdlog::info(
+                "SimRunning: Reached target steps ({}/{}), transitioning to Paused",
+                stepCount,
+                targetSteps);
+            return SimPaused{ std::move(*this) };
+        }
+
+        // Safety: prevent spiral of death (too many steps per frame).
+        if (stepsThisFrame >= 5) {
+            spdlog::warn(
+                "SimRunning: Physics running slow, dropping {:.3f} seconds (accumulated time)",
+                physicsAccumulatorSeconds);
+            physicsAccumulatorSeconds = 0.0; // Reset to prevent infinite catchup.
+            break;
+        }
+    }
+
+    // Calculate actual FPS (physics steps per second).
+    if (stepCount > 0 && stepsThisFrame > 0) {
+        auto frameElapsed =
             std::chrono::duration_cast<std::chrono::microseconds>(now - lastFrameTime).count();
-        if (elapsed > 0) {
-            actualFPS = 1000000.0 / elapsed;    // Microseconds to FPS.
-            world->data.fps_server = actualFPS; // Update WorldData for UI.
+        if (frameElapsed > 0) {
+            actualFPS = 1000000.0 / frameElapsed; // Microseconds to FPS.
+            world->data.fps_server = actualFPS;   // Update WorldData for UI.
+            lastFrameTime = now;
 
             // Log FPS and performance stats intermittently.
             if (stepCount == 100 || stepCount % 1000 == 0) {
-                spdlog::info("SimRunning: Actual FPS: {:.1f} (step {})", actualFPS, stepCount);
+                spdlog::info(
+                    "SimRunning: Actual FPS: {:.1f} (step {}, {} steps this frame)",
+                    actualFPS,
+                    stepCount,
+                    stepsThisFrame);
 
                 // Log performance timing stats.
                 auto& timers = dsm.getTimers();
@@ -125,46 +186,42 @@ State::Any SimRunning::onEvent(const AdvanceSimulationCommand& /*cmd*/, StateMac
             }
         }
     }
-    lastFrameTime = now;
 
-    // Advance physics by one timestep (~60 FPS).
-    dsm.getTimers().startTimer("physics_step");
-    world->advanceTime(0.016);
-    dsm.getTimers().stopTimer("physics_step");
-    stepCount++;
+    // Update StateMachine's cached WorldData after all physics steps complete.
+    if (stepsThisFrame > 0) {
+        dsm.getTimers().startTimer("cache_update");
+        dsm.updateCachedWorldData(world->data);
+        dsm.getTimers().stopTimer("cache_update");
 
-    // Check if we've reached target steps.
-    if (targetSteps > 0 && stepCount >= targetSteps) {
-        spdlog::info(
-            "SimRunning: Reached target steps ({}/{}), transitioning to Paused",
-            stepCount,
-            targetSteps);
-        return SimPaused{ std::move(*this) };
-    }
+        spdlog::debug(
+            "SimRunning: Advanced simulation {} step(s) (total step {})",
+            stepsThisFrame,
+            stepCount);
 
-    // Update StateMachine's cached WorldData for fast state_get responses (cheap ~1ms).
-    dsm.getTimers().startTimer("cache_update");
-    dsm.updateCachedWorldData(world->data);
-    dsm.getTimers().stopTimer("cache_update");
+        // Push WorldData to UI clients only if UI is ready (backpressure control).
+        if (dsm.getWebSocketServer() && uiReadyForNextFrame) {
+            auto& timers = dsm.getTimers();
 
-    spdlog::debug("SimRunning: Advanced simulation (step {})", stepCount);
+            // Pack WorldData to binary.
+            timers.startTimer("serialize_worlddata");
+            std::vector<std::byte> data;
+            zpp::bits::out out(data);
+            out(world->data).or_throw();
+            timers.stopTimer("serialize_worlddata");
 
-    // Push WorldData to all connected UI clients (eliminates request latency!).
-    if (dsm.getWebSocketServer()) {
-        auto& timers = dsm.getTimers();
+            // Broadcast binary WorldData to all clients.
+            rtc::binary binaryMsg(data.begin(), data.end());
+            timers.startTimer("network_send");
+            dsm.getWebSocketServer()->broadcastBinary(binaryMsg);
+            timers.stopTimer("network_send");
 
-        // Pack WorldData to binary.
-        timers.startTimer("serialize_worlddata");
-        std::vector<std::byte> data;
-        zpp::bits::out out(data);
-        out(world->data).or_throw();
-        timers.stopTimer("serialize_worlddata");
-
-        // Broadcast binary WorldData to all clients.
-        rtc::binary binaryMsg(data.begin(), data.end());
-        timers.startTimer("network_send");
-        dsm.getWebSocketServer()->broadcastBinary(binaryMsg);
-        timers.stopTimer("network_send");
+            // Clear ready flag - wait for UI to signal ready for next frame.
+            uiReadyForNextFrame = false;
+            spdlog::info("SimRunning: Sent frame to UI, waiting for frame_ready");
+        }
+        else if (!uiReadyForNextFrame) {
+            spdlog::info("SimRunning: Skipping frame broadcast - UI not ready yet");
+        }
     }
 
     return std::move(*this); // Stay in SimRunning (move because unique_ptr).
@@ -285,7 +342,7 @@ State::Any SimRunning::onEvent(const Api::GravitySet::Cwc& cwc, StateMachine& /*
         return std::move(*this);
     }
 
-    world->data.gravity = cwc.command.gravity;
+    world->physicsSettings.gravity = cwc.command.gravity;
     spdlog::info("SimRunning: API set gravity to {}", cwc.command.gravity);
 
     cwc.sendResponse(Response::okay(std::monostate{}));
@@ -343,10 +400,25 @@ State::Any SimRunning::onEvent(const Api::Reset::Cwc& cwc, StateMachine& /*dsm*/
     spdlog::info("SimRunning: API reset simulation");
 
     if (world) {
+        // Clear world to empty state, then re-initialize with scenario.
+        world->worldEventGenerator_->clear(*world);
         world->setup();
     }
 
     stepCount = 0;
+
+    cwc.sendResponse(Response::okay(std::monostate{}));
+    return std::move(*this);
+}
+
+State::Any SimRunning::onEvent(const Api::FrameReady::Cwc& cwc, StateMachine& /*dsm*/)
+{
+    using Response = Api::FrameReady::Response;
+
+    spdlog::info("SimRunning: UI ready for next frame - enabling broadcast");
+
+    // UI signals it's ready - allow next frame broadcast.
+    uiReadyForNextFrame = true;
 
     cwc.sendResponse(Response::okay(std::monostate{}));
     return std::move(*this);
@@ -441,6 +513,45 @@ State::Any SimRunning::onEvent(const Api::SpawnDirtBall::Cwc& cwc, StateMachine&
     return std::move(*this);
 }
 
+State::Any SimRunning::onEvent(const Api::PhysicsSettingsGet::Cwc& cwc, StateMachine& /*dsm*/)
+{
+    using Response = Api::PhysicsSettingsGet::Response;
+
+    if (!world) {
+        cwc.sendResponse(Response::error(ApiError("No world available")));
+        return std::move(*this);
+    }
+
+    spdlog::info("PhysicsSettingsGet: Sending current physics settings");
+
+    Api::PhysicsSettingsGet::Okay okay;
+    okay.settings = world->physicsSettings;
+
+    cwc.sendResponse(Response::okay(std::move(okay)));
+    return std::move(*this);
+}
+
+State::Any SimRunning::onEvent(const Api::PhysicsSettingsSet::Cwc& cwc, StateMachine& /*dsm*/)
+{
+    using Response = Api::PhysicsSettingsSet::Response;
+
+    if (!world) {
+        cwc.sendResponse(Response::error(ApiError("No world available")));
+        return std::move(*this);
+    }
+
+    spdlog::info("PhysicsSettingsSet: Applying new physics settings");
+
+    // Update world's physics settings.
+    world->physicsSettings = cwc.command.settings;
+
+    // TODO: Apply settings to World calculators (timescale, gravity, etc.).
+    // For now, just store them - actual application will be added next.
+
+    cwc.sendResponse(Response::okay(std::monostate{}));
+    return std::move(*this);
+}
+
 State::Any SimRunning::onEvent(const Api::StateGet::Cwc& cwc, StateMachine& dsm)
 {
     using Response = Api::StateGet::Response;
@@ -476,49 +587,91 @@ State::Any SimRunning::onEvent(const Api::StateGet::Cwc& cwc, StateMachine& dsm)
     return std::move(*this);
 }
 
-State::Any SimRunning::onEvent(const Api::SimRun::Cwc& cwc, StateMachine& /*dsm*/)
+State::Any SimRunning::onEvent(const Api::SimRun::Cwc& cwc, StateMachine& dsm)
 {
     using Response = Api::SimRun::Response;
 
     assert(world && "World must exist in SimRunning state");
 
+    // Check if scenario has changed - if so, reload the world.
+    if (cwc.command.scenario_id != world->data.scenario_id) {
+        spdlog::info(
+            "SimRunning: Switching scenario from '{}' to '{}'",
+            world->data.scenario_id,
+            cwc.command.scenario_id);
+
+        // Validate scenario exists.
+        auto& registry = dsm.getScenarioRegistry();
+        auto* scenario = registry.getScenario(cwc.command.scenario_id);
+
+        if (!scenario) {
+            spdlog::error(
+                "SimRunning: Scenario '{}' not found in registry", cwc.command.scenario_id);
+            cwc.sendResponse(
+                Response::error(ApiError("Scenario not found: " + cwc.command.scenario_id)));
+            return std::move(*this);
+        }
+
+        // Check if scenario requires specific world dimensions.
+        const auto& metadata = scenario->getMetadata();
+        uint32_t targetWidth, targetHeight;
+
+        if (metadata.requiredWidth > 0 && metadata.requiredHeight > 0) {
+            // Scenario requires specific dimensions.
+            targetWidth = metadata.requiredWidth;
+            targetHeight = metadata.requiredHeight;
+        }
+        else {
+            // Scenario is flexible - use default dimensions.
+            targetWidth = dsm.defaultWidth;
+            targetHeight = dsm.defaultHeight;
+        }
+
+        // Resize if needed.
+        if (world->data.width != targetWidth || world->data.height != targetHeight) {
+            spdlog::info(
+                "SimRunning: Resizing world from {}x{} to {}x{} for scenario '{}'",
+                world->data.width,
+                world->data.height,
+                targetWidth,
+                targetHeight,
+                cwc.command.scenario_id);
+            world->resizeGrid(targetWidth, targetHeight);
+        }
+
+        // Clear current world.
+        world->worldEventGenerator_->clear(*world);
+
+        // Create and apply new WorldEventGenerator from scenario.
+        auto newGenerator = scenario->createWorldEventGenerator();
+        world->setWorldEventGenerator(std::move(newGenerator));
+
+        // Update world data.
+        world->data.scenario_id = cwc.command.scenario_id;
+        world->data.scenario_config = scenario->getConfig();
+
+        // Re-initialize world with new scenario.
+        world->setup();
+
+        // Reset step counter.
+        stepCount = 0;
+
+        spdlog::info("SimRunning: Scenario '{}' loaded and initialized", cwc.command.scenario_id);
+    }
+
     // Store run parameters.
     stepDurationMs = cwc.command.timestep * 1000.0; // Convert seconds to milliseconds.
     targetSteps = cwc.command.max_steps > 0 ? static_cast<uint32_t>(cwc.command.max_steps) : 0;
+    useRealtime = cwc.command.use_realtime;
 
     spdlog::info(
-        "SimRunning: Starting autonomous simulation (timestep={}ms, max_steps={})",
+        "SimRunning: Starting autonomous simulation (timestep={}ms, max_steps={}, use_realtime={})",
         stepDurationMs,
-        cwc.command.max_steps);
+        cwc.command.max_steps,
+        useRealtime);
 
     // Send response indicating simulation is running.
     cwc.sendResponse(Response::okay({ true, stepCount }));
-    return std::move(*this);
-}
-
-State::Any SimRunning::onEvent(const Api::StepN::Cwc& cwc, StateMachine& /*dsm*/)
-{
-    using Response = Api::StepN::Response;
-
-    assert(world && "World must exist in SimRunning state");
-
-    // Validate frames parameter.
-    if (cwc.command.frames <= 0) {
-        cwc.sendResponse(Response::error(ApiError("Frames must be positive")));
-        return std::move(*this);
-    }
-
-    // Step simulation.
-    for (int i = 0; i < cwc.command.frames; ++i) {
-        world->advanceTime(0.016); // ~60 FPS timestep.
-        stepCount++;
-    }
-
-    uint32_t timestep = world->data.timestep;
-    spdlog::debug(
-        "SimRunning: API stepped {} frames, timestep now {}", cwc.command.frames, timestep);
-
-    cwc.sendResponse(Response::okay({ timestep }));
     return std::move(*this);
 }
 
@@ -666,7 +819,7 @@ State::Any SimRunning::onEvent(const SetTimescaleCommand& cmd, StateMachine& /*d
 {
     // Update world directly (source of truth).
     if (world) {
-        world->data.timescale = cmd.timescale;
+        world->physicsSettings.timescale = cmd.timescale;
         spdlog::info("SimRunning: Set timescale to {}", cmd.timescale);
     }
     return std::move(*this);
@@ -676,7 +829,7 @@ State::Any SimRunning::onEvent(const SetElasticityCommand& cmd, StateMachine& /*
 {
     // Update world directly (source of truth).
     if (world) {
-        world->data.elasticity_factor = cmd.elasticity;
+        world->physicsSettings.elasticity = cmd.elasticity;
         spdlog::info("SimRunning: Set elasticity to {}", cmd.elasticity);
     }
     return std::move(*this);
@@ -696,7 +849,7 @@ State::Any SimRunning::onEvent(const SetGravityCommand& cmd, StateMachine& /*dsm
 {
     // Update world directly (source of truth).
     if (world) {
-        world->data.gravity = cmd.gravity;
+        world->physicsSettings.gravity = cmd.gravity;
         spdlog::info("SimRunning: Set gravity to {}", cmd.gravity);
     }
     return std::move(*this);
@@ -706,7 +859,7 @@ State::Any SimRunning::onEvent(const SetPressureScaleCommand& cmd, StateMachine&
 {
     // Apply to world.
     if (world) {
-        world->data.pressure_scale = cmd.scale;
+        world->physicsSettings.pressure_scale = cmd.scale;
     }
 
     spdlog::debug("SimRunning: Set pressure scale to {}", cmd.scale);
@@ -717,7 +870,7 @@ State::Any SimRunning::onEvent(const SetPressureScaleWorldBCommand& cmd, StateMa
 {
     // Apply to world.
     if (world) {
-        world->data.pressure_scale = cmd.scale;
+        world->physicsSettings.pressure_scale = cmd.scale;
     }
 
     spdlog::debug("SimRunning: Set World pressure scale to {}", cmd.scale);

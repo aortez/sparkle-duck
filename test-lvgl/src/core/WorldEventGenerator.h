@@ -31,6 +31,9 @@ public:
      */
     virtual std::unique_ptr<WorldEventGenerator> clone() const = 0;
 
+    // Clear the world to empty state (all cells reset).
+    virtual void clear(World& world) = 0;
+
     // Setup the world's initial state.
     virtual void setup(World& world) = 0;
 
@@ -91,8 +94,9 @@ public:
     ~DefaultWorldEventGenerator();
 
     std::unique_ptr<WorldEventGenerator> clone() const;
-    void setup(World& world);
-    void addParticles(World& world, uint32_t timestep, double deltaTimeSeconds);
+    void clear(World& world) override;
+    void setup(World& world) override;
+    void addParticles(World& world, uint32_t timestep, double deltaTimeSeconds) override;
 
     // Event generation state.
     double lastSimTime = 0.0;
@@ -109,9 +113,10 @@ class ConfigurableWorldEventGenerator : public WorldEventGenerator {
 public:
     ~ConfigurableWorldEventGenerator() override = default;
 
-    std::unique_ptr<WorldEventGenerator> clone() const;
-    void setup(World& world);
-    void addParticles(World& world, uint32_t timestep, double deltaTimeSeconds);
+    std::unique_ptr<WorldEventGenerator> clone() const override;
+    void clear(World& world) override;
+    void setup(World& world) override;
+    void addParticles(World& world, uint32_t timestep, double deltaTimeSeconds) override;
 
     // Control flags for setup features
     void setLowerRightQuadrantEnabled(bool enabled) { lowerRightQuadrantEnabled = enabled; }

@@ -4,15 +4,17 @@
 #include "api/CellSet.h"
 #include "api/DiagramGet.h"
 #include "api/Exit.h"
+#include "api/FrameReady.h"
 #include "api/GravitySet.h"
 #include "api/PerfStatsGet.h"
+#include "api/PhysicsSettingsGet.h"
+#include "api/PhysicsSettingsSet.h"
 #include "api/Reset.h"
 #include "api/ScenarioConfigSet.h"
 #include "api/SeedAdd.h"
 #include "api/SimRun.h"
 #include "api/SpawnDirtBall.h"
 #include "api/StateGet.h"
-#include "api/StepN.h"
 #include "api/TimerStatsGet.h"
 #include "core/MaterialType.h"
 #include "core/SimulationStats.h"
@@ -604,15 +606,17 @@ using Event = std::variant<
     DirtSim::Api::CellSet::Cwc,
     DirtSim::Api::DiagramGet::Cwc,
     DirtSim::Api::Exit::Cwc,
+    DirtSim::Api::FrameReady::Cwc,
     DirtSim::Api::GravitySet::Cwc,
     DirtSim::Api::PerfStatsGet::Cwc,
+    DirtSim::Api::PhysicsSettingsGet::Cwc,
+    DirtSim::Api::PhysicsSettingsSet::Cwc,
     DirtSim::Api::Reset::Cwc,
     DirtSim::Api::ScenarioConfigSet::Cwc,
     DirtSim::Api::SeedAdd::Cwc,
     DirtSim::Api::SimRun::Cwc,
     DirtSim::Api::SpawnDirtBall::Cwc,
     DirtSim::Api::StateGet::Cwc,
-    DirtSim::Api::StepN::Cwc,
     DirtSim::Api::TimerStatsGet::Cwc,
 
     // State transitions

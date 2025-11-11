@@ -1,0 +1,26 @@
+#pragma once
+
+#include "ApiError.h"
+#include "core/CommandWithCallback.h"
+#include "core/PhysicsSettings.h"
+#include "core/Result.h"
+#include <nlohmann/json.hpp>
+#include <variant>
+
+namespace DirtSim {
+namespace Api {
+namespace PhysicsSettingsSet {
+
+struct Command {
+    PhysicsSettings settings;
+
+    nlohmann::json toJson() const;
+    static Command fromJson(const nlohmann::json& j);
+};
+
+using Response = Result<std::monostate, ApiError>;
+using Cwc = CommandWithCallback<Command, Response>;
+
+} // namespace PhysicsSettingsSet
+} // namespace Api
+} // namespace DirtSim

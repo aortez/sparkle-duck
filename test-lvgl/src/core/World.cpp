@@ -22,14 +22,16 @@
 
 namespace DirtSim {
 
+// Velocities are in Cells/second.
+static constexpr double MAX_VELOCITY_PER_TIMESTEP = 100.0;
+static constexpr double VELOCITY_DAMPING_THRESHOLD_PER_TIMESTEP = 20.0;
+static constexpr double VELOCITY_DAMPING_FACTOR_PER_TIMESTEP = 0.10;
+
 World::World() : World(1, 1)
 {}
 
 World::World(uint32_t width, uint32_t height)
     : water_pressure_threshold_(0.0004),
-      pressure_diffusion_enabled_(false),
-      hydrostatic_pressure_strength_(0.0),
-      dynamic_pressure_strength_(0.0),
       cohesion_bind_force_enabled_(false),
       cohesion_com_force_strength_(0.0),
       cohesion_bind_force_strength_(1.0),
@@ -90,7 +92,7 @@ void World::advanceTime(double deltaTimeSeconds)
 {
     ScopeTimer timer(timers_, "advance_time");
 
-    const double scaledDeltaTime = deltaTimeSeconds * data.timescale;
+    const double scaledDeltaTime = deltaTimeSeconds * physicsSettings.timescale;
     spdlog::trace(
         "World::advanceTime: deltaTime={:.4f}s, timestep={}", deltaTimeSeconds, data.timestep);
     if (scaledDeltaTime <= 0.0) {
@@ -136,13 +138,13 @@ void World::advanceTime(double deltaTimeSeconds)
     // Calculate pressures for NEXT frame after moves are complete.
     // This follows the two-frame model where pressure calculated in frame N
     // affects velocities in frame N+1.
-    if (hydrostatic_pressure_strength_ > 0.0) {
+    if (physicsSettings.pressure_hydrostatic_strength > 0.0) {
         ScopeTimer hydroTimer(timers_, "hydrostatic_pressure");
         pressure_calculator_.calculateHydrostaticPressure(*this);
     }
 
     // Process any blocked transfers that were queued during processMaterialMoves.
-    if (dynamic_pressure_strength_ > 0.0) {
+    if (physicsSettings.pressure_dynamic_strength > 0.0) {
         ScopeTimer dynamicTimer(timers_, "dynamic_pressure");
         // Generate virtual gravity transfers to create pressure from gravity forces.
         // This allows dynamic pressure to model hydrostatic-like behavior.
@@ -154,7 +156,7 @@ void World::advanceTime(double deltaTimeSeconds)
     }
 
     // Apply pressure diffusion before decay.
-    if (pressure_diffusion_enabled_) {
+    if (physicsSettings.pressure_diffusion_strength > 0.0) {
         ScopeTimer diffusionTimer(timers_, "pressure_diffusion");
         pressure_calculator_.applyPressureDiffusion(*this, scaledDeltaTime);
     }
@@ -326,7 +328,7 @@ void World::applyGravity()
 {
     ScopeTimer timer(timers_, "apply_gravity");
 
-    const Vector2d gravityForce(0.0, data.gravity);
+    const Vector2d gravityForce(0.0, physicsSettings.gravity);
 
     for (auto& cell : data.cells) {
         if (!cell.isEmpty() && !cell.isWall()) {
@@ -417,7 +419,8 @@ void World::applyCohesionForces()
 
 void World::applyPressureForces()
 {
-    if (hydrostatic_pressure_strength_ <= 0.0 && dynamic_pressure_strength_ <= 0.0) {
+    if (physicsSettings.pressure_hydrostatic_strength <= 0.0
+        && physicsSettings.pressure_dynamic_strength <= 0.0) {
         return;
     }
 
@@ -446,7 +449,7 @@ void World::applyPressureForces()
 
             // Only apply force if system is out of equilibrium.
             if (gradient.magnitude() > 0.001) {
-                Vector2d pressure_force = gradient * data.pressure_scale;
+                Vector2d pressure_force = gradient * physicsSettings.pressure_scale;
                 cell.addPendingForce(pressure_force);
 
                 spdlog::debug(
@@ -967,7 +970,7 @@ bool World::areWallsEnabled() const
 void World::setHydrostaticPressureEnabled(bool enabled)
 {
     // Backward compatibility: set strength to 0 (disabled) or default (enabled).
-    hydrostatic_pressure_strength_ = enabled ? 1.0 : 0.0;
+    physicsSettings.pressure_hydrostatic_strength = enabled ? 1.0 : 0.0;
 
     spdlog::info("Clearing all pressure values");
     for (auto& cell : data.cells) {
@@ -981,7 +984,7 @@ void World::setHydrostaticPressureEnabled(bool enabled)
 void World::setDynamicPressureEnabled(bool enabled)
 {
     // Backward compatibility: set strength to 0 (disabled) or default (enabled).
-    dynamic_pressure_strength_ = enabled ? 1.0 : 0.0;
+    physicsSettings.pressure_dynamic_strength = enabled ? 1.0 : 0.0;
 
     spdlog::info("Clearing all pressure values");
     for (auto& cell : data.cells) {
@@ -997,24 +1000,24 @@ void World::setDynamicPressureEnabled(bool enabled)
 
 void World::setHydrostaticPressureStrength(double strength)
 {
-    hydrostatic_pressure_strength_ = strength;
+    physicsSettings.pressure_hydrostatic_strength = strength;
     spdlog::info("Hydrostatic pressure strength set to {:.2f}", strength);
 }
 
 double World::getHydrostaticPressureStrength() const
 {
-    return hydrostatic_pressure_strength_;
+    return physicsSettings.pressure_hydrostatic_strength;
 }
 
 void World::setDynamicPressureStrength(double strength)
 {
-    dynamic_pressure_strength_ = strength;
+    physicsSettings.pressure_dynamic_strength = strength;
     spdlog::info("Dynamic pressure strength set to {:.2f}", strength);
 }
 
 double World::getDynamicPressureStrength() const
 {
-    return dynamic_pressure_strength_;
+    return physicsSettings.pressure_dynamic_strength;
 }
 
 std::string World::settingsToString() const
@@ -1022,12 +1025,12 @@ std::string World::settingsToString() const
     std::stringstream ss;
     ss << "=== World Settings ===\n";
     ss << "Grid size: " << data.width << "x" << data.height << "\n";
-    ss << "Gravity: " << data.gravity << "\n";
+    ss << "Gravity: " << physicsSettings.gravity << "\n";
     ss << "Hydrostatic pressure enabled: " << (isHydrostaticPressureEnabled() ? "true" : "false")
        << "\n";
     ss << "Dynamic pressure enabled: " << (isDynamicPressureEnabled() ? "true" : "false") << "\n";
-    ss << "Pressure scale: " << data.pressure_scale << "\n";
-    ss << "Elasticity factor: " << data.elasticity_factor << "\n";
+    ss << "Pressure scale: " << physicsSettings.pressure_scale << "\n";
+    ss << "Elasticity factor: " << physicsSettings.elasticity << "\n";
     ss << "Add particles enabled: " << (data.add_particles_enabled ? "true" : "false") << "\n";
     ss << "Walls enabled: " << (areWallsEnabled() ? "true" : "false") << "\n";
     ss << "Rain rate: " << getRainRate() /* stub */ << "\n";

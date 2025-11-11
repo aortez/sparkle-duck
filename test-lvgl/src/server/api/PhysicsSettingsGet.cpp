@@ -1,9 +1,9 @@
-#include "StepN.h"
+#include "PhysicsSettingsGet.h"
 #include "core/ReflectSerializer.h"
 
 namespace DirtSim {
 namespace Api {
-namespace StepN {
+namespace PhysicsSettingsGet {
 
 nlohmann::json Command::toJson() const
 {
@@ -20,6 +20,6 @@ nlohmann::json Okay::toJson() const
     return ReflectSerializer::to_json(*this);
 }
 
-} // namespace StepN
+} // namespace PhysicsSettingsGet
 } // namespace Api
 } // namespace DirtSim

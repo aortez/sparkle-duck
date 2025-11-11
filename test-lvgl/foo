@@ -1,0 +1,463 @@
+Column 1: Elasticity, Timescale, Gravity, Air Resistance
+Column 2: Pressure
+Column 3: Other
+
+SimControlPanel
+
+SimViewer
+
+SimStudio
+
+
+Building debug version...
+make: Entering directory '/home/oldman/workspace/sparkle-duck/test-lvgl/build'
+make[1]: Entering directory '/home/oldman/workspace/sparkle-duck/test-lvgl/build'
+make[2]: Entering directory '/home/oldman/workspace/sparkle-duck/test-lvgl/build'
+make[3]: Entering directory '/home/oldman/workspace/sparkle-duck/test-lvgl/build'
+make[3]: Entering directory '/home/oldman/workspace/sparkle-duck/test-lvgl/build'
+make[3]: Entering directory '/home/oldman/workspace/sparkle-duck/test-lvgl/build'
+make[3]: Entering directory '/home/oldman/workspace/sparkle-duck/test-lvgl/build'
+make[3]: Leaving directory '/home/oldman/workspace/sparkle-duck/test-lvgl/build'
+make[3]: Leaving directory '/home/oldman/workspace/sparkle-duck/test-lvgl/build'
+make[3]: Leaving directory '/home/oldman/workspace/sparkle-duck/test-lvgl/build'
+make[3]: Leaving directory '/home/oldman/workspace/sparkle-duck/test-lvgl/build'
+[  9%] Built target srtp2
+[ 13%] Built target spdlog
+[ 22%] Built target juice-static
+[ 36%] Built target usrsctp
+make[3]: Entering directory '/home/oldman/workspace/sparkle-duck/test-lvgl/build'
+make[3]: Entering directory '/home/oldman/workspace/sparkle-duck/test-lvgl/build'
+make[3]: Leaving directory '/home/oldman/workspace/sparkle-duck/test-lvgl/build'
+make[3]: Leaving directory '/home/oldman/workspace/sparkle-duck/test-lvgl/build'
+[ 40%] Built target sparkle-duck-core
+[ 77%] Built target datachannel-static
+make[3]: Entering directory '/home/oldman/workspace/sparkle-duck/test-lvgl/build'
+make[3]: Leaving directory '/home/oldman/workspace/sparkle-duck/test-lvgl/build'
+make[3]: Entering directory '/home/oldman/workspace/sparkle-duck/test-lvgl/build'
+[ 77%] Building CXX object CMakeFiles/sparkle-duck-server.dir/src/server/states/SimRunning.cpp.o
+[ 77%] Linking CXX static library libsparkle-duck-server.a
+make[3]: Leaving directory '/home/oldman/workspace/sparkle-duck/test-lvgl/build'
+[100%] Built target sparkle-duck-server
+make[2]: Leaving directory '/home/oldman/workspace/sparkle-duck/test-lvgl/build'
+make[1]: Leaving directory '/home/oldman/workspace/sparkle-duck/test-lvgl/build'
+make[1]: Entering directory '/home/oldman/workspace/sparkle-duck/test-lvgl/build'
+make[2]: Entering directory '/home/oldman/workspace/sparkle-duck/test-lvgl/build'
+make[3]: Entering directory '/home/oldman/workspace/sparkle-duck/test-lvgl/build'
+make[3]: Entering directory '/home/oldman/workspace/sparkle-duck/test-lvgl/build'
+make[3]: Entering directory '/home/oldman/workspace/sparkle-duck/test-lvgl/build'
+make[3]: Entering directory '/home/oldman/workspace/sparkle-duck/test-lvgl/build'
+make[3]: Leaving directory '/home/oldman/workspace/sparkle-duck/test-lvgl/build'
+make[3]: Leaving directory '/home/oldman/workspace/sparkle-duck/test-lvgl/build'
+make[3]: Leaving directory '/home/oldman/workspace/sparkle-duck/test-lvgl/build'
+make[3]: Entering directory '/home/oldman/workspace/sparkle-duck/test-lvgl/build'
+make[3]: Leaving directory '/home/oldman/workspace/sparkle-duck/test-lvgl/build'
+[  2%] Built target srtp2
+[  3%] Built target spdlog
+make[3]: Leaving directory '/home/oldman/workspace/sparkle-duck/test-lvgl/build'
+[  5%] Built target juice-static
+[  9%] Built target usrsctp
+make[3]: Entering directory '/home/oldman/workspace/sparkle-duck/test-lvgl/build'
+make[3]: Entering directory '/home/oldman/workspace/sparkle-duck/test-lvgl/build'
+make[3]: Leaving directory '/home/oldman/workspace/sparkle-duck/test-lvgl/build'
+make[3]: Leaving directory '/home/oldman/workspace/sparkle-duck/test-lvgl/build'
+make[3]: Entering directory '/home/oldman/workspace/sparkle-duck/test-lvgl/build'
+[ 15%] Built target lvgl_thorvg
+make[3]: Leaving directory '/home/oldman/workspace/sparkle-duck/test-lvgl/build'
+[ 16%] Built target sparkle-duck-core
+[ 17%] Built target lvgl_linux
+[ 27%] Built target datachannel-static
+make[3]: Entering directory '/home/oldman/workspace/sparkle-duck/test-lvgl/build'
+make[3]: Entering directory '/home/oldman/workspace/sparkle-duck/test-lvgl/build'
+make[3]: Leaving directory '/home/oldman/workspace/sparkle-duck/test-lvgl/build'
+[ 89%] Built target lvgl
+make[3]: Leaving directory '/home/oldman/workspace/sparkle-duck/test-lvgl/build'
+[ 95%] Built target sparkle-duck-server
+make[3]: Entering directory '/home/oldman/workspace/sparkle-duck/test-lvgl/build'
+make[3]: Leaving directory '/home/oldman/workspace/sparkle-duck/test-lvgl/build'
+[ 98%] Built target sparkle-duck-ui-lib
+make[3]: Entering directory '/home/oldman/workspace/sparkle-duck/test-lvgl/build'
+make[3]: Leaving directory '/home/oldman/workspace/sparkle-duck/test-lvgl/build'
+make[3]: Entering directory '/home/oldman/workspace/sparkle-duck/test-lvgl/build'
+[ 98%] Linking CXX executable bin/sparkle-duck-ui
+make[3]: Leaving directory '/home/oldman/workspace/sparkle-duck/test-lvgl/build'
+[100%] Built target sparkle-duck-ui
+make[2]: Leaving directory '/home/oldman/workspace/sparkle-duck/test-lvgl/build'
+make[1]: Leaving directory '/home/oldman/workspace/sparkle-duck/test-lvgl/build'
+make: Leaving directory '/home/oldman/workspace/sparkle-duck/test-lvgl/build'
+Build succeeded!
+
+Starting DSSM server on port 8080...
+[2025-11-09 10:43:41.420] [info] Starting Sparkle Duck WebSocket Server
+[2025-11-09 10:43:41.420] [info] Port: 8080
+[2025-11-09 10:43:41.420] [info] Running indefinitely (Ctrl+C to stop)
+[2025-11-09 10:43:41.420] [info] Registering scenario 'empty' - Empty
+[2025-11-09 10:43:41.420] [info] Registering scenario 'sandbox' - Sandbox
+[2025-11-09 10:43:41.420] [info] Registering scenario 'dam_break' - Dam Break
+[2025-11-09 10:43:41.420] [info] Registering scenario 'raining' - Raining
+[2025-11-09 10:43:41.420] [info] Registering scenario 'water_equalization' - Water Equalization
+[2025-11-09 10:43:41.420] [info] Registering scenario 'falling_dirt' - Falling Dirt
+[2025-11-09 10:43:41.420] [info] Server::StateMachine initialized in headless mode in state: Startup
+[2025-11-09 10:43:41.423] [info] WebSocketServer created on port 8080
+[2025-11-09 10:43:41.423] [info] WebSocketServer started on port 8080
+[2025-11-09 10:43:41.423] [info] WebSocket server listening on port 8080
+[2025-11-09 10:43:41.423] [info] Send commands to ws://localhost:8080
+[2025-11-09 10:43:41.423] [info] Starting main event loop
+[2025-11-09 10:43:41.423] [info] Startup: Initialization complete
+[2025-11-09 10:43:41.423] [info] Startup: Transitioning to Idle (server ready, no active simulation)
+[2025-11-09 10:43:41.423] [info] STATE_TRANSITION: Startup -> Idle
+[2025-11-09 10:43:41.423] [info] Idle: Server ready, waiting for commands (no active World)
+Server started (PID: 33042)
+Starting UI...
+
+[2025-11-09 10:43:42.422] [ui] [info] 🦆 Sparkle Duck Dirt Simulator starting up! 🦆
+[DEBUG] Registered backend: FBDEV
+[DEBUG] Registered backend: WAYLAND
+[DEBUG] Registered backend: X11
+[Warn]	(0.000, +0)	 lv_init: Style sanity checks are enabled that uses more RAM lv_init.c:317
+[DEBUG] Requested backend: wayland
+[DEBUG] Checking backend: FBDEV
+[DEBUG] Checking backend: WAYLAND
+[DEBUG] Selected backend: WAYLAND
+[2025-11-09 10:43:42.434] [ui] [info] Starting with new UI state machine (UISM)
+[2025-11-09 10:43:42.434] [ui] [info] Ui::StateMachine initialized in state: Startup
+[2025-11-09 10:43:42.437] [ui] [info] UI WebSocketServer created on port 7070
+[2025-11-09 10:43:42.437] [ui] [info] UI WebSocketServer started on port 7070
+[2025-11-09 10:43:42.437] [ui] [info] Ui::StateMachine: WebSocket server listening on port 7070
+[2025-11-09 10:43:42.437] [ui] [info] Ui::StateMachine: WebSocket client created (not yet connected)
+[2025-11-09 10:43:42.437] [ui] [info] UiComponentManager initialized with display
+[2025-11-09 10:43:42.437] [ui] [info] Ui::StateMachine: UiComponentManager created
+[2025-11-09 10:43:42.437] [ui] [info] UI state machine created, state: Startup
+[2025-11-09 10:43:42.437] [ui] [info] Auto-connecting to DSSM server at localhost:8080 (default)
+[2025-11-09 10:43:42.437] [ui] [info] Entering backend run loop (will process events and LVGL)
+[2025-11-09 10:43:42.437] [ui] [info] Startup: LVGL and display systems initialized
+[2025-11-09 10:43:42.437] [ui] [info] Startup: Transitioning to Disconnected (no server connection)
+[2025-11-09 10:43:42.437] [ui] [info] Ui::StateMachine: Startup -> Disconnected
+[2025-11-09 10:43:42.437] [ui] [info] Disconnected: Not connected to DSSM server
+[2025-11-09 10:43:42.437] [ui] [info] Disconnected: Show connection UI (host/port input, connect button)
+[2025-11-09 10:43:42.437] [ui] [info] Disconnected: Connect command received (host=localhost, port=8080)
+[2025-11-09 10:43:42.437] [ui] [info] UI WebSocketClient: Connecting to ws://localhost:8080
+[2025-11-09 10:43:42.438] [ui] [info] UI WebSocketClient: Connection initiated
+[2025-11-09 10:43:42.438] [info] WebSocket client connected
+[2025-11-09 10:43:42.438] [ui] [info] UI WebSocketClient: Connection opened
+[2025-11-09 10:43:42.438] [ui] [info] Disconnected: DSSM connection established
+[2025-11-09 10:43:42.438] [ui] [info] Disconnected: Server connection established
+[2025-11-09 10:43:42.438] [ui] [info] Disconnected: Transitioning to StartMenu
+[2025-11-09 10:43:42.438] [ui] [info] Disconnected: Exiting
+[2025-11-09 10:43:42.438] [ui] [info] Ui::StateMachine: Disconnected -> StartMenu
+[2025-11-09 10:43:42.438] [ui] [info] StartMenu: Connected to server, ready to start simulation
+[2025-11-09 10:43:42.439] [ui] [info] StartMenu: Created start button
+[2025-11-09 10:43:43.578] [ui] [info] StartMenu: Start button clicked, sending sim_run to DSSM
+[2025-11-09 10:43:43.578] [info] WebSocket received command: {"command":"sim_run"}
+[2025-11-09 10:43:43.578] [info] Idle: SimRun command received, creating world and starting simulation
+[2025-11-09 10:43:43.578] [info] Idle: Creating new World 28x28
+[2025-11-09 10:43:43.578] [info] Creating World: 28x28 grid with pure-material physics
+[2025-11-09 10:43:43.578] [info] World initialization complete
+[2025-11-09 10:43:43.578] [info] Idle: World created, transitioning to SimRunning (timestep=16ms, max_steps=-1)
+[2025-11-09 10:43:43.578] [info] SimRun: Sending response (43 bytes)
+[2025-11-09 10:43:43.578] [info] Idle: Exiting
+[2025-11-09 10:43:43.578] [info] STATE_TRANSITION: Idle -> SimRunning
+[2025-11-09 10:43:43.578] [info] SimRunning: Entering simulation state
+[2025-11-09 10:43:43.578] [info] SimRunning: Resuming with existing World 28x28
+[2025-11-09 10:43:43.578] [info] SimRunning: Applying default 'sandbox' scenario
+[2025-11-09 10:43:43.578] [info] ConfigurableWorldEventGenerator::setup called - waterColumnEnabled=true
+[2025-11-09 10:43:43.578] [info] Adding dirt quadrant (14x14 cells)
+[2025-11-09 10:43:43.579] [info] World walls handled by implementation (28x28 boundary)
+[2025-11-09 10:43:43.579] [info] Adding water column (5 wide × 20 tall) on left side
+[2025-11-09 10:43:43.579] [info] Setting up boundary walls for World
+[2025-11-09 10:43:43.579] [info] Boundary walls setup complete
+[2025-11-09 10:43:43.579] [info] World setup complete
+[2025-11-09 10:43:43.579] [info] DEBUGGING: World total mass=108348.500 from 784 cells (372 non-empty)
+[2025-11-09 10:43:43.579] [info] DEBUGGING: Total mass after setup = 108348.500
+[2025-11-09 10:43:43.579] [info] ConfigurableWorldEventGenerator::setup called - waterColumnEnabled=true
+[2025-11-09 10:43:43.579] [info] Adding dirt quadrant (14x14 cells)
+[2025-11-09 10:43:43.579] [info] World walls handled by implementation (28x28 boundary)
+[2025-11-09 10:43:43.579] [info] Adding water column (5 wide × 20 tall) on left side
+[2025-11-09 10:43:43.579] [info] Setting up boundary walls for World
+[2025-11-09 10:43:43.579] [info] Boundary walls setup complete
+[2025-11-09 10:43:43.579] [info] World setup complete
+[2025-11-09 10:43:43.579] [info] DEBUGGING: World total mass=108348.500 from 784 cells (372 non-empty)
+[2025-11-09 10:43:43.579] [info] DEBUGGING: Total mass after setup = 108348.500
+[2025-11-09 10:43:43.579] [info] SimRunning: Default scenario 'sandbox' applied
+[2025-11-09 10:43:43.579] [info] SimRunning: Ready to run simulation (stepCount=0)
+[2025-11-09 10:43:43.588] [ui] [info] StartMenu: Server confirmed running, transitioning to SimRunning
+[2025-11-09 10:43:43.588] [ui] [warning] Ui::StateMachine: State StartMenu does not handle event UiUpdateEvent
+[2025-11-09 10:43:43.588] [ui] [info] StartMenu: Server confirmed running, transitioning to SimRunning
+[2025-11-09 10:43:43.588] [ui] [info] StartMenu: Exiting
+[2025-11-09 10:43:43.588] [ui] [info] Ui::StateMachine: StartMenu -> SimRunning
+[2025-11-09 10:43:43.588] [ui] [info] SimRunning: Simulation is running, displaying world updates
+[2025-11-09 10:43:43.588] [ui] [info] ControlPanel: Initialized with core controls
+[2025-11-09 10:43:43.588] [ui] [info] SimRunning: Created control panel
+[2025-11-09 10:43:43.588] [ui] [info] SimRunning: Got simulation container for rendering
+[2025-11-09 10:43:43.598] [ui] [info] ControlPanel: Scenario changed to 'sandbox'
+[2025-11-09 10:43:43.598] [ui] [info] CellRenderer: Resizing from 0x0 to 28x28
+[2025-11-09 10:43:43.598] [ui] [info] CellRenderer: Initializing for 28x28 world
+[2025-11-09 10:43:43.600] [ui] [info] CellRenderer: Initialized 784 cell canvases
+[2025-11-09 10:43:43.671] [info] SimRunning: Actual FPS: 669.8 (step 60)
+[2025-11-09 10:43:43.671] [info]   Physics: 0.2ms avg (60 calls, 10.8ms total)
+[2025-11-09 10:43:43.671] [info]   Cache update: 0.0ms avg (60 calls, 0.5ms total)
+[2025-11-09 10:43:43.671] [info]   zpp_bits pack: 0.23ms avg (60 calls, 13.6ms total)
+[2025-11-09 10:43:43.671] [info]   Network send: 0.04ms avg (60 calls, 2.5ms total)
+[2025-11-09 10:43:43.671] [info]   state_get immediate (total): 0.00ms avg (0 calls, -1.0ms total)
+[2025-11-09 10:43:43.762] [info] SimRunning: Actual FPS: 657.0 (step 120)
+[2025-11-09 10:43:43.762] [info]   Physics: 0.2ms avg (120 calls, 21.9ms total)
+[2025-11-09 10:43:43.762] [info]   Cache update: 0.0ms avg (120 calls, 0.9ms total)
+[2025-11-09 10:43:43.762] [info]   zpp_bits pack: 0.22ms avg (120 calls, 26.7ms total)
+[2025-11-09 10:43:43.762] [info]   Network send: 0.04ms avg (120 calls, 5.0ms total)
+[2025-11-09 10:43:43.762] [info]   state_get immediate (total): 0.00ms avg (0 calls, -1.0ms total)
+[2025-11-09 10:43:43.855] [info] SimRunning: Actual FPS: 670.7 (step 180)
+[2025-11-09 10:43:43.855] [info]   Physics: 0.2ms avg (180 calls, 33.6ms total)
+[2025-11-09 10:43:43.855] [info]   Cache update: 0.0ms avg (180 calls, 1.4ms total)
+[2025-11-09 10:43:43.855] [info]   zpp_bits pack: 0.22ms avg (180 calls, 39.8ms total)
+[2025-11-09 10:43:43.855] [info]   Network send: 0.04ms avg (180 calls, 7.5ms total)
+[2025-11-09 10:43:43.855] [info]   state_get immediate (total): 0.00ms avg (0 calls, -1.0ms total)
+[2025-11-09 10:43:43.915] [ui] [info] UI Performance Stats (after 20 updates):
+[2025-11-09 10:43:43.915] [ui] [info]   Message parse: 0.0ms avg (1 calls, 0.0ms total)
+[2025-11-09 10:43:43.915] [ui] [info]   World render: 4.3ms avg (19 calls, 80.9ms total)
+[2025-11-09 10:43:43.945] [info] SimRunning: Actual FPS: 661.8 (step 240)
+[2025-11-09 10:43:43.945] [info]   Physics: 0.2ms avg (240 calls, 44.6ms total)
+[2025-11-09 10:43:43.945] [info]   Cache update: 0.0ms avg (240 calls, 1.8ms total)
+[2025-11-09 10:43:43.945] [info]   zpp_bits pack: 0.22ms avg (240 calls, 52.6ms total)
+[2025-11-09 10:43:43.945] [info]   Network send: 0.04ms avg (240 calls, 9.8ms total)
+[2025-11-09 10:43:43.945] [info]   state_get immediate (total): 0.00ms avg (0 calls, -1.0ms total)
+[2025-11-09 10:43:44.037] [info] SimRunning: Actual FPS: 672.5 (step 300)
+[2025-11-09 10:43:44.037] [info]   Physics: 0.2ms avg (300 calls, 56.0ms total)
+[2025-11-09 10:43:44.037] [info]   Cache update: 0.0ms avg (300 calls, 2.3ms total)
+[2025-11-09 10:43:44.037] [info]   zpp_bits pack: 0.22ms avg (300 calls, 65.5ms total)
+[2025-11-09 10:43:44.037] [info]   Network send: 0.04ms avg (300 calls, 12.2ms total)
+[2025-11-09 10:43:44.037] [info]   state_get immediate (total): 0.00ms avg (0 calls, -1.0ms total)
+[2025-11-09 10:43:44.129] [info] SimRunning: Actual FPS: 659.2 (step 360)
+[2025-11-09 10:43:44.129] [info]   Physics: 0.2ms avg (360 calls, 67.4ms total)
+[2025-11-09 10:43:44.129] [info]   Cache update: 0.0ms avg (360 calls, 2.8ms total)
+[2025-11-09 10:43:44.129] [info]   zpp_bits pack: 0.22ms avg (360 calls, 78.6ms total)
+[2025-11-09 10:43:44.129] [info]   Network send: 0.04ms avg (360 calls, 14.8ms total)
+[2025-11-09 10:43:44.129] [info]   state_get immediate (total): 0.00ms avg (0 calls, -1.0ms total)
+[2025-11-09 10:43:44.220] [info] SimRunning: Actual FPS: 649.8 (step 420)
+[2025-11-09 10:43:44.220] [info]   Physics: 0.2ms avg (420 calls, 79.2ms total)
+[2025-11-09 10:43:44.220] [info]   Cache update: 0.0ms avg (420 calls, 3.2ms total)
+[2025-11-09 10:43:44.220] [info]   zpp_bits pack: 0.22ms avg (420 calls, 91.5ms total)
+[2025-11-09 10:43:44.220] [info]   Network send: 0.04ms avg (420 calls, 17.1ms total)
+[2025-11-09 10:43:44.220] [info]   state_get immediate (total): 0.00ms avg (0 calls, -1.0ms total)
+[2025-11-09 10:43:44.252] [ui] [info] UI Performance Stats (after 40 updates):
+[2025-11-09 10:43:44.252] [ui] [info]   Message parse: 0.0ms avg (1 calls, 0.0ms total)
+[2025-11-09 10:43:44.252] [ui] [info]   World render: 4.2ms avg (39 calls, 164.2ms total)
+[2025-11-09 10:43:44.312] [info] SimRunning: Actual FPS: 654.5 (step 480)
+[2025-11-09 10:43:44.312] [info]   Physics: 0.2ms avg (480 calls, 90.8ms total)
+[2025-11-09 10:43:44.312] [info]   Cache update: 0.0ms avg (480 calls, 3.6ms total)
+[2025-11-09 10:43:44.312] [info]   zpp_bits pack: 0.22ms avg (480 calls, 104.6ms total)
+[2025-11-09 10:43:44.312] [info]   Network send: 0.04ms avg (480 calls, 19.7ms total)
+[2025-11-09 10:43:44.312] [info]   state_get immediate (total): 0.00ms avg (0 calls, -1.0ms total)
+[2025-11-09 10:43:44.405] [info] SimRunning: Actual FPS: 653.6 (step 540)
+[2025-11-09 10:43:44.405] [info]   Physics: 0.2ms avg (540 calls, 102.7ms total)
+[2025-11-09 10:43:44.405] [info]   Cache update: 0.0ms avg (540 calls, 4.1ms total)
+[2025-11-09 10:43:44.405] [info]   zpp_bits pack: 0.22ms avg (540 calls, 117.6ms total)
+[2025-11-09 10:43:44.405] [info]   Network send: 0.04ms avg (540 calls, 22.2ms total)
+[2025-11-09 10:43:44.405] [info]   state_get immediate (total): 0.00ms avg (0 calls, -1.0ms total)
+[2025-11-09 10:43:44.496] [info] SimRunning: Actual FPS: 662.3 (step 600)
+[2025-11-09 10:43:44.496] [info]   Physics: 0.2ms avg (600 calls, 114.2ms total)
+[2025-11-09 10:43:44.496] [info]   Cache update: 0.0ms avg (600 calls, 4.5ms total)
+[2025-11-09 10:43:44.496] [info]   zpp_bits pack: 0.22ms avg (600 calls, 130.4ms total)
+[2025-11-09 10:43:44.496] [info]   Network send: 0.04ms avg (600 calls, 24.5ms total)
+[2025-11-09 10:43:44.496] [info]   state_get immediate (total): 0.00ms avg (0 calls, -1.0ms total)
+[2025-11-09 10:43:44.588] [info] SimRunning: Actual FPS: 649.4 (step 660)
+[2025-11-09 10:43:44.588] [info]   Physics: 0.2ms avg (660 calls, 126.4ms total)
+[2025-11-09 10:43:44.588] [info]   Cache update: 0.0ms avg (660 calls, 5.0ms total)
+[2025-11-09 10:43:44.588] [info]   zpp_bits pack: 0.22ms avg (660 calls, 143.5ms total)
+[2025-11-09 10:43:44.588] [info]   Network send: 0.04ms avg (660 calls, 27.0ms total)
+[2025-11-09 10:43:44.588] [info]   state_get immediate (total): 0.00ms avg (0 calls, -1.0ms total)
+[2025-11-09 10:43:44.589] [ui] [info] UI Performance Stats (after 60 updates):
+[2025-11-09 10:43:44.589] [ui] [info]   Message parse: 0.0ms avg (1 calls, 0.0ms total)
+[2025-11-09 10:43:44.589] [ui] [info]   World render: 4.2ms avg (59 calls, 248.1ms total)
+[2025-11-09 10:43:44.682] [info] SimRunning: Actual FPS: 647.2 (step 720)
+[2025-11-09 10:43:44.682] [info]   Physics: 0.2ms avg (720 calls, 138.9ms total)
+[2025-11-09 10:43:44.682] [info]   Cache update: 0.0ms avg (720 calls, 5.5ms total)
+[2025-11-09 10:43:44.682] [info]   zpp_bits pack: 0.22ms avg (720 calls, 156.8ms total)
+[2025-11-09 10:43:44.682] [info]   Network send: 0.04ms avg (720 calls, 29.6ms total)
+[2025-11-09 10:43:44.682] [info]   state_get immediate (total): 0.00ms avg (0 calls, -1.0ms total)
+[2025-11-09 10:43:44.775] [info] SimRunning: Actual FPS: 623.8 (step 780)
+[2025-11-09 10:43:44.775] [info]   Physics: 0.2ms avg (780 calls, 151.1ms total)
+[2025-11-09 10:43:44.775] [info]   Cache update: 0.0ms avg (780 calls, 6.0ms total)
+[2025-11-09 10:43:44.775] [info]   zpp_bits pack: 0.22ms avg (780 calls, 169.9ms total)
+[2025-11-09 10:43:44.775] [info]   Network send: 0.04ms avg (780 calls, 32.2ms total)
+[2025-11-09 10:43:44.775] [info]   state_get immediate (total): 0.00ms avg (0 calls, -1.0ms total)
+[2025-11-09 10:43:44.824] [ui] [info] ControlPanel: Drop Dirt Ball button clicked
+[2025-11-09 10:43:44.824] [ui] [info] ControlPanel: Sending spawn_dirt_ball command
+[2025-11-09 10:43:44.824] [info] WebSocket received command: {"command":"spawn_dirt_ball"}
+[2025-11-09 10:43:44.825] [info] SpawnDirtBall: Spawning dirt ball at (14, 2)
+[2025-11-09 10:43:44.825] [info] SpawnDirtBall: Sending response (12 bytes)
+[2025-11-09 10:43:44.869] [info] SimRunning: Actual FPS: 643.5 (step 840)
+[2025-11-09 10:43:44.869] [info]   Physics: 0.2ms avg (840 calls, 163.7ms total)
+[2025-11-09 10:43:44.869] [info]   Cache update: 0.0ms avg (840 calls, 6.5ms total)
+[2025-11-09 10:43:44.869] [info]   zpp_bits pack: 0.22ms avg (840 calls, 183.1ms total)
+[2025-11-09 10:43:44.869] [info]   Network send: 0.04ms avg (840 calls, 34.9ms total)
+[2025-11-09 10:43:44.869] [info]   state_get immediate (total): 0.00ms avg (0 calls, -1.0ms total)
+[2025-11-09 10:43:44.933] [ui] [info] UI Performance Stats (after 80 updates):
+[2025-11-09 10:43:44.933] [ui] [info]   Message parse: 0.0ms avg (2 calls, 0.1ms total)
+[2025-11-09 10:43:44.933] [ui] [info]   World render: 4.2ms avg (79 calls, 333.1ms total)
+[2025-11-09 10:43:44.963] [info] SimRunning: Actual FPS: 649.4 (step 900)
+[2025-11-09 10:43:44.963] [info]   Physics: 0.2ms avg (900 calls, 176.8ms total)
+[2025-11-09 10:43:44.963] [info]   Cache update: 0.0ms avg (900 calls, 6.9ms total)
+[2025-11-09 10:43:44.963] [info]   zpp_bits pack: 0.22ms avg (900 calls, 196.4ms total)
+[2025-11-09 10:43:44.963] [info]   Network send: 0.04ms avg (900 calls, 37.4ms total)
+[2025-11-09 10:43:44.963] [info]   state_get immediate (total): 0.00ms avg (0 calls, -1.0ms total)
+[2025-11-09 10:43:45.055] [info] SimRunning: Actual FPS: 646.0 (step 960)
+[2025-11-09 10:43:45.055] [info]   Physics: 0.2ms avg (960 calls, 189.4ms total)
+[2025-11-09 10:43:45.055] [info]   Cache update: 0.0ms avg (960 calls, 7.4ms total)
+[2025-11-09 10:43:45.055] [info]   zpp_bits pack: 0.22ms avg (960 calls, 209.4ms total)
+[2025-11-09 10:43:45.055] [info]   Network send: 0.04ms avg (960 calls, 39.7ms total)
+[2025-11-09 10:43:45.055] [info]   state_get immediate (total): 0.00ms avg (0 calls, -1.0ms total)
+[2025-11-09 10:43:45.149] [info] SimRunning: Actual FPS: 643.9 (step 1020)
+[2025-11-09 10:43:45.149] [info]   Physics: 0.2ms avg (1020 calls, 202.3ms total)
+[2025-11-09 10:43:45.149] [info]   Cache update: 0.0ms avg (1020 calls, 7.8ms total)
+[2025-11-09 10:43:45.149] [info]   zpp_bits pack: 0.22ms avg (1020 calls, 222.3ms total)
+[2025-11-09 10:43:45.149] [info]   Network send: 0.04ms avg (1020 calls, 42.3ms total)
+[2025-11-09 10:43:45.149] [info]   state_get immediate (total): 0.00ms avg (0 calls, -1.0ms total)
+[2025-11-09 10:43:45.242] [info] SimRunning: Actual FPS: 643.9 (step 1080)
+[2025-11-09 10:43:45.242] [info]   Physics: 0.2ms avg (1080 calls, 215.0ms total)
+[2025-11-09 10:43:45.242] [info]   Cache update: 0.0ms avg (1080 calls, 8.3ms total)
+[2025-11-09 10:43:45.242] [info]   zpp_bits pack: 0.22ms avg (1080 calls, 235.3ms total)
+[2025-11-09 10:43:45.242] [info]   Network send: 0.04ms avg (1080 calls, 44.8ms total)
+[2025-11-09 10:43:45.242] [info]   state_get immediate (total): 0.00ms avg (0 calls, -1.0ms total)
+[2025-11-09 10:43:45.274] [ui] [info] UI Performance Stats (after 100 updates):
+[2025-11-09 10:43:45.274] [ui] [info]   Message parse: 0.0ms avg (2 calls, 0.1ms total)
+[2025-11-09 10:43:45.274] [ui] [info]   World render: 4.2ms avg (99 calls, 419.7ms total)
+[2025-11-09 10:43:45.335] [info] SimRunning: Actual FPS: 648.9 (step 1140)
+[2025-11-09 10:43:45.335] [info]   Physics: 0.2ms avg (1140 calls, 227.3ms total)
+[2025-11-09 10:43:45.335] [info]   Cache update: 0.0ms avg (1140 calls, 8.8ms total)
+[2025-11-09 10:43:45.335] [info]   zpp_bits pack: 0.22ms avg (1140 calls, 248.5ms total)
+[2025-11-09 10:43:45.335] [info]   Network send: 0.04ms avg (1140 calls, 47.4ms total)
+[2025-11-09 10:43:45.335] [info]   state_get immediate (total): 0.00ms avg (0 calls, -1.0ms total)
+[2025-11-09 10:43:45.428] [info] SimRunning: Actual FPS: 639.8 (step 1200)
+[2025-11-09 10:43:45.428] [info]   Physics: 0.2ms avg (1200 calls, 239.6ms total)
+[2025-11-09 10:43:45.428] [info]   Cache update: 0.0ms avg (1200 calls, 9.3ms total)
+[2025-11-09 10:43:45.428] [info]   zpp_bits pack: 0.22ms avg (1200 calls, 261.5ms total)
+[2025-11-09 10:43:45.428] [info]   Network send: 0.04ms avg (1200 calls, 49.9ms total)
+[2025-11-09 10:43:45.428] [info]   state_get immediate (total): 0.00ms avg (0 calls, -1.0ms total)
+[2025-11-09 10:43:45.522] [info] SimRunning: Actual FPS: 635.3 (step 1260)
+[2025-11-09 10:43:45.522] [info]   Physics: 0.2ms avg (1260 calls, 252.4ms total)
+[2025-11-09 10:43:45.522] [info]   Cache update: 0.0ms avg (1260 calls, 9.8ms total)
+[2025-11-09 10:43:45.522] [info]   zpp_bits pack: 0.22ms avg (1260 calls, 274.9ms total)
+[2025-11-09 10:43:45.522] [info]   Network send: 0.04ms avg (1260 calls, 52.5ms total)
+[2025-11-09 10:43:45.522] [info]   state_get immediate (total): 0.00ms avg (0 calls, -1.0ms total)
+[2025-11-09 10:43:45.616] [info] SimRunning: Actual FPS: 641.4 (step 1320)
+[2025-11-09 10:43:45.616] [info]   Physics: 0.2ms avg (1320 calls, 266.0ms total)
+[2025-11-09 10:43:45.616] [info]   Cache update: 0.0ms avg (1320 calls, 10.2ms total)
+[2025-11-09 10:43:45.616] [info]   zpp_bits pack: 0.22ms avg (1320 calls, 288.1ms total)
+[2025-11-09 10:43:45.616] [info]   Network send: 0.04ms avg (1320 calls, 54.9ms total)
+[2025-11-09 10:43:45.616] [info]   state_get immediate (total): 0.00ms avg (0 calls, -1.0ms total)
+[2025-11-09 10:43:45.616] [ui] [info] UI Performance Stats (after 120 updates):
+[2025-11-09 10:43:45.616] [ui] [info]   Message parse: 0.0ms avg (2 calls, 0.1ms total)
+[2025-11-09 10:43:45.616] [ui] [info]   World render: 4.3ms avg (119 calls, 507.0ms total)
+[2025-11-09 10:43:45.710] [info] SimRunning: Actual FPS: 641.0 (step 1380)
+[2025-11-09 10:43:45.710] [info]   Physics: 0.2ms avg (1380 calls, 280.1ms total)
+[2025-11-09 10:43:45.710] [info]   Cache update: 0.0ms avg (1380 calls, 10.6ms total)
+[2025-11-09 10:43:45.710] [info]   zpp_bits pack: 0.22ms avg (1380 calls, 301.6ms total)
+[2025-11-09 10:43:45.710] [info]   Network send: 0.04ms avg (1380 calls, 56.9ms total)
+[2025-11-09 10:43:45.710] [info]   state_get immediate (total): 0.00ms avg (0 calls, -1.0ms total)
+[2025-11-09 10:43:45.804] [info] SimRunning: Actual FPS: 637.3 (step 1440)
+[2025-11-09 10:43:45.804] [info]   Physics: 0.2ms avg (1440 calls, 294.6ms total)
+[2025-11-09 10:43:45.804] [info]   Cache update: 0.0ms avg (1440 calls, 11.0ms total)
+[2025-11-09 10:43:45.804] [info]   zpp_bits pack: 0.22ms avg (1440 calls, 315.2ms total)
+[2025-11-09 10:43:45.804] [info]   Network send: 0.04ms avg (1440 calls, 58.7ms total)
+[2025-11-09 10:43:45.804] [info]   state_get immediate (total): 0.00ms avg (0 calls, -1.0ms total)
+[2025-11-09 10:43:45.899] [info] SimRunning: Actual FPS: 634.5 (step 1500)
+[2025-11-09 10:43:45.899] [info]   Physics: 0.2ms avg (1500 calls, 309.7ms total)
+[2025-11-09 10:43:45.899] [info]   Cache update: 0.0ms avg (1500 calls, 11.4ms total)
+[2025-11-09 10:43:45.899] [info]   zpp_bits pack: 0.22ms avg (1500 calls, 328.6ms total)
+[2025-11-09 10:43:45.899] [info]   Network send: 0.04ms avg (1500 calls, 60.6ms total)
+[2025-11-09 10:43:45.899] [info]   state_get immediate (total): 0.00ms avg (0 calls, -1.0ms total)
+[2025-11-09 10:43:45.961] [ui] [info] UI Performance Stats (after 140 updates):
+[2025-11-09 10:43:45.961] [ui] [info]   Message parse: 0.0ms avg (2 calls, 0.1ms total)
+[2025-11-09 10:43:45.961] [ui] [info]   World render: 4.3ms avg (139 calls, 594.9ms total)
+[2025-11-09 10:43:45.994] [info] SimRunning: Actual FPS: 626.6 (step 1560)
+[2025-11-09 10:43:45.994] [info]   Physics: 0.2ms avg (1560 calls, 325.5ms total)
+[2025-11-09 10:43:45.994] [info]   Cache update: 0.0ms avg (1560 calls, 11.8ms total)
+[2025-11-09 10:43:45.994] [info]   zpp_bits pack: 0.22ms avg (1560 calls, 341.7ms total)
+[2025-11-09 10:43:45.994] [info]   Network send: 0.04ms avg (1560 calls, 62.8ms total)
+[2025-11-09 10:43:45.994] [info]   state_get immediate (total): 0.00ms avg (0 calls, -1.0ms total)
+[2025-11-09 10:43:46.090] [info] SimRunning: Actual FPS: 624.6 (step 1620)
+[2025-11-09 10:43:46.090] [info]   Physics: 0.2ms avg (1620 calls, 341.8ms total)
+[2025-11-09 10:43:46.090] [info]   Cache update: 0.0ms avg (1620 calls, 12.2ms total)
+[2025-11-09 10:43:46.090] [info]   zpp_bits pack: 0.22ms avg (1620 calls, 354.8ms total)
+[2025-11-09 10:43:46.090] [info]   Network send: 0.04ms avg (1620 calls, 65.1ms total)
+[2025-11-09 10:43:46.090] [info]   state_get immediate (total): 0.00ms avg (0 calls, -1.0ms total)
+[2025-11-09 10:43:46.187] [info] SimRunning: Actual FPS: 612.0 (step 1680)
+[2025-11-09 10:43:46.187] [info]   Physics: 0.2ms avg (1680 calls, 358.3ms total)
+[2025-11-09 10:43:46.187] [info]   Cache update: 0.0ms avg (1680 calls, 12.7ms total)
+[2025-11-09 10:43:46.187] [info]   zpp_bits pack: 0.22ms avg (1680 calls, 368.0ms total)
+[2025-11-09 10:43:46.187] [info]   Network send: 0.04ms avg (1680 calls, 67.5ms total)
+[2025-11-09 10:43:46.187] [info]   state_get immediate (total): 0.00ms avg (0 calls, -1.0ms total)
+[2025-11-09 10:43:46.286] [info] SimRunning: Actual FPS: 623.1 (step 1740)
+[2025-11-09 10:43:46.286] [info]   Physics: 0.2ms avg (1740 calls, 376.0ms total)
+[2025-11-09 10:43:46.286] [info]   Cache update: 0.0ms avg (1740 calls, 13.2ms total)
+[2025-11-09 10:43:46.286] [info]   zpp_bits pack: 0.22ms avg (1740 calls, 381.5ms total)
+[2025-11-09 10:43:46.286] [info]   Network send: 0.04ms avg (1740 calls, 69.9ms total)
+[2025-11-09 10:43:46.286] [info]   state_get immediate (total): 0.00ms avg (0 calls, -1.0ms total)
+[2025-11-09 10:43:46.290] [ui] [info] UI Performance Stats (after 160 updates):
+[2025-11-09 10:43:46.290] [ui] [info]   Message parse: 0.0ms avg (2 calls, 0.1ms total)
+[2025-11-09 10:43:46.290] [ui] [info]   World render: 4.3ms avg (159 calls, 683.2ms total)
+[2025-11-09 10:43:46.382] [info] SimRunning: Actual FPS: 620.7 (step 1800)
+[2025-11-09 10:43:46.382] [info]   Physics: 0.2ms avg (1800 calls, 392.7ms total)
+[2025-11-09 10:43:46.382] [info]   Cache update: 0.0ms avg (1800 calls, 13.6ms total)
+[2025-11-09 10:43:46.382] [info]   zpp_bits pack: 0.22ms avg (1800 calls, 394.6ms total)
+[2025-11-09 10:43:46.382] [info]   Network send: 0.04ms avg (1800 calls, 72.1ms total)
+[2025-11-09 10:43:46.382] [info]   state_get immediate (total): 0.00ms avg (0 calls, -1.0ms total)
+[2025-11-09 10:43:46.479] [info] SimRunning: Actual FPS: 619.2 (step 1860)
+[2025-11-09 10:43:46.479] [info]   Physics: 0.2ms avg (1860 calls, 409.6ms total)
+[2025-11-09 10:43:46.479] [info]   Cache update: 0.0ms avg (1860 calls, 14.0ms total)
+[2025-11-09 10:43:46.479] [info]   zpp_bits pack: 0.22ms avg (1860 calls, 407.8ms total)
+[2025-11-09 10:43:46.479] [info]   Network send: 0.04ms avg (1860 calls, 74.4ms total)
+[2025-11-09 10:43:46.479] [info]   state_get immediate (total): 0.00ms avg (0 calls, -1.0ms total)
+[2025-11-09 10:43:46.568] [ui] [info] ControlPanel: Quit button clicked
+[2025-11-09 10:43:46.568] [info] WebSocket received command: {"command":"exit"}
+[2025-11-09 10:43:46.570] [info] SimRunning: Exit command received, shutting down
+[2025-11-09 10:43:46.570] [info] Exit: Sending response (12 bytes)
+[2025-11-09 10:43:46.570] [info] SimRunning: Exiting state
+[2025-11-09 10:43:46.570] [info] Destroying World: 28x28 grid
+
+Timer Statistics:
+----------------
+Total Simulation Time: 2991.5ms (2991.5ms avg per call, 1 calls)
+Physics Update Time: 424.816ms (14.2008% of total, 0.221605ms avg per call, 1917 calls)
+Drawing Time: -1ms (-0.0334281% of total, 0ms avg per call, 0 calls)
+Particle Addition Time: 0.05ms (0.0016714% of total, 2.60824e-05ms avg per call, 1917 calls)
+Drag Processing Time: -1ms (-0.0334281% of total, 0ms avg per call, 0 calls)
+
+Physics Subsystems:
+-------------------
+  resolve_forces_total: 216.341ms (50.9258% of physics, 0.112854ms avg, 1917 calls)
+  compute_support_map: 26.224ms (6.17303% of physics, 0.0136797ms avg, 1917 calls)
+  apply_gravity: 11.508ms (2.70894% of physics, 0.00600313ms avg, 1917 calls)
+  apply_air_resistance: 36.706ms (8.64045% of physics, 0.0191476ms avg, 1917 calls)
+  velocity_limiting: 9.669ms (2.27604% of physics, 0.00504382ms avg, 1917 calls)
+  update_transfers: 137.079ms (32.2679% of physics, 0.071507ms avg, 1917 calls)
+  process_moves_total: 19.187ms (4.51654% of physics, 0.0100089ms avg, 1917 calls)
+  pressure_decay: 6.491ms (1.52796% of physics, 0.00338602ms avg, 1917 calls)
+----------------
+[2025-11-09 10:43:46.570] [info] STATE_TRANSITION: SimRunning -> Shutdown
+[2025-11-09 10:43:46.570] [info] Shutdown: Performing cleanup
+[2025-11-09 10:43:46.570] [info] Shutdown: Setting shouldExit flag to true
+[2025-11-09 10:43:46.570] [info] Shutdown: Cleanup complete, shouldExit=true
+[2025-11-09 10:43:46.571] [info] State machine event loop exiting (shouldExit=true)
+[2025-11-09 10:43:46.571] [info] Main event loop exiting
+[2025-11-09 10:43:46.571] [info] WebSocketServer stopped
+[2025-11-09 10:43:46.571] [info] Server shut down cleanly
+[2025-11-09 10:43:46.571] [info] Server::StateMachine shutting down from state: Shutdown
+[2025-11-09 10:43:46.571] [ui] [info] SimRunning: Exit command received, shutting down
+[2025-11-09 10:43:46.572] [ui] [info] SimRunning: Exiting
+[2025-11-09 10:43:46.572] [ui] [info] ControlPanel: Destroyed
+[2025-11-09 10:43:46.572] [ui] [info] UI WebSocketClient: Connection closed
+[2025-11-09 10:43:46.572] [ui] [warning] Disconnected: DSSM connection lost
+[2025-11-09 10:43:46.578] [ui] [info] Ui::StateMachine: SimRunning -> Shutdown
+[2025-11-09 10:43:46.578] [ui] [info] Shutdown: Performing cleanup
+[2025-11-09 10:43:46.578] [ui] [info] Shutdown: Setting shouldExit flag to true
+[2025-11-09 10:43:46.578] [ui] [info] Shutdown: Cleanup complete, shouldExit=true
+[2025-11-09 10:43:46.578] [ui] [warning] Ui::StateMachine: State Shutdown does not handle event ServerDisconnectedEvent
+[2025-11-09 10:43:46.578] [ui] [info] Backend run loop exited
+[2025-11-09 10:43:46.578] [ui] [info] Application shutting down cleanly
+[2025-11-09 10:43:46.578] [ui] [info] Ui::StateMachine shutting down from state: Shutdown
+[2025-11-09 10:43:46.579] [ui] [info] UI WebSocketServer stopped
+[2025-11-09 10:43:46.579] [ui] [info] UiComponentManager cleanup started
+[2025-11-09 10:43:46.579] [ui] [info] UiComponentManager cleanup completed
+
+UI exited, shutting down server...
+[2025-11-09 10:43:46.584] [error] WebSocketClient error: TCP connection failed

@@ -1,4 +1,5 @@
 #include "PhysicsControls.h"
+#include "server/api/PhysicsSettingsSet.h"
 #include "ui/state-machine/network/WebSocketClient.h"
 #include "ui/ui_builders/LVGLBuilder.h"
 #include <nlohmann/json.hpp>
@@ -30,12 +31,12 @@ PhysicsControls::PhysicsControls(lv_obj_t* container, WebSocketClient* wsClient)
 
     timescaleControl_ = LVGLBuilder::toggleSlider(column1_)
                             .label("Timescale")
-                            .range(0, 200)
+                            .range(0, 500)
                             .value(100)
                             .defaultValue(100)
                             .valueScale(0.01)
                             .valueFormat("%.2fx")
-                            .initiallyEnabled(false)
+                            .initiallyEnabled(true)
                             .sliderWidth(180)
                             .onToggle(onTimescaleToggled, this)
                             .onSliderChange(onTimescaleChanged, this)
@@ -43,12 +44,12 @@ PhysicsControls::PhysicsControls(lv_obj_t* container, WebSocketClient* wsClient)
 
     gravityControl_ = LVGLBuilder::toggleSlider(column1_)
                           .label("Gravity")
-                          .range(0, 200)
+                          .range(-200, 200)
                           .value(50)
                           .defaultValue(50)
                           .valueScale(0.01)
                           .valueFormat("%.2f")
-                          .initiallyEnabled(false)
+                          .initiallyEnabled(true)
                           .sliderWidth(180)
                           .onToggle(onGravityToggled, this)
                           .onSliderChange(onGravityChanged, this)
@@ -197,27 +198,15 @@ PhysicsControls::PhysicsControls(lv_obj_t* container, WebSocketClient* wsClient)
                            .onSliderChange(onFrictionChanged, this)
                            .buildOrLog();
 
+    // Fetch initial settings from server.
+    fetchSettings();
+
     spdlog::info("PhysicsControls: Initialized");
 }
 
 PhysicsControls::~PhysicsControls()
 {
     spdlog::info("PhysicsControls: Destroyed");
-}
-
-void PhysicsControls::sendPhysicsCommand(const char* commandName, double value)
-{
-    if (!wsClient_ || !wsClient_->isConnected()) {
-        spdlog::warn("PhysicsControls: Cannot send command '{}' - not connected", commandName);
-        return;
-    }
-
-    nlohmann::json cmd;
-    cmd["command"] = commandName;
-    cmd["value"] = value;
-
-    spdlog::debug("PhysicsControls: Sending {} = {:.2f}", commandName, value);
-    wsClient_->send(cmd.dump());
 }
 
 // Column 1: General Physics event handlers.
@@ -229,6 +218,29 @@ void PhysicsControls::onTimescaleToggled(lv_event_t* e)
 
     bool enabled = lv_obj_has_state(target, LV_STATE_CHECKED);
     spdlog::info("PhysicsControls: Timescale toggled to {}", enabled ? "ON" : "OFF");
+
+    if (!enabled) {
+        // When disabled, set timescale to 0 to pause simulation time.
+        self->settings_.timescale = 0.0;
+        self->syncSettings();
+    }
+    else {
+        // When re-enabled, LVGLBuilder has restored the slider value.
+        // Read it from the slider and sync to server.
+        // Note: We need to access the slider widget, which is a sibling of the switch.
+        lv_obj_t* container = lv_obj_get_parent(target);
+        if (container) {
+            // Find the slider child (it's the 3rd child: label, switch, slider, value).
+            lv_obj_t* slider = lv_obj_get_child(container, 2);
+            if (slider) {
+                int value = lv_slider_get_value(slider);
+                double scaledValue = value * 0.01;
+                self->settings_.timescale = scaledValue;
+                self->syncSettings();
+                spdlog::debug("PhysicsControls: Restored timescale to {:.2f}", scaledValue);
+            }
+        }
+    }
 }
 
 void PhysicsControls::onTimescaleChanged(lv_event_t* e)
@@ -239,7 +251,11 @@ void PhysicsControls::onTimescaleChanged(lv_event_t* e)
 
     int value = lv_slider_get_value(target);
     double scaledValue = value * 0.01;
-    self->sendPhysicsCommand("timescale_set", scaledValue);
+
+    spdlog::info("PhysicsControls: Timescale changed to {:.2f}", scaledValue);
+
+    self->settings_.timescale = scaledValue;
+    self->syncSettings();
 }
 
 void PhysicsControls::onGravityToggled(lv_event_t* e)
@@ -250,6 +266,28 @@ void PhysicsControls::onGravityToggled(lv_event_t* e)
 
     bool enabled = lv_obj_has_state(target, LV_STATE_CHECKED);
     spdlog::info("PhysicsControls: Gravity toggled to {}", enabled ? "ON" : "OFF");
+
+    if (!enabled) {
+        // When disabled, set gravity to 0.
+        self->settings_.gravity = 0.0;
+        self->syncSettings();
+    }
+    else {
+        // When re-enabled, LVGLBuilder has restored the slider value.
+        // Read it from the slider and sync to server.
+        lv_obj_t* container = lv_obj_get_parent(target);
+        if (container) {
+            // Find the slider child (it's the 3rd child: label, switch, slider, value).
+            lv_obj_t* slider = lv_obj_get_child(container, 2);
+            if (slider) {
+                int value = lv_slider_get_value(slider);
+                double scaledValue = value * 0.01;
+                self->settings_.gravity = scaledValue;
+                self->syncSettings();
+                spdlog::debug("PhysicsControls: Restored gravity to {:.2f}", scaledValue);
+            }
+        }
+    }
 }
 
 void PhysicsControls::onGravityChanged(lv_event_t* e)
@@ -260,7 +298,9 @@ void PhysicsControls::onGravityChanged(lv_event_t* e)
 
     int value = lv_slider_get_value(target);
     double scaledValue = value * 0.01;
-    self->sendPhysicsCommand("gravity_set", scaledValue);
+    spdlog::info("PhysicsControls: Gravity changed to {:.2f}", scaledValue);
+    self->settings_.gravity = scaledValue;
+    self->syncSettings();
 }
 
 void PhysicsControls::onElasticityToggled(lv_event_t* e)
@@ -281,7 +321,9 @@ void PhysicsControls::onElasticityChanged(lv_event_t* e)
 
     int value = lv_slider_get_value(target);
     double scaledValue = value * 0.01;
-    self->sendPhysicsCommand("elasticity_set", scaledValue);
+    spdlog::info("PhysicsControls: Elasticity changed to {:.2f}", scaledValue);
+    self->settings_.elasticity = scaledValue;
+    self->syncSettings();
 }
 
 void PhysicsControls::onAirResistanceToggled(lv_event_t* e)
@@ -302,7 +344,9 @@ void PhysicsControls::onAirResistanceChanged(lv_event_t* e)
 
     int value = lv_slider_get_value(target);
     double scaledValue = value * 0.01;
-    self->sendPhysicsCommand("air_resistance_set", scaledValue);
+    spdlog::info("PhysicsControls: Air Resistance changed to {:.2f}", scaledValue);
+    self->settings_.air_resistance = scaledValue;
+    self->syncSettings();
 }
 
 // Column 2: Pressure event handlers.
@@ -314,6 +358,25 @@ void PhysicsControls::onHydrostaticPressureToggled(lv_event_t* e)
 
     bool enabled = lv_obj_has_state(target, LV_STATE_CHECKED);
     spdlog::info("PhysicsControls: Hydrostatic Pressure toggled to {}", enabled ? "ON" : "OFF");
+
+    if (!enabled) {
+        self->settings_.pressure_hydrostatic_strength = 0.0;
+        self->syncSettings();
+    }
+    else {
+        lv_obj_t* container = lv_obj_get_parent(target);
+        if (container) {
+            lv_obj_t* slider = lv_obj_get_child(container, 2);
+            if (slider) {
+                int value = lv_slider_get_value(slider);
+                double scaledValue = value * 0.01;
+                self->settings_.pressure_hydrostatic_strength = scaledValue;
+                self->syncSettings();
+                spdlog::debug(
+                    "PhysicsControls: Restored hydrostatic pressure to {:.2f}", scaledValue);
+            }
+        }
+    }
 }
 
 void PhysicsControls::onHydrostaticPressureChanged(lv_event_t* e)
@@ -324,7 +387,9 @@ void PhysicsControls::onHydrostaticPressureChanged(lv_event_t* e)
 
     int value = lv_slider_get_value(target);
     double scaledValue = value * 0.01;
-    self->sendPhysicsCommand("hydrostatic_pressure_set", scaledValue);
+    spdlog::info("PhysicsControls: Hydrostatic Pressure changed to {:.2f}", scaledValue);
+    self->settings_.pressure_hydrostatic_strength = scaledValue;
+    self->syncSettings();
 }
 
 void PhysicsControls::onDynamicPressureToggled(lv_event_t* e)
@@ -335,6 +400,24 @@ void PhysicsControls::onDynamicPressureToggled(lv_event_t* e)
 
     bool enabled = lv_obj_has_state(target, LV_STATE_CHECKED);
     spdlog::info("PhysicsControls: Dynamic Pressure toggled to {}", enabled ? "ON" : "OFF");
+
+    if (!enabled) {
+        self->settings_.pressure_dynamic_strength = 0.0;
+        self->syncSettings();
+    }
+    else {
+        lv_obj_t* container = lv_obj_get_parent(target);
+        if (container) {
+            lv_obj_t* slider = lv_obj_get_child(container, 2);
+            if (slider) {
+                int value = lv_slider_get_value(slider);
+                double scaledValue = value * 0.01;
+                self->settings_.pressure_dynamic_strength = scaledValue;
+                self->syncSettings();
+                spdlog::debug("PhysicsControls: Restored dynamic pressure to {:.2f}", scaledValue);
+            }
+        }
+    }
 }
 
 void PhysicsControls::onDynamicPressureChanged(lv_event_t* e)
@@ -345,7 +428,9 @@ void PhysicsControls::onDynamicPressureChanged(lv_event_t* e)
 
     int value = lv_slider_get_value(target);
     double scaledValue = value * 0.01;
-    self->sendPhysicsCommand("dynamic_pressure_set", scaledValue);
+    spdlog::info("PhysicsControls: Dynamic Pressure changed to {:.2f}", scaledValue);
+    self->settings_.pressure_dynamic_strength = scaledValue;
+    self->syncSettings();
 }
 
 void PhysicsControls::onPressureDiffusionToggled(lv_event_t* e)
@@ -356,6 +441,25 @@ void PhysicsControls::onPressureDiffusionToggled(lv_event_t* e)
 
     bool enabled = lv_obj_has_state(target, LV_STATE_CHECKED);
     spdlog::info("PhysicsControls: Pressure Diffusion toggled to {}", enabled ? "ON" : "OFF");
+
+    if (!enabled) {
+        self->settings_.pressure_diffusion_strength = 0.0;
+        self->syncSettings();
+    }
+    else {
+        lv_obj_t* container = lv_obj_get_parent(target);
+        if (container) {
+            lv_obj_t* slider = lv_obj_get_child(container, 2);
+            if (slider) {
+                int value = lv_slider_get_value(slider);
+                double scaledValue = value * 0.01;
+                self->settings_.pressure_diffusion_strength = scaledValue;
+                self->syncSettings();
+                spdlog::debug(
+                    "PhysicsControls: Restored pressure diffusion to {:.2f}", scaledValue);
+            }
+        }
+    }
 }
 
 void PhysicsControls::onPressureDiffusionChanged(lv_event_t* e)
@@ -366,7 +470,9 @@ void PhysicsControls::onPressureDiffusionChanged(lv_event_t* e)
 
     int value = lv_slider_get_value(target);
     double scaledValue = value * 0.01;
-    self->sendPhysicsCommand("pressure_diffusion_set", scaledValue);
+    spdlog::info("PhysicsControls: Pressure Diffusion changed to {:.2f}", scaledValue);
+    self->settings_.pressure_diffusion_strength = scaledValue;
+    self->syncSettings();
 }
 
 // Column 3: Forces event handlers.
@@ -388,7 +494,9 @@ void PhysicsControls::onCohesionForceChanged(lv_event_t* e)
 
     int value = lv_slider_get_value(target);
     double scaledValue = value * 0.01;
-    self->sendPhysicsCommand("cohesion_force_set", scaledValue);
+    spdlog::info("PhysicsControls: Cohesion Force changed to {:.1f}", scaledValue);
+    self->settings_.cohesion_strength = scaledValue;
+    self->syncSettings();
 }
 
 void PhysicsControls::onAdhesionToggled(lv_event_t* e)
@@ -409,7 +517,9 @@ void PhysicsControls::onAdhesionChanged(lv_event_t* e)
 
     int value = lv_slider_get_value(target);
     double scaledValue = value * 0.01;
-    self->sendPhysicsCommand("adhesion_set", scaledValue);
+    spdlog::info("PhysicsControls: Adhesion changed to {:.1f}", scaledValue);
+    self->settings_.adhesion_strength = scaledValue;
+    self->syncSettings();
 }
 
 void PhysicsControls::onViscosityToggled(lv_event_t* e)
@@ -430,7 +540,9 @@ void PhysicsControls::onViscosityChanged(lv_event_t* e)
 
     int value = lv_slider_get_value(target);
     double scaledValue = value * 0.01;
-    self->sendPhysicsCommand("viscosity_set", scaledValue);
+    spdlog::info("PhysicsControls: Viscosity changed to {:.2f}", scaledValue);
+    self->settings_.viscosity_strength = scaledValue;
+    self->syncSettings();
 }
 
 void PhysicsControls::onFrictionToggled(lv_event_t* e)
@@ -451,7 +563,46 @@ void PhysicsControls::onFrictionChanged(lv_event_t* e)
 
     int value = lv_slider_get_value(target);
     double scaledValue = value * 0.01;
-    self->sendPhysicsCommand("friction_set", scaledValue);
+
+    spdlog::info("PhysicsControls: Friction changed to {:.2f}", scaledValue);
+
+    self->settings_.friction_strength = scaledValue;
+    self->syncSettings();
+}
+
+void PhysicsControls::fetchSettings()
+{
+    if (!wsClient_ || !wsClient_->isConnected()) {
+        spdlog::warn("PhysicsControls: Cannot fetch settings - not connected");
+        return;
+    }
+
+    spdlog::info("PhysicsControls: Fetching physics settings from server");
+
+    nlohmann::json cmd;
+    cmd["command"] = "physics_settings_get";
+    wsClient_->send(cmd.dump());
+
+    // Response will be handled by UI state machine and used to update controls.
+    // For now, we just use default values.
+}
+
+void PhysicsControls::syncSettings()
+{
+    if (!wsClient_ || !wsClient_->isConnected()) {
+        spdlog::warn("PhysicsControls: Cannot sync settings - not connected");
+        return;
+    }
+
+    spdlog::debug("PhysicsControls: Syncing physics settings to server");
+
+    Api::PhysicsSettingsSet::Command cmd;
+    cmd.settings = settings_;
+
+    nlohmann::json j = cmd.toJson();
+    j["command"] = "physics_settings_set";
+
+    wsClient_->send(j.dump());
 }
 
 } // namespace Ui

@@ -115,6 +115,17 @@ void WorldEventGenerator::waterColumnToggle(World& world, bool enabled)
     }
 }
 
+void DefaultWorldEventGenerator::clear(World& world)
+{
+    // Reset all cells to empty state.
+    for (uint32_t y = 0; y < world.data.height; ++y) {
+        for (uint32_t x = 0; x < world.data.width; ++x) {
+            world.at(x, y) = Cell(); // Default empty cell.
+        }
+    }
+    spdlog::info("World cleared to empty state");
+}
+
 void DefaultWorldEventGenerator::setup(World& world)
 {
     fillLowerRightQuadrant(world);
@@ -171,7 +182,7 @@ void DefaultWorldEventGenerator::addParticles(
         spdlog::debug("Adding right periodic throw at time {:.3f}s", simTime);
         uint32_t centerY = world.data.height / 2 - 2;
         Cell& cell = world.at(world.data.width - 3, centerY); // Against the right wall.
-        cell.addDirtWithVelocity(1.0, Vector2d{ -10, -10 });
+        cell.addDirtWithVelocity(1.0, Vector2d{ -50, -10 });
         // Schedule next throw.
         nextRightThrow += period;
     }
@@ -291,6 +302,17 @@ DefaultWorldEventGenerator::~DefaultWorldEventGenerator()
 {}
 
 // ConfigurableWorldEventGenerator implementation.
+void ConfigurableWorldEventGenerator::clear(World& world)
+{
+    // Reset all cells to empty state.
+    for (uint32_t y = 0; y < world.data.height; ++y) {
+        for (uint32_t x = 0; x < world.data.width; ++x) {
+            world.at(x, y) = Cell(); // Default empty cell.
+        }
+    }
+    spdlog::info("World cleared to empty state");
+}
+
 void ConfigurableWorldEventGenerator::setup(World& world)
 {
     spdlog::info(

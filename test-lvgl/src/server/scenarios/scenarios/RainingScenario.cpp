@@ -56,7 +56,7 @@ public:
             world.setRightThrowEnabled(false);
             world.setLowerRightQuadrantEnabled(false);
             // Gravity should already be set, but ensure it's on
-            world.data.gravity = 9.81;
+            world.physicsSettings.gravity = 9.81;
         });
 
         // Update function - add rain drops
