@@ -9,6 +9,7 @@
 #include "scenarios/FallingDirtScenario.cpp"
 #include "scenarios/RainingScenario.cpp"
 #include "scenarios/SandboxScenario.cpp"
+#include "scenarios/TreeGerminationScenario.cpp"
 #include "scenarios/WaterEqualizationScenario.cpp"
 
 ScenarioRegistry ScenarioRegistry::createDefault()
@@ -16,12 +17,13 @@ ScenarioRegistry ScenarioRegistry::createDefault()
     ScenarioRegistry registry;
 
     // Register all scenarios.
-    registry.registerScenario("empty", std::make_unique<EmptyScenario>());
-    registry.registerScenario("sandbox", std::make_unique<SandboxScenario>());
     registry.registerScenario("dam_break", std::make_unique<DamBreakScenario>());
-    registry.registerScenario("raining", std::make_unique<RainingScenario>());
-    registry.registerScenario("water_equalization", std::make_unique<WaterEqualizationScenario>());
+    registry.registerScenario("empty", std::make_unique<EmptyScenario>());
     registry.registerScenario("falling_dirt", std::make_unique<FallingDirtScenario>());
+    registry.registerScenario("raining", std::make_unique<RainingScenario>());
+    registry.registerScenario("sandbox", std::make_unique<SandboxScenario>());
+    registry.registerScenario("tree_germination", std::make_unique<TreeGerminationScenario>());
+    registry.registerScenario("water_equalization", std::make_unique<WaterEqualizationScenario>());
 
     return registry;
 }

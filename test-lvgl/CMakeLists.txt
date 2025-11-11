@@ -219,6 +219,7 @@ add_library(sparkle-duck-server-lib STATIC
     src/server/scenarios/scenarios/FallingDirtScenario.cpp
     src/server/scenarios/scenarios/RainingScenario.cpp
     src/server/scenarios/scenarios/SandboxScenario.cpp
+    src/server/scenarios/scenarios/TreeGerminationScenario.cpp
     src/server/scenarios/scenarios/WaterEqualizationScenario.cpp
 
     # Physics engine.
@@ -238,6 +239,7 @@ add_library(sparkle-duck-server-lib STATIC
     # Organism system.
     src/core/organisms/Tree.cpp
     src/core/organisms/TreeManager.cpp
+    src/core/organisms/brains/RuleBasedBrain.cpp
 )
 target_include_directories(sparkle-duck-server-lib PUBLIC ${CMAKE_SOURCE_DIR}/src ${zpp_bits_SOURCE_DIR})
 target_link_libraries(sparkle-duck-server-lib PUBLIC sparkle-duck-core datachannel-static)

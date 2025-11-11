@@ -66,6 +66,12 @@ void Tree::executeCommand(World& world)
 
                 spdlog::info(
                     "Tree {}: Grew WOOD at ({}, {})", id, cmd.target_pos.x, cmd.target_pos.y);
+
+                // Stage transition: SEED → GERMINATION when first wood appears.
+                if (stage == GrowthStage::SEED) {
+                    stage = GrowthStage::GERMINATION;
+                    spdlog::info("Tree {}: Transitioned to GERMINATION stage", id);
+                }
             }
             else if constexpr (std::is_same_v<T, GrowLeafCommand>) {
                 if (cmd.target_pos.x < 0 || cmd.target_pos.y < 0
@@ -119,6 +125,12 @@ void Tree::executeCommand(World& world)
                     id,
                     cmd.target_pos.x,
                     cmd.target_pos.y);
+
+                // Stage transition: GERMINATION → SAPLING when first root appears.
+                if (stage == GrowthStage::GERMINATION) {
+                    stage = GrowthStage::SAPLING;
+                    spdlog::info("Tree {}: Transitioned to SAPLING stage", id);
+                }
             }
             else if constexpr (std::is_same_v<T, ReinforceCellCommand>) {
                 // TODO: Implement cell reinforcement once we have structural integrity tracking.

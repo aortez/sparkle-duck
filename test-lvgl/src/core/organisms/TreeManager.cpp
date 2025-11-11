@@ -1,20 +1,10 @@
 #include "TreeManager.h"
+#include "brains/RuleBasedBrain.h"
 #include "core/MaterialType.h"
 #include "core/World.h"
 #include <spdlog/spdlog.h>
 
 namespace DirtSim {
-
-// Stub brain implementation for Phase 1 - just waits indefinitely.
-// Phase 2 will add RuleBasedBrain with germination logic.
-class StubBrain : public TreeBrain {
-public:
-    TreeCommand decide(const TreeSensoryData& /* sensory */) override
-    {
-        // Just wait forever for now.
-        return WaitCommand{ 1000 };
-    }
-};
 
 void TreeManager::update(World& world, double deltaTime)
 {
@@ -31,8 +21,8 @@ TreeId TreeManager::plantSeed(World& world, uint32_t x, uint32_t y)
     // Allocate new tree ID.
     TreeId id = next_tree_id_++;
 
-    // Create tree with stub brain.
-    auto brain = std::make_unique<StubBrain>();
+    // Create tree with rule-based brain.
+    auto brain = std::make_unique<RuleBasedBrain>();
     Tree tree(id, std::move(brain));
 
     // Place SEED material at position.

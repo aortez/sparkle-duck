@@ -2,6 +2,7 @@
 #include "core/Cell.h"
 #include "core/World.h" // Must be before State.h for complete type.
 #include "core/WorldEventGenerator.h"
+#include "core/organisms/TreeManager.h"
 #include "server/StateMachine.h"
 #include "server/network/WebSocketServer.h"
 #include "server/scenarios/Scenario.h"
@@ -217,7 +218,7 @@ State::Any SimRunning::onEvent(const AdvanceSimulationCommand& /*cmd*/, StateMac
 
             // Clear ready flag - wait for UI to signal ready for next frame.
             uiReadyForNextFrame = false;
-            spdlog::info("SimRunning: Sent frame to UI, waiting for frame_ready");
+            spdlog::debug("SimRunning: Sent frame to UI, waiting for frame_ready");
         }
         else if (!uiReadyForNextFrame) {
             spdlog::info("SimRunning: Skipping frame broadcast - UI not ready yet");
@@ -415,7 +416,7 @@ State::Any SimRunning::onEvent(const Api::FrameReady::Cwc& cwc, StateMachine& /*
 {
     using Response = Api::FrameReady::Response;
 
-    spdlog::info("SimRunning: UI ready for next frame - enabling broadcast");
+    spdlog::debug("SimRunning: UI ready for next frame - enabling broadcast");
 
     // UI signals it's ready - allow next frame broadcast.
     uiReadyForNextFrame = true;
@@ -482,9 +483,10 @@ State::Any SimRunning::onEvent(const Api::SeedAdd::Cwc& cwc, StateMachine& /*dsm
         return std::move(*this);
     }
 
-    // Add the seed.
-    spdlog::info("SeedAdd: Adding SEED at ({}, {})", cwc.command.x, cwc.command.y);
-    world->addMaterialAtCell(cwc.command.x, cwc.command.y, MaterialType::SEED, 1.0);
+    // Plant seed as tree organism.
+    spdlog::info("SeedAdd: Planting seed at ({}, {})", cwc.command.x, cwc.command.y);
+    TreeId tree_id = world->getTreeManager().plantSeed(*world, cwc.command.x, cwc.command.y);
+    spdlog::info("SeedAdd: Created tree organism {}", tree_id);
 
     cwc.sendResponse(Response::okay(std::monostate{}));
     return std::move(*this);
