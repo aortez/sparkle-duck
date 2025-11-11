@@ -1,7 +1,10 @@
 #pragma once
 
+#include <atomic>
 #include <cstdint>
 #include <lvgl/lvgl.h>
+#include <mutex>
+#include <thread>
 #include <vector>
 
 namespace DirtSim {
@@ -91,6 +94,19 @@ private:
     double xMax_ = 1.5;
     double yMin_ = -1.5;
     double yMax_ = 1.5;
+
+    // Background rendering thread for smooth animation.
+    std::thread renderThread_;
+    std::atomic<bool> shouldExit_{false};
+    std::mutex bufferMutex_;
+
+    // Double buffering - render to back buffer, display front buffer.
+    lv_color_t* backBuffer_ = nullptr;
+    std::vector<int> backIterationCache_;
+    std::atomic<bool> backBufferReady_{false};
+
+    // Background thread render function.
+    void renderThreadFunc();
 };
 
 } // namespace Ui

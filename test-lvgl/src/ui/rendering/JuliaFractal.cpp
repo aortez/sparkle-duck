@@ -1,4 +1,5 @@
 #include "JuliaFractal.h"
+#include <chrono>
 #include <cmath>
 #include <spdlog/spdlog.h>
 
@@ -320,24 +321,46 @@ JuliaFractal::JuliaFractal(lv_obj_t* parent, int windowWidth, int windowHeight)
     lv_obj_clear_flag(canvas_, LV_OBJ_FLAG_CLICKABLE);
     lv_obj_add_flag(canvas_, LV_OBJ_FLAG_EVENT_BUBBLE);
 
-    // Render initial fractal.
+    // Allocate back buffer for double buffering.
+    backBuffer_ = static_cast<lv_color_t*>(lv_malloc(bufferSize));
+    if (!backBuffer_) {
+        spdlog::error("JuliaFractal: Failed to allocate back buffer");
+        return;
+    }
+
+    // Render initial fractal to front buffer (synchronous for first frame).
     render();
 
-    spdlog::info("JuliaFractal: Initialized successfully");
+    // Start background render thread.
+    renderThread_ = std::thread(&JuliaFractal::renderThreadFunc, this);
+
+    spdlog::info("JuliaFractal: Initialized successfully with background rendering thread");
 }
 
 JuliaFractal::~JuliaFractal()
 {
+    // Signal render thread to exit.
+    shouldExit_ = true;
+
+    // Wait for render thread to finish.
+    if (renderThread_.joinable()) {
+        renderThread_.join();
+    }
+
     // Delete canvas object first (this detaches it from parent).
     if (canvas_) {
         lv_obj_del(canvas_);
         canvas_ = nullptr;
     }
 
-    // Then free the buffer.
+    // Free both buffers.
     if (canvasBuffer_) {
         lv_free(canvasBuffer_);
         canvasBuffer_ = nullptr;
+    }
+    if (backBuffer_) {
+        lv_free(backBuffer_);
+        backBuffer_ = nullptr;
     }
 }
 
@@ -429,66 +452,26 @@ void JuliaFractal::updateColors()
 
 void JuliaFractal::update()
 {
-    // Advance animation phase for sinusoidal palette speed variation.
-    animationPhase_ += PHASE_SPEED;
-    if (animationPhase_ > 2.0 * M_PI) {
-        animationPhase_ -= 2.0 * M_PI;
+    // Check if background thread has a new frame ready.
+    if (!backBufferReady_) {
+        return; // Nothing to do, wait for next frame.
     }
 
-    // Calculate current cycling speed using sine wave.
-    // sin ranges from -1 to 1, so (sin + 1)/2 gives 0 to 1.
-    double speedFactor = (std::sin(animationPhase_) + 1.0) / 2.0;
-    double cycleSpeed = speedFactor * MAX_CYCLE_SPEED;
+    // Swap buffers (main thread only reads/writes pointers, very fast).
+    std::lock_guard<std::mutex> lock(bufferMutex_);
 
-    // Advance palette offset by the current speed.
-    paletteOffset_ += cycleSpeed;
-    if (paletteOffset_ >= PALETTE_SIZE) {
-        paletteOffset_ -= PALETTE_SIZE;
-    }
+    // Swap the buffer pointers.
+    std::swap(canvasBuffer_, backBuffer_);
+    std::swap(iterationCache_, backIterationCache_);
 
-    // Advance detail phase for iteration count variation.
-    detailPhase_ += DETAIL_PHASE_SPEED;
-    if (detailPhase_ > 2.0 * M_PI) {
-        detailPhase_ -= 2.0 * M_PI;
-    }
+    // Update the canvas to use the new front buffer.
+    lv_canvas_set_buffer(canvas_, canvasBuffer_, width_, height_, LV_COLOR_FORMAT_ARGB8888);
 
-    // Calculate current iteration count using sine wave.
-    // Varies between MIN_ITERATIONS and MAX_ITERATIONS.
-    double detailFactor = (std::sin(detailPhase_) + 1.0) / 2.0;
-    int newMaxIterations = MIN_ITERATIONS + static_cast<int>(detailFactor * (MAX_ITERATIONS - MIN_ITERATIONS));
+    // Mark canvas as dirty to trigger redraw.
+    lv_obj_invalidate(canvas_);
 
-    // Advance Julia constant phase for shape morphing.
-    cPhase_ += C_PHASE_SPEED;
-    if (cPhase_ > 2.0 * M_PI) {
-        cPhase_ -= 2.0 * M_PI;
-    }
-
-    // Calculate current Julia constant values using sine waves.
-    // Use different phase offsets for cReal and cImag to create complex morphing.
-    double cRealFactor = std::sin(cPhase_);
-    double cImagFactor = std::sin(cPhase_ + M_PI / 2.0); // 90 degree phase shift.
-
-    double newCReal = C_REAL_CENTER + cRealFactor * C_REAL_AMPLITUDE;
-    double newCImag = C_IMAG_CENTER + cImagFactor * C_IMAG_AMPLITUDE;
-
-    // Check if Julia constant changed significantly (requires recalculation).
-    bool cChanged = (std::abs(newCReal - cReal_) > 0.01) || (std::abs(newCImag - cImag_) > 0.01);
-    bool iterationsChanged = std::abs(newMaxIterations - lastRenderedMaxIterations_) >= 4;
-
-    if (cChanged || iterationsChanged) {
-        // Update parameters.
-        cReal_ = newCReal;
-        cImag_ = newCImag;
-        maxIterations_ = newMaxIterations;
-        lastRenderedMaxIterations_ = newMaxIterations;
-
-        // Recalculate fractal with new parameters.
-        render();
-    }
-    else {
-        // Fast update - only recolor pixels, don't recalculate fractal.
-        updateColors();
-    }
+    // Reset ready flag so background thread can prepare next frame.
+    backBufferReady_ = false;
 }
 
 void JuliaFractal::resize(int newWidth, int newHeight)
@@ -505,22 +488,36 @@ void JuliaFractal::resize(int newWidth, int newHeight)
     spdlog::info("JuliaFractal: Resizing from {}x{} to {}x{} (render), scaling to {}x{} (display)",
                  width_, height_, renderWidth, renderHeight, newWidth, newHeight);
 
+    // Stop render thread temporarily during resize to avoid race conditions.
+    shouldExit_ = true;
+    if (renderThread_.joinable()) {
+        renderThread_.join();
+    }
+
+    // Now safe to resize without mutex (thread stopped).
+    std::lock_guard<std::mutex> lock(bufferMutex_);
+
     // Update render dimensions.
     width_ = renderWidth;
     height_ = renderHeight;
 
-    // Free old buffer.
+    // Free old buffers.
     if (canvasBuffer_) {
         lv_free(canvasBuffer_);
         canvasBuffer_ = nullptr;
     }
+    if (backBuffer_) {
+        lv_free(backBuffer_);
+        backBuffer_ = nullptr;
+    }
 
-    // Allocate new buffer at render resolution.
+    // Allocate new buffers at render resolution.
     size_t bufferSize = LV_CANVAS_BUF_SIZE(width_, height_, 32, 64);
     canvasBuffer_ = static_cast<lv_color_t*>(lv_malloc(bufferSize));
+    backBuffer_ = static_cast<lv_color_t*>(lv_malloc(bufferSize));
 
-    if (!canvasBuffer_) {
-        spdlog::error("JuliaFractal: Failed to allocate new canvas buffer during resize");
+    if (!canvasBuffer_ || !backBuffer_) {
+        spdlog::error("JuliaFractal: Failed to allocate buffers during resize");
         return;
     }
 
@@ -536,7 +533,101 @@ void JuliaFractal::resize(int newWidth, int newHeight)
     // Re-render at new size.
     render();
 
-    spdlog::info("JuliaFractal: Resize complete");
+    // Restart render thread with new dimensions.
+    shouldExit_ = false;
+    backBufferReady_ = false;
+    renderThread_ = std::thread(&JuliaFractal::renderThreadFunc, this);
+
+    spdlog::info("JuliaFractal: Resize complete, render thread restarted");
+}
+
+void JuliaFractal::renderThreadFunc()
+{
+    spdlog::info("JuliaFractal: Render thread started");
+
+    while (!shouldExit_) {
+        // Advance all animation phases.
+        animationPhase_ += PHASE_SPEED;
+        if (animationPhase_ > 2.0 * M_PI) {
+            animationPhase_ -= 2.0 * M_PI;
+        }
+
+        detailPhase_ += DETAIL_PHASE_SPEED;
+        if (detailPhase_ > 2.0 * M_PI) {
+            detailPhase_ -= 2.0 * M_PI;
+        }
+
+        cPhase_ += C_PHASE_SPEED;
+        if (cPhase_ > 2.0 * M_PI) {
+            cPhase_ -= 2.0 * M_PI;
+        }
+
+        // Calculate new parameters.
+        double speedFactor = (std::sin(animationPhase_) + 1.0) / 2.0;
+        double cycleSpeed = speedFactor * MAX_CYCLE_SPEED;
+        paletteOffset_ += cycleSpeed;
+        if (paletteOffset_ >= PALETTE_SIZE) {
+            paletteOffset_ -= PALETTE_SIZE;
+        }
+
+        double detailFactor = (std::sin(detailPhase_) + 1.0) / 2.0;
+        int newMaxIterations = MIN_ITERATIONS + static_cast<int>(detailFactor * (MAX_ITERATIONS - MIN_ITERATIONS));
+
+        double cRealFactor = std::sin(cPhase_);
+        double cImagFactor = std::sin(cPhase_ + M_PI / 2.0);
+        double newCReal = C_REAL_CENTER + cRealFactor * C_REAL_AMPLITUDE;
+        double newCImag = C_IMAG_CENTER + cImagFactor * C_IMAG_AMPLITUDE;
+
+        bool cChanged = (std::abs(newCReal - cReal_) > 0.01) || (std::abs(newCImag - cImag_) > 0.01);
+        bool iterationsChanged = std::abs(newMaxIterations - maxIterations_) >= 4;
+
+        // Resize back buffer cache if needed.
+        size_t totalPixels = width_ * height_;
+        if (backIterationCache_.size() != totalPixels) {
+            backIterationCache_.resize(totalPixels);
+        }
+
+        uint32_t* backBufferPtr = reinterpret_cast<uint32_t*>(backBuffer_);
+
+        if (cChanged || iterationsChanged) {
+            // Update parameters.
+            cReal_ = newCReal;
+            cImag_ = newCImag;
+            maxIterations_ = newMaxIterations;
+
+            // Recalculate Julia set to back buffer.
+            for (int y = 0; y < height_; y++) {
+                for (int x = 0; x < width_; x++) {
+                    int iteration = calculateJuliaPoint(x, y);
+                    int idx = y * width_ + x;
+                    backIterationCache_[idx] = iteration;
+                    backBufferPtr[idx] = getPaletteColor(iteration);
+                }
+            }
+        }
+        else {
+            // Fast update - only recolor using cached iterations.
+            for (size_t idx = 0; idx < totalPixels; idx++) {
+                int iteration = backIterationCache_[idx];
+                backBufferPtr[idx] = getPaletteColor(iteration);
+            }
+        }
+
+        // Wait until main thread consumes the current frame before rendering next.
+        while (backBufferReady_ && !shouldExit_) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        }
+
+        if (shouldExit_) break;
+
+        // Signal that back buffer is ready.
+        backBufferReady_ = true;
+
+        // Brief sleep to yield CPU.
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+
+    spdlog::info("JuliaFractal: Render thread exiting");
 }
 
 } // namespace Ui
