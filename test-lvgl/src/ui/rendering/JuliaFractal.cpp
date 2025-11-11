@@ -351,8 +351,8 @@ uint32_t JuliaFractal::getPaletteColor(int iteration) const
         return 0xFF000000; // Black for points in the set.
     }
 
-    // Map iteration to palette with cycling offset.
-    int paletteIndex = (iteration + paletteOffset_) % PALETTE_SIZE;
+    // Map iteration to palette with cycling offset (use integer part of floating offset).
+    int paletteIndex = (iteration + static_cast<int>(paletteOffset_)) % PALETTE_SIZE;
     return PALETTE[paletteIndex];
 }
 
@@ -405,8 +405,23 @@ void JuliaFractal::updateColors()
 
 void JuliaFractal::update()
 {
-    // Cycle palette offset for animation.
-    paletteOffset_ = (paletteOffset_ + 1) % PALETTE_SIZE;
+    // Advance animation phase for sinusoidal speed variation.
+    animationPhase_ += phaseSpeed_;
+    if (animationPhase_ > 2.0 * M_PI) {
+        animationPhase_ -= 2.0 * M_PI;
+    }
+
+    // Calculate current cycling speed using sine wave.
+    // sin ranges from -1 to 1, so (sin + 1)/2 gives 0 to 1.
+    // Multiply by maxCycleSpeed to get the actual speed.
+    double speedFactor = (std::sin(animationPhase_) + 1.0) / 2.0;
+    double cycleSpeed = speedFactor * maxCycleSpeed_;
+
+    // Advance palette offset by the current speed.
+    paletteOffset_ += cycleSpeed;
+    if (paletteOffset_ >= PALETTE_SIZE) {
+        paletteOffset_ -= PALETTE_SIZE;
+    }
 
     // Fast update - only recolor pixels, don't recalculate fractal.
     updateColors();
