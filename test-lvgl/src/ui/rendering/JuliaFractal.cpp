@@ -7,22 +7,22 @@ namespace DirtSim {
 namespace Ui {
 
 // Rendering performance.
-constexpr int RESOLUTION_DIVISOR = 1;         // Render at 1/N resolution (2 = half, 4 = quarter).
+constexpr int RESOLUTION_DIVISOR = 2;         // Render at 1/N resolution (2 = half, 4 = quarter).
 constexpr int RENDER_THREADS = 4;             // Number of parallel threads for fractal calculation.
 
 // Animation constants.
 constexpr double PHASE_SPEED = 0.0000;          // Palette cycling oscillation speed.
 constexpr double MAX_CYCLE_SPEED = 0.1;       // Maximum palette advance per frame.
-constexpr double DETAIL_PHASE_SPEED = 0.02;   // Detail level oscillation speed (slower).
+constexpr double DETAIL_PHASE_SPEED = 0.01;   // Detail level oscillation speed (slower).
 constexpr int MIN_ITERATIONS = 0;             // Minimum iteration count (less detail).
 constexpr int MAX_ITERATIONS = 96;           // Maximum iteration count (more detail).
 
 // Julia set constant (c) oscillation for shape morphing.
-constexpr double C_PHASE_SPEED = 0.03;       // Very slow shape morphing.
+constexpr double C_PHASE_SPEED = 0.01;       // Very slow shape morphing.
 constexpr double C_REAL_CENTER = -0.7;        // Center value for cReal.
 constexpr double C_REAL_AMPLITUDE = 0.5;     // How far cReal oscillates (+/-).
 constexpr double C_IMAG_CENTER = 0.27;        // Center value for cImag.
-constexpr double C_IMAG_AMPLITUDE = 0.2;      // How far cImag oscillates (+/-).
+constexpr double C_IMAG_AMPLITUDE = 0.7;      // How far cImag oscillates (+/-).
 
 // Palette extracted from pal.png (256x1).
 constexpr int PALETTE_SIZE = 256;
@@ -620,7 +620,7 @@ void JuliaFractal::renderThreadFunc()
 
         // If nothing is animating, sleep and skip rendering.
         if (!needsUpdate && !cChanged && !iterationsChanged) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
             continue;
         }
 
@@ -701,9 +701,16 @@ void JuliaFractal::renderThreadFunc()
                     for (size_t idx = startIdx; idx < endIdx; idx++) {
                         int iteration = renderCache[idx];
 
-                        // Use captured values for consistent rendering across all threads.
-                        int paletteIndex = (iteration + currentPaletteOffset) % PALETTE_SIZE;
-                        renderBufPtr[idx] = (iteration >= currentMaxIterations) ? 0xFF000000 : PALETTE[paletteIndex];
+                        // Black for points in the set.
+                        if (iteration >= currentMaxIterations) {
+                            renderBufPtr[idx] = 0xFF000000;
+                        }
+                        else {
+                            // Normalize iteration to [0,255] to use full palette range smoothly.
+                            int normalizedIteration = (iteration * 255) / currentMaxIterations;
+                            int paletteIndex = (normalizedIteration + currentPaletteOffset) % PALETTE_SIZE;
+                            renderBufPtr[idx] = PALETTE[paletteIndex];
+                        }
                     }
                 });
             }
@@ -716,7 +723,7 @@ void JuliaFractal::renderThreadFunc()
 
         // Wait until ready buffer is consumed before we can promote our rendered frame.
         while (readyBufferAvailable_.load(std::memory_order_acquire) && !shouldExit_) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
         }
 
         if (shouldExit_) break;
