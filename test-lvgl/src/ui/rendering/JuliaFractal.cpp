@@ -11,18 +11,18 @@ constexpr int RESOLUTION_DIVISOR = 1;         // Render at 1/N resolution (2 = h
 constexpr int RENDER_THREADS = 4;             // Number of parallel threads for fractal calculation.
 
 // Animation constants.
-constexpr double PHASE_SPEED = 0.00;          // Palette cycling oscillation speed.
-constexpr double MAX_CYCLE_SPEED = 1.0;       // Maximum palette advance per frame.
-constexpr double DETAIL_PHASE_SPEED = 0.01;   // Detail level oscillation speed (slower).
-constexpr int MIN_ITERATIONS = 1;             // Minimum iteration count (less detail).
-constexpr int MAX_ITERATIONS = 128;           // Maximum iteration count (more detail).
+constexpr double PHASE_SPEED = 0.0000;          // Palette cycling oscillation speed.
+constexpr double MAX_CYCLE_SPEED = 0.1;       // Maximum palette advance per frame.
+constexpr double DETAIL_PHASE_SPEED = 0.02;   // Detail level oscillation speed (slower).
+constexpr int MIN_ITERATIONS = 0;             // Minimum iteration count (less detail).
+constexpr int MAX_ITERATIONS = 96;           // Maximum iteration count (more detail).
 
 // Julia set constant (c) oscillation for shape morphing.
-constexpr double C_PHASE_SPEED = 0.001;       // Very slow shape morphing.
+constexpr double C_PHASE_SPEED = 0.03;       // Very slow shape morphing.
 constexpr double C_REAL_CENTER = -0.7;        // Center value for cReal.
-constexpr double C_REAL_AMPLITUDE = 0.1;     // How far cReal oscillates (+/-).
+constexpr double C_REAL_AMPLITUDE = 0.5;     // How far cReal oscillates (+/-).
 constexpr double C_IMAG_CENTER = 0.27;        // Center value for cImag.
-constexpr double C_IMAG_AMPLITUDE = 0.1;      // How far cImag oscillates (+/-).
+constexpr double C_IMAG_AMPLITUDE = 0.2;      // How far cImag oscillates (+/-).
 
 // Palette extracted from pal.png (256x1).
 constexpr int PALETTE_SIZE = 256;
@@ -374,7 +374,7 @@ JuliaFractal::~JuliaFractal()
     canvasBuffer_ = nullptr;
 }
 
-int JuliaFractal::calculateJuliaPoint(int x, int y) const
+int JuliaFractal::calculateJuliaPoint(int x, int y, double cReal, double cImag, int maxIter) const
 {
     // Map pixel coordinates to complex plane.
     double zx = xMin_ + (xMax_ - xMin_) * x / width_;
@@ -382,7 +382,7 @@ int JuliaFractal::calculateJuliaPoint(int x, int y) const
 
     // Julia set iteration: z_n+1 = z_n^2 + c.
     int iteration = 0;
-    while (iteration < maxIterations_) {
+    while (iteration < maxIter) {
         double zx2 = zx * zx;
         double zy2 = zy * zy;
 
@@ -392,8 +392,8 @@ int JuliaFractal::calculateJuliaPoint(int x, int y) const
         }
 
         // z = z^2 + c.
-        double temp = zx2 - zy2 + cReal_;
-        zy = 2.0 * zx * zy + cImag_;
+        double temp = zx2 - zy2 + cReal;
+        zy = 2.0 * zx * zy + cImag;
         zx = temp;
 
         iteration++;
@@ -431,9 +431,10 @@ void JuliaFractal::render()
     uint32_t* buffer = reinterpret_cast<uint32_t*>(canvasBuffer_);
 
     // Calculate Julia set and cache iteration counts.
+    // render() only called during init/resize when thread stopped, safe to use member vars.
     for (int y = 0; y < height_; y++) {
         for (int x = 0; x < width_; x++) {
-            int iteration = calculateJuliaPoint(x, y);
+            int iteration = calculateJuliaPoint(x, y, cReal_, cImag_, maxIterations_);
             int idx = y * width_ + x;
             cache[idx] = iteration;
 
@@ -568,40 +569,60 @@ void JuliaFractal::renderThreadFunc()
     spdlog::info("JuliaFractal: Render thread started");
 
     while (!shouldExit_) {
-        // Advance all animation phases.
-        animationPhase_ += PHASE_SPEED;
-        if (animationPhase_ > 2.0 * M_PI) {
-            animationPhase_ -= 2.0 * M_PI;
+        bool needsUpdate = false;
+        bool cChanged = false;
+        bool iterationsChanged = false;
+        int newMaxIterations = maxIterations_;
+        double newCReal = cReal_;
+        double newCImag = cImag_;
+
+        // Palette cycling animation (only if enabled).
+        if (PHASE_SPEED > 0.0) {
+            animationPhase_ += PHASE_SPEED;
+            if (animationPhase_ > 2.0 * M_PI) {
+                animationPhase_ -= 2.0 * M_PI;
+            }
+
+            double speedFactor = (std::sin(animationPhase_) + 1.0) / 2.0;
+            double cycleSpeed = speedFactor * MAX_CYCLE_SPEED;
+            paletteOffset_ += cycleSpeed;
+            if (paletteOffset_ >= PALETTE_SIZE) {
+                paletteOffset_ -= PALETTE_SIZE;
+            }
+            needsUpdate = true; // Colors changed.
         }
 
-        detailPhase_ += DETAIL_PHASE_SPEED;
-        if (detailPhase_ > 2.0 * M_PI) {
-            detailPhase_ -= 2.0 * M_PI;
+        // Detail level animation (only if enabled).
+        if (DETAIL_PHASE_SPEED > 0.0) {
+            detailPhase_ += DETAIL_PHASE_SPEED;
+            if (detailPhase_ > 2.0 * M_PI) {
+                detailPhase_ -= 2.0 * M_PI;
+            }
+
+            double detailFactor = (std::sin(detailPhase_) + 1.0) / 2.0;
+            newMaxIterations = MIN_ITERATIONS + static_cast<int>(detailFactor * (MAX_ITERATIONS - MIN_ITERATIONS));
+            iterationsChanged = std::abs(newMaxIterations - maxIterations_) >= 4;
         }
 
-        cPhase_ += C_PHASE_SPEED;
-        if (cPhase_ > 2.0 * M_PI) {
-            cPhase_ -= 2.0 * M_PI;
+        // Shape morphing animation (only if enabled).
+        if (C_PHASE_SPEED > 0.0 && (C_REAL_AMPLITUDE > 0.0 || C_IMAG_AMPLITUDE > 0.0)) {
+            cPhase_ += C_PHASE_SPEED;
+            if (cPhase_ > 2.0 * M_PI) {
+                cPhase_ -= 2.0 * M_PI;
+            }
+
+            double cRealFactor = std::sin(cPhase_);
+            double cImagFactor = std::sin(cPhase_ + M_PI / 2.0);
+            newCReal = C_REAL_CENTER + cRealFactor * C_REAL_AMPLITUDE;
+            newCImag = C_IMAG_CENTER + cImagFactor * C_IMAG_AMPLITUDE;
+            cChanged = (std::abs(newCReal - cReal_) > 0.01) || (std::abs(newCImag - cImag_) > 0.01);
         }
 
-        // Calculate new parameters.
-        double speedFactor = (std::sin(animationPhase_) + 1.0) / 2.0;
-        double cycleSpeed = speedFactor * MAX_CYCLE_SPEED;
-        paletteOffset_ += cycleSpeed;
-        if (paletteOffset_ >= PALETTE_SIZE) {
-            paletteOffset_ -= PALETTE_SIZE;
+        // If nothing is animating, sleep and skip rendering.
+        if (!needsUpdate && !cChanged && !iterationsChanged) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            continue;
         }
-
-        double detailFactor = (std::sin(detailPhase_) + 1.0) / 2.0;
-        int newMaxIterations = MIN_ITERATIONS + static_cast<int>(detailFactor * (MAX_ITERATIONS - MIN_ITERATIONS));
-
-        double cRealFactor = std::sin(cPhase_);
-        double cImagFactor = std::sin(cPhase_ + M_PI / 2.0);
-        double newCReal = C_REAL_CENTER + cRealFactor * C_REAL_AMPLITUDE;
-        double newCImag = C_IMAG_CENTER + cImagFactor * C_IMAG_AMPLITUDE;
-
-        bool cChanged = (std::abs(newCReal - cReal_) > 0.01) || (std::abs(newCImag - cImag_) > 0.01);
-        bool iterationsChanged = std::abs(newMaxIterations - maxIterations_) >= 4;
 
         // Get render buffer (our exclusive buffer for rendering).
         lv_color_t* renderBuf = buffers_[renderBufferIdx_];
@@ -615,11 +636,22 @@ void JuliaFractal::renderThreadFunc()
 
         uint32_t* renderBufPtr = reinterpret_cast<uint32_t*>(renderBuf);
 
+        // Capture all parameters for this frame (prevents data races - all threads use same values).
+        int currentPaletteOffset = static_cast<int>(paletteOffset_);
+        int currentMaxIterations = maxIterations_;
+        double currentCReal = cReal_;
+        double currentCImag = cImag_;
+
         if (cChanged || iterationsChanged) {
-            // Update parameters.
+            // Update parameters for next frame.
             cReal_ = newCReal;
             cImag_ = newCImag;
             maxIterations_ = newMaxIterations;
+
+            // Update captured values to use for THIS frame.
+            currentMaxIterations = newMaxIterations;
+            currentCReal = newCReal;
+            currentCImag = newCImag;
 
             // Recalculate Julia set to render buffer using multiple threads.
             std::vector<std::thread> workers;
@@ -629,13 +661,23 @@ void JuliaFractal::renderThreadFunc()
                 int startRow = t * rowsPerThread;
                 int endRow = (t == RENDER_THREADS - 1) ? height_ : (t + 1) * rowsPerThread;
 
-                workers.emplace_back([this, &renderCache, renderBufPtr, startRow, endRow]() {
+                workers.emplace_back([this, &renderCache, renderBufPtr, startRow, endRow, currentPaletteOffset, currentMaxIterations, currentCReal, currentCImag]() {
                     for (int y = startRow; y < endRow; y++) {
                         for (int x = 0; x < width_; x++) {
-                            int iteration = calculateJuliaPoint(x, y);
+                            int iteration = calculateJuliaPoint(x, y, currentCReal, currentCImag, currentMaxIterations);
                             int idx = y * width_ + x;
                             renderCache[idx] = iteration;
-                            renderBufPtr[idx] = getPaletteColor(iteration);
+
+                            // Black for points in the set.
+                            if (iteration >= currentMaxIterations) {
+                                renderBufPtr[idx] = 0xFF000000;
+                            }
+                            else {
+                                // Normalize iteration to [0,255] to use full palette range smoothly.
+                                int normalizedIteration = (iteration * 255) / currentMaxIterations;
+                                int paletteIndex = (normalizedIteration + currentPaletteOffset) % PALETTE_SIZE;
+                                renderBufPtr[idx] = PALETTE[paletteIndex];
+                            }
                         }
                     }
                 });
@@ -655,10 +697,13 @@ void JuliaFractal::renderThreadFunc()
                 size_t startIdx = t * pixelsPerThread;
                 size_t endIdx = (t == RENDER_THREADS - 1) ? totalPixels : (t + 1) * pixelsPerThread;
 
-                workers.emplace_back([this, &renderCache, renderBufPtr, startIdx, endIdx]() {
+                workers.emplace_back([this, &renderCache, renderBufPtr, startIdx, endIdx, currentPaletteOffset, currentMaxIterations]() {
                     for (size_t idx = startIdx; idx < endIdx; idx++) {
                         int iteration = renderCache[idx];
-                        renderBufPtr[idx] = getPaletteColor(iteration);
+
+                        // Use captured values for consistent rendering across all threads.
+                        int paletteIndex = (iteration + currentPaletteOffset) % PALETTE_SIZE;
+                        renderBufPtr[idx] = (iteration >= currentMaxIterations) ? 0xFF000000 : PALETTE[paletteIndex];
                     }
                 });
             }

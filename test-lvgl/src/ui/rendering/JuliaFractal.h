@@ -48,9 +48,12 @@ private:
      * @brief Calculate Julia set iteration count for a point.
      * @param x Pixel x coordinate.
      * @param y Pixel y coordinate.
-     * @return Iteration count (0 to maxIterations_).
+     * @param cReal Julia constant real part.
+     * @param cImag Julia constant imaginary part.
+     * @param maxIter Maximum iterations.
+     * @return Iteration count (0 to maxIter).
      */
-    int calculateJuliaPoint(int x, int y) const;
+    int calculateJuliaPoint(int x, int y, double cReal, double cImag, int maxIter) const;
 
     /**
      * @brief Render the fractal to the canvas buffer.
