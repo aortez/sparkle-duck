@@ -7,20 +7,20 @@ namespace DirtSim {
 namespace Ui {
 
 // Rendering performance.
-constexpr int RESOLUTION_DIVISOR = 2;         // Render at 1/N resolution (2 = half, 4 = quarter).
+constexpr int RESOLUTION_DIVISOR = 1;         // Render at 1/N resolution (2 = half, 4 = quarter).
 constexpr int RENDER_THREADS = 4;             // Number of parallel threads for fractal calculation.
 
 // Animation constants.
-constexpr double PHASE_SPEED = 0.05;          // Palette cycling oscillation speed.
-constexpr double MAX_CYCLE_SPEED = 4.0;       // Maximum palette advance per frame.
+constexpr double PHASE_SPEED = 0.00;          // Palette cycling oscillation speed.
+constexpr double MAX_CYCLE_SPEED = 1.0;       // Maximum palette advance per frame.
 constexpr double DETAIL_PHASE_SPEED = 0.01;   // Detail level oscillation speed (slower).
 constexpr int MIN_ITERATIONS = 1;             // Minimum iteration count (less detail).
 constexpr int MAX_ITERATIONS = 128;           // Maximum iteration count (more detail).
 
 // Julia set constant (c) oscillation for shape morphing.
-constexpr double C_PHASE_SPEED = 0.008;       // Very slow shape morphing.
+constexpr double C_PHASE_SPEED = 0.001;       // Very slow shape morphing.
 constexpr double C_REAL_CENTER = -0.7;        // Center value for cReal.
-constexpr double C_REAL_AMPLITUDE = 0.15;     // How far cReal oscillates (+/-).
+constexpr double C_REAL_AMPLITUDE = 0.1;     // How far cReal oscillates (+/-).
 constexpr double C_IMAG_CENTER = 0.27;        // Center value for cImag.
 constexpr double C_IMAG_AMPLITUDE = 0.1;      // How far cImag oscillates (+/-).
 
@@ -333,7 +333,6 @@ JuliaFractal::JuliaFractal(lv_obj_t* parent, int windowWidth, int windowHeight)
     }
 
     // Render initial fractal to front buffer (synchronous for first frame).
-    iterationCache_ = iterationCaches_[0];
     render();
 
     // Initialize buffer indices for triple buffering rotation.
@@ -418,10 +417,14 @@ void JuliaFractal::render()
 {
     if (!canvasBuffer_) return;
 
+    // Render to buffer 0 (front buffer during init/resize).
+    // Use iteration cache 0 to match buffer 0.
+    std::vector<int>& cache = iterationCaches_[0];
+
     // Resize iteration cache if needed.
     size_t totalPixels = width_ * height_;
-    if (iterationCache_.size() != totalPixels) {
-        iterationCache_.resize(totalPixels);
+    if (cache.size() != totalPixels) {
+        cache.resize(totalPixels);
     }
 
     // Direct buffer access for fast rendering (ARGB8888 = 32 bits per pixel).
@@ -432,7 +435,7 @@ void JuliaFractal::render()
         for (int x = 0; x < width_; x++) {
             int iteration = calculateJuliaPoint(x, y);
             int idx = y * width_ + x;
-            iterationCache_[idx] = iteration;
+            cache[idx] = iteration;
 
             // Write directly to buffer.
             buffer[idx] = getPaletteColor(iteration);
@@ -472,12 +475,11 @@ void JuliaFractal::update()
     int oldFrontIdx = frontBufferIdx_.load(std::memory_order_relaxed);
     int newFrontIdx = readyBufferIdx_.load(std::memory_order_relaxed);
 
-    // Update canvas to use the ready buffer.
+    // Update canvas to use the ready buffer (just pointer assignment, no copy).
     canvasBuffer_ = buffers_[newFrontIdx];
-    iterationCache_ = iterationCaches_[newFrontIdx];
     lv_canvas_set_buffer(canvas_, canvasBuffer_, width_, height_, LV_COLOR_FORMAT_ARGB8888);
 
-    // Swap indices: old front becomes new ready.
+    // Swap indices: old front becomes new ready (for render thread to use).
     frontBufferIdx_.store(newFrontIdx, std::memory_order_release);
     readyBufferIdx_.store(oldFrontIdx, std::memory_order_release);
 
@@ -545,11 +547,8 @@ void JuliaFractal::resize(int newWidth, int newHeight)
     lv_obj_set_style_transform_scale_x(canvas_, scaleX, 0);
     lv_obj_set_style_transform_scale_y(canvas_, scaleY, 0);
 
-    // Re-render at new size.
+    // Re-render at new size (uses buffer 0).
     render();
-
-    // Reset iteration caches.
-    iterationCache_ = iterationCaches_[0];
 
     // Reset buffer indices for triple buffering.
     frontBufferIdx_ = 0;
