@@ -100,10 +100,16 @@ private:
     std::atomic<bool> shouldExit_{false};
     std::mutex bufferMutex_;
 
-    // Double buffering - render to back buffer, display front buffer.
-    lv_color_t* backBuffer_ = nullptr;
-    std::vector<int> backIterationCache_;
-    std::atomic<bool> backBufferReady_{false};
+    // Triple buffering - 3 buffers rotate through roles.
+    lv_color_t* buffers_[3] = {nullptr, nullptr, nullptr};
+    std::vector<int> iterationCaches_[3];
+
+    // Buffer indices (which buffer has which role).
+    std::atomic<int> frontBufferIdx_{0};  // Currently displaying.
+    std::atomic<int> readyBufferIdx_{1};  // Ready to swap.
+    int renderBufferIdx_ = 2;             // Being rendered (only accessed by render thread).
+
+    std::atomic<bool> readyBufferAvailable_{false};
 
     // Background thread render function.
     void renderThreadFunc();

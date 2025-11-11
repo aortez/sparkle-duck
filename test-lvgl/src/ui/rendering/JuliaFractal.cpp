@@ -321,20 +321,29 @@ JuliaFractal::JuliaFractal(lv_obj_t* parent, int windowWidth, int windowHeight)
     lv_obj_clear_flag(canvas_, LV_OBJ_FLAG_CLICKABLE);
     lv_obj_add_flag(canvas_, LV_OBJ_FLAG_EVENT_BUBBLE);
 
-    // Allocate back buffer for double buffering.
-    backBuffer_ = static_cast<lv_color_t*>(lv_malloc(bufferSize));
-    if (!backBuffer_) {
-        spdlog::error("JuliaFractal: Failed to allocate back buffer");
+    // Allocate two additional buffers for triple buffering.
+    buffers_[0] = canvasBuffer_; // Front buffer (already allocated).
+    buffers_[1] = static_cast<lv_color_t*>(lv_malloc(bufferSize));
+    buffers_[2] = static_cast<lv_color_t*>(lv_malloc(bufferSize));
+
+    if (!buffers_[1] || !buffers_[2]) {
+        spdlog::error("JuliaFractal: Failed to allocate triple buffers");
         return;
     }
 
     // Render initial fractal to front buffer (synchronous for first frame).
+    iterationCache_ = iterationCaches_[0];
     render();
+
+    // Initialize buffer indices for triple buffering rotation.
+    frontBufferIdx_ = 0;   // Buffer 0 displaying.
+    readyBufferIdx_ = 1;   // Buffer 1 ready to swap.
+    renderBufferIdx_ = 2;  // Buffer 2 will be rendered.
 
     // Start background render thread.
     renderThread_ = std::thread(&JuliaFractal::renderThreadFunc, this);
 
-    spdlog::info("JuliaFractal: Initialized successfully with background rendering thread");
+    spdlog::info("JuliaFractal: Initialized with triple buffering and background thread");
 }
 
 JuliaFractal::~JuliaFractal()
@@ -353,15 +362,16 @@ JuliaFractal::~JuliaFractal()
         canvas_ = nullptr;
     }
 
-    // Free both buffers.
-    if (canvasBuffer_) {
-        lv_free(canvasBuffer_);
-        canvasBuffer_ = nullptr;
+    // Free all three buffers.
+    for (int i = 0; i < 3; i++) {
+        if (buffers_[i]) {
+            lv_free(buffers_[i]);
+            buffers_[i] = nullptr;
+        }
     }
-    if (backBuffer_) {
-        lv_free(backBuffer_);
-        backBuffer_ = nullptr;
-    }
+
+    // canvasBuffer_ is just an alias to buffers_[0], already freed.
+    canvasBuffer_ = nullptr;
 }
 
 int JuliaFractal::calculateJuliaPoint(int x, int y) const
@@ -453,27 +463,28 @@ void JuliaFractal::updateColors()
 void JuliaFractal::update()
 {
     // Check if background thread has a new frame ready.
-    if (!backBufferReady_.load(std::memory_order_acquire)) {
+    if (!readyBufferAvailable_.load(std::memory_order_acquire)) {
         return; // Nothing to do, wait for next frame.
     }
 
-    // Swap buffers (main thread only reads/writes pointers, very fast).
-    {
-        std::lock_guard<std::mutex> lock(bufferMutex_);
+    // Swap ready buffer to front (main thread displays it).
+    int oldFrontIdx = frontBufferIdx_.load(std::memory_order_relaxed);
+    int newFrontIdx = readyBufferIdx_.load(std::memory_order_relaxed);
 
-        // Swap the buffer pointers.
-        std::swap(canvasBuffer_, backBuffer_);
-        std::swap(iterationCache_, backIterationCache_);
+    // Update canvas to use the ready buffer.
+    canvasBuffer_ = buffers_[newFrontIdx];
+    iterationCache_ = iterationCaches_[newFrontIdx];
+    lv_canvas_set_buffer(canvas_, canvasBuffer_, width_, height_, LV_COLOR_FORMAT_ARGB8888);
 
-        // Update the canvas to use the new front buffer.
-        lv_canvas_set_buffer(canvas_, canvasBuffer_, width_, height_, LV_COLOR_FORMAT_ARGB8888);
-    }
+    // Swap indices: old front becomes new ready.
+    frontBufferIdx_.store(newFrontIdx, std::memory_order_release);
+    readyBufferIdx_.store(oldFrontIdx, std::memory_order_release);
 
-    // Mark canvas as dirty to trigger redraw (outside mutex).
+    // Mark canvas as dirty to trigger redraw.
     lv_obj_invalidate(canvas_);
 
-    // Reset ready flag so background thread can prepare next frame.
-    backBufferReady_.store(false, std::memory_order_release);
+    // Signal that we consumed the ready buffer.
+    readyBufferAvailable_.store(false, std::memory_order_release);
 }
 
 void JuliaFractal::resize(int newWidth, int newHeight)
@@ -504,24 +515,25 @@ void JuliaFractal::resize(int newWidth, int newHeight)
     height_ = renderHeight;
 
     // Free old buffers.
-    if (canvasBuffer_) {
-        lv_free(canvasBuffer_);
-        canvasBuffer_ = nullptr;
-    }
-    if (backBuffer_) {
-        lv_free(backBuffer_);
-        backBuffer_ = nullptr;
+    for (int i = 0; i < 3; i++) {
+        if (buffers_[i]) {
+            lv_free(buffers_[i]);
+            buffers_[i] = nullptr;
+        }
     }
 
     // Allocate new buffers at render resolution.
     size_t bufferSize = LV_CANVAS_BUF_SIZE(width_, height_, 32, 64);
-    canvasBuffer_ = static_cast<lv_color_t*>(lv_malloc(bufferSize));
-    backBuffer_ = static_cast<lv_color_t*>(lv_malloc(bufferSize));
-
-    if (!canvasBuffer_ || !backBuffer_) {
-        spdlog::error("JuliaFractal: Failed to allocate buffers during resize");
-        return;
+    for (int i = 0; i < 3; i++) {
+        buffers_[i] = static_cast<lv_color_t*>(lv_malloc(bufferSize));
+        if (!buffers_[i]) {
+            spdlog::error("JuliaFractal: Failed to allocate buffer {} during resize", i);
+            return;
+        }
     }
+
+    // Update canvasBuffer to point to buffer 0.
+    canvasBuffer_ = buffers_[0];
 
     // Update canvas buffer at render resolution.
     lv_canvas_set_buffer(canvas_, canvasBuffer_, width_, height_, LV_COLOR_FORMAT_ARGB8888);
@@ -535,9 +547,17 @@ void JuliaFractal::resize(int newWidth, int newHeight)
     // Re-render at new size.
     render();
 
+    // Reset iteration caches.
+    iterationCache_ = iterationCaches_[0];
+
+    // Reset buffer indices for triple buffering.
+    frontBufferIdx_ = 0;
+    readyBufferIdx_ = 1;
+    renderBufferIdx_ = 2;
+
     // Restart render thread with new dimensions.
     shouldExit_ = false;
-    backBufferReady_ = false;
+    readyBufferAvailable_ = false;
     renderThread_ = std::thread(&JuliaFractal::renderThreadFunc, this);
 
     spdlog::info("JuliaFractal: Resize complete, render thread restarted");
@@ -583,22 +603,17 @@ void JuliaFractal::renderThreadFunc()
         bool cChanged = (std::abs(newCReal - cReal_) > 0.01) || (std::abs(newCImag - cImag_) > 0.01);
         bool iterationsChanged = std::abs(newMaxIterations - maxIterations_) >= 4;
 
-        // Resize back buffer cache if needed.
+        // Get render buffer (our exclusive buffer for rendering).
+        lv_color_t* renderBuf = buffers_[renderBufferIdx_];
+        std::vector<int>& renderCache = iterationCaches_[renderBufferIdx_];
+
+        // Resize cache if needed.
         size_t totalPixels = width_ * height_;
-        if (backIterationCache_.size() != totalPixels) {
-            backIterationCache_.resize(totalPixels);
+        if (renderCache.size() != totalPixels) {
+            renderCache.resize(totalPixels);
         }
 
-        // Wait until main thread consumes the previous frame before rendering next.
-        while (backBufferReady_.load(std::memory_order_acquire) && !shouldExit_) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(10));
-        }
-
-        if (shouldExit_) break;
-
-        // Render to back buffer (safe now, main thread not touching it).
-        // No mutex needed here - backBufferReady=false guarantees exclusive access.
-        uint32_t* backBufferPtr = reinterpret_cast<uint32_t*>(backBuffer_);
+        uint32_t* renderBufPtr = reinterpret_cast<uint32_t*>(renderBuf);
 
         if (cChanged || iterationsChanged) {
             // Update parameters.
@@ -606,26 +621,38 @@ void JuliaFractal::renderThreadFunc()
             cImag_ = newCImag;
             maxIterations_ = newMaxIterations;
 
-            // Recalculate Julia set to back buffer.
+            // Recalculate Julia set to render buffer.
             for (int y = 0; y < height_; y++) {
                 for (int x = 0; x < width_; x++) {
                     int iteration = calculateJuliaPoint(x, y);
                     int idx = y * width_ + x;
-                    backIterationCache_[idx] = iteration;
-                    backBufferPtr[idx] = getPaletteColor(iteration);
+                    renderCache[idx] = iteration;
+                    renderBufPtr[idx] = getPaletteColor(iteration);
                 }
             }
         }
         else {
             // Fast update - only recolor using cached iterations.
             for (size_t idx = 0; idx < totalPixels; idx++) {
-                int iteration = backIterationCache_[idx];
-                backBufferPtr[idx] = getPaletteColor(iteration);
+                int iteration = renderCache[idx];
+                renderBufPtr[idx] = getPaletteColor(iteration);
             }
         }
 
-        // Signal that back buffer is ready (after rendering complete).
-        backBufferReady_.store(true, std::memory_order_release);
+        // Wait until ready buffer is consumed before we can promote our rendered frame.
+        while (readyBufferAvailable_.load(std::memory_order_acquire) && !shouldExit_) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        }
+
+        if (shouldExit_) break;
+
+        // Swap render buffer to ready position (our frame is now ready to display).
+        int oldReadyIdx = readyBufferIdx_.load(std::memory_order_relaxed);
+        readyBufferIdx_.store(renderBufferIdx_, std::memory_order_release);
+        renderBufferIdx_ = oldReadyIdx; // Old ready buffer becomes our next render target.
+
+        // Signal that a new ready buffer is available.
+        readyBufferAvailable_.store(true, std::memory_order_release);
     }
 
     spdlog::info("JuliaFractal: Render thread exiting");
