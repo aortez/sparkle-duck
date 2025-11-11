@@ -8,6 +8,7 @@ namespace Ui {
 
 // Rendering performance.
 constexpr int RESOLUTION_DIVISOR = 2;         // Render at 1/N resolution (2 = half, 4 = quarter).
+constexpr int RENDER_THREADS = 4;             // Number of parallel threads for fractal calculation.
 
 // Animation constants.
 constexpr double PHASE_SPEED = 0.05;          // Palette cycling oscillation speed.
@@ -621,21 +622,51 @@ void JuliaFractal::renderThreadFunc()
             cImag_ = newCImag;
             maxIterations_ = newMaxIterations;
 
-            // Recalculate Julia set to render buffer.
-            for (int y = 0; y < height_; y++) {
-                for (int x = 0; x < width_; x++) {
-                    int iteration = calculateJuliaPoint(x, y);
-                    int idx = y * width_ + x;
-                    renderCache[idx] = iteration;
-                    renderBufPtr[idx] = getPaletteColor(iteration);
-                }
+            // Recalculate Julia set to render buffer using multiple threads.
+            std::vector<std::thread> workers;
+            int rowsPerThread = height_ / RENDER_THREADS;
+
+            for (int t = 0; t < RENDER_THREADS; t++) {
+                int startRow = t * rowsPerThread;
+                int endRow = (t == RENDER_THREADS - 1) ? height_ : (t + 1) * rowsPerThread;
+
+                workers.emplace_back([this, &renderCache, renderBufPtr, startRow, endRow]() {
+                    for (int y = startRow; y < endRow; y++) {
+                        for (int x = 0; x < width_; x++) {
+                            int iteration = calculateJuliaPoint(x, y);
+                            int idx = y * width_ + x;
+                            renderCache[idx] = iteration;
+                            renderBufPtr[idx] = getPaletteColor(iteration);
+                        }
+                    }
+                });
+            }
+
+            // Wait for all threads to complete.
+            for (auto& worker : workers) {
+                worker.join();
             }
         }
         else {
-            // Fast update - only recolor using cached iterations.
-            for (size_t idx = 0; idx < totalPixels; idx++) {
-                int iteration = renderCache[idx];
-                renderBufPtr[idx] = getPaletteColor(iteration);
+            // Fast update - only recolor using cached iterations (also parallelized).
+            std::vector<std::thread> workers;
+            int pixelsPerThread = totalPixels / RENDER_THREADS;
+
+            for (int t = 0; t < RENDER_THREADS; t++) {
+                size_t startIdx = t * pixelsPerThread;
+                size_t endIdx = (t == RENDER_THREADS - 1) ? totalPixels : (t + 1) * pixelsPerThread;
+
+                workers.emplace_back([this, &renderCache, renderBufPtr, startIdx, endIdx]() {
+                    for (size_t idx = startIdx; idx < endIdx; idx++) {
+                        int iteration = renderCache[idx];
+                        renderBufPtr[idx] = getPaletteColor(iteration);
+                    }
+                });
+            }
+
+            // Wait for all threads to complete.
+            for (auto& worker : workers) {
+                worker.join();
             }
         }
 
