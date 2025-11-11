@@ -5,9 +5,12 @@
 namespace DirtSim {
 namespace Ui {
 
-// Sinusoidal animation state.
-constexpr double phaseSpeed_ = 0.02;   // How fast the phase advances (controls oscillation period).
-constexpr double maxCycleSpeed_ = 8.0; // Maximum palette advance per frame.
+// Animation constants.
+constexpr double PHASE_SPEED = 0.05;          // Palette cycling oscillation speed.
+constexpr double MAX_CYCLE_SPEED = 8.0;       // Maximum palette advance per frame.
+constexpr double DETAIL_PHASE_SPEED = 0.02;   // Detail level oscillation speed (slower).
+constexpr int MIN_ITERATIONS = 32;            // Minimum iteration count (less detail).
+constexpr int MAX_ITERATIONS = 128;           // Maximum iteration count (more detail).
 
 // Palette extracted from pal.png (256x1).
 constexpr int PALETTE_SIZE = 256;
@@ -409,17 +412,16 @@ void JuliaFractal::updateColors()
 
 void JuliaFractal::update()
 {
-    // Advance animation phase for sinusoidal speed variation.
-    animationPhase_ += phaseSpeed_;
+    // Advance animation phase for sinusoidal palette speed variation.
+    animationPhase_ += PHASE_SPEED;
     if (animationPhase_ > 2.0 * M_PI) {
         animationPhase_ -= 2.0 * M_PI;
     }
 
     // Calculate current cycling speed using sine wave.
     // sin ranges from -1 to 1, so (sin + 1)/2 gives 0 to 1.
-    // Multiply by maxCycleSpeed to get the actual speed.
     double speedFactor = (std::sin(animationPhase_) + 1.0) / 2.0;
-    double cycleSpeed = speedFactor * maxCycleSpeed_;
+    double cycleSpeed = speedFactor * MAX_CYCLE_SPEED;
 
     // Advance palette offset by the current speed.
     paletteOffset_ += cycleSpeed;
@@ -427,8 +429,28 @@ void JuliaFractal::update()
         paletteOffset_ -= PALETTE_SIZE;
     }
 
-    // Fast update - only recolor pixels, don't recalculate fractal.
-    updateColors();
+    // Advance detail phase for iteration count variation.
+    detailPhase_ += DETAIL_PHASE_SPEED;
+    if (detailPhase_ > 2.0 * M_PI) {
+        detailPhase_ -= 2.0 * M_PI;
+    }
+
+    // Calculate current iteration count using sine wave.
+    // Varies between MIN_ITERATIONS and MAX_ITERATIONS.
+    double detailFactor = (std::sin(detailPhase_) + 1.0) / 2.0;
+    int newMaxIterations = MIN_ITERATIONS + static_cast<int>(detailFactor * (MAX_ITERATIONS - MIN_ITERATIONS));
+
+    // Check if we need to recalculate fractal (iteration count changed significantly).
+    if (std::abs(newMaxIterations - lastRenderedMaxIterations_) >= 4) {
+        maxIterations_ = newMaxIterations;
+        lastRenderedMaxIterations_ = newMaxIterations;
+        // Recalculate fractal with new detail level.
+        render();
+    }
+    else {
+        // Fast update - only recolor pixels, don't recalculate fractal.
+        updateColors();
+    }
 }
 
 void JuliaFractal::resize(int newWidth, int newHeight)
