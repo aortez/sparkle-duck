@@ -5,6 +5,9 @@
 namespace DirtSim {
 namespace Ui {
 
+// Rendering performance.
+constexpr int RESOLUTION_DIVISOR = 2;         // Render at 1/N resolution (2 = half, 4 = quarter).
+
 // Animation constants.
 constexpr double PHASE_SPEED = 0.05;          // Palette cycling oscillation speed.
 constexpr double MAX_CYCLE_SPEED = 4.0;       // Maximum palette advance per frame.
@@ -282,16 +285,17 @@ constexpr uint32_t PALETTE[PALETTE_SIZE] = {
 
 JuliaFractal::JuliaFractal(lv_obj_t* parent, int windowWidth, int windowHeight)
 {
-    // Use full window dimensions for background.
-    width_ = windowWidth;
-    height_ = windowHeight;
+    // Render at reduced resolution for performance.
+    width_ = windowWidth / RESOLUTION_DIVISOR;
+    height_ = windowHeight / RESOLUTION_DIVISOR;
 
-    spdlog::info("JuliaFractal: Creating {}x{} fractal canvas", width_, height_);
+    spdlog::info("JuliaFractal: Creating {}x{} fractal canvas (render), scaling to {}x{} (display)",
+                 width_, height_, windowWidth, windowHeight);
 
     // Create LVGL canvas.
     canvas_ = lv_canvas_create(parent);
 
-    // Allocate canvas buffer (ARGB8888 format: 32 bits per pixel, 64-byte alignment).
+    // Allocate canvas buffer at reduced resolution (ARGB8888 format).
     size_t bufferSize = LV_CANVAS_BUF_SIZE(width_, height_, 32, 64);
     canvasBuffer_ = static_cast<lv_color_t*>(lv_malloc(bufferSize));
 
@@ -300,8 +304,11 @@ JuliaFractal::JuliaFractal(lv_obj_t* parent, int windowWidth, int windowHeight)
         return;
     }
 
-    // Set canvas buffer.
+    // Set canvas buffer at render resolution.
     lv_canvas_set_buffer(canvas_, canvasBuffer_, width_, height_, LV_COLOR_FORMAT_ARGB8888);
+
+    // Scale canvas up to full window size (LVGL handles interpolation).
+    lv_obj_set_size(canvas_, windowWidth, windowHeight);
 
     // Position in top-left corner to fill screen.
     lv_obj_set_pos(canvas_, 0, 0);
@@ -483,17 +490,21 @@ void JuliaFractal::update()
 
 void JuliaFractal::resize(int newWidth, int newHeight)
 {
+    // Calculate render resolution.
+    int renderWidth = newWidth / RESOLUTION_DIVISOR;
+    int renderHeight = newHeight / RESOLUTION_DIVISOR;
+
     // Check if resize is needed.
-    if (newWidth == width_ && newHeight == height_) {
+    if (renderWidth == width_ && renderHeight == height_) {
         return;
     }
 
-    spdlog::info(
-        "JuliaFractal: Resizing from {}x{} to {}x{}", width_, height_, newWidth, newHeight);
+    spdlog::info("JuliaFractal: Resizing from {}x{} to {}x{} (render), scaling to {}x{} (display)",
+                 width_, height_, renderWidth, renderHeight, newWidth, newHeight);
 
-    // Update dimensions.
-    width_ = newWidth;
-    height_ = newHeight;
+    // Update render dimensions.
+    width_ = renderWidth;
+    height_ = renderHeight;
 
     // Free old buffer.
     if (canvasBuffer_) {
@@ -501,7 +512,7 @@ void JuliaFractal::resize(int newWidth, int newHeight)
         canvasBuffer_ = nullptr;
     }
 
-    // Allocate new buffer.
+    // Allocate new buffer at render resolution.
     size_t bufferSize = LV_CANVAS_BUF_SIZE(width_, height_, 32, 64);
     canvasBuffer_ = static_cast<lv_color_t*>(lv_malloc(bufferSize));
 
@@ -510,8 +521,11 @@ void JuliaFractal::resize(int newWidth, int newHeight)
         return;
     }
 
-    // Update canvas buffer.
+    // Update canvas buffer at render resolution.
     lv_canvas_set_buffer(canvas_, canvasBuffer_, width_, height_, LV_COLOR_FORMAT_ARGB8888);
+
+    // Scale canvas object to full display size.
+    lv_obj_set_size(canvas_, newWidth, newHeight);
 
     // Re-render at new size.
     render();

@@ -17,6 +17,7 @@ struct Command {
     std::string scenario_id = "sandbox"; // Scenario to run (default: sandbox).
     bool use_realtime =
         true; // True: real-time accumulation, False: force immediate steps (for testing).
+        // TODO: replace with an enum class( enum class RunMode::RealTime, etc....)
 
     nlohmann::json toJson() const;
     static Command fromJson(const nlohmann::json& j);
