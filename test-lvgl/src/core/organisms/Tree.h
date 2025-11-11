@@ -51,11 +51,11 @@ public:
     TreeId id;
     uint32_t age = 0;
     GrowthStage stage = GrowthStage::SEED;
-    std::unordered_set<Vector2i> cells;           // Cell positions owned by this tree.
-    double total_energy = 0.0;                    // Aggregated from world cells.
-    double total_water = 0.0;                     // Aggregated from world cells.
-    std::optional<TreeCommand> current_command;   // Command being executed.
-    uint32_t steps_remaining = 0;                 // Timesteps until command completes.
+    std::unordered_set<Vector2i> cells;         // Cell positions owned by this tree.
+    double total_energy = 0.0;                  // Aggregated from world cells.
+    double total_water = 0.0;                   // Aggregated from world cells.
+    std::optional<TreeCommand> current_command; // Command being executed.
+    uint32_t steps_remaining = 0;               // Timesteps until command completes.
 
 private:
     std::unique_ptr<TreeBrain> brain_;

@@ -6,11 +6,8 @@
 
 namespace DirtSim {
 
-Tree::Tree(TreeId id, std::unique_ptr<TreeBrain> brain)
-    : id(id)
-    , brain_(std::move(brain))
-{
-}
+Tree::Tree(TreeId id, std::unique_ptr<TreeBrain> brain) : id(id), brain_(std::move(brain))
+{}
 
 void Tree::update(World& world, double deltaTime)
 {
@@ -46,8 +43,11 @@ void Tree::executeCommand(World& world)
                 if (cmd.target_pos.x < 0 || cmd.target_pos.y < 0
                     || static_cast<uint32_t>(cmd.target_pos.x) >= world.data.width
                     || static_cast<uint32_t>(cmd.target_pos.y) >= world.data.height) {
-                    spdlog::warn("Tree {}: GrowWoodCommand invalid position ({}, {})",
-                                 id, cmd.target_pos.x, cmd.target_pos.y);
+                    spdlog::warn(
+                        "Tree {}: GrowWoodCommand invalid position ({}, {})",
+                        id,
+                        cmd.target_pos.x,
+                        cmd.target_pos.y);
                     return;
                 }
 
@@ -64,14 +64,18 @@ void Tree::executeCommand(World& world)
                 cells.insert(cmd.target_pos);
                 total_energy -= cmd.energy_cost;
 
-                spdlog::info("Tree {}: Grew WOOD at ({}, {})", id, cmd.target_pos.x, cmd.target_pos.y);
+                spdlog::info(
+                    "Tree {}: Grew WOOD at ({}, {})", id, cmd.target_pos.x, cmd.target_pos.y);
             }
             else if constexpr (std::is_same_v<T, GrowLeafCommand>) {
                 if (cmd.target_pos.x < 0 || cmd.target_pos.y < 0
                     || static_cast<uint32_t>(cmd.target_pos.x) >= world.data.width
                     || static_cast<uint32_t>(cmd.target_pos.y) >= world.data.height) {
-                    spdlog::warn("Tree {}: GrowLeafCommand invalid position ({}, {})",
-                                 id, cmd.target_pos.x, cmd.target_pos.y);
+                    spdlog::warn(
+                        "Tree {}: GrowLeafCommand invalid position ({}, {})",
+                        id,
+                        cmd.target_pos.x,
+                        cmd.target_pos.y);
                     return;
                 }
 
@@ -84,14 +88,18 @@ void Tree::executeCommand(World& world)
                 cells.insert(cmd.target_pos);
                 total_energy -= cmd.energy_cost;
 
-                spdlog::info("Tree {}: Grew LEAF at ({}, {})", id, cmd.target_pos.x, cmd.target_pos.y);
+                spdlog::info(
+                    "Tree {}: Grew LEAF at ({}, {})", id, cmd.target_pos.x, cmd.target_pos.y);
             }
             else if constexpr (std::is_same_v<T, GrowRootCommand>) {
                 if (cmd.target_pos.x < 0 || cmd.target_pos.y < 0
                     || static_cast<uint32_t>(cmd.target_pos.x) >= world.data.width
                     || static_cast<uint32_t>(cmd.target_pos.y) >= world.data.height) {
-                    spdlog::warn("Tree {}: GrowRootCommand invalid position ({}, {})",
-                                 id, cmd.target_pos.x, cmd.target_pos.y);
+                    spdlog::warn(
+                        "Tree {}: GrowRootCommand invalid position ({}, {})",
+                        id,
+                        cmd.target_pos.x,
+                        cmd.target_pos.y);
                     return;
                 }
 
@@ -108,29 +116,37 @@ void Tree::executeCommand(World& world)
 
                 spdlog::info(
                     "Tree {}: Grew ROOT at ({}, {}) [using WOOD placeholder]",
-                    id, cmd.target_pos.x, cmd.target_pos.y);
+                    id,
+                    cmd.target_pos.x,
+                    cmd.target_pos.y);
             }
             else if constexpr (std::is_same_v<T, ReinforceCellCommand>) {
                 // TODO: Implement cell reinforcement once we have structural integrity tracking.
-                spdlog::info("Tree {}: Reinforced cell at ({}, {}) [not yet implemented]",
-                             id, cmd.position.x, cmd.position.y);
+                spdlog::info(
+                    "Tree {}: Reinforced cell at ({}, {}) [not yet implemented]",
+                    id,
+                    cmd.position.x,
+                    cmd.position.y);
                 total_energy -= cmd.energy_cost;
             }
             else if constexpr (std::is_same_v<T, ProduceSeedCommand>) {
                 if (cmd.position.x < 0 || cmd.position.y < 0
                     || static_cast<uint32_t>(cmd.position.x) >= world.data.width
                     || static_cast<uint32_t>(cmd.position.y) >= world.data.height) {
-                    spdlog::warn("Tree {}: ProduceSeedCommand invalid position ({}, {})",
-                                 id, cmd.position.x, cmd.position.y);
+                    spdlog::warn(
+                        "Tree {}: ProduceSeedCommand invalid position ({}, {})",
+                        id,
+                        cmd.position.x,
+                        cmd.position.y);
                     return;
                 }
 
-                world.addMaterialAtCell(
-                    cmd.position.x, cmd.position.y, MaterialType::SEED, 1.0);
+                world.addMaterialAtCell(cmd.position.x, cmd.position.y, MaterialType::SEED, 1.0);
 
                 total_energy -= cmd.energy_cost;
 
-                spdlog::info("Tree {}: Produced SEED at ({}, {})", id, cmd.position.x, cmd.position.y);
+                spdlog::info(
+                    "Tree {}: Produced SEED at ({}, {})", id, cmd.position.x, cmd.position.y);
             }
             else if constexpr (std::is_same_v<T, WaitCommand>) {
                 // Intentionally empty - just idle.
@@ -238,9 +254,9 @@ TreeSensoryData Tree::gatherSensoryData(const World& world) const
     data.stage = stage;
     data.total_energy = total_energy;
     data.total_water = total_water;
-    data.root_count = 0;  // TODO: Count ROOT cells.
-    data.leaf_count = 0;  // TODO: Count LEAF cells.
-    data.wood_count = 0;  // TODO: Count WOOD cells.
+    data.root_count = 0; // TODO: Count ROOT cells.
+    data.leaf_count = 0; // TODO: Count LEAF cells.
+    data.wood_count = 0; // TODO: Count WOOD cells.
 
     return data;
 }

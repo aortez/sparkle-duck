@@ -83,12 +83,13 @@ struct WaitCommand {
 /**
  * Variant of all possible tree commands.
  */
-using TreeCommand = std::variant<GrowWoodCommand,
-                                  GrowLeafCommand,
-                                  GrowRootCommand,
-                                  ReinforceCellCommand,
-                                  ProduceSeedCommand,
-                                  WaitCommand>;
+using TreeCommand = std::variant<
+    GrowWoodCommand,
+    GrowLeafCommand,
+    GrowRootCommand,
+    ReinforceCellCommand,
+    ProduceSeedCommand,
+    WaitCommand>;
 
 /**
  * Scale-invariant sensory data for tree brains.
@@ -100,7 +101,8 @@ using TreeCommand = std::variant<GrowWoodCommand,
 struct TreeSensoryData {
     // Fixed-size neural grid (scale-invariant).
     static constexpr int GRID_SIZE = 15;
-    static constexpr int NUM_MATERIALS = 9; // AIR, DIRT, LEAF, METAL, SAND, SEED, WALL, WATER, WOOD.
+    static constexpr int NUM_MATERIALS =
+        9; // AIR, DIRT, LEAF, METAL, SAND, SEED, WALL, WATER, WOOD.
 
     /**
      * Material distribution histograms for each neural cell.
@@ -111,10 +113,10 @@ struct TreeSensoryData {
         material_histograms;
 
     // Metadata about spatial mapping.
-    int actual_width = 0;       // Real bounding box size.
+    int actual_width = 0; // Real bounding box size.
     int actual_height = 0;
-    double scale_factor = 1.0;  // Real cells per neural cell.
-    Vector2i world_offset;      // Top-left corner in world coords.
+    double scale_factor = 1.0; // Real cells per neural cell.
+    Vector2i world_offset;     // Top-left corner in world coords.
 
     // Internal organism state.
     uint32_t age = 0;

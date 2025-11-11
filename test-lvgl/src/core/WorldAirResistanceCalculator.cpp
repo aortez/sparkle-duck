@@ -40,7 +40,8 @@ Vector2d WorldAirResistanceCalculator::calculateAirResistance(
     // Material-specific air resistance models shape, surface area, and density effects.
 
     Vector2d velocity_direction = velocity.normalize();
-    double force_magnitude = strength * props.air_resistance * velocity_magnitude * velocity_magnitude;
+    double force_magnitude =
+        strength * props.air_resistance * velocity_magnitude * velocity_magnitude;
 
     // Force opposes motion (negative of velocity direction).
     Vector2d air_resistance_force = velocity_direction * (-force_magnitude);

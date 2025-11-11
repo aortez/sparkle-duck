@@ -80,7 +80,8 @@ bool WebSocketClient::connect(const std::string& url)
                                            .timestamp = now };
 
                         eventSink_->queueEvent(evt);
-                        spdlog::debug("UI WebSocketClient: Queued UiUpdateEvent (step {})", stepCount);
+                        spdlog::debug(
+                            "UI WebSocketClient: Queued UiUpdateEvent (step {})", stepCount);
                         return; // Done - skip JSON conversion entirely.
                     }
 
