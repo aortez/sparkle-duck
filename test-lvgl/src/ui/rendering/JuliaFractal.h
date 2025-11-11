@@ -73,10 +73,7 @@ private:
     double paletteOffset_ = 0.0; // Floating point for smooth sinusoidal speed.
     int maxIterations_ = 128;
 
-    // Sinusoidal animation state.
     double animationPhase_ = 0.0; // Phase for sine wave (0 to 2π).
-    double phaseSpeed_ = 0.05;    // How fast the phase advances (controls oscillation period).
-    double maxCycleSpeed_ = 8.0;  // Maximum palette advance per frame.
 
     // Cached iteration counts to avoid recalculating fractal every frame.
     std::vector<int> iterationCache_;

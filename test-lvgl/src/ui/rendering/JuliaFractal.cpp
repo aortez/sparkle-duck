@@ -5,6 +5,11 @@
 namespace DirtSim {
 namespace Ui {
 
+
+// Sinusoidal animation state.
+constexpr double phaseSpeed_ = 0.02;    // How fast the phase advances (controls oscillation period).
+constexpr double maxCycleSpeed_ = 8.0;  // Maximum palette advance per frame.
+
 // Palette extracted from pal.png (256x1).
 constexpr int PALETTE_SIZE = 256;
 constexpr uint32_t PALETTE[PALETTE_SIZE] = {
