@@ -124,8 +124,7 @@ State::Any SimRunning::onEvent(const FrameReadyNotification& evt, StateMachine& 
 {
     // Time-based frame limiting: only request updates at target frame rate.
     auto now = std::chrono::steady_clock::now();
-    auto elapsed =
-        std::chrono::duration_cast<std::chrono::milliseconds>(now - lastFrameTime);
+    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastFrameTime);
 
     const std::chrono::milliseconds targetFrameInterval{ 16 }; // 60 FPS target.
     if (elapsed >= targetFrameInterval) {
@@ -206,11 +205,13 @@ State::Any SimRunning::onEvent(const UiUpdateEvent& evt, StateMachine& sm)
         // Exponentially weighted moving average (90% old, 10% new) for smooth display.
         if (smoothedUiFps == 0.0) {
             smoothedUiFps = measuredUiFps; // Initialize.
-        } else {
+        }
+        else {
             smoothedUiFps = 0.9 * smoothedUiFps + 0.1 * measuredUiFps;
         }
 
-        spdlog::debug("SimRunning: UI FPS: {:.1f} (smoothed: {:.1f})", measuredUiFps, smoothedUiFps);
+        spdlog::debug(
+            "SimRunning: UI FPS: {:.1f} (smoothed: {:.1f})", measuredUiFps, smoothedUiFps);
     }
 
     lastFrameTime = now;

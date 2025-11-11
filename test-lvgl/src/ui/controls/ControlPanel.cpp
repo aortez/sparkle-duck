@@ -130,11 +130,12 @@ void ControlPanel::createScenarioControls(
     lv_obj_t* scenarioLabel = lv_label_create(scenarioPanel_);
     lv_label_set_text(scenarioLabel, "Scenario:");
 
-    scenarioDropdown_ = LVGLBuilder::dropdown(scenarioPanel_)
-                            .options("Sandbox\nDam Break\nRaining\nWater Equalization\nFalling Dirt\nEmpty")
-                            .selected(0)  // "Sandbox" selected by default.
-                            .size(LV_PCT(90), 40)
-                            .buildOrLog();
+    scenarioDropdown_ =
+        LVGLBuilder::dropdown(scenarioPanel_)
+            .options("Sandbox\nDam Break\nRaining\nWater Equalization\nFalling Dirt\nEmpty")
+            .selected(0) // "Sandbox" selected by default.
+            .size(LV_PCT(90), 40)
+            .buildOrLog();
 
     // Add event handler for dropdown.
     if (scenarioDropdown_) {
@@ -237,14 +238,8 @@ void ControlPanel::onScenarioChanged(lv_event_t* e)
     uint16_t selectedIdx = lv_dropdown_get_selected(dropdown);
 
     // Map dropdown index to scenario_id.
-    const char* scenarioIds[] = {
-        "sandbox",
-        "dam_break",
-        "raining",
-        "water_equalization",
-        "falling_dirt",
-        "empty"
-    };
+    const char* scenarioIds[] = { "sandbox",      "dam_break", "raining", "water_equalization",
+                                  "falling_dirt", "empty" };
 
     if (selectedIdx >= 6) {
         spdlog::error("ControlPanel: Invalid scenario index {}", selectedIdx);

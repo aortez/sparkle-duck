@@ -419,7 +419,8 @@ void World::applyCohesionForces()
 
 void World::applyPressureForces()
 {
-    if (physicsSettings.pressure_hydrostatic_strength <= 0.0 && physicsSettings.pressure_dynamic_strength <= 0.0) {
+    if (physicsSettings.pressure_hydrostatic_strength <= 0.0
+        && physicsSettings.pressure_dynamic_strength <= 0.0) {
         return;
     }
 

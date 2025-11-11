@@ -27,8 +27,8 @@ struct SimRunning {
     double actualFPS = 0.0; // Measured FPS (steps/second).
 
     // Fixed timestep accumulator for deterministic physics.
-    double physicsAccumulatorSeconds = 0.0;              // Accumulated real time.
-    static constexpr double FIXED_TIMESTEP_SECONDS = 0.016;  // 16ms = 60 FPS physics.
+    double physicsAccumulatorSeconds = 0.0;                 // Accumulated real time.
+    static constexpr double FIXED_TIMESTEP_SECONDS = 0.016; // 16ms = 60 FPS physics.
     std::chrono::steady_clock::time_point lastPhysicsTime;
 
     // UI frame delivery backpressure.

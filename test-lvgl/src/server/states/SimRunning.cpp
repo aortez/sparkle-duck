@@ -72,11 +72,13 @@ State::Any SimRunning::onEvent(const AdvanceSimulationCommand& /*cmd*/, StateMac
     double elapsedSeconds = 0.0;
 
     if (stepCount == 0) {
-        // Initialize timing on first step - seed accumulator with one timestep to start immediately.
+        // Initialize timing on first step - seed accumulator with one timestep to start
+        // immediately.
         lastPhysicsTime = now;
         lastFrameTime = now;
-        elapsedSeconds = FIXED_TIMESTEP_SECONDS;  // Start with one timestep ready.
-    } else {
+        elapsedSeconds = FIXED_TIMESTEP_SECONDS; // Start with one timestep ready.
+    }
+    else {
         elapsedSeconds = std::chrono::duration<double>(now - lastPhysicsTime).count();
         lastPhysicsTime = now;
     }
@@ -110,7 +112,7 @@ State::Any SimRunning::onEvent(const AdvanceSimulationCommand& /*cmd*/, StateMac
             spdlog::warn(
                 "SimRunning: Physics running slow, dropping {:.3f} seconds (accumulated time)",
                 physicsAccumulatorSeconds);
-            physicsAccumulatorSeconds = 0.0;  // Reset to prevent infinite catchup.
+            physicsAccumulatorSeconds = 0.0; // Reset to prevent infinite catchup.
             break;
         }
     }
@@ -120,14 +122,17 @@ State::Any SimRunning::onEvent(const AdvanceSimulationCommand& /*cmd*/, StateMac
         auto frameElapsed =
             std::chrono::duration_cast<std::chrono::microseconds>(now - lastFrameTime).count();
         if (frameElapsed > 0) {
-            actualFPS = 1000000.0 / frameElapsed;    // Microseconds to FPS.
-            world->data.fps_server = actualFPS;      // Update WorldData for UI.
+            actualFPS = 1000000.0 / frameElapsed; // Microseconds to FPS.
+            world->data.fps_server = actualFPS;   // Update WorldData for UI.
             lastFrameTime = now;
 
             // Log FPS and performance stats intermittently.
             if (stepCount == 100 || stepCount % 1000 == 0) {
-                spdlog::info("SimRunning: Actual FPS: {:.1f} (step {}, {} steps this frame)",
-                             actualFPS, stepCount, stepsThisFrame);
+                spdlog::info(
+                    "SimRunning: Actual FPS: {:.1f} (step {}, {} steps this frame)",
+                    actualFPS,
+                    stepCount,
+                    stepsThisFrame);
 
                 // Log performance timing stats.
                 auto& timers = dsm.getTimers();
@@ -181,8 +186,10 @@ State::Any SimRunning::onEvent(const AdvanceSimulationCommand& /*cmd*/, StateMac
         dsm.updateCachedWorldData(world->data);
         dsm.getTimers().stopTimer("cache_update");
 
-        spdlog::debug("SimRunning: Advanced simulation {} step(s) (total step {})",
-                      stepsThisFrame, stepCount);
+        spdlog::debug(
+            "SimRunning: Advanced simulation {} step(s) (total step {})",
+            stepsThisFrame,
+            stepCount);
 
         // Push WorldData to UI clients only if UI is ready (backpressure control).
         if (dsm.getWebSocketServer() && uiReadyForNextFrame) {
@@ -204,7 +211,8 @@ State::Any SimRunning::onEvent(const AdvanceSimulationCommand& /*cmd*/, StateMac
             // Clear ready flag - wait for UI to signal ready for next frame.
             uiReadyForNextFrame = false;
             spdlog::info("SimRunning: Sent frame to UI, waiting for frame_ready");
-        } else if (!uiReadyForNextFrame) {
+        }
+        else if (!uiReadyForNextFrame) {
             spdlog::info("SimRunning: Skipping frame broadcast - UI not ready yet");
         }
     }
@@ -590,8 +598,10 @@ State::Any SimRunning::onEvent(const Api::SimRun::Cwc& cwc, StateMachine& dsm)
         auto* scenario = registry.getScenario(cwc.command.scenario_id);
 
         if (!scenario) {
-            spdlog::error("SimRunning: Scenario '{}' not found in registry", cwc.command.scenario_id);
-            cwc.sendResponse(Response::error(ApiError("Scenario not found: " + cwc.command.scenario_id)));
+            spdlog::error(
+                "SimRunning: Scenario '{}' not found in registry", cwc.command.scenario_id);
+            cwc.sendResponse(
+                Response::error(ApiError("Scenario not found: " + cwc.command.scenario_id)));
             return std::move(*this);
         }
 

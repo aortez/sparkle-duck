@@ -3,12 +3,12 @@
 #include "Cell.h"
 #include "MaterialMove.h"
 #include "MaterialType.h"
+#include "PhysicsSettings.h"
 #include "Timers.h"
 #include "Vector2i.h"
 #include "WorldAdhesionCalculator.h"
 #include "WorldCohesionCalculator.h"
 #include "WorldCollisionCalculator.h"
-#include "PhysicsSettings.h"
 #include "WorldData.h"
 #include "WorldEventGenerator.h"
 #include "WorldFrictionCalculator.h"
@@ -71,7 +71,8 @@ public:
     // WORLDINTERFACE IMPLEMENTATION - SIMULATION CONTROL
     // =================================================================
 
-    // NOTE: Use physicsSettings.timescale for physics, data.removed_mass, data.add_particles_enabled directly.
+    // NOTE: Use physicsSettings.timescale for physics, data.removed_mass,
+    // data.add_particles_enabled directly.
     double getTotalMass() const;
 
     // =================================================================
@@ -108,13 +109,25 @@ public:
     // =================================================================
 
     void setHydrostaticPressureEnabled(bool enabled);
-    bool isHydrostaticPressureEnabled() const { return physicsSettings.pressure_hydrostatic_strength > 0.0; }
+    bool isHydrostaticPressureEnabled() const
+    {
+        return physicsSettings.pressure_hydrostatic_strength > 0.0;
+    }
 
     void setDynamicPressureEnabled(bool enabled);
-    bool isDynamicPressureEnabled() const { return physicsSettings.pressure_dynamic_strength > 0.0; }
+    bool isDynamicPressureEnabled() const
+    {
+        return physicsSettings.pressure_dynamic_strength > 0.0;
+    }
 
-    void setPressureDiffusionEnabled(bool enabled) { physicsSettings.pressure_diffusion_strength = enabled ? 1.0 : 0.0; }
-    bool isPressureDiffusionEnabled() const { return physicsSettings.pressure_diffusion_strength > 0.0; }
+    void setPressureDiffusionEnabled(bool enabled)
+    {
+        physicsSettings.pressure_diffusion_strength = enabled ? 1.0 : 0.0;
+    }
+    bool isPressureDiffusionEnabled() const
+    {
+        return physicsSettings.pressure_diffusion_strength > 0.0;
+    }
 
     void setHydrostaticPressureStrength(double strength);
     double getHydrostaticPressureStrength() const;

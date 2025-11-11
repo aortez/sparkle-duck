@@ -1,6 +1,6 @@
 #include "ScenarioWorldEventGenerator.h"
-#include "core/World.h"
 #include "core/Cell.h"
+#include "core/World.h"
 
 // Implementation file for ScenarioWorldEventGenerator
 

@@ -6,8 +6,8 @@
 #include "server/api/SimRun.h"
 #include "state-machine/EventSink.h"
 #include "state-machine/network/WebSocketClient.h"
-#include "ui/ui_builders/LVGLBuilder.h"
 #include "ui/UiComponentManager.h"
+#include "ui/ui_builders/LVGLBuilder.h"
 #include <spdlog/spdlog.h>
 
 namespace DirtSim {
@@ -33,22 +33,31 @@ SimPlayground::SimPlayground(
     lv_label_set_text(scenarioLabel, "Scenario:");
 
     // Scenario dropdown.
-    scenarioDropdown_ = LVGLBuilder::dropdown(scenarioContainer)
-                            .options("Sandbox\nDam Break\nRaining\nWater Equalization\nFalling Dirt\nEmpty")
-                            .selected(0)  // "Sandbox" selected by default.
-                            .size(LV_PCT(90), 40)
-                            .buildOrLog();
+    scenarioDropdown_ =
+        LVGLBuilder::dropdown(scenarioContainer)
+            .options("Sandbox\nDam Break\nRaining\nWater Equalization\nFalling Dirt\nEmpty")
+            .selected(0) // "Sandbox" selected by default.
+            .size(LV_PCT(90), 40)
+            .buildOrLog();
 
     if (scenarioDropdown_) {
         spdlog::info("SimPlayground: Scenario dropdown created successfully");
 
         // Style the dropdown button (light green background, dark purple text).
-        lv_obj_set_style_bg_color(scenarioDropdown_, lv_color_hex(0x90EE90), LV_PART_MAIN);  // Light green.
-        lv_obj_set_style_text_color(scenarioDropdown_, lv_color_hex(0x4B0082), LV_PART_MAIN);  // Dark purple (indigo).
+        lv_obj_set_style_bg_color(
+            scenarioDropdown_, lv_color_hex(0x90EE90), LV_PART_MAIN); // Light green.
+        lv_obj_set_style_text_color(
+            scenarioDropdown_, lv_color_hex(0x4B0082), LV_PART_MAIN); // Dark purple (indigo).
 
         // Style the dropdown list (when opened).
-        lv_obj_set_style_bg_color(lv_dropdown_get_list(scenarioDropdown_), lv_color_hex(0x90EE90), LV_PART_MAIN);  // Light green.
-        lv_obj_set_style_text_color(lv_dropdown_get_list(scenarioDropdown_), lv_color_hex(0x4B0082), LV_PART_MAIN);  // Dark purple.
+        lv_obj_set_style_bg_color(
+            lv_dropdown_get_list(scenarioDropdown_),
+            lv_color_hex(0x90EE90),
+            LV_PART_MAIN); // Light green.
+        lv_obj_set_style_text_color(
+            lv_dropdown_get_list(scenarioDropdown_),
+            lv_color_hex(0x4B0082),
+            LV_PART_MAIN); // Dark purple.
 
         lv_obj_set_user_data(scenarioDropdown_, this);
         lv_obj_add_event_cb(scenarioDropdown_, onScenarioChanged, LV_EVENT_VALUE_CHANGED, this);
@@ -111,14 +120,8 @@ void SimPlayground::onScenarioChanged(lv_event_t* e)
     uint16_t selectedIdx = lv_dropdown_get_selected(dropdown);
 
     // Map dropdown index to scenario_id.
-    const char* scenarioIds[] = {
-        "sandbox",
-        "dam_break",
-        "raining",
-        "water_equalization",
-        "falling_dirt",
-        "empty"
-    };
+    const char* scenarioIds[] = { "sandbox",      "dam_break", "raining", "water_equalization",
+                                  "falling_dirt", "empty" };
 
     if (selectedIdx >= 6) {
         spdlog::error("SimPlayground: Invalid scenario index {}", selectedIdx);

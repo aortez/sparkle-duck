@@ -223,7 +223,8 @@ void PhysicsControls::onTimescaleToggled(lv_event_t* e)
         // When disabled, set timescale to 0 to pause simulation time.
         self->settings_.timescale = 0.0;
         self->syncSettings();
-    } else {
+    }
+    else {
         // When re-enabled, LVGLBuilder has restored the slider value.
         // Read it from the slider and sync to server.
         // Note: We need to access the slider widget, which is a sibling of the switch.
@@ -270,7 +271,8 @@ void PhysicsControls::onGravityToggled(lv_event_t* e)
         // When disabled, set gravity to 0.
         self->settings_.gravity = 0.0;
         self->syncSettings();
-    } else {
+    }
+    else {
         // When re-enabled, LVGLBuilder has restored the slider value.
         // Read it from the slider and sync to server.
         lv_obj_t* container = lv_obj_get_parent(target);
@@ -360,7 +362,8 @@ void PhysicsControls::onHydrostaticPressureToggled(lv_event_t* e)
     if (!enabled) {
         self->settings_.pressure_hydrostatic_strength = 0.0;
         self->syncSettings();
-    } else {
+    }
+    else {
         lv_obj_t* container = lv_obj_get_parent(target);
         if (container) {
             lv_obj_t* slider = lv_obj_get_child(container, 2);
@@ -369,7 +372,8 @@ void PhysicsControls::onHydrostaticPressureToggled(lv_event_t* e)
                 double scaledValue = value * 0.01;
                 self->settings_.pressure_hydrostatic_strength = scaledValue;
                 self->syncSettings();
-                spdlog::debug("PhysicsControls: Restored hydrostatic pressure to {:.2f}", scaledValue);
+                spdlog::debug(
+                    "PhysicsControls: Restored hydrostatic pressure to {:.2f}", scaledValue);
             }
         }
     }
@@ -400,7 +404,8 @@ void PhysicsControls::onDynamicPressureToggled(lv_event_t* e)
     if (!enabled) {
         self->settings_.pressure_dynamic_strength = 0.0;
         self->syncSettings();
-    } else {
+    }
+    else {
         lv_obj_t* container = lv_obj_get_parent(target);
         if (container) {
             lv_obj_t* slider = lv_obj_get_child(container, 2);
@@ -440,7 +445,8 @@ void PhysicsControls::onPressureDiffusionToggled(lv_event_t* e)
     if (!enabled) {
         self->settings_.pressure_diffusion_strength = 0.0;
         self->syncSettings();
-    } else {
+    }
+    else {
         lv_obj_t* container = lv_obj_get_parent(target);
         if (container) {
             lv_obj_t* slider = lv_obj_get_child(container, 2);
@@ -449,7 +455,8 @@ void PhysicsControls::onPressureDiffusionToggled(lv_event_t* e)
                 double scaledValue = value * 0.01;
                 self->settings_.pressure_diffusion_strength = scaledValue;
                 self->syncSettings();
-                spdlog::debug("PhysicsControls: Restored pressure diffusion to {:.2f}", scaledValue);
+                spdlog::debug(
+                    "PhysicsControls: Restored pressure diffusion to {:.2f}", scaledValue);
             }
         }
     }

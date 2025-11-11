@@ -286,8 +286,8 @@ void CellRenderer::renderCellDebug(Cell& cell, CellCanvas& canvas, uint32_t /*x*
         int dynamic_border_width = 0;
 
         if (cell.hydrostatic_component > 0.01) {
-            hydrostatic_border_width = static_cast<int>(
-                std::min(MAX_BORDER_WIDTH, 1.0 + std::log1p(cell.hydrostatic_component * 10) * 2.0));
+            hydrostatic_border_width = static_cast<int>(std::min(
+                MAX_BORDER_WIDTH, 1.0 + std::log1p(cell.hydrostatic_component * 10) * 2.0));
         }
 
         if (cell.dynamic_component > 0.01) {

@@ -68,10 +68,12 @@ Result<ApiCommand, ApiError> CommandDeserializerJson::deserialize(const std::str
             return Result<ApiCommand, ApiError>::okay(Api::FrameReady::Command::fromJson(cmd));
         }
         else if (commandName == "physics_settings_get") {
-            return Result<ApiCommand, ApiError>::okay(Api::PhysicsSettingsGet::Command::fromJson(cmd));
+            return Result<ApiCommand, ApiError>::okay(
+                Api::PhysicsSettingsGet::Command::fromJson(cmd));
         }
         else if (commandName == "physics_settings_set") {
-            return Result<ApiCommand, ApiError>::okay(Api::PhysicsSettingsSet::Command::fromJson(cmd));
+            return Result<ApiCommand, ApiError>::okay(
+                Api::PhysicsSettingsSet::Command::fromJson(cmd));
         }
         else if (commandName == "reset") {
             return Result<ApiCommand, ApiError>::okay(Api::Reset::Command::fromJson(cmd));
