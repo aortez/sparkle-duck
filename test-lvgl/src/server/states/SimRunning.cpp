@@ -592,32 +592,6 @@ State::Any SimRunning::onEvent(const Api::SimRun::Cwc& cwc, StateMachine& /*dsm*
     return std::move(*this);
 }
 
-State::Any SimRunning::onEvent(const Api::StepN::Cwc& cwc, StateMachine& /*dsm*/)
-{
-    using Response = Api::StepN::Response;
-
-    assert(world && "World must exist in SimRunning state");
-
-    // Validate frames parameter.
-    if (cwc.command.frames <= 0) {
-        cwc.sendResponse(Response::error(ApiError("Frames must be positive")));
-        return std::move(*this);
-    }
-
-    // Step simulation.
-    for (int i = 0; i < cwc.command.frames; ++i) {
-        world->advanceTime(0.016); // ~60 FPS timestep.
-        stepCount++;
-    }
-
-    uint32_t timestep = world->data.timestep;
-    spdlog::debug(
-        "SimRunning: API stepped {} frames, timestep now {}", cwc.command.frames, timestep);
-
-    cwc.sendResponse(Response::okay({ timestep }));
-    return std::move(*this);
-}
-
 State::Any SimRunning::onEvent(const PauseCommand& /*cmd*/, StateMachine& /*dsm. */)
 {
     spdlog::info("SimRunning: Pausing at step {}", stepCount);

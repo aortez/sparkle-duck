@@ -13,7 +13,6 @@
 #include "server/api/ScenarioConfigSet.h"
 #include "server/api/SimRun.h"
 #include "server/api/StateGet.h"
-#include "server/api/StepN.h"
 #include "server/api/TimerStatsGet.h"
 #include <nlohmann/json.hpp>
 #include <string>
@@ -68,9 +67,6 @@ public:
                 doc["value"] = response.value().toJson();
             }
             else if constexpr (std::is_same_v<T, Api::StateGet::Response>) {
-                doc["value"] = response.value().toJson();
-            }
-            else if constexpr (std::is_same_v<T, Api::StepN::Response>) {
                 doc["value"] = response.value().toJson();
             }
             else if constexpr (std::is_same_v<T, Api::TimerStatsGet::Response>) {

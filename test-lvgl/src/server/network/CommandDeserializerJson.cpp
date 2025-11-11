@@ -14,7 +14,6 @@
 #include "server/api/SimRun.h"
 #include "server/api/SpawnDirtBall.h"
 #include "server/api/StateGet.h"
-#include "server/api/StepN.h"
 #include <spdlog/spdlog.h>
 
 namespace DirtSim {
@@ -47,10 +46,7 @@ Result<ApiCommand, ApiError> CommandDeserializerJson::deserialize(const std::str
 
     // Dispatch to appropriate handler.
     try {
-        if (commandName == "step") {
-            return Result<ApiCommand, ApiError>::okay(Api::StepN::Command::fromJson(cmd));
-        }
-        else if (commandName == "cell_get") {
+        if (commandName == "cell_get") {
             return Result<ApiCommand, ApiError>::okay(Api::CellGet::Command::fromJson(cmd));
         }
         else if (commandName == "cell_set") {

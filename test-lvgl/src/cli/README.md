@@ -21,7 +21,7 @@ Send commands to the server or UI:
 ./build/bin/cli ws://localhost:8080 state_get
 
 # Command with JSON parameters
-./build/bin/cli ws://localhost:8080 step_n '{"frames": 10}'
+./build/bin/cli ws://localhost:8080 sim_run '{"timestep": 0.016, "max_steps": 10}'
 
 # Place material
 ./build/bin/cli ws://localhost:8080 cell_set '{"x": 50, "y": 50, "material": "WATER", "fill": 1.0}'
@@ -116,40 +116,11 @@ Automated end-to-end testing:
 - WorldData serialized with zpp_bits for efficiency
 - Automatically unpacked to JSON for compatibility
 
-## Available Commands
-
-| Command | Description | Parameters |
-|---------|-------------|------------|
-| `benchmark` | Run performance benchmark | `--steps`, `--scenario`, `--simulate-ui` |
-| `integration_test` | Run integration test | None |
-| `cell_get` | Get cell state | `{"x": 10, "y": 20}` |
-| `cell_set` | Place material | `{"x": 50, "y": 50, "material": "WATER", "fill": 1.0}` |
-| `diagram_get` | Get emoji visualization | None |
-| `exit` | Shutdown server | None |
-| `gravity_set` | Set gravity value | `{"gravity": 15.0}` |
-| `perf_stats_get` | Get performance stats | None |
-| `physics_settings_get` | Get physics settings | None |
-| `physics_settings_set` | Set physics parameters | `{"settings": {"timescale": 1.5}}` |
-| `reset` | Reset simulation | None |
-| `scenario_config_set` | Update scenario config | `{"config": {...}}` |
-| `sim_run` | Start simulation | `{"timestep": 0.016, "max_steps": 100}` |
-| `state_get` | Get complete world state | None |
-| `timer_stats_get` | Get timing breakdown | None |
-| `step_n` | Advance N frames | `{"frames": 1}` |
-
-## State Machine Flow
-
-The server follows this state flow:
-
-```
-Startup → Idle → SimRunning → SimPaused → Shutdown
-              ↑         ↓
-              └─────────┘
-```
-
-**Important**:
+**Notes**:
 - `sim_run` creates World and transitions Idle → SimRunning
-- `step_n` only works in SimRunning state (requires existing World)
+- Set `max_steps` to control simulation duration:
+  - `-1` = unlimited (runs until paused or stopped)
+  - `>0` = runs that many steps then transitions to SimPaused
 - `exit` works from any state
 
 ## Use Cases
@@ -184,34 +155,3 @@ sleep 2
 ./build/bin/cli ws://localhost:8080 exit
 wait $SERVER_PID
 ```
-
-### Debugging
-
-```bash
-# Enable verbose logging
-./build/bin/cli -v ws://localhost:8080 state_get
-
-# Custom timeout
-./build/bin/cli -t 10000 ws://localhost:8080 state_get
-```
-
-## Implementation Notes
-
-### Subprocess Management
-
-- Uses `fork()` + `execv()` for process spawning
-- SIGTERM for graceful shutdown, SIGKILL fallback after 500ms
-- Proper argument parsing for multi-argument commands
-
-### Error Handling
-
-- Connection timeouts (default 5s, configurable)
-- Response timeouts for commands
-- Process death detection
-- Graceful cleanup on failures
-
-### Performance
-
-- Non-blocking server launch (background process)
-- Concurrent connection attempts with retry logic
-- Efficient binary protocol support for WorldData

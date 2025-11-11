@@ -60,7 +60,7 @@ make -C build -j12
 
 # CLI client for sending commands
 ./build/bin/cli ws://localhost:8080 state_get
-./build/bin/cli ws://localhost:8080 step_n '{"frames": 1}'
+./build/bin/cli ws://localhost:8080 sim_run '{"timestep": 0.016, "max_steps": 1}'
 ./build/bin/cli ws://localhost:8080 diagram_get
 
 # CLI integration test

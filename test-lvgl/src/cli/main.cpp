@@ -38,7 +38,6 @@ static const std::vector<CommandInfo> AVAILABLE_COMMANDS = {
     { "sim_run", "Start autonomous simulation", R"({"timestep": 0.016, "max_steps": 100})" },
     { "state_get", "Get complete world state as JSON", "" },
     { "timer_stats_get", "Get detailed physics timing breakdown", "" },
-    { "step_n", "Advance simulation N frames", R"({"frames": 1})" },
 };
 
 std::string getCommandListHelp()

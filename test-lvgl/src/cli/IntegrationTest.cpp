@@ -77,8 +77,8 @@ int IntegrationTest::run(const std::string& serverPath, const std::string& uiPat
     client.send(exitCmd.dump());
     client.disconnect();
 
-    // Wait for server to exit gracefully (poll for up to 3 seconds).
-    for (int i = 0; i < 30; i++) {
+    // Wait for server to exit gracefully.
+    for (int i = 0; i < 10; i++) {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
         if (!subprocessManager.isServerRunning()) {
             std::cout << "Server exited cleanly" << std::endl;
@@ -90,19 +90,22 @@ int IntegrationTest::run(const std::string& serverPath, const std::string& uiPat
     std::cout << "Shutting down UI..." << std::endl;
     subprocessManager.killUI();
 
-    // Wait longer for processes to exit cleanly.
-    std::this_thread::sleep_for(std::chrono::milliseconds(1500));
+    // Wait for processes to exit cleanly.
+    for (int i = 0; i < 10; i++) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        if (!subprocessManager.isServerRunning() && !subprocessManager.isUIRunning()) {
+            std::cout << "Server and UI exited cleanly" << std::endl;
+            break;
+        }
+    }
 
     // Verify both are stopped (forcefully kill if needed).
-    bool serverStopped = !subprocessManager.isServerRunning();
-    bool uiStopped = !subprocessManager.isUIRunning();
-
-    if (!serverStopped) {
+    if (subprocessManager.isServerRunning()) {
         std::cout << "Server didn't exit gracefully, force killing..." << std::endl;
         subprocessManager.killServer();
     }
 
-    if (!uiStopped) {
+    if (subprocessManager.isUIRunning()) {
         std::cout << "UI didn't exit gracefully, force killing..." << std::endl;
         subprocessManager.killUI();
     }

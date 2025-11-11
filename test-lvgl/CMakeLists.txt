@@ -205,7 +205,6 @@ add_library(sparkle-duck-server-lib STATIC
     src/server/api/SimRun.cpp
     src/server/api/SpawnDirtBall.cpp
     src/server/api/StateGet.cpp
-    src/server/api/StepN.cpp
     src/server/api/TimerStatsGet.cpp
 
     # Server network.

@@ -15,7 +15,6 @@
 #include "SimRun.h"
 #include "SpawnDirtBall.h"
 #include "StateGet.h"
-#include "StepN.h"
 #include "TimerStatsGet.h"
 #include <variant>
 
@@ -40,7 +39,6 @@ using ApiCommand = std::variant<
     Api::SimRun::Command,
     Api::SpawnDirtBall::Command,
     Api::StateGet::Command,
-    Api::StepN::Command,
     Api::TimerStatsGet::Command>;
 
 } // namespace DirtSim
