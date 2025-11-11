@@ -434,23 +434,27 @@ Material displacement multipliers (future):
 ### Phase 1: Foundation
 **Goal**: SEED material visible and trackable in world
 
-**Status: In Progress**
+**Status: ✅ COMPLETE**
 
 Completed:
 - ✅ Add SEED to MaterialType enum (alphabetized)
 - ✅ Define SEED material properties (density: 8.0, rigid, cohesive)
-- ✅ Add SEED rendering color (0x8B4513 - saddle brown)
+- ✅ Add SEED rendering color (0x8B4313 - saddle brown)
 - ✅ Create SeedAdd API command
 - ✅ Add UI button for placing seeds
+- ✅ Create TreeTypes.h with TreeCommand variants, TreeSensoryData, GrowthStage enum
+- ✅ Create TreeBrain.h abstract interface
+- ✅ Create Tree.h/cpp with command execution system
+- ✅ Create TreeManager.h/cpp for lifecycle management
+- ✅ Add organism_id field to Cell class
+- ✅ Integrate TreeManager into World class
+- ✅ Update CMakeLists.txt with organism source files
+- ✅ Add std::hash<Vector2i> specialization for unordered containers
+- ✅ Seeds fall with gravity and participate in full physics simulation
 
-Remaining:
-- ❌ Add ROOT material type
-- ❌ Material picker UI (doesn't exist yet)
-- ❌ Create TreeTypes.h with TreeCommand variants
-- ❌ Create Tree class with brain interface
-- ❌ Create TreeManager class
-- ❌ Integrate into WorldB
-- ❌ Testing: Seeds fall with gravity, render correctly
+Deferred to Phase 2+:
+- ❌ Add ROOT material type (will add when germination is implemented)
+- ❌ Material picker UI (doesn't exist yet - seeds placeable via SeedAdd command)
 
 ### Phase 2: Growth System
 1. SEED → WOOD germination
