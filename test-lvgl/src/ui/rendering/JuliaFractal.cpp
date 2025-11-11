@@ -307,11 +307,14 @@ JuliaFractal::JuliaFractal(lv_obj_t* parent, int windowWidth, int windowHeight)
     // Set canvas buffer at render resolution.
     lv_canvas_set_buffer(canvas_, canvasBuffer_, width_, height_, LV_COLOR_FORMAT_ARGB8888);
 
-    // Scale canvas up to full window size (LVGL handles interpolation).
-    lv_obj_set_size(canvas_, windowWidth, windowHeight);
-
-    // Position in top-left corner to fill screen.
+    // Position in top-left corner.
     lv_obj_set_pos(canvas_, 0, 0);
+
+    // Scale canvas to fill full window using LVGL transform.
+    int scaleX = (windowWidth * 256) / width_;   // LVGL uses 256 = 1x scale.
+    int scaleY = (windowHeight * 256) / height_;
+    lv_obj_set_style_transform_scale_x(canvas_, scaleX, 0);
+    lv_obj_set_style_transform_scale_y(canvas_, scaleY, 0);
 
     // Make canvas non-clickable so events pass through to widgets on top.
     lv_obj_clear_flag(canvas_, LV_OBJ_FLAG_CLICKABLE);
@@ -524,8 +527,11 @@ void JuliaFractal::resize(int newWidth, int newHeight)
     // Update canvas buffer at render resolution.
     lv_canvas_set_buffer(canvas_, canvasBuffer_, width_, height_, LV_COLOR_FORMAT_ARGB8888);
 
-    // Scale canvas object to full display size.
-    lv_obj_set_size(canvas_, newWidth, newHeight);
+    // Update transform scale to fill new display size.
+    int scaleX = (newWidth * 256) / width_;   // LVGL uses 256 = 1x scale.
+    int scaleY = (newHeight * 256) / height_;
+    lv_obj_set_style_transform_scale_x(canvas_, scaleX, 0);
+    lv_obj_set_style_transform_scale_y(canvas_, scaleY, 0);
 
     // Re-render at new size.
     render();
