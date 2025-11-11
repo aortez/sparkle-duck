@@ -36,8 +36,8 @@ void StartMenu::onEnter(StateMachine& sm)
     lv_obj_add_event_cb(container, onDisplayResized, LV_EVENT_SIZE_CHANGED, fractal);
     spdlog::info("StartMenu: Added resize event handler");
 
-    // Create animation timer (1 frame every 5 seconds - minimal CPU usage).
-    animationTimer_ = lv_timer_create(onAnimationTimer, 5000, fractal);
+    // Create animation timer.
+    animationTimer_ = lv_timer_create(onAnimationTimer, 16, fractal);
     spdlog::info("StartMenu: Started fractal animation timer");
 
     // Create centered "Start Simulation" button.

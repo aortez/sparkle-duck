@@ -139,9 +139,8 @@ static void run_loop_wayland(DirtSim::Ui::StateMachine& sm)
         completed = lv_wayland_timer_handler();
 
         if (completed) {
-            /* wait only if the cycle was completed and FPS limiting is enabled. */
-            // TODO: Get frame limiting from settings or config.
-            // usleep(LV_DEF_REFR_PERIOD * 1000);
+            /* Wait to avoid busy-looping and consuming 100% CPU. */
+            usleep(1000);
         }
 
         /* Run until the last window closes. */

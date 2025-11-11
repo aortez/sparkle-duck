@@ -366,30 +366,41 @@ void JuliaFractal::render()
         iterationCache_.resize(totalPixels);
     }
 
+    // Direct buffer access for fast rendering (ARGB8888 = 32 bits per pixel).
+    uint32_t* buffer = reinterpret_cast<uint32_t*>(canvasBuffer_);
+
     // Calculate Julia set and cache iteration counts.
     for (int y = 0; y < height_; y++) {
         for (int x = 0; x < width_; x++) {
             int iteration = calculateJuliaPoint(x, y);
-            iterationCache_[y * width_ + x] = iteration;
+            int idx = y * width_ + x;
+            iterationCache_[idx] = iteration;
 
-            uint32_t color = getPaletteColor(iteration);
-            lv_canvas_set_px(canvas_, x, y, lv_color_hex(color), LV_OPA_COVER);
+            // Write directly to buffer.
+            buffer[idx] = getPaletteColor(iteration);
         }
     }
+
+    // Mark canvas as dirty to trigger redraw.
+    lv_obj_invalidate(canvas_);
 }
 
 void JuliaFractal::updateColors()
 {
     if (!canvasBuffer_ || iterationCache_.empty()) return;
 
+    // Direct buffer access for fast color update (ARGB8888 = 32 bits per pixel).
+    uint32_t* buffer = reinterpret_cast<uint32_t*>(canvasBuffer_);
+
     // Fast update - only recolor pixels using cached iteration counts.
-    for (int y = 0; y < height_; y++) {
-        for (int x = 0; x < width_; x++) {
-            int iteration = iterationCache_[y * width_ + x];
-            uint32_t color = getPaletteColor(iteration);
-            lv_canvas_set_px(canvas_, x, y, lv_color_hex(color), LV_OPA_COVER);
-        }
+    size_t totalPixels = width_ * height_;
+    for (size_t idx = 0; idx < totalPixels; idx++) {
+        int iteration = iterationCache_[idx];
+        buffer[idx] = getPaletteColor(iteration);
     }
+
+    // Mark canvas as dirty to trigger redraw.
+    lv_obj_invalidate(canvas_);
 }
 
 void JuliaFractal::update()
