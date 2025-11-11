@@ -32,6 +32,10 @@ void StartMenu::onEnter(StateMachine& sm)
     auto* fractal = new JuliaFractal(container, windowWidth, windowHeight);
     spdlog::info("StartMenu: Created fractal background");
 
+    // Add resize event handler to container (catches window resize events).
+    lv_obj_add_event_cb(container, onDisplayResized, LV_EVENT_SIZE_CHANGED, fractal);
+    spdlog::info("StartMenu: Added resize event handler");
+
     // Create animation timer (30 FPS palette cycling).
     animationTimer_ = lv_timer_create(onAnimationTimer, 33, fractal);
     spdlog::info("StartMenu: Started fractal animation timer");
@@ -111,6 +115,22 @@ void StartMenu::onAnimationTimer(lv_timer_t* timer)
     if (fractal) {
         fractal->update();
     }
+}
+
+void StartMenu::onDisplayResized(lv_event_t* e)
+{
+    auto* fractal = static_cast<JuliaFractal*>(lv_event_get_user_data(e));
+    if (!fractal) return;
+
+    // Get new display dimensions.
+    lv_disp_t* disp = lv_disp_get_default();
+    int newWidth = lv_disp_get_hor_res(disp);
+    int newHeight = lv_disp_get_ver_res(disp);
+
+    spdlog::info("StartMenu: Display resized to {}x{}, updating fractal", newWidth, newHeight);
+
+    // Resize the fractal to match.
+    fractal->resize(newWidth, newHeight);
 }
 
 State::Any StartMenu::onEvent(const ServerRunningConfirmedEvent& /*evt*/, StateMachine& /*sm*/)

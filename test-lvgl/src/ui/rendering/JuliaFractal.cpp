@@ -292,6 +292,10 @@ JuliaFractal::JuliaFractal(lv_obj_t* parent, int windowWidth, int windowHeight)
     // Position in top-left corner to fill screen.
     lv_obj_set_pos(canvas_, 0, 0);
 
+    // Make canvas non-clickable so events pass through to widgets on top.
+    lv_obj_clear_flag(canvas_, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_flag(canvas_, LV_OBJ_FLAG_EVENT_BUBBLE);
+
     // Render initial fractal.
     render();
 
@@ -368,6 +372,43 @@ void JuliaFractal::update()
 
     // Re-render with new palette offset.
     render();
+}
+
+void JuliaFractal::resize(int newWidth, int newHeight)
+{
+    // Check if resize is needed.
+    if (newWidth == width_ && newHeight == height_) {
+        return;
+    }
+
+    spdlog::info("JuliaFractal: Resizing from {}x{} to {}x{}", width_, height_, newWidth, newHeight);
+
+    // Update dimensions.
+    width_ = newWidth;
+    height_ = newHeight;
+
+    // Free old buffer.
+    if (canvasBuffer_) {
+        lv_free(canvasBuffer_);
+        canvasBuffer_ = nullptr;
+    }
+
+    // Allocate new buffer.
+    size_t bufferSize = LV_CANVAS_BUF_SIZE(width_, height_, 32, 64);
+    canvasBuffer_ = static_cast<lv_color_t*>(lv_malloc(bufferSize));
+
+    if (!canvasBuffer_) {
+        spdlog::error("JuliaFractal: Failed to allocate new canvas buffer during resize");
+        return;
+    }
+
+    // Update canvas buffer.
+    lv_canvas_set_buffer(canvas_, canvasBuffer_, width_, height_, LV_COLOR_FORMAT_ARGB8888);
+
+    // Re-render at new size.
+    render();
+
+    spdlog::info("JuliaFractal: Resize complete");
 }
 
 } // namespace Ui

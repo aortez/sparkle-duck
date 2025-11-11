@@ -28,6 +28,13 @@ public:
     void update();
 
     /**
+     * @brief Resize the fractal to match new window dimensions.
+     * @param newWidth New window width.
+     * @param newHeight New window height.
+     */
+    void resize(int newWidth, int newHeight);
+
+    /**
      * @brief Get the canvas object.
      */
     lv_obj_t* getCanvas() const { return canvas_; }

@@ -28,6 +28,7 @@ struct StartMenu {
 private:
     static void onStartButtonClicked(lv_event_t* e);
     static void onAnimationTimer(lv_timer_t* timer);
+    static void onDisplayResized(lv_event_t* e);
 
     lv_timer_t* animationTimer_ = nullptr;
 };
