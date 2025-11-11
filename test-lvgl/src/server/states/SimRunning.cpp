@@ -93,7 +93,6 @@ State::Any SimRunning::onEvent(const AdvanceSimulationCommand& /*cmd*/, StateMac
         physicsAccumulatorSeconds = FIXED_TIMESTEP_SECONDS;
     }
 
-
     // Step physics as many times as needed to catch up with real time.
     int stepsThisFrame = 0;
     while (physicsAccumulatorSeconds >= FIXED_TIMESTEP_SECONDS) {
