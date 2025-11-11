@@ -304,6 +304,13 @@ JuliaFractal::JuliaFractal(lv_obj_t* parent, int windowWidth, int windowHeight)
 
 JuliaFractal::~JuliaFractal()
 {
+    // Delete canvas object first (this detaches it from parent).
+    if (canvas_) {
+        lv_obj_del(canvas_);
+        canvas_ = nullptr;
+    }
+
+    // Then free the buffer.
     if (canvasBuffer_) {
         lv_free(canvasBuffer_);
         canvasBuffer_ = nullptr;
