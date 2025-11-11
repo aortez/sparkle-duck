@@ -5,6 +5,7 @@
 
 // Forward declarations.
 typedef struct _lv_obj_t lv_obj_t;
+typedef struct _lv_event_t lv_event_t;
 
 namespace DirtSim {
 namespace Ui {
@@ -54,8 +55,14 @@ private:
     std::unique_ptr<PhysicsControls> physicsControls_;
     std::unique_ptr<CellRenderer> renderer_;
 
+    // Scenario selector dropdown (persistent across scenario changes).
+    lv_obj_t* scenarioDropdown_ = nullptr;
+
     // Current scenario ID (to detect changes).
     std::string currentScenarioId_;
+
+    // Event handlers.
+    static void onScenarioChanged(lv_event_t* e);
 };
 
 } // namespace Ui

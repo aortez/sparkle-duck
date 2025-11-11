@@ -33,7 +33,7 @@ protected:
     {
         // Create Idle and transition to SimRunning.
         Idle idleState;
-        Api::SimRun::Command cmd{ 0.016, 150 };
+        Api::SimRun::Command cmd{ 0.016, 150, "sandbox", false }; // use_realtime=false for testing.
         Api::SimRun::Cwc cwc(cmd, [](auto&&) {});
         State::Any state = idleState.onEvent(cwc, *stateMachine);
 
@@ -72,23 +72,22 @@ protected:
  */
 TEST_F(StateSimRunningTest, OnEnter_AppliesDefaultScenario)
 {
-    // Setup: Create SimRunning state (world exists but scenario not applied).
+    // Setup: Create SimRunning state with sandbox scenario (applied by Idle).
     Idle idleState;
-    Api::SimRun::Command cmd{ 0.016, 100 };
+    Api::SimRun::Command cmd{ 0.016, 100 }; // Defaults to scenario_id = "sandbox".
     Api::SimRun::Cwc cwc(cmd, [](auto&&) {});
     State::Any state = idleState.onEvent(cwc, *stateMachine);
     SimRunning simRunning = std::move(std::get<SimRunning>(state));
 
-    // Verify: World exists but scenario not yet applied.
+    // Verify: World exists and scenario already applied by Idle.
     ASSERT_NE(simRunning.world, nullptr);
-    EXPECT_EQ(simRunning.world->data.scenario_id, "empty") << "Scenario not applied before onEnter";
+    EXPECT_EQ(simRunning.world->data.scenario_id, "sandbox") << "Scenario applied by Idle";
 
-    // Execute: Call onEnter to apply scenario.
+    // Execute: Call onEnter (should not change scenario since it's already set).
     simRunning.onEnter(*stateMachine);
 
-    // Verify: Sandbox scenario is applied.
-    EXPECT_EQ(simRunning.world->data.scenario_id, "sandbox")
-        << "Default scenario should be sandbox";
+    // Verify: Sandbox scenario is still applied.
+    EXPECT_EQ(simRunning.world->data.scenario_id, "sandbox") << "Scenario should remain sandbox";
 
     // Verify: Walls exist (basic scenario setup check).
     const Cell& topLeft = simRunning.world->at(0, 0);
