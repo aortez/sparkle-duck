@@ -8,14 +8,14 @@ namespace Ui {
 
 // Rendering performance.
 constexpr int RESOLUTION_DIVISOR = 2;         // Render at 1/N resolution (2 = half, 4 = quarter).
-constexpr int RENDER_THREADS = 4;             // Number of parallel threads for fractal calculation.
+constexpr int RENDER_THREADS = 8;             // Number of parallel threads for fractal calculation.
 
 // Animation constants.
 constexpr double PHASE_SPEED = 0.0000;          // Palette cycling oscillation speed.
 constexpr double MAX_CYCLE_SPEED = 0.1;       // Maximum palette advance per frame.
 constexpr double DETAIL_PHASE_SPEED = 0.01;   // Detail level oscillation speed (slower).
 constexpr int MIN_ITERATIONS = 0;             // Minimum iteration count (less detail).
-constexpr int MAX_ITERATIONS = 96;           // Maximum iteration count (more detail).
+constexpr int MAX_ITERATIONS = 200;           // Maximum iteration count (more detail).
 
 // Julia set constant (c) oscillation for shape morphing.
 constexpr double C_PHASE_SPEED = 0.01;       // Very slow shape morphing.
