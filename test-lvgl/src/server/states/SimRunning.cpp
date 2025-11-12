@@ -415,7 +415,7 @@ State::Any SimRunning::onEvent(const Api::FrameReady::Cwc& cwc, StateMachine& /*
 {
     using Response = Api::FrameReady::Response;
 
-    spdlog::info("SimRunning: UI ready for next frame - enabling broadcast");
+    spdlog::debug("SimRunning: UI ready for next frame - enabling broadcast");
 
     // UI signals it's ready - allow next frame broadcast.
     uiReadyForNextFrame = true;

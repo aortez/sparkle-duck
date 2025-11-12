@@ -1,6 +1,7 @@
 #include "WebSocketServer.h"
 #include "core/MsgPackAdapter.h"
 #include "server/StateMachine.h"
+#include <cstring>
 #include <spdlog/spdlog.h>
 #include <zpp_bits.h>
 
@@ -113,7 +114,11 @@ void WebSocketServer::broadcastBinary(const rtc::binary& data)
 
 void WebSocketServer::onMessage(std::shared_ptr<rtc::WebSocket> ws, const std::string& message)
 {
-    spdlog::info("WebSocket received command: {}", message);
+    if (message.find("frame_ready") != std::string::npos) {
+        spdlog::debug("WebSocket received command: {}", message);
+    } else {
+        spdlog::info("WebSocket received command: {}", message);
+    }
 
     // Deserialize JSON → Command.
     auto cmdResult = deserializer_.deserialize(message);
@@ -187,7 +192,11 @@ auto makeStandardCwc(
     cwc.command = cmd;
     cwc.callback = [self, ws](typename Info::ResponseType&& response) {
         std::string jsonResponse = self->serializer_.serialize(std::move(response));
-        spdlog::info("{}: Sending response ({} bytes)", Info::name, jsonResponse.size());
+        if (std::strcmp(Info::name, "FrameReady") == 0) {
+            spdlog::debug("{}: Sending response ({} bytes)", Info::name, jsonResponse.size());
+        } else {
+            spdlog::info("{}: Sending response ({} bytes)", Info::name, jsonResponse.size());
+        }
         ws->send(jsonResponse);
     };
     return cwc;

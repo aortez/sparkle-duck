@@ -105,12 +105,11 @@ void ControlPanel::createCoreControls()
     lv_obj_set_style_border_width(spacer2, 0, 0);
 
     // Debug toggle.
-    debugSwitch_ = lv_switch_create(panelContainer_);
-    lv_obj_set_user_data(debugSwitch_, this);
-    lv_obj_add_event_cb(debugSwitch_, onDebugToggled, LV_EVENT_VALUE_CHANGED, nullptr);
-
-    lv_obj_t* debugLabel = lv_label_create(panelContainer_);
-    lv_label_set_text(debugLabel, "Debug Draw");
+    debugSwitch_ = LVGLBuilder::labeledSwitch(panelContainer_)
+                       .label("Debug Draw")
+                       .initialState(false)
+                       .callback(onDebugToggled, this)
+                       .buildOrLog();
 
     spdlog::debug("ControlPanel: Core controls created");
 }

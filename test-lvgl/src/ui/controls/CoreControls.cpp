@@ -4,6 +4,7 @@
 #include "ui/state-machine/EventSink.h"
 #include "ui/state-machine/api/DrawDebugToggle.h"
 #include "ui/state-machine/network/WebSocketClient.h"
+#include "ui/ui_builders/LVGLBuilder.h"
 #include <lvgl/src/misc/lv_palette.h>
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
@@ -56,11 +57,11 @@ CoreControls::CoreControls(lv_obj_t* container, WebSocketClient* wsClient, Event
     lv_obj_set_style_border_width(spacer2, 0, 0);
 
     // Debug toggle.
-    debugSwitch_ = lv_switch_create(container_);
-    lv_obj_add_event_cb(debugSwitch_, onDebugToggled, LV_EVENT_VALUE_CHANGED, this);
-
-    lv_obj_t* debugLabel = lv_label_create(container_);
-    lv_label_set_text(debugLabel, "Debug Draw");
+    debugSwitch_ = LVGLBuilder::labeledSwitch(container_)
+                       .label("Debug Draw")
+                       .initialState(false)
+                       .callback(onDebugToggled, this)
+                       .buildOrLog();
 
     spdlog::info("CoreControls: Initialized");
 }
