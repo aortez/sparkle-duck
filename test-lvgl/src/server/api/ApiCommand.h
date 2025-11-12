@@ -16,6 +16,7 @@
 #include "SpawnDirtBall.h"
 #include "StateGet.h"
 #include "TimerStatsGet.h"
+#include "WorldResize.h"
 #include <variant>
 
 namespace DirtSim {
@@ -39,6 +40,7 @@ using ApiCommand = std::variant<
     Api::SimRun::Command,
     Api::SpawnDirtBall::Command,
     Api::StateGet::Command,
-    Api::TimerStatsGet::Command>;
+    Api::TimerStatsGet::Command,
+    Api::WorldResize::Command>;
 
 } // namespace DirtSim

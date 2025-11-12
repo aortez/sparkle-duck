@@ -178,6 +178,7 @@ REGISTER_API_NAMESPACE(SimRun)
 REGISTER_API_NAMESPACE(SpawnDirtBall)
 REGISTER_API_NAMESPACE(StateGet)
 REGISTER_API_NAMESPACE(TimerStatsGet) // Note: Not in deserializer yet, but needed for compile.
+REGISTER_API_NAMESPACE(WorldResize)
 
 #undef REGISTER_API_NAMESPACE
 

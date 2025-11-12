@@ -470,6 +470,27 @@ State::Any SimRunning::onEvent(const Api::ScenarioConfigSet::Cwc& cwc, StateMach
     return std::move(*this);
 }
 
+State::Any SimRunning::onEvent(const Api::WorldResize::Cwc& cwc, StateMachine& /*dsm*/)
+{
+    using Response = Api::WorldResize::Response;
+
+    const auto& cmd = cwc.command;
+    spdlog::info("SimRunning: API resize world to {}x{}", cmd.width, cmd.height);
+
+    if (world) {
+        // Resize the world grid.
+        world->resizeGrid(cmd.width, cmd.height);
+        spdlog::debug("SimRunning: World resized successfully");
+    } else {
+        spdlog::error("SimRunning: Cannot resize - world is null");
+        cwc.sendResponse(Response::error(ApiError("World not initialized")));
+        return std::move(*this);
+    }
+
+    cwc.sendResponse(Response::okay(std::monostate{}));
+    return std::move(*this);
+}
+
 State::Any SimRunning::onEvent(const Api::SeedAdd::Cwc& cwc, StateMachine& /*dsm*/)
 {
     using Response = Api::SeedAdd::Response;

@@ -206,6 +206,7 @@ add_library(sparkle-duck-server-lib STATIC
     src/server/api/SpawnDirtBall.cpp
     src/server/api/StateGet.cpp
     src/server/api/TimerStatsGet.cpp
+    src/server/api/WorldResize.cpp
 
     # Server network.
     src/server/network/CommandDeserializerJson.cpp

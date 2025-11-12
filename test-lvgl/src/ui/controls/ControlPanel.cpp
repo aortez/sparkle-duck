@@ -147,9 +147,11 @@ void ControlPanel::createScenarioControls(
     }
 
     // Create controls based on scenario type.
-    if (scenarioId == "sandbox" && std::holds_alternative<SandboxConfig>(config)) {
-        createSandboxControls(std::get<SandboxConfig>(config));
-    }
+    // DISABLED: SimPlayground already creates SandboxControls, having duplicate controls
+    // causes infinite update loops between the two sets of controls
+    // if (scenarioId == "sandbox" && std::holds_alternative<SandboxConfig>(config)) {
+    //     createSandboxControls(std::get<SandboxConfig>(config));
+    // }
     // TODO: Add other scenario control creators here.
 
     spdlog::debug("ControlPanel: Scenario controls created for '{}'", scenarioId);

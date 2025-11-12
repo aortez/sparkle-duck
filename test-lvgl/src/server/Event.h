@@ -16,6 +16,7 @@
 #include "api/SpawnDirtBall.h"
 #include "api/StateGet.h"
 #include "api/TimerStatsGet.h"
+#include "api/WorldResize.h"
 #include "core/MaterialType.h"
 #include "core/SimulationStats.h"
 #include <chrono>
@@ -582,6 +583,7 @@ using Event = std::variant<
     DirtSim::Api::SpawnDirtBall::Cwc,
     DirtSim::Api::StateGet::Cwc,
     DirtSim::Api::TimerStatsGet::Cwc,
+    DirtSim::Api::WorldResize::Cwc,
 
     // State transitions
     OpenConfigCommand,

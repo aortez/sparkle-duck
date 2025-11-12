@@ -504,3 +504,80 @@ TEST_F(StateSimRunningTest, SeedAdd_RejectsInvalidCoordinates)
     ASSERT_TRUE(callbackInvoked) << "Callback should be invoked for out-of-bounds coordinates";
     ASSERT_TRUE(std::holds_alternative<SimRunning>(newState)) << "Should stay in SimRunning";
 }
+
+/**
+ * @brief Test that WorldResize command resizes the world grid.
+ */
+TEST_F(StateSimRunningTest, WorldResize_ResizesWorldGrid)
+{
+    // Setup: Create initialized SimRunning state.
+    SimRunning simRunning = createSimRunningWithWorld();
+
+    // Get initial world size.
+    const uint32_t initialWidth = simRunning.world->data.width;
+    const uint32_t initialHeight = simRunning.world->data.height;
+
+    EXPECT_GT(initialWidth, 0) << "Initial width should be positive";
+    EXPECT_GT(initialHeight, 0) << "Initial height should be positive";
+
+    // Execute: Resize world to 50x50.
+    bool callbackInvoked = false;
+    Api::WorldResize::Command cmd;
+    cmd.width = 50;
+    cmd.height = 50;
+    Api::WorldResize::Cwc cwc(cmd, [&](Api::WorldResize::Response&& response) {
+        callbackInvoked = true;
+        EXPECT_TRUE(response.isValue()) << "WorldResize should succeed";
+    });
+
+    State::Any newState = simRunning.onEvent(cwc, *stateMachine);
+
+    // Verify: Still in SimRunning.
+    ASSERT_TRUE(std::holds_alternative<SimRunning>(newState)) << "Should stay in SimRunning";
+    simRunning = std::move(std::get<SimRunning>(newState));
+
+    // Verify: World resized correctly.
+    ASSERT_TRUE(callbackInvoked) << "Callback should be invoked";
+    EXPECT_EQ(simRunning.world->data.width, 50) << "World width should be resized to 50";
+    EXPECT_EQ(simRunning.world->data.height, 50) << "World height should be resized to 50";
+
+    // Execute: Resize world to smaller size (10x10).
+    callbackInvoked = false;
+    Api::WorldResize::Command cmd2;
+    cmd2.width = 10;
+    cmd2.height = 10;
+    Api::WorldResize::Cwc cwc2(cmd2, [&](Api::WorldResize::Response&& response) {
+        callbackInvoked = true;
+        EXPECT_TRUE(response.isValue()) << "WorldResize should succeed for smaller size";
+    });
+
+    newState = simRunning.onEvent(cwc2, *stateMachine);
+
+    // Verify: Still in SimRunning with smaller world.
+    ASSERT_TRUE(std::holds_alternative<SimRunning>(newState)) << "Should stay in SimRunning";
+    simRunning = std::move(std::get<SimRunning>(newState));
+
+    ASSERT_TRUE(callbackInvoked) << "Callback should be invoked for resize";
+    EXPECT_EQ(simRunning.world->data.width, 10) << "World width should be resized to 10";
+    EXPECT_EQ(simRunning.world->data.height, 10) << "World height should be resized to 10";
+
+    // Execute: Resize world to larger size (100x100).
+    callbackInvoked = false;
+    Api::WorldResize::Command cmd3;
+    cmd3.width = 100;
+    cmd3.height = 100;
+    Api::WorldResize::Cwc cwc3(cmd3, [&](Api::WorldResize::Response&& response) {
+        callbackInvoked = true;
+        EXPECT_TRUE(response.isValue()) << "WorldResize should succeed for larger size";
+    });
+
+    newState = simRunning.onEvent(cwc3, *stateMachine);
+
+    // Verify: Still in SimRunning with larger world.
+    ASSERT_TRUE(std::holds_alternative<SimRunning>(newState)) << "Should stay in SimRunning";
+    simRunning = std::move(std::get<SimRunning>(newState));
+
+    ASSERT_TRUE(callbackInvoked) << "Callback should be invoked for resize";
+    EXPECT_EQ(simRunning.world->data.width, 100) << "World width should be resized to 100";
+    EXPECT_EQ(simRunning.world->data.height, 100) << "World height should be resized to 100";
+}

@@ -38,6 +38,43 @@ CellRenderer::~CellRenderer()
     cleanup();
 }
 
+void CellRenderer::calculateScaling(uint32_t worldWidth, uint32_t worldHeight)
+{
+    // Get container size
+    int32_t containerWidth = lv_obj_get_width(parent_);
+    int32_t containerHeight = lv_obj_get_height(parent_);
+
+    // Add some padding (5% on each side)
+    int32_t availableWidth = containerWidth * 0.9;
+    int32_t availableHeight = containerHeight * 0.9;
+
+    // Calculate the scale needed to fit the world in the container
+    double scaleX = (double)availableWidth / (worldWidth * Cell::WIDTH);
+    double scaleY = (double)availableHeight / (worldHeight * Cell::HEIGHT);
+
+    // Use the smaller scale to preserve aspect ratio
+    double scale = std::min(scaleX, scaleY);
+
+    // Limit the scale to reasonable values
+    // Don't scale up more than 2x (to avoid pixelation)
+    // Don't scale down below 0.2x (to keep cells visible)
+    scale = std::max(0.2, std::min(2.0, scale));
+
+    // Calculate scaled cell dimensions
+    scaledCellWidth_ = static_cast<uint32_t>(Cell::WIDTH * scale);
+    scaledCellHeight_ = static_cast<uint32_t>(Cell::HEIGHT * scale);
+
+    // Ensure minimum cell size of 5x5 pixels
+    scaledCellWidth_ = std::max(5u, scaledCellWidth_);
+    scaledCellHeight_ = std::max(5u, scaledCellHeight_);
+
+    scaleX_ = scale;
+    scaleY_ = scale;
+
+    spdlog::debug("CellRenderer: Scale factor {:.2f}, cell size {}x{}",
+                  scale, scaledCellWidth_, scaledCellHeight_);
+}
+
 void CellRenderer::initialize(lv_obj_t* parent, uint32_t worldWidth, uint32_t worldHeight)
 {
     spdlog::info("CellRenderer: Initializing for {}x{} world", worldWidth, worldHeight);
@@ -46,19 +83,22 @@ void CellRenderer::initialize(lv_obj_t* parent, uint32_t worldWidth, uint32_t wo
     width_ = worldWidth;
     height_ = worldHeight;
 
-    // Calculate grid size.
-    int32_t gridWidth = worldWidth * Cell::WIDTH;
-    int32_t gridHeight = worldHeight * Cell::HEIGHT;
+    // Calculate scaling to fit the container
+    calculateScaling(worldWidth, worldHeight);
 
-    // Get container size for centering.
+    // Calculate grid size with scaled cells
+    int32_t gridWidth = worldWidth * scaledCellWidth_;
+    int32_t gridHeight = worldHeight * scaledCellHeight_;
+
+    // Get container size for centering
     int32_t containerWidth = lv_obj_get_width(parent);
     int32_t containerHeight = lv_obj_get_height(parent);
 
-    // Center the grid in the container.
+    // Center the grid in the container
     int32_t offsetX = (containerWidth - gridWidth) / 2;
     int32_t offsetY = (containerHeight - gridHeight) / 2;
 
-    // Ensure offsets are non-negative.
+    // Ensure offsets are non-negative
     if (offsetX < 0) offsetX = 0;
     if (offsetY < 0) offsetY = 0;
 
@@ -72,11 +112,13 @@ void CellRenderer::initialize(lv_obj_t* parent, uint32_t worldWidth, uint32_t wo
             // Create canvas object.
             cellCanvas.canvas = lv_canvas_create(parent);
 
-            // Allocate buffer for 30x30 pixels (ARGB8888 = 4 bytes per pixel).
+            // Allocate buffer for scaled cell (ARGB8888 = 4 bytes per pixel).
+            // Always use the original Cell::WIDTH/HEIGHT for the internal buffer
+            // We'll use LVGL's transform to scale the display
             constexpr size_t bufferSize = Cell::WIDTH * Cell::HEIGHT * 4;
             cellCanvas.buffer.resize(bufferSize);
 
-            // Set canvas buffer.
+            // Set canvas buffer with original dimensions
             lv_canvas_set_buffer(
                 cellCanvas.canvas,
                 cellCanvas.buffer.data(),
@@ -84,13 +126,21 @@ void CellRenderer::initialize(lv_obj_t* parent, uint32_t worldWidth, uint32_t wo
                 Cell::HEIGHT,
                 LV_COLOR_FORMAT_ARGB8888);
 
-            // Position canvas centered in container.
+            // Position canvas centered in container with scaled dimensions
             lv_obj_set_pos(
-                cellCanvas.canvas, offsetX + x * Cell::WIDTH, offsetY + y * Cell::HEIGHT);
+                cellCanvas.canvas, offsetX + x * scaledCellWidth_, offsetY + y * scaledCellHeight_);
+
+            // Scale the canvas display to fit the scaled cell size
+            if (scaledCellWidth_ != Cell::WIDTH || scaledCellHeight_ != Cell::HEIGHT) {
+                lv_obj_set_size(cellCanvas.canvas, scaledCellWidth_, scaledCellHeight_);
+                // Enable image scaling for the canvas
+                lv_obj_set_style_img_recolor_opa(cellCanvas.canvas, 0, 0);
+            }
         }
     }
 
-    spdlog::info("CellRenderer: Initialized {} cell canvases", worldWidth * worldHeight);
+    spdlog::info("CellRenderer: Initialized {} cell canvases with scale {:.2f} (cell size {}x{})",
+                 worldWidth * worldHeight, scaleX_, scaledCellWidth_, scaledCellHeight_);
 }
 
 void CellRenderer::resize(lv_obj_t* parent, uint32_t worldWidth, uint32_t worldHeight)
