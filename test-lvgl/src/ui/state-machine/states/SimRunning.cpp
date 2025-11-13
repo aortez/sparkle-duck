@@ -1,6 +1,7 @@
 #include "State.h"
 #include "ui/SimPlayground.h"
 #include "ui/UiComponentManager.h"
+#include "ui/controls/PhysicsControls.h"
 #include "ui/state-machine/StateMachine.h"
 #include "ui/state-machine/network/WebSocketClient.h"
 #include <nlohmann/json.hpp>
@@ -52,6 +53,18 @@ State::Any SimRunning::onEvent(const UiApi::DrawDebugToggle::Cwc& cwc, StateMach
     spdlog::info("SimRunning: Debug draw mode {}", debugDrawEnabled ? "enabled" : "disabled");
 
     cwc.sendResponse(Response::okay(UiApi::DrawDebugToggle::Okay{ debugDrawEnabled }));
+    return std::move(*this);
+}
+
+State::Any SimRunning::onEvent(const UiApi::PixelRendererToggle::Cwc& cwc, StateMachine& /*sm*/)
+{
+    using Response = UiApi::PixelRendererToggle::Response;
+
+    pixelRendererEnabled = cwc.command.enabled;
+    spdlog::info(
+        "SimRunning: Pixel renderer mode {}", pixelRendererEnabled ? "enabled" : "disabled");
+
+    cwc.sendResponse(Response::okay(UiApi::PixelRendererToggle::Okay{ pixelRendererEnabled }));
     return std::move(*this);
 }
 
@@ -183,6 +196,28 @@ State::Any SimRunning::onEvent(const FrameReadyNotification& evt, StateMachine& 
     return std::move(*this);
 }
 
+State::Any SimRunning::onEvent(const PhysicsSettingsReceivedEvent& evt, StateMachine& /*sm*/)
+{
+    spdlog::info(
+        "SimRunning: Received PhysicsSettings from server (gravity={:.2f})", evt.settings.gravity);
+
+    // Update UI controls with server settings.
+    if (playground_) {
+        auto* physicsControls = playground_->getPhysicsControls();
+        if (physicsControls) {
+            physicsControls->updateFromSettings(evt.settings);
+        }
+        else {
+            spdlog::warn("SimRunning: PhysicsControls not available");
+        }
+    }
+    else {
+        spdlog::warn("SimRunning: Playground not available");
+    }
+
+    return std::move(*this);
+}
+
 State::Any SimRunning::onEvent(const UiUpdateEvent& evt, StateMachine& sm)
 {
     spdlog::debug("SimRunning: Received world update (step {}) via push", evt.stepCount);
@@ -216,39 +251,93 @@ State::Any SimRunning::onEvent(const UiUpdateEvent& evt, StateMachine& sm)
 
     lastFrameTime = now;
 
-    // Log performance stats every 20 updates.
     updateCount++;
-    if (updateCount % 20 == 0) {
+    // Log performance stats every once in a while.
+    if (updateCount % 100 == 0) {
         auto& timers = sm.getTimers();
 
-        spdlog::info("UI Performance Stats (after {} updates):", updateCount);
+        // Get current stats
+        double parseTotal = timers.getAccumulatedTime("parse_message");
+        uint32_t parseCount = timers.getCallCount("parse_message");
+        double renderTotal = timers.getAccumulatedTime("render_world");
+        uint32_t renderCount = timers.getCallCount("render_world");
+
+        // Calculate interval stats (last 20 updates)
+        static double lastParseTotal = 0.0;
+        static uint32_t lastParseCount = 0;
+        static double lastRenderTotal = 0.0;
+        static uint32_t lastRenderCount = 0;
+
+        double intervalParseTime = parseTotal - lastParseTotal;
+        uint32_t intervalParseCount = parseCount - lastParseCount;
+        double intervalRenderTime = renderTotal - lastRenderTotal;
+        uint32_t intervalRenderCount = renderCount - lastRenderCount;
+
+        // Get additional timing info
+        double copyTotal = timers.getAccumulatedTime("copy_worlddata");
+        uint32_t copyCount = timers.getCallCount("copy_worlddata");
+        double updateTotal = timers.getAccumulatedTime("update_controls");
+        uint32_t updateCount_ = timers.getCallCount("update_controls");
+
+        static double lastCopyTotal = 0.0;
+        static uint32_t lastCopyCount = 0;
+        static double lastUpdateTotal = 0.0;
+        static uint32_t lastUpdateCount = 0;
+
+        double intervalCopyTime = copyTotal - lastCopyTotal;
+        uint32_t intervalCopyCount = copyCount - lastCopyCount;
+        double intervalUpdateTime = updateTotal - lastUpdateTotal;
+        uint32_t intervalUpdateCount = updateCount_ - lastUpdateCount;
+
+        spdlog::info("UI Performance Stats (last 20 updates, total {}):", updateCount);
         spdlog::info(
-            "  Message parse: {:.1f}ms avg ({} calls, {:.1f}ms total)",
-            timers.getCallCount("parse_message") > 0
-                ? timers.getAccumulatedTime("parse_message") / timers.getCallCount("parse_message")
-                : 0.0,
-            timers.getCallCount("parse_message"),
-            timers.getAccumulatedTime("parse_message"));
+            "  Message parse: {:.1f}ms avg ({} calls, {:.1f}ms interval)",
+            intervalParseCount > 0 ? intervalParseTime / intervalParseCount : 0.0,
+            intervalParseCount,
+            intervalParseTime);
         spdlog::info(
-            "  World render: {:.1f}ms avg ({} calls, {:.1f}ms total)",
-            timers.getCallCount("render_world") > 0
-                ? timers.getAccumulatedTime("render_world") / timers.getCallCount("render_world")
-                : 0.0,
-            timers.getCallCount("render_world"),
-            timers.getAccumulatedTime("render_world"));
+            "  WorldData copy: {:.1f}ms avg ({} calls, {:.1f}ms interval)",
+            intervalCopyCount > 0 ? intervalCopyTime / intervalCopyCount : 0.0,
+            intervalCopyCount,
+            intervalCopyTime);
+        spdlog::info(
+            "  Update controls: {:.1f}ms avg ({} calls, {:.1f}ms interval)",
+            intervalUpdateCount > 0 ? intervalUpdateTime / intervalUpdateCount : 0.0,
+            intervalUpdateCount,
+            intervalUpdateTime);
+        spdlog::info(
+            "  World render: {:.1f}ms avg ({} calls, {:.1f}ms interval)",
+            intervalRenderCount > 0 ? intervalRenderTime / intervalRenderCount : 0.0,
+            intervalRenderCount,
+            intervalRenderTime);
+
+        lastCopyTotal = copyTotal;
+        lastCopyCount = copyCount;
+        lastUpdateTotal = updateTotal;
+        lastUpdateCount = updateCount_;
+
+        // Store current totals for next interval
+        lastParseTotal = parseTotal;
+        lastParseCount = parseCount;
+        lastRenderTotal = renderTotal;
+        lastRenderCount = renderCount;
     }
 
     // Update local worldData with received state.
+    sm.getTimers().startTimer("copy_worlddata");
     worldData = std::make_unique<WorldData>(evt.worldData);
+    sm.getTimers().stopTimer("copy_worlddata");
 
     // Update and render via playground.
     if (playground_ && worldData) {
         // Update controls with new world state.
+        sm.getTimers().startTimer("update_controls");
         playground_->updateFromWorldData(*worldData, smoothedUiFps);
+        sm.getTimers().stopTimer("update_controls");
 
         // Render world.
         sm.getTimers().startTimer("render_world");
-        playground_->render(*worldData, debugDrawEnabled);
+        playground_->render(*worldData, debugDrawEnabled, pixelRendererEnabled);
         sm.getTimers().stopTimer("render_world");
 
         spdlog::debug(

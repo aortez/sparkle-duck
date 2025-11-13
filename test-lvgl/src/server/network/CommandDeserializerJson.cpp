@@ -94,6 +94,9 @@ Result<ApiCommand, ApiError> CommandDeserializerJson::deserialize(const std::str
         else if (commandName == "state_get") {
             return Result<ApiCommand, ApiError>::okay(Api::StateGet::Command::fromJson(cmd));
         }
+        else if (commandName == "world_resize") {
+            return Result<ApiCommand, ApiError>::okay(Api::WorldResize::Command::fromJson(cmd));
+        }
         // Legacy aliases for backward compatibility.
         else if (commandName == "place_material") {
             return Result<ApiCommand, ApiError>::okay(Api::CellSet::Command::fromJson(cmd));

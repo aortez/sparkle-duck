@@ -16,8 +16,6 @@ public:
         metadata_.name = "Empty";
         metadata_.description = "A completely empty world with no particles";
         metadata_.category = "sandbox";
-        metadata_.supportsWorldA = true;
-        metadata_.supportsWorldB = true;
     }
 
     const ScenarioMetadata& getMetadata() const override { return metadata_; }

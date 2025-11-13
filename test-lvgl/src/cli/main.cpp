@@ -1,5 +1,6 @@
 #include "BenchmarkRunner.h"
 #include "IntegrationTest.h"
+#include "RunAllRunner.h"
 #include "WebSocketClient.h"
 #include "core/ReflectSerializer.h"
 #include <args.hxx>
@@ -21,6 +22,7 @@ struct CommandInfo {
 static const std::vector<CommandInfo> AVAILABLE_COMMANDS = {
     { "benchmark", "Run performance benchmark (launches server)", "" },
     { "integration_test", "Run integration test (launches server + UI)", "" },
+    { "run-all", "Launch server + UI and monitor (exits when UI closes)", "" },
     { "cell_get", "Get cell state at coordinates", R"({"x": 10, "y": 20})" },
     { "cell_set",
       "Place material at coordinates",
@@ -198,6 +200,33 @@ int main(int argc, char** argv)
         // Run integration test.
         Client::IntegrationTest test;
         return test.run(serverPath.string(), uiPath.string());
+    }
+
+    // Handle run-all command (launches server and UI, monitors until UI exits).
+    if (commandName == "run-all") {
+        // Find server and UI binaries (assume they're in same directory as CLI).
+        std::filesystem::path exePath = std::filesystem::read_symlink("/proc/self/exe");
+        std::filesystem::path binDir = exePath.parent_path();
+        std::filesystem::path serverPath = binDir / "sparkle-duck-server";
+        std::filesystem::path uiPath = binDir / "sparkle-duck-ui";
+
+        if (!std::filesystem::exists(serverPath)) {
+            std::cerr << "Error: Cannot find server binary at " << serverPath << std::endl;
+            return 1;
+        }
+
+        if (!std::filesystem::exists(uiPath)) {
+            std::cerr << "Error: Cannot find UI binary at " << uiPath << std::endl;
+            return 1;
+        }
+
+        // Run server and UI.
+        auto result = Client::runAll(serverPath.string(), uiPath.string());
+        if (result.isError()) {
+            std::cerr << "Error: " << result.error() << std::endl;
+            return 1;
+        }
+        return 0;
     }
 
     // Normal command mode - require address.

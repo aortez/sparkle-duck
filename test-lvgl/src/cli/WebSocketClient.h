@@ -35,6 +35,7 @@ private:
     std::shared_ptr<rtc::WebSocket> ws_;
     std::string response_;
     bool responseReceived_;
+    bool connectionFailed_;
     MessageCallback messageCallback_;
     ConnectionCallback connectedCallback_;
     ConnectionCallback disconnectedCallback_;

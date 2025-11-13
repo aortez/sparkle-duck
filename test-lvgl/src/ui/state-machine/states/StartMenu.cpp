@@ -1,8 +1,11 @@
 #include "State.h"
 #include "server/api/SimRun.h"
 #include "ui/UiComponentManager.h"
+#include "ui/rendering/JuliaFractal.h"
 #include "ui/state-machine/StateMachine.h"
 #include "ui/state-machine/network/WebSocketClient.h"
+#include <lvgl/lvgl.h>
+#include <lvgl/src/misc/lv_timer_private.h>
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
 
@@ -20,6 +23,23 @@ void StartMenu::onEnter(StateMachine& sm)
 
     lv_obj_t* container = uiManager->getMainMenuContainer();
 
+    // Get display dimensions for full-screen fractal.
+    lv_disp_t* disp = lv_disp_get_default();
+    int windowWidth = lv_disp_get_hor_res(disp);
+    int windowHeight = lv_disp_get_ver_res(disp);
+
+    // Create Julia fractal background (allocated on heap, will be deleted by timer cleanup).
+    auto* fractal = new JuliaFractal(container, windowWidth, windowHeight);
+    spdlog::info("StartMenu: Created fractal background");
+
+    // Add resize event handler to container (catches window resize events).
+    lv_obj_add_event_cb(container, onDisplayResized, LV_EVENT_SIZE_CHANGED, fractal);
+    spdlog::info("StartMenu: Added resize event handler");
+
+    // Create animation timer.
+    animationTimer_ = lv_timer_create(onAnimationTimer, 16, fractal);
+    spdlog::info("StartMenu: Started fractal animation timer");
+
     // Create centered "Start Simulation" button.
     lv_obj_t* startButton = lv_btn_create(container);
     lv_obj_set_size(startButton, 200, 60);
@@ -34,10 +54,31 @@ void StartMenu::onEnter(StateMachine& sm)
     spdlog::info("StartMenu: Created start button");
 }
 
-void StartMenu::onExit(StateMachine& /*sm*/)
+void StartMenu::onExit(StateMachine& sm)
 {
     spdlog::info("StartMenu: Exiting");
-    // No cleanup needed - screen switch will clean up widgets automatically.
+
+    // Stop animation timer and clean up fractal.
+    if (animationTimer_) {
+        auto* fractal = static_cast<JuliaFractal*>(animationTimer_->user_data);
+        lv_timer_del(animationTimer_);
+
+        // IMPORTANT: Remove the resize event handler before deleting the fractal
+        // This prevents use-after-free if a resize event occurs after exit
+        auto* uiManager = sm.getUiComponentManager();
+        if (uiManager) {
+            lv_obj_t* container = uiManager->getMainMenuContainer();
+            if (container) {
+                lv_obj_remove_event_cb(container, onDisplayResized);
+                spdlog::info("StartMenu: Removed resize event handler");
+            }
+        }
+
+        delete fractal;
+        animationTimer_ = nullptr;
+    }
+
+    // Screen switch will clean up other widgets automatically.
 }
 
 void StartMenu::onStartButtonClicked(lv_event_t* e)
@@ -51,7 +92,9 @@ void StartMenu::onStartButtonClicked(lv_event_t* e)
     // Send sim_run command and wait for response.
     auto* wsClient = sm->getWebSocketClient();
     if (wsClient && wsClient->isConnected()) {
-        nlohmann::json cmd = { { "command", "sim_run" } };
+        nlohmann::json cmd = {
+            { "command", "sim_run" }, { "max_frame_ms", 16 } // Cap at 60 FPS for UI visualization.
+        };
         std::string response = wsClient->sendAndReceive(cmd.dump(), 1000);
 
         if (response.empty()) {
@@ -78,6 +121,30 @@ void StartMenu::onStartButtonClicked(lv_event_t* e)
     else {
         spdlog::error("StartMenu: Cannot start simulation, not connected to DSSM");
     }
+}
+
+void StartMenu::onAnimationTimer(lv_timer_t* timer)
+{
+    auto* fractal = static_cast<JuliaFractal*>(timer->user_data);
+    if (fractal) {
+        fractal->update();
+    }
+}
+
+void StartMenu::onDisplayResized(lv_event_t* e)
+{
+    auto* fractal = static_cast<JuliaFractal*>(lv_event_get_user_data(e));
+    if (!fractal) return;
+
+    // Get new display dimensions.
+    lv_disp_t* disp = lv_disp_get_default();
+    int newWidth = lv_disp_get_hor_res(disp);
+    int newHeight = lv_disp_get_ver_res(disp);
+
+    spdlog::info("StartMenu: Display resized to {}x{}, updating fractal", newWidth, newHeight);
+
+    // Resize the fractal to match.
+    fractal->resize(newWidth, newHeight);
 }
 
 State::Any StartMenu::onEvent(const ServerRunningConfirmedEvent& /*evt*/, StateMachine& /*sm*/)
@@ -131,7 +198,9 @@ State::Any StartMenu::onEvent(const UiApi::SimRun::Cwc& cwc, StateMachine& sm)
     }
 
     // Send sim_run command to DSSM server.
-    nlohmann::json simRunCmd = { { "command", "sim_run" } };
+    nlohmann::json simRunCmd = {
+        { "command", "sim_run" }, { "max_frame_ms", 16 } // Cap at 60 FPS for UI visualization.
+    };
     bool sent = wsClient->send(simRunCmd.dump());
 
     if (!sent) {

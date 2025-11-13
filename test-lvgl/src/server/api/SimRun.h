@@ -15,8 +15,8 @@ struct Command {
     double timestep = 0.016;             // Default ~60 FPS.
     int max_steps = -1;                  // -1 = unlimited.
     std::string scenario_id = "sandbox"; // Scenario to run (default: sandbox).
-    bool use_realtime =
-        true; // True: real-time accumulation, False: force immediate steps (for testing).
+    int max_frame_ms =
+        0; // Max milliseconds per frame. 0 = unlimited (as fast as possible), >0 = frame rate cap.
 
     nlohmann::json toJson() const;
     static Command fromJson(const nlohmann::json& j);

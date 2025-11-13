@@ -18,8 +18,6 @@ public:
         metadata_.name = "Raining";
         metadata_.description = "Rain falling from the sky in a 50x50 world";
         metadata_.category = "demo";
-        metadata_.supportsWorldA = true;
-        metadata_.supportsWorldB = true;
 
         // Initialize with default config.
         config_.rain_rate = 5.0;

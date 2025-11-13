@@ -1,4 +1,5 @@
 #include "MessageParser.h"
+#include "core/PhysicsSettings.h"
 #include "core/WorldData.h"
 #include <spdlog/spdlog.h>
 
@@ -71,6 +72,16 @@ std::optional<Event> MessageParser::parseWorldDataResponse(const nlohmann::json&
                            .timestamp = std::chrono::steady_clock::now() };
 
         return evt;
+    }
+
+    // Check if this is a PhysicsSettings response (contains gravity, elasticity, etc.).
+    if (value.contains("gravity") && value.contains("elasticity")) {
+        // Automatic deserialization via ADL functions!
+        PhysicsSettings settings = value.get<PhysicsSettings>();
+
+        spdlog::info("MessageParser: Parsed PhysicsSettings (gravity={:.2f})", settings.gravity);
+
+        return PhysicsSettingsReceivedEvent{ settings };
     }
 
     // Other response types (empty success, etc.) - just log.

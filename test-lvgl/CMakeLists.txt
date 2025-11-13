@@ -206,6 +206,7 @@ add_library(sparkle-duck-server-lib STATIC
     src/server/api/SpawnDirtBall.cpp
     src/server/api/StateGet.cpp
     src/server/api/TimerStatsGet.cpp
+    src/server/api/WorldResize.cpp
 
     # Server network.
     src/server/network/CommandDeserializerJson.cpp
@@ -276,6 +277,7 @@ add_library(sparkle-duck-ui-lib STATIC
     src/ui/UiComponentManager.cpp
     src/ui/SimPlayground.cpp
     src/ui/rendering/CellRenderer.cpp
+    src/ui/rendering/JuliaFractal.cpp
     src/ui/controls/ControlPanel.cpp
     src/ui/controls/CoreControls.cpp
     src/ui/controls/PhysicsControls.cpp
@@ -337,6 +339,7 @@ add_executable(cli
     src/cli/main.cpp
     src/cli/BenchmarkRunner.cpp
     src/cli/IntegrationTest.cpp
+    src/cli/RunAllRunner.cpp
     src/cli/SubprocessManager.cpp
     src/cli/WebSocketClient.cpp
 )

@@ -29,9 +29,6 @@ public:
     // Get all registered scenario IDs
     std::vector<std::string> getScenarioIds() const;
 
-    // Get scenarios filtered by world type compatibility
-    std::vector<std::string> getScenariosForWorldType(bool isWorldB) const;
-
     // Get scenarios filtered by category
     std::vector<std::string> getScenariosByCategory(const std::string& category) const;
 

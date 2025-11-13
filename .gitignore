@@ -1,6 +1,7 @@
 *CMakeFiles*
 *CMakeCache.txt
 .*
+*.txt
 !.env.example
 !.github/
 

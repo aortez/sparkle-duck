@@ -21,6 +21,11 @@ public:
     PhysicsControls(lv_obj_t* container, WebSocketClient* wsClient);
     ~PhysicsControls();
 
+    /**
+     * @brief Update all UI controls from server PhysicsSettings.
+     */
+    void updateFromSettings(const PhysicsSettings& settings);
+
 private:
     lv_obj_t* container_;
     WebSocketClient* wsClient_;
@@ -43,6 +48,7 @@ private:
     lv_obj_t* hydrostaticPressureControl_ = nullptr;
     lv_obj_t* dynamicPressureControl_ = nullptr;
     lv_obj_t* pressureDiffusionControl_ = nullptr;
+    lv_obj_t* pressureScaleControl_ = nullptr;
 
     // Column 3: Forces widgets.
     lv_obj_t* cohesionForceControl_ = nullptr;
@@ -67,6 +73,8 @@ private:
     static void onDynamicPressureChanged(lv_event_t* e);
     static void onPressureDiffusionToggled(lv_event_t* e);
     static void onPressureDiffusionChanged(lv_event_t* e);
+    static void onPressureScaleToggled(lv_event_t* e);
+    static void onPressureScaleChanged(lv_event_t* e);
 
     // Event handlers for Column 3 (Forces).
     static void onCohesionForceToggled(lv_event_t* e);
