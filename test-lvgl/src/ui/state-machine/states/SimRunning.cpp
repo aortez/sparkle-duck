@@ -1,6 +1,7 @@
 #include "State.h"
 #include "ui/SimPlayground.h"
 #include "ui/UiComponentManager.h"
+#include "ui/controls/PhysicsControls.h"
 #include "ui/state-machine/StateMachine.h"
 #include "ui/state-machine/network/WebSocketClient.h"
 #include <nlohmann/json.hpp>
@@ -190,6 +191,25 @@ State::Any SimRunning::onEvent(const FrameReadyNotification& evt, StateMachine& 
             evt.stepNumber,
             elapsed.count(),
             targetFrameInterval.count());
+    }
+
+    return std::move(*this);
+}
+
+State::Any SimRunning::onEvent(const PhysicsSettingsReceivedEvent& evt, StateMachine& /*sm*/)
+{
+    spdlog::info("SimRunning: Received PhysicsSettings from server (gravity={:.2f})", evt.settings.gravity);
+
+    // Update UI controls with server settings.
+    if (playground_) {
+        auto* physicsControls = playground_->getPhysicsControls();
+        if (physicsControls) {
+            physicsControls->updateFromSettings(evt.settings);
+        } else {
+            spdlog::warn("SimRunning: PhysicsControls not available");
+        }
+    } else {
+        spdlog::warn("SimRunning: Playground not available");
     }
 
     return std::move(*this);

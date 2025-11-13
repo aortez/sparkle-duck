@@ -9,6 +9,7 @@
 #include "api/Screenshot.h"
 #include "api/SimPause.h"
 #include "api/SimRun.h"
+#include "core/PhysicsSettings.h"
 #include "core/api/UiUpdateEvent.h"
 #include <concepts>
 #include <string>
@@ -99,6 +100,14 @@ struct ServerRunningConfirmedEvent {
     static constexpr const char* name() { return "ServerRunningConfirmedEvent"; }
 };
 
+/**
+ * @brief Physics settings received from server.
+ */
+struct PhysicsSettingsReceivedEvent {
+    PhysicsSettings settings;
+    static constexpr const char* name() { return "PhysicsSettingsReceivedEvent"; }
+};
+
 // =================================================================
 // EVENT VARIANT
 // =================================================================
@@ -118,8 +127,9 @@ using Event = std::variant<
     RequestWorldUpdateCommand,
     FrameReadyNotification,
 
-    // World updates from DSSM server
+    // Server data updates
     DirtSim::UiUpdateEvent,
+    PhysicsSettingsReceivedEvent,
 
     // API commands (local from LVGL or remote from WebSocket)
     DirtSim::UiApi::DrawDebugToggle::Cwc,

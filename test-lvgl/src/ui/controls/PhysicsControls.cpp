@@ -133,6 +133,19 @@ PhysicsControls::PhysicsControls(lv_obj_t* container, WebSocketClient* wsClient)
                                     .onSliderChange(onPressureDiffusionChanged, this)
                                     .buildOrLog();
 
+    pressureScaleControl_ = LVGLBuilder::toggleSlider(column2_)
+                                .label("Scale")
+                                .range(0, 300)
+                                .value(100)
+                                .defaultValue(100)
+                                .valueScale(0.01)
+                                .valueFormat("%.2f")
+                                .initiallyEnabled(true)
+                                .sliderWidth(180)
+                                .onToggle(onPressureScaleToggled, this)
+                                .onSliderChange(onPressureScaleChanged, this)
+                                .buildOrLog();
+
     // Column 3: Forces.
     column3_ = lv_obj_create(container_);
     lv_obj_set_size(column3_, LV_PCT(30), LV_SIZE_CONTENT);
@@ -207,6 +220,57 @@ PhysicsControls::PhysicsControls(lv_obj_t* container, WebSocketClient* wsClient)
 PhysicsControls::~PhysicsControls()
 {
     spdlog::info("PhysicsControls: Destroyed");
+}
+
+void PhysicsControls::updateFromSettings(const PhysicsSettings& settings)
+{
+    spdlog::info("PhysicsControls: Updating UI from server settings");
+
+    // Update local settings copy.
+    settings_ = settings;
+
+    // Helper to update a toggle slider control.
+    auto updateToggleSlider = [](lv_obj_t* control, double value, bool enabled) {
+        if (!control) return;
+
+        // Control is a container with toggle (child 0) and slider (child 2).
+        lv_obj_t* toggle = lv_obj_get_child(control, 0);
+        lv_obj_t* slider = lv_obj_get_child(control, 2);
+
+        if (toggle) {
+            if (enabled) {
+                lv_obj_add_state(toggle, LV_STATE_CHECKED);
+            } else {
+                lv_obj_remove_state(toggle, LV_STATE_CHECKED);
+            }
+        }
+
+        if (slider) {
+            // Convert double value back to integer slider value (reverse the 0.01 scale).
+            int sliderValue = static_cast<int>(value * 100.0);
+            lv_slider_set_value(slider, sliderValue, LV_ANIM_OFF);
+        }
+    };
+
+    // Update Column 1: General Physics.
+    updateToggleSlider(timescaleControl_, settings.timescale, settings.timescale > 0.0);
+    updateToggleSlider(gravityControl_, settings.gravity, true);  // No enabled flag for gravity.
+    updateToggleSlider(elasticityControl_, settings.elasticity, true);  // No enabled flag.
+    updateToggleSlider(airResistanceControl_, settings.air_resistance, true);  // No enabled flag.
+
+    // Update Column 2: Pressure.
+    updateToggleSlider(hydrostaticPressureControl_, settings.pressure_hydrostatic_strength, settings.pressure_hydrostatic_enabled);
+    updateToggleSlider(dynamicPressureControl_, settings.pressure_dynamic_strength, settings.pressure_dynamic_enabled);
+    updateToggleSlider(pressureDiffusionControl_, settings.pressure_diffusion_strength, true);  // No enabled flag.
+    updateToggleSlider(pressureScaleControl_, settings.pressure_scale, true);  // No enabled flag.
+
+    // Update Column 3: Forces.
+    updateToggleSlider(cohesionForceControl_, settings.cohesion_strength, settings.cohesion_enabled);
+    updateToggleSlider(adhesionControl_, settings.adhesion_strength, settings.adhesion_enabled);
+    updateToggleSlider(viscosityControl_, settings.viscosity_strength, settings.viscosity_enabled);
+    updateToggleSlider(frictionControl_, settings.friction_strength, settings.friction_enabled);
+
+    spdlog::info("PhysicsControls: UI updated from server settings");
 }
 
 // Column 1: General Physics event handlers.
@@ -472,6 +536,48 @@ void PhysicsControls::onPressureDiffusionChanged(lv_event_t* e)
     double scaledValue = value * 0.01;
     spdlog::info("PhysicsControls: Pressure Diffusion changed to {:.2f}", scaledValue);
     self->settings_.pressure_diffusion_strength = scaledValue;
+    self->syncSettings();
+}
+
+void PhysicsControls::onPressureScaleToggled(lv_event_t* e)
+{
+    lv_obj_t* target = static_cast<lv_obj_t*>(lv_event_get_target(e));
+    PhysicsControls* self = static_cast<PhysicsControls*>(lv_obj_get_user_data(target));
+    if (!self) return;
+
+    bool enabled = lv_obj_has_state(target, LV_STATE_CHECKED);
+    spdlog::info("PhysicsControls: Pressure Scale toggled to {}", enabled ? "ON" : "OFF");
+
+    if (!enabled) {
+        self->settings_.pressure_scale = 0.0;
+        self->syncSettings();
+    }
+    else {
+        // Restore value from slider when re-enabled.
+        lv_obj_t* container = lv_obj_get_parent(target);
+        if (container) {
+            lv_obj_t* slider = lv_obj_get_child(container, 2);
+            if (slider) {
+                int value = lv_slider_get_value(slider);
+                double scaledValue = value * 0.01;
+                self->settings_.pressure_scale = scaledValue;
+                self->syncSettings();
+                spdlog::debug("PhysicsControls: Restored pressure scale to {:.2f}", scaledValue);
+            }
+        }
+    }
+}
+
+void PhysicsControls::onPressureScaleChanged(lv_event_t* e)
+{
+    lv_obj_t* target = static_cast<lv_obj_t*>(lv_event_get_target(e));
+    PhysicsControls* self = static_cast<PhysicsControls*>(lv_obj_get_user_data(target));
+    if (!self) return;
+
+    int value = lv_slider_get_value(target);
+    double scaledValue = value * 0.01;
+    spdlog::info("PhysicsControls: Pressure Scale changed to {:.2f}", scaledValue);
+    self->settings_.pressure_scale = scaledValue;
     self->syncSettings();
 }
 
