@@ -4,6 +4,7 @@
 #include "ui/state-machine/EventSink.h"
 #include "ui/state-machine/api/DrawDebugToggle.h"
 #include "ui/state-machine/api/Exit.h"
+#include "ui/state-machine/api/PixelRendererToggle.h"
 #include "ui/state-machine/network/WebSocketClient.h"
 #include "ui/ui_builders/LVGLBuilder.h"
 #include <lvgl/src/misc/lv_palette.h>
@@ -64,6 +65,13 @@ CoreControls::CoreControls(lv_obj_t* container, WebSocketClient* wsClient, Event
                        .callback(onDebugToggled, this)
                        .buildOrLog();
 
+    // Pixel Renderer toggle.
+    pixelRendererSwitch_ = LVGLBuilder::labeledSwitch(container_)
+                               .label("Pixel Renderer")
+                               .initialState(false)
+                               .callback(onPixelRendererToggled, this)
+                               .buildOrLog();
+
     // World Size toggle slider.
     auto worldSizeBuilder = LVGLBuilder::toggleSlider(container_)
                                 .label("World Size")
@@ -98,6 +106,10 @@ CoreControls::CoreControls(lv_obj_t* container, WebSocketClient* wsClient, Event
         }
         if (!worldSizeSlider_) {
             spdlog::error("CoreControls: Failed to find world size slider in container");
+        } else {
+            // Add RELEASED event handler to the slider for throttling
+            // The VALUE_CHANGED event is already handled by the ToggleSliderBuilder
+            lv_obj_add_event_cb(worldSizeSlider_, onWorldSizeChanged, LV_EVENT_RELEASED, this);
         }
     }
 
@@ -168,6 +180,22 @@ void CoreControls::onDebugToggled(lv_event_t* e)
     self->eventSink_.queueEvent(cwc);
 }
 
+void CoreControls::onPixelRendererToggled(lv_event_t* e)
+{
+    CoreControls* self = static_cast<CoreControls*>(lv_event_get_user_data(e));
+    if (!self) return;
+    lv_obj_t* switch_obj = static_cast<lv_obj_t*>(lv_event_get_target(e));
+    bool enabled = lv_obj_has_state(switch_obj, LV_STATE_CHECKED);
+
+    spdlog::info("CoreControls: Pixel renderer toggled to {}", enabled ? "ON" : "OFF");
+
+    // Queue UI-local pixel renderer toggle event.
+    UiApi::PixelRendererToggle::Cwc cwc;
+    cwc.command.enabled = enabled;
+    cwc.callback = [](auto&&) {}; // No response needed.
+    self->eventSink_.queueEvent(cwc);
+}
+
 void CoreControls::onWorldSizeToggled(lv_event_t* e)
 {
     CoreControls* self = static_cast<CoreControls*>(lv_event_get_user_data(e));
@@ -231,9 +259,26 @@ void CoreControls::onWorldSizeChanged(lv_event_t* e)
 
     int32_t value = lv_slider_get_value(slider);
 
+    // Throttle resize commands - only send on value release, not while dragging
+    lv_event_code_t code = lv_event_get_code(e);
+    if (code == LV_EVENT_VALUE_CHANGED) {
+        // Store the pending value but don't send command yet
+        self->pendingWorldSize_ = value;
+        return;
+    } else if (code != LV_EVENT_RELEASED) {
+        // Only process RELEASED events
+        return;
+    }
+
+    // Use pending value if set, otherwise current value
+    if (self->pendingWorldSize_ > 0) {
+        value = self->pendingWorldSize_;
+        self->pendingWorldSize_ = 0;
+    }
+
     // Only send resize if the toggle is enabled
     if (self->worldSizeSwitch_ && lv_obj_has_state(self->worldSizeSwitch_, LV_STATE_CHECKED)) {
-        spdlog::info("CoreControls: World size slider changed to {}", value);
+        spdlog::info("CoreControls: World size slider released at {}", value);
 
         // Send WorldResize API command
         Api::WorldResize::Command cmd;

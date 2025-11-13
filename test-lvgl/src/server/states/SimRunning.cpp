@@ -220,7 +220,7 @@ State::Any SimRunning::onEvent(const AdvanceSimulationCommand& /*cmd*/, StateMac
             spdlog::debug("SimRunning: Sent frame to UI, waiting for frame_ready");
         }
         else if (!uiReadyForNextFrame) {
-            spdlog::info("SimRunning: Skipping frame broadcast - UI not ready yet");
+            spdlog::debug("SimRunning: Skipping frame broadcast - UI not ready yet");
         }
     }
 

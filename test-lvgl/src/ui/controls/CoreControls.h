@@ -36,14 +36,19 @@ private:
     lv_obj_t* statsLabel_ = nullptr;
     lv_obj_t* statsLabelUI_ = nullptr;
     lv_obj_t* debugSwitch_ = nullptr;
+    lv_obj_t* pixelRendererSwitch_ = nullptr;
     lv_obj_t* worldSizeContainer_ = nullptr;
     lv_obj_t* worldSizeSwitch_ = nullptr;
     lv_obj_t* worldSizeSlider_ = nullptr;
+
+    // State for throttling world size changes
+    int32_t pendingWorldSize_ = 0;
 
     // Event handlers.
     static void onQuitClicked(lv_event_t* e);
     static void onResetClicked(lv_event_t* e);
     static void onDebugToggled(lv_event_t* e);
+    static void onPixelRendererToggled(lv_event_t* e);
     static void onWorldSizeToggled(lv_event_t* e);
     static void onWorldSizeChanged(lv_event_t* e);
 };

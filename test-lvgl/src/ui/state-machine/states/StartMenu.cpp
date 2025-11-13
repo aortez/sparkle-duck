@@ -54,7 +54,7 @@ void StartMenu::onEnter(StateMachine& sm)
     spdlog::info("StartMenu: Created start button");
 }
 
-void StartMenu::onExit(StateMachine& /*sm*/)
+void StartMenu::onExit(StateMachine& sm)
 {
     spdlog::info("StartMenu: Exiting");
 
@@ -62,6 +62,18 @@ void StartMenu::onExit(StateMachine& /*sm*/)
     if (animationTimer_) {
         auto* fractal = static_cast<JuliaFractal*>(animationTimer_->user_data);
         lv_timer_del(animationTimer_);
+
+        // IMPORTANT: Remove the resize event handler before deleting the fractal
+        // This prevents use-after-free if a resize event occurs after exit
+        auto* uiManager = sm.getUiComponentManager();
+        if (uiManager) {
+            lv_obj_t* container = uiManager->getMainMenuContainer();
+            if (container) {
+                lv_obj_remove_event_cb(container, onDisplayResized);
+                spdlog::info("StartMenu: Removed resize event handler");
+            }
+        }
+
         delete fractal;
         animationTimer_ = nullptr;
     }

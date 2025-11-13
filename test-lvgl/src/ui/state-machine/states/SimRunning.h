@@ -22,8 +22,9 @@ struct SimRunning {
     std::unique_ptr<WorldData> worldData;       // Local copy of world data for rendering.
     std::unique_ptr<SimPlayground> playground_; // Coordinates all UI components.
 
-    // UI-local draw mode toggle.
+    // UI-local draw mode toggles.
     bool debugDrawEnabled = false;
+    bool pixelRendererEnabled = false;
 
     // UI FPS tracking.
     std::chrono::steady_clock::time_point lastFrameTime;
@@ -48,6 +49,7 @@ struct SimRunning {
     Any onEvent(const UiApi::MouseDown::Cwc& cwc, StateMachine& sm);
     Any onEvent(const UiApi::MouseMove::Cwc& cwc, StateMachine& sm);
     Any onEvent(const UiApi::MouseUp::Cwc& cwc, StateMachine& sm);
+    Any onEvent(const UiApi::PixelRendererToggle::Cwc& cwc, StateMachine& sm);
     Any onEvent(const UiApi::Screenshot::Cwc& cwc, StateMachine& sm);
     Any onEvent(const UiApi::SimPause::Cwc& cwc, StateMachine& sm);
     Any onEvent(const UiUpdateEvent& evt, StateMachine& sm);

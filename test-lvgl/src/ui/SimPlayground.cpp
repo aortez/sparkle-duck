@@ -102,12 +102,12 @@ void SimPlayground::updateFromWorldData(const WorldData& data, double uiFPS)
     }
 }
 
-void SimPlayground::render(const WorldData& data, bool debugDraw)
+void SimPlayground::render(const WorldData& data, bool debugDraw, bool usePixelRenderer)
 {
     lv_obj_t* worldContainer = uiManager_->getWorldDisplayArea();
 
     // Render world state (CellRenderer handles initialization/resize internally).
-    renderer_->renderWorldData(data, worldContainer, debugDraw);
+    renderer_->renderWorldData(data, worldContainer, debugDraw, usePixelRenderer);
 }
 
 void SimPlayground::onScenarioChanged(lv_event_t* e)

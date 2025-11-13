@@ -1,6 +1,8 @@
 #include "CellRenderer.h"
 #include "core/MaterialType.h"
 #include <algorithm>
+#include <cassert>
+#include <new>  // for std::bad_alloc
 #include <spdlog/spdlog.h>
 
 namespace DirtSim {
@@ -40,203 +42,357 @@ CellRenderer::~CellRenderer()
 
 void CellRenderer::calculateScaling(uint32_t worldWidth, uint32_t worldHeight)
 {
-    // Get container size
-    int32_t containerWidth = lv_obj_get_width(parent_);
-    int32_t containerHeight = lv_obj_get_height(parent_);
+    // With fixed-size canvas, calculate how many pixels each cell gets
+    if (canvasWidth_ == 0 || canvasHeight_ == 0) {
+        spdlog::debug("CellRenderer: Canvas not yet created, deferring scaling calculation");
+        return;
+    }
 
-    // Add some padding (5% on each side)
-    int32_t availableWidth = containerWidth * 0.9;
-    int32_t availableHeight = containerHeight * 0.9;
+    if (worldWidth == 0 || worldHeight == 0) {
+        spdlog::warn("CellRenderer: Invalid world dimensions for scaling ({}x{})",
+                     worldWidth, worldHeight);
+        return;
+    }
 
-    // Calculate the scale needed to fit the world in the container
-    double scaleX = (double)availableWidth / (worldWidth * Cell::WIDTH);
-    double scaleY = (double)availableHeight / (worldHeight * Cell::HEIGHT);
+    // Calculate pixels per cell to fit world in fixed canvas
+    double pixelsPerCellX = (double)canvasWidth_ / worldWidth;
+    double pixelsPerCellY = (double)canvasHeight_ / worldHeight;
 
-    // Use the smaller scale to preserve aspect ratio
-    double scale = std::min(scaleX, scaleY);
+    // Use the smaller value to preserve aspect ratio
+    double pixelsPerCell = std::min(pixelsPerCellX, pixelsPerCellY);
 
-    // Limit the scale to reasonable values
-    // Don't scale up more than 2x (to avoid pixelation)
-    // Don't scale down below 0.2x (to keep cells visible)
-    scale = std::max(0.2, std::min(2.0, scale));
+    // Ensure minimum cell size of 2x2 pixels
+    pixelsPerCell = std::max(2.0, pixelsPerCell);
 
-    // Calculate scaled cell dimensions
-    scaledCellWidth_ = static_cast<uint32_t>(Cell::WIDTH * scale);
-    scaledCellHeight_ = static_cast<uint32_t>(Cell::HEIGHT * scale);
+    scaledCellWidth_ = static_cast<uint32_t>(pixelsPerCell);
+    scaledCellHeight_ = static_cast<uint32_t>(pixelsPerCell);
 
-    // Ensure minimum cell size of 5x5 pixels
-    scaledCellWidth_ = std::max(5u, scaledCellWidth_);
-    scaledCellHeight_ = std::max(5u, scaledCellHeight_);
+    // Calculate the scale factor relative to base Cell::WIDTH
+    scaleX_ = pixelsPerCell / Cell::WIDTH;
+    scaleY_ = pixelsPerCell / Cell::HEIGHT;
 
-    scaleX_ = scale;
-    scaleY_ = scale;
-
-    spdlog::debug("CellRenderer: Scale factor {:.2f}, cell size {}x{}",
-                  scale, scaledCellWidth_, scaledCellHeight_);
+    spdlog::debug("CellRenderer: Calculated scaling for {}x{} world - {} pixels per cell (scale {:.2f})",
+                  worldWidth, worldHeight, scaledCellWidth_, scaleX_);
 }
 
 void CellRenderer::initialize(lv_obj_t* parent, uint32_t worldWidth, uint32_t worldHeight)
 {
-    spdlog::info("CellRenderer: Initializing for {}x{} world", worldWidth, worldHeight);
+    spdlog::info("CellRenderer: Initializing fixed-size canvas for UI container");
+
+    // Validate input parameters
+    if (!parent) {
+        spdlog::error("CellRenderer: Invalid parent for initialization");
+        return;
+    }
+
+    // Only initialize once - canvas stays fixed size
+    if (worldCanvas_) {
+        spdlog::debug("CellRenderer: Canvas already initialized, skipping");
+        return;
+    }
 
     parent_ = parent;
     width_ = worldWidth;
     height_ = worldHeight;
 
-    // Calculate scaling to fit the container
-    calculateScaling(worldWidth, worldHeight);
-
-    // Calculate grid size with scaled cells
-    int32_t gridWidth = worldWidth * scaledCellWidth_;
-    int32_t gridHeight = worldHeight * scaledCellHeight_;
-
-    // Get container size for centering
+    // Get container size - this is our canvas size (fixed)
     int32_t containerWidth = lv_obj_get_width(parent);
     int32_t containerHeight = lv_obj_get_height(parent);
 
-    // Center the grid in the container
-    int32_t offsetX = (containerWidth - gridWidth) / 2;
-    int32_t offsetY = (containerHeight - gridHeight) / 2;
+    // Sanity check container dimensions
+    if (containerWidth <= 0 || containerHeight <= 0) {
+        spdlog::warn("CellRenderer: Invalid container dimensions {}x{}, using defaults",
+                     containerWidth, containerHeight);
+        containerWidth = 800;
+        containerHeight = 600;
+    }
+
+    // Use 90% of container size for the canvas
+    canvasWidth_ = static_cast<uint32_t>(containerWidth * 0.9);
+    canvasHeight_ = static_cast<uint32_t>(containerHeight * 0.9);
+
+    // Center the canvas in the container
+    int32_t offsetX = (containerWidth - canvasWidth_) / 2;
+    int32_t offsetY = (containerHeight - canvasHeight_) / 2;
 
     // Ensure offsets are non-negative
     if (offsetX < 0) offsetX = 0;
     if (offsetY < 0) offsetY = 0;
 
-    // Create canvas grid for each cell.
-    canvases_.resize(worldHeight);
-    for (uint32_t y = 0; y < worldHeight; ++y) {
-        canvases_[y].resize(worldWidth);
-        for (uint32_t x = 0; x < worldWidth; ++x) {
-            auto& cellCanvas = canvases_[y][x];
-
-            // Create canvas object.
-            cellCanvas.canvas = lv_canvas_create(parent);
-
-            // Allocate buffer for scaled cell (ARGB8888 = 4 bytes per pixel).
-            // Always use the original Cell::WIDTH/HEIGHT for the internal buffer
-            // We'll use LVGL's transform to scale the display
-            constexpr size_t bufferSize = Cell::WIDTH * Cell::HEIGHT * 4;
-            cellCanvas.buffer.resize(bufferSize);
-
-            // Set canvas buffer with original dimensions
-            lv_canvas_set_buffer(
-                cellCanvas.canvas,
-                cellCanvas.buffer.data(),
-                Cell::WIDTH,
-                Cell::HEIGHT,
-                LV_COLOR_FORMAT_ARGB8888);
-
-            // Position canvas centered in container with scaled dimensions
-            lv_obj_set_pos(
-                cellCanvas.canvas, offsetX + x * scaledCellWidth_, offsetY + y * scaledCellHeight_);
-
-            // Scale the canvas display to fit the scaled cell size
-            if (scaledCellWidth_ != Cell::WIDTH || scaledCellHeight_ != Cell::HEIGHT) {
-                lv_obj_set_size(cellCanvas.canvas, scaledCellWidth_, scaledCellHeight_);
-                // Enable image scaling for the canvas
-                lv_obj_set_style_img_recolor_opa(cellCanvas.canvas, 0, 0);
-            }
-        }
+    // Create single fixed-size canvas
+    worldCanvas_ = lv_canvas_create(parent);
+    if (!worldCanvas_) {
+        spdlog::error("CellRenderer: Failed to create canvas");
+        return;
     }
 
-    spdlog::info("CellRenderer: Initialized {} cell canvases with scale {:.2f} (cell size {}x{})",
-                 worldWidth * worldHeight, scaleX_, scaledCellWidth_, scaledCellHeight_);
+    // Allocate buffer for canvas at container resolution (fixed size)
+    size_t bufferSize = static_cast<size_t>(canvasWidth_) * canvasHeight_ * 4; // ARGB8888
+
+    try {
+        canvasBuffer_.resize(bufferSize);
+        std::fill(canvasBuffer_.begin(), canvasBuffer_.end(), 0);
+    } catch (const std::bad_alloc& e) {
+        spdlog::error("CellRenderer: Failed to allocate buffer of size {} bytes: {}", bufferSize, e.what());
+        lv_obj_del(worldCanvas_);
+        worldCanvas_ = nullptr;
+        return;
+    }
+
+    // Verify buffer was allocated successfully
+    if (canvasBuffer_.empty() || canvasBuffer_.data() == nullptr) {
+        spdlog::error("CellRenderer: Buffer allocation succeeded but data pointer is null");
+        lv_obj_del(worldCanvas_);
+        worldCanvas_ = nullptr;
+        return;
+    }
+
+    // Set canvas buffer (this never changes)
+    lv_canvas_set_buffer(
+        worldCanvas_,
+        canvasBuffer_.data(),
+        canvasWidth_,
+        canvasHeight_,
+        LV_COLOR_FORMAT_ARGB8888);
+
+    // Position canvas
+    lv_obj_set_pos(worldCanvas_, offsetX, offsetY);
+
+    // Now calculate scaling for the world size
+    calculateScaling(worldWidth, worldHeight);
+
+    spdlog::info("CellRenderer: Initialized fixed canvas {}x{} pixels (will scale world dynamically)",
+                 canvasWidth_, canvasHeight_);
 }
 
 void CellRenderer::resize(lv_obj_t* parent, uint32_t worldWidth, uint32_t worldHeight)
 {
     spdlog::info(
-        "CellRenderer: Resizing from {}x{} to {}x{}", width_, height_, worldWidth, worldHeight);
+        "CellRenderer: Updating world size from {}x{} to {}x{}", width_, height_, worldWidth, worldHeight);
 
-    cleanup();
-    initialize(parent, worldWidth, worldHeight);
+    // Only update if dimensions actually changed
+    if (width_ == worldWidth && height_ == worldHeight && parent_ == parent) {
+        spdlog::debug("CellRenderer: No size change, skipping");
+        return;
+    }
+
+    // Update world dimensions
+    width_ = worldWidth;
+    height_ = worldHeight;
+    parent_ = parent;
+
+    // Recalculate scaling for new world size (canvas size stays the same)
+    calculateScaling(worldWidth, worldHeight);
+
+    spdlog::info("CellRenderer: Updated to {}x{} cells at {}x{} pixels each",
+                 worldWidth, worldHeight, scaledCellWidth_, scaledCellHeight_);
 }
 
-void CellRenderer::renderWorldData(const WorldData& worldData, lv_obj_t* parent, bool debugDraw)
+void CellRenderer::renderWorldData(const WorldData& worldData, lv_obj_t* parent, bool debugDraw, bool usePixelRenderer)
 {
-    // Initialize/resize if needed.
-    if (!parent_ || parent_ != parent || width_ != worldData.width || height_ != worldData.height) {
-        if (width_ != worldData.width || height_ != worldData.height) {
-            resize(parent, worldData.width, worldData.height);
-        }
-        else {
-            initialize(parent, worldData.width, worldData.height);
+    // Validate input
+    if (!parent || worldData.width == 0 || worldData.height == 0) {
+        spdlog::warn("CellRenderer: Invalid render parameters (parent={}, size={}x{})",
+                     (void*)parent, worldData.width, worldData.height);
+        return;
+    }
+
+    // Initialize canvas on first call
+    if (!worldCanvas_) {
+        initialize(parent, worldData.width, worldData.height);
+        if (!worldCanvas_) {
+            return; // Failed to initialize
         }
     }
 
-    // Render each cell.
-    for (uint32_t y = 0; y < worldData.height; ++y) {
-        for (uint32_t x = 0; x < worldData.width; ++x) {
-            const Cell& cell = worldData.cells[y * worldData.width + x];
-            renderCell(const_cast<Cell&>(cell), x, y, debugDraw);
+    // Update scaling if world dimensions changed
+    if (width_ != worldData.width || height_ != worldData.height) {
+        resize(parent, worldData.width, worldData.height);
+    }
+
+    // Check if canvas is still valid
+    if (!lv_obj_is_valid(worldCanvas_)) {
+        spdlog::error("CellRenderer: Canvas is no longer valid, needs reinitialization");
+        worldCanvas_ = nullptr;
+        return;
+    }
+
+    // Clear buffer
+    std::fill(canvasBuffer_.begin(), canvasBuffer_.end(), 0);
+
+    // Log the first render after a resize for debugging
+    static uint32_t lastWidth = 0;
+    static uint32_t lastHeight = 0;
+    if (lastWidth != worldData.width || lastHeight != worldData.height) {
+        spdlog::info("CellRenderer: First render at {}x{} world, {}x{} canvas, {}x{} cell size",
+                     worldData.width, worldData.height, canvasWidth_, canvasHeight_,
+                     scaledCellWidth_, scaledCellHeight_);
+        int32_t totalW = worldData.width * scaledCellWidth_;
+        int32_t totalH = worldData.height * scaledCellHeight_;
+        spdlog::info("CellRenderer: Total world rendering size {}x{}, fits in canvas? W:{} H:{}",
+                     totalW, totalH, totalW <= canvasWidth_, totalH <= canvasHeight_);
+        lastWidth = worldData.width;
+        lastHeight = worldData.height;
+    }
+
+    // Calculate world centering offset once for entire frame
+    int32_t totalWorldWidth = worldData.width * scaledCellWidth_;
+    int32_t totalWorldHeight = worldData.height * scaledCellHeight_;
+    int32_t renderOffsetX = (canvasWidth_ - totalWorldWidth) / 2;
+    int32_t renderOffsetY = (canvasHeight_ - totalWorldHeight) / 2;
+    if (renderOffsetX < 0) renderOffsetX = 0;
+    if (renderOffsetY < 0) renderOffsetY = 0;
+
+    if (usePixelRenderer) {
+        // FAST PATH: Direct pixel rendering (no LVGL layer)
+        uint32_t* pixels = reinterpret_cast<uint32_t*>(canvasBuffer_.data());
+
+        for (uint32_t y = 0; y < worldData.height; ++y) {
+            for (uint32_t x = 0; x < worldData.width; ++x) {
+                uint32_t idx = y * worldData.width + x;
+                if (idx >= worldData.cells.size()) break;
+
+                const Cell& cell = worldData.cells[idx];
+                int32_t cellX = renderOffsetX + x * scaledCellWidth_;
+                int32_t cellY = renderOffsetY + y * scaledCellHeight_;
+
+                // Bounds check
+                if (cellX < 0 || cellY < 0 ||
+                    cellX + scaledCellWidth_ > canvasWidth_ ||
+                    cellY + scaledCellHeight_ > canvasHeight_) {
+                    continue;
+                }
+
+                // Determine cell color
+                uint32_t cellColor = 0xFF000000; // ARGB black
+
+                if (!cell.isEmpty() && cell.material_type != MaterialType::AIR) {
+                    lv_color_t matColor = getMaterialColor(cell.material_type);
+                    uint8_t alpha = static_cast<uint8_t>(cell.fill_ratio * 255.0 * 0.7);
+
+                    // Convert to ARGB32
+                    cellColor = (alpha << 24) | (matColor.red << 16) | (matColor.green << 8) | matColor.blue;
+                }
+
+                // Fill cell rectangle
+                for (uint32_t py = 0; py < scaledCellHeight_; py++) {
+                    uint32_t rowStart = (cellY + py) * canvasWidth_ + cellX;
+                    for (uint32_t px = 0; px < scaledCellWidth_; px++) {
+                        pixels[rowStart + px] = cellColor;
+                    }
+                }
+            }
         }
+
+        // Invalidate canvas to trigger display update
+        lv_obj_invalidate(worldCanvas_);
+    } else {
+        // SLOW PATH: LVGL layer rendering
+        lv_layer_t layer;
+        lv_canvas_init_layer(worldCanvas_, &layer);
+
+        for (uint32_t y = 0; y < worldData.height; ++y) {
+            for (uint32_t x = 0; x < worldData.width; ++x) {
+                uint32_t idx = y * worldData.width + x;
+                if (idx >= worldData.cells.size()) {
+                    spdlog::error("CellRenderer: Cell index out of bounds (idx={}, size={})",
+                                  idx, worldData.cells.size());
+                    break;
+                }
+                const Cell& cell = worldData.cells[idx];
+
+                // Calculate cell position with pre-computed offset
+                int32_t cellX = renderOffsetX + x * scaledCellWidth_;
+                int32_t cellY = renderOffsetY + y * scaledCellHeight_;
+
+                renderCellDirectOptimized(cell, layer, cellX, cellY, debugDraw, false);
+            }
+        }
+
+        lv_canvas_finish_layer(worldCanvas_, &layer);
     }
 }
 
 void CellRenderer::cleanup()
 {
-    spdlog::debug("CellRenderer: Cleaning up {} canvases", canvases_.size());
+    spdlog::debug("CellRenderer: Cleaning up canvas");
 
-    for (auto& row : canvases_) {
-        for (auto& cellCanvas : row) {
-            if (cellCanvas.canvas) {
-                lv_obj_del(cellCanvas.canvas);
-                cellCanvas.canvas = nullptr;
-            }
-            cellCanvas.buffer.clear();
+    // Delete the fixed-size canvas (only called on final cleanup)
+    if (worldCanvas_) {
+        if (lv_obj_is_valid(worldCanvas_)) {
+            lv_obj_del(worldCanvas_);
         }
-        row.clear();
+        worldCanvas_ = nullptr;
     }
-    canvases_.clear();
 
+    // Clear the buffer
+    canvasBuffer_.clear();
+    canvasBuffer_.shrink_to_fit();
+
+    canvasWidth_ = 0;
+    canvasHeight_ = 0;
     width_ = 0;
     height_ = 0;
     parent_ = nullptr;
 }
 
-void CellRenderer::renderCell(Cell& cell, uint32_t x, uint32_t y, bool debugDraw)
+void CellRenderer::renderCellDirectOptimized(const Cell& cell, lv_layer_t& layer, int32_t cellX, int32_t cellY, bool debugDraw, bool usePixelRenderer)
 {
-    if (y >= canvases_.size() || x >= canvases_[y].size()) {
-        return; // Out of bounds.
+    // Bounds check - skip cells outside canvas
+    if (cellX < 0 || cellY < 0 ||
+        cellX + scaledCellWidth_ > canvasWidth_ ||
+        cellY + scaledCellHeight_ > canvasHeight_) {
+        return; // Silently skip out-of-bounds cells
     }
 
-    auto& cellCanvas = canvases_[y][x];
-    if (!cellCanvas.canvas) {
-        return; // Canvas not initialized.
+    // Branch between pixel renderer (fast) and LVGL renderer (slow but full-featured)
+    if (usePixelRenderer) {
+        // FAST PATH: Direct pixel buffer writes
+        uint32_t* pixels = reinterpret_cast<uint32_t*>(canvasBuffer_.data());
+
+        // Determine cell color
+        uint32_t cellColor = 0xFF000000; // ARGB black with full alpha
+
+        if (!cell.isEmpty() && cell.material_type != MaterialType::AIR) {
+            lv_color_t matColor = getMaterialColor(cell.material_type);
+            uint8_t alpha = static_cast<uint8_t>(cell.fill_ratio * 255.0 * 0.7);
+
+            // Convert to ARGB32
+            cellColor = (alpha << 24) | (matColor.red << 16) | (matColor.green << 8) | matColor.blue;
+        }
+
+        // Fill cell rectangle
+        for (uint32_t py = 0; py < scaledCellHeight_; py++) {
+            uint32_t rowStart = (cellY + py) * canvasWidth_ + cellX;
+            for (uint32_t px = 0; px < scaledCellWidth_; px++) {
+                pixels[rowStart + px] = cellColor;
+            }
+        }
+
+        // TODO: Add pixel-based debug rendering if needed
+        return;
     }
 
-    if (debugDraw) {
-        renderCellDebug(cell, cellCanvas, x, y);
-    }
-    else {
-        renderCellNormal(cell, cellCanvas, x, y);
-    }
-}
+    // SLOW PATH: LVGL drawing (for comparison / debugging)
 
-void CellRenderer::renderCellNormal(Cell& cell, CellCanvas& canvas, uint32_t /*x*/, uint32_t /*y*/)
-{
-    // Clear buffer and initialize layer (from CellB::drawNormal).
-    std::fill(canvas.buffer.begin(), canvas.buffer.end(), 0);
-
-    lv_layer_t layer;
-    lv_canvas_init_layer(canvas.canvas, &layer);
-
-    // Black background for all cells.
+    // Black background for all cells
     lv_draw_rect_dsc_t bg_rect_dsc;
     lv_draw_rect_dsc_init(&bg_rect_dsc);
     bg_rect_dsc.bg_color = lv_color_hex(0x000000);
     bg_rect_dsc.bg_opa = LV_OPA_COVER;
     bg_rect_dsc.border_width = 0;
+
     lv_area_t bg_coords = {
-        0, 0, static_cast<int32_t>(Cell::WIDTH - 1), static_cast<int32_t>(Cell::HEIGHT - 1)
+        cellX, cellY,
+        static_cast<int32_t>(cellX + scaledCellWidth_ - 1),
+        static_cast<int32_t>(cellY + scaledCellHeight_ - 1)
     };
     lv_draw_rect(&layer, &bg_rect_dsc, &bg_coords);
 
-    // Render material if not empty.
+    // Render material if not empty
     if (!cell.isEmpty() && cell.material_type != MaterialType::AIR) {
         lv_color_t material_color = getMaterialColor(cell.material_type);
-        lv_opa_t opacity =
-            static_cast<lv_opa_t>(cell.fill_ratio * static_cast<double>(LV_OPA_COVER));
+        lv_opa_t opacity = static_cast<lv_opa_t>(cell.fill_ratio * static_cast<double>(LV_OPA_COVER));
 
         lv_draw_rect_dsc_t rect_dsc;
         lv_draw_rect_dsc_init(&rect_dsc);
@@ -244,161 +400,55 @@ void CellRenderer::renderCellNormal(Cell& cell, CellCanvas& canvas, uint32_t /*x
         rect_dsc.bg_opa = static_cast<lv_opa_t>(opacity * 0.7);
         rect_dsc.border_color = material_color;
         rect_dsc.border_opa = opacity;
-        rect_dsc.border_width = 2;
-        rect_dsc.radius = 2;
+        rect_dsc.border_width = std::max(1, static_cast<int>(2 * scaleX_));
+        rect_dsc.radius = scaledCellWidth_ > 5 ? std::max(1, static_cast<int>(2 * scaleX_)) : 0;
 
-        lv_area_t coords = {
-            0, 0, static_cast<int32_t>(Cell::WIDTH - 1), static_cast<int32_t>(Cell::HEIGHT - 1)
-        };
-        lv_draw_rect(&layer, &rect_dsc, &coords);
-    }
+        lv_draw_rect(&layer, &rect_dsc, &bg_coords);
 
-    lv_canvas_finish_layer(canvas.canvas, &layer);
-}
+        // Debug features only if enabled and cells are large enough
+        if (debugDraw && scaledCellWidth_ >= 8) {
+            int com_pixel_x = cellX + static_cast<int>((cell.com.x + 1.0) * (scaledCellWidth_ - 1) / 2.0);
+            int com_pixel_y = cellY + static_cast<int>((cell.com.y + 1.0) * (scaledCellHeight_ - 1) / 2.0);
 
-void CellRenderer::renderCellDebug(Cell& cell, CellCanvas& canvas, uint32_t /*x*/, uint32_t /*y*/)
-{
-    // Clear buffer and initialize layer (from CellB::drawDebug).
-    std::fill(canvas.buffer.begin(), canvas.buffer.end(), 0);
+            int square_size = std::max(2, static_cast<int>(6 * scaleX_));
+            int half_size = square_size / 2;
 
-    lv_layer_t layer;
-    lv_canvas_init_layer(canvas.canvas, &layer);
+            // COM indicator (yellow square)
+            lv_draw_rect_dsc_t com_rect_dsc;
+            lv_draw_rect_dsc_init(&com_rect_dsc);
+            com_rect_dsc.bg_color = lv_color_hex(0xFFFF00);
+            com_rect_dsc.bg_opa = LV_OPA_COVER;
+            com_rect_dsc.border_color = lv_color_hex(0xCC9900);
+            com_rect_dsc.border_opa = LV_OPA_COVER;
+            com_rect_dsc.border_width = 1;
+            com_rect_dsc.radius = 0;
 
-    // Black background.
-    lv_draw_rect_dsc_t bg_rect_dsc;
-    lv_draw_rect_dsc_init(&bg_rect_dsc);
-    bg_rect_dsc.bg_color = lv_color_hex(0x000000);
-    bg_rect_dsc.bg_opa = LV_OPA_COVER;
-    bg_rect_dsc.border_width = 0;
-    lv_area_t coords = {
-        0, 0, static_cast<int32_t>(Cell::WIDTH - 1), static_cast<int32_t>(Cell::HEIGHT - 1)
-    };
-    lv_draw_rect(&layer, &bg_rect_dsc, &coords);
+            lv_area_t com_coords = {
+                com_pixel_x - half_size,
+                com_pixel_y - half_size,
+                com_pixel_x + half_size - 1,
+                com_pixel_y + half_size - 1
+            };
+            lv_draw_rect(&layer, &com_rect_dsc, &com_coords);
 
-    if (!cell.isEmpty() && cell.material_type != MaterialType::AIR) {
-        lv_color_t material_color = getMaterialColor(cell.material_type);
-        lv_opa_t opacity =
-            static_cast<lv_opa_t>(cell.fill_ratio * static_cast<double>(LV_OPA_COVER));
+            // Velocity vector (green line)
+            if (scaledCellWidth_ >= 10 && cell.velocity.magnitude() > 0.01) {
+                double scale = 20.0 * scaleX_;
+                int end_x = com_pixel_x + static_cast<int>(cell.velocity.x * scale);
+                int end_y = com_pixel_y + static_cast<int>(cell.velocity.y * scale);
 
-        // Base material rendering.
-        lv_draw_rect_dsc_t rect_dsc;
-        lv_draw_rect_dsc_init(&rect_dsc);
-        rect_dsc.bg_color = material_color;
-        rect_dsc.bg_opa = static_cast<lv_opa_t>(opacity * 0.7);
-        rect_dsc.border_color = material_color;
-        rect_dsc.border_opa = opacity;
-        rect_dsc.border_width = 2;
-        rect_dsc.radius = 2;
-        lv_draw_rect(&layer, &rect_dsc, &coords);
-
-        // Center of mass indicator (yellow square).
-        int com_pixel_x = static_cast<int>((cell.com.x + 1.0) * (Cell::WIDTH - 1) / 2.0);
-        int com_pixel_y = static_cast<int>((cell.com.y + 1.0) * (Cell::HEIGHT - 1) / 2.0);
-
-        const int square_size = 6;
-        const int half_size = square_size / 2;
-
-        lv_draw_rect_dsc_t com_rect_dsc;
-        lv_draw_rect_dsc_init(&com_rect_dsc);
-        com_rect_dsc.bg_color = lv_color_hex(0xFFFF00); // Bright yellow.
-        com_rect_dsc.bg_opa = LV_OPA_COVER;
-        com_rect_dsc.border_color = lv_color_hex(0xCC9900); // Darker yellow border.
-        com_rect_dsc.border_opa = LV_OPA_COVER;
-        com_rect_dsc.border_width = 1;
-        com_rect_dsc.radius = 0;
-
-        lv_area_t com_coords = { com_pixel_x - half_size,
-                                 com_pixel_y - half_size,
-                                 com_pixel_x + half_size - 1,
-                                 com_pixel_y + half_size - 1 };
-        lv_draw_rect(&layer, &com_rect_dsc, &com_coords);
-
-        // Velocity vector (green line).
-        if (cell.velocity.magnitude() > 0.01) {
-            double scale = 20.0;
-            int end_x = com_pixel_x + static_cast<int>(cell.velocity.x * scale);
-            int end_y = com_pixel_y + static_cast<int>(cell.velocity.y * scale);
-
-            lv_draw_line_dsc_t line_dsc;
-            lv_draw_line_dsc_init(&line_dsc);
-            line_dsc.color = lv_color_hex(0x00FF00); // Bright green.
-            line_dsc.width = 2;
-            line_dsc.p1.x = com_pixel_x;
-            line_dsc.p1.y = com_pixel_y;
-            line_dsc.p2.x = end_x;
-            line_dsc.p2.y = end_y;
-            lv_draw_line(&layer, &line_dsc);
-        }
-
-        // Pressure visualization as dual-layer borders.
-        const double MAX_BORDER_WIDTH = 8.0;
-        int hydrostatic_border_width = 0;
-        int dynamic_border_width = 0;
-
-        if (cell.hydrostatic_component > 0.01) {
-            hydrostatic_border_width = static_cast<int>(std::min(
-                MAX_BORDER_WIDTH, 1.0 + std::log1p(cell.hydrostatic_component * 10) * 2.0));
-        }
-
-        if (cell.dynamic_component > 0.01) {
-            dynamic_border_width = static_cast<int>(
-                std::min(MAX_BORDER_WIDTH, 1.0 + std::log1p(cell.dynamic_component * 10) * 2.0));
-        }
-
-        // Draw outer border (dynamic pressure - magenta).
-        if (dynamic_border_width > 0) {
-            lv_draw_rect_dsc_t dynamic_border_dsc;
-            lv_draw_rect_dsc_init(&dynamic_border_dsc);
-            dynamic_border_dsc.bg_opa = LV_OPA_TRANSP;
-            dynamic_border_dsc.border_color = lv_color_hex(0xFF00FF); // Magenta.
-            dynamic_border_dsc.border_opa = LV_OPA_COVER;
-            dynamic_border_dsc.border_width = dynamic_border_width;
-            dynamic_border_dsc.radius = 0;
-
-            lv_area_t dynamic_area = coords;
-            lv_draw_rect(&layer, &dynamic_border_dsc, &dynamic_area);
-        }
-
-        // Draw inner border (hydrostatic pressure - red).
-        if (hydrostatic_border_width > 0) {
-            lv_draw_rect_dsc_t hydrostatic_border_dsc;
-            lv_draw_rect_dsc_init(&hydrostatic_border_dsc);
-            hydrostatic_border_dsc.bg_opa = LV_OPA_TRANSP;
-            hydrostatic_border_dsc.border_color = lv_color_hex(0xFF0000); // Red.
-            hydrostatic_border_dsc.border_opa = LV_OPA_COVER;
-            hydrostatic_border_dsc.border_width = hydrostatic_border_width;
-            hydrostatic_border_dsc.radius = 0;
-
-            lv_area_t hydrostatic_area;
-            hydrostatic_area.x1 = dynamic_border_width;
-            hydrostatic_area.y1 = dynamic_border_width;
-            hydrostatic_area.x2 = Cell::WIDTH - 1 - dynamic_border_width;
-            hydrostatic_area.y2 = Cell::HEIGHT - 1 - dynamic_border_width;
-            lv_draw_rect(&layer, &hydrostatic_border_dsc, &hydrostatic_area);
-        }
-
-        // Draw pressure gradient vector (magenta line from center).
-        if (cell.pressure_gradient.magnitude() > 0.001) {
-            int center_x = Cell::WIDTH / 2;
-            int center_y = Cell::HEIGHT / 2;
-            const double GRADIENT_SCALE = 30.0;
-
-            int end_x = center_x + static_cast<int>(cell.pressure_gradient.x * GRADIENT_SCALE);
-            int end_y = center_y + static_cast<int>(cell.pressure_gradient.y * GRADIENT_SCALE);
-
-            lv_draw_line_dsc_t gradient_line_dsc;
-            lv_draw_line_dsc_init(&gradient_line_dsc);
-            gradient_line_dsc.color = lv_color_hex(0xFF0080); // Magenta.
-            gradient_line_dsc.width = 3;
-            gradient_line_dsc.p1.x = center_x;
-            gradient_line_dsc.p1.y = center_y;
-            gradient_line_dsc.p2.x = end_x;
-            gradient_line_dsc.p2.y = end_y;
-            lv_draw_line(&layer, &gradient_line_dsc);
+                lv_draw_line_dsc_t line_dsc;
+                lv_draw_line_dsc_init(&line_dsc);
+                line_dsc.color = lv_color_hex(0x00FF00);
+                line_dsc.width = std::max(1, static_cast<int>(2 * scaleX_));
+                line_dsc.p1.x = com_pixel_x;
+                line_dsc.p1.y = com_pixel_y;
+                line_dsc.p2.x = end_x;
+                line_dsc.p2.y = end_y;
+                lv_draw_line(&layer, &line_dsc);
+            }
         }
     }
-
-    lv_canvas_finish_layer(canvas.canvas, &layer);
 }
 
 } // namespace Ui

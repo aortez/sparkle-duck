@@ -1,7 +1,9 @@
 #include "EventProcessor.h"
 #include "StateMachine.h"
 #include "core/SynchronizedQueue.h"
+#include <optional>
 #include <spdlog/spdlog.h>
+#include <vector>
 
 namespace DirtSim {
 namespace Ui {
@@ -20,12 +22,42 @@ void EventProcessor::processEvent(StateMachine& sm, const Event& eventVariant)
 
 void EventProcessor::processEventsFromQueue(StateMachine& sm)
 {
+    // Frame dropping: If multiple UiUpdateEvents are queued, only process the latest one.
+    // This prevents the UI from falling behind and hanging when rendering is slow.
+    std::optional<Event> latestUiUpdate;
+    std::vector<Event> otherEvents;
+    int droppedFrames = 0;
+
+    // First pass: separate UiUpdateEvents from other events
     while (!eventQueue->queue.empty()) {
         auto event = eventQueue->queue.tryPop();
         if (event.has_value()) {
-            spdlog::trace("Ui::EventProcessor: Processing event: {}", getEventName(event.value()));
-            processEvent(sm, event.value());
+            // Check if this is a UiUpdateEvent
+            if (std::holds_alternative<DirtSim::UiUpdateEvent>(event.value())) {
+                if (latestUiUpdate.has_value()) {
+                    droppedFrames++;  // Drop the previous frame
+                }
+                latestUiUpdate = event.value();  // Keep the latest
+            } else {
+                otherEvents.push_back(event.value());
+            }
         }
+    }
+
+    if (droppedFrames > 0) {
+        spdlog::info("Ui::EventProcessor: Dropped {} old frames to catch up (queue overrun)", droppedFrames);
+    }
+
+    // Process other events first (commands, etc.)
+    for (const auto& event : otherEvents) {
+        spdlog::trace("Ui::EventProcessor: Processing event: {}", getEventName(event));
+        processEvent(sm, event);
+    }
+
+    // Process the latest UI update (if any)
+    if (latestUiUpdate.has_value()) {
+        spdlog::trace("Ui::EventProcessor: Processing event: {}", getEventName(latestUiUpdate.value()));
+        processEvent(sm, latestUiUpdate.value());
     }
 }
 

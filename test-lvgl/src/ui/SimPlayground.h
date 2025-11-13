@@ -42,7 +42,7 @@ public:
     /**
      * @brief Render world state.
      */
-    void render(const WorldData& data, bool debugDraw);
+    void render(const WorldData& data, bool debugDraw, bool usePixelRenderer = false);
 
 private:
     UiComponentManager* uiManager_;

@@ -55,6 +55,17 @@ State::Any SimRunning::onEvent(const UiApi::DrawDebugToggle::Cwc& cwc, StateMach
     return std::move(*this);
 }
 
+State::Any SimRunning::onEvent(const UiApi::PixelRendererToggle::Cwc& cwc, StateMachine& /*sm*/)
+{
+    using Response = UiApi::PixelRendererToggle::Response;
+
+    pixelRendererEnabled = cwc.command.enabled;
+    spdlog::info("SimRunning: Pixel renderer mode {}", pixelRendererEnabled ? "enabled" : "disabled");
+
+    cwc.sendResponse(Response::okay(UiApi::PixelRendererToggle::Okay{ pixelRendererEnabled }));
+    return std::move(*this);
+}
+
 State::Any SimRunning::onEvent(const UiApi::Exit::Cwc& cwc, StateMachine& /*sm*/)
 {
     spdlog::info("SimRunning: Exit command received, shutting down");
@@ -216,26 +227,45 @@ State::Any SimRunning::onEvent(const UiUpdateEvent& evt, StateMachine& sm)
 
     lastFrameTime = now;
 
-    // Log performance stats every 20 updates.
     updateCount++;
-    if (updateCount % 20 == 0) {
+    // Log performance stats every once in a while.
+    if (updateCount % 100 == 0) {
         auto& timers = sm.getTimers();
 
-        spdlog::info("UI Performance Stats (after {} updates):", updateCount);
+        // Get current stats
+        double parseTotal = timers.getAccumulatedTime("parse_message");
+        uint32_t parseCount = timers.getCallCount("parse_message");
+        double renderTotal = timers.getAccumulatedTime("render_world");
+        uint32_t renderCount = timers.getCallCount("render_world");
+
+        // Calculate interval stats (last 20 updates)
+        static double lastParseTotal = 0.0;
+        static uint32_t lastParseCount = 0;
+        static double lastRenderTotal = 0.0;
+        static uint32_t lastRenderCount = 0;
+
+        double intervalParseTime = parseTotal - lastParseTotal;
+        uint32_t intervalParseCount = parseCount - lastParseCount;
+        double intervalRenderTime = renderTotal - lastRenderTotal;
+        uint32_t intervalRenderCount = renderCount - lastRenderCount;
+
+        spdlog::info("UI Performance Stats (last 20 updates, total {}):", updateCount);
         spdlog::info(
-            "  Message parse: {:.1f}ms avg ({} calls, {:.1f}ms total)",
-            timers.getCallCount("parse_message") > 0
-                ? timers.getAccumulatedTime("parse_message") / timers.getCallCount("parse_message")
-                : 0.0,
-            timers.getCallCount("parse_message"),
-            timers.getAccumulatedTime("parse_message"));
+            "  Message parse: {:.1f}ms avg ({} calls, {:.1f}ms interval)",
+            intervalParseCount > 0 ? intervalParseTime / intervalParseCount : 0.0,
+            intervalParseCount,
+            intervalParseTime);
         spdlog::info(
-            "  World render: {:.1f}ms avg ({} calls, {:.1f}ms total)",
-            timers.getCallCount("render_world") > 0
-                ? timers.getAccumulatedTime("render_world") / timers.getCallCount("render_world")
-                : 0.0,
-            timers.getCallCount("render_world"),
-            timers.getAccumulatedTime("render_world"));
+            "  World render: {:.1f}ms avg ({} calls, {:.1f}ms interval)",
+            intervalRenderCount > 0 ? intervalRenderTime / intervalRenderCount : 0.0,
+            intervalRenderCount,
+            intervalRenderTime);
+
+        // Store current totals for next interval
+        lastParseTotal = parseTotal;
+        lastParseCount = parseCount;
+        lastRenderTotal = renderTotal;
+        lastRenderCount = renderCount;
     }
 
     // Update local worldData with received state.
@@ -248,7 +278,7 @@ State::Any SimRunning::onEvent(const UiUpdateEvent& evt, StateMachine& sm)
 
         // Render world.
         sm.getTimers().startTimer("render_world");
-        playground_->render(*worldData, debugDrawEnabled);
+        playground_->render(*worldData, debugDrawEnabled, pixelRendererEnabled);
         sm.getTimers().stopTimer("render_world");
 
         spdlog::debug(
