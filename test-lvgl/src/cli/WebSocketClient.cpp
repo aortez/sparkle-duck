@@ -10,7 +10,7 @@
 namespace DirtSim {
 namespace Client {
 
-WebSocketClient::WebSocketClient() : responseReceived_(false)
+WebSocketClient::WebSocketClient() : responseReceived_(false), connectionFailed_(false)
 {}
 
 WebSocketClient::~WebSocketClient()
@@ -22,6 +22,9 @@ bool WebSocketClient::connect(const std::string& url)
 {
     try {
         spdlog::debug("WebSocketClient: Connecting to {}", url);
+
+        // Reset connection state.
+        connectionFailed_ = false;
 
         // Create WebSocket with large message size for WorldData.
         rtc::WebSocketConfiguration config;
@@ -82,6 +85,7 @@ bool WebSocketClient::connect(const std::string& url)
         // Set up close handler.
         ws_->onClosed([this]() {
             spdlog::debug("WebSocketClient: Connection closed");
+            connectionFailed_ = true; // Mark as failed for connect() loop.
             if (disconnectedCallback_) {
                 disconnectedCallback_();
             }
@@ -90,6 +94,7 @@ bool WebSocketClient::connect(const std::string& url)
         // Set up error handler.
         ws_->onError([this](std::string error) {
             spdlog::error("WebSocketClient error: {}", error);
+            connectionFailed_ = true; // Mark as failed for connect() loop.
             if (errorCallback_) {
                 errorCallback_(error);
             }
@@ -100,13 +105,19 @@ bool WebSocketClient::connect(const std::string& url)
 
         // Wait for connection (with timeout).
         auto startTime = std::chrono::steady_clock::now();
-        while (!ws_->isOpen()) {
+        while (!ws_->isOpen() && !connectionFailed_) {
             auto elapsed = std::chrono::steady_clock::now() - startTime;
             if (std::chrono::duration_cast<std::chrono::seconds>(elapsed).count() > 5) {
                 spdlog::error("WebSocketClient: Connection timeout");
                 return false;
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        }
+
+        // Check if connection succeeded or failed.
+        if (connectionFailed_) {
+            spdlog::debug("WebSocketClient: Connection failed (detected early)");
+            return false;
         }
 
         spdlog::debug("WebSocketClient: Connected");

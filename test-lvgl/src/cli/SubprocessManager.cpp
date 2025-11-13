@@ -123,9 +123,22 @@ bool SubprocessManager::isServerRunning() const
         return false;
     }
 
-    // Check if process is alive using kill with signal 0.
-    int result = kill(serverPid_, 0);
-    return result == 0;
+    // Check if process has exited (non-blocking).
+    // Note: Using kill(pid, 0) doesn't work because zombie processes still exist.
+    int status;
+    pid_t result = waitpid(serverPid_, &status, WNOHANG);
+
+    if (result == serverPid_) {
+        // Process has exited (reaps zombie).
+        spdlog::info("SubprocessManager: Server process {} has exited", serverPid_);
+        return false;
+    } else if (result == 0) {
+        // Process still running.
+        return true;
+    } else {
+        // Error or process doesn't exist.
+        return false;
+    }
 }
 
 bool SubprocessManager::tryConnect(const std::string& url)
@@ -139,6 +152,7 @@ bool SubprocessManager::tryConnect(const std::string& url)
         return true;
     }
     catch (const std::exception& e) {
+        spdlog::debug("SubprocessManager: tryConnect exception: {}", e.what());
         return false;
     }
 }
@@ -256,9 +270,22 @@ bool SubprocessManager::isUIRunning() const
         return false;
     }
 
-    // Check if process is alive using kill with signal 0.
-    int result = kill(uiPid_, 0);
-    return result == 0;
+    // Check if process has exited (non-blocking).
+    // Note: Using kill(pid, 0) doesn't work because zombie processes still exist.
+    int status;
+    pid_t result = waitpid(uiPid_, &status, WNOHANG);
+
+    if (result == uiPid_) {
+        // Process has exited (reaps zombie).
+        spdlog::info("SubprocessManager: UI process {} has exited", uiPid_);
+        return false;
+    } else if (result == 0) {
+        // Process still running.
+        return true;
+    } else {
+        // Error or process doesn't exist.
+        return false;
+    }
 }
 
 } // namespace Client

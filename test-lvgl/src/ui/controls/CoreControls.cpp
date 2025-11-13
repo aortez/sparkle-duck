@@ -1,9 +1,9 @@
 #include "CoreControls.h"
-#include "server/api/Exit.h"
 #include "server/api/Reset.h"
 #include "server/api/WorldResize.h"
 #include "ui/state-machine/EventSink.h"
 #include "ui/state-machine/api/DrawDebugToggle.h"
+#include "ui/state-machine/api/Exit.h"
 #include "ui/state-machine/network/WebSocketClient.h"
 #include "ui/ui_builders/LVGLBuilder.h"
 #include <lvgl/src/misc/lv_palette.h>
@@ -132,11 +132,10 @@ void CoreControls::onQuitClicked(lv_event_t* e)
 
     spdlog::info("CoreControls: Quit button clicked");
 
-    // Send exit command to server.
-    Api::Exit::Command cmd;
-    nlohmann::json j = cmd.toJson();
-    j["command"] = "exit";
-    self->wsClient_->send(j.dump());
+    // Queue UI-local exit event (works in all states, including Disconnected).
+    UiApi::Exit::Cwc cwc;
+    cwc.callback = [](auto&&) {}; // No response needed.
+    self->eventSink_.queueEvent(cwc);
 }
 
 void CoreControls::onResetClicked(lv_event_t* e)

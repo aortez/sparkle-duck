@@ -333,6 +333,7 @@ add_executable(cli
     src/cli/main.cpp
     src/cli/BenchmarkRunner.cpp
     src/cli/IntegrationTest.cpp
+    src/cli/RunAllRunner.cpp
     src/cli/SubprocessManager.cpp
     src/cli/WebSocketClient.cpp
 )
