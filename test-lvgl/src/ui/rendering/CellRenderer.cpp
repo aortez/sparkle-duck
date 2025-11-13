@@ -469,9 +469,9 @@ void CellRenderer::renderCellDirectOptimized(
 
             // Velocity vector (green line)
             if (scaledCellWidth_ >= 10 && cell.velocity.magnitude() > 0.01) {
-                double scale = 20.0 * scaleX_;
-                int end_x = com_pixel_x + static_cast<int>(cell.velocity.x * scale);
-                int end_y = com_pixel_y + static_cast<int>(cell.velocity.y * scale);
+                const double scale = 1.0 * scaleX_;
+                const int end_x = com_pixel_x + static_cast<int>(cell.velocity.x * scale);
+                const int end_y = com_pixel_y + static_cast<int>(cell.velocity.y * scale);
 
                 lv_draw_line_dsc_t line_dsc;
                 lv_draw_line_dsc_init(&line_dsc);
