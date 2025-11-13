@@ -92,7 +92,10 @@ void StartMenu::onStartButtonClicked(lv_event_t* e)
     // Send sim_run command and wait for response.
     auto* wsClient = sm->getWebSocketClient();
     if (wsClient && wsClient->isConnected()) {
-        nlohmann::json cmd = { { "command", "sim_run" } };
+        nlohmann::json cmd = {
+            { "command", "sim_run" },
+            { "max_frame_ms", 16 }  // Cap at 60 FPS for UI visualization.
+        };
         std::string response = wsClient->sendAndReceive(cmd.dump(), 1000);
 
         if (response.empty()) {
@@ -196,7 +199,10 @@ State::Any StartMenu::onEvent(const UiApi::SimRun::Cwc& cwc, StateMachine& sm)
     }
 
     // Send sim_run command to DSSM server.
-    nlohmann::json simRunCmd = { { "command", "sim_run" } };
+    nlohmann::json simRunCmd = {
+        { "command", "sim_run" },
+        { "max_frame_ms", 16 }  // Cap at 60 FPS for UI visualization.
+    };
     bool sent = wsClient->send(simRunCmd.dump());
 
     if (!sent) {

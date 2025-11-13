@@ -35,6 +35,14 @@ State::Any Idle::onEvent(const Api::SimRun::Cwc& cwc, StateMachine& dsm)
         "Idle: SimRun command received, creating world with scenario '{}'",
         cwc.command.scenario_id);
 
+    // Validate max_frame_ms parameter.
+    if (cwc.command.max_frame_ms < 0) {
+        spdlog::error("Idle: Invalid max_frame_ms value: {}", cwc.command.max_frame_ms);
+        cwc.sendResponse(Api::SimRun::Response::error(
+            ApiError("max_frame_ms must be >= 0 (0 = unlimited, >0 = frame rate cap)")));
+        return Idle{};
+    }
+
     // Create new SimRunning state with world.
     SimRunning newState;
 
@@ -72,14 +80,14 @@ State::Any Idle::onEvent(const Api::SimRun::Cwc& cwc, StateMachine& dsm)
     newState.targetSteps =
         cwc.command.max_steps > 0 ? static_cast<uint32_t>(cwc.command.max_steps) : 0;
     newState.stepCount = 0;
-    newState.useRealtime = cwc.command.use_realtime;
+    newState.frameLimit = cwc.command.max_frame_ms;
 
     spdlog::info(
         "Idle: World created, transitioning to SimRunning (timestep={}ms, max_steps={}, "
-        "use_realtime={})",
+        "max_frame_ms={})",
         newState.stepDurationMs,
         cwc.command.max_steps,
-        newState.useRealtime);
+        newState.frameLimit);
 
     // Send response immediately (before transition).
     cwc.sendResponse(Api::SimRun::Response::okay({ true, 0 }));

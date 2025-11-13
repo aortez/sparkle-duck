@@ -93,13 +93,6 @@ struct StartSimulationCommand {
 };
 
 /**
- * @brief Advance simulation by one timestep.
- */
-struct AdvanceSimulationCommand {
-    static constexpr const char* name() { return "AdvanceSimulationCommand"; }
-};
-
-/**
  * @brief Reset simulation to initial state.
  */
 struct ResetSimulationCommand {
@@ -510,7 +503,6 @@ using Event = std::variant<
 
     // Simulation control
     StartSimulationCommand,
-    AdvanceSimulationCommand,
     ApplyScenarioCommand,
     ResetSimulationCommand,
     ResizeWorldCommand,

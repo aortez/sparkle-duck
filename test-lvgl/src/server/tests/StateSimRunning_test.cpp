@@ -33,7 +33,7 @@ protected:
     {
         // Create Idle and transition to SimRunning.
         Idle idleState;
-        Api::SimRun::Command cmd{ 0.016, 150, "sandbox", false }; // use_realtime=false for testing.
+        Api::SimRun::Command cmd{ 0.016, 150, "sandbox", 0 }; // max_frame_ms=0 for unlimited speed testing.
         Api::SimRun::Cwc cwc(cmd, [](auto&&) {});
         State::Any state = idleState.onEvent(cwc, *stateMachine);
 
@@ -98,7 +98,7 @@ TEST_F(StateSimRunningTest, OnEnter_AppliesDefaultScenario)
 }
 
 /**
- * @brief Test that AdvanceSimulationCommand steps physics and dirt falls.
+ * @brief Test that tick() steps physics and dirt falls.
  */
 TEST_F(StateSimRunningTest, AdvanceSimulation_StepsPhysicsAndDirtFalls)
 {
@@ -146,8 +146,7 @@ TEST_F(StateSimRunningTest, AdvanceSimulation_StepsPhysicsAndDirtFalls)
     // Execute: Advance simulation up to 200 frames, checking for dirt movement.
     bool dirtFell = false;
     for (int i = 0; i < 200; ++i) {
-        State::Any newState = simRunning.onEvent(AdvanceSimulationCommand{}, *stateMachine);
-        simRunning = std::move(std::get<SimRunning>(newState));
+        simRunning.tick(*stateMachine);
 
         // Debug: Log first few steps.
         if (i < 5 || i % 20 == 0) {
@@ -389,8 +388,7 @@ TEST_F(StateSimRunningTest, SimRun_UpdatesRunParameters)
 
     // Advance a few steps to verify world isn't recreated.
     for (int i = 0; i < 5; ++i) {
-        State::Any state = simRunning.onEvent(AdvanceSimulationCommand{}, *stateMachine);
-        simRunning = std::move(std::get<SimRunning>(state));
+        simRunning.tick(*stateMachine);
     }
     EXPECT_EQ(simRunning.stepCount, 5u);
 

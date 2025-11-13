@@ -20,8 +20,7 @@ struct SimRunning {
     uint32_t stepCount = 0;
     uint32_t targetSteps = 0;     // Steps to execute before pausing.
     double stepDurationMs = 16.0; // Physics timestep in milliseconds.
-    int frameLimit = -1;          // Optional FPS cap (-1 = unlimited).
-    bool useRealtime = true;      // True: real-time accumulation, False: force steps (for testing).
+    int frameLimit = 0;           // Max milliseconds per frame (0 = unlimited, >0 = frame rate cap).
 
     // FPS tracking.
     std::chrono::steady_clock::time_point lastFrameTime;
@@ -37,7 +36,9 @@ struct SimRunning {
     void onEnter(StateMachine& dsm);
     void onExit(StateMachine& dsm);
 
-    Any onEvent(const AdvanceSimulationCommand& cmd, StateMachine& dsm);
+    // Called each frame by main loop to advance simulation.
+    void tick(StateMachine& dsm);
+
     Any onEvent(const ApplyScenarioCommand& cmd, StateMachine& dsm);
     Any onEvent(const ResizeWorldCommand& cmd, StateMachine& dsm);
     Any onEvent(const DirtSim::Api::CellGet::Cwc& cwc, StateMachine& dsm);

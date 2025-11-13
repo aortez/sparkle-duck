@@ -62,8 +62,14 @@ void SimRunning::onExit(StateMachine& /*dsm. */)
     spdlog::info("SimRunning: Exiting state");
 }
 
-State::Any SimRunning::onEvent(const AdvanceSimulationCommand& /*cmd*/, StateMachine& dsm)
+void SimRunning::tick(StateMachine& dsm)
 {
+    // Check if we've reached target steps.
+    if (targetSteps > 0 && stepCount >= targetSteps) {
+        spdlog::debug("SimRunning: Reached target steps ({}), not advancing", targetSteps);
+        return;
+    }
+
     // Headless server: advance physics simulation with fixed timestep accumulator.
     assert(world && "World must exist in SimRunning state");
 
@@ -139,10 +145,9 @@ State::Any SimRunning::onEvent(const AdvanceSimulationCommand& /*cmd*/, StateMac
 
 
     // Update StateMachine's cached WorldData after all physics steps complete.
-
-    // dsm.getTimers().startTimer("cache_update");
-    // dsm.updateCachedWorldData(world->data);
-    // dsm.getTimers().stopTimer("cache_update");
+    dsm.getTimers().startTimer("cache_update");
+    dsm.updateCachedWorldData(world->data);
+    dsm.getTimers().stopTimer("cache_update");
 
     spdlog::debug(
         "SimRunning: Advanced simulation, total step {})", stepCount);
@@ -199,9 +204,6 @@ State::Any SimRunning::onEvent(const AdvanceSimulationCommand& /*cmd*/, StateMac
         spdlog::debug("SimRunning: Sent frame to UI ({} bytes, network {:.2f}ms, send FPS: {:.1f})",
                     data.size(), networkUs / 1000.0, frameSendFPS);
     }
-
-
-    return std::move(*this); // Stay in SimRunning (move because unique_ptr).
 }
 
 State::Any SimRunning::onEvent(const ApplyScenarioCommand& cmd, StateMachine& dsm)
@@ -590,6 +592,14 @@ State::Any SimRunning::onEvent(const Api::SimRun::Cwc& cwc, StateMachine& dsm)
 
     assert(world && "World must exist in SimRunning state");
 
+    // Validate max_frame_ms parameter.
+    if (cwc.command.max_frame_ms < 0) {
+        spdlog::error("SimRunning: Invalid max_frame_ms value: {}", cwc.command.max_frame_ms);
+        cwc.sendResponse(Response::error(
+            ApiError("max_frame_ms must be >= 0 (0 = unlimited, >0 = frame rate cap)")));
+        return std::move(*this);
+    }
+
     // Check if scenario has changed - if so, reload the world.
     if (cwc.command.scenario_id != world->data.scenario_id) {
         spdlog::info(
@@ -659,13 +669,13 @@ State::Any SimRunning::onEvent(const Api::SimRun::Cwc& cwc, StateMachine& dsm)
     // Store run parameters.
     stepDurationMs = cwc.command.timestep * 1000.0; // Convert seconds to milliseconds.
     targetSteps = cwc.command.max_steps > 0 ? static_cast<uint32_t>(cwc.command.max_steps) : 0;
-    useRealtime = cwc.command.use_realtime;
+    frameLimit = cwc.command.max_frame_ms;
 
     spdlog::info(
-        "SimRunning: Starting autonomous simulation (timestep={}ms, max_steps={}, use_realtime={})",
+        "SimRunning: Starting autonomous simulation (timestep={}ms, max_steps={}, max_frame_ms={})",
         stepDurationMs,
         cwc.command.max_steps,
-        useRealtime);
+        frameLimit);
 
     // Send response indicating simulation is running.
     cwc.sendResponse(Response::okay({ true, stepCount }));
