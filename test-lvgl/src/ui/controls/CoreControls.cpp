@@ -75,7 +75,7 @@ CoreControls::CoreControls(lv_obj_t* container, WebSocketClient* wsClient, Event
     // World Size toggle slider.
     auto worldSizeBuilder = LVGLBuilder::toggleSlider(container_)
                                 .label("World Size")
-                                .range(1, 60)  // Max 60x60 world
+                                .range(1, 150)  // Max world size
                                 .defaultValue(1)  // When off, defaults to 1
                                 .value(28)        // Initial value when on
                                 .sliderWidth(LV_PCT(85))

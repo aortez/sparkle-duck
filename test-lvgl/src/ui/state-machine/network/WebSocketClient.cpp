@@ -63,9 +63,22 @@ bool WebSocketClient::connect(const std::string& url)
 
                 try {
                     // Unpack binary to WorldData using zpp_bits (fast!).
+                    auto deserializeStart = std::chrono::steady_clock::now();
                     WorldData worldData;
                     zpp::bits::in in(binaryData);
                     in(worldData).or_throw();
+                    auto deserializeEnd = std::chrono::steady_clock::now();
+                    auto deserializeMs = std::chrono::duration_cast<std::chrono::milliseconds>(deserializeEnd - deserializeStart).count();
+
+                    static int deserializeCount = 0;
+                    static double totalDeserializeMs = 0.0;
+                    deserializeCount++;
+                    totalDeserializeMs += deserializeMs;
+                    if (deserializeCount % 100 == 0) {
+                        spdlog::info("UI WebSocketClient: Deserialization avg {:.1f}ms over {} frames (latest: {}ms, {} cells)",
+                                     totalDeserializeMs / deserializeCount, deserializeCount, deserializeMs,
+                                     worldData.cells.size());
+                    }
 
                     // Fast path: queue UiUpdateEvent directly via EventSink.
                     if (eventSink_) {

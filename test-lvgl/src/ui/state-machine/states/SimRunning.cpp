@@ -249,6 +249,22 @@ State::Any SimRunning::onEvent(const UiUpdateEvent& evt, StateMachine& sm)
         double intervalRenderTime = renderTotal - lastRenderTotal;
         uint32_t intervalRenderCount = renderCount - lastRenderCount;
 
+        // Get additional timing info
+        double copyTotal = timers.getAccumulatedTime("copy_worlddata");
+        uint32_t copyCount = timers.getCallCount("copy_worlddata");
+        double updateTotal = timers.getAccumulatedTime("update_controls");
+        uint32_t updateCount_ = timers.getCallCount("update_controls");
+
+        static double lastCopyTotal = 0.0;
+        static uint32_t lastCopyCount = 0;
+        static double lastUpdateTotal = 0.0;
+        static uint32_t lastUpdateCount = 0;
+
+        double intervalCopyTime = copyTotal - lastCopyTotal;
+        uint32_t intervalCopyCount = copyCount - lastCopyCount;
+        double intervalUpdateTime = updateTotal - lastUpdateTotal;
+        uint32_t intervalUpdateCount = updateCount_ - lastUpdateCount;
+
         spdlog::info("UI Performance Stats (last 20 updates, total {}):", updateCount);
         spdlog::info(
             "  Message parse: {:.1f}ms avg ({} calls, {:.1f}ms interval)",
@@ -256,10 +272,25 @@ State::Any SimRunning::onEvent(const UiUpdateEvent& evt, StateMachine& sm)
             intervalParseCount,
             intervalParseTime);
         spdlog::info(
+            "  WorldData copy: {:.1f}ms avg ({} calls, {:.1f}ms interval)",
+            intervalCopyCount > 0 ? intervalCopyTime / intervalCopyCount : 0.0,
+            intervalCopyCount,
+            intervalCopyTime);
+        spdlog::info(
+            "  Update controls: {:.1f}ms avg ({} calls, {:.1f}ms interval)",
+            intervalUpdateCount > 0 ? intervalUpdateTime / intervalUpdateCount : 0.0,
+            intervalUpdateCount,
+            intervalUpdateTime);
+        spdlog::info(
             "  World render: {:.1f}ms avg ({} calls, {:.1f}ms interval)",
             intervalRenderCount > 0 ? intervalRenderTime / intervalRenderCount : 0.0,
             intervalRenderCount,
             intervalRenderTime);
+
+        lastCopyTotal = copyTotal;
+        lastCopyCount = copyCount;
+        lastUpdateTotal = updateTotal;
+        lastUpdateCount = updateCount_;
 
         // Store current totals for next interval
         lastParseTotal = parseTotal;
@@ -269,12 +300,16 @@ State::Any SimRunning::onEvent(const UiUpdateEvent& evt, StateMachine& sm)
     }
 
     // Update local worldData with received state.
+    sm.getTimers().startTimer("copy_worlddata");
     worldData = std::make_unique<WorldData>(evt.worldData);
+    sm.getTimers().stopTimer("copy_worlddata");
 
     // Update and render via playground.
     if (playground_ && worldData) {
         // Update controls with new world state.
+        sm.getTimers().startTimer("update_controls");
         playground_->updateFromWorldData(*worldData, smoothedUiFps);
+        sm.getTimers().stopTimer("update_controls");
 
         // Render world.
         sm.getTimers().startTimer("render_world");

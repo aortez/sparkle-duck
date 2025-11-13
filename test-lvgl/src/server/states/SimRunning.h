@@ -25,15 +25,14 @@ struct SimRunning {
 
     // FPS tracking.
     std::chrono::steady_clock::time_point lastFrameTime;
-    double actualFPS = 0.0; // Measured FPS (steps/second).
+    std::chrono::steady_clock::time_point lastFrameSendTime;
+    double actualFPS = 0.0; // Measured physics FPS (steps/second).
+    double frameSendFPS = 0.0; // Measured frame send FPS (frames sent to UI/second).
 
     // Fixed timestep accumulator for deterministic physics.
     double physicsAccumulatorSeconds = 0.0;                 // Accumulated real time.
     static constexpr double FIXED_TIMESTEP_SECONDS = 0.016; // 16ms = 60 FPS physics.
     std::chrono::steady_clock::time_point lastPhysicsTime;
-
-    // UI frame delivery backpressure.
-    bool uiReadyForNextFrame = true; // Start true to send first frame.
 
     void onEnter(StateMachine& dsm);
     void onExit(StateMachine& dsm);
