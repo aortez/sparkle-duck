@@ -198,17 +198,20 @@ State::Any SimRunning::onEvent(const FrameReadyNotification& evt, StateMachine& 
 
 State::Any SimRunning::onEvent(const PhysicsSettingsReceivedEvent& evt, StateMachine& /*sm*/)
 {
-    spdlog::info("SimRunning: Received PhysicsSettings from server (gravity={:.2f})", evt.settings.gravity);
+    spdlog::info(
+        "SimRunning: Received PhysicsSettings from server (gravity={:.2f})", evt.settings.gravity);
 
     // Update UI controls with server settings.
     if (playground_) {
         auto* physicsControls = playground_->getPhysicsControls();
         if (physicsControls) {
             physicsControls->updateFromSettings(evt.settings);
-        } else {
+        }
+        else {
             spdlog::warn("SimRunning: PhysicsControls not available");
         }
-    } else {
+    }
+    else {
         spdlog::warn("SimRunning: Playground not available");
     }
 

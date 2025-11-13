@@ -240,7 +240,8 @@ void PhysicsControls::updateFromSettings(const PhysicsSettings& settings)
         if (toggle) {
             if (enabled) {
                 lv_obj_add_state(toggle, LV_STATE_CHECKED);
-            } else {
+            }
+            else {
                 lv_obj_remove_state(toggle, LV_STATE_CHECKED);
             }
         }
@@ -254,18 +255,26 @@ void PhysicsControls::updateFromSettings(const PhysicsSettings& settings)
 
     // Update Column 1: General Physics.
     updateToggleSlider(timescaleControl_, settings.timescale, settings.timescale > 0.0);
-    updateToggleSlider(gravityControl_, settings.gravity, true);  // No enabled flag for gravity.
-    updateToggleSlider(elasticityControl_, settings.elasticity, true);  // No enabled flag.
-    updateToggleSlider(airResistanceControl_, settings.air_resistance, true);  // No enabled flag.
+    updateToggleSlider(gravityControl_, settings.gravity, true); // No enabled flag for gravity.
+    updateToggleSlider(elasticityControl_, settings.elasticity, true);        // No enabled flag.
+    updateToggleSlider(airResistanceControl_, settings.air_resistance, true); // No enabled flag.
 
     // Update Column 2: Pressure.
-    updateToggleSlider(hydrostaticPressureControl_, settings.pressure_hydrostatic_strength, settings.pressure_hydrostatic_enabled);
-    updateToggleSlider(dynamicPressureControl_, settings.pressure_dynamic_strength, settings.pressure_dynamic_enabled);
-    updateToggleSlider(pressureDiffusionControl_, settings.pressure_diffusion_strength, true);  // No enabled flag.
-    updateToggleSlider(pressureScaleControl_, settings.pressure_scale, true);  // No enabled flag.
+    updateToggleSlider(
+        hydrostaticPressureControl_,
+        settings.pressure_hydrostatic_strength,
+        settings.pressure_hydrostatic_enabled);
+    updateToggleSlider(
+        dynamicPressureControl_,
+        settings.pressure_dynamic_strength,
+        settings.pressure_dynamic_enabled);
+    updateToggleSlider(
+        pressureDiffusionControl_, settings.pressure_diffusion_strength, true); // No enabled flag.
+    updateToggleSlider(pressureScaleControl_, settings.pressure_scale, true);   // No enabled flag.
 
     // Update Column 3: Forces.
-    updateToggleSlider(cohesionForceControl_, settings.cohesion_strength, settings.cohesion_enabled);
+    updateToggleSlider(
+        cohesionForceControl_, settings.cohesion_strength, settings.cohesion_enabled);
     updateToggleSlider(adhesionControl_, settings.adhesion_strength, settings.adhesion_enabled);
     updateToggleSlider(viscosityControl_, settings.viscosity_strength, settings.viscosity_enabled);
     updateToggleSlider(frictionControl_, settings.friction_strength, settings.friction_enabled);

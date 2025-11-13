@@ -505,7 +505,8 @@ void CellRenderer::renderCellDirectOptimized(
                     dynamic_dsc.border_width = dynamic_border_width;
                     dynamic_dsc.radius = 0;
 
-                    lv_area_t dynamic_coords = { cellX, cellY,
+                    lv_area_t dynamic_coords = { cellX,
+                                                 cellY,
                                                  cellX + static_cast<int>(scaledCellWidth_) - 1,
                                                  cellY + static_cast<int>(scaledCellHeight_) - 1 };
                     lv_draw_rect(&layer, &dynamic_dsc, &dynamic_coords);
@@ -522,9 +523,12 @@ void CellRenderer::renderCellDirectOptimized(
                     hydro_dsc.radius = 0;
 
                     int inset = dynamic_border_width;
-                    lv_area_t hydro_coords = { cellX + inset, cellY + inset,
-                                               cellX + static_cast<int>(scaledCellWidth_) - 1 - inset,
-                                               cellY + static_cast<int>(scaledCellHeight_) - 1 - inset };
+                    lv_area_t hydro_coords = {
+                        cellX + inset,
+                        cellY + inset,
+                        cellX + static_cast<int>(scaledCellWidth_) - 1 - inset,
+                        cellY + static_cast<int>(scaledCellHeight_) - 1 - inset
+                    };
                     lv_draw_rect(&layer, &hydro_dsc, &hydro_coords);
                 }
             }
@@ -532,8 +536,10 @@ void CellRenderer::renderCellDirectOptimized(
             // Pressure gradient vector (cyan line from center).
             if (scaledCellWidth_ >= 12 && cell.pressure_gradient.magnitude() > 0.001) {
                 const double GRADIENT_SCALE = 15.0 * scaleX_;
-                int end_x = com_pixel_x + static_cast<int>(cell.pressure_gradient.x * GRADIENT_SCALE);
-                int end_y = com_pixel_y + static_cast<int>(cell.pressure_gradient.y * GRADIENT_SCALE);
+                int end_x =
+                    com_pixel_x + static_cast<int>(cell.pressure_gradient.x * GRADIENT_SCALE);
+                int end_y =
+                    com_pixel_y + static_cast<int>(cell.pressure_gradient.y * GRADIENT_SCALE);
 
                 lv_draw_line_dsc_t grad_dsc;
                 lv_draw_line_dsc_init(&grad_dsc);
