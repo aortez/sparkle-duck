@@ -29,8 +29,6 @@ public:
         metadata_.name = "Tree Germination";
         metadata_.description = "Small 5x5 test world with single seed organism";
         metadata_.category = "organisms";
-        metadata_.supportsWorldA = false;
-        metadata_.supportsWorldB = true;
         metadata_.requiredWidth = 5;
         metadata_.requiredHeight = 5;
     }
