@@ -32,6 +32,7 @@ struct MaterialProperties {
     double elasticity;                   // Bounce factor for collisions [0.0-1.0].
     double cohesion;                     // Internal binding strength (affects flow).
     double adhesion;                     // Binding strength to other materials.
+    double air_resistance;               // Air drag coefficient [0.0-1.0].
     double com_mass_constant;            // Material-specific constant for mass-based COM cohesion.
     double pressure_diffusion;           // Pressure propagation rate [0.0-1.0].
     double viscosity;                    // Flow resistance [0.0-1.0].

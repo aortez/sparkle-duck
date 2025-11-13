@@ -288,13 +288,6 @@ void WorldSupportCalculator::computeSupportMapBottomUp(World& world) const
                 continue;
             }
 
-            // High-density materials (METAL) act as structural anchors.
-            const MaterialProperties& props = getMaterialProperties(cell.material_type);
-            if (props.density > RIGID_DENSITY_THRESHOLD) {
-                cell.has_support = true;
-                continue;
-            }
-
             // Check vertical support: cell below must be non-empty AND supported.
             const Cell& below = world.at(x, y + 1);
             bool has_vertical = !below.isEmpty() && below.has_support;

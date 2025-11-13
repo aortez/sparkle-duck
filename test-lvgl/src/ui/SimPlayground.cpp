@@ -33,12 +33,12 @@ SimPlayground::SimPlayground(
     lv_label_set_text(scenarioLabel, "Scenario:");
 
     // Scenario dropdown.
-    scenarioDropdown_ =
-        LVGLBuilder::dropdown(scenarioContainer)
-            .options("Sandbox\nDam Break\nRaining\nWater Equalization\nFalling Dirt\nEmpty")
-            .selected(0) // "Sandbox" selected by default.
-            .size(LV_PCT(90), 40)
-            .buildOrLog();
+    scenarioDropdown_ = LVGLBuilder::dropdown(scenarioContainer)
+                            .options("Sandbox\nDam Break\nEmpty\nFalling Dirt\nRaining\nTree "
+                                     "Germination\nWater Equalization")
+                            .selected(0) // "Sandbox" selected by default.
+                            .size(LV_PCT(90), 40)
+                            .buildOrLog();
 
     if (scenarioDropdown_) {
         spdlog::info("SimPlayground: Scenario dropdown created successfully");
@@ -119,11 +119,13 @@ void SimPlayground::onScenarioChanged(lv_event_t* e)
     lv_obj_t* dropdown = static_cast<lv_obj_t*>(lv_event_get_target(e));
     uint16_t selectedIdx = lv_dropdown_get_selected(dropdown);
 
-    // Map dropdown index to scenario_id.
-    const char* scenarioIds[] = { "sandbox",      "dam_break", "raining", "water_equalization",
-                                  "falling_dirt", "empty" };
+    // Map dropdown index to scenario_id (must match dropdown options order).
+    const char* scenarioIds[] = { "sandbox",           "dam_break", "empty",
+                                  "falling_dirt",      "raining",   "tree_germination",
+                                  "water_equalization" };
 
-    if (selectedIdx >= 6) {
+    constexpr size_t SCENARIO_COUNT = 7;
+    if (selectedIdx >= SCENARIO_COUNT) {
         spdlog::error("SimPlayground: Invalid scenario index {}", selectedIdx);
         return;
     }

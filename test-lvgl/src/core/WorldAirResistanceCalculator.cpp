@@ -26,21 +26,22 @@ Vector2d WorldAirResistanceCalculator::calculateAirResistance(
         return Vector2d{ 0.0, 0.0 };
     }
 
-    // Get material properties for logging.
+    // Get material properties.
     MaterialType material = cell.material_type;
-    double density = getMaterialDensity(material);
+    const MaterialProperties& props = getMaterialProperties(material);
 
     // Calculate air resistance force using proper physics.
     // F_drag = -k * v² * v̂
     // Where:
-    // - k is the air resistance coefficient (depends on cross-section, shape, air density).
+    // - k is the air resistance coefficient (material-specific drag).
     // - v² creates realistic quadratic drag relationship.
     // - v̂ is the unit vector opposing motion.
     //
-    // Dense materials are naturally less affected because a = F/m during integration.
+    // Material-specific air resistance models shape, surface area, and density effects.
 
     Vector2d velocity_direction = velocity.normalize();
-    double force_magnitude = strength * velocity_magnitude * velocity_magnitude;
+    double force_magnitude =
+        strength * props.air_resistance * velocity_magnitude * velocity_magnitude;
 
     // Force opposes motion (negative of velocity direction).
     Vector2d air_resistance_force = velocity_direction * (-force_magnitude);
@@ -49,14 +50,14 @@ Vector2d WorldAirResistanceCalculator::calculateAirResistance(
     if (force_magnitude > 0.01) {
         spdlog::trace(
             "Air resistance at ({},{}) {}: velocity=({:.3f},{:.3f}), "
-            "magnitude={:.3f}, density={:.1f}, force=({:.3f},{:.3f})",
+            "magnitude={:.3f}, air_resist={:.2f}, force=({:.3f},{:.3f})",
             x,
             y,
             getMaterialName(material),
             velocity.x,
             velocity.y,
             velocity_magnitude,
-            density,
+            props.air_resistance,
             air_resistance_force.x,
             air_resistance_force.y);
     }

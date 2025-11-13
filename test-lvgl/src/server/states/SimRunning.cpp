@@ -2,6 +2,7 @@
 #include "core/Cell.h"
 #include "core/World.h" // Must be before State.h for complete type.
 #include "core/WorldEventGenerator.h"
+#include "core/organisms/TreeManager.h"
 #include "server/StateMachine.h"
 #include "server/network/WebSocketServer.h"
 #include "server/scenarios/Scenario.h"
@@ -190,7 +191,7 @@ void SimRunning::tick(StateMachine& dsm)
             spdlog::info("SimRunning: Network send took {:.1f}ms for {} bytes", networkUs / 1000.0, data.size());
         }
 
-        // Track frame send FPS (for UI display).
+        // Track FPS.
         auto now = std::chrono::steady_clock::now();
         if (lastFrameSendTime.time_since_epoch().count() > 0) {
             auto sendElapsed = std::chrono::duration_cast<std::chrono::microseconds>(now - lastFrameSendTime).count();
@@ -394,9 +395,16 @@ State::Any SimRunning::onEvent(const Api::FrameReady::Cwc& cwc, StateMachine& /*
 {
     using Response = Api::FrameReady::Response;
 
+<<<<<<< HEAD
     // frame_ready is now a no-op - server sends frames unconditionally.
     // Kept for backward compatibility with UI that still sends it.
     spdlog::debug("SimRunning: Received frame_ready (no-op)");
+=======
+    spdlog::debug("SimRunning: UI ready for next frame - enabling broadcast");
+
+    // UI signals it's ready - allow next frame broadcast.
+    uiReadyForNextFrame = true;
+>>>>>>> main
 
     cwc.sendResponse(Response::okay(std::monostate{}));
     return std::move(*this);
@@ -481,9 +489,10 @@ State::Any SimRunning::onEvent(const Api::SeedAdd::Cwc& cwc, StateMachine& /*dsm
         return std::move(*this);
     }
 
-    // Add the seed.
-    spdlog::info("SeedAdd: Adding SEED at ({}, {})", cwc.command.x, cwc.command.y);
-    world->addMaterialAtCell(cwc.command.x, cwc.command.y, MaterialType::SEED, 1.0);
+    // Plant seed as tree organism.
+    spdlog::info("SeedAdd: Planting seed at ({}, {})", cwc.command.x, cwc.command.y);
+    TreeId tree_id = world->getTreeManager().plantSeed(*world, cwc.command.x, cwc.command.y);
+    spdlog::info("SeedAdd: Created tree organism {}", tree_id);
 
     cwc.sendResponse(Response::okay(std::monostate{}));
     return std::move(*this);
