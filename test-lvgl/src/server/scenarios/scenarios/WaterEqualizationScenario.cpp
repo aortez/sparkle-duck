@@ -73,10 +73,8 @@ public:
         metadata_.name = "Water Equalization";
         metadata_.description = "Water flows through opening to equalize between columns";
         metadata_.category = "demo";
-        metadata_.supportsWorldA = false; // Uses pressure systems
-        metadata_.supportsWorldB = true;  // Primary target
-        metadata_.requiredWidth = 3;      // Match test specifications
-        metadata_.requiredHeight = 6;     // Match test specifications
+        metadata_.requiredWidth = 3;  // Match test specifications
+        metadata_.requiredHeight = 6; // Match test specifications
 
         // Initialize with default config.
         config_.left_height = 15.0;

@@ -16,7 +16,6 @@ class World;
  *
  * This tool provides bilinear filtering capabilities for rescaling simulation grids
  * while preserving material distribution, physics properties, and visual continuity.
- * Supports both WorldA (mixed materials) and World (pure materials) systems.
  */
 class WorldInterpolationTool {
 public:

@@ -42,7 +42,12 @@ public:
     /**
      * @brief Render world state.
      */
-    void render(const WorldData& data, bool debugDraw);
+    void render(const WorldData& data, bool debugDraw, bool usePixelRenderer = false);
+
+    /**
+     * @brief Get physics controls for settings updates.
+     */
+    PhysicsControls* getPhysicsControls() { return physicsControls_.get(); }
 
 private:
     UiComponentManager* uiManager_;

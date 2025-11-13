@@ -18,8 +18,6 @@ public:
         metadata_.name = "Falling Dirt";
         metadata_.description = "Dirt particles falling from the sky and accumulating";
         metadata_.category = "demo";
-        metadata_.supportsWorldA = true;
-        metadata_.supportsWorldB = true;
 
         // Initialize with default config.
         config_.drop_height = 20.0;

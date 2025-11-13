@@ -16,6 +16,7 @@
 #include "api/SpawnDirtBall.h"
 #include "api/StateGet.h"
 #include "api/TimerStatsGet.h"
+#include "api/WorldResize.h"
 #include "core/MaterialType.h"
 #include "core/SimulationStats.h"
 #include <chrono>
@@ -92,13 +93,6 @@ struct StartSimulationCommand {
 };
 
 /**
- * @brief Advance simulation by one timestep.
- */
-struct AdvanceSimulationCommand {
-    static constexpr const char* name() { return "AdvanceSimulationCommand"; }
-};
-
-/**
  * @brief Reset simulation to initial state.
  */
 struct ResetSimulationCommand {
@@ -161,38 +155,6 @@ struct StepForwardCommand {
  */
 struct ToggleTimeReversalCommand {
     static constexpr const char* name() { return "ToggleTimeReversalCommand"; }
-};
-
-/**
- * @brief Set water cohesion parameter for WorldA/RulesA.
- */
-struct SetWaterCohesionCommand {
-    double cohesion_value;
-    static constexpr const char* name() { return "SetWaterCohesionCommand"; }
-};
-
-/**
- * @brief Set water viscosity parameter for WorldA/RulesA.
- */
-struct SetWaterViscosityCommand {
-    double viscosity_value;
-    static constexpr const char* name() { return "SetWaterViscosityCommand"; }
-};
-
-/**
- * @brief Set water pressure threshold parameter for WorldA/RulesA.
- */
-struct SetWaterPressureThresholdCommand {
-    double threshold_value;
-    static constexpr const char* name() { return "SetWaterPressureThresholdCommand"; }
-};
-
-/**
- * @brief Set water buoyancy parameter for WorldA/RulesA.
- */
-struct SetWaterBuoyancyCommand {
-    double buoyancy_value;
-    static constexpr const char* name() { return "SetWaterBuoyancyCommand"; }
 };
 
 /**
@@ -541,7 +503,6 @@ using Event = std::variant<
 
     // Simulation control
     StartSimulationCommand,
-    AdvanceSimulationCommand,
     ApplyScenarioCommand,
     ResetSimulationCommand,
     ResizeWorldCommand,
@@ -550,10 +511,6 @@ using Event = std::variant<
     StepBackwardCommand,
     StepForwardCommand,
     ToggleTimeReversalCommand,
-    SetWaterCohesionCommand,
-    SetWaterViscosityCommand,
-    SetWaterPressureThresholdCommand,
-    SetWaterBuoyancyCommand,
     SetTimestepCommand,
 
     // Mouse events
@@ -618,6 +575,7 @@ using Event = std::variant<
     DirtSim::Api::SpawnDirtBall::Cwc,
     DirtSim::Api::StateGet::Cwc,
     DirtSim::Api::TimerStatsGet::Cwc,
+    DirtSim::Api::WorldResize::Cwc,
 
     // State transitions
     OpenConfigCommand,

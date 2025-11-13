@@ -5,9 +5,11 @@
 #include "api/MouseDown.h"
 #include "api/MouseMove.h"
 #include "api/MouseUp.h"
+#include "api/PixelRendererToggle.h"
 #include "api/Screenshot.h"
 #include "api/SimPause.h"
 #include "api/SimRun.h"
+#include "core/PhysicsSettings.h"
 #include "core/api/UiUpdateEvent.h"
 #include <concepts>
 #include <string>
@@ -98,6 +100,14 @@ struct ServerRunningConfirmedEvent {
     static constexpr const char* name() { return "ServerRunningConfirmedEvent"; }
 };
 
+/**
+ * @brief Physics settings received from server.
+ */
+struct PhysicsSettingsReceivedEvent {
+    PhysicsSettings settings;
+    static constexpr const char* name() { return "PhysicsSettingsReceivedEvent"; }
+};
+
 // =================================================================
 // EVENT VARIANT
 // =================================================================
@@ -117,8 +127,9 @@ using Event = std::variant<
     RequestWorldUpdateCommand,
     FrameReadyNotification,
 
-    // World updates from DSSM server
+    // Server data updates
     DirtSim::UiUpdateEvent,
+    PhysicsSettingsReceivedEvent,
 
     // API commands (local from LVGL or remote from WebSocket)
     DirtSim::UiApi::DrawDebugToggle::Cwc,
@@ -126,6 +137,7 @@ using Event = std::variant<
     DirtSim::UiApi::MouseDown::Cwc,
     DirtSim::UiApi::MouseMove::Cwc,
     DirtSim::UiApi::MouseUp::Cwc,
+    DirtSim::UiApi::PixelRendererToggle::Cwc,
     DirtSim::UiApi::Screenshot::Cwc,
     DirtSim::UiApi::SimPause::Cwc,
     DirtSim::UiApi::SimRun::Cwc>;

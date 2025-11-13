@@ -28,6 +28,9 @@ private:
     lv_obj_t* container_;
     WebSocketClient* wsClient_;
 
+    // Flag to prevent updates during initialization
+    bool initializing_ = true;
+
     // Widgets.
     lv_obj_t* addSeedButton_ = nullptr;
     lv_obj_t* dropDirtBallButton_ = nullptr;
@@ -47,6 +50,11 @@ private:
     static void onWaterColumnToggled(lv_event_t* e);
     static void onRightThrowToggled(lv_event_t* e);
     static void onRainSliderChanged(lv_event_t* e);
+
+    /**
+     * @brief Get the current complete config from all controls.
+     */
+    SandboxConfig getCurrentConfig() const;
 
     /**
      * @brief Send scenario config update to server.

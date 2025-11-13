@@ -50,15 +50,34 @@ void StateMachine::mainLoopRun()
         // Process events from queue.
         eventProcessor.processEventsFromQueue(*this);
 
-        // Queue simulation advance commands only when actively running.
-        // When in SimRunning state, the simulation should advance.
-        // When in SimPaused state, no automatic advancing (but manual stepping is allowed).
+        // Tick the simulation if in SimRunning state.
         if (std::holds_alternative<State::SimRunning>(fsmState)) {
-            queueEvent(AdvanceSimulationCommand{});
-        }
+            auto& simRunning = std::get<State::SimRunning>(fsmState);
 
-        // Small sleep to prevent busy waiting (1ms for max performance testing).
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            // Record frame start time for frame limiting.
+            auto frameStart = std::chrono::steady_clock::now();
+
+            // Advance simulation.
+            simRunning.tick(*this);
+
+            // Apply frame rate limiting if configured.
+            if (simRunning.frameLimit > 0) {
+                auto frameEnd = std::chrono::steady_clock::now();
+                auto elapsedMs =
+                    std::chrono::duration_cast<std::chrono::milliseconds>(frameEnd - frameStart)
+                        .count();
+
+                int remainingMs = simRunning.frameLimit - static_cast<int>(elapsedMs);
+                if (remainingMs > 0) {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(remainingMs));
+                }
+            }
+            // If frameLimit == 0, no sleep (run as fast as possible).
+        }
+        else {
+            // Small sleep when not running to prevent busy waiting.
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
     }
 
     spdlog::info("State machine event loop exiting (shouldExit=true)");

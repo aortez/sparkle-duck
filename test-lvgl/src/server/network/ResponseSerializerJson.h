@@ -14,6 +14,7 @@
 #include "server/api/SimRun.h"
 #include "server/api/StateGet.h"
 #include "server/api/TimerStatsGet.h"
+#include "server/api/WorldResize.h"
 #include <nlohmann/json.hpp>
 #include <string>
 
@@ -78,7 +79,8 @@ public:
                 || std::is_same_v<T, Api::PhysicsSettingsSet::Response>
                 || std::is_same_v<T, Api::Reset::Response>
                 || std::is_same_v<T, Api::SeedAdd::Response>
-                || std::is_same_v<T, Api::SpawnDirtBall::Response>) {
+                || std::is_same_v<T, Api::SpawnDirtBall::Response>
+                || std::is_same_v<T, Api::WorldResize::Response>) {
                 // Empty object for commands with no response data.
                 doc["value"] = nlohmann::json::object();
             }

@@ -688,6 +688,28 @@ lv_obj_t* LVGLBuilder::LabeledSwitchBuilder::buildOrLog()
     return result.value();
 }
 
+// Helper callback for container click to toggle switch.
+static void labeledSwitchContainerClicked(lv_event_t* e)
+{
+    if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
+
+    lv_obj_t* container = static_cast<lv_obj_t*>(lv_event_get_target(e));
+    lv_obj_t* switch_obj = static_cast<lv_obj_t*>(lv_obj_get_user_data(container));
+
+    if (switch_obj) {
+        // Toggle switch state.
+        if (lv_obj_has_state(switch_obj, LV_STATE_CHECKED)) {
+            lv_obj_clear_state(switch_obj, LV_STATE_CHECKED);
+        }
+        else {
+            lv_obj_add_state(switch_obj, LV_STATE_CHECKED);
+        }
+
+        // Send VALUE_CHANGED event to trigger the callback.
+        lv_obj_send_event(switch_obj, LV_EVENT_VALUE_CHANGED, nullptr);
+    }
+}
+
 Result<lv_obj_t*, std::string> LVGLBuilder::LabeledSwitchBuilder::createLabeledSwitch()
 {
     // Create horizontal container for switch + label.
@@ -700,8 +722,14 @@ Result<lv_obj_t*, std::string> LVGLBuilder::LabeledSwitchBuilder::createLabeledS
     lv_obj_set_flex_flow(container_, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(
         container_, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-    lv_obj_set_style_pad_all(container_, 2, 0);    // Minimal padding.
-    lv_obj_set_style_pad_column(container_, 5, 0); // Small gap between switch and label.
+    lv_obj_set_style_pad_all(container_, 5, 0);    // Padding for better click target.
+    lv_obj_set_style_pad_column(container_, 8, 0); // Gap between switch and label.
+
+    lv_obj_set_style_bg_color(container_, lv_color_hex(0x0000FF), 0);
+    lv_obj_set_style_bg_opa(container_, LV_OPA_COVER, 0);
+
+    // Rounded corners.
+    lv_obj_set_style_radius(container_, 5, 0);
 
     // Create switch.
     switch_ = lv_switch_create(container_);
@@ -714,14 +742,9 @@ Result<lv_obj_t*, std::string> LVGLBuilder::LabeledSwitchBuilder::createLabeledS
         lv_obj_add_state(switch_, LV_STATE_CHECKED);
     }
 
-    // Set user data on switch object for callback retrieval.
-    if (user_data_) {
-        lv_obj_set_user_data(switch_, user_data_);
-    }
-
     // Set up callback.
     if (callback_) {
-        lv_obj_add_event_cb(switch_, callback_, LV_EVENT_VALUE_CHANGED, nullptr);
+        lv_obj_add_event_cb(switch_, callback_, LV_EVENT_VALUE_CHANGED, user_data_);
     }
 
     // Create label.
@@ -729,8 +752,18 @@ Result<lv_obj_t*, std::string> LVGLBuilder::LabeledSwitchBuilder::createLabeledS
         label_ = lv_label_create(container_);
         if (label_) {
             lv_label_set_text(label_, label_text_.c_str());
+            lv_obj_set_style_text_color(label_, lv_color_hex(0xFFFFFF), 0); // White text.
         }
     }
+
+    // Store switch pointer in container's user data for click handler.
+    lv_obj_set_user_data(container_, switch_);
+
+    // Add click handler to container to toggle switch.
+    lv_obj_add_event_cb(container_, labeledSwitchContainerClicked, LV_EVENT_CLICKED, nullptr);
+
+    // Make container clickable.
+    lv_obj_add_flag(container_, LV_OBJ_FLAG_CLICKABLE);
 
     return Result<lv_obj_t*, std::string>::okay(switch_);
 }

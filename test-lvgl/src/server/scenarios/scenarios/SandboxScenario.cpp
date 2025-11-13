@@ -18,8 +18,6 @@ public:
         metadata_.description =
             "Default sandbox with dirt quadrant and particle streams (no walls)";
         metadata_.category = "sandbox";
-        metadata_.supportsWorldA = true;
-        metadata_.supportsWorldB = true;
 
         // Initialize with default config.
         config_.quadrant_enabled = true;

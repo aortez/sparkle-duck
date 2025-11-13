@@ -164,10 +164,6 @@ Cell WorldInterpolationTool::createInterpolatedCellB(
 // resizeWorldB method removed - use generateInterpolatedCellsB instead.
 
 // =================================================================
-// WORLDA (MIXED MATERIALS) INTERPOLATION.
-// =================================================================
-
-// =================================================================
 
 void WorldInterpolationTool::clampToGrid(int& x, int& y, uint32_t width, uint32_t height)
 {
