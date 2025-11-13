@@ -60,7 +60,8 @@ State::Any SimRunning::onEvent(const UiApi::PixelRendererToggle::Cwc& cwc, State
     using Response = UiApi::PixelRendererToggle::Response;
 
     pixelRendererEnabled = cwc.command.enabled;
-    spdlog::info("SimRunning: Pixel renderer mode {}", pixelRendererEnabled ? "enabled" : "disabled");
+    spdlog::info(
+        "SimRunning: Pixel renderer mode {}", pixelRendererEnabled ? "enabled" : "disabled");
 
     cwc.sendResponse(Response::okay(UiApi::PixelRendererToggle::Okay{ pixelRendererEnabled }));
     return std::move(*this);

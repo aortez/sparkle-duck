@@ -116,7 +116,8 @@ void WebSocketServer::onMessage(std::shared_ptr<rtc::WebSocket> ws, const std::s
 {
     if (message.find("frame_ready") != std::string::npos) {
         spdlog::debug("WebSocket received command: {}", message);
-    } else {
+    }
+    else {
         spdlog::info("WebSocket received command: {}", message);
     }
 
@@ -195,7 +196,8 @@ auto makeStandardCwc(
         std::string jsonResponse = self->serializer_.serialize(std::move(response));
         if (std::strcmp(Info::name, "FrameReady") == 0) {
             spdlog::debug("{}: Sending response ({} bytes)", Info::name, jsonResponse.size());
-        } else {
+        }
+        else {
             spdlog::info("{}: Sending response ({} bytes)", Info::name, jsonResponse.size());
         }
         ws->send(jsonResponse);

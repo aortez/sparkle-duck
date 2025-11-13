@@ -16,7 +16,11 @@ public:
 
     void initialize(lv_obj_t* parent, uint32_t worldWidth, uint32_t worldHeight);
     void resize(lv_obj_t* parent, uint32_t worldWidth, uint32_t worldHeight);
-    void renderWorldData(const WorldData& worldData, lv_obj_t* parent, bool debugDraw, bool usePixelRenderer = false);
+    void renderWorldData(
+        const WorldData& worldData,
+        lv_obj_t* parent,
+        bool debugDraw,
+        bool usePixelRenderer = false);
     void cleanup();
 
 private:
@@ -42,7 +46,13 @@ private:
     void calculateScaling(uint32_t worldWidth, uint32_t worldHeight);
 
     // Direct rendering to single canvas at scaled resolution (optimized)
-    void renderCellDirectOptimized(const Cell& cell, lv_layer_t& layer, int32_t cellX, int32_t cellY, bool debugDraw, bool usePixelRenderer);
+    void renderCellDirectOptimized(
+        const Cell& cell,
+        lv_layer_t& layer,
+        int32_t cellX,
+        int32_t cellY,
+        bool debugDraw,
+        bool usePixelRenderer);
 };
 
 } // namespace Ui

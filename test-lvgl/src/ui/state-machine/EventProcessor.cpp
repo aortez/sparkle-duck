@@ -35,17 +35,19 @@ void EventProcessor::processEventsFromQueue(StateMachine& sm)
             // Check if this is a UiUpdateEvent
             if (std::holds_alternative<DirtSim::UiUpdateEvent>(event.value())) {
                 if (latestUiUpdate.has_value()) {
-                    droppedFrames++;  // Drop the previous frame
+                    droppedFrames++; // Drop the previous frame
                 }
-                latestUiUpdate = event.value();  // Keep the latest
-            } else {
+                latestUiUpdate = event.value(); // Keep the latest
+            }
+            else {
                 otherEvents.push_back(event.value());
             }
         }
     }
 
     if (droppedFrames > 0) {
-        spdlog::info("Ui::EventProcessor: Dropped {} old frames to catch up (queue overrun)", droppedFrames);
+        spdlog::info(
+            "Ui::EventProcessor: Dropped {} old frames to catch up (queue overrun)", droppedFrames);
     }
 
     // Process other events first (commands, etc.)
@@ -56,7 +58,8 @@ void EventProcessor::processEventsFromQueue(StateMachine& sm)
 
     // Process the latest UI update (if any)
     if (latestUiUpdate.has_value()) {
-        spdlog::trace("Ui::EventProcessor: Processing event: {}", getEventName(latestUiUpdate.value()));
+        spdlog::trace(
+            "Ui::EventProcessor: Processing event: {}", getEventName(latestUiUpdate.value()));
         processEvent(sm, latestUiUpdate.value());
     }
 }

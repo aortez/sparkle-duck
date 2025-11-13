@@ -63,8 +63,9 @@ void StateMachine::mainLoopRun()
             // Apply frame rate limiting if configured.
             if (simRunning.frameLimit > 0) {
                 auto frameEnd = std::chrono::steady_clock::now();
-                auto elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(
-                    frameEnd - frameStart).count();
+                auto elapsedMs =
+                    std::chrono::duration_cast<std::chrono::milliseconds>(frameEnd - frameStart)
+                        .count();
 
                 int remainingMs = simRunning.frameLimit - static_cast<int>(elapsedMs);
                 if (remainingMs > 0) {

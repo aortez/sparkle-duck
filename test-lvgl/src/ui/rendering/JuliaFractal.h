@@ -81,9 +81,9 @@ private:
     int lastRenderedMaxIterations_ = 128; // Track when to recalculate fractal.
 
     // Sinusoidal animation phases.
-    double animationPhase_ = 0.0;   // Phase for palette cycling (0 to 2π).
-    double detailPhase_ = 0.0;      // Phase for detail oscillation (0 to 2π).
-    double cPhase_ = 0.0;           // Phase for Julia constant morphing (0 to 2π).
+    double animationPhase_ = 0.0; // Phase for palette cycling (0 to 2π).
+    double detailPhase_ = 0.0;    // Phase for detail oscillation (0 to 2π).
+    double cPhase_ = 0.0;         // Phase for Julia constant morphing (0 to 2π).
 
     // Cached iteration counts to avoid recalculating fractal every frame.
     std::vector<int> iterationCache_;
@@ -100,19 +100,19 @@ private:
 
     // Background rendering thread for smooth animation.
     std::thread renderThread_;
-    std::atomic<bool> shouldExit_{false};
+    std::atomic<bool> shouldExit_{ false };
     std::mutex bufferMutex_;
 
     // Triple buffering - 3 buffers rotate through roles.
-    lv_color_t* buffers_[3] = {nullptr, nullptr, nullptr};
+    lv_color_t* buffers_[3] = { nullptr, nullptr, nullptr };
     std::vector<int> iterationCaches_[3];
 
     // Buffer indices (which buffer has which role).
-    std::atomic<int> frontBufferIdx_{0};  // Currently displaying.
-    std::atomic<int> readyBufferIdx_{1};  // Ready to swap.
-    int renderBufferIdx_ = 2;             // Being rendered (only accessed by render thread).
+    std::atomic<int> frontBufferIdx_{ 0 }; // Currently displaying.
+    std::atomic<int> readyBufferIdx_{ 1 }; // Ready to swap.
+    int renderBufferIdx_ = 2;              // Being rendered (only accessed by render thread).
 
-    std::atomic<bool> readyBufferAvailable_{false};
+    std::atomic<bool> readyBufferAvailable_{ false };
 
     // Background thread render function.
     void renderThreadFunc();

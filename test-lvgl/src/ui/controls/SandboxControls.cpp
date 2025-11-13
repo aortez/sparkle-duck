@@ -115,17 +115,19 @@ void SandboxControls::sendConfigUpdate(const ScenarioConfig& config)
     static int updateCount = 0;
     static auto lastUpdateTime = std::chrono::steady_clock::now();
     auto now = std::chrono::steady_clock::now();
-    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastUpdateTime).count();
+    auto elapsed =
+        std::chrono::duration_cast<std::chrono::milliseconds>(now - lastUpdateTime).count();
 
-    if (elapsed < 1000) {  // Within 1 second
+    if (elapsed < 1000) { // Within 1 second
         updateCount++;
         if (updateCount > 5) {
-            spdlog::error("SandboxControls: LOOP DETECTED! {} config updates in {}ms",
-                         updateCount, elapsed);
+            spdlog::error(
+                "SandboxControls: LOOP DETECTED! {} config updates in {}ms", updateCount, elapsed);
             // Don't send if we're in a loop
             return;
         }
-    } else {
+    }
+    else {
         updateCount = 1;
     }
     lastUpdateTime = now;
@@ -136,7 +138,8 @@ void SandboxControls::sendConfigUpdate(const ScenarioConfig& config)
     nlohmann::json j = cmd.toJson();
     j["command"] = "scenario_config_set";
 
-    spdlog::info("SandboxControls: Sending config update (update #{} in {}ms)", updateCount, elapsed);
+    spdlog::info(
+        "SandboxControls: Sending config update (update #{} in {}ms)", updateCount, elapsed);
     wsClient_->send(j.dump());
 }
 

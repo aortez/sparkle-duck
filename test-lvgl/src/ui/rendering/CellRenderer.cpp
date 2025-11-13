@@ -2,7 +2,7 @@
 #include "core/MaterialType.h"
 #include <algorithm>
 #include <cassert>
-#include <new>  // for std::bad_alloc
+#include <new> // for std::bad_alloc
 #include <spdlog/spdlog.h>
 
 namespace DirtSim {
@@ -49,8 +49,8 @@ void CellRenderer::calculateScaling(uint32_t worldWidth, uint32_t worldHeight)
     }
 
     if (worldWidth == 0 || worldHeight == 0) {
-        spdlog::warn("CellRenderer: Invalid world dimensions for scaling ({}x{})",
-                     worldWidth, worldHeight);
+        spdlog::warn(
+            "CellRenderer: Invalid world dimensions for scaling ({}x{})", worldWidth, worldHeight);
         return;
     }
 
@@ -71,8 +71,12 @@ void CellRenderer::calculateScaling(uint32_t worldWidth, uint32_t worldHeight)
     scaleX_ = pixelsPerCell / Cell::WIDTH;
     scaleY_ = pixelsPerCell / Cell::HEIGHT;
 
-    spdlog::debug("CellRenderer: Calculated scaling for {}x{} world - {} pixels per cell (scale {:.2f})",
-                  worldWidth, worldHeight, scaledCellWidth_, scaleX_);
+    spdlog::debug(
+        "CellRenderer: Calculated scaling for {}x{} world - {} pixels per cell (scale {:.2f})",
+        worldWidth,
+        worldHeight,
+        scaledCellWidth_,
+        scaleX_);
 }
 
 void CellRenderer::initialize(lv_obj_t* parent, uint32_t worldWidth, uint32_t worldHeight)
@@ -101,8 +105,10 @@ void CellRenderer::initialize(lv_obj_t* parent, uint32_t worldWidth, uint32_t wo
 
     // Sanity check container dimensions
     if (containerWidth <= 0 || containerHeight <= 0) {
-        spdlog::warn("CellRenderer: Invalid container dimensions {}x{}, using defaults",
-                     containerWidth, containerHeight);
+        spdlog::warn(
+            "CellRenderer: Invalid container dimensions {}x{}, using defaults",
+            containerWidth,
+            containerHeight);
         containerWidth = 800;
         containerHeight = 600;
     }
@@ -132,8 +138,10 @@ void CellRenderer::initialize(lv_obj_t* parent, uint32_t worldWidth, uint32_t wo
     try {
         canvasBuffer_.resize(bufferSize);
         std::fill(canvasBuffer_.begin(), canvasBuffer_.end(), 0);
-    } catch (const std::bad_alloc& e) {
-        spdlog::error("CellRenderer: Failed to allocate buffer of size {} bytes: {}", bufferSize, e.what());
+    }
+    catch (const std::bad_alloc& e) {
+        spdlog::error(
+            "CellRenderer: Failed to allocate buffer of size {} bytes: {}", bufferSize, e.what());
         lv_obj_del(worldCanvas_);
         worldCanvas_ = nullptr;
         return;
@@ -149,11 +157,7 @@ void CellRenderer::initialize(lv_obj_t* parent, uint32_t worldWidth, uint32_t wo
 
     // Set canvas buffer (this never changes)
     lv_canvas_set_buffer(
-        worldCanvas_,
-        canvasBuffer_.data(),
-        canvasWidth_,
-        canvasHeight_,
-        LV_COLOR_FORMAT_ARGB8888);
+        worldCanvas_, canvasBuffer_.data(), canvasWidth_, canvasHeight_, LV_COLOR_FORMAT_ARGB8888);
 
     // Position canvas
     lv_obj_set_pos(worldCanvas_, offsetX, offsetY);
@@ -161,14 +165,20 @@ void CellRenderer::initialize(lv_obj_t* parent, uint32_t worldWidth, uint32_t wo
     // Now calculate scaling for the world size
     calculateScaling(worldWidth, worldHeight);
 
-    spdlog::info("CellRenderer: Initialized fixed canvas {}x{} pixels (will scale world dynamically)",
-                 canvasWidth_, canvasHeight_);
+    spdlog::info(
+        "CellRenderer: Initialized fixed canvas {}x{} pixels (will scale world dynamically)",
+        canvasWidth_,
+        canvasHeight_);
 }
 
 void CellRenderer::resize(lv_obj_t* parent, uint32_t worldWidth, uint32_t worldHeight)
 {
     spdlog::info(
-        "CellRenderer: Updating world size from {}x{} to {}x{}", width_, height_, worldWidth, worldHeight);
+        "CellRenderer: Updating world size from {}x{} to {}x{}",
+        width_,
+        height_,
+        worldWidth,
+        worldHeight);
 
     // Only update if dimensions actually changed
     if (width_ == worldWidth && height_ == worldHeight && parent_ == parent) {
@@ -184,16 +194,24 @@ void CellRenderer::resize(lv_obj_t* parent, uint32_t worldWidth, uint32_t worldH
     // Recalculate scaling for new world size (canvas size stays the same)
     calculateScaling(worldWidth, worldHeight);
 
-    spdlog::info("CellRenderer: Updated to {}x{} cells at {}x{} pixels each",
-                 worldWidth, worldHeight, scaledCellWidth_, scaledCellHeight_);
+    spdlog::info(
+        "CellRenderer: Updated to {}x{} cells at {}x{} pixels each",
+        worldWidth,
+        worldHeight,
+        scaledCellWidth_,
+        scaledCellHeight_);
 }
 
-void CellRenderer::renderWorldData(const WorldData& worldData, lv_obj_t* parent, bool debugDraw, bool usePixelRenderer)
+void CellRenderer::renderWorldData(
+    const WorldData& worldData, lv_obj_t* parent, bool debugDraw, bool usePixelRenderer)
 {
     // Validate input
     if (!parent || worldData.width == 0 || worldData.height == 0) {
-        spdlog::warn("CellRenderer: Invalid render parameters (parent={}, size={}x{})",
-                     (void*)parent, worldData.width, worldData.height);
+        spdlog::warn(
+            "CellRenderer: Invalid render parameters (parent={}, size={}x{})",
+            (void*)parent,
+            worldData.width,
+            worldData.height);
         return;
     }
 
@@ -224,13 +242,22 @@ void CellRenderer::renderWorldData(const WorldData& worldData, lv_obj_t* parent,
     static uint32_t lastWidth = 0;
     static uint32_t lastHeight = 0;
     if (lastWidth != worldData.width || lastHeight != worldData.height) {
-        spdlog::info("CellRenderer: First render at {}x{} world, {}x{} canvas, {}x{} cell size",
-                     worldData.width, worldData.height, canvasWidth_, canvasHeight_,
-                     scaledCellWidth_, scaledCellHeight_);
+        spdlog::info(
+            "CellRenderer: First render at {}x{} world, {}x{} canvas, {}x{} cell size",
+            worldData.width,
+            worldData.height,
+            canvasWidth_,
+            canvasHeight_,
+            scaledCellWidth_,
+            scaledCellHeight_);
         int32_t totalW = worldData.width * scaledCellWidth_;
         int32_t totalH = worldData.height * scaledCellHeight_;
-        spdlog::info("CellRenderer: Total world rendering size {}x{}, fits in canvas? W:{} H:{}",
-                     totalW, totalH, totalW <= canvasWidth_, totalH <= canvasHeight_);
+        spdlog::info(
+            "CellRenderer: Total world rendering size {}x{}, fits in canvas? W:{} H:{}",
+            totalW,
+            totalH,
+            totalW <= canvasWidth_,
+            totalH <= canvasHeight_);
         lastWidth = worldData.width;
         lastHeight = worldData.height;
     }
@@ -257,9 +284,8 @@ void CellRenderer::renderWorldData(const WorldData& worldData, lv_obj_t* parent,
                 int32_t cellY = renderOffsetY + y * scaledCellHeight_;
 
                 // Bounds check
-                if (cellX < 0 || cellY < 0 ||
-                    cellX + scaledCellWidth_ > canvasWidth_ ||
-                    cellY + scaledCellHeight_ > canvasHeight_) {
+                if (cellX < 0 || cellY < 0 || cellX + scaledCellWidth_ > canvasWidth_
+                    || cellY + scaledCellHeight_ > canvasHeight_) {
                     continue;
                 }
 
@@ -271,7 +297,8 @@ void CellRenderer::renderWorldData(const WorldData& worldData, lv_obj_t* parent,
                     uint8_t alpha = static_cast<uint8_t>(cell.fill_ratio * 255.0 * 0.7);
 
                     // Convert to ARGB32
-                    cellColor = (alpha << 24) | (matColor.red << 16) | (matColor.green << 8) | matColor.blue;
+                    cellColor = (alpha << 24) | (matColor.red << 16) | (matColor.green << 8)
+                        | matColor.blue;
                 }
 
                 // Fill cell rectangle
@@ -286,7 +313,8 @@ void CellRenderer::renderWorldData(const WorldData& worldData, lv_obj_t* parent,
 
         // Invalidate canvas to trigger display update
         lv_obj_invalidate(worldCanvas_);
-    } else {
+    }
+    else {
         // SLOW PATH: LVGL layer rendering
         lv_layer_t layer;
         lv_canvas_init_layer(worldCanvas_, &layer);
@@ -295,8 +323,10 @@ void CellRenderer::renderWorldData(const WorldData& worldData, lv_obj_t* parent,
             for (uint32_t x = 0; x < worldData.width; ++x) {
                 uint32_t idx = y * worldData.width + x;
                 if (idx >= worldData.cells.size()) {
-                    spdlog::error("CellRenderer: Cell index out of bounds (idx={}, size={})",
-                                  idx, worldData.cells.size());
+                    spdlog::error(
+                        "CellRenderer: Cell index out of bounds (idx={}, size={})",
+                        idx,
+                        worldData.cells.size());
                     break;
                 }
                 const Cell& cell = worldData.cells[idx];
@@ -336,12 +366,17 @@ void CellRenderer::cleanup()
     parent_ = nullptr;
 }
 
-void CellRenderer::renderCellDirectOptimized(const Cell& cell, lv_layer_t& layer, int32_t cellX, int32_t cellY, bool debugDraw, bool usePixelRenderer)
+void CellRenderer::renderCellDirectOptimized(
+    const Cell& cell,
+    lv_layer_t& layer,
+    int32_t cellX,
+    int32_t cellY,
+    bool debugDraw,
+    bool usePixelRenderer)
 {
     // Bounds check - skip cells outside canvas
-    if (cellX < 0 || cellY < 0 ||
-        cellX + scaledCellWidth_ > canvasWidth_ ||
-        cellY + scaledCellHeight_ > canvasHeight_) {
+    if (cellX < 0 || cellY < 0 || cellX + scaledCellWidth_ > canvasWidth_
+        || cellY + scaledCellHeight_ > canvasHeight_) {
         return; // Silently skip out-of-bounds cells
     }
 
@@ -358,7 +393,8 @@ void CellRenderer::renderCellDirectOptimized(const Cell& cell, lv_layer_t& layer
             uint8_t alpha = static_cast<uint8_t>(cell.fill_ratio * 255.0 * 0.7);
 
             // Convert to ARGB32
-            cellColor = (alpha << 24) | (matColor.red << 16) | (matColor.green << 8) | matColor.blue;
+            cellColor =
+                (alpha << 24) | (matColor.red << 16) | (matColor.green << 8) | matColor.blue;
         }
 
         // Fill cell rectangle
@@ -382,17 +418,17 @@ void CellRenderer::renderCellDirectOptimized(const Cell& cell, lv_layer_t& layer
     bg_rect_dsc.bg_opa = LV_OPA_COVER;
     bg_rect_dsc.border_width = 0;
 
-    lv_area_t bg_coords = {
-        cellX, cellY,
-        static_cast<int32_t>(cellX + scaledCellWidth_ - 1),
-        static_cast<int32_t>(cellY + scaledCellHeight_ - 1)
-    };
+    lv_area_t bg_coords = { cellX,
+                            cellY,
+                            static_cast<int32_t>(cellX + scaledCellWidth_ - 1),
+                            static_cast<int32_t>(cellY + scaledCellHeight_ - 1) };
     lv_draw_rect(&layer, &bg_rect_dsc, &bg_coords);
 
     // Render material if not empty
     if (!cell.isEmpty() && cell.material_type != MaterialType::AIR) {
         lv_color_t material_color = getMaterialColor(cell.material_type);
-        lv_opa_t opacity = static_cast<lv_opa_t>(cell.fill_ratio * static_cast<double>(LV_OPA_COVER));
+        lv_opa_t opacity =
+            static_cast<lv_opa_t>(cell.fill_ratio * static_cast<double>(LV_OPA_COVER));
 
         lv_draw_rect_dsc_t rect_dsc;
         lv_draw_rect_dsc_init(&rect_dsc);
@@ -407,8 +443,10 @@ void CellRenderer::renderCellDirectOptimized(const Cell& cell, lv_layer_t& layer
 
         // Debug features only if enabled and cells are large enough
         if (debugDraw && scaledCellWidth_ >= 8) {
-            int com_pixel_x = cellX + static_cast<int>((cell.com.x + 1.0) * (scaledCellWidth_ - 1) / 2.0);
-            int com_pixel_y = cellY + static_cast<int>((cell.com.y + 1.0) * (scaledCellHeight_ - 1) / 2.0);
+            int com_pixel_x =
+                cellX + static_cast<int>((cell.com.x + 1.0) * (scaledCellWidth_ - 1) / 2.0);
+            int com_pixel_y =
+                cellY + static_cast<int>((cell.com.y + 1.0) * (scaledCellHeight_ - 1) / 2.0);
 
             int square_size = std::max(2, static_cast<int>(6 * scaleX_));
             int half_size = square_size / 2;
@@ -423,12 +461,10 @@ void CellRenderer::renderCellDirectOptimized(const Cell& cell, lv_layer_t& layer
             com_rect_dsc.border_width = 1;
             com_rect_dsc.radius = 0;
 
-            lv_area_t com_coords = {
-                com_pixel_x - half_size,
-                com_pixel_y - half_size,
-                com_pixel_x + half_size - 1,
-                com_pixel_y + half_size - 1
-            };
+            lv_area_t com_coords = { com_pixel_x - half_size,
+                                     com_pixel_y - half_size,
+                                     com_pixel_x + half_size - 1,
+                                     com_pixel_y + half_size - 1 };
             lv_draw_rect(&layer, &com_rect_dsc, &com_coords);
 
             // Velocity vector (green line)

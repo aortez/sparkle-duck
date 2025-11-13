@@ -20,12 +20,12 @@ struct SimRunning {
     uint32_t stepCount = 0;
     uint32_t targetSteps = 0;     // Steps to execute before pausing.
     double stepDurationMs = 16.0; // Physics timestep in milliseconds.
-    int frameLimit = 0;           // Max milliseconds per frame (0 = unlimited, >0 = frame rate cap).
+    int frameLimit = 0; // Max milliseconds per frame (0 = unlimited, >0 = frame rate cap).
 
     // FPS tracking.
     std::chrono::steady_clock::time_point lastFrameTime;
     std::chrono::steady_clock::time_point lastFrameSendTime;
-    double actualFPS = 0.0; // Measured physics FPS (steps/second).
+    double actualFPS = 0.0;    // Measured physics FPS (steps/second).
     double frameSendFPS = 0.0; // Measured frame send FPS (frames sent to UI/second).
 
     // Fixed timestep accumulator for deterministic physics.

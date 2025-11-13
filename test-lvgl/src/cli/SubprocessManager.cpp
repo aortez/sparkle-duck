@@ -132,10 +132,12 @@ bool SubprocessManager::isServerRunning() const
         // Process has exited (reaps zombie).
         spdlog::info("SubprocessManager: Server process {} has exited", serverPid_);
         return false;
-    } else if (result == 0) {
+    }
+    else if (result == 0) {
         // Process still running.
         return true;
-    } else {
+    }
+    else {
         // Error or process doesn't exist.
         return false;
     }
@@ -279,10 +281,12 @@ bool SubprocessManager::isUIRunning() const
         // Process has exited (reaps zombie).
         spdlog::info("SubprocessManager: UI process {} has exited", uiPid_);
         return false;
-    } else if (result == 0) {
+    }
+    else if (result == 0) {
         // Process still running.
         return true;
-    } else {
+    }
+    else {
         // Error or process doesn't exist.
         return false;
     }

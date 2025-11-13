@@ -7,22 +7,22 @@ namespace DirtSim {
 namespace Ui {
 
 // Rendering performance.
-constexpr int RESOLUTION_DIVISOR = 2;         // Render at 1/N resolution (2 = half, 4 = quarter).
-constexpr int RENDER_THREADS = 8;             // Number of parallel threads for fractal calculation.
+constexpr int RESOLUTION_DIVISOR = 2; // Render at 1/N resolution (2 = half, 4 = quarter).
+constexpr int RENDER_THREADS = 8;     // Number of parallel threads for fractal calculation.
 
 // Animation constants.
-constexpr double PHASE_SPEED = 0.0000;          // Palette cycling oscillation speed.
-constexpr double MAX_CYCLE_SPEED = 0.1;       // Maximum palette advance per frame.
-constexpr double DETAIL_PHASE_SPEED = 0.01;   // Detail level oscillation speed (slower).
-constexpr int MIN_ITERATIONS = 0;             // Minimum iteration count (less detail).
-constexpr int MAX_ITERATIONS = 200;           // Maximum iteration count (more detail).
+constexpr double PHASE_SPEED = 0.0000;      // Palette cycling oscillation speed.
+constexpr double MAX_CYCLE_SPEED = 0.1;     // Maximum palette advance per frame.
+constexpr double DETAIL_PHASE_SPEED = 0.01; // Detail level oscillation speed (slower).
+constexpr int MIN_ITERATIONS = 0;           // Minimum iteration count (less detail).
+constexpr int MAX_ITERATIONS = 200;         // Maximum iteration count (more detail).
 
 // Julia set constant (c) oscillation for shape morphing.
-constexpr double C_PHASE_SPEED = 0.01;       // Very slow shape morphing.
-constexpr double C_REAL_CENTER = -0.7;        // Center value for cReal.
-constexpr double C_REAL_AMPLITUDE = 0.5;     // How far cReal oscillates (+/-).
-constexpr double C_IMAG_CENTER = 0.27;        // Center value for cImag.
-constexpr double C_IMAG_AMPLITUDE = 0.7;      // How far cImag oscillates (+/-).
+constexpr double C_PHASE_SPEED = 0.01;   // Very slow shape morphing.
+constexpr double C_REAL_CENTER = -0.7;   // Center value for cReal.
+constexpr double C_REAL_AMPLITUDE = 0.5; // How far cReal oscillates (+/-).
+constexpr double C_IMAG_CENTER = 0.27;   // Center value for cImag.
+constexpr double C_IMAG_AMPLITUDE = 0.7; // How far cImag oscillates (+/-).
 
 // Palette extracted from pal.png (256x1).
 constexpr int PALETTE_SIZE = 256;
@@ -291,8 +291,12 @@ JuliaFractal::JuliaFractal(lv_obj_t* parent, int windowWidth, int windowHeight)
     width_ = windowWidth / RESOLUTION_DIVISOR;
     height_ = windowHeight / RESOLUTION_DIVISOR;
 
-    spdlog::info("JuliaFractal: Creating {}x{} fractal canvas (render), scaling to {}x{} (display)",
-                 width_, height_, windowWidth, windowHeight);
+    spdlog::info(
+        "JuliaFractal: Creating {}x{} fractal canvas (render), scaling to {}x{} (display)",
+        width_,
+        height_,
+        windowWidth,
+        windowHeight);
 
     // Create LVGL canvas.
     canvas_ = lv_canvas_create(parent);
@@ -313,7 +317,7 @@ JuliaFractal::JuliaFractal(lv_obj_t* parent, int windowWidth, int windowHeight)
     lv_obj_set_pos(canvas_, 0, 0);
 
     // Scale canvas to fill full window using LVGL transform.
-    int scaleX = (windowWidth * 256) / width_;   // LVGL uses 256 = 1x scale.
+    int scaleX = (windowWidth * 256) / width_; // LVGL uses 256 = 1x scale.
     int scaleY = (windowHeight * 256) / height_;
     lv_obj_set_style_transform_scale_x(canvas_, scaleX, 0);
     lv_obj_set_style_transform_scale_y(canvas_, scaleY, 0);
@@ -336,9 +340,9 @@ JuliaFractal::JuliaFractal(lv_obj_t* parent, int windowWidth, int windowHeight)
     render();
 
     // Initialize buffer indices for triple buffering rotation.
-    frontBufferIdx_ = 0;   // Buffer 0 displaying.
-    readyBufferIdx_ = 1;   // Buffer 1 ready to swap.
-    renderBufferIdx_ = 2;  // Buffer 2 will be rendered.
+    frontBufferIdx_ = 0;  // Buffer 0 displaying.
+    readyBufferIdx_ = 1;  // Buffer 1 ready to swap.
+    renderBufferIdx_ = 2; // Buffer 2 will be rendered.
 
     // Start background render thread.
     renderThread_ = std::thread(&JuliaFractal::renderThreadFunc, this);
@@ -502,8 +506,14 @@ void JuliaFractal::resize(int newWidth, int newHeight)
         return;
     }
 
-    spdlog::info("JuliaFractal: Resizing from {}x{} to {}x{} (render), scaling to {}x{} (display)",
-                 width_, height_, renderWidth, renderHeight, newWidth, newHeight);
+    spdlog::info(
+        "JuliaFractal: Resizing from {}x{} to {}x{} (render), scaling to {}x{} (display)",
+        width_,
+        height_,
+        renderWidth,
+        renderHeight,
+        newWidth,
+        newHeight);
 
     // Stop render thread temporarily during resize to avoid race conditions.
     shouldExit_ = true;
@@ -543,7 +553,7 @@ void JuliaFractal::resize(int newWidth, int newHeight)
     lv_canvas_set_buffer(canvas_, canvasBuffer_, width_, height_, LV_COLOR_FORMAT_ARGB8888);
 
     // Update transform scale to fill new display size.
-    int scaleX = (newWidth * 256) / width_;   // LVGL uses 256 = 1x scale.
+    int scaleX = (newWidth * 256) / width_; // LVGL uses 256 = 1x scale.
     int scaleY = (newHeight * 256) / height_;
     lv_obj_set_style_transform_scale_x(canvas_, scaleX, 0);
     lv_obj_set_style_transform_scale_y(canvas_, scaleY, 0);
@@ -600,7 +610,8 @@ void JuliaFractal::renderThreadFunc()
             }
 
             double detailFactor = (std::sin(detailPhase_) + 1.0) / 2.0;
-            newMaxIterations = MIN_ITERATIONS + static_cast<int>(detailFactor * (MAX_ITERATIONS - MIN_ITERATIONS));
+            newMaxIterations =
+                MIN_ITERATIONS + static_cast<int>(detailFactor * (MAX_ITERATIONS - MIN_ITERATIONS));
             iterationsChanged = std::abs(newMaxIterations - maxIterations_) >= 4;
         }
 
@@ -636,7 +647,8 @@ void JuliaFractal::renderThreadFunc()
 
         uint32_t* renderBufPtr = reinterpret_cast<uint32_t*>(renderBuf);
 
-        // Capture all parameters for this frame (prevents data races - all threads use same values).
+        // Capture all parameters for this frame (prevents data races - all threads use same
+        // values).
         int currentPaletteOffset = static_cast<int>(paletteOffset_);
         int currentMaxIterations = maxIterations_;
         double currentCReal = cReal_;
@@ -661,10 +673,19 @@ void JuliaFractal::renderThreadFunc()
                 int startRow = t * rowsPerThread;
                 int endRow = (t == RENDER_THREADS - 1) ? height_ : (t + 1) * rowsPerThread;
 
-                workers.emplace_back([this, &renderCache, renderBufPtr, startRow, endRow, currentPaletteOffset, currentMaxIterations, currentCReal, currentCImag]() {
+                workers.emplace_back([this,
+                                      &renderCache,
+                                      renderBufPtr,
+                                      startRow,
+                                      endRow,
+                                      currentPaletteOffset,
+                                      currentMaxIterations,
+                                      currentCReal,
+                                      currentCImag]() {
                     for (int y = startRow; y < endRow; y++) {
                         for (int x = 0; x < width_; x++) {
-                            int iteration = calculateJuliaPoint(x, y, currentCReal, currentCImag, currentMaxIterations);
+                            int iteration = calculateJuliaPoint(
+                                x, y, currentCReal, currentCImag, currentMaxIterations);
                             int idx = y * width_ + x;
                             renderCache[idx] = iteration;
 
@@ -673,9 +694,11 @@ void JuliaFractal::renderThreadFunc()
                                 renderBufPtr[idx] = 0xFF000000;
                             }
                             else {
-                                // Normalize iteration to [0,255] to use full palette range smoothly.
+                                // Normalize iteration to [0,255] to use full palette range
+                                // smoothly.
                                 int normalizedIteration = (iteration * 255) / currentMaxIterations;
-                                int paletteIndex = (normalizedIteration + currentPaletteOffset) % PALETTE_SIZE;
+                                int paletteIndex =
+                                    (normalizedIteration + currentPaletteOffset) % PALETTE_SIZE;
                                 renderBufPtr[idx] = PALETTE[paletteIndex];
                             }
                         }
@@ -697,7 +720,13 @@ void JuliaFractal::renderThreadFunc()
                 size_t startIdx = t * pixelsPerThread;
                 size_t endIdx = (t == RENDER_THREADS - 1) ? totalPixels : (t + 1) * pixelsPerThread;
 
-                workers.emplace_back([this, &renderCache, renderBufPtr, startIdx, endIdx, currentPaletteOffset, currentMaxIterations]() {
+                workers.emplace_back([this,
+                                      &renderCache,
+                                      renderBufPtr,
+                                      startIdx,
+                                      endIdx,
+                                      currentPaletteOffset,
+                                      currentMaxIterations]() {
                     for (size_t idx = startIdx; idx < endIdx; idx++) {
                         int iteration = renderCache[idx];
 
@@ -708,7 +737,8 @@ void JuliaFractal::renderThreadFunc()
                         else {
                             // Normalize iteration to [0,255] to use full palette range smoothly.
                             int normalizedIteration = (iteration * 255) / currentMaxIterations;
-                            int paletteIndex = (normalizedIteration + currentPaletteOffset) % PALETTE_SIZE;
+                            int paletteIndex =
+                                (normalizedIteration + currentPaletteOffset) % PALETTE_SIZE;
                             renderBufPtr[idx] = PALETTE[paletteIndex];
                         }
                     }

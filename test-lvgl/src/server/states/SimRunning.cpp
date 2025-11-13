@@ -94,27 +94,22 @@ void SimRunning::tick(StateMachine& dsm)
 
         // Log FPS and performance stats intermittently.
         if (stepCount == 100 || stepCount % 1000 == 0) {
-            spdlog::info(
-                "SimRunning: Actual FPS: {:.1f} (step {})",
-                actualFPS,
-                stepCount);
+            spdlog::info("SimRunning: Actual FPS: {:.1f} (step {})", actualFPS, stepCount);
 
             // Log performance timing stats.
             auto& timers = dsm.getTimers();
             spdlog::info(
                 "  Physics: {:.1f}ms avg ({} calls, {:.1f}ms total)",
-                timers.getCallCount("physics_step") > 0
-                    ? timers.getAccumulatedTime("physics_step")
+                timers.getCallCount("physics_step") > 0 ? timers.getAccumulatedTime("physics_step")
                         / timers.getCallCount("physics_step")
-                    : 0.0,
+                                                        : 0.0,
                 timers.getCallCount("physics_step"),
                 timers.getAccumulatedTime("physics_step"));
             spdlog::info(
                 "  Cache update: {:.1f}ms avg ({} calls, {:.1f}ms total)",
-                timers.getCallCount("cache_update") > 0
-                    ? timers.getAccumulatedTime("cache_update")
+                timers.getCallCount("cache_update") > 0 ? timers.getAccumulatedTime("cache_update")
                         / timers.getCallCount("cache_update")
-                    : 0.0,
+                                                        : 0.0,
                 timers.getCallCount("cache_update"),
                 timers.getAccumulatedTime("cache_update"));
             spdlog::info(
@@ -127,10 +122,9 @@ void SimRunning::tick(StateMachine& dsm)
                 timers.getAccumulatedTime("serialize_worlddata"));
             spdlog::info(
                 "  Network send: {:.2f}ms avg ({} calls, {:.1f}ms total)",
-                timers.getCallCount("network_send") > 0
-                    ? timers.getAccumulatedTime("network_send")
+                timers.getCallCount("network_send") > 0 ? timers.getAccumulatedTime("network_send")
                         / timers.getCallCount("network_send")
-                    : 0.0,
+                                                        : 0.0,
                 timers.getCallCount("network_send"),
                 timers.getAccumulatedTime("network_send"));
             spdlog::info(
@@ -144,14 +138,12 @@ void SimRunning::tick(StateMachine& dsm)
         }
     }
 
-
     // Update StateMachine's cached WorldData after all physics steps complete.
     dsm.getTimers().startTimer("cache_update");
     dsm.updateCachedWorldData(world->data);
     dsm.getTimers().stopTimer("cache_update");
 
-    spdlog::debug(
-        "SimRunning: Advanced simulation, total step {})", stepCount);
+    spdlog::debug("SimRunning: Advanced simulation, total step {})", stepCount);
 
     // Send frame to UI clients after every physics update.
     // UI frame dropping handles overflow if rendering can't keep up.
@@ -166,7 +158,9 @@ void SimRunning::tick(StateMachine& dsm)
         out(world->data).or_throw();
         timers.stopTimer("serialize_worlddata");
         auto serializeEnd = std::chrono::steady_clock::now();
-        auto serializeMs = std::chrono::duration_cast<std::chrono::milliseconds>(serializeEnd - serializeStart).count();
+        auto serializeMs =
+            std::chrono::duration_cast<std::chrono::milliseconds>(serializeEnd - serializeStart)
+                .count();
 
         // Broadcast binary WorldData to all clients.
         rtc::binary binaryMsg(data.begin(), data.end());
@@ -176,8 +170,14 @@ void SimRunning::tick(StateMachine& dsm)
         sendCount++;
         totalSerializeMs += serializeMs;
         if (sendCount % 100 == 0) {
-            spdlog::info("Server: Serialization avg {:.1f}ms over {} frames (latest: {}ms, {} bytes, {} cells)",
-                        totalSerializeMs / sendCount, sendCount, serializeMs, data.size(), world->data.cells.size());
+            spdlog::info(
+                "Server: Serialization avg {:.1f}ms over {} frames (latest: {}ms, {} bytes, {} "
+                "cells)",
+                totalSerializeMs / sendCount,
+                sendCount,
+                serializeMs,
+                data.size(),
+                world->data.cells.size());
         }
 
         auto networkStart = std::chrono::steady_clock::now();
@@ -185,16 +185,23 @@ void SimRunning::tick(StateMachine& dsm)
         dsm.getWebSocketServer()->broadcastBinary(binaryMsg);
         timers.stopTimer("network_send");
         auto networkEnd = std::chrono::steady_clock::now();
-        auto networkUs = std::chrono::duration_cast<std::chrono::microseconds>(networkEnd - networkStart).count();
+        auto networkUs =
+            std::chrono::duration_cast<std::chrono::microseconds>(networkEnd - networkStart)
+                .count();
 
         if (networkUs > 10000) {
-            spdlog::info("SimRunning: Network send took {:.1f}ms for {} bytes", networkUs / 1000.0, data.size());
+            spdlog::info(
+                "SimRunning: Network send took {:.1f}ms for {} bytes",
+                networkUs / 1000.0,
+                data.size());
         }
 
         // Track FPS.
         auto now = std::chrono::steady_clock::now();
         if (lastFrameSendTime.time_since_epoch().count() > 0) {
-            auto sendElapsed = std::chrono::duration_cast<std::chrono::microseconds>(now - lastFrameSendTime).count();
+            auto sendElapsed =
+                std::chrono::duration_cast<std::chrono::microseconds>(now - lastFrameSendTime)
+                    .count();
             if (sendElapsed > 0) {
                 frameSendFPS = 1000000.0 / sendElapsed;
                 world->data.fps_server = frameSendFPS; // Update WorldData for UI display.
@@ -202,8 +209,11 @@ void SimRunning::tick(StateMachine& dsm)
         }
         lastFrameSendTime = now;
 
-        spdlog::debug("SimRunning: Sent frame to UI ({} bytes, network {:.2f}ms, send FPS: {:.1f})",
-                    data.size(), networkUs / 1000.0, frameSendFPS);
+        spdlog::debug(
+            "SimRunning: Sent frame to UI ({} bytes, network {:.2f}ms, send FPS: {:.1f})",
+            data.size(),
+            networkUs / 1000.0,
+            frameSendFPS);
     }
 }
 
@@ -467,7 +477,8 @@ State::Any SimRunning::onEvent(const Api::WorldResize::Cwc& cwc, StateMachine& /
         // Resize the world grid.
         world->resizeGrid(cmd.width, cmd.height);
         spdlog::debug("SimRunning: World resized successfully");
-    } else {
+    }
+    else {
         spdlog::error("SimRunning: Cannot resize - world is null");
         cwc.sendResponse(Response::error(ApiError("World not initialized")));
         return std::move(*this);

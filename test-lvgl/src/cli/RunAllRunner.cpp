@@ -10,8 +10,7 @@
 namespace DirtSim {
 namespace Client {
 
-Result<std::monostate, std::string> runAll(
-    const std::string& serverPath, const std::string& uiPath)
+Result<std::monostate, std::string> runAll(const std::string& serverPath, const std::string& uiPath)
 {
     SubprocessManager subprocessManager;
     WebSocketClient client;

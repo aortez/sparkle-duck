@@ -75,13 +75,13 @@ CoreControls::CoreControls(lv_obj_t* container, WebSocketClient* wsClient, Event
     // World Size toggle slider.
     auto worldSizeBuilder = LVGLBuilder::toggleSlider(container_)
                                 .label("World Size")
-                                .range(1, 150)  // Max world size
-                                .defaultValue(1)  // When off, defaults to 1
-                                .value(28)        // Initial value when on
+                                .range(1, 150)   // Max world size
+                                .defaultValue(1) // When off, defaults to 1
+                                .value(28)       // Initial value when on
                                 .sliderWidth(LV_PCT(85))
-                                .valueFormat("%.0f")  // Format as floating point with 0 decimals
-                                .valueScale(1.0)      // No scaling needed
-                                .initiallyEnabled(true)  // Start with toggle on to show current size
+                                .valueFormat("%.0f")    // Format as floating point with 0 decimals
+                                .valueScale(1.0)        // No scaling needed
+                                .initiallyEnabled(true) // Start with toggle on to show current size
                                 .onToggle(onWorldSizeToggled, this)
                                 .onSliderChange(onWorldSizeChanged, this);
 
@@ -95,7 +95,8 @@ CoreControls::CoreControls(lv_obj_t* container, WebSocketClient* wsClient, Event
             if (lv_obj_check_type(child, &lv_switch_class)) {
                 worldSizeSwitch_ = child;
                 spdlog::debug("CoreControls: Found world size switch");
-            } else if (lv_obj_check_type(child, &lv_slider_class)) {
+            }
+            else if (lv_obj_check_type(child, &lv_slider_class)) {
                 worldSizeSlider_ = child;
                 spdlog::debug("CoreControls: Found world size slider");
             }
@@ -106,7 +107,8 @@ CoreControls::CoreControls(lv_obj_t* container, WebSocketClient* wsClient, Event
         }
         if (!worldSizeSlider_) {
             spdlog::error("CoreControls: Failed to find world size slider in container");
-        } else {
+        }
+        else {
             // Add RELEASED event handler to the slider for throttling
             // The VALUE_CHANGED event is already handled by the ToggleSliderBuilder
             lv_obj_add_event_cb(worldSizeSlider_, onWorldSizeChanged, LV_EVENT_RELEASED, this);
@@ -220,7 +222,8 @@ void CoreControls::onWorldSizeToggled(lv_event_t* e)
         j["command"] = "world_resize";
         self->wsClient_->send(j.dump());
         spdlog::info("CoreControls: Resizing world to 1x1 (toggle off)");
-    } else {
+    }
+    else {
         // Get the current slider value and resize to that
         if (!self->worldSizeSlider_) {
             spdlog::error("CoreControls: worldSizeSlider_ is null!");
@@ -232,7 +235,8 @@ void CoreControls::onWorldSizeToggled(lv_event_t* e)
             j["command"] = "world_resize";
             self->wsClient_->send(j.dump());
             spdlog::info("CoreControls: Resizing world to 28x28 (default, slider unavailable)");
-        } else {
+        }
+        else {
             int32_t value = lv_slider_get_value(self->worldSizeSlider_);
             Api::WorldResize::Command cmd;
             cmd.width = value;
@@ -265,7 +269,8 @@ void CoreControls::onWorldSizeChanged(lv_event_t* e)
         // Store the pending value but don't send command yet
         self->pendingWorldSize_ = value;
         return;
-    } else if (code != LV_EVENT_RELEASED) {
+    }
+    else if (code != LV_EVENT_RELEASED) {
         // Only process RELEASED events
         return;
     }

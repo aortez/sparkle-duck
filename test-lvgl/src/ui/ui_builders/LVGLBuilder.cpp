@@ -700,7 +700,8 @@ static void labeledSwitchContainerClicked(lv_event_t* e)
         // Toggle switch state.
         if (lv_obj_has_state(switch_obj, LV_STATE_CHECKED)) {
             lv_obj_clear_state(switch_obj, LV_STATE_CHECKED);
-        } else {
+        }
+        else {
             lv_obj_add_state(switch_obj, LV_STATE_CHECKED);
         }
 
