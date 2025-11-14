@@ -255,9 +255,9 @@ TreeSensoryData Tree::gatherSensoryData(const World& world) const
     int center_x = (min_x + max_x) / 2;
     int center_y = (min_y + max_y) / 2;
 
-    // Small trees: Use fixed 15×15 viewing window centered on tree's current position (1:1 mapping).
-    if (bbox_width <= TreeSensoryData::GRID_SIZE
-        && bbox_height <= TreeSensoryData::GRID_SIZE) {
+    // Small trees: Use fixed 15×15 viewing window centered on tree's current position (1:1
+    // mapping).
+    if (bbox_width <= TreeSensoryData::GRID_SIZE && bbox_height <= TreeSensoryData::GRID_SIZE) {
         data.actual_width = TreeSensoryData::GRID_SIZE;
         data.actual_height = TreeSensoryData::GRID_SIZE;
         data.scale_factor = 1.0;
@@ -268,8 +268,11 @@ TreeSensoryData Tree::gatherSensoryData(const World& world) const
         int offset_y = seed_position.y - half_window;
 
         // Clamp to world bounds.
-        offset_x = std::max(0, std::min(static_cast<int>(world.data.width) - TreeSensoryData::GRID_SIZE, offset_x));
-        offset_y = std::max(0, std::min(static_cast<int>(world.data.height) - TreeSensoryData::GRID_SIZE, offset_y));
+        offset_x = std::max(
+            0, std::min(static_cast<int>(world.data.width) - TreeSensoryData::GRID_SIZE, offset_x));
+        offset_y = std::max(
+            0,
+            std::min(static_cast<int>(world.data.height) - TreeSensoryData::GRID_SIZE, offset_y));
 
         data.world_offset = Vector2i{ offset_x, offset_y };
     }

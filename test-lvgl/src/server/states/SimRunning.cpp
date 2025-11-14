@@ -146,8 +146,11 @@ void SimRunning::tick(StateMachine& dsm)
         world->data.tree_vision = firstTree.gatherSensoryData(*world);
 
         if (stepCount % 100 == 0) {
-            spdlog::info("SimRunning: Tree vision active (tree_id={}, age={}, stage={})",
-                firstTree.id, firstTree.age, static_cast<int>(firstTree.stage));
+            spdlog::info(
+                "SimRunning: Tree vision active (tree_id={}, age={}, stage={})",
+                firstTree.id,
+                firstTree.age,
+                static_cast<int>(firstTree.stage));
         }
     }
     else {

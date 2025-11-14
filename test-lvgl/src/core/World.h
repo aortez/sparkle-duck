@@ -231,7 +231,8 @@ public:
      * Record an organism material transfer for efficient TreeManager tracking.
      * Called during physics transfers to maintain organism ownership consistency.
      */
-    void recordOrganismTransfer(int fromX, int fromY, int toX, int toY, TreeId organism_id, double amount);
+    void recordOrganismTransfer(
+        int fromX, int fromY, int toX, int toY, TreeId organism_id, double amount);
 
     static constexpr double MIN_MATTER_THRESHOLD = 0.001; // minimum matter to process.
 

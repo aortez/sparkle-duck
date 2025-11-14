@@ -51,7 +51,7 @@ inline Vector2i operator*(int scalar, const Vector2i& v)
  */
 inline void to_json(nlohmann::json& j, const Vector2i& v)
 {
-    j = nlohmann::json{{"x", v.x}, {"y", v.y}};
+    j = nlohmann::json{ { "x", v.x }, { "y", v.y } };
 }
 
 inline void from_json(const nlohmann::json& j, Vector2i& v)

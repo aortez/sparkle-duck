@@ -49,7 +49,7 @@ public:
 
     // Public members - simple data, no complex invariants to maintain.
     TreeId id;
-    Vector2i seed_position;                     // Original seed position (center for vision).
+    Vector2i seed_position; // Original seed position (center for vision).
     uint32_t age = 0;
     GrowthStage stage = GrowthStage::SEED;
     std::unordered_set<Vector2i> cells;         // Cell positions owned by this tree.

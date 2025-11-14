@@ -107,16 +107,16 @@ private:
     double currentResolutionDivisor_ = 2.0; // Current resolution divisor (smooth adaptive).
     int baseWindowWidth_ = 0;               // Original window dimensions.
     int baseWindowHeight_ = 0;
-    double fpsSum_ = 0.0;                  // Rolling sum for FPS calculation (render thread).
-    int fpsSampleCount_ = 0;               // Number of samples in rolling window.
-    double lastFpsCheckTime_ = 0.0;        // Time of last FPS check.
-    double lastFpsLogTime_ = 0.0;          // Time of last INFO level FPS log.
-    double displayFpsSum_ = 0.0;           // Rolling sum for display FPS (update() calls).
-    int displayFpsSampleCount_ = 0;        // Number of display samples.
-    double lastDisplayUpdateTime_ = 0.0;   // Time of last update() call.
+    double fpsSum_ = 0.0;                // Rolling sum for FPS calculation (render thread).
+    int fpsSampleCount_ = 0;             // Number of samples in rolling window.
+    double lastFpsCheckTime_ = 0.0;      // Time of last FPS check.
+    double lastFpsLogTime_ = 0.0;        // Time of last INFO level FPS log.
+    double displayFpsSum_ = 0.0;         // Rolling sum for display FPS (update() calls).
+    int displayFpsSampleCount_ = 0;      // Number of display samples.
+    double lastDisplayUpdateTime_ = 0.0; // Time of last update() call.
     constexpr static double FPS_CHECK_INTERVAL = 2.0;
     constexpr static double FPS_LOG_INTERVAL = 10.0;
-    constexpr static int FPS_SAMPLE_COUNT = 60;       // Average over 60 frames.
+    constexpr static int FPS_SAMPLE_COUNT = 60; // Average over 60 frames.
     constexpr static double TARGET_FPS = 60.0;
 
     // Current animation parameters (instance variables, not constants).
@@ -127,7 +127,7 @@ private:
     double cRealAmplitude_ = 0.1;
     double cImagCenter_ = 0.27;
     double cImagAmplitude_ = 0.1;
-    int minIterations_ = 0;  // Randomized lower bound for detail oscillation.
+    int minIterations_ = 0;   // Randomized lower bound for detail oscillation.
     int maxIterations_ = 200; // Upper bound for detail.
 
     // Smooth transition between parameter sets.
@@ -145,16 +145,16 @@ private:
     // Interesting Julia set regions (curated presets).
     static constexpr int NUM_REGIONS = 10;
     static constexpr std::pair<double, double> INTERESTING_REGIONS[NUM_REGIONS] = {
-        {-0.7, 0.27},        // Douady's Rabbit (classic).
-        {-0.4, 0.6},         // Dendrite (branching tree).
-        {-0.8, 0.156},       // Spiral arms.
-        {-0.835, -0.2321},   // Complex spirals.
-        {-0.74543, 0.11301}, // Delicate branches.
-        {0.285, 0.01},       // Siegel disk (near-circular).
-        {-0.123, 0.745},     // Dragon-like curves.
-        {0.3, 0.5},          // Swirling patterns.
-        {-1.0, 0.0},         // Period-2 bulb.
-        {-0.12, 0.75},       // Upper region variations.
+        { -0.7, 0.27 },        // Douady's Rabbit (classic).
+        { -0.4, 0.6 },         // Dendrite (branching tree).
+        { -0.8, 0.156 },       // Spiral arms.
+        { -0.835, -0.2321 },   // Complex spirals.
+        { -0.74543, 0.11301 }, // Delicate branches.
+        { 0.285, 0.01 },       // Siegel disk (near-circular).
+        { -0.123, 0.745 },     // Dragon-like curves.
+        { 0.3, 0.5 },          // Swirling patterns.
+        { -1.0, 0.0 },         // Period-2 bulb.
+        { -0.12, 0.75 },       // Upper region variations.
     };
 
     void generateRandomParameters(); // Generate new random parameter set.

@@ -883,7 +883,8 @@ void World::processMaterialMoves()
         // Record organism transfer if material had organism ownership.
         if (organism_id != 0 && move.collision_type == CollisionType::TRANSFER_ONLY) {
             // Transfer occurred - record it for TreeManager update.
-            recordOrganismTransfer(move.fromX, move.fromY, move.toX, move.toY, organism_id, move.amount);
+            recordOrganismTransfer(
+                move.fromX, move.fromY, move.toX, move.toY, organism_id, move.amount);
         }
     }
 
@@ -896,7 +897,8 @@ void World::processMaterialMoves()
     }
 }
 
-void World::recordOrganismTransfer(int fromX, int fromY, int toX, int toY, TreeId organism_id, double amount)
+void World::recordOrganismTransfer(
+    int fromX, int fromY, int toX, int toY, TreeId organism_id, double amount)
 {
     organism_transfers_.push_back(
         OrganismTransfer{ Vector2i{ fromX, fromY }, Vector2i{ toX, toY }, organism_id, amount });

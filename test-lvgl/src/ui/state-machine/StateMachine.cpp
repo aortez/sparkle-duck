@@ -77,9 +77,8 @@ void StateMachine::updateAnimations()
     static double lastLogTime = 0.0;
     callCount++;
 
-    double currentTime = std::chrono::duration<double>(
-                             std::chrono::steady_clock::now().time_since_epoch())
-                             .count();
+    double currentTime =
+        std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
     if (currentTime - lastLogTime >= 10.0) {
         double loopFps = callCount / (currentTime - lastLogTime);
         spdlog::info("StateMachine: Main loop FPS = {:.1f}", loopFps);

@@ -205,7 +205,7 @@ void UiComponentManager::createSimulationLayout()
     // World display area (flex-grow to fill 50% of horizontal space).
     simWorldDisplayArea_ = lv_obj_create(simTopRow_);
     lv_obj_set_size(simWorldDisplayArea_, LV_PCT(100), LV_PCT(100)); // Fill parent.
-    lv_obj_set_flex_grow(simWorldDisplayArea_, 1); // 50% split with neural grid.
+    lv_obj_set_flex_grow(simWorldDisplayArea_, 1);                   // 50% split with neural grid.
     lv_obj_set_style_pad_all(simWorldDisplayArea_, 0, 0);
     lv_obj_set_style_border_width(simWorldDisplayArea_, 0, 0);
     lv_obj_set_style_bg_opa(simWorldDisplayArea_, LV_OPA_TRANSP, 0);
@@ -218,7 +218,8 @@ void UiComponentManager::createSimulationLayout()
     lv_obj_set_style_pad_all(simNeuralGridDisplayArea_, 5, 0);
     lv_obj_set_style_border_width(simNeuralGridDisplayArea_, 1, 0);
     lv_obj_set_style_border_color(simNeuralGridDisplayArea_, lv_color_hex(0x606060), 0);
-    lv_obj_set_style_bg_color(simNeuralGridDisplayArea_, lv_color_hex(0x303030), 0); // Dark background.
+    lv_obj_set_style_bg_color(
+        simNeuralGridDisplayArea_, lv_color_hex(0x303030), 0);            // Dark background.
     lv_obj_clear_flag(simNeuralGridDisplayArea_, LV_OBJ_FLAG_SCROLLABLE); // Disable scrolling.
 
     // CellRenderer uses absolute positioning and calculates centering offset.

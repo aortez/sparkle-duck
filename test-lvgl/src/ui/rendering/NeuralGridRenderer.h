@@ -59,14 +59,16 @@ private:
      * @param histogram Array of 9 material probabilities.
      * @return Blended color representing material distribution.
      */
-    lv_color_t histogramToColor(const std::array<double, TreeSensoryData::NUM_MATERIALS>& histogram) const;
+    lv_color_t histogramToColor(
+        const std::array<double, TreeSensoryData::NUM_MATERIALS>& histogram) const;
 
     /**
      * @brief Calculate histogram purity (how one-hot it is).
      * @param histogram Array of material probabilities.
      * @return Purity value [0.0, 1.0] where 1.0 is one-hot, 0.0 is uniform.
      */
-    double calculatePurity(const std::array<double, TreeSensoryData::NUM_MATERIALS>& histogram) const;
+    double calculatePurity(
+        const std::array<double, TreeSensoryData::NUM_MATERIALS>& histogram) const;
 
     /**
      * @brief Get material color by type.

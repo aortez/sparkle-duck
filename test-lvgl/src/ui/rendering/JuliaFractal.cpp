@@ -339,9 +339,8 @@ JuliaFractal::JuliaFractal(lv_obj_t* parent, int windowWidth, int windowHeight)
     renderBufferIdx_ = 2; // Buffer 2 will be rendered.
 
     // Initialize timing for parameter changes and FPS tracking.
-    lastUpdateTime_ = std::chrono::duration<double>(
-                          std::chrono::steady_clock::now().time_since_epoch())
-                          .count();
+    lastUpdateTime_ =
+        std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
     lastFpsCheckTime_ = lastUpdateTime_;
     lastFpsLogTime_ = lastUpdateTime_;
     lastDisplayUpdateTime_ = lastUpdateTime_;
@@ -490,17 +489,15 @@ void JuliaFractal::update()
     actualSwaps++;
 
     // Track display-side FPS (how often we actually display a new frame).
-    double currentTime = std::chrono::duration<double>(
-                             std::chrono::steady_clock::now().time_since_epoch())
-                             .count();
+    double currentTime =
+        std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
 
     // Debug logging every 10 seconds.
     if (currentTime - lastDebugLog >= 10.0) {
         double swapRate = actualSwaps / (currentTime - lastDebugLog);
         double callRate = totalCalls / (currentTime - lastDebugLog);
-        spdlog::info("JuliaFractal: update() called {:.1f}/sec, swapped {:.1f}/sec",
-                     callRate,
-                     swapRate);
+        spdlog::info(
+            "JuliaFractal: update() called {:.1f}/sec, swapped {:.1f}/sec", callRate, swapRate);
         totalCalls = 0;
         actualSwaps = 0;
         lastDebugLog = currentTime;
@@ -543,12 +540,13 @@ void JuliaFractal::update()
         int newRenderWidth = static_cast<int>(baseWindowWidth_ / currentResolutionDivisor_);
         int newRenderHeight = static_cast<int>(baseWindowHeight_ / currentResolutionDivisor_);
 
-        spdlog::info("JuliaFractal: Dynamic resize triggered: {}x{} -> {}x{} (divisor={:.2f})",
-                     width_,
-                     height_,
-                     newRenderWidth,
-                     newRenderHeight,
-                     currentResolutionDivisor_);
+        spdlog::info(
+            "JuliaFractal: Dynamic resize triggered: {}x{} -> {}x{} (divisor={:.2f})",
+            width_,
+            height_,
+            newRenderWidth,
+            newRenderHeight,
+            currentResolutionDivisor_);
 
         // Call resize to apply the new resolution.
         resize(baseWindowWidth_, baseWindowHeight_);
@@ -571,7 +569,8 @@ void JuliaFractal::resize(int newWidth, int newHeight)
     }
 
     spdlog::info(
-        "JuliaFractal: Resizing from {}x{} to {}x{} (render), scaling to {}x{} (display), divisor={:.2f}",
+        "JuliaFractal: Resizing from {}x{} to {}x{} (render), scaling to {}x{} (display), "
+        "divisor={:.2f}",
         width_,
         height_,
         renderWidth,
@@ -666,10 +665,11 @@ void JuliaFractal::generateRandomParameters()
         cRealCenter_ = centerReal + variation(rng_);
         cImagCenter_ = centerImag + variation(rng_);
 
-        spdlog::info("JuliaFractal: Selected curated region {} - c = {:.4f} + {:.4f}i",
-                     regionIdx,
-                     cRealCenter_,
-                     cImagCenter_);
+        spdlog::info(
+            "JuliaFractal: Selected curated region {} - c = {:.4f} + {:.4f}i",
+            regionIdx,
+            cRealCenter_,
+            cImagCenter_);
     }
     else {
         // Random exploration - stay in reasonable bounds.
@@ -678,9 +678,8 @@ void JuliaFractal::generateRandomParameters()
         cRealCenter_ = realDist(rng_);
         cImagCenter_ = imagDist(rng_);
 
-        spdlog::info("JuliaFractal: Random exploration - c = {:.4f} + {:.4f}i",
-                     cRealCenter_,
-                     cImagCenter_);
+        spdlog::info(
+            "JuliaFractal: Random exploration - c = {:.4f} + {:.4f}i", cRealCenter_, cImagCenter_);
     }
 
     // Use smaller oscillation amplitudes to stay near interesting regions.
@@ -700,7 +699,7 @@ void JuliaFractal::generateRandomParameters()
     // 5% chance of going to 0, otherwise start at 20-50.
     std::uniform_real_distribution<double> minModeDist(0.0, 1.0);
     if (minModeDist(rng_) < 0.05) {
-         minIterations_ = 0; // Cool minimal look sometimes.
+        minIterations_ = 0; // Cool minimal look sometimes.
     }
     else {
         std::uniform_int_distribution<int> minIterDist(20, 50);
@@ -729,9 +728,9 @@ void JuliaFractal::renderThreadFunc()
 
     while (!shouldExit_) {
         // Calculate delta time for smooth animations.
-        double currentTime = std::chrono::duration<double>(
-                                 std::chrono::steady_clock::now().time_since_epoch())
-                                 .count();
+        double currentTime =
+            std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch())
+                .count();
         double deltaTime = currentTime - lastUpdateTime_;
         lastUpdateTime_ = currentTime;
 
@@ -759,18 +758,15 @@ void JuliaFractal::renderThreadFunc()
         double smoothT = t * t * (3.0 - 2.0 * t);
 
         // Interpolate parameters during transition.
-        double activeCRealCenter =
-            oldCRealCenter_ + (cRealCenter_ - oldCRealCenter_) * smoothT;
+        double activeCRealCenter = oldCRealCenter_ + (cRealCenter_ - oldCRealCenter_) * smoothT;
         double activeCRealAmplitude =
             oldCRealAmplitude_ + (cRealAmplitude_ - oldCRealAmplitude_) * smoothT;
-        double activeCImagCenter =
-            oldCImagCenter_ + (cImagCenter_ - oldCImagCenter_) * smoothT;
+        double activeCImagCenter = oldCImagCenter_ + (cImagCenter_ - oldCImagCenter_) * smoothT;
         double activeCImagAmplitude =
             oldCImagAmplitude_ + (cImagAmplitude_ - oldCImagAmplitude_) * smoothT;
         double activeDetailPhaseSpeed =
             oldDetailPhaseSpeed_ + (detailPhaseSpeed_ - oldDetailPhaseSpeed_) * smoothT;
-        double activeCPhaseSpeed =
-            oldCPhaseSpeed_ + (cPhaseSpeed_ - oldCPhaseSpeed_) * smoothT;
+        double activeCPhaseSpeed = oldCPhaseSpeed_ + (cPhaseSpeed_ - oldCPhaseSpeed_) * smoothT;
         int activeMinIterations =
             oldMinIterations_ + static_cast<int>((minIterations_ - oldMinIterations_) * smoothT);
         int activeMaxIterations =
@@ -795,9 +791,10 @@ void JuliaFractal::renderThreadFunc()
             // Debug: Log palette rotation.
             static double lastPaletteLog = 0.0;
             if (currentTime - lastPaletteLog >= 5.0) {
-                spdlog::info("JuliaFractal: Palette offset={:.1f}, speed={:.3f}/frame",
-                             paletteOffset_,
-                             cycleSpeed);
+                spdlog::info(
+                    "JuliaFractal: Palette offset={:.1f}, speed={:.3f}/frame",
+                    paletteOffset_,
+                    cycleSpeed);
                 lastPaletteLog = currentTime;
             }
 
@@ -816,22 +813,20 @@ void JuliaFractal::renderThreadFunc()
 
             // Apply inverted parabola to spend MORE time in middle, LESS at extremes.
             // This peaks at 0.5 and drops off toward 0 and 1.
-            double centered = rawFactor - 0.5; // Shift to [-0.5, 0.5].
+            double centered = rawFactor - 0.5;                 // Shift to [-0.5, 0.5].
             double parabola = 1.0 - 4.0 * centered * centered; // Peak at center.
             // Map parabola [0,1] back to iteration range (biased toward middle).
             double detailFactor = 0.2 + parabola * 0.6; // Range [0.2, 0.8] favors middle.
 
             // Map to randomized iteration range.
             newMaxIterations = activeMinIterations
-                               + static_cast<int>(detailFactor
-                                                  * (activeMaxIterations - activeMinIterations));
+                + static_cast<int>(detailFactor * (activeMaxIterations - activeMinIterations));
             iterationsChanged = (newMaxIterations != maxIterations_); // Render on ANY change.
             needsUpdate = true; // Always update for smooth animation.
         }
 
         // Shape morphing animation (only if enabled).
-        if (activeCPhaseSpeed > 0.0
-            && (activeCRealAmplitude > 0.0 || activeCImagAmplitude > 0.0)) {
+        if (activeCPhaseSpeed > 0.0 && (activeCRealAmplitude > 0.0 || activeCImagAmplitude > 0.0)) {
             cPhase_ += activeCPhaseSpeed;
             if (cPhase_ > 2.0 * M_PI) {
                 cPhase_ -= 2.0 * M_PI;
@@ -841,7 +836,7 @@ void JuliaFractal::renderThreadFunc()
             double cImagFactor = std::sin(cPhase_ + M_PI / 2.0);
             newCReal = activeCRealCenter + cRealFactor * activeCRealAmplitude;
             newCImag = activeCImagCenter + cImagFactor * activeCImagAmplitude;
-            cChanged = true; // Always render for smooth morphing (no threshold).
+            cChanged = true;    // Always render for smooth morphing (no threshold).
             needsUpdate = true; // Always update.
         }
 
@@ -991,9 +986,8 @@ void JuliaFractal::renderThreadFunc()
             // Log FPS occasionally.
             if (currentTime - lastFpsLogTime_ >= FPS_LOG_INTERVAL) {
                 double renderFps = fpsSum_ / fpsSampleCount_;
-                double displayFps = (displayFpsSampleCount_ > 0)
-                                        ? (displayFpsSum_ / displayFpsSampleCount_)
-                                        : 0.0;
+                double displayFps =
+                    (displayFpsSampleCount_ > 0) ? (displayFpsSum_ / displayFpsSampleCount_) : 0.0;
                 spdlog::info(
                     "JuliaFractal: Render FPS = {:.1f}, Display FPS = {:.1f}, Resolution = {}x{} "
                     "(divisor={:.2f})",
@@ -1012,9 +1006,8 @@ void JuliaFractal::renderThreadFunc()
             // Check FPS every few seconds for dynamic resolution adjustment.
             if (currentTime - lastFpsCheckTime_ >= FPS_CHECK_INTERVAL) {
                 double renderFps = fpsSum_ / fpsSampleCount_;
-                double displayFps = (displayFpsSampleCount_ > 0)
-                                        ? (displayFpsSum_ / displayFpsSampleCount_)
-                                        : 0.0;
+                double displayFps =
+                    (displayFpsSampleCount_ > 0) ? (displayFpsSum_ / displayFpsSampleCount_) : 0.0;
 
                 // Adaptive resolution scaling: smooth adjustments based on FPS.
                 // Target 30fps minimum, use render FPS as primary metric.

@@ -158,20 +158,18 @@ inline void from_json(const nlohmann::json& j, GrowthStage& stage)
 
 inline void to_json(nlohmann::json& j, const TreeSensoryData& data)
 {
-    j = nlohmann::json{
-        {"material_histograms", data.material_histograms},
-        {"actual_width", data.actual_width},
-        {"actual_height", data.actual_height},
-        {"scale_factor", data.scale_factor},
-        {"world_offset", data.world_offset},
-        {"age", data.age},
-        {"stage", data.stage},
-        {"total_energy", data.total_energy},
-        {"total_water", data.total_water},
-        {"root_count", data.root_count},
-        {"leaf_count", data.leaf_count},
-        {"wood_count", data.wood_count}
-    };
+    j = nlohmann::json{ { "material_histograms", data.material_histograms },
+                        { "actual_width", data.actual_width },
+                        { "actual_height", data.actual_height },
+                        { "scale_factor", data.scale_factor },
+                        { "world_offset", data.world_offset },
+                        { "age", data.age },
+                        { "stage", data.stage },
+                        { "total_energy", data.total_energy },
+                        { "total_water", data.total_water },
+                        { "root_count", data.root_count },
+                        { "leaf_count", data.leaf_count },
+                        { "wood_count", data.wood_count } };
 }
 
 inline void from_json(const nlohmann::json& j, TreeSensoryData& data)

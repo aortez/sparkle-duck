@@ -179,17 +179,11 @@ lv_color_t NeuralGridRenderer::getMaterialColor(int materialIndex) const
 {
     // Map material index to MaterialType (alphabetical order).
     // AIR=0, DIRT=1, LEAF=2, METAL=3, SAND=4, SEED=5, WALL=6, WATER=7, WOOD=8.
-    static const MaterialType materials[] = {
-        MaterialType::AIR,
-        MaterialType::DIRT,
-        MaterialType::LEAF,
-        MaterialType::METAL,
-        MaterialType::SAND,
-        MaterialType::SEED,
-        MaterialType::WALL,
-        MaterialType::WATER,
-        MaterialType::WOOD
-    };
+    static const MaterialType materials[] = { MaterialType::AIR,  MaterialType::DIRT,
+                                              MaterialType::LEAF, MaterialType::METAL,
+                                              MaterialType::SAND, MaterialType::SEED,
+                                              MaterialType::WALL, MaterialType::WATER,
+                                              MaterialType::WOOD };
 
     if (materialIndex < 0 || materialIndex >= TreeSensoryData::NUM_MATERIALS) {
         return lv_color_hex(0x000000); // Black for invalid index.
