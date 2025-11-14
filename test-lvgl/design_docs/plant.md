@@ -174,25 +174,25 @@ public:
 };
 ```
 
-### Scale-Invariant Sensory System
+### Scale-Invariant Sensory System (✅ IMPLEMENTED)
 
-Trees gather sensory data from their bounding box + 1 cell padding. The system uses a fixed 15×15 neural grid regardless of actual tree size:
+Trees use a fixed 15×15 neural grid regardless of actual tree size:
 
-**Small trees (< 15×15)**: Use native resolution, no upsampling
-- Each neural cell maps 1:1 to a world cell
-- Histogram is one-hot: [0,0,0,1,0,0,0,0] for pure WOOD
-- Crisp, detailed view
+**Small trees (≤15×15 cells)**:
+- Fixed 15×15 world-cell viewing window centered on seed position
+- 1:1 mapping (each neural cell = one world cell)
+- Histograms are one-hot: [0,0,0,1,0,0,0,0,0] for pure materials
+- Viewing window follows seed as it moves (physics-aware)
 
-**Large trees (> 15×15)**: Downsample using histograms
-- Each neural cell aggregates multiple world cells
-- Histogram shows material distribution: [0.4 WOOD, 0.3 LEAF, 0.2 AIR, 0.1 DIRT]
-- Fuzzy but complete view
+**Large trees (>15×15 cells)**:
+- Bounding box + 1-cell padding, downsampled to 15×15
+- scale_factor > 1.0, each neural cell aggregates multiple world cells
+- Histograms show distributions: [0.4 WOOD, 0.3 LEAF, 0.2 AIR, 0.1 DIRT]
 
-**Benefits**:
-- Fixed neural network input size (~1800 neurons: 15×15×8)
-- No information loss (histograms preserve material ratios)
-- Smooth scaling as tree grows
-- Biologically plausible (larger organisms have coarser perception)
+**Implementation Notes**:
+- Seed position tracked via Tree.seed_position (updated on transfers)
+- Material histograms populated by sampling world grid (Tree.cpp:275-299)
+- Visualization in UI via NeuralGridRenderer (50/50 split with world view)
 
 ```cpp
 TreeSensoryData Tree::gatherSensoryData(const WorldB& world) {
@@ -237,21 +237,23 @@ public:
     void update(WorldB& world, double deltaTime);
     TreeId plantSeed(WorldB& world, uint32_t x, uint32_t y);
     void removeTree(TreeId id);
+    void notifyTransfers(const std::vector<OrganismTransfer>& transfers);  // ✅ IMPLEMENTED
 
-    // Accessors
     const std::unordered_map<TreeId, Tree>& getTrees() const { return trees_; }
 
 private:
     std::unordered_map<TreeId, Tree> trees_;
     std::unordered_map<Vector2i, TreeId> cell_to_tree_;
     uint32_t next_tree_id_ = 1;
-
-    // Phase 3: Resource systems
-    std::vector<std::vector<float>> light_map_;
-    void updateLightMap(const WorldB& world);
-    void processPhotosynthesis();
 };
 ```
+
+**Organism Tracking (✅ IMPLEMENTED)**:
+- Physics transfers automatically preserve organism_id (Cell.cpp:198-206)
+- World collects OrganismTransfer events during applyTransfers()
+- TreeManager::notifyTransfers() batch-updates tracking in O(transfers)
+- Tree.cells and cell_to_tree_ map stay synchronized with physics
+- seed_position updated when seed cell moves
 
 ### Update Flow
 
@@ -431,8 +433,8 @@ Material displacement multipliers (future):
 
 ## Implementation Plan
 
-### Phase 1: Foundation
-**Goal**: SEED material visible and trackable in world
+### Phase 1: Foundation + Neural Grid Visualization
+**Goal**: SEED material, tree organisms, and visual debugging of tree perception
 
 **Status: ✅ COMPLETE**
 
@@ -451,6 +453,12 @@ Completed:
 - ✅ Update CMakeLists.txt with organism source files
 - ✅ Add std::hash<Vector2i> specialization for unordered containers
 - ✅ Seeds fall with gravity and participate in full physics simulation
+- ✅ NeuralGridRenderer for 15×15 tree vision display (UI side-by-side layout)
+- ✅ Efficient organism transfer tracking (O(transfers) batch updates)
+- ✅ organism_id automatically transferred with material movements
+- ✅ TreeSensoryData serialization (JSON + zpp_bits)
+- ✅ seed_position tracking for neural grid centering
+- ✅ Material histogram population from world state
 
 Deferred to Phase 2+:
 - ❌ Add ROOT material type (will add when germination is implemented)
