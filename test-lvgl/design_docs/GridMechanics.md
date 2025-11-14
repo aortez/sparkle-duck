@@ -39,6 +39,7 @@ The simulation models:
     adhesion
     motion coherence
     static and kinetic friction
+    viscosity?  TODO update me
 
 ### Velocity
 The matter in each cell moves according to 2D kinematics.
