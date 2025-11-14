@@ -459,7 +459,12 @@ void World::applyPressureForces()
 
             // Only apply force if system is out of equilibrium.
             if (gradient.magnitude() > 0.001) {
-                Vector2d pressure_force = gradient * physicsSettings.pressure_scale;
+                // Get material-specific hydrostatic weight to scale pressure response.
+                const MaterialProperties& props = getMaterialProperties(cell.material_type);
+                double hydrostatic_weight = props.hydrostatic_weight;
+
+                Vector2d pressure_force =
+                    gradient * physicsSettings.pressure_scale * hydrostatic_weight;
                 cell.addPendingForce(pressure_force);
 
                 spdlog::debug(

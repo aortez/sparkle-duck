@@ -66,8 +66,8 @@ std::optional<Event> MessageParser::parseWorldDataResponse(const nlohmann::json&
 
     // Route by explicit response_type.
     if (responseType == "state_get") {
-        // WorldData response.
-        WorldData worldData = value.get<WorldData>();
+        // WorldData response (wrapped in Okay struct).
+        WorldData worldData = value["worldData"].get<WorldData>();
 
         uint64_t stepCount = worldData.timestep;
         double fps = worldData.fps_server;
@@ -81,8 +81,8 @@ std::optional<Event> MessageParser::parseWorldDataResponse(const nlohmann::json&
         return evt;
     }
     else if (responseType == "physics_settings_get") {
-        // PhysicsSettings response.
-        PhysicsSettings settings = value.get<PhysicsSettings>();
+        // PhysicsSettings response (wrapped in Okay struct).
+        PhysicsSettings settings = value["settings"].get<PhysicsSettings>();
 
         spdlog::info("MessageParser: Parsed PhysicsSettings (gravity={:.2f})", settings.gravity);
 
