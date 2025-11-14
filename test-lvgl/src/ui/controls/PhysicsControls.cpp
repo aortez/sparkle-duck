@@ -62,7 +62,7 @@ PhysicsControls::PhysicsControls(lv_obj_t* container, WebSocketClient* wsClient)
                              .defaultValue(80)
                              .valueScale(0.01)
                              .valueFormat("%.2f")
-                             .initiallyEnabled(false)
+                             .initiallyEnabled(true)
                              .sliderWidth(180)
                              .onToggle(onElasticityToggled, this)
                              .onSliderChange(onElasticityChanged, this)
@@ -75,11 +75,17 @@ PhysicsControls::PhysicsControls(lv_obj_t* container, WebSocketClient* wsClient)
                                 .defaultValue(10)
                                 .valueScale(0.01)
                                 .valueFormat("%.2f")
-                                .initiallyEnabled(false)
+                                .initiallyEnabled(true)
                                 .sliderWidth(180)
                                 .onToggle(onAirResistanceToggled, this)
                                 .onSliderChange(onAirResistanceChanged, this)
                                 .buildOrLog();
+
+    swapEnabledControl_ = LVGLBuilder::labeledSwitch(column1_)
+                              .label("Enable Swap")
+                              .initialState(false)
+                              .callback(onSwapEnabledToggled, this)
+                              .buildOrLog();
 
     // Column 2: Pressure.
     column2_ = lv_obj_create(container_);
@@ -233,9 +239,11 @@ void PhysicsControls::updateFromSettings(const PhysicsSettings& settings)
     auto updateToggleSlider = [](lv_obj_t* control, double value, bool enabled) {
         if (!control) return;
 
-        // Control is a container with toggle (child 0) and slider (child 2).
+        // Control is a container with toggle (child 0), label (child 1), slider (child 2),
+        // valueLabel (child 3).
         lv_obj_t* toggle = lv_obj_get_child(control, 0);
         lv_obj_t* slider = lv_obj_get_child(control, 2);
+        lv_obj_t* valueLabel = lv_obj_get_child(control, 3);
 
         if (toggle) {
             if (enabled) {
@@ -250,14 +258,21 @@ void PhysicsControls::updateFromSettings(const PhysicsSettings& settings)
             // Convert double value back to integer slider value (reverse the 0.01 scale).
             int sliderValue = static_cast<int>(value * 100.0);
             lv_slider_set_value(slider, sliderValue, LV_ANIM_OFF);
+
+            // Manually update value label (lv_slider_set_value doesn't trigger events).
+            if (valueLabel) {
+                char buf[32];
+                snprintf(buf, sizeof(buf), "%.2f", value);
+                lv_label_set_text(valueLabel, buf);
+            }
         }
     };
 
     // Update Column 1: General Physics.
     updateToggleSlider(timescaleControl_, settings.timescale, settings.timescale > 0.0);
-    updateToggleSlider(gravityControl_, settings.gravity, true); // No enabled flag for gravity.
-    updateToggleSlider(elasticityControl_, settings.elasticity, true);        // No enabled flag.
-    updateToggleSlider(airResistanceControl_, settings.air_resistance, true); // No enabled flag.
+    updateToggleSlider(gravityControl_, settings.gravity, true);
+    updateToggleSlider(elasticityControl_, settings.elasticity, true);
+    updateToggleSlider(airResistanceControl_, settings.air_resistance, true);
 
     // Update Column 2: Pressure.
     updateToggleSlider(
@@ -268,9 +283,8 @@ void PhysicsControls::updateFromSettings(const PhysicsSettings& settings)
         dynamicPressureControl_,
         settings.pressure_dynamic_strength,
         settings.pressure_dynamic_enabled);
-    updateToggleSlider(
-        pressureDiffusionControl_, settings.pressure_diffusion_strength, true); // No enabled flag.
-    updateToggleSlider(pressureScaleControl_, settings.pressure_scale, true);   // No enabled flag.
+    updateToggleSlider(pressureDiffusionControl_, settings.pressure_diffusion_strength, true);
+    updateToggleSlider(pressureScaleControl_, settings.pressure_scale, true);
 
     // Update Column 3: Forces.
     updateToggleSlider(
@@ -278,6 +292,16 @@ void PhysicsControls::updateFromSettings(const PhysicsSettings& settings)
     updateToggleSlider(adhesionControl_, settings.adhesion_strength, settings.adhesion_enabled);
     updateToggleSlider(viscosityControl_, settings.viscosity_strength, settings.viscosity_enabled);
     updateToggleSlider(frictionControl_, settings.friction_strength, settings.friction_enabled);
+
+    // Update swap toggle.
+    if (swapEnabledControl_) {
+        if (settings.swap_enabled) {
+            lv_obj_add_state(swapEnabledControl_, LV_STATE_CHECKED);
+        }
+        else {
+            lv_obj_remove_state(swapEnabledControl_, LV_STATE_CHECKED);
+        }
+    }
 
     spdlog::info("PhysicsControls: UI updated from server settings");
 }
@@ -419,6 +443,18 @@ void PhysicsControls::onAirResistanceChanged(lv_event_t* e)
     double scaledValue = value * 0.01;
     spdlog::info("PhysicsControls: Air Resistance changed to {:.2f}", scaledValue);
     self->settings_.air_resistance = scaledValue;
+    self->syncSettings();
+}
+
+void PhysicsControls::onSwapEnabledToggled(lv_event_t* e)
+{
+    lv_obj_t* target = static_cast<lv_obj_t*>(lv_event_get_target(e));
+    PhysicsControls* self = static_cast<PhysicsControls*>(lv_obj_get_user_data(target));
+    if (!self) return;
+
+    bool enabled = lv_obj_has_state(target, LV_STATE_CHECKED);
+    spdlog::info("PhysicsControls: Enable Swap toggled to {}", enabled ? "ON" : "OFF");
+    self->settings_.swap_enabled = enabled;
     self->syncSettings();
 }
 

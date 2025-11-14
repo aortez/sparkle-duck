@@ -79,6 +79,16 @@ lv_obj_t* UiComponentManager::getNeuralGridDisplayArea()
     return simNeuralGridDisplayArea_;
 }
 
+void UiComponentManager::setDisplayAreaRatio(uint32_t worldGrow, uint32_t neuralGrow)
+{
+    if (simWorldDisplayArea_) {
+        lv_obj_set_flex_grow(simWorldDisplayArea_, worldGrow);
+    }
+    if (simNeuralGridDisplayArea_) {
+        lv_obj_set_flex_grow(simNeuralGridDisplayArea_, neuralGrow);
+    }
+}
+
 lv_obj_t* UiComponentManager::getMainMenuContainer()
 {
     if (!display) return nullptr;

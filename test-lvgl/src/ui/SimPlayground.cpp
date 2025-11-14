@@ -118,11 +118,15 @@ void SimPlayground::renderNeuralGrid(const WorldData& data)
 {
     lv_obj_t* neuralGridContainer = uiManager_->getNeuralGridDisplayArea();
 
-    // Render tree vision if available.
+    // Adjust layout based on plant presence.
     if (data.tree_vision.has_value()) {
+        // Plant exists: 50/50 split.
+        uiManager_->setDisplayAreaRatio(1, 1);
         neuralGridRenderer_->renderSensoryData(data.tree_vision.value(), neuralGridContainer);
     }
     else {
+        // No plant: 90/10 split (world gets more space).
+        uiManager_->setDisplayAreaRatio(9, 1);
         neuralGridRenderer_->renderEmpty(neuralGridContainer);
     }
 }

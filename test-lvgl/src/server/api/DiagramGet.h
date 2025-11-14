@@ -19,6 +19,7 @@ struct Command {
 struct Okay {
     std::string diagram;
 
+    static constexpr const char* name() { return "diagram_get"; }
     nlohmann::json toJson() const;
 };
 

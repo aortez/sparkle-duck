@@ -57,6 +57,13 @@ public:
     lv_obj_t* getNeuralGridDisplayArea();
 
     /**
+     * @brief Adjust the flex_grow ratio between world and neural grid display areas.
+     * @param worldGrow Flex grow value for world display area.
+     * @param neuralGrow Flex grow value for neural grid display area.
+     */
+    void setDisplayAreaRatio(uint32_t worldGrow, uint32_t neuralGrow);
+
+    /**
      * @brief Get container for main menu UI.
      * Creates/prepares the menu screen if needed.
      */

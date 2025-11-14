@@ -33,6 +33,7 @@ struct Okay {
     double network_send_total_ms = 0.0;
     uint32_t network_send_calls = 0;
 
+    static constexpr const char* name() { return "perf_stats_get"; }
     nlohmann::json toJson() const;
 };
 

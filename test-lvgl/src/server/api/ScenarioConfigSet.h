@@ -27,8 +27,8 @@ struct Command {
 struct Okay {
     bool success;
 
+    static constexpr const char* name() { return "scenario_config_set"; }
     nlohmann::json toJson() const;
-    static constexpr const char* name() { return "ScenarioConfigSet::Okay"; }
 };
 
 using Response = Result<Okay, ApiError>;

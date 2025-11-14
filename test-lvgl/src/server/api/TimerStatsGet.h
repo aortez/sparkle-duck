@@ -26,6 +26,7 @@ struct Okay {
     // Map of timer name -> stats.
     std::unordered_map<std::string, TimerEntry> timers;
 
+    static constexpr const char* name() { return "timer_stats_get"; }
     nlohmann::json toJson() const;
 };
 

@@ -37,6 +37,10 @@ private:
     uint32_t height_ = 0;
     lv_obj_t* parent_ = nullptr;
 
+    // Track container size for resize detection.
+    int32_t lastContainerWidth_ = 0;
+    int32_t lastContainerHeight_ = 0;
+
     // Scaled cell dimensions for fitting the drawing area
     uint32_t scaledCellWidth_ = Cell::WIDTH;
     uint32_t scaledCellHeight_ = Cell::HEIGHT;

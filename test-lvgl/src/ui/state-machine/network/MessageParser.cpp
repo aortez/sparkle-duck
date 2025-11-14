@@ -54,14 +54,21 @@ std::optional<Event> MessageParser::parseFrameReady(const nlohmann::json& json)
 
 std::optional<Event> MessageParser::parseWorldDataResponse(const nlohmann::json& json)
 {
+    // All successful responses now include response_type.
+    if (!json.contains("response_type")) {
+        // Empty responses (monostate) or untyped responses - just log and ignore.
+        spdlog::debug("MessageParser: Received response without type: {}", json.dump());
+        return std::nullopt;
+    }
+
+    std::string responseType = json["response_type"];
     const auto& value = json["value"];
 
-    // Check if this is a WorldData response (contains width and cells).
-    if (value.contains("width") && value.contains("cells")) {
-        // Automatic deserialization via ADL functions!
-        WorldData worldData = value.get<WorldData>();
+    // Route by explicit response_type.
+    if (responseType == "state_get") {
+        // WorldData response (wrapped in Okay struct).
+        WorldData worldData = value["worldData"].get<WorldData>();
 
-        // Create UiUpdateEvent with the received data.
         uint64_t stepCount = worldData.timestep;
         double fps = worldData.fps_server;
         UiUpdateEvent evt{ .sequenceNum = 0,
@@ -73,20 +80,20 @@ std::optional<Event> MessageParser::parseWorldDataResponse(const nlohmann::json&
 
         return evt;
     }
-
-    // Check if this is a PhysicsSettings response (contains gravity, elasticity, etc.).
-    if (value.contains("gravity") && value.contains("elasticity")) {
-        // Automatic deserialization via ADL functions!
-        PhysicsSettings settings = value.get<PhysicsSettings>();
+    else if (responseType == "physics_settings_get") {
+        // PhysicsSettings response (wrapped in Okay struct).
+        PhysicsSettings settings = value["settings"].get<PhysicsSettings>();
 
         spdlog::info("MessageParser: Parsed PhysicsSettings (gravity={:.2f})", settings.gravity);
 
         return PhysicsSettingsReceivedEvent{ settings };
     }
-
-    // Other response types (empty success, etc.) - just log.
-    spdlog::debug("MessageParser: Received generic response: {}", value.dump());
-    return std::nullopt;
+    else {
+        // Unknown response type - log for debugging.
+        spdlog::debug(
+            "MessageParser: Unhandled response_type '{}': {}", responseType, value.dump());
+        return std::nullopt;
+    }
 }
 
 void MessageParser::handleError(const nlohmann::json& json)
