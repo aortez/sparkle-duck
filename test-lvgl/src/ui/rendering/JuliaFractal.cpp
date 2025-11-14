@@ -703,7 +703,7 @@ void JuliaFractal::generateRandomParameters()
     cImagAmplitude_ = ampDist(rng_);
 
     // Randomize animation speeds.
-    std::uniform_real_distribution<double> cSpeedDist(0.005, 0.025);
+    std::uniform_real_distribution<double> cSpeedDist(0.001, 0.025);
     cPhaseSpeed_ = cSpeedDist(rng_);
 
     // Slower detail oscillation speed (30-120 second cycles at 60fps).
@@ -711,26 +711,26 @@ void JuliaFractal::generateRandomParameters()
     detailPhaseSpeed_ = detailSpeedDist(rng_);
 
     // Randomize iteration range for detail oscillation.
-    // 40% chance of going to 0, otherwise start at 20-50.
+    // 5% chance of going to 0, otherwise start at 20-50.
     std::uniform_real_distribution<double> minModeDist(0.0, 1.0);
-    if (minModeDist(rng_) < 0.4) {
-        minIterations_ = 0; // Cool minimal look sometimes.
+    if (minModeDist(rng_) < 0.05) {
+         minIterations_ = 0; // Cool minimal look sometimes.
     }
     else {
         std::uniform_int_distribution<int> minIterDist(20, 50);
         minIterations_ = minIterDist(rng_);
     }
 
-    std::uniform_int_distribution<int> maxIterDist(200, 300);
+    std::uniform_int_distribution<int> maxIterDist(280, 500);
     maxIterations_ = maxIterDist(rng_);
 
     spdlog::info("JuliaFractal: New iteration range [{}, {}]", minIterations_, maxIterations_);
 
-    // Disable palette cycling (causes jumpiness - shape morphing is enough variety).
-    phaseSpeed_ = 0.0;
+    // Palette cycling speed.
+    phaseSpeed_ = 0.5;
 
     // Next parameter change in 30-60 seconds.
-    std::uniform_real_distribution<double> intervalDist(30.0, 60.0);
+    std::uniform_real_distribution<double> intervalDist(10.0, 20.0);
     currentChangeInterval_ = intervalDist(rng_);
     changeTimer_ = 0.0;
 
@@ -801,13 +801,13 @@ void JuliaFractal::renderThreadFunc()
         // Palette cycling animation (only if enabled).
         if (phaseSpeed_ > 0.0) {
             animationPhase_ += phaseSpeed_;
-            // if (animationPhase_ > 2.0 * M_PI) {
-            //     animationPhase_ -= 2.0 * M_PI;
-            // }
-
-            if (animationPhase_ > M_PI) {
-                animationPhase_ -= M_PI;
+            if (animationPhase_ > 2.0 * M_PI) {
+                animationPhase_ -= 2.0 * M_PI;
             }
+            //
+            // if (animationPhase_ > M_PI) {
+            //     animationPhase_ -= M_PI;
+            // }
 
             double speedFactor = (std::sin(animationPhase_) + 1.0) / 2.0;
             double cycleSpeed = speedFactor * MAX_CYCLE_SPEED;
@@ -828,9 +828,12 @@ void JuliaFractal::renderThreadFunc()
             // Sine wave gives raw 0-1 oscillation.
             double rawFactor = (std::sin(detailPhase_) + 1.0) / 2.0;
 
-            // Apply smoothstep to spend MORE time in middle, LESS at extremes.
-            // Smoothstep has derivative of 0 at edges, maximum in middle.
-            double detailFactor = rawFactor * rawFactor * (3.0 - 2.0 * rawFactor);
+            // Apply inverted parabola to spend MORE time in middle, LESS at extremes.
+            // This peaks at 0.5 and drops off toward 0 and 1.
+            double centered = rawFactor - 0.5; // Shift to [-0.5, 0.5].
+            double parabola = 1.0 - 4.0 * centered * centered; // Peak at center.
+            // Map parabola [0,1] back to iteration range (biased toward middle).
+            double detailFactor = 0.2 + parabola * 0.6; // Range [0.2, 0.8] favors middle.
 
             // Map to randomized iteration range.
             newMaxIterations = activeMinIterations
