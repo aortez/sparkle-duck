@@ -236,7 +236,7 @@ void PhysicsControls::updateFromSettings(const PhysicsSettings& settings)
     settings_ = settings;
 
     // Helper to update a toggle slider control.
-    auto updateToggleSlider = [](lv_obj_t* control, double value, bool enabled, const char* name) {
+    auto updateToggleSlider = [](lv_obj_t* control, double value, bool enabled) {
         if (!control) return;
 
         // Control is a container with toggle (child 0), label (child 1), slider (child 2),
@@ -257,58 +257,41 @@ void PhysicsControls::updateFromSettings(const PhysicsSettings& settings)
         if (slider) {
             // Convert double value back to integer slider value (reverse the 0.01 scale).
             int sliderValue = static_cast<int>(value * 100.0);
-            spdlog::info(
-                "PhysicsControls: Updating {} slider: value={:.3f}, sliderValue={}, enabled={}",
-                name,
-                value,
-                sliderValue,
-                enabled);
             lv_slider_set_value(slider, sliderValue, LV_ANIM_OFF);
 
-            // Manually update value label (lv_slider_set_value may not trigger event).
+            // Manually update value label (lv_slider_set_value doesn't trigger events).
             if (valueLabel) {
                 char buf[32];
                 snprintf(buf, sizeof(buf), "%.2f", value);
                 lv_label_set_text(valueLabel, buf);
-                spdlog::info("PhysicsControls: Updated {} value label to '{}'", name, buf);
             }
         }
     };
 
     // Update Column 1: General Physics.
-    updateToggleSlider(
-        timescaleControl_, settings.timescale, settings.timescale > 0.0, "timescale");
-    updateToggleSlider(gravityControl_, settings.gravity, true, "gravity");
-    updateToggleSlider(elasticityControl_, settings.elasticity, true, "elasticity");
-    updateToggleSlider(airResistanceControl_, settings.air_resistance, true, "air_resistance");
+    updateToggleSlider(timescaleControl_, settings.timescale, settings.timescale > 0.0);
+    updateToggleSlider(gravityControl_, settings.gravity, true);
+    updateToggleSlider(elasticityControl_, settings.elasticity, true);
+    updateToggleSlider(airResistanceControl_, settings.air_resistance, true);
 
     // Update Column 2: Pressure.
     updateToggleSlider(
         hydrostaticPressureControl_,
         settings.pressure_hydrostatic_strength,
-        settings.pressure_hydrostatic_enabled,
-        "hydrostatic_pressure");
+        settings.pressure_hydrostatic_enabled);
     updateToggleSlider(
         dynamicPressureControl_,
         settings.pressure_dynamic_strength,
-        settings.pressure_dynamic_enabled,
-        "dynamic_pressure");
-    updateToggleSlider(
-        pressureDiffusionControl_,
-        settings.pressure_diffusion_strength,
-        true,
-        "pressure_diffusion");
-    updateToggleSlider(pressureScaleControl_, settings.pressure_scale, true, "pressure_scale");
+        settings.pressure_dynamic_enabled);
+    updateToggleSlider(pressureDiffusionControl_, settings.pressure_diffusion_strength, true);
+    updateToggleSlider(pressureScaleControl_, settings.pressure_scale, true);
 
     // Update Column 3: Forces.
     updateToggleSlider(
-        cohesionForceControl_, settings.cohesion_strength, settings.cohesion_enabled, "cohesion");
-    updateToggleSlider(
-        adhesionControl_, settings.adhesion_strength, settings.adhesion_enabled, "adhesion");
-    updateToggleSlider(
-        viscosityControl_, settings.viscosity_strength, settings.viscosity_enabled, "viscosity");
-    updateToggleSlider(
-        frictionControl_, settings.friction_strength, settings.friction_enabled, "friction");
+        cohesionForceControl_, settings.cohesion_strength, settings.cohesion_enabled);
+    updateToggleSlider(adhesionControl_, settings.adhesion_strength, settings.adhesion_enabled);
+    updateToggleSlider(viscosityControl_, settings.viscosity_strength, settings.viscosity_enabled);
+    updateToggleSlider(frictionControl_, settings.friction_strength, settings.friction_enabled);
 
     // Update swap toggle.
     if (swapEnabledControl_) {

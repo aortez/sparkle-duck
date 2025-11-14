@@ -736,7 +736,8 @@ bool WorldCollisionCalculator::shouldSwapMaterials(
     }
 
     // Dynamic pressure threshold - indicates gridlock from blocked transfers.
-    constexpr double MIN_DYNAMIC_PRESSURE = 5.0;
+    // Lowered to 0.1 to enable gentle buoyancy-driven swapping.
+    constexpr double MIN_DYNAMIC_PRESSURE = 0.1;
 
     // Check dynamic pressure (gridlock indicator).
     double from_dynamic = fromCell.dynamic_component;

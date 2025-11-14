@@ -16,7 +16,6 @@
 #include "server/api/TimerStatsGet.h"
 #include "server/api/WorldResize.h"
 #include <nlohmann/json.hpp>
-#include <spdlog/spdlog.h>
 #include <string>
 
 namespace DirtSim {
@@ -63,12 +62,7 @@ public:
             }
         }
 
-        std::string result = doc.dump();
-        spdlog::debug(
-            "ResponseSerializerJson: Serialized response type='{}', size={}",
-            doc.contains("response_type") ? doc["response_type"].get<std::string>() : "none",
-            result.length());
-        return result;
+        return doc.dump();
     }
 };
 
