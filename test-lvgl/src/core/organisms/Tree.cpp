@@ -221,29 +221,63 @@ TreeSensoryData Tree::gatherSensoryData(const World& world) const
 {
     TreeSensoryData data;
 
-    // TODO: Implement scale-invariant sensory data gathering.
-    // For now, provide minimal data for brain.
+    // Find actual current cell positions by scanning world for organism_id.
+    // This handles cells that have moved due to physics (falling seeds).
+    int min_x = INT32_MAX, min_y = INT32_MAX;
+    int max_x = INT32_MIN, max_y = INT32_MIN;
+    int cell_count = 0;
 
-    // Calculate bounding box of tree cells.
-    if (cells.empty()) {
-        // Single-cell SEED tree.
-        data.actual_width = 1;
-        data.actual_height = 1;
-        data.scale_factor = 1.0 / TreeSensoryData::GRID_SIZE;
-        data.world_offset = Vector2i{ 0, 0 };
-    }
-    else {
-        // Find bounding box.
-        int min_x = INT32_MAX, min_y = INT32_MAX;
-        int max_x = INT32_MIN, max_y = INT32_MIN;
-
-        for (const auto& pos : cells) {
-            min_x = std::min(min_x, pos.x);
-            min_y = std::min(min_y, pos.y);
-            max_x = std::max(max_x, pos.x);
-            max_y = std::max(max_y, pos.y);
+    for (uint32_t y = 0; y < world.data.height; y++) {
+        for (uint32_t x = 0; x < world.data.width; x++) {
+            if (world.at(x, y).organism_id == id) {
+                min_x = std::min(min_x, static_cast<int>(x));
+                min_y = std::min(min_y, static_cast<int>(y));
+                max_x = std::max(max_x, static_cast<int>(x));
+                max_y = std::max(max_y, static_cast<int>(y));
+                cell_count++;
+            }
         }
+    }
 
+    // No cells found - tree might have been destroyed.
+    if (cell_count == 0) {
+        data.actual_width = TreeSensoryData::GRID_SIZE;
+        data.actual_height = TreeSensoryData::GRID_SIZE;
+        data.scale_factor = 1.0;
+        data.world_offset = Vector2i{ 0, 0 };
+        return data;
+    }
+
+    int bbox_width = max_x - min_x + 1;
+    int bbox_height = max_y - min_y + 1;
+
+    // Calculate geometric center of tree's current cells.
+    int center_x = (min_x + max_x) / 2;
+    int center_y = (min_y + max_y) / 2;
+
+    // Small trees: Use fixed 15×15 viewing window centered on tree's current position (1:1
+    // mapping).
+    if (bbox_width <= TreeSensoryData::GRID_SIZE && bbox_height <= TreeSensoryData::GRID_SIZE) {
+        data.actual_width = TreeSensoryData::GRID_SIZE;
+        data.actual_height = TreeSensoryData::GRID_SIZE;
+        data.scale_factor = 1.0;
+
+        // Center the 15×15 window on the original seed position (fixed anchor).
+        int half_window = TreeSensoryData::GRID_SIZE / 2; // 7 cells on each side.
+        int offset_x = seed_position.x - half_window;
+        int offset_y = seed_position.y - half_window;
+
+        // Clamp to world bounds.
+        offset_x = std::max(
+            0, std::min(static_cast<int>(world.data.width) - TreeSensoryData::GRID_SIZE, offset_x));
+        offset_y = std::max(
+            0,
+            std::min(static_cast<int>(world.data.height) - TreeSensoryData::GRID_SIZE, offset_y));
+
+        data.world_offset = Vector2i{ offset_x, offset_y };
+    }
+    // Large trees: Use bounding box + padding, downsample to fit 15×15.
+    else {
         // Add 1-cell padding.
         min_x = std::max(0, min_x - 1);
         min_y = std::max(0, min_y - 1);
@@ -256,9 +290,46 @@ TreeSensoryData Tree::gatherSensoryData(const World& world) const
         data.scale_factor = std::max(
             static_cast<double>(data.actual_width) / TreeSensoryData::GRID_SIZE,
             static_cast<double>(data.actual_height) / TreeSensoryData::GRID_SIZE);
+    }
 
-        // TODO: Populate material_histograms by sampling world grid.
-        // For now, leave zeroed (Phase 2 will implement).
+    // Populate material histograms by sampling world grid.
+    for (int ny = 0; ny < TreeSensoryData::GRID_SIZE; ny++) {
+        for (int nx = 0; nx < TreeSensoryData::GRID_SIZE; nx++) {
+            // Map neural coords to world region.
+            int wx_start = data.world_offset.x + static_cast<int>(nx * data.scale_factor);
+            int wy_start = data.world_offset.y + static_cast<int>(ny * data.scale_factor);
+            int wx_end = data.world_offset.x + static_cast<int>((nx + 1) * data.scale_factor);
+            int wy_end = data.world_offset.y + static_cast<int>((ny + 1) * data.scale_factor);
+
+            // Clamp to world bounds.
+            wx_start = std::max(0, std::min(static_cast<int>(world.data.width) - 1, wx_start));
+            wy_start = std::max(0, std::min(static_cast<int>(world.data.height) - 1, wy_start));
+            wx_end = std::max(0, std::min(static_cast<int>(world.data.width), wx_end));
+            wy_end = std::max(0, std::min(static_cast<int>(world.data.height), wy_end));
+
+            // Count materials in this region.
+            std::array<int, TreeSensoryData::NUM_MATERIALS> counts = {};
+            int total_cells = 0;
+
+            for (int wy = wy_start; wy < wy_end; wy++) {
+                for (int wx = wx_start; wx < wx_end; wx++) {
+                    const auto& cell = world.at(wx, wy);
+                    int mat_idx = static_cast<int>(cell.material_type);
+                    if (mat_idx >= 0 && mat_idx < TreeSensoryData::NUM_MATERIALS) {
+                        counts[mat_idx]++;
+                        total_cells++;
+                    }
+                }
+            }
+
+            // Normalize to histogram probabilities.
+            if (total_cells > 0) {
+                for (int i = 0; i < TreeSensoryData::NUM_MATERIALS; i++) {
+                    data.material_histograms[ny][nx][i] =
+                        static_cast<double>(counts[i]) / total_cells;
+                }
+            }
+        }
     }
 
     // Populate internal state.

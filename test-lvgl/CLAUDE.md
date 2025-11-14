@@ -120,7 +120,8 @@ Executables (server, UI, CLI, tests) link against these libraries.
 ### UI Framework
 - **ControlPanel**: LVGL controls for scenario toggles and simulation parameters
 - **CellRenderer**: Renders world state to LVGL canvases
-- **UiComponentManager**: Manages LVGL screen and containers
+- **NeuralGridRenderer**: Renders 15×15 tree organism perception (side-by-side with world)
+- **UiComponentManager**: Manages LVGL screen and containers (50/50 split layout)
 - **WebSocketClient**: Connects to DSSM server for world data
 - **WebSocketServer**: Accepts remote control commands (port 7070)
 
@@ -129,11 +130,12 @@ Executables (server, UI, CLI, tests) link against these libraries.
 - Pure material cells with fill ratios [0,1]
 - Material-specific density affecting gravity response
 - Center of mass (COM) physics within [-1,1] bounds
-- 8 material types: AIR, DIRT, WATER, WOOD, SAND, METAL, LEAF, WALL
+- 9 material types: AIR, DIRT, LEAF, METAL, SAND, SEED, WALL, WATER, WOOD
 - Cohesion (same-material attraction) and adhesion (different-material attraction)
 - Viscosity and friction (static/kinetic)
 - Pressure systems: hydrostatic, dynamic, diffusion
 - Air resistance
+- Tree organisms with organism_id tracking
 
 ## Testing Framework
 
@@ -293,25 +295,25 @@ Can be found here:
 
 ## Development Status
 
-### Current Focus: Client/Server Architecture (DSSM + UI Client)
+### Current Focus: Tree Organisms (Phase 1 Complete, Phase 2 Next)
+
+**Completed:**
+- ✅ Neural grid visualization (side-by-side UI with 15×15 tree vision)
+- ✅ Efficient organism tracking (transfer-based updates)
+- ✅ Basic germination (SEED → WOOD → ROOT)
 
 **Next Steps:**
-- Performance testing
-- Optimization
-- Python/bash/cli integration test scripts
-   - Sanity check - can server and ui start, connect, and then exit cleanly?
-- More state machine tests (StartMenu, Paused, etc.)
-- WebRTC video streaming for remote UI
+- Phase 2: Advanced growth patterns (SAPLING/MATURE stages)
+- Phase 3: Resource systems (light, water, nutrients, photosynthesis)
+- Performance testing and optimization
+- More state machine tests
 
-## Misc TODO
-- How can we make denser materials sink below less dense ones?
+### Client/Server Architecture (DSSM + UI Client)
+- ✅ Headless server with WebSocket API
+- ✅ UI client with controls and rendering
+- ✅ Binary serialization (zpp_bits) with custom support for 10+ field structs
+- ✅ Frame-based synchronization
 
-### Tree Organisms (In Progress - Phase 1)
-- ✅ SEED material type added
-- ✅ SeedAdd API command with UI button
-- ❌ TreeManager for organism lifecycle
-- ❌ Tree class with brain interface
-- ❌ Neural network and LLM brain implementations
 See design_docs/plant.md and design_docs/ai-integration-ideas.md for details.
 
 ## Interaction Guidelines

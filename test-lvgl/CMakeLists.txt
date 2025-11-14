@@ -278,6 +278,7 @@ add_library(sparkle-duck-ui-lib STATIC
     src/ui/SimPlayground.cpp
     src/ui/rendering/CellRenderer.cpp
     src/ui/rendering/JuliaFractal.cpp
+    src/ui/rendering/NeuralGridRenderer.cpp
     src/ui/controls/ControlPanel.cpp
     src/ui/controls/CoreControls.cpp
     src/ui/controls/PhysicsControls.cpp

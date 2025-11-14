@@ -7,6 +7,9 @@
 namespace DirtSim {
 namespace Ui {
 
+// Forward declaration.
+class JuliaFractal;
+
 namespace State {
 
 /**
@@ -23,14 +26,16 @@ struct StartMenu {
     Any onEvent(const UiApi::Exit::Cwc& cwc, StateMachine& sm);
     Any onEvent(const UiApi::SimRun::Cwc& cwc, StateMachine& sm);
 
+    // Update background animations (fractal).
+    void updateAnimations();
+
     static constexpr const char* name() { return "StartMenu"; }
 
 private:
     static void onStartButtonClicked(lv_event_t* e);
-    static void onAnimationTimer(lv_timer_t* timer);
     static void onDisplayResized(lv_event_t* e);
 
-    lv_timer_t* animationTimer_ = nullptr;
+    JuliaFractal* fractal_ = nullptr; // Fractal background animation.
 };
 
 } // namespace State
