@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ApiError.h"
+#include "ApiMacros.h"
 #include "core/CommandWithCallback.h"
 #include "core/Result.h"
 #include "core/ScenarioConfig.h"
@@ -10,15 +11,17 @@ namespace DirtSim {
 namespace Api {
 namespace ScenarioConfigSet {
 
+DEFINE_API_NAME(ScenarioConfigSet);
+
 /**
  * @brief Command to update scenario configuration.
  */
 struct Command {
     ScenarioConfig config; // New configuration to apply.
 
+    API_COMMAND_NAME();
     nlohmann::json toJson() const;
     static Command fromJson(const nlohmann::json& j);
-    static constexpr const char* name() { return "scenario_config_set"; }
 };
 
 /**
@@ -27,7 +30,7 @@ struct Command {
 struct Okay {
     bool success;
 
-    static constexpr const char* name() { return "scenario_config_set"; }
+    API_COMMAND_NAME();
     nlohmann::json toJson() const;
 };
 

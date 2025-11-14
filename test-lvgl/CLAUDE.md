@@ -303,10 +303,20 @@ Can be found here:
 - ✅ Basic germination (SEED → WOOD → ROOT)
 
 **Next Steps:**
+- Examine germination in detail. Update implementation and tests.
 - Phase 2: Advanced growth patterns (SAPLING/MATURE stages)
 - Phase 3: Resource systems (light, water, nutrients, photosynthesis)
 - Performance testing and optimization
-- More state machine tests
+
+Awesome Ideas to do soon:
+- Add label for Fractal showing which event type it was currently running.
+- Add button to StartMenu to generate the next fractal.
+- Silence this specific command:
+[2025-11-14 14:38:32.491] [info] WebSocket received command: {"command":"FrameReady"}
+Can we log it but only at debug?
+- Make the water column's size scale with the world size
+- FIX: After resetting, the tree visualization is still showing, it should Only
+be active if a tree is around.
 
 ### Client/Server Architecture (DSSM + UI Client)
 - ✅ Headless server with WebSocket API

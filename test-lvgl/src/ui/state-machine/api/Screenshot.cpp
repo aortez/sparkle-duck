@@ -6,7 +6,7 @@ namespace Screenshot {
 
 nlohmann::json Command::toJson() const
 {
-    nlohmann::json j{ { "command", "screenshot" } };
+    nlohmann::json j;
     if (!filepath.empty()) {
         j["filepath"] = filepath;
     }

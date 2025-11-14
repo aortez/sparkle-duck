@@ -1,6 +1,7 @@
 #include "BenchmarkRunner.h"
 #include "core/ReflectSerializer.h"
 #include "core/WorldData.h"
+#include "server/api/Exit.h"
 #include <algorithm>
 #include <atomic>
 #include <chrono>
@@ -318,7 +319,9 @@ BenchmarkResults BenchmarkRunner::run(
 
     // Send exit command to cleanly shut down server.
     spdlog::info("BenchmarkRunner: Sending exit command to server");
-    nlohmann::json exitCmd = { { "command", "exit" } };
+    const DirtSim::Api::Exit::Command cmd{};
+    nlohmann::json exitCmd = cmd.toJson();
+    exitCmd["command"] = DirtSim::Api::Exit::Command::name();
     client_.send(exitCmd.dump());
 
     // Disconnect and cleanup.

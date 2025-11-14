@@ -132,15 +132,11 @@ void SandboxControls::sendConfigUpdate(const ScenarioConfig& config)
     }
     lastUpdateTime = now;
 
-    Api::ScenarioConfigSet::Command cmd;
-    cmd.config = config;
-
-    nlohmann::json j = cmd.toJson();
-    j["command"] = "scenario_config_set";
+    const Api::ScenarioConfigSet::Command cmd{ .config = config };
 
     spdlog::info(
         "SandboxControls: Sending config update (update #{} in {}ms)", updateCount, elapsed);
-    wsClient_->send(j.dump());
+    wsClient_->sendCommand(cmd);
 }
 
 void SandboxControls::onAddSeedClicked(lv_event_t* e)
@@ -154,15 +150,10 @@ void SandboxControls::onAddSeedClicked(lv_event_t* e)
     spdlog::info("SandboxControls: Add Seed button clicked");
 
     if (self->wsClient_ && self->wsClient_->isConnected()) {
-        Api::SeedAdd::Command cmd;
-        cmd.x = self->worldWidth_ / 2;
-        cmd.y = 5;
-
-        nlohmann::json json = cmd.toJson();
-        json["command"] = "seed_add";
+        const Api::SeedAdd::Command cmd{ .x = static_cast<int>(self->worldWidth_ / 2), .y = 5 };
 
         spdlog::info("SandboxControls: Sending seed_add at ({}, {})", cmd.x, cmd.y);
-        self->wsClient_->send(json.dump());
+        self->wsClient_->sendCommand(cmd);
     }
 }
 
@@ -177,11 +168,10 @@ void SandboxControls::onDropDirtBallClicked(lv_event_t* e)
     spdlog::info("SandboxControls: Drop Dirt Ball button clicked");
 
     if (self->wsClient_ && self->wsClient_->isConnected()) {
-        nlohmann::json cmd;
-        cmd["command"] = "spawn_dirt_ball";
+        const Api::SpawnDirtBall::Command cmd{};
 
         spdlog::info("SandboxControls: Sending spawn_dirt_ball command");
-        self->wsClient_->send(cmd.dump());
+        self->wsClient_->sendCommand(cmd);
     }
 }
 

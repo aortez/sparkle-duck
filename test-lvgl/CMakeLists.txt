@@ -347,7 +347,7 @@ add_executable(cli
     src/cli/SubprocessManager.cpp
     src/cli/WebSocketClient.cpp
 )
-target_link_libraries(cli PRIVATE sparkle-duck-core datachannel-static pthread)
+target_link_libraries(cli PRIVATE sparkle-duck-server-lib datachannel-static pthread)
 target_include_directories(cli PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/external/args ${zpp_bits_SOURCE_DIR})
 
 # Enable warnings and treat them as errors for CLI executable.

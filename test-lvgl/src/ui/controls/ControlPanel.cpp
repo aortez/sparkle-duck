@@ -1,4 +1,5 @@
 #include "ControlPanel.h"
+#include "server/api/Exit.h"
 #include "server/api/SeedAdd.h"
 #include "server/api/SimRun.h"
 #include "server/api/SpawnDirtBall.h"
@@ -254,16 +255,15 @@ void ControlPanel::onScenarioChanged(lv_event_t* e)
 
     // Send sim_run command with new scenario_id to DSSM server.
     if (panel->wsClient_ && panel->wsClient_->isConnected()) {
-        DirtSim::Api::SimRun::Command cmd;
-        cmd.scenario_id = scenario_id;
-        cmd.max_frame_ms = 16; // Cap at 60 FPS for UI visualization.
-        // Keep default timestep and max_steps.
-
-        nlohmann::json json = cmd.toJson();
-        json["command"] = "sim_run";
+        const DirtSim::Api::SimRun::Command cmd{
+            .timestep = 0.016,
+            .max_steps = -1,
+            .scenario_id = scenario_id,
+            .max_frame_ms = 16 // Cap at 60 FPS for UI visualization.
+        };
 
         spdlog::info("ControlPanel: Sending sim_run with scenario '{}'", scenario_id);
-        panel->wsClient_->send(json.dump());
+        panel->wsClient_->sendCommand(cmd);
     }
     else {
         spdlog::warn("ControlPanel: WebSocket not connected, cannot switch scenario");
@@ -281,15 +281,13 @@ void ControlPanel::onAddSeedClicked(lv_event_t* e)
     // Send seed_add command to DSSM server.
     // Place seed at top-center of world (world is typically 28x28, so use 14, 5).
     if (panel->wsClient_ && panel->wsClient_->isConnected()) {
-        DirtSim::Api::SeedAdd::Command cmd;
-        cmd.x = panel->worldWidth_ / 2; // Horizontal center.
-        cmd.y = 5;                      // Near top (below wall boundary).
-
-        nlohmann::json json = cmd.toJson();
-        json["command"] = "seed_add";
+        const DirtSim::Api::SeedAdd::Command cmd{
+            .x = static_cast<int>(panel->worldWidth_ / 2), // Horizontal center.
+            .y = 5                                         // Near top (below wall boundary).
+        };
 
         spdlog::info("ControlPanel: Sending seed_add at ({}, {})", cmd.x, cmd.y);
-        panel->wsClient_->send(json.dump());
+        panel->wsClient_->sendCommand(cmd);
     }
 }
 
@@ -303,12 +301,10 @@ void ControlPanel::onDropDirtBallClicked(lv_event_t* e)
 
     // Send spawn_dirt_ball command to DSSM server.
     if (panel->wsClient_ && panel->wsClient_->isConnected()) {
-        DirtSim::Api::SpawnDirtBall::Command cmd;
-        nlohmann::json json = cmd.toJson();
-        json["command"] = "spawn_dirt_ball";
+        const DirtSim::Api::SpawnDirtBall::Command cmd{};
 
         spdlog::info("ControlPanel: Sending spawn_dirt_ball command");
-        panel->wsClient_->send(json.dump());
+        panel->wsClient_->sendCommand(cmd);
     }
 }
 
@@ -322,8 +318,8 @@ void ControlPanel::onQuitClicked(lv_event_t* e)
 
     // Send exit command to DSSM server.
     if (panel->wsClient_ && panel->wsClient_->isConnected()) {
-        nlohmann::json cmd = { { "command", "exit" } };
-        panel->wsClient_->send(cmd.dump());
+        const Api::Exit::Command cmd{};
+        panel->wsClient_->sendCommand(cmd);
     }
 
     // Also exit the UI itself.
@@ -467,13 +463,8 @@ void ControlPanel::sendConfigUpdate(const ScenarioConfig& config)
         return;
     }
 
-    // Create command JSON.
-    nlohmann::json cmd;
-    cmd["command"] = "scenario_config_set";
-    cmd["config"] = config; // Uses ADL to_json from ScenarioConfig.h.
-
-    // Send to DSSM.
-    wsClient_->send(cmd.dump());
+    const Api::ScenarioConfigSet::Command cmd{ .config = config };
+    wsClient_->sendCommand(cmd);
     spdlog::debug("ControlPanel: Sent scenario config update to DSSM");
 }
 

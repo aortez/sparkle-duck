@@ -1,4 +1,5 @@
 #include "State.h"
+#include "server/api/FrameReady.h"
 #include "ui/SimPlayground.h"
 #include "ui/UiComponentManager.h"
 #include "ui/controls/PhysicsControls.h"
@@ -25,8 +26,8 @@ void SimRunning::onEnter(StateMachine& sm)
     // Send initial frame_ready to kickstart the pipelined frame delivery.
     auto* wsClient = sm.getWebSocketClient();
     if (wsClient && wsClient->isConnected()) {
-        nlohmann::json frameReadyCmd = { { "command", "frame_ready" } };
-        wsClient->send(frameReadyCmd.dump());
+        const Api::FrameReady::Command cmd{};
+        wsClient->sendCommand(cmd);
         spdlog::info("SimRunning: Sent initial frame_ready to start frame delivery");
     }
 }
@@ -166,8 +167,8 @@ State::Any SimRunning::onEvent(const FrameReadyNotification& evt, StateMachine& 
         // Request world state from DSSM (only if no request is pending).
         auto* wsClient = sm.getWebSocketClient();
         if (wsClient && wsClient->isConnected() && !stateGetPending) {
-            nlohmann::json stateGetCmd = { { "command", "state_get" } };
-            wsClient->send(stateGetCmd.dump());
+            const DirtSim::Api::StateGet::Command cmd{};
+            wsClient->sendCommand(cmd);
 
             // Record when request was sent for round-trip timing.
             lastStateGetSentTime = std::chrono::steady_clock::now();
@@ -225,8 +226,8 @@ State::Any SimRunning::onEvent(const UiUpdateEvent& evt, StateMachine& sm)
     // Send frame_ready IMMEDIATELY to pipeline next frame (hide network latency).
     auto* wsClient = sm.getWebSocketClient();
     if (wsClient && wsClient->isConnected()) {
-        nlohmann::json frameReadyCmd = { { "command", "frame_ready" } };
-        wsClient->send(frameReadyCmd.dump());
+        const Api::FrameReady::Command cmd{};
+        wsClient->sendCommand(cmd);
         spdlog::trace("SimRunning: Sent frame_ready to server (pipelining next frame)");
     }
 

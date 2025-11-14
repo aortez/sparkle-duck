@@ -730,9 +730,8 @@ void PhysicsControls::fetchSettings()
 
     spdlog::info("PhysicsControls: Fetching physics settings from server");
 
-    nlohmann::json cmd;
-    cmd["command"] = "physics_settings_get";
-    wsClient_->send(cmd.dump());
+    const Api::PhysicsSettingsGet::Command cmd{};
+    wsClient_->sendCommand(cmd);
 
     // Response will be handled by UI state machine and used to update controls.
     // For now, we just use default values.
@@ -747,13 +746,8 @@ void PhysicsControls::syncSettings()
 
     spdlog::debug("PhysicsControls: Syncing physics settings to server");
 
-    Api::PhysicsSettingsSet::Command cmd;
-    cmd.settings = settings_;
-
-    nlohmann::json j = cmd.toJson();
-    j["command"] = "physics_settings_set";
-
-    wsClient_->send(j.dump());
+    const Api::PhysicsSettingsSet::Command cmd{ .settings = settings_ };
+    wsClient_->sendCommand(cmd);
 }
 
 } // namespace Ui

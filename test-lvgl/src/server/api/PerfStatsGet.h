@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ApiError.h"
+#include "ApiMacros.h"
 #include "core/CommandWithCallback.h"
 #include "core/Result.h"
 #include <nlohmann/json.hpp>
@@ -9,7 +10,10 @@ namespace DirtSim {
 namespace Api {
 namespace PerfStatsGet {
 
+DEFINE_API_NAME(PerfStatsGet);
+
 struct Command {
+    API_COMMAND_NAME();
     nlohmann::json toJson() const;
     static Command fromJson(const nlohmann::json& j);
 };
@@ -33,7 +37,7 @@ struct Okay {
     double network_send_total_ms = 0.0;
     uint32_t network_send_calls = 0;
 
-    static constexpr const char* name() { return "perf_stats_get"; }
+    API_COMMAND_NAME();
     nlohmann::json toJson() const;
 };
 

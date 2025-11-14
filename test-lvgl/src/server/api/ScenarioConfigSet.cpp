@@ -7,7 +7,6 @@ namespace ScenarioConfigSet {
 nlohmann::json Command::toJson() const
 {
     nlohmann::json j;
-    j["command"] = name();
     j["config"] = config; // Uses ADL to_json from ScenarioConfig.h.
     return j;
 }

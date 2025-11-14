@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/WorldData.h"
+#include "server/api/ApiCommand.h"
 #include "ui/state-machine/EventSink.h"
 #include <functional>
 #include <memory>
@@ -43,11 +44,11 @@ public:
 
     /**
      * @brief Send an API command with automatic command name insertion.
-     * @tparam CommandT The command type (must have name() method).
+     * @tparam CommandT The command type (must satisfy ApiCommandType).
      * @param cmd The command to send.
      * @return true if sent successfully.
      */
-    template <typename CommandT>
+    template <DirtSim::ApiCommandType CommandT>
     bool sendCommand(const CommandT& cmd)
     {
         nlohmann::json json = cmd.toJson();

@@ -86,10 +86,16 @@ void StartMenu::onStartButtonClicked(lv_event_t* e)
     // Send sim_run command and wait for response.
     auto* wsClient = sm->getWebSocketClient();
     if (wsClient && wsClient->isConnected()) {
-        nlohmann::json cmd = {
-            { "command", "sim_run" }, { "max_frame_ms", 16 } // Cap at 60 FPS for UI visualization.
+        const DirtSim::Api::SimRun::Command cmd{
+            .timestep = 0.016,
+            .max_steps = -1,
+            .scenario_id = "sandbox",
+            .max_frame_ms = 16 // Cap at 60 FPS for UI visualization.
         };
-        std::string response = wsClient->sendAndReceive(cmd.dump(), 1000);
+
+        nlohmann::json json = cmd.toJson();
+        json["command"] = DirtSim::Api::SimRun::Command::name();
+        std::string response = wsClient->sendAndReceive(json.dump(), 1000);
 
         if (response.empty()) {
             spdlog::error("StartMenu: No response from sim_run");
@@ -191,10 +197,13 @@ State::Any StartMenu::onEvent(const UiApi::SimRun::Cwc& cwc, StateMachine& sm)
     }
 
     // Send sim_run command to DSSM server.
-    nlohmann::json simRunCmd = {
-        { "command", "sim_run" }, { "max_frame_ms", 16 } // Cap at 60 FPS for UI visualization.
+    const DirtSim::Api::SimRun::Command cmd{
+        .timestep = 0.016,
+        .max_steps = -1,
+        .scenario_id = "sandbox",
+        .max_frame_ms = 16 // Cap at 60 FPS for UI visualization.
     };
-    bool sent = wsClient->send(simRunCmd.dump());
+    bool sent = wsClient->sendCommand(cmd);
 
     if (!sent) {
         spdlog::error("StartMenu: Failed to send sim_run to DSSM");
