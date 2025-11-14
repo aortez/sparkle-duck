@@ -39,10 +39,10 @@ public:
     };
 
     // Pressure-specific constants.
-    static constexpr double SLICE_THICKNESS = 1.0;          // Thickness of pressure slices.
-    static constexpr double HYDROSTATIC_MULTIPLIER = 1.0;   // Hydrostatic force strength.
-    static constexpr double DYNAMIC_MULTIPLIER = 1;         // Dynamic force strength.
-    static constexpr double DYNAMIC_DECAY_RATE = 0.3;       // Rate of pressure dissipation.
+    static constexpr double SLICE_THICKNESS = 1.0;
+    static constexpr double HYDROSTATIC_MULTIPLIER = 1.0;
+    static constexpr double DYNAMIC_MULTIPLIER = 1;
+    static constexpr double DYNAMIC_DECAY_RATE = 0.1;
     static constexpr double MIN_PRESSURE_THRESHOLD = 0.001; // Ignore pressures below this.
 
     /**
@@ -161,17 +161,9 @@ private:
     // Configuration for pressure gradient calculation.
     PressureGradientDirections gradient_directions_ = PressureGradientDirections::Eight;
 
-    // Track blocked pressure flux at walls for reflection.
-    struct WallReflection {
-        double blocked_flux = 0.0;
-        int reflection_count = 0; // Number of wall neighbors.
-    };
-    mutable std::vector<std::vector<WallReflection>> wall_reflections_;
-
     // Constants for pressure-driven flow.
     static constexpr double PRESSURE_FLOW_RATE = 1.0;     // Flow rate multiplier.
     static constexpr double BACKGROUND_DECAY_RATE = 0.02; // 2% decay per timestep.
-    static constexpr double WALL_INTERFACE_FACTOR = 0.5;  // Wall reflection interface factor.
 
     /**
      * @brief Check if a material type provides rigid structural support.
@@ -179,18 +171,6 @@ private:
      * @return True if material can support weight above it.
      */
     bool isRigidSupport(MaterialType type) const;
-
-    /**
-     * @brief Calculate diffusion-specific reflection coefficient.
-     * @param material Material type of the cell adjacent to wall.
-     * @param blocked_flux Amount of pressure flux blocked by wall.
-     * @return Reflection coefficient [0,1] for pressure wave reflection.
-     *
-     * Calculates how much of the blocked pressure flux should be reflected
-     * back during the diffusion phase. Based on material properties and flux magnitude.
-     */
-    double calculateDiffusionReflectionCoefficient(
-        MaterialType material, double blocked_flux) const;
 
     /**
      * @brief Get surrounding fluid density for buoyancy calculation.

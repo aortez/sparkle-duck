@@ -200,46 +200,12 @@ void WorldPressureCalculator::processBlockedTransfers(
 
 double WorldPressureCalculator::getHydrostaticWeight(MaterialType type) const
 {
-    // Material-specific hydrostatic pressure sensitivity.
-    switch (type) {
-        case MaterialType::WATER:
-            return 1.0;
-        case MaterialType::SAND:
-            return 0.7;
-        case MaterialType::DIRT:
-            return 0.3;
-        case MaterialType::WOOD:
-            return 0.1;
-        case MaterialType::METAL:
-            return 0.05;
-        case MaterialType::LEAF:
-            return 0.3;
-        case MaterialType::WALL:
-        case MaterialType::AIR:
-        default:
-            return 0.0; // No hydrostatic response.
-    }
+    return getMaterialProperties(type).hydrostatic_weight;
 }
 
 double WorldPressureCalculator::getDynamicWeight(MaterialType type) const
 {
-    // Material-specific dynamic pressure sensitivity.
-    switch (type) {
-        case MaterialType::WATER:
-            return 0.8; // High dynamic response.
-        case MaterialType::SAND:
-        case MaterialType::DIRT:
-            return 1.0; // Full dynamic response.
-        case MaterialType::WOOD:
-        case MaterialType::METAL:
-            return 0.5; // Moderate dynamic response (compression)
-        case MaterialType::LEAF:
-            return 0.6; // Moderate dynamic response.
-        case MaterialType::WALL:
-        case MaterialType::AIR:
-        default:
-            return 0.0; // No dynamic response.
-    }
+    return getMaterialProperties(type).dynamic_weight;
 }
 
 Vector2d WorldPressureCalculator::calculatePressureGradient(
@@ -560,36 +526,6 @@ double WorldPressureCalculator::calculateReflectionCoefficient(
     return reflection_coefficient;
 }
 
-double WorldPressureCalculator::calculateDiffusionReflectionCoefficient(
-    MaterialType material, double blocked_flux) const
-{
-    // Base reflection depends on material properties.
-    const MaterialProperties& props = getMaterialProperties(material);
-
-    // Materials with higher elasticity reflect more pressure.
-    // Materials with lower density (like air) reflect less.
-    double base_reflection = 0.7 * props.elasticity + 0.3 * (1.0 - props.density / 10.0);
-
-    // Reduce reflection for very small pressure differences (damping).
-    // This prevents numerical noise from building up.
-    double flux_damping = 1.0 - std::exp(-blocked_flux * 10.0);
-
-    double reflection_coefficient = base_reflection * flux_damping;
-
-    spdlog::trace(
-        "Diffusion reflection coefficient for {}: elasticity={:.2f}, density={:.1f}, "
-        "base_reflection={:.3f}, flux={:.6f}, damping={:.3f}, final={:.3f}",
-        getMaterialName(material),
-        props.elasticity,
-        props.density,
-        base_reflection,
-        blocked_flux,
-        flux_damping,
-        reflection_coefficient);
-
-    return reflection_coefficient;
-}
-
 bool WorldPressureCalculator::isRigidSupport(MaterialType type) const
 {
     // Materials that can support weight above them.
@@ -661,10 +597,6 @@ void WorldPressureCalculator::applyPressureDiffusion(World& world, double deltaT
     const uint32_t height = world.data.height;
     std::vector<double> new_pressure(width * height);
 
-    // Initialize wall reflection tracking.
-    wall_reflections_.clear();
-    wall_reflections_.resize(height, std::vector<WallReflection>(width));
-
     // Copy current pressure values.
     for (uint32_t y = 0; y < height; ++y) {
         for (uint32_t x = 0; x < width; ++x) {
@@ -722,34 +654,22 @@ void WorldPressureCalculator::applyPressureDiffusion(World& world, double deltaT
                     else {
                         const Cell& neighbor = world.at(nx, ny);
 
-                        // Walls reflect pressure back.
+                        // Walls act as no-flux boundaries (ghost cell method).
                         if (neighbor.material_type == MaterialType::WALL) {
-                            // Skip harmonic mean for walls, use cell's diffusion rate directly.
-                            double interface_diffusion_wall =
-                                diffusion_rate * WALL_INTERFACE_FACTOR;
-
-                            // For diagonal neighbors, scale by 1/sqrt(2) to account for distance.
-                            if (dx[i] != 0 && dy[i] != 0) {
-                                interface_diffusion_wall *= 0.707107; // 1/sqrt(2)
-                            }
-
-                            // Calculate potential flux based on pressure difference.
-                            // Assume wall would have half the current pressure if it wasn't solid.
-                            double assumed_wall_pressure = current_pressure * 0;
-                            double pressure_diff = current_pressure - assumed_wall_pressure;
-                            double potential_flux = interface_diffusion_wall * pressure_diff;
-
-                            // Track this blocked flux for reflection.
-                            wall_reflections_[y][x].blocked_flux += potential_flux;
-                            wall_reflections_[y][x].reflection_count++;
-                            continue;
+                            neighbor_pressure = current_pressure;
+                            neighbor_diffusion = diffusion_rate;
                         }
-
                         // Empty cells act as pressure sinks.
-                        neighbor_pressure = neighbor.isEmpty() ? 0.0 : neighbor.pressure;
-                        neighbor_diffusion = neighbor.isEmpty()
-                            ? 1.0
-                            : getMaterialProperties(neighbor.material_type).pressure_diffusion;
+                        else if (neighbor.isEmpty()) {
+                            neighbor_pressure = 0.0;
+                            neighbor_diffusion = 1.0;
+                        }
+                        // Normal material cells.
+                        else {
+                            neighbor_pressure = neighbor.pressure;
+                            neighbor_diffusion =
+                                getMaterialProperties(neighbor.material_type).pressure_diffusion;
+                        }
                     }
 
                     // Pressure flows from high to low.
@@ -791,31 +711,22 @@ void WorldPressureCalculator::applyPressureDiffusion(World& world, double deltaT
                     else {
                         const Cell& neighbor = world.at(nx, ny);
 
-                        // Walls reflect pressure back.
+                        // Walls act as no-flux boundaries (ghost cell method).
                         if (neighbor.material_type == MaterialType::WALL) {
-                            // Skip harmonic mean for walls, use cell's diffusion rate directly.
-                            double interface_diffusion_wall =
-                                diffusion_rate * WALL_INTERFACE_FACTOR;
-
-                            // No diagonal scaling needed in 4-neighbor case.
-
-                            // Calculate potential flux based on pressure difference.
-                            // Assume wall would have half the current pressure if it wasn't solid.
-                            double assumed_wall_pressure = current_pressure * 0.5;
-                            double pressure_diff = current_pressure - assumed_wall_pressure;
-                            double potential_flux = interface_diffusion_wall * pressure_diff;
-
-                            // Track this blocked flux for reflection.
-                            wall_reflections_[y][x].blocked_flux += potential_flux;
-                            wall_reflections_[y][x].reflection_count++;
-                            continue;
+                            neighbor_pressure = current_pressure;
+                            neighbor_diffusion = diffusion_rate;
                         }
-
                         // Empty cells act as pressure sinks.
-                        neighbor_pressure = neighbor.isEmpty() ? 0.0 : neighbor.pressure;
-                        neighbor_diffusion = neighbor.isEmpty()
-                            ? 1.0
-                            : getMaterialProperties(neighbor.material_type).pressure_diffusion;
+                        else if (neighbor.isEmpty()) {
+                            neighbor_pressure = 0.0;
+                            neighbor_diffusion = 1.0;
+                        }
+                        // Normal material cells.
+                        else {
+                            neighbor_pressure = neighbor.pressure;
+                            neighbor_diffusion =
+                                getMaterialProperties(neighbor.material_type).pressure_diffusion;
+                        }
                     }
 
                     double pressure_diff = neighbor_pressure - current_pressure;
@@ -836,8 +747,8 @@ void WorldPressureCalculator::applyPressureDiffusion(World& world, double deltaT
 
             // Limit maximum pressure change per timestep to prevent explosions.
             // This ensures CFL stability for explicit diffusion scheme.
-            double max_change =
-                current_pressure * 0.5 + 0.1; // Max 50% change + small absolute floor.
+            // Symmetric 50% limit prevents both runaway growth and oscillations.
+            double max_change = current_pressure * 0.5;
             if (std::abs(pressure_change) > max_change) {
                 pressure_change = std::copysign(max_change, pressure_change);
             }
@@ -851,41 +762,41 @@ void WorldPressureCalculator::applyPressureDiffusion(World& world, double deltaT
         }
     }
 
-    // Apply wall reflections before finalizing pressure values.
-    for (uint32_t y = 0; y < height; ++y) {
-        for (uint32_t x = 0; x < width; ++x) {
-            // Skip cells with no blocked flux.
-            if (wall_reflections_[y][x].blocked_flux <= 0.0) {
-                continue;
-            }
-
-            size_t idx = y * width + x;
-            const Cell& cell = world.at(x, y);
-
-            // Calculate reflection coefficient based on material.
-            double reflection_coeff = calculateDiffusionReflectionCoefficient(
-                cell.material_type, wall_reflections_[y][x].blocked_flux);
-
-            // Apply reflected pressure.
-            double reflected_pressure = wall_reflections_[y][x].blocked_flux * reflection_coeff;
-            new_pressure[idx] += reflected_pressure * deltaTime;
-
-            // Ensure pressure stays positive.
-            if (new_pressure[idx] < 0.0) {
-                new_pressure[idx] = 0.0;
-            }
-
-            spdlog::trace(
-                "Pressure reflection at ({},{}) - material={}, blocked_flux={:.6f}, "
-                "reflection_coeff={:.3f}, added_pressure={:.6f}",
-                x,
-                y,
-                getMaterialName(cell.material_type),
-                wall_reflections_[y][x].blocked_flux,
-                reflection_coeff,
-                reflected_pressure * deltaTime);
-        }
-    }
+    // // Apply wall reflections before finalizing pressure values.
+    // for (uint32_t y = 0; y < height; ++y) {
+    //     for (uint32_t x = 0; x < width; ++x) {
+    //         // Skip cells with no blocked flux.
+    //         if (wall_reflections_[y][x].blocked_flux <= 0.0) {
+    //             continue;
+    //         }
+    //
+    //         size_t idx = y * width + x;
+    //         const Cell& cell = world.at(x, y);
+    //
+    //         // Calculate reflection coefficient based on material.
+    //         double reflection_coeff = calculateDiffusionReflectionCoefficient(
+    //             cell.material_type, wall_reflections_[y][x].blocked_flux);
+    //
+    //         // Apply reflected pressure.
+    //         double reflected_pressure = wall_reflections_[y][x].blocked_flux * reflection_coeff;
+    //         new_pressure[idx] += reflected_pressure * deltaTime;
+    //
+    //         // Ensure pressure stays positive.
+    //         if (new_pressure[idx] < 0.0) {
+    //             new_pressure[idx] = 0.0;
+    //         }
+    //
+    //         spdlog::trace(
+    //             "Pressure reflection at ({},{}) - material={}, blocked_flux={:.6f}, "
+    //             "reflection_coeff={:.3f}, added_pressure={:.6f}",
+    //             x,
+    //             y,
+    //             getMaterialName(cell.material_type),
+    //             wall_reflections_[y][x].blocked_flux,
+    //             reflection_coeff,
+    //             reflected_pressure * deltaTime);
+    //     }
+    // }
 
     // Apply the new pressure values.
     for (uint32_t y = 0; y < height; ++y) {
@@ -894,14 +805,15 @@ void WorldPressureCalculator::applyPressureDiffusion(World& world, double deltaT
             Cell& cell = world.at(x, y);
             double old_pressure = cell.pressure;
             double new_unified_pressure = new_pressure[idx];
-            cell.pressure = new_unified_pressure;
 
-            // Update components proportionally based on diffusion.
-            if (old_pressure > 0.0) {
-                double ratio = new_unified_pressure / old_pressure;
-                cell.hydrostatic_component = cell.hydrostatic_component * ratio;
-                cell.dynamic_component = cell.dynamic_component * ratio;
-            }
+            // Diffusion only affects dynamic component (transient waves).
+            // Hydrostatic pressure is recalculated from geometry each frame.
+            double pressure_change = new_unified_pressure - old_pressure;
+            double new_dynamic = cell.dynamic_component + pressure_change;
+            new_dynamic = std::max(0.0, new_dynamic); // Can't go negative.
+
+            cell.dynamic_component = new_dynamic;
+            cell.pressure = cell.hydrostatic_component + new_dynamic;
         }
     }
 }

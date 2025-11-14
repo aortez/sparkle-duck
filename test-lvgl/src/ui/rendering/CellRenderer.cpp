@@ -484,25 +484,27 @@ void CellRenderer::renderCellDirectOptimized(
                 lv_draw_line(&layer, &line_dsc);
             }
 
-            // Pressure visualization (borders showing magnitude).
+            // Pressure visualization (fixed-width borders with variable opacity).
             if (scaledCellWidth_ >= 10) {
-                // Calculate border widths from pressure components.
-                const double PRESSURE_BORDER_SCALE = 3.0;
-                int dynamic_border_width = std::min(
-                    static_cast<int>(cell.dynamic_component * PRESSURE_BORDER_SCALE * scaleX_),
-                    static_cast<int>(scaledCellWidth_ / 3));
-                int hydrostatic_border_width = std::min(
-                    static_cast<int>(cell.hydrostatic_component * PRESSURE_BORDER_SCALE * scaleX_),
-                    static_cast<int>(scaledCellWidth_ / 3));
+                // Fixed border widths.
+                const int FIXED_BORDER_WIDTH = std::max(1, static_cast<int>(2 * scaleX_));
+
+                // Calculate opacity from pressure components.
+                // Scale pressure values to opacity range [0, 255].
+                const double PRESSURE_OPACITY_SCALE = 25.0;
+                int dynamic_opacity = std::min(
+                    static_cast<int>(cell.dynamic_component * PRESSURE_OPACITY_SCALE), 255);
+                int hydrostatic_opacity = std::min(
+                    static_cast<int>(cell.hydrostatic_component * PRESSURE_OPACITY_SCALE), 255);
 
                 // Dynamic pressure border (magenta outer).
-                if (dynamic_border_width > 0) {
+                if (dynamic_opacity > 0) {
                     lv_draw_rect_dsc_t dynamic_dsc;
                     lv_draw_rect_dsc_init(&dynamic_dsc);
                     dynamic_dsc.bg_opa = LV_OPA_TRANSP;
                     dynamic_dsc.border_color = lv_color_hex(0xFF00FF); // Magenta.
-                    dynamic_dsc.border_opa = LV_OPA_COVER;
-                    dynamic_dsc.border_width = dynamic_border_width;
+                    dynamic_dsc.border_opa = static_cast<lv_opa_t>(dynamic_opacity);
+                    dynamic_dsc.border_width = FIXED_BORDER_WIDTH;
                     dynamic_dsc.radius = 0;
 
                     lv_area_t dynamic_coords = { cellX,
@@ -513,16 +515,17 @@ void CellRenderer::renderCellDirectOptimized(
                 }
 
                 // Hydrostatic pressure border (red inner).
-                if (hydrostatic_border_width > 0) {
+                if (hydrostatic_opacity > 0) {
                     lv_draw_rect_dsc_t hydro_dsc;
                     lv_draw_rect_dsc_init(&hydro_dsc);
                     hydro_dsc.bg_opa = LV_OPA_TRANSP;
                     hydro_dsc.border_color = lv_color_hex(0xFF0000); // Red.
-                    hydro_dsc.border_opa = LV_OPA_COVER;
-                    hydro_dsc.border_width = hydrostatic_border_width;
+                    hydro_dsc.border_opa = static_cast<lv_opa_t>(hydrostatic_opacity);
+                    hydro_dsc.border_width = FIXED_BORDER_WIDTH;
                     hydro_dsc.radius = 0;
 
-                    int inset = dynamic_border_width;
+                    // Inset by fixed border width for nesting.
+                    int inset = FIXED_BORDER_WIDTH;
                     lv_area_t hydro_coords = {
                         cellX + inset,
                         cellY + inset,
@@ -535,7 +538,7 @@ void CellRenderer::renderCellDirectOptimized(
 
             // Pressure gradient vector (cyan line from center).
             if (scaledCellWidth_ >= 12 && cell.pressure_gradient.magnitude() > 0.001) {
-                const double GRADIENT_SCALE = 15.0 * scaleX_;
+                const double GRADIENT_SCALE = scaleX_;
                 int end_x =
                     com_pixel_x + static_cast<int>(cell.pressure_gradient.x * GRADIENT_SCALE);
                 int end_y =
