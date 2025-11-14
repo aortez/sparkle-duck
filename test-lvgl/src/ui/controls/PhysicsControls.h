@@ -39,10 +39,11 @@ private:
     lv_obj_t* column3_ = nullptr;
 
     // Column 1: General Physics widgets.
-    lv_obj_t* timescaleControl_ = nullptr;
-    lv_obj_t* gravityControl_ = nullptr;
-    lv_obj_t* elasticityControl_ = nullptr;
     lv_obj_t* airResistanceControl_ = nullptr;
+    lv_obj_t* elasticityControl_ = nullptr;
+    lv_obj_t* gravityControl_ = nullptr;
+    lv_obj_t* swapEnabledControl_ = nullptr;
+    lv_obj_t* timescaleControl_ = nullptr;
 
     // Column 2: Pressure widgets.
     lv_obj_t* hydrostaticPressureControl_ = nullptr;
@@ -57,14 +58,15 @@ private:
     lv_obj_t* frictionControl_ = nullptr;
 
     // Event handlers for Column 1 (General Physics).
-    static void onTimescaleToggled(lv_event_t* e);
-    static void onTimescaleChanged(lv_event_t* e);
-    static void onGravityToggled(lv_event_t* e);
-    static void onGravityChanged(lv_event_t* e);
-    static void onElasticityToggled(lv_event_t* e);
-    static void onElasticityChanged(lv_event_t* e);
-    static void onAirResistanceToggled(lv_event_t* e);
     static void onAirResistanceChanged(lv_event_t* e);
+    static void onAirResistanceToggled(lv_event_t* e);
+    static void onElasticityChanged(lv_event_t* e);
+    static void onElasticityToggled(lv_event_t* e);
+    static void onGravityChanged(lv_event_t* e);
+    static void onGravityToggled(lv_event_t* e);
+    static void onSwapEnabledToggled(lv_event_t* e);
+    static void onTimescaleChanged(lv_event_t* e);
+    static void onTimescaleToggled(lv_event_t* e);
 
     // Event handlers for Column 2 (Pressure).
     static void onHydrostaticPressureToggled(lv_event_t* e);

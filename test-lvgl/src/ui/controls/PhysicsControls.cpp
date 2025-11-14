@@ -81,6 +81,12 @@ PhysicsControls::PhysicsControls(lv_obj_t* container, WebSocketClient* wsClient)
                                 .onSliderChange(onAirResistanceChanged, this)
                                 .buildOrLog();
 
+    swapEnabledControl_ = LVGLBuilder::labeledSwitch(column1_)
+                              .label("Enable Swap")
+                              .initialState(false)
+                              .callback(onSwapEnabledToggled, this)
+                              .buildOrLog();
+
     // Column 2: Pressure.
     column2_ = lv_obj_create(container_);
     lv_obj_set_size(column2_, LV_PCT(30), LV_SIZE_CONTENT);
@@ -279,6 +285,16 @@ void PhysicsControls::updateFromSettings(const PhysicsSettings& settings)
     updateToggleSlider(viscosityControl_, settings.viscosity_strength, settings.viscosity_enabled);
     updateToggleSlider(frictionControl_, settings.friction_strength, settings.friction_enabled);
 
+    // Update swap toggle.
+    if (swapEnabledControl_) {
+        if (settings.swap_enabled) {
+            lv_obj_add_state(swapEnabledControl_, LV_STATE_CHECKED);
+        }
+        else {
+            lv_obj_remove_state(swapEnabledControl_, LV_STATE_CHECKED);
+        }
+    }
+
     spdlog::info("PhysicsControls: UI updated from server settings");
 }
 
@@ -419,6 +435,18 @@ void PhysicsControls::onAirResistanceChanged(lv_event_t* e)
     double scaledValue = value * 0.01;
     spdlog::info("PhysicsControls: Air Resistance changed to {:.2f}", scaledValue);
     self->settings_.air_resistance = scaledValue;
+    self->syncSettings();
+}
+
+void PhysicsControls::onSwapEnabledToggled(lv_event_t* e)
+{
+    lv_obj_t* target = static_cast<lv_obj_t*>(lv_event_get_target(e));
+    PhysicsControls* self = static_cast<PhysicsControls*>(lv_obj_get_user_data(target));
+    if (!self) return;
+
+    bool enabled = lv_obj_has_state(target, LV_STATE_CHECKED);
+    spdlog::info("PhysicsControls: Enable Swap toggled to {}", enabled ? "ON" : "OFF");
+    self->settings_.swap_enabled = enabled;
     self->syncSettings();
 }
 

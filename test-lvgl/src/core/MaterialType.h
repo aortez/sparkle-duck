@@ -34,6 +34,8 @@ struct MaterialProperties {
     double adhesion;                     // Binding strength to other materials.
     double air_resistance;               // Air drag coefficient [0.0-1.0].
     double com_mass_constant;            // Material-specific constant for mass-based COM cohesion.
+    double hydrostatic_weight;           // Hydrostatic pressure sensitivity [0.0-1.0].
+    double dynamic_weight;               // Dynamic pressure sensitivity [0.0-1.0].
     double pressure_diffusion;           // Pressure propagation rate [0.0-1.0].
     double viscosity;                    // Flow resistance [0.0-1.0].
     double motion_sensitivity;           // How much motion state affects viscosity [0.0-1.0].

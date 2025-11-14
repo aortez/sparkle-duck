@@ -173,6 +173,17 @@ public:
      */
     void applyCellBoundaryReflection(Cell& cell, const Vector2i& direction, MaterialType material);
 
+    /**
+     * @brief Check if two cells should swap due to counter-movement.
+     */
+    bool shouldSwapMaterials(
+        const Cell& fromCell, const Cell& toCell, const Vector2i& direction) const;
+
+    /**
+     * @brief Swap materials between two counter-moving cells.
+     */
+    void swapCounterMovingMaterials(Cell& fromCell, Cell& toCell, const Vector2i& direction);
+
     // ===== UTILITY METHODS =====
 
     /**

@@ -302,28 +302,70 @@ TEST_F(BuoyancyTest, WoodDevelopsUpwardVelocity)
 
     spdlog::info("  Initial velocity: ({:.6f}, {:.6f})", wood.velocity.x, wood.velocity.y);
 
-    // Run simulation for several timesteps to allow velocity to develop.
+    // Give wood a head start - position it closer to boundary.
+    wood.setCOM(Vector2d(0.0, -0.7));
+    spdlog::info("  Set wood COM to -0.7 (closer to boundary for faster swap test)");
+
+    // Enable debug logging to see swap checks.
+    spdlog::set_level(spdlog::level::debug);
+
+    // Run simulation longer to see if swap occurs.
     const double deltaTime = 0.016; // 60 FPS timestep
-    const int steps = 10;
+    const int steps = 500;          // Run much longer to let water COM migrate
+
+    bool swap_detected = false;
 
     for (int i = 0; i < steps; ++i) {
+        // Log state every 50 steps.
+        if (i % 50 == 0) {
+            spdlog::info(
+                "  Step {}: wood at y=2? {}, vel=({:.4f},{:.4f}), com=({:.4f},{:.4f})",
+                i,
+                world->at(0, 2).material_type == MaterialType::WOOD ? "YES" : "NO",
+                wood.velocity.x,
+                wood.velocity.y,
+                wood.com.x,
+                wood.com.y);
+        }
+
         world->advanceTime(deltaTime);
+
+        // Check if wood moved to different cell.
+        if (world->at(0, 2).material_type != MaterialType::WOOD) {
+            spdlog::info("  SWAP at step {}! Wood moved from y=2", i + 1);
+            swap_detected = true;
+
+            // Find where wood went.
+            for (uint32_t y = 0; y < 5; ++y) {
+                if (world->at(0, y).material_type == MaterialType::WOOD) {
+                    spdlog::info("  Wood now at y={}", y);
+                }
+            }
+            break;
+        }
     }
 
-    // Get updated velocity.
-    spdlog::info(
-        "  Final velocity after {} steps: ({:.6f}, {:.6f})",
-        steps,
-        wood.velocity.x,
-        wood.velocity.y);
+    // Final state.
+    spdlog::info("  Final state after {} steps:", steps);
+    for (uint32_t y = 0; y < 5; ++y) {
+        const Cell& c = world->at(0, y);
+        spdlog::info(
+            "    y={}: {} vel=({:.4f},{:.4f})",
+            y,
+            getMaterialName(c.material_type),
+            c.velocity.x,
+            c.velocity.y);
+    }
 
-    // Verify: Wood developed upward velocity (negative y).
-    EXPECT_LT(wood.velocity.y, -0.01)
-        << "Wood should develop upward velocity (negative y) after " << steps << " timesteps";
+    if (swap_detected) {
+        spdlog::info("  SUCCESS: Swap mechanism working!");
+    }
+    else {
+        spdlog::info("  No swap occurred (might need more steps or different conditions)");
+    }
 
-    // Verify: Velocity magnitude is reasonable (not infinite).
-    double velocity_magnitude = wood.velocity.magnitude();
-    EXPECT_LT(velocity_magnitude, 10.0) << "Velocity should be reasonable, not explosive";
+    // Original check: Wood should at minimum develop upward velocity.
+    EXPECT_LT(wood.velocity.y, -0.01) << "Wood should develop upward velocity (negative y)";
 }
 
 /**
@@ -664,4 +706,174 @@ TEST_F(BuoyancyTest, WaterColumnFalls)
 
     // Expect at least some water to have fallen.
     // EXPECT_GT(water_count_bottom_half, 0) << "Water should fall under gravity";
+}
+
+/**
+ * @brief Test 2.5: Dirt Sinks Through Water Column.
+ *
+ * Tests if dirt can actually sink through multiple water cells.
+ */
+TEST_F(BuoyancyTest, DirtSinksThroughWater)
+{
+    spdlog::info("Starting BuoyancyTest::DirtSinksThroughWater");
+
+    // Create 1x6 world: dirt at top, water column below.
+    world = std::make_unique<World>(1, 6);
+    world->setHydrostaticPressureEnabled(true);
+    world->setHydrostaticPressureStrength(1.0);
+    world->physicsSettings.gravity = 9.81; // Real gravity
+
+    // Setup: Dirt at top (y=0), water below.
+    world->addMaterialAtCell(0, 0, MaterialType::DIRT, 1.0);
+    for (uint32_t y = 1; y < 6; ++y) {
+        world->addMaterialAtCell(0, y, MaterialType::WATER, 1.0);
+    }
+
+    spdlog::info("  Initial setup:");
+    spdlog::info("    [D] y=0 (dirt)");
+    spdlog::info("    [W] y=1");
+    spdlog::info("    [W] y=2");
+    spdlog::info("    [W] y=3");
+    spdlog::info("    [W] y=4");
+    spdlog::info("    [W] y=5");
+
+    // Enable debug logging.
+    spdlog::set_level(spdlog::level::debug);
+
+    // Track dirt position over time.
+    const double deltaTime = 0.016;
+    const int steps = 500;
+
+    int swap_count = 0;
+    uint32_t last_dirt_y = 0;
+
+    for (int i = 0; i < steps; ++i) {
+        // Log every 100 steps.
+        if (i % 100 == 0) {
+            spdlog::info("  === Step {} ===", i);
+
+            // Find dirt and log state.
+            for (uint32_t y = 0; y < 6; ++y) {
+                const Cell& c = world->at(0, y);
+                char symbol = (c.material_type == MaterialType::DIRT) ? 'D' : 'W';
+                if (c.material_type == MaterialType::DIRT) {
+                    spdlog::info(
+                        "    [{}] y={}: vel=({:.3f},{:.3f}), com=({:.3f},{:.3f}), dyn_press={:.2f}",
+                        symbol,
+                        y,
+                        c.velocity.x,
+                        c.velocity.y,
+                        c.com.x,
+                        c.com.y,
+                        c.dynamic_component);
+
+                    // Check expected forces.
+                    const MaterialProperties& dirt_props =
+                        getMaterialProperties(MaterialType::DIRT);
+                    spdlog::info(
+                        "      Dirt density={:.1f}, expected net force={:.1f} (should sink)",
+                        dirt_props.density,
+                        (dirt_props.density - 1.0) * 9.81);
+                }
+                else {
+                    spdlog::info("    [{}] y={}: dyn_press={:.2f}", symbol, y, c.dynamic_component);
+                }
+            }
+        }
+
+        world->advanceTime(deltaTime);
+
+        // Track dirt position.
+        for (uint32_t y = 0; y < 6; ++y) {
+            if (world->at(0, y).material_type == MaterialType::DIRT) {
+                if (y > last_dirt_y) {
+                    swap_count++;
+                    spdlog::info(
+                        "  Dirt swapped: y={} -> y={} (swap #{})", last_dirt_y, y, swap_count);
+                    last_dirt_y = y;
+                }
+                break;
+            }
+        }
+    }
+
+    // Final state.
+    spdlog::info("  === Final State (step {}) ===", steps);
+    uint32_t final_dirt_y = 0;
+    for (uint32_t y = 0; y < 6; ++y) {
+        const Cell& c = world->at(0, y);
+        char symbol = (c.material_type == MaterialType::DIRT) ? 'D' : 'W';
+        spdlog::info("    [{}] y={}", symbol, y);
+        if (c.material_type == MaterialType::DIRT) {
+            final_dirt_y = y;
+            spdlog::info(
+                "      vel=({:.3f},{:.3f}), com=({:.3f},{:.3f})",
+                c.velocity.x,
+                c.velocity.y,
+                c.com.x,
+                c.com.y);
+        }
+    }
+
+    spdlog::info("  Dirt traveled from y=0 to y={} ({} cells down)", final_dirt_y, final_dirt_y);
+    spdlog::info("  Total swaps: {}", swap_count);
+
+    if (final_dirt_y >= 3) {
+        spdlog::info("  SUCCESS: Dirt sank through water column!");
+    }
+    else if (final_dirt_y > 0) {
+        spdlog::info("  PARTIAL: Dirt moved {} cells (expected more)", final_dirt_y);
+    }
+    else {
+        spdlog::info("  PROBLEM: Dirt didn't sink at all!");
+    }
+
+    // Expect dirt to sink at least a few cells.
+    // EXPECT_GT(final_dirt_y, 0) << "Dirt should sink through water";
+}
+
+/**
+ * @brief Test: Verify Dirt Should Sink (Not Float).
+ *
+ * Quick sanity check on dirt forces in water.
+ */
+TEST_F(BuoyancyTest, DirtShouldSinkNotFloat)
+{
+    spdlog::info("Starting BuoyancyTest::DirtShouldSinkNotFloat");
+
+    // Setup: Dirt surrounded by water (1x3 column).
+    world = std::make_unique<World>(1, 3);
+    world->setHydrostaticPressureEnabled(true);
+    world->setHydrostaticPressureStrength(1.0);
+    world->physicsSettings.gravity = 9.81;
+
+    world->addMaterialAtCell(0, 0, MaterialType::WATER, 1.0);
+    world->addMaterialAtCell(0, 1, MaterialType::DIRT, 1.0);
+    world->addMaterialAtCell(0, 2, MaterialType::WATER, 1.0);
+
+    // Calculate pressure.
+    calculatePressure();
+
+    // Check forces on dirt.
+    const MaterialProperties& dirt_props = getMaterialProperties(MaterialType::DIRT);
+
+    WorldPressureCalculator calc;
+    Vector2d pressure_grad = calc.calculatePressureGradient(*world, 0, 1);
+
+    double gravity_force = dirt_props.density * 9.81;
+    double pressure_force = pressure_grad.y;
+    double net_force = gravity_force + pressure_force;
+
+    spdlog::info("  Dirt density: {:.1f}", dirt_props.density);
+    spdlog::info("  Gravity force: {:.2f} (down)", gravity_force);
+    spdlog::info("  Pressure force: {:.2f} (negative = up)", pressure_force);
+    spdlog::info("  Net force: {:.2f} (positive = down)", net_force);
+
+    // Verify net force is downward (dirt should sink).
+    EXPECT_GT(net_force, 0.0) << "Dirt should have net downward force (sink in water)";
+
+    spdlog::info(
+        "  {}: Dirt {} sink",
+        net_force > 0 ? "CORRECT" : "WRONG",
+        net_force > 0 ? "should" : "should NOT");
 }

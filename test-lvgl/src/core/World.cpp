@@ -859,6 +859,15 @@ void World::processMaterialMoves()
             }
         }
 
+        // Check if materials should swap instead of colliding (if enabled).
+        if (physicsSettings.swap_enabled) {
+            Vector2i direction(move.toX - move.fromX, move.toY - move.fromY);
+            if (collision_calculator_.shouldSwapMaterials(fromCell, toCell, direction)) {
+                collision_calculator_.swapCounterMovingMaterials(fromCell, toCell, direction);
+                continue; // Skip normal collision handling.
+            }
+        }
+
         // Handle collision during the move based on collision_type.
         if (move.collision_type != CollisionType::TRANSFER_ONLY) {
             spdlog::debug(

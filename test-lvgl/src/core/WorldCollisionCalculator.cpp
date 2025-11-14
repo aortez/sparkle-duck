@@ -727,6 +727,66 @@ void WorldCollisionCalculator::applyCellBoundaryReflection(
         com.y);
 }
 
+bool WorldCollisionCalculator::shouldSwapMaterials(
+    const Cell& fromCell, const Cell& toCell, const Vector2i& direction) const
+{
+    // Only vertical swaps for now (buoyancy is primarily vertical).
+    if (direction.y == 0) {
+        return false;
+    }
+
+    // Dynamic pressure threshold - indicates gridlock from blocked transfers.
+    constexpr double MIN_DYNAMIC_PRESSURE = 5.0;
+
+    // Check dynamic pressure (gridlock indicator).
+    double from_dynamic = fromCell.dynamic_component;
+    double to_dynamic = toCell.dynamic_component;
+    bool pressure_indicates_gridlock =
+        (from_dynamic > MIN_DYNAMIC_PRESSURE) || (to_dynamic > MIN_DYNAMIC_PRESSURE);
+
+    spdlog::debug(
+        "Swap check: from_dyn={:.2f} to_dyn={:.2f} -> {}",
+        from_dynamic,
+        to_dynamic,
+        pressure_indicates_gridlock ? "SWAP" : "NO");
+
+    return pressure_indicates_gridlock;
+}
+
+void WorldCollisionCalculator::swapCounterMovingMaterials(
+    Cell& fromCell, Cell& toCell, const Vector2i& direction)
+{
+    spdlog::info(
+        "SWAP: {} <-> {} (direction: {},{})",
+        getMaterialName(fromCell.material_type),
+        getMaterialName(toCell.material_type),
+        direction.x,
+        direction.y);
+
+    // Swap material types and fill ratios (conserve mass).
+    MaterialType temp_type = fromCell.material_type;
+    double temp_fill = fromCell.fill_ratio;
+    uint32_t temp_organism = fromCell.organism_id;
+
+    fromCell.material_type = toCell.material_type;
+    fromCell.fill_ratio = toCell.fill_ratio;
+    fromCell.organism_id = toCell.organism_id;
+
+    toCell.material_type = temp_type;
+    toCell.fill_ratio = temp_fill;
+    toCell.organism_id = temp_organism;
+
+    // Zero velocities to prevent rapid re-swap.
+    fromCell.velocity = Vector2d(0.0, 0.0);
+    toCell.velocity = Vector2d(0.0, 0.0);
+
+    // Center COMs to prevent immediate re-swap.
+    fromCell.setCOM(Vector2d(0.0, 0.0));
+    toCell.setCOM(Vector2d(0.0, 0.0));
+
+    spdlog::info("SWAP complete: COMs repositioned for continued motion");
+}
+
 // =================================================================
 // UTILITY METHODS.
 // =================================================================

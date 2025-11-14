@@ -23,10 +23,11 @@ struct PhysicsSettings {
     double gravity = 9.81;
     double pressure_dynamic_strength = 1.0;
     bool pressure_dynamic_enabled = true;
-    double pressure_hydrostatic_strength = 1.0;
+    double pressure_hydrostatic_strength = 0.3;
     bool pressure_hydrostatic_enabled = true;
     double pressure_scale = 1.0;
     double pressure_diffusion_strength = 1.0;
+    bool swap_enabled = false;
     double timescale = 1.0;
     double viscosity_strength = 1.0;
     bool viscosity_enabled = true;
