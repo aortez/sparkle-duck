@@ -256,6 +256,7 @@ void ControlPanel::onScenarioChanged(lv_event_t* e)
     if (panel->wsClient_ && panel->wsClient_->isConnected()) {
         DirtSim::Api::SimRun::Command cmd;
         cmd.scenario_id = scenario_id;
+        cmd.max_frame_ms = 16; // Cap at 60 FPS for UI visualization.
         // Keep default timestep and max_steps.
 
         nlohmann::json json = cmd.toJson();

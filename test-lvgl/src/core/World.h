@@ -14,6 +14,7 @@
 #include "WorldFrictionCalculator.h"
 #include "WorldPressureCalculator.h"
 #include "WorldSupportCalculator.h"
+#include "organisms/TreeTypes.h"
 
 #include <cstdint>
 #include <memory>
@@ -27,6 +28,9 @@
  */
 
 namespace DirtSim {
+
+// Forward declaration.
+class TreeManager;
 
 class World {
 public:
@@ -223,6 +227,13 @@ public:
     // Add material at specific cell coordinates.
     void addMaterialAtCell(uint32_t x, uint32_t y, MaterialType type, double amount = 1.0);
 
+    /**
+     * Record an organism material transfer for efficient TreeManager tracking.
+     * Called during physics transfers to maintain organism ownership consistency.
+     */
+    void recordOrganismTransfer(
+        int fromX, int fromY, int toX, int toY, TreeId organism_id, double amount);
+
     static constexpr double MIN_MATTER_THRESHOLD = 0.001; // minimum matter to process.
 
     // Distance-based cohesion decay constants
@@ -321,6 +332,9 @@ public:
 
     // Material transfer queue (internal simulation state).
     std::vector<MaterialMove> pending_moves_;
+
+    // Organism transfer tracking (for efficient TreeManager updates).
+    std::vector<OrganismTransfer> organism_transfers_;
 
     // Performance timing.
     mutable Timers timers_;

@@ -135,6 +135,9 @@ static void run_loop_wayland(DirtSim::Ui::StateMachine& sm)
         // Process UI state machine events.
         sm.processEvents();
 
+        // Update background animations (event-driven, no timer).
+        sm.updateAnimations();
+
         // Process LVGL timer events.
         completed = lv_wayland_timer_handler();
 

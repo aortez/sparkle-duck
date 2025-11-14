@@ -3,10 +3,13 @@
 #include "Cell.h"
 #include "ReflectSerializer.h"
 #include "ScenarioConfig.h"
+#include "organisms/TreeTypes.h"
 #include <cstdint>
 #include <nlohmann/json.hpp>
+#include <optional>
 #include <string>
 #include <vector>
+#include <zpp_bits.h>
 
 namespace DirtSim {
 
@@ -33,7 +36,38 @@ struct WorldData {
     // Scenario metadata and configuration.
     std::string scenario_id = "empty";
     ScenarioConfig scenario_config = EmptyConfig{};
+
+    // Tree organism data (optional - only present when showing a tree's vision).
+    std::optional<TreeSensoryData> tree_vision;
+
+    // Custom zpp_bits serialization (all 10 fields).
+    using serialize = zpp::bits::members<10>;
 };
+
+/**
+ * Optional serialization helpers for nlohmann::json.
+ */
+template <typename T>
+void to_json(nlohmann::json& j, const std::optional<T>& opt)
+{
+    if (opt.has_value()) {
+        j = opt.value();
+    }
+    else {
+        j = nullptr;
+    }
+}
+
+template <typename T>
+void from_json(const nlohmann::json& j, std::optional<T>& opt)
+{
+    if (j.is_null()) {
+        opt.reset();
+    }
+    else {
+        opt = j.get<T>();
+    }
+}
 
 /**
  * ADL (Argument-Dependent Lookup) functions for nlohmann::json automatic conversion.

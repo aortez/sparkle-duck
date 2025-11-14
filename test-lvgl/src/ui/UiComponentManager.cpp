@@ -73,6 +73,12 @@ lv_obj_t* UiComponentManager::getWorldDisplayArea()
     return simWorldDisplayArea_;
 }
 
+lv_obj_t* UiComponentManager::getNeuralGridDisplayArea()
+{
+    getSimulationContainer(); // Ensure layout is created.
+    return simNeuralGridDisplayArea_;
+}
+
 lv_obj_t* UiComponentManager::getMainMenuContainer()
 {
     if (!display) return nullptr;
@@ -196,14 +202,25 @@ void UiComponentManager::createSimulationLayout()
     lv_obj_set_style_border_width(simScenarioControlsArea_, 0, 0);
     lv_obj_set_style_bg_opa(simScenarioControlsArea_, LV_OPA_TRANSP, 0);
 
-    // World display area (flex-grow to fill remaining horizontal and vertical space).
+    // World display area (flex-grow to fill 50% of horizontal space).
     simWorldDisplayArea_ = lv_obj_create(simTopRow_);
     lv_obj_set_size(simWorldDisplayArea_, LV_PCT(100), LV_PCT(100)); // Fill parent.
-    lv_obj_set_flex_grow(simWorldDisplayArea_, 1);
+    lv_obj_set_flex_grow(simWorldDisplayArea_, 1);                   // 50% split with neural grid.
     lv_obj_set_style_pad_all(simWorldDisplayArea_, 0, 0);
     lv_obj_set_style_border_width(simWorldDisplayArea_, 0, 0);
     lv_obj_set_style_bg_opa(simWorldDisplayArea_, LV_OPA_TRANSP, 0);
     lv_obj_clear_flag(simWorldDisplayArea_, LV_OBJ_FLAG_SCROLLABLE); // Disable scrolling.
+
+    // Neural grid display area (flex-grow to fill remaining 50% of horizontal space).
+    simNeuralGridDisplayArea_ = lv_obj_create(simTopRow_);
+    lv_obj_set_size(simNeuralGridDisplayArea_, LV_PCT(100), LV_PCT(100)); // Fill parent.
+    lv_obj_set_flex_grow(simNeuralGridDisplayArea_, 1); // 50% split with world view.
+    lv_obj_set_style_pad_all(simNeuralGridDisplayArea_, 5, 0);
+    lv_obj_set_style_border_width(simNeuralGridDisplayArea_, 1, 0);
+    lv_obj_set_style_border_color(simNeuralGridDisplayArea_, lv_color_hex(0x606060), 0);
+    lv_obj_set_style_bg_color(
+        simNeuralGridDisplayArea_, lv_color_hex(0x303030), 0);            // Dark background.
+    lv_obj_clear_flag(simNeuralGridDisplayArea_, LV_OBJ_FLAG_SCROLLABLE); // Disable scrolling.
 
     // CellRenderer uses absolute positioning and calculates centering offset.
 

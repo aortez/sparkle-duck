@@ -138,6 +138,26 @@ void SimRunning::tick(StateMachine& dsm)
         }
     }
 
+    // Populate tree vision data (if any trees exist).
+    const auto& trees = world->getTreeManager().getTrees();
+    if (!trees.empty()) {
+        // For now, show the first tree's vision (simple selection).
+        const auto& firstTree = trees.begin()->second;
+        world->data.tree_vision = firstTree.gatherSensoryData(*world);
+
+        if (stepCount % 100 == 0) {
+            spdlog::info(
+                "SimRunning: Tree vision active (tree_id={}, age={}, stage={})",
+                firstTree.id,
+                firstTree.age,
+                static_cast<int>(firstTree.stage));
+        }
+    }
+    else {
+        // No trees - clear tree vision.
+        world->data.tree_vision.reset();
+    }
+
     // Update StateMachine's cached WorldData after all physics steps complete.
     dsm.getTimers().startTimer("cache_update");
     dsm.updateCachedWorldData(world->data);
@@ -169,7 +189,7 @@ void SimRunning::tick(StateMachine& dsm)
         static double totalSerializeMs = 0.0;
         sendCount++;
         totalSerializeMs += serializeMs;
-        if (sendCount % 100 == 0) {
+        if (sendCount % 1000 == 0) {
             spdlog::info(
                 "Server: Serialization avg {:.1f}ms over {} frames (latest: {}ms, {} bytes, {} "
                 "cells)",
@@ -405,9 +425,9 @@ State::Any SimRunning::onEvent(const Api::FrameReady::Cwc& cwc, StateMachine& /*
 {
     using Response = Api::FrameReady::Response;
 
-    // frame_ready means the UI is ready for another frame.
-    // We don't use this info currently but we could use it if wanted to Track
-    // the UI's frame rate for some reason.
+    // frame_ready is sent by the UI after rendering a frame (pipelining optimization).
+    // Currently a NO-OP: The server pushes frames continuously via sim_step events,
+    // not in response to frame_ready. This command exists for potential future backpressure.
     spdlog::debug("SimRunning: Received frame_ready (no-op)");
 
     cwc.sendResponse(Response::okay(std::monostate{}));

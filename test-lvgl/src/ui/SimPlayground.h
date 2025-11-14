@@ -16,6 +16,7 @@ class CoreControls;
 class SandboxControls;
 class PhysicsControls;
 class CellRenderer;
+class NeuralGridRenderer;
 class WebSocketClient;
 class EventSink;
 
@@ -45,6 +46,12 @@ public:
     void render(const WorldData& data, bool debugDraw, bool usePixelRenderer = false);
 
     /**
+     * @brief Render neural grid (tree vision).
+     * @param data World data containing tree information.
+     */
+    void renderNeuralGrid(const WorldData& data);
+
+    /**
      * @brief Get physics controls for settings updates.
      */
     PhysicsControls* getPhysicsControls() { return physicsControls_.get(); }
@@ -59,6 +66,7 @@ private:
     std::unique_ptr<SandboxControls> sandboxControls_;
     std::unique_ptr<PhysicsControls> physicsControls_;
     std::unique_ptr<CellRenderer> renderer_;
+    std::unique_ptr<NeuralGridRenderer> neuralGridRenderer_;
 
     // Scenario selector dropdown (persistent across scenario changes).
     lv_obj_t* scenarioDropdown_ = nullptr;

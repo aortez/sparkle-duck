@@ -3,6 +3,7 @@
 #include "controls/PhysicsControls.h"
 #include "controls/SandboxControls.h"
 #include "rendering/CellRenderer.h"
+#include "rendering/NeuralGridRenderer.h"
 #include "server/api/SimRun.h"
 #include "state-machine/EventSink.h"
 #include "state-machine/network/WebSocketClient.h"
@@ -69,6 +70,9 @@ SimPlayground::SimPlayground(
     // Create cell renderer for world display.
     renderer_ = std::make_unique<CellRenderer>();
 
+    // Create neural grid renderer for tree vision display.
+    neuralGridRenderer_ = std::make_unique<NeuralGridRenderer>();
+
     spdlog::info("SimPlayground: Initialized");
 }
 
@@ -108,6 +112,19 @@ void SimPlayground::render(const WorldData& data, bool debugDraw, bool usePixelR
 
     // Render world state (CellRenderer handles initialization/resize internally).
     renderer_->renderWorldData(data, worldContainer, debugDraw, usePixelRenderer);
+}
+
+void SimPlayground::renderNeuralGrid(const WorldData& data)
+{
+    lv_obj_t* neuralGridContainer = uiManager_->getNeuralGridDisplayArea();
+
+    // Render tree vision if available.
+    if (data.tree_vision.has_value()) {
+        neuralGridRenderer_->renderSensoryData(data.tree_vision.value(), neuralGridContainer);
+    }
+    else {
+        neuralGridRenderer_->renderEmpty(neuralGridContainer);
+    }
 }
 
 void SimPlayground::onScenarioChanged(lv_event_t* e)

@@ -7,22 +7,8 @@ namespace DirtSim {
 namespace Ui {
 
 // Rendering performance.
-constexpr int RESOLUTION_DIVISOR = 2; // Render at 1/N resolution (2 = half, 4 = quarter).
-constexpr int RENDER_THREADS = 8;     // Number of parallel threads for fractal calculation.
-
-// Animation constants.
-constexpr double PHASE_SPEED = 0.0000;      // Palette cycling oscillation speed.
-constexpr double MAX_CYCLE_SPEED = 0.1;     // Maximum palette advance per frame.
-constexpr double DETAIL_PHASE_SPEED = 0.01; // Detail level oscillation speed (slower).
-constexpr int MIN_ITERATIONS = 0;           // Minimum iteration count (less detail).
-constexpr int MAX_ITERATIONS = 200;         // Maximum iteration count (more detail).
-
-// Julia set constant (c) oscillation for shape morphing.
-constexpr double C_PHASE_SPEED = 0.01;   // Very slow shape morphing.
-constexpr double C_REAL_CENTER = -0.7;   // Center value for cReal.
-constexpr double C_REAL_AMPLITUDE = 0.5; // How far cReal oscillates (+/-).
-constexpr double C_IMAG_CENTER = 0.27;   // Center value for cImag.
-constexpr double C_IMAG_AMPLITUDE = 0.7; // How far cImag oscillates (+/-).
+constexpr int RENDER_THREADS = 8;        // Number of parallel threads for fractal calculation.
+constexpr double MAX_CYCLE_SPEED = 0.05; // Maximum palette advance per frame.
 
 // Palette extracted from pal.png (256x1).
 constexpr int PALETTE_SIZE = 256;
@@ -287,9 +273,17 @@ constexpr uint32_t PALETTE[PALETTE_SIZE] = {
 
 JuliaFractal::JuliaFractal(lv_obj_t* parent, int windowWidth, int windowHeight)
 {
+    // Initialize random number generator with random seed.
+    std::random_device rd;
+    rng_.seed(rd());
+
+    // Store base window dimensions for dynamic resolution scaling.
+    baseWindowWidth_ = windowWidth;
+    baseWindowHeight_ = windowHeight;
+
     // Render at reduced resolution for performance.
-    width_ = windowWidth / RESOLUTION_DIVISOR;
-    height_ = windowHeight / RESOLUTION_DIVISOR;
+    width_ = windowWidth / currentResolutionDivisor_;
+    height_ = windowHeight / currentResolutionDivisor_;
 
     spdlog::info(
         "JuliaFractal: Creating {}x{} fractal canvas (render), scaling to {}x{} (display)",
@@ -343,6 +337,16 @@ JuliaFractal::JuliaFractal(lv_obj_t* parent, int windowWidth, int windowHeight)
     frontBufferIdx_ = 0;  // Buffer 0 displaying.
     readyBufferIdx_ = 1;  // Buffer 1 ready to swap.
     renderBufferIdx_ = 2; // Buffer 2 will be rendered.
+
+    // Initialize timing for parameter changes and FPS tracking.
+    lastUpdateTime_ =
+        std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
+    lastFpsCheckTime_ = lastUpdateTime_;
+    lastFpsLogTime_ = lastUpdateTime_;
+    lastDisplayUpdateTime_ = lastUpdateTime_;
+
+    // Generate initial random parameters (starts with smooth transition from defaults).
+    generateRandomParameters();
 
     // Start background render thread.
     renderThread_ = std::thread(&JuliaFractal::renderThreadFunc, this);
@@ -471,9 +475,41 @@ void JuliaFractal::updateColors()
 
 void JuliaFractal::update()
 {
+    // Track calls vs actual swaps for debugging.
+    static int totalCalls = 0;
+    static int actualSwaps = 0;
+    static double lastDebugLog = 0.0;
+    totalCalls++;
+
     // Check if background thread has a new frame ready.
     if (!readyBufferAvailable_.load(std::memory_order_acquire)) {
         return; // Nothing to do, wait for next frame.
+    }
+
+    actualSwaps++;
+
+    // Track display-side FPS (how often we actually display a new frame).
+    double currentTime =
+        std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
+
+    // Debug logging every 10 seconds.
+    if (currentTime - lastDebugLog >= 10.0) {
+        double swapRate = actualSwaps / (currentTime - lastDebugLog);
+        double callRate = totalCalls / (currentTime - lastDebugLog);
+        spdlog::info(
+            "JuliaFractal: update() called {:.1f}/sec, swapped {:.1f}/sec", callRate, swapRate);
+        totalCalls = 0;
+        actualSwaps = 0;
+        lastDebugLog = currentTime;
+    }
+
+    double displayDeltaTime = currentTime - lastDisplayUpdateTime_;
+    lastDisplayUpdateTime_ = currentTime;
+
+    if (displayDeltaTime > 0.0 && displayDeltaTime < 0.1) {
+        double displayFps = 1.0 / displayDeltaTime;
+        displayFpsSum_ += displayFps;
+        displayFpsSampleCount_++;
     }
 
     // Swap ready buffer to front (main thread displays it).
@@ -488,18 +524,44 @@ void JuliaFractal::update()
     frontBufferIdx_.store(newFrontIdx, std::memory_order_release);
     readyBufferIdx_.store(oldFrontIdx, std::memory_order_release);
 
-    // Mark canvas as dirty to trigger redraw.
+    // Mark canvas as dirty (let lv_wayland_timer_handler() do the actual repaint).
+    // Do NOT call lv_refr_now() - it blocks for 15-26ms, killing performance.
+    // The simulation uses the same approach (just invalidate, repaint in timer handler).
     lv_obj_invalidate(canvas_);
 
     // Signal that we consumed the ready buffer.
     readyBufferAvailable_.store(false, std::memory_order_release);
+
+    // Check if dynamic resolution scaling triggered a resize.
+    if (resizeNeeded_.load(std::memory_order_acquire)) {
+        resizeNeeded_.store(false, std::memory_order_release);
+
+        // Calculate new dimensions based on current resolution divisor.
+        int newRenderWidth = static_cast<int>(baseWindowWidth_ / currentResolutionDivisor_);
+        int newRenderHeight = static_cast<int>(baseWindowHeight_ / currentResolutionDivisor_);
+
+        spdlog::info(
+            "JuliaFractal: Dynamic resize triggered: {}x{} -> {}x{} (divisor={:.2f})",
+            width_,
+            height_,
+            newRenderWidth,
+            newRenderHeight,
+            currentResolutionDivisor_);
+
+        // Call resize to apply the new resolution.
+        resize(baseWindowWidth_, baseWindowHeight_);
+    }
 }
 
 void JuliaFractal::resize(int newWidth, int newHeight)
 {
-    // Calculate render resolution.
-    int renderWidth = newWidth / RESOLUTION_DIVISOR;
-    int renderHeight = newHeight / RESOLUTION_DIVISOR;
+    // Update base window dimensions (in case this is a real window resize).
+    baseWindowWidth_ = newWidth;
+    baseWindowHeight_ = newHeight;
+
+    // Calculate render resolution using current divisor.
+    int renderWidth = static_cast<int>(newWidth / currentResolutionDivisor_);
+    int renderHeight = static_cast<int>(newHeight / currentResolutionDivisor_);
 
     // Check if resize is needed.
     if (renderWidth == width_ && renderHeight == height_) {
@@ -507,13 +569,15 @@ void JuliaFractal::resize(int newWidth, int newHeight)
     }
 
     spdlog::info(
-        "JuliaFractal: Resizing from {}x{} to {}x{} (render), scaling to {}x{} (display)",
+        "JuliaFractal: Resizing from {}x{} to {}x{} (render), scaling to {}x{} (display), "
+        "divisor={:.2f}",
         width_,
         height_,
         renderWidth,
         renderHeight,
         newWidth,
-        newHeight);
+        newHeight,
+        currentResolutionDivisor_);
 
     // Stop render thread temporarily during resize to avoid race conditions.
     shouldExit_ = true;
@@ -574,11 +638,140 @@ void JuliaFractal::resize(int newWidth, int newHeight)
     spdlog::info("JuliaFractal: Resize complete, render thread restarted");
 }
 
+void JuliaFractal::generateRandomParameters()
+{
+    // Save old parameters for smooth transition.
+    oldCRealCenter_ = cRealCenter_;
+    oldCRealAmplitude_ = cRealAmplitude_;
+    oldCImagCenter_ = cImagCenter_;
+    oldCImagAmplitude_ = cImagAmplitude_;
+    oldDetailPhaseSpeed_ = detailPhaseSpeed_;
+    oldCPhaseSpeed_ = cPhaseSpeed_;
+    oldMinIterations_ = minIterations_;
+    oldMaxIterations_ = maxIterations_;
+
+    // 80% curated regions, 20% random exploration.
+    std::uniform_real_distribution<double> modeDist(0.0, 1.0);
+    bool useCuratedRegion = modeDist(rng_) < 0.8;
+
+    if (useCuratedRegion) {
+        // Pick a random interesting region.
+        std::uniform_int_distribution<int> regionDist(0, NUM_REGIONS - 1);
+        int regionIdx = regionDist(rng_);
+        auto [centerReal, centerImag] = INTERESTING_REGIONS[regionIdx];
+
+        // Add small random variation around the region center.
+        std::normal_distribution<double> variation(0.0, 0.03); // Small jitter.
+        cRealCenter_ = centerReal + variation(rng_);
+        cImagCenter_ = centerImag + variation(rng_);
+
+        spdlog::info(
+            "JuliaFractal: Selected curated region {} - c = {:.4f} + {:.4f}i",
+            regionIdx,
+            cRealCenter_,
+            cImagCenter_);
+    }
+    else {
+        // Random exploration - stay in reasonable bounds.
+        std::uniform_real_distribution<double> realDist(-1.2, 0.5);
+        std::uniform_real_distribution<double> imagDist(-0.8, 0.8);
+        cRealCenter_ = realDist(rng_);
+        cImagCenter_ = imagDist(rng_);
+
+        spdlog::info(
+            "JuliaFractal: Random exploration - c = {:.4f} + {:.4f}i", cRealCenter_, cImagCenter_);
+    }
+
+    // Use smaller oscillation amplitudes to stay near interesting regions.
+    std::uniform_real_distribution<double> ampDist(0.05, 0.15);
+    cRealAmplitude_ = ampDist(rng_);
+    cImagAmplitude_ = ampDist(rng_);
+
+    // Randomize animation speeds.
+    std::uniform_real_distribution<double> cSpeedDist(0.001, 0.025);
+    cPhaseSpeed_ = cSpeedDist(rng_);
+
+    // Slower detail oscillation speed (30-120 second cycles at 60fps).
+    std::uniform_real_distribution<double> detailSpeedDist(0.0015, 0.006);
+    detailPhaseSpeed_ = detailSpeedDist(rng_);
+
+    // Randomize iteration range for detail oscillation.
+    // 5% chance of going to 0, otherwise start at 20-50.
+    std::uniform_real_distribution<double> minModeDist(0.0, 1.0);
+    if (minModeDist(rng_) < 0.05) {
+        minIterations_ = 0; // Cool minimal look sometimes.
+    }
+    else {
+        std::uniform_int_distribution<int> minIterDist(20, 50);
+        minIterations_ = minIterDist(rng_);
+    }
+
+    std::uniform_int_distribution<int> maxIterDist(280, 500);
+    maxIterations_ = maxIterDist(rng_);
+
+    spdlog::info("JuliaFractal: New iteration range [{}, {}]", minIterations_, maxIterations_);
+
+    phaseSpeed_ = 0.1;
+
+    // Next parameter change in 30-60 seconds.
+    std::uniform_real_distribution<double> intervalDist(10.0, 20.0);
+    currentChangeInterval_ = intervalDist(rng_);
+    changeTimer_ = 0.0;
+
+    // Start smooth transition.
+    transitionProgress_ = 0.0;
+}
+
 void JuliaFractal::renderThreadFunc()
 {
     spdlog::info("JuliaFractal: Render thread started");
 
     while (!shouldExit_) {
+        // Calculate delta time for smooth animations.
+        double currentTime =
+            std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch())
+                .count();
+        double deltaTime = currentTime - lastUpdateTime_;
+        lastUpdateTime_ = currentTime;
+
+        // Clamp deltaTime to prevent huge jumps (e.g., after resize).
+        if (deltaTime > 0.1) {
+            deltaTime = 0.1;
+        }
+
+        // Update parameter change timer.
+        changeTimer_ += deltaTime;
+        if (changeTimer_ >= currentChangeInterval_) {
+            generateRandomParameters();
+        }
+
+        // Update smooth transition progress.
+        if (transitionProgress_ < 1.0) {
+            transitionProgress_ += deltaTime / transitionDuration_;
+            if (transitionProgress_ > 1.0) {
+                transitionProgress_ = 1.0;
+            }
+        }
+
+        // Smooth cubic easing for transitions.
+        double t = transitionProgress_;
+        double smoothT = t * t * (3.0 - 2.0 * t);
+
+        // Interpolate parameters during transition.
+        double activeCRealCenter = oldCRealCenter_ + (cRealCenter_ - oldCRealCenter_) * smoothT;
+        double activeCRealAmplitude =
+            oldCRealAmplitude_ + (cRealAmplitude_ - oldCRealAmplitude_) * smoothT;
+        double activeCImagCenter = oldCImagCenter_ + (cImagCenter_ - oldCImagCenter_) * smoothT;
+        double activeCImagAmplitude =
+            oldCImagAmplitude_ + (cImagAmplitude_ - oldCImagAmplitude_) * smoothT;
+        double activeDetailPhaseSpeed =
+            oldDetailPhaseSpeed_ + (detailPhaseSpeed_ - oldDetailPhaseSpeed_) * smoothT;
+        double activeCPhaseSpeed = oldCPhaseSpeed_ + (cPhaseSpeed_ - oldCPhaseSpeed_) * smoothT;
+        int activeMinIterations =
+            oldMinIterations_ + static_cast<int>((minIterations_ - oldMinIterations_) * smoothT);
+        int activeMaxIterations =
+            oldMaxIterations_ + static_cast<int>((maxIterations_ - oldMaxIterations_) * smoothT);
+
         bool needsUpdate = false;
         bool cChanged = false;
         bool iterationsChanged = false;
@@ -586,47 +779,65 @@ void JuliaFractal::renderThreadFunc()
         double newCReal = cReal_;
         double newCImag = cImag_;
 
-        // Palette cycling animation (only if enabled).
-        if (PHASE_SPEED > 0.0) {
-            animationPhase_ += PHASE_SPEED;
-            if (animationPhase_ > 2.0 * M_PI) {
-                animationPhase_ -= 2.0 * M_PI;
-            }
-
-            double speedFactor = (std::sin(animationPhase_) + 1.0) / 2.0;
-            double cycleSpeed = speedFactor * MAX_CYCLE_SPEED;
+        // Palette cycling animation (constant speed - no pulsing).
+        if (phaseSpeed_ > 0.0) {
+            // Direct constant rotation (no sine wave pulsing).
+            double cycleSpeed = phaseSpeed_;
             paletteOffset_ += cycleSpeed;
             if (paletteOffset_ >= PALETTE_SIZE) {
                 paletteOffset_ -= PALETTE_SIZE;
             }
+
+            // Debug: Log palette rotation.
+            static double lastPaletteLog = 0.0;
+            if (currentTime - lastPaletteLog >= 5.0) {
+                spdlog::info(
+                    "JuliaFractal: Palette offset={:.1f}, speed={:.3f}/frame",
+                    paletteOffset_,
+                    cycleSpeed);
+                lastPaletteLog = currentTime;
+            }
+
             needsUpdate = true; // Colors changed.
         }
 
         // Detail level animation (only if enabled).
-        if (DETAIL_PHASE_SPEED > 0.0) {
-            detailPhase_ += DETAIL_PHASE_SPEED;
+        if (activeDetailPhaseSpeed > 0.0) {
+            detailPhase_ += activeDetailPhaseSpeed;
             if (detailPhase_ > 2.0 * M_PI) {
                 detailPhase_ -= 2.0 * M_PI;
             }
 
-            double detailFactor = (std::sin(detailPhase_) + 1.0) / 2.0;
-            newMaxIterations =
-                MIN_ITERATIONS + static_cast<int>(detailFactor * (MAX_ITERATIONS - MIN_ITERATIONS));
-            iterationsChanged = std::abs(newMaxIterations - maxIterations_) >= 4;
+            // Sine wave gives raw 0-1 oscillation.
+            double rawFactor = (std::sin(detailPhase_) + 1.0) / 2.0;
+
+            // Apply inverted parabola to spend MORE time in middle, LESS at extremes.
+            // This peaks at 0.5 and drops off toward 0 and 1.
+            double centered = rawFactor - 0.5;                 // Shift to [-0.5, 0.5].
+            double parabola = 1.0 - 4.0 * centered * centered; // Peak at center.
+            // Map parabola [0,1] back to iteration range (biased toward middle).
+            double detailFactor = 0.2 + parabola * 0.6; // Range [0.2, 0.8] favors middle.
+
+            // Map to randomized iteration range.
+            newMaxIterations = activeMinIterations
+                + static_cast<int>(detailFactor * (activeMaxIterations - activeMinIterations));
+            iterationsChanged = (newMaxIterations != maxIterations_); // Render on ANY change.
+            needsUpdate = true; // Always update for smooth animation.
         }
 
         // Shape morphing animation (only if enabled).
-        if (C_PHASE_SPEED > 0.0 && (C_REAL_AMPLITUDE > 0.0 || C_IMAG_AMPLITUDE > 0.0)) {
-            cPhase_ += C_PHASE_SPEED;
+        if (activeCPhaseSpeed > 0.0 && (activeCRealAmplitude > 0.0 || activeCImagAmplitude > 0.0)) {
+            cPhase_ += activeCPhaseSpeed;
             if (cPhase_ > 2.0 * M_PI) {
                 cPhase_ -= 2.0 * M_PI;
             }
 
             double cRealFactor = std::sin(cPhase_);
             double cImagFactor = std::sin(cPhase_ + M_PI / 2.0);
-            newCReal = C_REAL_CENTER + cRealFactor * C_REAL_AMPLITUDE;
-            newCImag = C_IMAG_CENTER + cImagFactor * C_IMAG_AMPLITUDE;
-            cChanged = (std::abs(newCReal - cReal_) > 0.01) || (std::abs(newCImag - cImag_) > 0.01);
+            newCReal = activeCRealCenter + cRealFactor * activeCRealAmplitude;
+            newCImag = activeCImagCenter + cImagFactor * activeCImagAmplitude;
+            cChanged = true;    // Always render for smooth morphing (no threshold).
+            needsUpdate = true; // Always update.
         }
 
         // If nothing is animating, sleep and skip rendering.
@@ -765,6 +976,89 @@ void JuliaFractal::renderThreadFunc()
 
         // Signal that a new ready buffer is available.
         readyBufferAvailable_.store(true, std::memory_order_release);
+
+        // Track FPS for dynamic resolution scaling.
+        if (deltaTime > 0.0) {
+            double currentFps = 1.0 / deltaTime;
+            fpsSum_ += currentFps;
+            fpsSampleCount_++;
+
+            // Log FPS occasionally.
+            if (currentTime - lastFpsLogTime_ >= FPS_LOG_INTERVAL) {
+                double renderFps = fpsSum_ / fpsSampleCount_;
+                double displayFps =
+                    (displayFpsSampleCount_ > 0) ? (displayFpsSum_ / displayFpsSampleCount_) : 0.0;
+                spdlog::info(
+                    "JuliaFractal: Render FPS = {:.1f}, Display FPS = {:.1f}, Resolution = {}x{} "
+                    "(divisor={:.2f})",
+                    renderFps,
+                    displayFps,
+                    width_,
+                    height_,
+                    currentResolutionDivisor_);
+                lastFpsLogTime_ = currentTime;
+
+                // Reset display FPS tracking.
+                displayFpsSum_ = 0.0;
+                displayFpsSampleCount_ = 0;
+            }
+
+            // Check FPS every few seconds for dynamic resolution adjustment.
+            if (currentTime - lastFpsCheckTime_ >= FPS_CHECK_INTERVAL) {
+                double renderFps = fpsSum_ / fpsSampleCount_;
+                double displayFps =
+                    (displayFpsSampleCount_ > 0) ? (displayFpsSum_ / displayFpsSampleCount_) : 0.0;
+
+                // Adaptive resolution scaling: smooth adjustments based on FPS.
+                // Target 30fps minimum, use render FPS as primary metric.
+                constexpr double TARGET_MIN_FPS = 30.0;
+                constexpr double TARGET_COMFORT_FPS = 55.0;
+                constexpr double MIN_DIVISOR = 2.0;
+                constexpr double MAX_DIVISOR = 8.0;
+
+                // Use render FPS (display FPS is LVGL-limited).
+                double effectiveFps = renderFps;
+
+                // Calculate adjustment based on FPS deficit/surplus.
+                double divisorAdjustment = 0.0;
+
+                if (effectiveFps < TARGET_MIN_FPS) {
+                    // Below 30fps: increase divisor (lower resolution).
+                    // Adjustment proportional to how far below target.
+                    double deficit = (TARGET_MIN_FPS - effectiveFps) / TARGET_MIN_FPS;
+                    divisorAdjustment = 0.2 * deficit; // Up to +0.2 per check.
+                }
+                else if (effectiveFps > TARGET_COMFORT_FPS) {
+                    // Above 45fps: decrease divisor (higher resolution).
+                    // Smaller adjustment to prevent oscillation.
+                    double surplus = (effectiveFps - TARGET_COMFORT_FPS) / effectiveFps;
+                    divisorAdjustment = -0.1 * surplus; // Up to -0.1 per check.
+                }
+
+                // Apply adjustment if significant.
+                if (std::abs(divisorAdjustment) > 0.01) {
+                    double newDivisor = currentResolutionDivisor_ + divisorAdjustment;
+                    newDivisor = std::clamp(newDivisor, MIN_DIVISOR, MAX_DIVISOR);
+
+                    // Only resize if divisor changed by at least 0.1 (avoid tiny adjustments).
+                    if (std::abs(newDivisor - currentResolutionDivisor_) >= 0.1) {
+                        spdlog::info(
+                            "JuliaFractal: Adaptive scaling (FPS={:.1f}): divisor {:.2f} -> {:.2f}",
+                            effectiveFps,
+                            currentResolutionDivisor_,
+                            newDivisor);
+
+                        currentResolutionDivisor_ = newDivisor;
+                        resizeNeeded_.store(true, std::memory_order_release);
+                    }
+                }
+
+                // Reset FPS tracking.
+                fpsSum_ = 0.0;
+                fpsSampleCount_ = 0;
+                lastFpsCheckTime_ = currentTime;
+            }
+        }
     }
 
     spdlog::info("JuliaFractal: Render thread exiting");

@@ -51,6 +51,12 @@ public:
     lv_obj_t* getWorldDisplayArea();
 
     /**
+     * @brief Get container for neural grid display area (15x15 tree vision).
+     * Creates layout on simulation screen if needed.
+     */
+    lv_obj_t* getNeuralGridDisplayArea();
+
+    /**
      * @brief Get container for main menu UI.
      * Creates/prepares the menu screen if needed.
      */
@@ -95,6 +101,7 @@ private:
     lv_obj_t* simCoreControlsArea_ = nullptr;
     lv_obj_t* simScenarioControlsArea_ = nullptr;
     lv_obj_t* simWorldDisplayArea_ = nullptr;
+    lv_obj_t* simNeuralGridDisplayArea_ = nullptr;
     lv_obj_t* simBottomPanel_ = nullptr;
     lv_obj_t* simPhysicsControlsArea_ = nullptr;
 
