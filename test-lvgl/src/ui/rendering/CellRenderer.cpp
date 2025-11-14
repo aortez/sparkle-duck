@@ -99,9 +99,13 @@ void CellRenderer::initialize(lv_obj_t* parent, uint32_t worldWidth, uint32_t wo
     width_ = worldWidth;
     height_ = worldHeight;
 
-    // Get container size - this is our canvas size (fixed)
+    // Get container size - this is our canvas size (fixed).
     int32_t containerWidth = lv_obj_get_width(parent);
     int32_t containerHeight = lv_obj_get_height(parent);
+
+    // Store container size for resize detection.
+    lastContainerWidth_ = containerWidth;
+    lastContainerHeight_ = containerHeight;
 
     // Sanity check container dimensions
     if (containerWidth <= 0 || containerHeight <= 0) {
@@ -205,7 +209,7 @@ void CellRenderer::resize(lv_obj_t* parent, uint32_t worldWidth, uint32_t worldH
 void CellRenderer::renderWorldData(
     const WorldData& worldData, lv_obj_t* parent, bool debugDraw, bool usePixelRenderer)
 {
-    // Validate input
+    // Validate input.
     if (!parent || worldData.width == 0 || worldData.height == 0) {
         spdlog::warn(
             "CellRenderer: Invalid render parameters (parent={}, size={}x{})",
@@ -215,11 +219,31 @@ void CellRenderer::renderWorldData(
         return;
     }
 
-    // Initialize canvas on first call
+    // Check if container has been resized (detect layout changes).
+    int32_t currentContainerWidth = lv_obj_get_width(parent);
+    int32_t currentContainerHeight = lv_obj_get_height(parent);
+
+    // If container size changed significantly, reinitialize canvas.
+    const int32_t RESIZE_THRESHOLD = 50; // Avoid jitter from small changes.
+    bool containerResized =
+        (std::abs(currentContainerWidth - lastContainerWidth_) > RESIZE_THRESHOLD)
+        || (std::abs(currentContainerHeight - lastContainerHeight_) > RESIZE_THRESHOLD);
+
+    if (containerResized && worldCanvas_) {
+        spdlog::info(
+            "CellRenderer: Container resized from {}x{} to {}x{}, reinitializing canvas",
+            lastContainerWidth_,
+            lastContainerHeight_,
+            currentContainerWidth,
+            currentContainerHeight);
+        cleanup();
+    }
+
+    // Initialize canvas on first call or after resize.
     if (!worldCanvas_) {
         initialize(parent, worldData.width, worldData.height);
         if (!worldCanvas_) {
-            return; // Failed to initialize
+            return; // Failed to initialize.
         }
     }
 
@@ -347,7 +371,7 @@ void CellRenderer::cleanup()
 {
     spdlog::debug("CellRenderer: Cleaning up canvas");
 
-    // Delete the fixed-size canvas (only called on final cleanup)
+    // Delete the fixed-size canvas (only called on final cleanup).
     if (worldCanvas_) {
         if (lv_obj_is_valid(worldCanvas_)) {
             lv_obj_del(worldCanvas_);
@@ -355,7 +379,7 @@ void CellRenderer::cleanup()
         worldCanvas_ = nullptr;
     }
 
-    // Clear the buffer
+    // Clear the buffer.
     canvasBuffer_.clear();
     canvasBuffer_.shrink_to_fit();
 
@@ -364,6 +388,8 @@ void CellRenderer::cleanup()
     width_ = 0;
     height_ = 0;
     parent_ = nullptr;
+    lastContainerWidth_ = 0;
+    lastContainerHeight_ = 0;
 }
 
 void CellRenderer::renderCellDirectOptimized(
