@@ -25,9 +25,11 @@ public:
 
         // Configure physics for dynamic pressure
         world.physicsSettings.gravity = 9.81;
-        world.setDynamicPressureEnabled(true);
-        world.setHydrostaticPressureEnabled(false);
-        world.setPressureDiffusionEnabled(true);
+        world.physicsSettings.pressure_dynamic_enabled = true;
+        world.physicsSettings.pressure_dynamic_strength = 1.0;
+        world.physicsSettings.pressure_hydrostatic_enabled = false;
+        world.physicsSettings.pressure_hydrostatic_strength = 0.0;
+        world.physicsSettings.pressure_diffusion_strength = 1.0;
         world.physicsSettings.pressure_scale = 1.0;
 
         // Disable extra features for clean demo

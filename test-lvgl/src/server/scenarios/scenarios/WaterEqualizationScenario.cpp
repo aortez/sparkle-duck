@@ -24,9 +24,11 @@ public:
         wallOpened = false;
 
         world.physicsSettings.gravity = 9.81;
-        world.setDynamicPressureEnabled(false);
-        world.setHydrostaticPressureEnabled(true);
-        world.setPressureDiffusionEnabled(true);
+        world.physicsSettings.pressure_dynamic_enabled = false;
+        world.physicsSettings.pressure_dynamic_strength = 0.0;
+        world.physicsSettings.pressure_hydrostatic_enabled = true;
+        world.physicsSettings.pressure_hydrostatic_strength = 0.3; // Use PhysicsSettings default
+        world.physicsSettings.pressure_diffusion_strength = 1.0;
         world.physicsSettings.pressure_scale = 1.0;
 
         world.setWallsEnabled(false);

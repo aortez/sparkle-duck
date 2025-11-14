@@ -888,41 +888,8 @@ State::Any SimRunning::onEvent(const SetPressureScaleWorldBCommand& cmd, StateMa
     return std::move(*this);
 }
 
-State::Any SimRunning::onEvent(const SetCohesionForceStrengthCommand& cmd, StateMachine& /*dsm*/)
-{
-    if (world) {
-        world->setCohesionComForceStrength(cmd.strength);
-        spdlog::info("SimRunning: Set cohesion force strength to {}", cmd.strength);
-    }
-    return std::move(*this);
-}
-
-State::Any SimRunning::onEvent(const SetAdhesionStrengthCommand& cmd, StateMachine& /*dsm*/)
-{
-    if (world) {
-        world->setAdhesionStrength(cmd.strength);
-        spdlog::info("SimRunning: Set adhesion strength to {}", cmd.strength);
-    }
-    return std::move(*this);
-}
-
-State::Any SimRunning::onEvent(const SetViscosityStrengthCommand& cmd, StateMachine& /*dsm*/)
-{
-    if (world) {
-        world->setViscosityStrength(cmd.strength);
-        spdlog::info("SimRunning: Set viscosity strength to {}", cmd.strength);
-    }
-    return std::move(*this);
-}
-
-State::Any SimRunning::onEvent(const SetFrictionStrengthCommand& cmd, StateMachine& /*dsm*/)
-{
-    if (world) {
-        world->setFrictionStrength(cmd.strength);
-        spdlog::info("SimRunning: Set friction strength to {}", cmd.strength);
-    }
-    return std::move(*this);
-}
+// Obsolete individual strength commands removed - use PhysicsSettingsSet instead.
+// These settings are now controlled via the unified PhysicsSettings API.
 
 State::Any SimRunning::onEvent(const SetContactFrictionStrengthCommand& cmd, StateMachine& /*dsm*/)
 {
@@ -951,36 +918,7 @@ State::Any SimRunning::onEvent(const SetAirResistanceCommand& cmd, StateMachine&
     return std::move(*this);
 }
 
-State::Any SimRunning::onEvent(
-    const ToggleHydrostaticPressureCommand& /*cmd*/, StateMachine& /*dsm*/)
-{
-    if (world) {
-        bool newValue = !world->isHydrostaticPressureEnabled();
-        world->setHydrostaticPressureEnabled(newValue);
-        spdlog::info("SimRunning: Toggle hydrostatic pressure - now: {}", newValue);
-    }
-    return std::move(*this);
-}
-
-State::Any SimRunning::onEvent(const ToggleDynamicPressureCommand& /*cmd*/, StateMachine& /*dsm*/)
-{
-    if (world) {
-        bool newValue = !world->isDynamicPressureEnabled();
-        world->setDynamicPressureEnabled(newValue);
-        spdlog::info("SimRunning: Toggle dynamic pressure - now: {}", newValue);
-    }
-    return std::move(*this);
-}
-
-State::Any SimRunning::onEvent(const TogglePressureDiffusionCommand& /*cmd*/, StateMachine& /*dsm*/)
-{
-    if (world) {
-        bool newValue = !world->isPressureDiffusionEnabled();
-        world->setPressureDiffusionEnabled(newValue);
-        spdlog::info("SimRunning: Toggle pressure diffusion - now: {}", newValue);
-    }
-    return std::move(*this);
-}
+// Obsolete toggle commands removed - use PhysicsSettingsSet API instead.
 
 State::Any SimRunning::onEvent(
     const SetHydrostaticPressureStrengthCommand& cmd, StateMachine& /*dsm*/)

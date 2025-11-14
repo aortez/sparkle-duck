@@ -75,16 +75,12 @@ struct SimRunning {
     Any onEvent(const SetGravityCommand& cmd, StateMachine& dsm);
     Any onEvent(const SetPressureScaleCommand& cmd, StateMachine& dsm);
     Any onEvent(const SetPressureScaleWorldBCommand& cmd, StateMachine& dsm);
-    Any onEvent(const SetCohesionForceStrengthCommand& cmd, StateMachine& dsm);
-    Any onEvent(const SetAdhesionStrengthCommand& cmd, StateMachine& dsm);
-    Any onEvent(const SetViscosityStrengthCommand& cmd, StateMachine& dsm);
-    Any onEvent(const SetFrictionStrengthCommand& cmd, StateMachine& dsm);
+    // Obsolete - use PhysicsSettingsSet instead.
     Any onEvent(const SetContactFrictionStrengthCommand& cmd, StateMachine& dsm);
     Any onEvent(const SetCOMCohesionRangeCommand& cmd, StateMachine& dsm);
     Any onEvent(const SetAirResistanceCommand& cmd, StateMachine& dsm);
-    Any onEvent(const ToggleHydrostaticPressureCommand& cmd, StateMachine& dsm);
-    Any onEvent(const ToggleDynamicPressureCommand& cmd, StateMachine& dsm);
-    Any onEvent(const TogglePressureDiffusionCommand& cmd, StateMachine& dsm);
+    // Obsolete: ToggleHydrostaticPressureCommand, ToggleDynamicPressureCommand,
+    // TogglePressureDiffusionCommand
     Any onEvent(const SetHydrostaticPressureStrengthCommand& cmd, StateMachine& dsm);
     Any onEvent(const SetDynamicPressureStrengthCommand& cmd, StateMachine& dsm);
     Any onEvent(const SetRainRateCommand& cmd, StateMachine& dsm);

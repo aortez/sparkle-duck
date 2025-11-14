@@ -33,11 +33,8 @@ World::World() : World(1, 1)
 
 World::World(uint32_t width, uint32_t height)
     : cohesion_bind_force_enabled_(false),
-      cohesion_com_force_strength_(0.0),
       cohesion_bind_force_strength_(1.0),
       com_cohesion_range_(1),
-      viscosity_strength_(1.0),
-      friction_strength_(1.0),
       air_resistance_enabled_(true),
       air_resistance_strength_(0.1),
       selected_material_(MaterialType::DIRT),
@@ -373,7 +370,7 @@ void World::applyAirResistance()
 
 void World::applyCohesionForces()
 {
-    if (cohesion_com_force_strength_ <= 0.0) {
+    if (physicsSettings.cohesion_strength <= 0.0) {
         return;
     }
 
@@ -399,7 +396,7 @@ void World::applyCohesionForces()
                 // COM cohesion force accumulation (only if force is active).
                 if (com_cohesion.force_active) {
                     Vector2d com_cohesion_force = com_cohesion.force_direction
-                        * com_cohesion.force_magnitude * cohesion_com_force_strength_;
+                        * com_cohesion.force_magnitude * physicsSettings.cohesion_strength;
                     cell.addPendingForce(com_cohesion_force);
                 }
             }
@@ -407,7 +404,7 @@ void World::applyCohesionForces()
     }
 
     // Adhesion force accumulation (only if enabled).
-    if (adhesion_calculator_.isAdhesionEnabled()) {
+    if (physicsSettings.adhesion_strength > 0.0) {
         ScopeTimer adhesionTimer(timers_, "adhesion_calculation");
         for (uint32_t y = 0; y < data.height; ++y) {
             for (uint32_t x = 0; x < data.width; ++x) {
@@ -420,7 +417,7 @@ void World::applyCohesionForces()
                 WorldAdhesionCalculator::AdhesionForce adhesion =
                     adhesion_calculator_.calculateAdhesionForce(*this, x, y);
                 Vector2d adhesion_force = adhesion.force_direction * adhesion.force_magnitude
-                    * adhesion_calculator_.getAdhesionStrength();
+                    * physicsSettings.adhesion_strength;
                 cell.addPendingForce(adhesion_force);
             }
         }
@@ -570,7 +567,8 @@ void World::resolveForces(double deltaTime)
             double friction_coefficient = getFrictionCoefficient(velocity_magnitude, props);
 
             // Apply global friction strength multiplier.
-            friction_coefficient = 1.0 + (friction_coefficient - 1.0) * friction_strength_;
+            friction_coefficient =
+                1.0 + (friction_coefficient - 1.0) * physicsSettings.friction_strength;
 
             // Cache the friction coefficient for visualization.
             cell.cached_friction_coefficient = friction_coefficient;
@@ -581,7 +579,8 @@ void World::resolveForces(double deltaTime)
 
             // Apply continuous damping with friction (no thresholds).
             double damping_factor = 1.0
-                + (effective_viscosity * viscosity_strength_ * cell.fill_ratio * support_factor);
+                + (effective_viscosity * physicsSettings.viscosity_strength * cell.fill_ratio
+                   * support_factor);
 
             // Ensure damping factor is never zero or negative to prevent division by zero.
             if (damping_factor <= 0.0) {
@@ -590,7 +589,7 @@ void World::resolveForces(double deltaTime)
 
             // Store damping info for visualization (X=friction_coefficient, Y=damping_factor).
             // Only store if viscosity is actually enabled and having an effect.
-            if (viscosity_strength_ > 0.0 && props.viscosity > 0.0) {
+            if (physicsSettings.viscosity_strength > 0.0 && props.viscosity > 0.0) {
                 cell.accumulated_cohesion_force = Vector2d{ friction_coefficient, damping_factor };
             }
             else {
@@ -680,7 +679,7 @@ std::vector<MaterialMove> World::computeMaterialMoves(double deltaTime)
 
             // NEW: Calculate COM-based cohesion force.
             WorldCohesionCalculator::COMCohesionForce com_cohesion;
-            if (cohesion_com_force_strength_ > 0.0) {
+            if (physicsSettings.cohesion_strength > 0.0) {
                 WorldCohesionCalculator com_cohesion_calc{};
                 com_cohesion =
                     com_cohesion_calc.calculateCOMCohesionForce(*this, x, y, com_cohesion_range_);
@@ -693,9 +692,9 @@ std::vector<MaterialMove> World::computeMaterialMoves(double deltaTime)
 
             // Apply strength multipliers to forces.
             double effective_adhesion_magnitude =
-                adhesion.force_magnitude * adhesion_calculator_.getAdhesionStrength();
+                adhesion.force_magnitude * physicsSettings.adhesion_strength;
             double effective_com_cohesion_magnitude =
-                com_cohesion.force_magnitude * cohesion_com_force_strength_;
+                com_cohesion.force_magnitude * physicsSettings.cohesion_strength;
 
             // Store forces in cell for visualization.
             // Note: Cohesion force field is now repurposed in resolveForces() for damping info.
@@ -1024,36 +1023,7 @@ bool World::areWallsEnabled() const
     return configSetup ? configSetup->areWallsEnabled() : false;
 }
 
-void World::setHydrostaticPressureEnabled(bool enabled)
-{
-    // Backward compatibility: set strength to 0 (disabled) or default (enabled).
-    physicsSettings.pressure_hydrostatic_strength = enabled ? 1.0 : 0.0;
-
-    spdlog::info("Clearing all pressure values");
-    for (auto& cell : data.cells) {
-        cell.setHydrostaticPressure(0.0);
-        if (cell.dynamic_component < MIN_MATTER_THRESHOLD) {
-            cell.pressure_gradient = Vector2d{ 0.0, 0.0 };
-        }
-    }
-}
-
-void World::setDynamicPressureEnabled(bool enabled)
-{
-    // Backward compatibility: set strength to 0 (disabled) or default (enabled).
-    physicsSettings.pressure_dynamic_strength = enabled ? 1.0 : 0.0;
-
-    spdlog::info("Clearing all pressure values");
-    for (auto& cell : data.cells) {
-        cell.setDynamicPressure(0.0);
-        if (cell.hydrostatic_component < MIN_MATTER_THRESHOLD) {
-            cell.pressure_gradient = Vector2d{ 0.0, 0.0 };
-        }
-    }
-
-    // Clear any pending blocked transfers.
-    pressure_calculator_.blocked_transfers_.clear();
-}
+// Legacy pressure toggle methods removed - use physicsSettings directly.
 
 void World::setHydrostaticPressureStrength(double strength)
 {
@@ -1095,11 +1065,11 @@ std::string World::settingsToString() const
     ss << "Right throw enabled: " << (isRightThrowEnabled() ? "true" : "false") << "\n";
     ss << "Lower right quadrant enabled: " << (isLowerRightQuadrantEnabled() ? "true" : "false")
        << "\n";
-    ss << "Cohesion COM force enabled: " << (isCohesionComForceEnabled() ? "true" : "false")
-       << "\n";
+    ss << "Cohesion COM force enabled: "
+       << (physicsSettings.cohesion_strength > 0.0 ? "true" : "false") << "\n";
     ss << "Cohesion bind force enabled: " << (isCohesionBindForceEnabled() ? "true" : "false")
        << "\n";
-    ss << "Adhesion enabled: " << (adhesion_calculator_.isAdhesionEnabled() ? "true" : "false")
+    ss << "Adhesion enabled: " << (physicsSettings.adhesion_strength > 0.0 ? "true" : "false")
        << "\n";
     ss << "Air resistance enabled: " << (air_resistance_enabled_ ? "true" : "false") << "\n";
     ss << "Air resistance strength: " << air_resistance_strength_ << "\n";

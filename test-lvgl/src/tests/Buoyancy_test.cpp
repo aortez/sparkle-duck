@@ -30,8 +30,8 @@ protected:
         world = std::make_unique<World>(1, 5);
 
         // Use sandbox default physics settings for realistic testing.
-        world->setHydrostaticPressureEnabled(true);
-        world->setHydrostaticPressureStrength(0.3); // Sandbox default.
+        world->physicsSettings.pressure_hydrostatic_enabled = true;
+        world->physicsSettings.pressure_hydrostatic_strength = 0.3; // Sandbox default.
 
         // Enable material swapping for buoyancy.
         world->physicsSettings.swap_enabled = true;
@@ -245,8 +245,8 @@ TEST_F(BuoyancyTest, NetForceCalculation)
 
         // Clear previous setup.
         world = std::make_unique<World>(1, 5);
-        world->setHydrostaticPressureEnabled(true);
-        world->setHydrostaticPressureStrength(1.0);
+        world->physicsSettings.pressure_hydrostatic_enabled = true;
+        world->physicsSettings.pressure_hydrostatic_strength = 1.0;
         world->physicsSettings.gravity = 1.0;
 
         // Setup.
@@ -460,8 +460,8 @@ TEST_F(BuoyancyTest, WoodCanRiseIn3x3World)
 
     // Create 3x3 world to allow horizontal water flow.
     world = std::make_unique<World>(3, 3);
-    world->setHydrostaticPressureEnabled(true);
-    world->setHydrostaticPressureStrength(1.0);
+    world->physicsSettings.pressure_hydrostatic_enabled = true;
+    world->physicsSettings.pressure_hydrostatic_strength = 1.0;
     world->physicsSettings.gravity = 1.0;
 
     // Setup: Wood in center (1,1), water everywhere else.
@@ -647,8 +647,8 @@ TEST_F(BuoyancyTest, WaterColumnFalls)
 
     // Create 2x4 world with water in top 2x2 cells.
     world = std::make_unique<World>(2, 4);
-    world->setHydrostaticPressureEnabled(true);
-    world->setHydrostaticPressureStrength(1.0);
+    world->physicsSettings.pressure_hydrostatic_enabled = true;
+    world->physicsSettings.pressure_hydrostatic_strength = 1.0;
     world->physicsSettings.gravity = 9.81; // Real gravity
 
     // Setup: Water in top 2x2, empty below.
@@ -751,8 +751,8 @@ TEST_F(BuoyancyTest, DirtSinksThroughWater)
 
     // Create 1x6 world: dirt at top, water column below.
     world = std::make_unique<World>(1, 6);
-    world->setHydrostaticPressureEnabled(true);
-    world->setHydrostaticPressureStrength(0.3); // Sandbox default.
+    world->physicsSettings.pressure_hydrostatic_enabled = true;
+    world->physicsSettings.pressure_hydrostatic_strength = 0.3; // Sandbox default.
     world->physicsSettings.swap_enabled = true; // Enable material swapping for sinking.
     world->physicsSettings.gravity = 9.81;      // Realistic gravity (sandbox default).
 
@@ -877,8 +877,8 @@ TEST_F(BuoyancyTest, DirtShouldSinkNotFloat)
 
     // Setup: Dirt surrounded by water (1x3 column).
     world = std::make_unique<World>(1, 3);
-    world->setHydrostaticPressureEnabled(true);
-    world->setHydrostaticPressureStrength(1.0);
+    world->physicsSettings.pressure_hydrostatic_enabled = true;
+    world->physicsSettings.pressure_hydrostatic_strength = 1.0;
     world->physicsSettings.gravity = 9.81;
 
     world->addMaterialAtCell(0, 0, MaterialType::WATER, 1.0);

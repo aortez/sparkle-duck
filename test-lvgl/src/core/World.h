@@ -104,23 +104,18 @@ public:
     // =================================================================
     // WORLDINTERFACE IMPLEMENTATION - DUAL PRESSURE SYSTEM
     // =================================================================
+    // Use physicsSettings.pressure_*_enabled/strength directly instead of setters.
 
-    void setHydrostaticPressureEnabled(bool enabled);
     bool isHydrostaticPressureEnabled() const
     {
         return physicsSettings.pressure_hydrostatic_strength > 0.0;
     }
 
-    void setDynamicPressureEnabled(bool enabled);
     bool isDynamicPressureEnabled() const
     {
         return physicsSettings.pressure_dynamic_strength > 0.0;
     }
 
-    void setPressureDiffusionEnabled(bool enabled)
-    {
-        physicsSettings.pressure_diffusion_strength = enabled ? 1.0 : 0.0;
-    }
     bool isPressureDiffusionEnabled() const
     {
         return physicsSettings.pressure_diffusion_strength > 0.0;
@@ -165,33 +160,38 @@ public:
 
     void setCohesionComForceEnabled(bool enabled)
     {
-        // Backward compatibility: set strength to 0 (disabled) or default (enabled).
-        cohesion_com_force_strength_ = enabled ? 150.0 : 0.0;
+        // Use PhysicsSettings as single source of truth.
+        physicsSettings.cohesion_enabled = enabled;
+        physicsSettings.cohesion_strength = enabled ? 150.0 : 0.0;
     }
-    bool isCohesionComForceEnabled() const { return cohesion_com_force_strength_ > 0.0; }
+    bool isCohesionComForceEnabled() const { return physicsSettings.cohesion_strength > 0.0; }
 
-    void setCohesionComForceStrength(double strength) { cohesion_com_force_strength_ = strength; }
-    double getCohesionComForceStrength() const { return cohesion_com_force_strength_; }
-
-    void setAdhesionStrength(double strength)
+    void setCohesionComForceStrength(double strength)
     {
-        adhesion_calculator_.setAdhesionStrength(strength);
+        physicsSettings.cohesion_strength = strength;
     }
-    double getAdhesionStrength() const { return adhesion_calculator_.getAdhesionStrength(); }
+    double getCohesionComForceStrength() const { return physicsSettings.cohesion_strength; }
 
-    void setAdhesionEnabled(bool enabled) { adhesion_calculator_.setAdhesionEnabled(enabled); }
-    bool isAdhesionEnabled() const { return adhesion_calculator_.isAdhesionEnabled(); }
+    void setAdhesionStrength(double strength) { physicsSettings.adhesion_strength = strength; }
+    double getAdhesionStrength() const { return physicsSettings.adhesion_strength; }
+
+    void setAdhesionEnabled(bool enabled)
+    {
+        physicsSettings.adhesion_enabled = enabled;
+        physicsSettings.adhesion_strength = enabled ? 5.0 : 0.0;
+    }
+    bool isAdhesionEnabled() const { return physicsSettings.adhesion_strength > 0.0; }
 
     void setCohesionBindForceStrength(double strength) { cohesion_bind_force_strength_ = strength; }
     double getCohesionBindForceStrength() const { return cohesion_bind_force_strength_; }
 
     // Viscosity control.
-    void setViscosityStrength(double strength) { viscosity_strength_ = strength; }
-    double getViscosityStrength() const { return viscosity_strength_; }
+    void setViscosityStrength(double strength) { physicsSettings.viscosity_strength = strength; }
+    double getViscosityStrength() const { return physicsSettings.viscosity_strength; }
 
     // Friction control (velocity-dependent viscosity).
-    void setFrictionStrength(double strength) { friction_strength_ = strength; }
-    double getFrictionStrength() const { return friction_strength_; }
+    void setFrictionStrength(double strength) { physicsSettings.friction_strength = strength; }
+    double getFrictionStrength() const { return physicsSettings.friction_strength; }
 
     // Friction calculator access.
     WorldFrictionCalculator& getFrictionCalculator() { return friction_calculator_; }
@@ -310,12 +310,10 @@ public:
     // =================================================================
 
     // Physics parameters (TODO: migrate to WorldData).
+    // NOTE: Most physics parameters now use physicsSettings as single source of truth.
     bool cohesion_bind_force_enabled_;
-    double cohesion_com_force_strength_;
     double cohesion_bind_force_strength_;
     uint32_t com_cohesion_range_;
-    double viscosity_strength_;
-    double friction_strength_;
     bool air_resistance_enabled_;
     double air_resistance_strength_;
     MaterialType selected_material_;

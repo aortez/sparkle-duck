@@ -248,37 +248,29 @@ struct SetPressureScaleWorldBCommand {
     static constexpr const char* name() { return "SetPressureScaleWorldBCommand"; }
 };
 
-/**
- * @brief Set cohesion force strength.
- */
+// OBSOLETE: Individual strength commands replaced by PhysicsSettingsSet API.
+// Use Api::PhysicsSettingsSet to control physics parameters in a unified way.
+/*
 struct SetCohesionForceStrengthCommand {
     double strength;
     static constexpr const char* name() { return "SetCohesionForceStrengthCommand"; }
 };
 
-/**
- * @brief Set adhesion strength.
- */
 struct SetAdhesionStrengthCommand {
     double strength;
     static constexpr const char* name() { return "SetAdhesionStrengthCommand"; }
 };
 
-/**
- * @brief Set viscosity strength factor.
- */
 struct SetViscosityStrengthCommand {
     double strength;
     static constexpr const char* name() { return "SetViscosityStrengthCommand"; }
 };
 
-/**
- * @brief Set friction strength factor (velocity-dependent viscosity).
- */
 struct SetFrictionStrengthCommand {
     double strength;
     static constexpr const char* name() { return "SetFrictionStrengthCommand"; }
 };
+*/
 
 /**
  * @brief Set contact friction strength factor (surface-to-surface friction).
@@ -304,26 +296,9 @@ struct SetAirResistanceCommand {
     static constexpr const char* name() { return "SetAirResistanceCommand"; }
 };
 
-/**
- * @brief Toggle hydrostatic pressure system.
- */
-struct ToggleHydrostaticPressureCommand {
-    static constexpr const char* name() { return "ToggleHydrostaticPressureCommand"; }
-};
-
-/**
- * @brief Toggle dynamic pressure system.
- */
-struct ToggleDynamicPressureCommand {
-    static constexpr const char* name() { return "ToggleDynamicPressureCommand"; }
-};
-
-/**
- * @brief Toggle pressure diffusion system.
- */
-struct TogglePressureDiffusionCommand {
-    static constexpr const char* name() { return "TogglePressureDiffusionCommand"; }
-};
+// OBSOLETE: Toggle commands replaced by PhysicsSettingsSet API.
+// Pressure settings now controlled via unified PhysicsSettings.
+// Use physicsSettings.pressure_*_enabled and pressure_*_strength directly.
 
 /**
  * @brief Set hydrostatic pressure strength.
@@ -525,16 +500,13 @@ using Event = std::variant<
     SetDynamicStrengthCommand,
     SetPressureScaleCommand,
     SetPressureScaleWorldBCommand,
-    SetCohesionForceStrengthCommand,
-    SetAdhesionStrengthCommand,
-    SetViscosityStrengthCommand,
-    SetFrictionStrengthCommand,
+    // Obsolete: SetCohesionForceStrengthCommand, SetAdhesionStrengthCommand,
+    // SetViscosityStrengthCommand, SetFrictionStrengthCommand - use PhysicsSettingsSet.
     SetContactFrictionStrengthCommand,
     SetCOMCohesionRangeCommand,
     SetAirResistanceCommand,
-    ToggleHydrostaticPressureCommand,
-    ToggleDynamicPressureCommand,
-    TogglePressureDiffusionCommand,
+    // Obsolete: ToggleHydrostaticPressureCommand, ToggleDynamicPressureCommand,
+    // TogglePressureDiffusionCommand - use PhysicsSettingsSet.
     SetHydrostaticPressureStrengthCommand,
     SetDynamicPressureStrengthCommand,
     SetRainRateCommand,
