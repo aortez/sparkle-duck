@@ -3,6 +3,7 @@
 #include "network/WebSocketServer.h"
 #include "states/State.h"
 #include "ui/UiComponentManager.h"
+#include <chrono>
 #include <spdlog/spdlog.h>
 
 namespace DirtSim {
@@ -67,6 +68,33 @@ void StateMachine::queueEvent(const Event& event)
 void StateMachine::processEvents()
 {
     eventProcessor.processEventsFromQueue(*this);
+}
+
+void StateMachine::updateAnimations()
+{
+    // Track how often main loop runs (debug).
+    static int callCount = 0;
+    static double lastLogTime = 0.0;
+    callCount++;
+
+    double currentTime = std::chrono::duration<double>(
+                             std::chrono::steady_clock::now().time_since_epoch())
+                             .count();
+    if (currentTime - lastLogTime >= 10.0) {
+        double loopFps = callCount / (currentTime - lastLogTime);
+        spdlog::info("StateMachine: Main loop FPS = {:.1f}", loopFps);
+        callCount = 0;
+        lastLogTime = currentTime;
+    }
+
+    // Delegate to current state (if it has animation updates).
+    std::visit(
+        [](auto&& state) {
+            if constexpr (requires { state.updateAnimations(); }) {
+                state.updateAnimations();
+            }
+        },
+        fsmState);
 }
 
 void StateMachine::handleEvent(const Event& event)

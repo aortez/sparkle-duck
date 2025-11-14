@@ -422,9 +422,9 @@ State::Any SimRunning::onEvent(const Api::FrameReady::Cwc& cwc, StateMachine& /*
 {
     using Response = Api::FrameReady::Response;
 
-    // frame_ready means the UI is ready for another frame.
-    // We don't use this info currently but we could use it if wanted to Track
-    // the UI's frame rate for some reason.
+    // frame_ready is sent by the UI after rendering a frame (pipelining optimization).
+    // Currently a NO-OP: The server pushes frames continuously via sim_step events,
+    // not in response to frame_ready. This command exists for potential future backpressure.
     spdlog::debug("SimRunning: Received frame_ready (no-op)");
 
     cwc.sendResponse(Response::okay(std::monostate{}));

@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <lvgl/lvgl.h>
 #include <mutex>
+#include <random>
 #include <thread>
 #include <vector>
 
@@ -77,8 +78,6 @@ private:
     int width_ = 0;
     int height_ = 0;
     double paletteOffset_ = 0.0; // Floating point for smooth sinusoidal speed.
-    int maxIterations_ = 128;
-    int lastRenderedMaxIterations_ = 128; // Track when to recalculate fractal.
 
     // Sinusoidal animation phases.
     double animationPhase_ = 0.0; // Phase for palette cycling (0 to 2π).
@@ -98,9 +97,72 @@ private:
     double yMin_ = -1.5;
     double yMax_ = 1.5;
 
+    // Dynamic parameter system for randomized exploration.
+    std::mt19937 rng_;
+    double changeTimer_ = 0.0;
+    double currentChangeInterval_ = 40.0; // Seconds between parameter changes.
+    double lastUpdateTime_ = 0.0;         // For delta time calculation.
+
+    // Dynamic resolution scaling based on FPS.
+    double currentResolutionDivisor_ = 2.0; // Current resolution divisor (smooth adaptive).
+    int baseWindowWidth_ = 0;               // Original window dimensions.
+    int baseWindowHeight_ = 0;
+    double fpsSum_ = 0.0;                  // Rolling sum for FPS calculation (render thread).
+    int fpsSampleCount_ = 0;               // Number of samples in rolling window.
+    double lastFpsCheckTime_ = 0.0;        // Time of last FPS check.
+    double lastFpsLogTime_ = 0.0;          // Time of last INFO level FPS log.
+    double displayFpsSum_ = 0.0;           // Rolling sum for display FPS (update() calls).
+    int displayFpsSampleCount_ = 0;        // Number of display samples.
+    double lastDisplayUpdateTime_ = 0.0;   // Time of last update() call.
+    constexpr static double FPS_CHECK_INTERVAL = 2.0;
+    constexpr static double FPS_LOG_INTERVAL = 10.0;
+    constexpr static int FPS_SAMPLE_COUNT = 60;       // Average over 60 frames.
+    constexpr static double TARGET_FPS = 60.0;
+
+    // Current animation parameters (instance variables, not constants).
+    double phaseSpeed_ = 0.0;
+    double detailPhaseSpeed_ = 0.01;
+    double cPhaseSpeed_ = 0.01;
+    double cRealCenter_ = -0.7;
+    double cRealAmplitude_ = 0.1;
+    double cImagCenter_ = 0.27;
+    double cImagAmplitude_ = 0.1;
+    int minIterations_ = 0;  // Randomized lower bound for detail oscillation.
+    int maxIterations_ = 200; // Upper bound for detail.
+
+    // Smooth transition between parameter sets.
+    double transitionProgress_ = 1.0; // 0.0 to 1.0 (1.0 = no transition).
+    double transitionDuration_ = 5.0; // Seconds for smooth transition.
+    double oldCRealCenter_ = -0.7;
+    double oldCRealAmplitude_ = 0.1;
+    double oldCImagCenter_ = 0.27;
+    double oldCImagAmplitude_ = 0.1;
+    double oldDetailPhaseSpeed_ = 0.01;
+    double oldCPhaseSpeed_ = 0.01;
+    int oldMinIterations_ = 0;
+    int oldMaxIterations_ = 200;
+
+    // Interesting Julia set regions (curated presets).
+    static constexpr int NUM_REGIONS = 10;
+    static constexpr std::pair<double, double> INTERESTING_REGIONS[NUM_REGIONS] = {
+        {-0.7, 0.27},        // Douady's Rabbit (classic).
+        {-0.4, 0.6},         // Dendrite (branching tree).
+        {-0.8, 0.156},       // Spiral arms.
+        {-0.835, -0.2321},   // Complex spirals.
+        {-0.74543, 0.11301}, // Delicate branches.
+        {0.285, 0.01},       // Siegel disk (near-circular).
+        {-0.123, 0.745},     // Dragon-like curves.
+        {0.3, 0.5},          // Swirling patterns.
+        {-1.0, 0.0},         // Period-2 bulb.
+        {-0.12, 0.75},       // Upper region variations.
+    };
+
+    void generateRandomParameters(); // Generate new random parameter set.
+
     // Background rendering thread for smooth animation.
     std::thread renderThread_;
     std::atomic<bool> shouldExit_{ false };
+    std::atomic<bool> resizeNeeded_{ false }; // Signal from render thread to main thread.
     std::mutex bufferMutex_;
 
     // Triple buffering - 3 buffers rotate through roles.

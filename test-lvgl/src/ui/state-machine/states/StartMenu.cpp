@@ -28,17 +28,13 @@ void StartMenu::onEnter(StateMachine& sm)
     int windowWidth = lv_disp_get_hor_res(disp);
     int windowHeight = lv_disp_get_ver_res(disp);
 
-    // Create Julia fractal background (allocated on heap, will be deleted by timer cleanup).
-    auto* fractal = new JuliaFractal(container, windowWidth, windowHeight);
-    spdlog::info("StartMenu: Created fractal background");
+    // Create Julia fractal background (allocated on heap, deleted in onExit).
+    fractal_ = new JuliaFractal(container, windowWidth, windowHeight);
+    spdlog::info("StartMenu: Created fractal background (event-driven rendering)");
 
     // Add resize event handler to container (catches window resize events).
-    lv_obj_add_event_cb(container, onDisplayResized, LV_EVENT_SIZE_CHANGED, fractal);
+    lv_obj_add_event_cb(container, onDisplayResized, LV_EVENT_SIZE_CHANGED, fractal_);
     spdlog::info("StartMenu: Added resize event handler");
-
-    // Create animation timer.
-    animationTimer_ = lv_timer_create(onAnimationTimer, 16, fractal);
-    spdlog::info("StartMenu: Started fractal animation timer");
 
     // Create centered "Start Simulation" button.
     lv_obj_t* startButton = lv_btn_create(container);
@@ -58,13 +54,10 @@ void StartMenu::onExit(StateMachine& sm)
 {
     spdlog::info("StartMenu: Exiting");
 
-    // Stop animation timer and clean up fractal.
-    if (animationTimer_) {
-        auto* fractal = static_cast<JuliaFractal*>(animationTimer_->user_data);
-        lv_timer_del(animationTimer_);
-
-        // IMPORTANT: Remove the resize event handler before deleting the fractal
-        // This prevents use-after-free if a resize event occurs after exit
+    // Clean up fractal.
+    if (fractal_) {
+        // IMPORTANT: Remove the resize event handler before deleting the fractal.
+        // This prevents use-after-free if a resize event occurs after exit.
         auto* uiManager = sm.getUiComponentManager();
         if (uiManager) {
             lv_obj_t* container = uiManager->getMainMenuContainer();
@@ -74,8 +67,9 @@ void StartMenu::onExit(StateMachine& sm)
             }
         }
 
-        delete fractal;
-        animationTimer_ = nullptr;
+        delete fractal_;
+        fractal_ = nullptr;
+        spdlog::info("StartMenu: Cleaned up fractal");
     }
 
     // Screen switch will clean up other widgets automatically.
@@ -123,11 +117,10 @@ void StartMenu::onStartButtonClicked(lv_event_t* e)
     }
 }
 
-void StartMenu::onAnimationTimer(lv_timer_t* timer)
+void StartMenu::updateAnimations()
 {
-    auto* fractal = static_cast<JuliaFractal*>(timer->user_data);
-    if (fractal) {
-        fractal->update();
+    if (fractal_) {
+        fractal_->update();
     }
 }
 

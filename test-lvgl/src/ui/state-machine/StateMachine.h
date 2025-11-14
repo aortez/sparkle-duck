@@ -39,6 +39,9 @@ public:
     std::string getCurrentStateName() const override;
     void processEvents() override;
 
+    // Update background animations (called every main loop iteration).
+    void updateAnimations();
+
     _lv_display_t* display = nullptr;
     EventProcessor eventProcessor;
 
