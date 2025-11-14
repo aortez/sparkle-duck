@@ -116,34 +116,30 @@ static std::array<MaterialProperties, 9> MATERIAL_PROPERTIES = {
         .is_rigid = false },
 
       // ========== SEED ==========
-      // Dense tree seed material that sinks in water and stays together.
-      // Will eventually germinate into tree organism.
-      { .density = 8.0,        // Dense (sinks in water).
-        .elasticity = 0.2,     // Low bounce.
-        .cohesion = 0.9,       // Stays together.
-        .adhesion = 0.3,       // Moderate adhesion.
-        .air_resistance = 0.2, // Low-moderate drag (compact, dense).
+      { .density = 8.0,
+        .elasticity = 0.2,
+        .cohesion = 0.9,
+        .adhesion = 0.3,
+        .air_resistance = 0.2,
         .com_mass_constant = 2.5,
         .hydrostatic_weight = 0.05,
         .dynamic_weight = 0.5,
         .pressure_diffusion = 0.1,
-        .viscosity = 0.1,                    // Essentially solid.
-        .motion_sensitivity = 0.1,           // Barely affected by motion.
-        .static_friction_coefficient = 1.3,  // Sticky when at rest.
-        .kinetic_friction_coefficient = 0.9, // Moderate friction when moving.
-        .stick_velocity = 0.02,              // Moderate breakaway.
-        .friction_transition_width = 0.03,   // Moderate transition.
+        .viscosity = 0.1,
+        .motion_sensitivity = 0.1,
+        .static_friction_coefficient = 1.3,
+        .kinetic_friction_coefficient = 0.9,
+        .stick_velocity = 0.02,
+        .friction_transition_width = 0.03,
         .is_fluid = false,
         .is_rigid = true },
 
       // ========== WALL ==========
-      // Immobile boundary material (infinite effective density).
-      // Zero pressure diffusion, acts as barrier and reflector.
-      { .density = 1000.0, // Effectively infinite.
+      { .density = 1000.0,
         .elasticity = 0.9,
         .cohesion = 1.0,
         .adhesion = 0.5,
-        .air_resistance = 0.0, // N/A (immobile).
+        .air_resistance = 0.0,
         .com_mass_constant = 0.0,
         .hydrostatic_weight = 0.0,
         .dynamic_weight = 0.0,
@@ -158,23 +154,21 @@ static std::array<MaterialProperties, 9> MATERIAL_PROPERTIES = {
         .is_rigid = true },
 
       // ========== WATER ==========
-      // Fluid with medium density, moderate cohesion for droplet formation.
-      // High pressure diffusion, no static friction.
-      { .density = 1.0,         // Standard fluid density.
-        .elasticity = 0.1,      // Low bounce (inelastic).
-        .cohesion = 1,          // Moderate - forms droplets but flows freely.
-        .adhesion = 0.5,        // Sticks to surfaces (wetting).
-        .air_resistance = 0.01, // Very low drag (fluid).
+      { .density = 1.0,
+        .elasticity = 0.1,
+        .cohesion = 1,
+        .adhesion = 0.5,
+        .air_resistance = 0.01,
         .com_mass_constant = 8.0,
         .hydrostatic_weight = 1.0,
         .dynamic_weight = 0.8,
         .pressure_diffusion = 0.9,
-        .viscosity = 0.01,                   // Flows very easily.
-        .motion_sensitivity = 1.0,           // Fully affected by motion state.
-        .static_friction_coefficient = 1.0,  // No static friction effect.
-        .kinetic_friction_coefficient = 1.0, // No kinetic friction effect.
-        .stick_velocity = 0.0,               // No stick velocity.
-        .friction_transition_width = 0.01,   // Minimal transition.
+        .viscosity = 0.01,
+        .motion_sensitivity = 1.0,
+        .static_friction_coefficient = 1.0,
+        .kinetic_friction_coefficient = 1.0,
+        .stick_velocity = 0.0,
+        .friction_transition_width = 0.01,
         .is_fluid = true,
         .is_rigid = false },
 
