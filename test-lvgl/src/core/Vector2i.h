@@ -1,6 +1,8 @@
 #pragma once
 
+#include <nlohmann/json.hpp>
 #include <string>
+#include <zpp_bits.h>
 
 namespace DirtSim {
 
@@ -8,6 +10,9 @@ class Vector2i {
 public:
     int x;
     int y;
+
+    // Custom zpp_bits serialization (2 fields: x, y).
+    using serialize = zpp::bits::members<2>;
 
     Vector2i();
     Vector2i(int x, int y);
@@ -39,6 +44,20 @@ public:
 inline Vector2i operator*(int scalar, const Vector2i& v)
 {
     return v * scalar;
+}
+
+/**
+ * ADL (Argument-Dependent Lookup) functions for nlohmann::json automatic conversion.
+ */
+inline void to_json(nlohmann::json& j, const Vector2i& v)
+{
+    j = nlohmann::json{{"x", v.x}, {"y", v.y}};
+}
+
+inline void from_json(const nlohmann::json& j, Vector2i& v)
+{
+    j.at("x").get_to(v.x);
+    j.at("y").get_to(v.y);
 }
 
 } // namespace DirtSim

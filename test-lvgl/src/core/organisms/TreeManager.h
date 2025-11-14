@@ -4,6 +4,7 @@
 #include "TreeTypes.h"
 #include <memory>
 #include <unordered_map>
+#include <vector>
 
 namespace DirtSim {
 
@@ -63,6 +64,14 @@ public:
      * Get all trees.
      */
     const std::unordered_map<TreeId, Tree>& getTrees() const { return trees_; }
+
+    /**
+     * Process batched organism material transfers from physics system.
+     * Updates tree cell tracking efficiently.
+     *
+     * @param transfers List of organism transfers that occurred this frame.
+     */
+    void notifyTransfers(const std::vector<OrganismTransfer>& transfers);
 
 private:
     std::unordered_map<TreeId, Tree> trees_;

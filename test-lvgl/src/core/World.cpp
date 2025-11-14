@@ -859,6 +859,9 @@ void World::processMaterialMoves()
                 static_cast<int>(move.collision_type));
         }
 
+        // Track organism_id before transfer (in case source cell becomes empty).
+        TreeId organism_id = fromCell.organism_id;
+
         switch (move.collision_type) {
             case CollisionType::TRANSFER_ONLY:
                 collision_calculator_.handleTransferMove(*this, fromCell, toCell, move);
@@ -876,9 +879,27 @@ void World::processMaterialMoves()
                 collision_calculator_.handleAbsorption(*this, fromCell, toCell, move);
                 break;
         }
+
+        // Record organism transfer if material had organism ownership.
+        if (organism_id != 0 && move.collision_type == CollisionType::TRANSFER_ONLY) {
+            // Transfer occurred - record it for TreeManager update.
+            recordOrganismTransfer(move.fromX, move.fromY, move.toX, move.toY, organism_id, move.amount);
+        }
     }
 
     pending_moves_.clear();
+
+    // Notify TreeManager of all organism transfers for efficient tracking updates.
+    if (!organism_transfers_.empty() && tree_manager_) {
+        tree_manager_->notifyTransfers(organism_transfers_);
+        organism_transfers_.clear();
+    }
+}
+
+void World::recordOrganismTransfer(int fromX, int fromY, int toX, int toY, TreeId organism_id, double amount)
+{
+    organism_transfers_.push_back(
+        OrganismTransfer{ Vector2i{ fromX, fromY }, Vector2i{ toX, toY }, organism_id, amount });
 }
 
 void World::setupBoundaryWalls()

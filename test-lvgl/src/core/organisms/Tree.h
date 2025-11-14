@@ -49,6 +49,7 @@ public:
 
     // Public members - simple data, no complex invariants to maintain.
     TreeId id;
+    Vector2i seed_position;                     // Original seed position (center for vision).
     uint32_t age = 0;
     GrowthStage stage = GrowthStage::SEED;
     std::unordered_set<Vector2i> cells;         // Cell positions owned by this tree.
@@ -56,6 +57,11 @@ public:
     double total_water = 0.0;                   // Aggregated from world cells.
     std::optional<TreeCommand> current_command; // Command being executed.
     uint32_t steps_remaining = 0;               // Timesteps until command completes.
+
+    /**
+     * Gather scale-invariant sensory data for brain input and UI visualization.
+     */
+    TreeSensoryData gatherSensoryData(const World& world) const;
 
 private:
     std::unique_ptr<TreeBrain> brain_;
@@ -74,11 +80,6 @@ private:
      * Update aggregated resources from world cells.
      */
     void updateResources(const World& world);
-
-    /**
-     * Gather scale-invariant sensory data for brain input.
-     */
-    TreeSensoryData gatherSensoryData(const World& world) const;
 };
 
 } // namespace DirtSim

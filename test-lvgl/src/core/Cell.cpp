@@ -102,6 +102,8 @@ double Cell::addMaterialWithPhysics(
         com = calculateTrajectoryLanding(source_com, newVel, boundary_normal);
         velocity = newVel; // Preserve velocity through transfer.
 
+        // Note: organism_id is transferred separately in transferToWithPhysics().
+
         return added;
     }
 
@@ -181,6 +183,9 @@ double Cell::transferToWithPhysics(Cell& target, double amount, const Vector2d& 
     // Calculate how much we can actually transfer.
     const double available = std::min(amount, fill_ratio);
 
+    // Save organism_id before transfer (in case source becomes empty).
+    TreeId source_organism_id = organism_id;
+
     // Use physics-aware method with current COM and velocity.
     const double accepted =
         target.addMaterialWithPhysics(material_type, available, com, velocity, boundary_normal);
@@ -188,6 +193,17 @@ double Cell::transferToWithPhysics(Cell& target, double amount, const Vector2d& 
     // Remove the accepted amount from this cell.
     if (accepted > 0.0) {
         removeMaterial(accepted);
+
+        // Transfer organism ownership to target if material moved.
+        if (source_organism_id != 0) {
+            // Target receives organism ownership.
+            target.organism_id = source_organism_id;
+
+            // If source is now empty, clear organism_id.
+            if (isEmpty()) {
+                organism_id = 0;
+            }
+        }
     }
 
     return accepted;

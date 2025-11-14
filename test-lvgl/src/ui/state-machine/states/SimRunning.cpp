@@ -340,6 +340,11 @@ State::Any SimRunning::onEvent(const UiUpdateEvent& evt, StateMachine& sm)
         playground_->render(*worldData, debugDrawEnabled, pixelRendererEnabled);
         sm.getTimers().stopTimer("render_world");
 
+        // Render neural grid (tree vision).
+        sm.getTimers().startTimer("render_neural_grid");
+        playground_->renderNeuralGrid(*worldData);
+        sm.getTimers().stopTimer("render_neural_grid");
+
         spdlog::debug(
             "SimRunning: Rendered world ({}x{}, step {})",
             worldData->width,
