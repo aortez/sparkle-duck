@@ -113,8 +113,15 @@ void World::advanceTime(double deltaTimeSeconds)
         support_calc.computeSupportMapBottomUp(*this);
     }
 
+    // Calculate hydrostatic pressure based on current material positions.
+    // This must happen before force resolution so buoyancy forces are immediate.
+    if (physicsSettings.pressure_hydrostatic_strength > 0.0) {
+        ScopeTimer hydroTimer(timers_, "hydrostatic_pressure");
+        pressure_calculator_.calculateHydrostaticPressure(*this);
+    }
+
     // Accumulate and apply all forces based on resistance.
-    // This now includes pressure forces from the previous frame.
+    // This now includes pressure forces from the current frame.
     {
         ScopeTimer resolveTimer(timers_, "resolve_forces_total");
         resolveForces(scaledDeltaTime);
@@ -136,15 +143,8 @@ void World::advanceTime(double deltaTimeSeconds)
         processMaterialMoves();
     }
 
-    // Calculate pressures for NEXT frame after moves are complete.
-    // This follows the two-frame model where pressure calculated in frame N
-    // affects velocities in frame N+1.
-    if (physicsSettings.pressure_hydrostatic_strength > 0.0) {
-        ScopeTimer hydroTimer(timers_, "hydrostatic_pressure");
-        pressure_calculator_.calculateHydrostaticPressure(*this);
-    }
-
     // Process any blocked transfers that were queued during processMaterialMoves.
+    // This generates dynamic pressure from collisions.
     if (physicsSettings.pressure_dynamic_strength > 0.0) {
         ScopeTimer dynamicTimer(timers_, "dynamic_pressure");
         // Generate virtual gravity transfers to create pressure from gravity forces.
@@ -335,10 +335,13 @@ void World::applyGravity()
 {
     ScopeTimer timer(timers_, "apply_gravity");
 
-    const Vector2d gravityForce(0.0, physicsSettings.gravity);
-
     for (auto& cell : data.cells) {
         if (!cell.isEmpty() && !cell.isWall()) {
+            // Gravity force is proportional to material density (F = m × g).
+            // This enables buoyancy: denser materials sink, lighter materials float.
+            const MaterialProperties& props = getMaterialProperties(cell.material_type);
+            Vector2d gravityForce(0.0, props.density * physicsSettings.gravity);
+
             // Accumulate gravity force instead of applying directly.
             cell.addPendingForce(gravityForce);
         }
@@ -535,8 +538,18 @@ void World::resolveForces(double deltaTime)
             // Get material properties.
             const MaterialProperties& props = getMaterialProperties(cell.material_type);
 
-            // Use pre-computed support from bottom-up scan.
-            double support_factor = cell.has_support ? 1.0 : 0.0;
+            // Check if support comes from solid material (not fluid).
+            // Fluids provide buoyancy, not structural support for viscosity amplification.
+            bool has_solid_support = false;
+            if (cell.has_support && y < data.height - 1) {
+                const Cell& below = at(x, y + 1);
+                if (!below.isEmpty()) {
+                    const MaterialProperties& below_props =
+                        getMaterialProperties(below.material_type);
+                    has_solid_support = !below_props.is_fluid;
+                }
+            }
+            double support_factor = has_solid_support ? 1.0 : 0.0;
 
             // For now, assume STATIC motion state when supported, FALLING otherwise.
             // TODO: Implement proper motion state detection.

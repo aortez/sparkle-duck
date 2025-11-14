@@ -25,31 +25,16 @@ void WorldPressureCalculator::calculateHydrostaticPressure(World& world)
     const double hydrostatic_strength =
         world.getHydrostaticPressureStrength() * HYDROSTATIC_MULTIPLIER;
 
+    // Compile-time switch for buoyancy calculation method.
+    // COLUMN_BASED (true): Fast, column-independent tracking of fluid environment.
+    // NEIGHBOR_BASED (false): More accurate, checks all neighbors for fluid density.
+    constexpr bool USE_COLUMN_BASED_BUOYANCY = true;
+
     // Process each column independently.
     for (uint32_t x = 0; x < world.data.width; ++x) {
-        // Phase 1: Bottom-up support detection.
-        bool has_support_below = true; // Bottom boundary provides support.
-        std::vector<bool> cell_has_support(world.data.height);
-
-        for (int y = world.data.height - 1; y >= 0; --y) {
-            Cell& cell = world.at(x, y);
-
-            if (cell.isEmpty()) {
-                // Empty cells break support chain.
-                has_support_below = false;
-            }
-            else if (cell.isWall() || isRigidSupport(cell.material_type)) {
-                // Solid materials restore support.
-                has_support_below = true;
-            }
-            // else: fluid materials inherit support from below.
-
-            // Record support state for this cell.
-            cell_has_support[y] = !cell.isEmpty() && has_support_below;
-        }
-
-        // Phase 2: Top-down pressure accumulation.
+        // Top-down pressure accumulation with buoyancy support.
         double accumulated_pressure = 0.0;
+        double current_fluid_density = 0.001; // Start assuming air environment.
 
         for (uint32_t y = 0; y < world.data.height; ++y) {
             Cell& cell = world.at(x, y);
@@ -57,26 +42,40 @@ void WorldPressureCalculator::calculateHydrostaticPressure(World& world)
             if (cell.isEmpty()) {
                 // Empty cells: reset accumulation, no pressure.
                 accumulated_pressure = 0.0;
+                current_fluid_density = 0.001; // Reset to air.
                 continue;
             }
 
-            if (cell_has_support[y]) {
-                // Supported cells receive accumulated pressure.
-                double current_pressure = cell.pressure;
-                cell.pressure = current_pressure + accumulated_pressure;
-                cell.setHydrostaticPressure(accumulated_pressure);
+            // All non-empty cells receive accumulated pressure.
+            // This enables buoyancy for floating objects (no support required).
+            double current_pressure = cell.pressure;
+            cell.pressure = current_pressure + accumulated_pressure;
+            cell.setHydrostaticPressure(accumulated_pressure);
 
-                // Add this cell's contribution for cells below.
-                double effective_density = cell.getEffectiveDensity();
-                double hydrostatic_weight = getHydrostaticWeight(cell.material_type);
-                accumulated_pressure += effective_density * hydrostatic_weight * gravity_magnitude
-                    * SLICE_THICKNESS * hydrostatic_strength;
+            // Determine density contribution for accumulation (buoyancy calculation).
+            double contributing_density;
+            const MaterialProperties& props = getMaterialProperties(cell.material_type);
+
+            if (props.is_fluid) {
+                // Fluids contribute their own density.
+                contributing_density = cell.getEffectiveDensity();
+                current_fluid_density = contributing_density; // Update fluid environment tracker.
             }
             else {
-                // Unsupported cells: no hydrostatic pressure.
-                cell.setHydrostaticPressure(0.0);
-                // Don't accumulate pressure from unsupported cells.
+                // Solids contribute surrounding fluid density (for proper buoyancy).
+                if constexpr (USE_COLUMN_BASED_BUOYANCY) {
+                    // Option C: Use current fluid environment (fast, column-independent).
+                    contributing_density = current_fluid_density;
+                }
+                else {
+                    // Option A: Query all neighbors for fluid density (more accurate).
+                    contributing_density = getSurroundingFluidDensity(world, x, y);
+                }
             }
+
+            // Accumulate pressure for next cell below.
+            accumulated_pressure +=
+                contributing_density * gravity_magnitude * SLICE_THICKNESS * hydrostatic_strength;
         }
     }
 }
@@ -246,7 +245,13 @@ double WorldPressureCalculator::getDynamicWeight(MaterialType type) const
 Vector2d WorldPressureCalculator::calculatePressureGradient(
     const World& world, uint32_t x, uint32_t y) const
 {
-    // Get center cell total pressure.
+    // Component-wise central difference gradient calculation.
+    // This is the standard CFD approach: calculate each dimension independently
+    // using only the aligned neighbors (not diagonal mixing).
+    //
+    // ∂P/∂x ≈ (P_right - P_left) / 2Δx
+    // ∂P/∂y ≈ (P_down - P_up) / 2Δy
+
     const Cell& center = world.at(x, y);
     double center_pressure = center.pressure;
 
@@ -261,226 +266,93 @@ Vector2d WorldPressureCalculator::calculatePressureGradient(
         return Vector2d{ 0, 0 };
     }
 
-    // First pass: Identify blocked and open directions.
     Vector2d gradient(0, 0);
-    double total_blocked_pressure = 0.0;
-    int open_directions = 0;
-    int wall_directions = 0;
 
-    if (gradient_directions_ == PressureGradientDirections::Four) {
-        // Check all 4 cardinal neighbors.
-        const std::array<std::pair<int, int>, 4> directions = {
-            { { -1, 0 }, { 1, 0 }, { 0, -1 }, { 0, 1 } }
-        };
+    // Calculate HORIZONTAL gradient (∂P/∂x) using left and right neighbors.
+    {
+        double p_left = center_pressure; // Default to center if no neighbor.
+        double p_right = center_pressure;
+        bool has_left = false;
+        bool has_right = false;
 
-        // First pass: Calculate pressure differences and identify blocked directions.
-        std::array<double, 4> pressure_diffs = { 0, 0, 0, 0 };
-        std::array<bool, 4> is_blocked = { false, false, false, false };
-
-        for (size_t i = 0; i < directions.size(); ++i) {
-            const auto& [dx, dy] = directions[i];
-            int nx = static_cast<int>(x) + dx;
-            int ny = static_cast<int>(y) + dy;
-
-            double neighbor_pressure;
-            bool is_wall = false;
-
-            if (isValidCell(world, nx, ny)) {
-                const Cell& neighbor = world.at(nx, ny);
-
-                if (neighbor.isWall()) {
-                    is_wall = true;
-                    wall_directions++;
-                    // Calculate pressure difference as if wall wasn't there.
-                    neighbor_pressure = 0.0;
-                }
-                else if (neighbor.isEmpty()) {
-                    // Empty cells act as pressure sinks.
-                    neighbor_pressure = 0.0;
-                    open_directions++;
-                }
-                else {
-                    // Normal cells use their actual pressure.
-                    neighbor_pressure = neighbor.pressure;
-                    open_directions++;
-                }
-            }
-            else {
-                // Out-of-bounds: treat as wall.
-                is_wall = true;
-                wall_directions++;
-                neighbor_pressure = 0.0;
-            }
-
-            pressure_diffs[i] = center_pressure - neighbor_pressure;
-            is_blocked[i] = is_wall;
-
-            if (is_wall) {
-                // Track blocked pressure that needs redistribution.
-                total_blocked_pressure += pressure_diffs[i];
-            }
-
-            spdlog::trace(
-                "  Direction ({},{}) - neighbor at ({},{}) - pressure={:.6f}, diff={:.6f}, "
-                "blocked={}",
-                dx,
-                dy,
-                nx,
-                ny,
-                neighbor_pressure,
-                pressure_diffs[i],
-                is_wall ? "YES" : "NO");
-        }
-
-        // Second pass: Calculate gradient with redistribution.
-        for (size_t i = 0; i < directions.size(); ++i) {
-            const auto& [dx, dy] = directions[i];
-
-            if (!is_blocked[i]) {
-                // Add direct pressure contribution.
-                gradient.x += pressure_diffs[i] * dx;
-                gradient.y += pressure_diffs[i] * dy;
-
-                // Add redistributed pressure from blocked directions.
-                if (open_directions > 0 && total_blocked_pressure > 0) {
-                    double redistribution = total_blocked_pressure / open_directions;
-                    gradient.x += redistribution * dx;
-                    gradient.y += redistribution * dy;
-
-                    spdlog::trace(
-                        "  Redistributing {:.6f} pressure to direction ({},{})",
-                        redistribution,
-                        dx,
-                        dy);
-                }
-            }
-        }
-    }
-    else { // PressureGradientDirections::Eight
-        // Check all 8 neighbors (including diagonals).
-        const int dx[] = { -1, 0, 1, -1, 1, -1, 0, 1 };
-        const int dy[] = { -1, -1, -1, 0, 0, 1, 1, 1 };
-        constexpr int num_neighbors = 8;
-
-        // First pass: Calculate pressure differences and identify blocked directions.
-        std::array<double, 8> pressure_diffs = { 0, 0, 0, 0, 0, 0, 0, 0 };
-        std::array<bool, 8> is_blocked = { false, false, false, false, false, false, false, false };
-        std::array<double, 8> direction_weights = { 1, 1, 1, 1, 1, 1, 1, 1 };
-
-        // Calculate weights for diagonal directions.
-        for (int i = 0; i < num_neighbors; ++i) {
-            if (dx[i] != 0 && dy[i] != 0) {
-                direction_weights[i] = 0.707107; // 1/sqrt(2)
+        // Left neighbor.
+        if (x > 0) {
+            const Cell& left = world.at(x - 1, y);
+            if (!left.isWall()) {
+                p_left = left.pressure; // Use actual pressure (0 for empty cells).
+                has_left = true;
             }
         }
 
-        for (int i = 0; i < num_neighbors; ++i) {
-            int nx = static_cast<int>(x) + dx[i];
-            int ny = static_cast<int>(y) + dy[i];
-
-            double neighbor_pressure;
-            bool is_wall = false;
-
-            if (isValidCell(world, nx, ny)) {
-                const Cell& neighbor = world.at(nx, ny);
-
-                if (neighbor.isWall()) {
-                    is_wall = true;
-                    wall_directions++;
-                    // Calculate pressure difference as if wall wasn't there.
-                    neighbor_pressure = 0.0;
-                }
-                else if (neighbor.isEmpty()) {
-                    // Empty cells act as pressure sinks.
-                    neighbor_pressure = 0.0;
-                    open_directions++;
-                }
-                else {
-                    // Normal cells use their actual pressure.
-                    neighbor_pressure = neighbor.pressure;
-                    open_directions++;
-                }
-            }
-            else {
-                // Out-of-bounds: treat as wall.
-                is_wall = true;
-                wall_directions++;
-                neighbor_pressure = 0.0;
-            }
-
-            pressure_diffs[i] = center_pressure - neighbor_pressure;
-            is_blocked[i] = is_wall;
-
-            if (is_wall) {
-                // Track blocked pressure that needs redistribution.
-                total_blocked_pressure += pressure_diffs[i] * direction_weights[i];
-            }
-
-            spdlog::trace(
-                "  Direction ({},{}) - neighbor at ({},{}) - pressure={:.6f}, diff={:.6f}, "
-                "weight={:.3f}, blocked={}",
-                dx[i],
-                dy[i],
-                nx,
-                ny,
-                neighbor_pressure,
-                pressure_diffs[i],
-                direction_weights[i],
-                is_wall ? "YES" : "NO");
-        }
-
-        // Second pass: Calculate gradient with redistribution.
-        double total_open_weight = 0.0;
-        for (int i = 0; i < num_neighbors; ++i) {
-            if (!is_blocked[i]) {
-                total_open_weight += direction_weights[i];
+        // Right neighbor.
+        if (x < world.data.width - 1) {
+            const Cell& right = world.at(x + 1, y);
+            if (!right.isWall()) {
+                p_right = right.pressure; // Use actual pressure (0 for empty cells).
+                has_right = true;
             }
         }
 
-        for (int i = 0; i < num_neighbors; ++i) {
-            if (!is_blocked[i]) {
-                // Add direct pressure contribution.
-                gradient.x += pressure_diffs[i] * dx[i] * direction_weights[i];
-                gradient.y += pressure_diffs[i] * dy[i] * direction_weights[i];
-
-                // Add redistributed pressure from blocked directions.
-                if (total_open_weight > 0 && total_blocked_pressure > 0) {
-                    double redistribution =
-                        (total_blocked_pressure / total_open_weight) * direction_weights[i];
-                    gradient.x += redistribution * dx[i];
-                    gradient.y += redistribution * dy[i];
-
-                    spdlog::trace(
-                        "  Redistributing {:.6f} pressure to direction ({},{})",
-                        redistribution,
-                        dx[i],
-                        dy[i]);
-                }
-            }
+        // Central difference: gradient points from high to low pressure (negate derivative).
+        // Convention: negative gradient = pressure increasing in positive direction.
+        if (has_left && has_right) {
+            gradient.x = -(p_right - p_left) / 2.0;
         }
+        else if (has_left) {
+            gradient.x = -(center_pressure - p_left);
+        }
+        else if (has_right) {
+            gradient.x = -(p_right - center_pressure);
+        }
+        // else: no horizontal neighbors, gradient.x = 0
     }
 
-    // Normalize by number of directions checked (not just open directions).
-    if (gradient_directions_ == PressureGradientDirections::Four) {
-        gradient = gradient / 4.0;
-    }
-    else {
-        gradient = gradient / 8.0;
+    // Calculate VERTICAL gradient (∂P/∂y) using up and down neighbors.
+    {
+        double p_up = center_pressure;
+        double p_down = center_pressure;
+        bool has_up = false;
+        bool has_down = false;
+
+        // Up neighbor.
+        if (y > 0) {
+            const Cell& up = world.at(x, y - 1);
+            if (!up.isWall() && !up.isEmpty()) {
+                p_up = up.pressure;
+                has_up = true;
+            }
+        }
+
+        // Down neighbor.
+        if (y < world.data.height - 1) {
+            const Cell& down = world.at(x, y + 1);
+            if (!down.isWall() && !down.isEmpty()) {
+                p_down = down.pressure;
+                has_down = true;
+            }
+        }
+
+        // Central difference: gradient points from high to low pressure (negate derivative).
+        // Convention: negative gradient = pressure increasing in positive direction.
+        if (has_up && has_down) {
+            gradient.y = -(p_down - p_up) / 2.0;
+        }
+        else if (has_up) {
+            gradient.y = -(center_pressure - p_up);
+        }
+        else if (has_down) {
+            gradient.y = -(p_down - center_pressure);
+        }
+        // else: no vertical neighbors, gradient.y = 0
     }
 
     spdlog::trace(
-        "Pressure gradient at ({},{}) - center_pressure={:.6f}, "
-        "gradient=({:.6f},{:.6f}), open_dirs={}, wall_dirs={}, "
-        "blocked_pressure={:.6f} (mode: {})",
+        "Pressure gradient at ({},{}) - center={:.4f}, gradient=({:.4f},{:.4f})",
         x,
         y,
         center_pressure,
         gradient.x,
-        gradient.y,
-        open_directions,
-        wall_directions,
-        total_blocked_pressure,
-        gradient_directions_ == PressureGradientDirections::Four ? "4-dir" : "8-dir");
+        gradient.y);
 
     return gradient;
 }
@@ -546,21 +418,22 @@ Vector2d WorldPressureCalculator::calculateGravityGradient(
 
 void WorldPressureCalculator::applyPressureDecay(World& world, double deltaTime)
 {
-    // Apply decay to unified pressure values.
+    // Apply decay to dynamic pressure only (not hydrostatic).
+    // Hydrostatic pressure is recalculated each frame based on material positions,
+    // so it doesn't need decay. Only dynamic pressure from collisions should dissipate.
     for (uint32_t y = 0; y < world.data.height; ++y) {
         for (uint32_t x = 0; x < world.data.width; ++x) {
             Cell& cell = world.at(x, y);
 
-            // Apply pressure decay to the unified pressure.
-            double pressure = cell.pressure;
-            if (pressure > MIN_PRESSURE_THRESHOLD) {
-                double new_pressure = pressure * (1.0 - DYNAMIC_DECAY_RATE * deltaTime);
-                cell.pressure = new_pressure;
+            // Only decay the dynamic component.
+            double dynamic = cell.dynamic_component;
+            if (dynamic > MIN_PRESSURE_THRESHOLD) {
+                double new_dynamic = dynamic * (1.0 - DYNAMIC_DECAY_RATE * deltaTime);
+                cell.setDynamicPressure(new_dynamic);
 
-                // Update components proportionally for visualization.
-                double decay_factor = new_pressure / pressure;
-                cell.hydrostatic_component = cell.hydrostatic_component * decay_factor;
-                cell.dynamic_component = cell.dynamic_component * decay_factor;
+                // Recalculate total pressure as hydrostatic + decayed dynamic.
+                double total = cell.hydrostatic_component + new_dynamic;
+                cell.pressure = total;
             }
 
             // Update pressure gradient for visualization.
@@ -731,6 +604,53 @@ bool WorldPressureCalculator::isRigidSupport(MaterialType type) const
             return false; // For now, treat as non-rigid.
         default:
             return false;
+    }
+}
+
+double WorldPressureCalculator::getSurroundingFluidDensity(
+    const World& world, uint32_t x, uint32_t y) const
+{
+    // Calculate average fluid density from all 8 neighbors.
+    // Used for accurate buoyancy calculation when USE_COLUMN_BASED_BUOYANCY = false.
+
+    double total_fluid_density = 0.0;
+    int fluid_neighbor_count = 0;
+
+    // Check all 8 neighbors.
+    const int dx[] = { -1, 0, 1, -1, 1, -1, 0, 1 };
+    const int dy[] = { -1, -1, -1, 0, 0, 1, 1, 1 };
+
+    for (int i = 0; i < 8; ++i) {
+        int nx = static_cast<int>(x) + dx[i];
+        int ny = static_cast<int>(y) + dy[i];
+
+        // Check bounds.
+        if (nx < 0 || nx >= static_cast<int>(world.data.width) || ny < 0
+            || ny >= static_cast<int>(world.data.height)) {
+            continue; // Out of bounds.
+        }
+
+        const Cell& neighbor = world.at(nx, ny);
+
+        // Only count fluid neighbors (WATER, AIR).
+        if (!neighbor.isEmpty()) {
+            const MaterialProperties& neighbor_props =
+                getMaterialProperties(neighbor.material_type);
+            if (neighbor_props.is_fluid) {
+                total_fluid_density += neighbor.getEffectiveDensity();
+                fluid_neighbor_count++;
+            }
+        }
+    }
+
+    // Return average fluid density, or default to water density if no fluid neighbors.
+    if (fluid_neighbor_count > 0) {
+        return total_fluid_density / fluid_neighbor_count;
+    }
+    else {
+        // No fluid neighbors found - default to water density (1.0).
+        // This handles edge case of solid objects with no adjacent fluids.
+        return 1.0;
     }
 }
 

@@ -40,7 +40,7 @@ public:
 
     // Pressure-specific constants.
     static constexpr double SLICE_THICKNESS = 1.0;          // Thickness of pressure slices.
-    static constexpr double HYDROSTATIC_MULTIPLIER = 0.02;  // Hydrostatic force strength.
+    static constexpr double HYDROSTATIC_MULTIPLIER = 1.0;   // Hydrostatic force strength.
     static constexpr double DYNAMIC_MULTIPLIER = 1;         // Dynamic force strength.
     static constexpr double DYNAMIC_DECAY_RATE = 0.3;       // Rate of pressure dissipation.
     static constexpr double MIN_PRESSURE_THRESHOLD = 0.001; // Ignore pressures below this.
@@ -191,6 +191,19 @@ private:
      */
     double calculateDiffusionReflectionCoefficient(
         MaterialType material, double blocked_flux) const;
+
+    /**
+     * @brief Get surrounding fluid density for buoyancy calculation.
+     * @param world World providing access to grid and cells.
+     * @param x X coordinate of cell.
+     * @param y Y coordinate of cell.
+     * @return Average density of surrounding fluid materials.
+     *
+     * Checks all 8 neighbors and returns average density of fluid materials (WATER, AIR).
+     * Used when USE_COLUMN_BASED_BUOYANCY = false for more accurate buoyancy at
+     * horizontal fluid boundaries. Returns 1.0 (water density) if no fluid neighbors found.
+     */
+    double getSurroundingFluidDensity(const World& world, uint32_t x, uint32_t y) const;
 };
 
 } // namespace DirtSim
