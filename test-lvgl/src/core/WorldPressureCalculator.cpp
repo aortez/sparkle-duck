@@ -104,7 +104,8 @@ void WorldPressureCalculator::processBlockedTransfers(
                     Cell& source_cell = world.at(transfer.fromX, transfer.fromY);
 
                     // Get material-specific dynamic weight for source.
-                    double material_weight = getDynamicWeight(source_cell.material_type);
+                    const double material_weight =
+                        getMaterialProperties(source_cell.material_type).dynamic_weight;
                     double dynamic_strength = world.getDynamicPressureStrength();
 
                     // Calculate material-based reflection coefficient.
@@ -167,7 +168,8 @@ void WorldPressureCalculator::processBlockedTransfers(
             Cell& target_cell = world.at(transfer.toX, transfer.toY);
 
             // Get material-specific dynamic weight.
-            double material_weight = getDynamicWeight(target_cell.material_type);
+            double material_weight =
+                getMaterialProperties(target_cell.material_type).dynamic_weight;
             double dynamic_strength = world.getDynamicPressureStrength();
             double weighted_energy = blocked_energy * material_weight * dynamic_strength;
 
@@ -196,16 +198,6 @@ void WorldPressureCalculator::processBlockedTransfers(
                 new_unified_pressure);
         }
     }
-}
-
-double WorldPressureCalculator::getHydrostaticWeight(MaterialType type) const
-{
-    return getMaterialProperties(type).hydrostatic_weight;
-}
-
-double WorldPressureCalculator::getDynamicWeight(MaterialType type) const
-{
-    return getMaterialProperties(type).dynamic_weight;
 }
 
 Vector2d WorldPressureCalculator::calculatePressureGradient(

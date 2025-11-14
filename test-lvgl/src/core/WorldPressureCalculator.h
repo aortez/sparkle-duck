@@ -73,20 +73,6 @@ public:
         World& world, const std::vector<BlockedTransfer>& blocked_transfers);
 
     /**
-     * @brief Get material-specific hydrostatic pressure sensitivity.
-     * @param type Material type.
-     * @return Weight factor for hydrostatic pressure [0,1].
-     */
-    double getHydrostaticWeight(MaterialType type) const;
-
-    /**
-     * @brief Get material-specific dynamic pressure sensitivity.
-     * @param type Material type.
-     * @return Weight factor for dynamic pressure [0,1].
-     */
-    double getDynamicWeight(MaterialType type) const;
-
-    /**
      * @brief Calculate pressure gradient at a cell position.
      * @param world World providing access to grid and cells.
      * @param x X coordinate of cell.
