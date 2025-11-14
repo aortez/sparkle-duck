@@ -156,15 +156,16 @@ void SimPlayground::onScenarioChanged(lv_event_t* e)
 
     // Send sim_run command with new scenario_id to DSSM server.
     if (playground->wsClient_ && playground->wsClient_->isConnected()) {
-        DirtSim::Api::SimRun::Command cmd;
-        cmd.scenario_id = scenario_id;
-        // Keep default timestep and max_steps.
+        const DirtSim::Api::SimRun::Command cmd{ .timestep = 0.016,
+                                                 .max_steps = -1,
+                                                 .scenario_id = scenario_id,
+                                                 .max_frame_ms = playground->currentMaxFrameMs_ };
 
-        nlohmann::json json = cmd.toJson();
-        json["command"] = "sim_run";
-
-        spdlog::info("SimPlayground: Sending sim_run with scenario '{}'", scenario_id);
-        playground->wsClient_->send(json.dump());
+        spdlog::info(
+            "SimPlayground: Sending sim_run with scenario '{}', max_frame_ms={}",
+            scenario_id,
+            cmd.max_frame_ms);
+        playground->wsClient_->sendCommand(cmd);
     }
     else {
         spdlog::warn("SimPlayground: WebSocket not connected, cannot switch scenario");

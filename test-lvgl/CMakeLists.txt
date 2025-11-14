@@ -177,6 +177,7 @@ add_library(sparkle-duck-core STATIC
 )
 target_include_directories(sparkle-duck-core PUBLIC ${CMAKE_SOURCE_DIR}/src ${zpp_bits_SOURCE_DIR})
 target_link_libraries(sparkle-duck-core PUBLIC nlohmann_json::nlohmann_json msgpack-cxx spdlog::spdlog)
+target_compile_options(sparkle-duck-core PRIVATE -Wall -Wextra -Werror)
 
 # Server library - physics engine and server logic.
 add_library(sparkle-duck-server-lib STATIC
@@ -244,6 +245,7 @@ add_library(sparkle-duck-server-lib STATIC
 )
 target_include_directories(sparkle-duck-server-lib PUBLIC ${CMAKE_SOURCE_DIR}/src ${zpp_bits_SOURCE_DIR})
 target_link_libraries(sparkle-duck-server-lib PUBLIC sparkle-duck-core datachannel-static)
+target_compile_options(sparkle-duck-server-lib PRIVATE -Wall -Wextra -Werror)
 
 # UI library - UI components and client logic.
 add_library(sparkle-duck-ui-lib STATIC
@@ -287,6 +289,7 @@ add_library(sparkle-duck-ui-lib STATIC
 )
 target_include_directories(sparkle-duck-ui-lib PUBLIC ${CMAKE_SOURCE_DIR}/src ${zpp_bits_SOURCE_DIR})
 target_link_libraries(sparkle-duck-ui-lib PUBLIC sparkle-duck-core sparkle-duck-server-lib lvgl_linux lvgl)
+target_compile_options(sparkle-duck-ui-lib PRIVATE -Wall -Wextra -Werror)
 
 add_executable(sparkle-duck-ui
     src/ui/main.cpp

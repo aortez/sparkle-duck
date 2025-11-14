@@ -29,15 +29,15 @@ protected:
         // Create minimal 1D world for testing (1 cell wide, 5 cells tall).
         world = std::make_unique<World>(1, 5);
 
-        // Enable hydrostatic pressure.
+        // Use sandbox default physics settings for realistic testing.
         world->setHydrostaticPressureEnabled(true);
-        world->setHydrostaticPressureStrength(1.0);
+        world->setHydrostaticPressureStrength(0.3); // Sandbox default.
 
         // Enable material swapping for buoyancy.
         world->physicsSettings.swap_enabled = true;
 
         // Set gravity (pointing down).
-        world->physicsSettings.gravity = 1.0;
+        world->physicsSettings.gravity = 9.81; // Realistic gravity (sandbox default).
     }
 
     void TearDown() override { world.reset(); }
@@ -752,9 +752,9 @@ TEST_F(BuoyancyTest, DirtSinksThroughWater)
     // Create 1x6 world: dirt at top, water column below.
     world = std::make_unique<World>(1, 6);
     world->setHydrostaticPressureEnabled(true);
-    world->setHydrostaticPressureStrength(1.0);
+    world->setHydrostaticPressureStrength(0.3); // Sandbox default.
     world->physicsSettings.swap_enabled = true; // Enable material swapping for sinking.
-    world->physicsSettings.gravity = 9.81;      // Real gravity
+    world->physicsSettings.gravity = 9.81;      // Realistic gravity (sandbox default).
 
     // Setup: Dirt at top (y=0), water below.
     world->addMaterialAtCell(0, 0, MaterialType::DIRT, 1.0);

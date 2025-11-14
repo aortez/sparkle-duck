@@ -280,8 +280,8 @@ void CellRenderer::renderWorldData(
             "CellRenderer: Total world rendering size {}x{}, fits in canvas? W:{} H:{}",
             totalW,
             totalH,
-            totalW <= canvasWidth_,
-            totalH <= canvasHeight_);
+            static_cast<uint32_t>(totalW) <= canvasWidth_,
+            static_cast<uint32_t>(totalH) <= canvasHeight_);
         lastWidth = worldData.width;
         lastHeight = worldData.height;
     }

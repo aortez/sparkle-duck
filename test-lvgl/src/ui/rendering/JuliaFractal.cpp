@@ -1006,7 +1006,7 @@ void JuliaFractal::renderThreadFunc()
             // Check FPS every few seconds for dynamic resolution adjustment.
             if (currentTime - lastFpsCheckTime_ >= FPS_CHECK_INTERVAL) {
                 double renderFps = fpsSum_ / fpsSampleCount_;
-                double displayFps =
+                [[maybe_unused]] double displayFps =
                     (displayFpsSampleCount_ > 0) ? (displayFpsSum_ / displayFpsSampleCount_) : 0.0;
 
                 // Adaptive resolution scaling: smooth adjustments based on FPS.

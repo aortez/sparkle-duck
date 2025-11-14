@@ -76,7 +76,7 @@ SandboxControls::~SandboxControls()
     spdlog::info("SandboxControls: Destroyed");
 }
 
-void SandboxControls::updateFromConfig(const SandboxConfig& config)
+void SandboxControls::updateFromConfig([[maybe_unused]] const SandboxConfig& config)
 {
     // Update toggle states (would need to check current state to avoid redundant updates).
     // For now, this is a placeholder - typically called when config changes from server.

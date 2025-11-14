@@ -18,6 +18,7 @@ struct Command {
     int max_frame_ms =
         0; // Max milliseconds per frame. 0 = unlimited (as fast as possible), >0 = frame rate cap.
 
+    static constexpr const char* name() { return "sim_run"; }
     nlohmann::json toJson() const;
     static Command fromJson(const nlohmann::json& j);
 };

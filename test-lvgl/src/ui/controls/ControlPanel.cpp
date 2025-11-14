@@ -115,7 +115,7 @@ void ControlPanel::createCoreControls()
 }
 
 void ControlPanel::createScenarioControls(
-    const std::string& scenarioId, const ScenarioConfig& config)
+    const std::string& scenarioId, [[maybe_unused]] const ScenarioConfig& config)
 {
     // Create scenario panel container.
     scenarioPanel_ = lv_obj_create(panelContainer_);
