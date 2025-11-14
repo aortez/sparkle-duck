@@ -18,6 +18,7 @@ struct Command {
 struct Okay {
     PhysicsSettings settings;
 
+    static constexpr const char* name() { return "physics_settings_get"; }
     nlohmann::json toJson() const;
 };
 

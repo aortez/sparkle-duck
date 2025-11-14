@@ -26,6 +26,7 @@ struct Okay {
     bool running;
     uint32_t current_step;
 
+    static constexpr const char* name() { return "sim_run"; }
     nlohmann::json toJson() const;
 };
 

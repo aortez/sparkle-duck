@@ -22,6 +22,7 @@ struct Command {
 struct Okay {
     Cell cell;
 
+    static constexpr const char* name() { return "cell_get"; }
     nlohmann::json toJson() const;
 };
 

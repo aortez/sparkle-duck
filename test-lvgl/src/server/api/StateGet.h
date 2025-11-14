@@ -19,6 +19,7 @@ struct Command {
 struct Okay {
     WorldData worldData; // Changed from World to WorldData.
 
+    static constexpr const char* name() { return "state_get"; }
     nlohmann::json toJson() const;
 };
 

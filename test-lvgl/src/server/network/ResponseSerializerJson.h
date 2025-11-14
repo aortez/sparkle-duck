@@ -46,49 +46,19 @@ public:
             doc["error"] = response.error().message;
         }
         else {
-            using T = std::decay_t<Response>;
+            auto& value = response.value();
 
-            // Success response: {"value": {...}}.
-            if constexpr (std::is_same_v<T, Api::CellGet::Response>) {
-                doc["value"] = response.value().toJson();
-            }
-            else if constexpr (std::is_same_v<T, Api::DiagramGet::Response>) {
-                doc["value"] = response.value().toJson();
-            }
-            else if constexpr (std::is_same_v<T, Api::PerfStatsGet::Response>) {
-                doc["value"] = response.value().toJson();
-            }
-            else if constexpr (std::is_same_v<T, Api::PhysicsSettingsGet::Response>) {
-                doc["value"] = response.value().toJson();
-            }
-            else if constexpr (std::is_same_v<T, Api::ScenarioConfigSet::Response>) {
-                doc["value"] = response.value().toJson();
-            }
-            else if constexpr (std::is_same_v<T, Api::SimRun::Response>) {
-                doc["value"] = response.value().toJson();
-            }
-            else if constexpr (std::is_same_v<T, Api::StateGet::Response>) {
-                doc["value"] = response.value().toJson();
-            }
-            else if constexpr (std::is_same_v<T, Api::TimerStatsGet::Response>) {
-                doc["value"] = response.value().toJson();
-            }
-            else if constexpr (
-                std::is_same_v<T, Api::CellSet::Response> || std::is_same_v<T, Api::Exit::Response>
-                || std::is_same_v<T, Api::GravitySet::Response>
-                || std::is_same_v<T, Api::PhysicsSettingsSet::Response>
-                || std::is_same_v<T, Api::Reset::Response>
-                || std::is_same_v<T, Api::SeedAdd::Response>
-                || std::is_same_v<T, Api::SpawnDirtBall::Response>
-                || std::is_same_v<T, Api::WorldResize::Response>) {
-                // Empty object for commands with no response data.
+            // Check if it's monostate (empty response).
+            if constexpr (std::is_same_v<std::decay_t<decltype(value)>, std::monostate>) {
+                // Empty response - extract name from Response type metadata.
+                // For now, we'll omit response_type for empty responses since they're rare.
+                // We could add a static name() to each Command type if needed.
                 doc["value"] = nlohmann::json::object();
             }
             else {
-                // Compile-time error for unhandled response types.
-                static_assert(
-                    sizeof(T) == 0,
-                    "ResponseSerializerJson: Unhandled response type - add it to serialize()");
+                // Has data - auto-extract response_type from Okay::name().
+                doc["response_type"] = value.name();
+                doc["value"] = value.toJson();
             }
         }
 
