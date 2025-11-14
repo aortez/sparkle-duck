@@ -236,12 +236,14 @@ void PhysicsControls::updateFromSettings(const PhysicsSettings& settings)
     settings_ = settings;
 
     // Helper to update a toggle slider control.
-    auto updateToggleSlider = [](lv_obj_t* control, double value, bool enabled) {
+    auto updateToggleSlider = [](lv_obj_t* control, double value, bool enabled, const char* name) {
         if (!control) return;
 
-        // Control is a container with toggle (child 0) and slider (child 2).
+        // Control is a container with toggle (child 0), label (child 1), slider (child 2),
+        // valueLabel (child 3).
         lv_obj_t* toggle = lv_obj_get_child(control, 0);
         lv_obj_t* slider = lv_obj_get_child(control, 2);
+        lv_obj_t* valueLabel = lv_obj_get_child(control, 3);
 
         if (toggle) {
             if (enabled) {
@@ -255,35 +257,58 @@ void PhysicsControls::updateFromSettings(const PhysicsSettings& settings)
         if (slider) {
             // Convert double value back to integer slider value (reverse the 0.01 scale).
             int sliderValue = static_cast<int>(value * 100.0);
+            spdlog::info(
+                "PhysicsControls: Updating {} slider: value={:.3f}, sliderValue={}, enabled={}",
+                name,
+                value,
+                sliderValue,
+                enabled);
             lv_slider_set_value(slider, sliderValue, LV_ANIM_OFF);
+
+            // Manually update value label (lv_slider_set_value may not trigger event).
+            if (valueLabel) {
+                char buf[32];
+                snprintf(buf, sizeof(buf), "%.2f", value);
+                lv_label_set_text(valueLabel, buf);
+                spdlog::info("PhysicsControls: Updated {} value label to '{}'", name, buf);
+            }
         }
     };
 
     // Update Column 1: General Physics.
-    updateToggleSlider(timescaleControl_, settings.timescale, settings.timescale > 0.0);
-    updateToggleSlider(gravityControl_, settings.gravity, true); // No enabled flag for gravity.
-    updateToggleSlider(elasticityControl_, settings.elasticity, true);        // No enabled flag.
-    updateToggleSlider(airResistanceControl_, settings.air_resistance, true); // No enabled flag.
+    updateToggleSlider(
+        timescaleControl_, settings.timescale, settings.timescale > 0.0, "timescale");
+    updateToggleSlider(gravityControl_, settings.gravity, true, "gravity");
+    updateToggleSlider(elasticityControl_, settings.elasticity, true, "elasticity");
+    updateToggleSlider(airResistanceControl_, settings.air_resistance, true, "air_resistance");
 
     // Update Column 2: Pressure.
     updateToggleSlider(
         hydrostaticPressureControl_,
         settings.pressure_hydrostatic_strength,
-        settings.pressure_hydrostatic_enabled);
+        settings.pressure_hydrostatic_enabled,
+        "hydrostatic_pressure");
     updateToggleSlider(
         dynamicPressureControl_,
         settings.pressure_dynamic_strength,
-        settings.pressure_dynamic_enabled);
+        settings.pressure_dynamic_enabled,
+        "dynamic_pressure");
     updateToggleSlider(
-        pressureDiffusionControl_, settings.pressure_diffusion_strength, true); // No enabled flag.
-    updateToggleSlider(pressureScaleControl_, settings.pressure_scale, true);   // No enabled flag.
+        pressureDiffusionControl_,
+        settings.pressure_diffusion_strength,
+        true,
+        "pressure_diffusion");
+    updateToggleSlider(pressureScaleControl_, settings.pressure_scale, true, "pressure_scale");
 
     // Update Column 3: Forces.
     updateToggleSlider(
-        cohesionForceControl_, settings.cohesion_strength, settings.cohesion_enabled);
-    updateToggleSlider(adhesionControl_, settings.adhesion_strength, settings.adhesion_enabled);
-    updateToggleSlider(viscosityControl_, settings.viscosity_strength, settings.viscosity_enabled);
-    updateToggleSlider(frictionControl_, settings.friction_strength, settings.friction_enabled);
+        cohesionForceControl_, settings.cohesion_strength, settings.cohesion_enabled, "cohesion");
+    updateToggleSlider(
+        adhesionControl_, settings.adhesion_strength, settings.adhesion_enabled, "adhesion");
+    updateToggleSlider(
+        viscosityControl_, settings.viscosity_strength, settings.viscosity_enabled, "viscosity");
+    updateToggleSlider(
+        frictionControl_, settings.friction_strength, settings.friction_enabled, "friction");
 
     // Update swap toggle.
     if (swapEnabledControl_) {

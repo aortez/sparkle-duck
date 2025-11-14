@@ -16,6 +16,7 @@
 #include "server/api/TimerStatsGet.h"
 #include "server/api/WorldResize.h"
 #include <nlohmann/json.hpp>
+#include <spdlog/spdlog.h>
 #include <string>
 
 namespace DirtSim {
@@ -46,7 +47,7 @@ public:
             doc["error"] = response.error().message;
         }
         else {
-            auto& value = response.value();
+            const auto& value = response.value();
 
             // Check if it's monostate (empty response).
             if constexpr (std::is_same_v<std::decay_t<decltype(value)>, std::monostate>) {
@@ -62,7 +63,12 @@ public:
             }
         }
 
-        return doc.dump();
+        std::string result = doc.dump();
+        spdlog::debug(
+            "ResponseSerializerJson: Serialized response type='{}', size={}",
+            doc.contains("response_type") ? doc["response_type"].get<std::string>() : "none",
+            result.length());
+        return result;
     }
 };
 

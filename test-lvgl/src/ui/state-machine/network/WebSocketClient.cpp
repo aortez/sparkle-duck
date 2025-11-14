@@ -52,7 +52,7 @@ bool WebSocketClient::connect(const std::string& url)
             if (std::holds_alternative<rtc::string>(data)) {
                 // JSON string message.
                 message = std::get<rtc::string>(data);
-                spdlog::debug(
+                spdlog::info(
                     "UI WebSocketClient: Received JSON message (length: {})", message.length());
             }
             else if (std::holds_alternative<rtc::binary>(data)) {

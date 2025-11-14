@@ -33,6 +33,9 @@ protected:
         world->setHydrostaticPressureEnabled(true);
         world->setHydrostaticPressureStrength(1.0);
 
+        // Enable material swapping for buoyancy.
+        world->physicsSettings.swap_enabled = true;
+
         // Set gravity (pointing down).
         world->physicsSettings.gravity = 1.0;
     }
