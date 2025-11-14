@@ -7,22 +7,8 @@ namespace DirtSim {
 namespace Ui {
 
 // Rendering performance.
-constexpr int RESOLUTION_DIVISOR = 2; // Render at 1/N resolution (2 = half, 4 = quarter).
-constexpr int RENDER_THREADS = 8;     // Number of parallel threads for fractal calculation.
-
-// Animation constants.
-constexpr double PHASE_SPEED = 0.0000;      // Palette cycling oscillation speed.
-constexpr double MAX_CYCLE_SPEED = 0.1;     // Maximum palette advance per frame.
-constexpr double DETAIL_PHASE_SPEED = 0.01; // Detail level oscillation speed (slower).
-constexpr int MIN_ITERATIONS = 0;           // Minimum iteration count (less detail).
-constexpr int MAX_ITERATIONS = 180;         // Maximum iteration count (more detail).
-
-// Julia set constant (c) oscillation for shape morphing.
-constexpr double C_PHASE_SPEED = 0.01;   // Very slow shape morphing.
-constexpr double C_REAL_CENTER = -0.7;   // Center value for cReal.
-constexpr double C_REAL_AMPLITUDE = 0.5; // How far cReal oscillates (+/-).
-constexpr double C_IMAG_CENTER = 0.27;   // Center value for cImag.
-constexpr double C_IMAG_AMPLITUDE = 0.7; // How far cImag oscillates (+/-).
+constexpr int RENDER_THREADS = 8;        // Number of parallel threads for fractal calculation.
+constexpr double MAX_CYCLE_SPEED = 0.05; // Maximum palette advance per frame.
 
 // Palette extracted from pal.png (256x1).
 constexpr int PALETTE_SIZE = 256;
@@ -726,8 +712,7 @@ void JuliaFractal::generateRandomParameters()
 
     spdlog::info("JuliaFractal: New iteration range [{}, {}]", minIterations_, maxIterations_);
 
-    // Palette cycling speed.
-    phaseSpeed_ = 0.5;
+    phaseSpeed_ = 0.1;
 
     // Next parameter change in 30-60 seconds.
     std::uniform_real_distribution<double> intervalDist(10.0, 20.0);
@@ -798,23 +783,24 @@ void JuliaFractal::renderThreadFunc()
         double newCReal = cReal_;
         double newCImag = cImag_;
 
-        // Palette cycling animation (only if enabled).
+        // Palette cycling animation (constant speed - no pulsing).
         if (phaseSpeed_ > 0.0) {
-            animationPhase_ += phaseSpeed_;
-            if (animationPhase_ > 2.0 * M_PI) {
-                animationPhase_ -= 2.0 * M_PI;
-            }
-            //
-            // if (animationPhase_ > M_PI) {
-            //     animationPhase_ -= M_PI;
-            // }
-
-            double speedFactor = (std::sin(animationPhase_) + 1.0) / 2.0;
-            double cycleSpeed = speedFactor * MAX_CYCLE_SPEED;
+            // Direct constant rotation (no sine wave pulsing).
+            double cycleSpeed = phaseSpeed_;
             paletteOffset_ += cycleSpeed;
             if (paletteOffset_ >= PALETTE_SIZE) {
                 paletteOffset_ -= PALETTE_SIZE;
             }
+
+            // Debug: Log palette rotation.
+            static double lastPaletteLog = 0.0;
+            if (currentTime - lastPaletteLog >= 5.0) {
+                spdlog::info("JuliaFractal: Palette offset={:.1f}, speed={:.3f}/frame",
+                             paletteOffset_,
+                             cycleSpeed);
+                lastPaletteLog = currentTime;
+            }
+
             needsUpdate = true; // Colors changed.
         }
 
