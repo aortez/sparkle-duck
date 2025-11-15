@@ -309,6 +309,7 @@ Can be found here:
 - Performance testing and optimization
 
 Awesome Ideas to do soon:
+- WorldEventGenerator methods should be moved into the Scenarios.
 - Add label for Fractal showing which event type it was currently running.
 - Add button to StartMenu to generate the next fractal.
 - Make the water column size scale with the world size

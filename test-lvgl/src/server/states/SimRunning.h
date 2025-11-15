@@ -2,6 +2,7 @@
 
 #include "StateForward.h"
 #include "server/Event.h"
+#include "server/scenarios/Scenario.h"
 #include <chrono>
 #include <memory>
 
@@ -13,10 +14,11 @@ namespace Server {
 namespace State {
 
 /**
- * @brief Active simulation state - owns World, physics advancing.
+ * @brief Active simulation state - owns World and Scenario instance.
  */
 struct SimRunning {
     std::unique_ptr<World> world;
+    std::unique_ptr<Scenario> scenario; // Owns scenario instance (not singleton).
     uint32_t stepCount = 0;
     uint32_t targetSteps = 0;     // Steps to execute before pausing.
     double stepDurationMs = 16.0; // Physics timestep in milliseconds.

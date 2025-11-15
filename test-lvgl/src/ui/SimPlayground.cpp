@@ -104,6 +104,13 @@ void SimPlayground::updateFromWorldData(const WorldData& data, double uiFPS)
 
         currentScenarioId_ = data.scenario_id;
     }
+
+    // Always update controls with latest config (idempotent, detects changes internally).
+    if (data.scenario_id == "sandbox" && sandboxControls_
+        && std::holds_alternative<SandboxConfig>(data.scenario_config)) {
+        const SandboxConfig& config = std::get<SandboxConfig>(data.scenario_config);
+        sandboxControls_->updateFromConfig(config);
+    }
 }
 
 void SimPlayground::render(const WorldData& data, bool debugDraw, bool usePixelRenderer)

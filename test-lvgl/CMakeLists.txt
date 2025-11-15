@@ -214,6 +214,7 @@ add_library(sparkle-duck-server-lib STATIC
     src/server/network/WebSocketServer.cpp
 
     # Scenarios.
+    src/server/scenarios/Scenario.cpp
     src/server/scenarios/ScenarioRegistry.cpp
     src/server/scenarios/ScenarioWorldEventGenerator.cpp
     src/server/scenarios/scenarios/DamBreakScenario.cpp
@@ -237,6 +238,7 @@ add_library(sparkle-duck-server-lib STATIC
     src/core/WorldInterpolationTool.cpp
     src/core/WorldPressureCalculator.cpp
     src/core/WorldSupportCalculator.cpp
+    src/core/WorldViscosityCalculator.cpp
 
     # Organism system.
     src/core/organisms/Tree.cpp

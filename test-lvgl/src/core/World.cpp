@@ -9,6 +9,7 @@
 #include "WorldDiagramGeneratorEmoji.h"
 #include "WorldInterpolationTool.h"
 #include "WorldSupportCalculator.h"
+#include "WorldViscosityCalculator.h"
 #include "organisms/TreeManager.h"
 #include "spdlog/spdlog.h"
 
@@ -43,7 +44,6 @@ World::World(uint32_t width, uint32_t height)
       collision_calculator_(),
       adhesion_calculator_(),
       friction_calculator_(),
-      worldEventGenerator_(nullptr),
       tree_manager_(std::make_unique<TreeManager>())
 {
     // Set dimensions (other WorldData members use defaults from struct declaration).
@@ -93,15 +93,11 @@ void World::advanceTime(double deltaTimeSeconds)
     const double scaledDeltaTime = deltaTimeSeconds * physicsSettings.timescale;
     spdlog::trace(
         "World::advanceTime: deltaTime={:.4f}s, timestep={}", deltaTimeSeconds, data.timestep);
-    if (scaledDeltaTime <= 0.0) {
+    if (scaledDeltaTime == 0.0) {
         return;
     }
 
-    // Add particles if enabled.
-    if (data.add_particles_enabled && worldEventGenerator_) {
-        ScopeTimer addParticlesTimer(timers_, "add_particles");
-        worldEventGenerator_->addParticles(*this, data.timestep, deltaTimeSeconds);
-    }
+    // NOTE: Particle generation now handled by Scenario::tick(), called before advanceTime().
 
     // Pre-compute support map for all cells (bottom-up pass).
     {
@@ -189,20 +185,10 @@ void World::reset()
     spdlog::info("World reset complete - world is now empty");
 }
 
+// DEPRECATED: World setup now handled by Scenario::setup().
 void World::setup()
 {
-    // Call WorldEventGenerator's setup to create scenario features.
-    if (worldEventGenerator_) {
-        worldEventGenerator_->setup(*this);
-    }
-
-    // World-specific: Rebuild boundary walls if enabled.
-    if (areWallsEnabled()) {
-        setupBoundaryWalls();
-    }
-
-    spdlog::info("World setup complete");
-    spdlog::info("DEBUGGING: Total mass after setup = {:.3f}", getTotalMass());
+    spdlog::warn("World::setup() is deprecated - use Scenario::setup() instead");
 }
 
 // =================================================================.
@@ -539,7 +525,28 @@ void World::resolveForces(double deltaTime)
     // Apply contact-based friction forces.
     friction_calculator_.calculateAndApplyFrictionForces(*this, deltaTime);
 
-    // Now resolve all accumulated forces using viscosity model.
+    // Apply viscous forces (momentum diffusion between same-material neighbors).
+    if (physicsSettings.viscosity_strength > 0.0) {
+        ScopeTimer viscosityTimer(timers_, "apply_viscous_forces");
+        for (uint32_t y = 0; y < data.height; ++y) {
+            for (uint32_t x = 0; x < data.width; ++x) {
+                Cell& cell = at(x, y);
+
+                if (cell.isEmpty() || cell.isWall()) {
+                    continue;
+                }
+
+                // Calculate viscous force from neighbor velocity averaging.
+                auto viscous_result = viscosity_calculator_.calculateViscousForce(*this, x, y);
+                cell.addPendingForce(viscous_result.force);
+
+                // Store for visualization.
+                cell.accumulated_viscous_force = viscous_result.force;
+            }
+        }
+    }
+
+    // Now resolve all accumulated forces directly (no damping).
     for (uint32_t y = 0; y < data.height; ++y) {
         for (uint32_t x = 0; x < data.width; ++x) {
             Cell& cell = at(x, y);
@@ -548,95 +555,28 @@ void World::resolveForces(double deltaTime)
                 continue;
             }
 
-            // Get the total pending force (net driving force).
-            Vector2d net_driving_force = cell.pending_force;
+            // Get the total pending force (includes gravity, pressure, cohesion, adhesion,
+            // friction, viscosity).
+            Vector2d net_force = cell.pending_force;
 
-            // Get material properties.
-            const MaterialProperties& props = getMaterialProperties(cell.material_type);
-
-            // Check if support comes from solid material (not fluid).
-            // Fluids provide buoyancy, not structural support for viscosity amplification.
-            bool has_solid_support = false;
-            if (cell.has_support && y < data.height - 1) {
-                const Cell& below = at(x, y + 1);
-                if (!below.isEmpty()) {
-                    const MaterialProperties& below_props =
-                        getMaterialProperties(below.material_type);
-                    has_solid_support = !below_props.is_fluid;
-                }
-            }
-            double support_factor = has_solid_support ? 1.0 : 0.0;
-
-            // For now, assume STATIC motion state when supported, FALLING otherwise.
-            // TODO: Implement proper motion state detection.
-            MotionState motion_state =
-                support_factor > 0.5 ? MotionState::STATIC : MotionState::FALLING;
-
-            // Calculate motion state multiplier.
-            double motion_multiplier =
-                getMotionStateMultiplier(motion_state, props.motion_sensitivity);
-
-            // Calculate velocity-dependent friction coefficient.
-            double velocity_magnitude = cell.velocity.magnitude();
-            double friction_coefficient = getFrictionCoefficient(velocity_magnitude, props);
-
-            // Apply global friction strength multiplier.
-            friction_coefficient =
-                1.0 + (friction_coefficient - 1.0) * physicsSettings.friction_strength;
-
-            // Cache the friction coefficient for visualization.
-            cell.cached_friction_coefficient = friction_coefficient;
-
-            // Combine viscosity with friction and motion state.
-            double effective_viscosity =
-                props.viscosity * friction_coefficient * motion_multiplier * 1;
-
-            // Apply continuous damping with friction (no thresholds).
-            double damping_factor = 1.0
-                + (effective_viscosity * physicsSettings.viscosity_strength * cell.fill_ratio
-                   * support_factor);
-
-            // Ensure damping factor is never zero or negative to prevent division by zero.
-            if (damping_factor <= 0.0) {
-                damping_factor = 0.001; // Minimal damping to prevent division by zero.
-            }
-
-            // Store damping info for visualization (X=friction_coefficient, Y=damping_factor).
-            // Only store if viscosity is actually enabled and having an effect.
-            if (physicsSettings.viscosity_strength > 0.0 && props.viscosity > 0.0) {
-                cell.accumulated_cohesion_force = Vector2d{ friction_coefficient, damping_factor };
-            }
-            else {
-                cell.accumulated_cohesion_force = {}; // Clear when viscosity is off.
-            }
-
-            // Calculate velocity change from forces.
-            Vector2d velocity_change = net_driving_force / damping_factor * deltaTime;
-
-            // Update velocity.
-            Vector2d new_velocity = cell.velocity + velocity_change;
-            cell.velocity = new_velocity;
+            // Apply forces directly to velocity (no damping factor!).
+            Vector2d velocity_change = net_force * deltaTime;
+            cell.velocity += velocity_change;
 
             // Debug logging.
-            if (net_driving_force.mag() > 0.001) {
+            if (net_force.magnitude() > 0.001) {
                 spdlog::debug(
-                    "Cell ({},{}) {} - Force: ({:.3f},{:.3f}), viscosity: {:.3f}, "
-                    "friction: {:.3f}, support: {:.1f}, motion_mult: {:.3f}, damping: {:.3f}, "
-                    "vel_change: ({:.3f},{:.3f}), new_vel: ({:.3f},{:.3f})",
+                    "Cell ({},{}) {} - Force: ({:.3f},{:.3f}), vel_change: ({:.3f},{:.3f}), "
+                    "new_vel: ({:.3f},{:.3f})",
                     x,
                     y,
                     getMaterialName(cell.material_type),
-                    net_driving_force.x,
-                    net_driving_force.y,
-                    props.viscosity,
-                    friction_coefficient,
-                    support_factor,
-                    motion_multiplier,
-                    damping_factor,
+                    net_force.x,
+                    net_force.y,
                     velocity_change.x,
                     velocity_change.y,
-                    new_velocity.x,
-                    new_velocity.y);
+                    cell.velocity.x,
+                    cell.velocity.y);
             }
         }
     }
@@ -1005,14 +945,9 @@ size_t World::coordToIndex(const Vector2i& pos) const
 // WORLD SETUP CONTROL METHODS.
 // =================================================================.
 
+// DEPRECATED: Wall management now handled by scenarios.
 void World::setWallsEnabled(bool enabled)
 {
-    ConfigurableWorldEventGenerator* configSetup =
-        dynamic_cast<ConfigurableWorldEventGenerator*>(worldEventGenerator_.get());
-    if (configSetup) {
-        configSetup->setWallsEnabled(enabled);
-    }
-
     // Rebuild walls if needed.
     if (enabled) {
         setupBoundaryWalls();
@@ -1032,9 +967,8 @@ void World::setWallsEnabled(bool enabled)
 
 bool World::areWallsEnabled() const
 {
-    const ConfigurableWorldEventGenerator* configSetup =
-        dynamic_cast<const ConfigurableWorldEventGenerator*>(worldEventGenerator_.get());
-    return configSetup ? configSetup->areWallsEnabled() : false;
+    // Check if boundary cells are walls.
+    return at(0, 0).isWall();
 }
 
 // Legacy pressure toggle methods removed - use physicsSettings directly.
@@ -1091,20 +1025,7 @@ std::string World::settingsToString() const
     return ss.str();
 }
 
-// World type management implementation.
-void World::setWorldEventGenerator(std::shared_ptr<WorldEventGenerator> newSetup)
-{
-    worldEventGenerator_ = std::move(newSetup);
-    // Reset and apply the new setup.
-    if (worldEventGenerator_) {
-        this->setup();
-    }
-}
-
-WorldEventGenerator* World::getWorldEventGenerator() const
-{
-    return worldEventGenerator_.get();
-}
+// DEPRECATED: WorldEventGenerator removed - scenarios now handle setup/tick directly.
 
 // =================================================================
 // JSON SERIALIZATION

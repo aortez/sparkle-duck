@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ScenarioConfig.h"
 #include "Vector2d.h"
 #include <cstdint>
 #include <vector>
@@ -108,50 +109,20 @@ public:
 
 /**
  * Configurable WorldEventGenerator that allows toggling features on/off.
+ * This generator owns the authoritative SandboxConfig - it is the single source of truth.
  */
 class ConfigurableWorldEventGenerator : public WorldEventGenerator {
-public:
-    ~ConfigurableWorldEventGenerator() override = default;
-
-    std::unique_ptr<WorldEventGenerator> clone() const override;
-    void clear(World& world) override;
-    void setup(World& world) override;
-    void addParticles(World& world, uint32_t timestep, double deltaTimeSeconds) override;
-
-    // Control flags for setup features
-    void setLowerRightQuadrantEnabled(bool enabled) { lowerRightQuadrantEnabled = enabled; }
-    void setWallsEnabled(bool enabled) { wallsEnabled = enabled; }
-    void setMiddleMetalWallEnabled(bool enabled) { middleMetalWallEnabled = enabled; }
-
-    // Control flags for particle generation features
-    void setLeftThrowEnabled(bool enabled) { leftThrowEnabled = enabled; }
-    void setRightThrowEnabled(bool enabled) { rightThrowEnabled = enabled; }
-    void setSweepEnabled(bool enabled) { sweepEnabled = enabled; }
-    void setRainRate(double rate) { rainRate = rate; }
-    void setWaterColumnEnabled(bool enabled) { waterColumnEnabled = enabled; }
-
-    // Getters for current state
-    bool isLowerRightQuadrantEnabled() const { return lowerRightQuadrantEnabled; }
-    bool areWallsEnabled() const { return wallsEnabled; }
-    bool isMiddleMetalWallEnabled() const { return middleMetalWallEnabled; }
-    bool isLeftThrowEnabled() const { return leftThrowEnabled; }
-    bool isRightThrowEnabled() const { return rightThrowEnabled; }
-    bool isSweepEnabled() const { return sweepEnabled; }
-    double getRainRate() const { return rainRate; }
-    bool isWaterColumnEnabled() const { return waterColumnEnabled; }
-
 private:
-    // Setup control flags
-    bool lowerRightQuadrantEnabled = true;
+    // Authoritative config (single source of truth) - declared first for inline method access.
+    SandboxConfig config_;
+
+    // Setup control flags (not in SandboxConfig).
     bool wallsEnabled = true;
     bool middleMetalWallEnabled = true;
 
-    // Particle generation control flags.
+    // Particle generation control flags (not in SandboxConfig).
     bool leftThrowEnabled = true;
-    bool rightThrowEnabled = true;
-    bool sweepEnabled = false;       // Currently disabled.
-    double rainRate = 0.0;           // Rain rate in drops per second, 0 = disabled.
-    bool waterColumnEnabled = false; // Water column on left side (scales with world size).
+    bool sweepEnabled = false; // Currently disabled.
 
     // Event generation state (moved from static variables).
     double lastSimTime = 0.0;
@@ -160,6 +131,54 @@ private:
     double nextRightThrow = 1.0;
     double nextRainDrop = 0.0;
     bool initialThrowDone = false;
+
+    // Water column auto-disable state.
+    double waterColumnStartTime = -1.0;    // Time when water column was enabled (-1 = not active).
+    bool waterColumnAutoDisabled_ = false; // Flag: water column was auto-disabled.
+    static constexpr double WATER_COLUMN_DURATION = 5.0; // Seconds to run before auto-disable.
+
+public:
+    // Constructor takes initial config (generator owns it).
+    explicit ConfigurableWorldEventGenerator(const SandboxConfig& config);
+
+    ~ConfigurableWorldEventGenerator() override = default;
+
+    std::unique_ptr<WorldEventGenerator> clone() const override;
+    void clear(World& world) override;
+    void setup(World& world) override;
+    void addParticles(World& world, uint32_t timestep, double deltaTimeSeconds) override;
+
+    // Config access (generator is source of truth).
+    const SandboxConfig& getConfig() const { return config_; }
+    void updateConfig(const SandboxConfig& newConfig);
+
+    // Control flags for setup features (these modify config_).
+    void setLowerRightQuadrantEnabled(bool enabled) { config_.quadrant_enabled = enabled; }
+    void setWallsEnabled(bool enabled) { wallsEnabled = enabled; }
+    void setMiddleMetalWallEnabled(bool enabled) { middleMetalWallEnabled = enabled; }
+
+    // Control flags for particle generation features (these modify config_).
+    void setLeftThrowEnabled(bool enabled) { leftThrowEnabled = enabled; }
+    void setRightThrowEnabled(bool enabled) { config_.right_throw_enabled = enabled; }
+    void setSweepEnabled(bool enabled) { sweepEnabled = enabled; }
+    void setRainRate(double rate) { config_.rain_rate = rate; }
+    void setWaterColumnEnabled(bool enabled);
+
+    // Getters for current state (read from config_).
+    bool isLowerRightQuadrantEnabled() const { return config_.quadrant_enabled; }
+    bool areWallsEnabled() const { return wallsEnabled; }
+    bool isMiddleMetalWallEnabled() const { return middleMetalWallEnabled; }
+    bool isLeftThrowEnabled() const { return leftThrowEnabled; }
+    bool isRightThrowEnabled() const { return config_.right_throw_enabled; }
+    bool isSweepEnabled() const { return sweepEnabled; }
+    double getRainRate() const { return config_.rain_rate; }
+    bool isWaterColumnEnabled() const { return config_.water_column_enabled; }
+
+    // Check if water column was auto-disabled (returns true once, then clears flag).
+    bool checkAndClearWaterColumnAutoDisabled();
+
+    // Get elapsed time since water column was enabled (for UI feedback).
+    double getWaterColumnElapsedTime() const;
 };
 
 } // namespace DirtSim

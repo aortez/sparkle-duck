@@ -325,10 +325,10 @@ void ConfigurableWorldEventGenerator::setup(World& world)
 {
     spdlog::info(
         "ConfigurableWorldEventGenerator::setup called - waterColumnEnabled={}",
-        waterColumnEnabled);
+        config_.water_column_enabled);
 
-    // Use toggle methods for initial setup.
-    dirtQuadrantToggle(world, lowerRightQuadrantEnabled);
+    // Use toggle methods for initial setup (read from config_).
+    dirtQuadrantToggle(world, config_.quadrant_enabled);
 
     if (wallsEnabled) {
         makeWalls(world);
@@ -337,21 +337,53 @@ void ConfigurableWorldEventGenerator::setup(World& world)
         makeMiddleMetalWall(world);
     }
 
-    waterColumnToggle(world, waterColumnEnabled);
+    waterColumnToggle(world, config_.water_column_enabled);
+}
+
+// Constructor: Generator owns the config.
+ConfigurableWorldEventGenerator::ConfigurableWorldEventGenerator(const SandboxConfig& config)
+    : config_(config)
+{
+    // If water column is enabled in initial config, set start time to 0.
+    // (It will be updated to actual simTime on first addParticles call).
+    if (config_.water_column_enabled) {
+        waterColumnStartTime = 0.0;
+        spdlog::info(
+            "Water column enabled in initial config (will auto-disable after {:.1f}s)",
+            WATER_COLUMN_DURATION);
+    }
+}
+
+void ConfigurableWorldEventGenerator::updateConfig(const SandboxConfig& newConfig)
+{
+    // Check if water column state changed.
+    bool wasEnabled = config_.water_column_enabled;
+    bool nowEnabled = newConfig.water_column_enabled;
+
+    // Update config.
+    config_ = newConfig;
+
+    // If water column was just enabled, record start time.
+    if (!wasEnabled && nowEnabled) {
+        waterColumnStartTime = lastSimTime;
+        spdlog::info(
+            "Water column enabled at time {:.3f}s (will auto-disable after {:.1f}s)",
+            waterColumnStartTime,
+            WATER_COLUMN_DURATION);
+    }
+    else if (wasEnabled && !nowEnabled) {
+        waterColumnStartTime = -1.0;
+    }
 }
 
 std::unique_ptr<WorldEventGenerator> ConfigurableWorldEventGenerator::clone() const
 {
-    auto cloned = std::make_unique<ConfigurableWorldEventGenerator>();
-    // Copy all configuration flags.
-    cloned->lowerRightQuadrantEnabled = lowerRightQuadrantEnabled;
+    auto cloned = std::make_unique<ConfigurableWorldEventGenerator>(config_);
+    // Copy non-config flags.
     cloned->wallsEnabled = wallsEnabled;
     cloned->middleMetalWallEnabled = middleMetalWallEnabled;
     cloned->leftThrowEnabled = leftThrowEnabled;
-    cloned->rightThrowEnabled = rightThrowEnabled;
     cloned->sweepEnabled = sweepEnabled;
-    cloned->rainRate = rainRate;
-    cloned->waterColumnEnabled = waterColumnEnabled;
     // Copy event generation state.
     cloned->lastSimTime = lastSimTime;
     cloned->nextInitialThrow = nextInitialThrow;
@@ -399,8 +431,8 @@ void ConfigurableWorldEventGenerator::addParticles(
         nextPeriodicThrow += period;
     }
 
-    // Recurring throws from right side every ~0.83 seconds (if right throw enabled)
-    if (rightThrowEnabled && simTime >= nextRightThrow) {
+    // Recurring throws from right side every ~0.83 seconds (if right throw enabled).
+    if (config_.right_throw_enabled && simTime >= nextRightThrow) {
         spdlog::debug("Adding right periodic throw at time {:.3f}s", simTime);
         uint32_t rightX = world.data.width - 3;
         int32_t centerYSigned = static_cast<int32_t>(world.data.height) / 2 - 2;
@@ -414,8 +446,9 @@ void ConfigurableWorldEventGenerator::addParticles(
     }
 
     // Rain drops at variable rate (if rain rate > 0).
-    if (rainRate > 0.0 && simTime >= nextRainDrop) {
-        spdlog::debug("Adding rain drop at time {:.3f}s (rate: {:.1f}/s)", simTime, rainRate);
+    if (config_.rain_rate > 0.0 && simTime >= nextRainDrop) {
+        spdlog::debug(
+            "Adding rain drop at time {:.3f}s (rate: {:.1f}/s)", simTime, config_.rain_rate);
 
         // Use normal distribution for horizontal position.
         static std::random_device rd;
@@ -434,8 +467,54 @@ void ConfigurableWorldEventGenerator::addParticles(
         }
 
         // Schedule next rain drop based on current rate.
-        double intervalSeconds = 1.0 / rainRate;
+        double intervalSeconds = 1.0 / config_.rain_rate;
         nextRainDrop = simTime + intervalSeconds;
+    }
+
+    // Water column refill (if enabled).
+    if (config_.water_column_enabled) {
+        // Initialize start time to actual simTime on first call (if still at initial value).
+        if (waterColumnStartTime == 0.0) {
+            waterColumnStartTime = simTime;
+            spdlog::info(
+                "Water column starting at time {:.3f}s (will auto-disable after {:.1f}s)",
+                waterColumnStartTime,
+                WATER_COLUMN_DURATION);
+        }
+
+        // Check if water column has been running for more than WATER_COLUMN_DURATION seconds.
+        if (waterColumnStartTime > 0.0) {
+            double elapsed = simTime - waterColumnStartTime;
+            if (elapsed >= WATER_COLUMN_DURATION) {
+                spdlog::info(
+                    "Water column auto-disabling after {:.1f} seconds (elapsed: {:.1f}s)",
+                    WATER_COLUMN_DURATION,
+                    elapsed);
+                config_.water_column_enabled = false;
+                waterColumnAutoDisabled_ = true;
+                waterColumnStartTime = -1.0;
+            }
+        }
+
+        // Refill if still enabled.
+        if (config_.water_column_enabled) {
+            // Scale water column dimensions based on world size (same as waterColumnToggle).
+            uint32_t columnWidth = std::max(3u, std::min(8u, world.data.width / 20));
+            uint32_t columnHeight = world.data.height / 3;
+
+            // Refill any empty or water cells in the water column area.
+            for (uint32_t y = 0; y < columnHeight && y < world.data.height; ++y) {
+                for (uint32_t x = 1; x <= columnWidth && x < world.data.width; ++x) {
+                    Cell& cell = world.at(x, y);
+                    // Only refill if cell is air or water, and not already full.
+                    if ((cell.material_type == MaterialType::AIR
+                         || cell.material_type == MaterialType::WATER)
+                        && !cell.isFull()) {
+                        cell.addWater(1.0 - cell.fill_ratio);
+                    }
+                }
+            }
+        }
     }
 
     lastSimTime = simTime;
@@ -624,4 +703,39 @@ WorldEventGenerator::ResizeData WorldEventGenerator::nearestNeighborSample(
         std::max(0, std::min(static_cast<int>(std::round(y)), static_cast<int>(oldHeight) - 1));
 
     return oldState[ny * oldWidth + nx];
+}
+
+// Water column timing and auto-disable support.
+void ConfigurableWorldEventGenerator::setWaterColumnEnabled(bool enabled)
+{
+    config_.water_column_enabled = enabled;
+    if (enabled) {
+        // Record start time when enabled.
+        waterColumnStartTime = lastSimTime;
+        spdlog::info(
+            "Water column enabled at time {:.3f}s (will auto-disable after {:.1f}s)",
+            waterColumnStartTime,
+            WATER_COLUMN_DURATION);
+    }
+    else {
+        // Clear start time when disabled.
+        waterColumnStartTime = -1.0;
+    }
+}
+
+bool ConfigurableWorldEventGenerator::checkAndClearWaterColumnAutoDisabled()
+{
+    if (waterColumnAutoDisabled_) {
+        waterColumnAutoDisabled_ = false;
+        return true;
+    }
+    return false;
+}
+
+double ConfigurableWorldEventGenerator::getWaterColumnElapsedTime() const
+{
+    if (waterColumnStartTime < 0.0 || !config_.water_column_enabled) {
+        return 0.0;
+    }
+    return lastSimTime - waterColumnStartTime;
 }

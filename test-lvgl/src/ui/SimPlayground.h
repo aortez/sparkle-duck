@@ -74,6 +74,9 @@ private:
     // Current scenario ID (to detect changes).
     std::string currentScenarioId_;
 
+    // Current scenario config (to detect changes).
+    ScenarioConfig currentScenarioConfig_;
+
     // Current frame limit.
     int currentMaxFrameMs_ = 16;
 

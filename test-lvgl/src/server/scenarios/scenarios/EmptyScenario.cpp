@@ -1,3 +1,4 @@
+#include "core/Cell.h"
 #include "core/World.h"
 #include "server/scenarios/Scenario.h"
 #include "server/scenarios/ScenarioRegistry.h"
@@ -34,22 +35,15 @@ public:
         }
     }
 
+    // DEPRECATED: Temporary compatibility - uses base class defaults.
     std::unique_ptr<WorldEventGenerator> createWorldEventGenerator() const override
     {
         auto setup = std::make_unique<ScenarioWorldEventGenerator>();
-
-        // Setup function - just clear the world
-        setup->setSetupFunction([](World& /*world*/) {
-            spdlog::info("Setting up Empty scenario");
-            // reset() is called before setup(), so world is already empty
-            // No additional setup needed
-        });
-
-        // Update function - no particles added
+        setup->setSetupFunction(
+            [](World& /*world*/) { spdlog::info("Setting up Empty scenario"); });
         setup->setUpdateFunction([](World& /*world*/, uint32_t /*timestep*/, double /*deltaTime*/) {
-            // Intentionally empty - no particles added
+            // Intentionally empty - no particles added.
         });
-
         return setup;
     }
 

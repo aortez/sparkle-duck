@@ -10,10 +10,10 @@
 #include "WorldCohesionCalculator.h"
 #include "WorldCollisionCalculator.h"
 #include "WorldData.h"
-#include "WorldEventGenerator.h"
 #include "WorldFrictionCalculator.h"
 #include "WorldPressureCalculator.h"
 #include "WorldSupportCalculator.h"
+#include "WorldViscosityCalculator.h"
 #include "organisms/TreeTypes.h"
 
 #include <cstdint>
@@ -200,6 +200,9 @@ public:
     void setCOMCohesionRange(uint32_t range) { com_cohesion_range_ = range; }
     uint32_t getCOMCohesionRange() const { return com_cohesion_range_; }
 
+    // Motion state multiplier calculation (for viscosity and other systems).
+    double getMotionStateMultiplier(MotionState state, double sensitivity) const;
+
     // WORLDINTERFACE IMPLEMENTATION - AIR RESISTANCE CONTROL
     void setAirResistanceEnabled(bool enabled) { air_resistance_enabled_ = enabled; }
     bool isAirResistanceEnabled() const { return air_resistance_enabled_; }
@@ -216,9 +219,7 @@ public:
     void markUserInput() { /* no-op for now */ }
     std::string settingsToString() const;
 
-    // World setup management
-    void setWorldEventGenerator(std::shared_ptr<WorldEventGenerator> setup);
-    WorldEventGenerator* getWorldEventGenerator() const;
+    // World setup management (DEPRECATED - scenarios now handle setup directly).
 
     // =================================================================
     // WORLD-SPECIFIC METHODS
@@ -327,6 +328,7 @@ public:
     WorldCollisionCalculator collision_calculator_;
     WorldAdhesionCalculator adhesion_calculator_;
     WorldFrictionCalculator friction_calculator_;
+    WorldViscosityCalculator viscosity_calculator_;
 
     // Material transfer queue (internal simulation state).
     std::vector<MaterialMove> pending_moves_;
@@ -336,9 +338,6 @@ public:
 
     // Performance timing.
     mutable Timers timers_;
-
-    // World event generator for dynamic particles.
-    std::shared_ptr<WorldEventGenerator> worldEventGenerator_;
 
     // Tree organism manager.
     std::unique_ptr<class TreeManager> tree_manager_;
@@ -357,7 +356,6 @@ private:
     void applyCohesionForces();
     void applyPressureForces();
     void resolveForces(double deltaTime);
-    double getMotionStateMultiplier(MotionState state, double sensitivity) const;
     void updateTransfers(double deltaTime);
     void processVelocityLimiting(double deltaTime);
     void processMaterialMoves();

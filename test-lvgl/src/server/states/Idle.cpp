@@ -50,11 +50,11 @@ State::Any Idle::onEvent(const Api::SimRun::Cwc& cwc, StateMachine& dsm)
     spdlog::info("Idle: Creating new World {}x{}", dsm.defaultWidth, dsm.defaultHeight);
     newState.world = std::make_unique<World>(dsm.defaultWidth, dsm.defaultHeight);
 
-    // Lookup and apply scenario.
+    // Create scenario instance from factory.
     auto& registry = dsm.getScenarioRegistry();
-    auto* scenario = registry.getScenario(cwc.command.scenario_id);
+    newState.scenario = registry.createScenario(cwc.command.scenario_id);
 
-    if (!scenario) {
+    if (!newState.scenario) {
         spdlog::error("Idle: Scenario '{}' not found in registry", cwc.command.scenario_id);
         cwc.sendResponse(Api::SimRun::Response::error(
             ApiError("Scenario not found: " + cwc.command.scenario_id)));
@@ -62,16 +62,12 @@ State::Any Idle::onEvent(const Api::SimRun::Cwc& cwc, StateMachine& dsm)
         return Idle{};
     }
 
-    // Apply scenario's WorldEventGenerator.
-    auto generator = scenario->createWorldEventGenerator();
-    newState.world->setWorldEventGenerator(std::move(generator));
-
     // Populate WorldData with scenario metadata and config.
     newState.world->data.scenario_id = cwc.command.scenario_id;
-    newState.world->data.scenario_config = scenario->getConfig();
+    newState.world->data.scenario_config = newState.scenario->getConfig();
 
-    // Run setup to initialize scenario features.
-    newState.world->setup();
+    // Run scenario setup to initialize world.
+    newState.scenario->setup(*newState.world);
 
     spdlog::info("Idle: Scenario '{}' applied to new world", cwc.command.scenario_id);
 

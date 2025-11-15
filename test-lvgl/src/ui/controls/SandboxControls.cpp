@@ -76,10 +76,68 @@ SandboxControls::~SandboxControls()
     spdlog::info("SandboxControls: Destroyed");
 }
 
-void SandboxControls::updateFromConfig([[maybe_unused]] const SandboxConfig& config)
+void SandboxControls::updateFromConfig(const SandboxConfig& config)
 {
-    // Update toggle states (would need to check current state to avoid redundant updates).
-    // For now, this is a placeholder - typically called when config changes from server.
+    // Prevent sending updates back to server during UI sync.
+    initializing_ = true;
+
+    // Update quadrant switch.
+    if (quadrantSwitch_) {
+        bool currentState = lv_obj_has_state(quadrantSwitch_, LV_STATE_CHECKED);
+        if (currentState != config.quadrant_enabled) {
+            if (config.quadrant_enabled) {
+                lv_obj_add_state(quadrantSwitch_, LV_STATE_CHECKED);
+            }
+            else {
+                lv_obj_remove_state(quadrantSwitch_, LV_STATE_CHECKED);
+            }
+            spdlog::debug(
+                "SandboxControls: Updated quadrant switch to {}", config.quadrant_enabled);
+        }
+    }
+
+    // Update water column switch.
+    if (waterColumnSwitch_) {
+        bool currentState = lv_obj_has_state(waterColumnSwitch_, LV_STATE_CHECKED);
+        if (currentState != config.water_column_enabled) {
+            if (config.water_column_enabled) {
+                lv_obj_add_state(waterColumnSwitch_, LV_STATE_CHECKED);
+            }
+            else {
+                lv_obj_remove_state(waterColumnSwitch_, LV_STATE_CHECKED);
+            }
+            spdlog::info(
+                "SandboxControls: Updated water column switch to {}", config.water_column_enabled);
+        }
+    }
+
+    // Update right throw switch.
+    if (rightThrowSwitch_) {
+        bool currentState = lv_obj_has_state(rightThrowSwitch_, LV_STATE_CHECKED);
+        if (currentState != config.right_throw_enabled) {
+            if (config.right_throw_enabled) {
+                lv_obj_add_state(rightThrowSwitch_, LV_STATE_CHECKED);
+            }
+            else {
+                lv_obj_remove_state(rightThrowSwitch_, LV_STATE_CHECKED);
+            }
+            spdlog::debug(
+                "SandboxControls: Updated right throw switch to {}", config.right_throw_enabled);
+        }
+    }
+
+    // Update rain slider.
+    if (rainSlider_) {
+        int currentValue = lv_slider_get_value(rainSlider_);
+        int newValue = static_cast<int>(config.rain_rate * 10);
+        if (currentValue != newValue) {
+            lv_slider_set_value(rainSlider_, newValue, LV_ANIM_OFF);
+            spdlog::debug("SandboxControls: Updated rain slider to {}", config.rain_rate);
+        }
+    }
+
+    // Re-enable updates.
+    initializing_ = false;
 }
 
 SandboxConfig SandboxControls::getCurrentConfig() const

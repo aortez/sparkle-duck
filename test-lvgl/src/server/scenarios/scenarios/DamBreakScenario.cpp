@@ -1,3 +1,4 @@
+#include "core/Cell.h"
 #include "core/MaterialType.h"
 #include "core/World.h"
 #include "server/scenarios/Scenario.h"
@@ -99,6 +100,7 @@ public:
         }
     }
 
+    // DEPRECATED: Temporary compatibility - uses base class defaults.
     std::unique_ptr<WorldEventGenerator> createWorldEventGenerator() const override
     {
         return std::make_unique<DamBreakWorldEventGenerator>();

@@ -37,19 +37,15 @@ void SimRunning::onEnter(StateMachine& dsm)
         spdlog::info("SimRunning: Applying default 'sandbox' scenario");
 
         auto& registry = dsm.getScenarioRegistry();
-        auto* scenario = registry.getScenario("sandbox");
+        scenario = registry.createScenario("sandbox");
 
         if (scenario) {
-            // Apply scenario's WorldEventGenerator.
-            auto setup = scenario->createWorldEventGenerator();
-            world->setWorldEventGenerator(std::move(setup));
-
             // Populate WorldData with scenario metadata and config.
             world->data.scenario_id = "sandbox";
             world->data.scenario_config = scenario->getConfig();
 
-            // Run setup to actually create scenario features.
-            world->setup();
+            // Run scenario setup to initialize world.
+            scenario->setup(*world);
 
             spdlog::info("SimRunning: Default scenario 'sandbox' applied");
         }
@@ -76,6 +72,17 @@ void SimRunning::tick(StateMachine& dsm)
 
     // Measure real elapsed time since last physics update.
     const auto now = std::chrono::steady_clock::now();
+
+    // Scenario tick (particle generation, timed events, etc.).
+    if (scenario) {
+        dsm.getTimers().startTimer("scenario_tick");
+        scenario->tick(*world, FIXED_TIMESTEP_SECONDS);
+        dsm.getTimers().stopTimer("scenario_tick");
+
+        // Sync scenario's config to WorldData (scenario is source of truth).
+        // This ensures auto-changes (like water column auto-disable) propagate to UI.
+        world->data.scenario_config = scenario->getConfig();
+    }
 
     // Advance physics by fixed timestep.
     dsm.getTimers().startTimer("physics_step");
@@ -242,7 +249,7 @@ State::Any SimRunning::onEvent(const ApplyScenarioCommand& cmd, StateMachine& ds
     spdlog::info("SimRunning: Applying scenario: {}", cmd.scenarioName);
 
     auto& registry = dsm.getScenarioRegistry();
-    auto* scenario = registry.getScenario(cmd.scenarioName);
+    scenario = registry.createScenario(cmd.scenarioName);
 
     if (!scenario) {
         spdlog::error("Scenario not found: {}", cmd.scenarioName);
@@ -251,11 +258,7 @@ State::Any SimRunning::onEvent(const ApplyScenarioCommand& cmd, StateMachine& ds
 
     // TODO: Handle scenario-specific world resizing if needed.
 
-    // Apply scenario's WorldEventGenerator.
-    auto setup = scenario->createWorldEventGenerator();
     if (world) {
-        world->setWorldEventGenerator(std::move(setup));
-
         // Populate WorldData with scenario metadata and config.
         world->data.scenario_id = cmd.scenarioName;
         world->data.scenario_config = scenario->getConfig();
@@ -409,10 +412,9 @@ State::Any SimRunning::onEvent(const Api::Reset::Cwc& cwc, StateMachine& /*dsm*/
 
     spdlog::info("SimRunning: API reset simulation");
 
-    if (world) {
-        // Clear world to empty state, then re-initialize with scenario.
-        world->worldEventGenerator_->clear(*world);
-        world->setup();
+    if (world && scenario) {
+        // Reset scenario (clears world and reinitializes).
+        scenario->reset(*world);
     }
 
     stepCount = 0;
@@ -434,7 +436,7 @@ State::Any SimRunning::onEvent(const Api::FrameReady::Cwc& cwc, StateMachine& /*
     return std::move(*this);
 }
 
-State::Any SimRunning::onEvent(const Api::ScenarioConfigSet::Cwc& cwc, StateMachine& dsm)
+State::Any SimRunning::onEvent(const Api::ScenarioConfigSet::Cwc& cwc, StateMachine& /*dsm*/)
 {
     using Response = Api::ScenarioConfigSet::Response;
 
@@ -445,66 +447,17 @@ State::Any SimRunning::onEvent(const Api::ScenarioConfigSet::Cwc& cwc, StateMach
         return std::move(*this);
     }
 
-    // Get current scenario from ScenarioRegistry.
-    auto& registry = dsm.getScenarioRegistry();
-    auto* scenario = registry.getScenario(world->data.scenario_id);
-
     if (!scenario) {
-        spdlog::error("SimRunning: Scenario '{}' not found in registry", world->data.scenario_id);
-        cwc.sendResponse(
-            Response::error(ApiError("Scenario not found: " + world->data.scenario_id)));
+        spdlog::error("SimRunning: No scenario instance available");
+        cwc.sendResponse(Response::error(ApiError("No scenario available")));
         return std::move(*this);
     }
 
-    // Get old config to detect what actually changed.
-    const ScenarioConfig& oldConfig = world->data.scenario_config;
-
-    // Apply new config to scenario.
+    // Update scenario's config (scenario is source of truth).
     scenario->setConfig(cwc.command.config);
 
-    // Update existing generator in-place instead of recreating (avoids calling setup()).
-    auto* generator = world->getWorldEventGenerator();
-    if (!generator) {
-        cwc.sendResponse(Response::error(ApiError("No event generator available")));
-        return std::move(*this);
-    }
-
-    // Apply immediate visual toggles for sandbox scenario (ONLY if changed).
-    if (std::holds_alternative<SandboxConfig>(cwc.command.config)
-        && std::holds_alternative<SandboxConfig>(oldConfig)) {
-        const auto& newSandboxConfig = std::get<SandboxConfig>(cwc.command.config);
-        const auto& oldSandboxConfig = std::get<SandboxConfig>(oldConfig);
-
-        // Cast to ConfigurableWorldEventGenerator to access setters.
-        auto* configurableGen = dynamic_cast<ConfigurableWorldEventGenerator*>(generator);
-        if (configurableGen) {
-            // Update generator config flags.
-            configurableGen->setLowerRightQuadrantEnabled(newSandboxConfig.quadrant_enabled);
-            configurableGen->setRightThrowEnabled(newSandboxConfig.right_throw_enabled);
-            configurableGen->setRainRate(newSandboxConfig.rain_rate);
-            configurableGen->setWaterColumnEnabled(newSandboxConfig.water_column_enabled);
-
-            // Only toggle visuals if state actually changed.
-            if (newSandboxConfig.quadrant_enabled != oldSandboxConfig.quadrant_enabled) {
-                spdlog::info(
-                    "SimRunning: Quadrant changed: {} -> {}",
-                    oldSandboxConfig.quadrant_enabled,
-                    newSandboxConfig.quadrant_enabled);
-                configurableGen->dirtQuadrantToggle(*world, newSandboxConfig.quadrant_enabled);
-            }
-
-            if (newSandboxConfig.water_column_enabled != oldSandboxConfig.water_column_enabled) {
-                spdlog::info(
-                    "SimRunning: Water column changed: {} -> {}",
-                    oldSandboxConfig.water_column_enabled,
-                    newSandboxConfig.water_column_enabled);
-                configurableGen->waterColumnToggle(*world, newSandboxConfig.water_column_enabled);
-            }
-        }
-    }
-
-    // Update WorldData with new config.
-    world->data.scenario_config = cwc.command.config;
+    // Sync to WorldData (will be sent to UI on next frame).
+    world->data.scenario_config = scenario->getConfig();
 
     spdlog::info("SimRunning: Scenario config updated for '{}'", world->data.scenario_id);
 
@@ -673,9 +626,9 @@ State::Any SimRunning::onEvent(const Api::SimRun::Cwc& cwc, StateMachine& dsm)
             world->data.scenario_id,
             cwc.command.scenario_id);
 
-        // Validate scenario exists.
+        // Create new scenario instance from factory.
         auto& registry = dsm.getScenarioRegistry();
-        auto* scenario = registry.getScenario(cwc.command.scenario_id);
+        scenario = registry.createScenario(cwc.command.scenario_id);
 
         if (!scenario) {
             spdlog::error(
@@ -712,19 +665,12 @@ State::Any SimRunning::onEvent(const Api::SimRun::Cwc& cwc, StateMachine& dsm)
             world->resizeGrid(targetWidth, targetHeight);
         }
 
-        // Clear current world.
-        world->worldEventGenerator_->clear(*world);
-
-        // Create and apply new WorldEventGenerator from scenario.
-        auto newGenerator = scenario->createWorldEventGenerator();
-        world->setWorldEventGenerator(std::move(newGenerator));
-
         // Update world data.
         world->data.scenario_id = cwc.command.scenario_id;
         world->data.scenario_config = scenario->getConfig();
 
-        // Re-initialize world with new scenario.
-        world->setup();
+        // Initialize world with new scenario.
+        scenario->setup(*world);
 
         // Reset step counter.
         stepCount = 0;
@@ -760,8 +706,8 @@ State::Any SimRunning::onEvent(const ResetSimulationCommand& /*cmd*/, StateMachi
 {
     spdlog::info("SimRunning: Resetting simulation");
 
-    if (world) {
-        world->setup();
+    if (world && scenario) {
+        scenario->reset(*world);
     }
 
     stepCount = 0;

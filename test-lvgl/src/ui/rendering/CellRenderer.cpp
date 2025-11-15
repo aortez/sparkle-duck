@@ -8,7 +8,6 @@
 namespace DirtSim {
 namespace Ui {
 
-// Material color mapping (from CellB.cpp on main branch).
 static lv_color_t getMaterialColor(MaterialType type)
 {
     switch (type) {
@@ -622,6 +621,30 @@ void CellRenderer::renderCellDirectOptimized(
                 cohesion_dsc.p2.x = end_x;
                 cohesion_dsc.p2.y = end_y;
                 lv_draw_line(&layer, &cohesion_dsc);
+            }
+
+            // Viscous force vector (cyan line from cell center).
+            if (scaledCellWidth_ >= 10 && cell.accumulated_viscous_force.magnitude() > 0.01) {
+                const double VISCOUS_SCALE = 5.0 * scaleX_;
+
+                // Draw from cell center.
+                int cell_center_x = cellX + scaledCellWidth_ / 2;
+                int cell_center_y = cellY + scaledCellHeight_ / 2;
+
+                int end_x = cell_center_x
+                    + static_cast<int>(cell.accumulated_viscous_force.x * VISCOUS_SCALE);
+                int end_y = cell_center_y
+                    + static_cast<int>(cell.accumulated_viscous_force.y * VISCOUS_SCALE);
+
+                lv_draw_line_dsc_t viscous_dsc;
+                lv_draw_line_dsc_init(&viscous_dsc);
+                viscous_dsc.color = lv_color_hex(0x00FFFF); // Cyan.
+                viscous_dsc.width = std::max(1, static_cast<int>(2 * scaleX_));
+                viscous_dsc.p1.x = cell_center_x;
+                viscous_dsc.p1.y = cell_center_y;
+                viscous_dsc.p2.x = end_x;
+                viscous_dsc.p2.y = end_y;
+                lv_draw_line(&layer, &viscous_dsc);
             }
         }
     }
