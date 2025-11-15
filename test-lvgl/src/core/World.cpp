@@ -397,6 +397,20 @@ void World::applyCohesionForces()
                 if (com_cohesion.force_active) {
                     Vector2d com_cohesion_force = com_cohesion.force_direction
                         * com_cohesion.force_magnitude * physicsSettings.cohesion_strength;
+
+                    // Directional correction: only apply force when velocity is misaligned.
+                    // This prevents oscillations by not accelerating already-converging particles.
+                    if (cell.velocity.magnitude() > 0.01) {
+                        double alignment = cell.velocity.dot(com_cohesion_force.normalize());
+
+                        // Reduce force when already aligned with cohesion direction.
+                        // alignment = -1.0 (opposite) → 100% force (strong correction)
+                        // alignment =  0.0 (perpendicular) → 100% force (neutral)
+                        // alignment = +1.0 (aligned) → 0% force (no interference)
+                        double correction_factor = std::max(0.0, 1.0 - alignment);
+                        com_cohesion_force = com_cohesion_force * correction_factor;
+                    }
+
                     cell.addPendingForce(com_cohesion_force);
                 }
             }
@@ -575,7 +589,7 @@ void World::resolveForces(double deltaTime)
 
             // Combine viscosity with friction and motion state.
             double effective_viscosity =
-                props.viscosity * friction_coefficient * motion_multiplier * 1000;
+                props.viscosity * friction_coefficient * motion_multiplier * 1;
 
             // Apply continuous damping with friction (no thresholds).
             double damping_factor = 1.0

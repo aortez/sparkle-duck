@@ -318,6 +318,7 @@ be active if a tree is around.
 - Consider making air into a gaseous type, rather than the current "empty" behavior.
 - Audit GridMechanics for correctness/relevance.  It might be getting out of date.
 - Refactor PhysicsControls to normalize/DRY up the patterns? (and prevent bugs/share enhancements)
+- Consider
 
 ### Client/Server Architecture (DSSM + UI Client)
 - ✅ Headless server with WebSocket API

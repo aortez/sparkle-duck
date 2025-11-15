@@ -48,6 +48,43 @@ void StartMenu::onEnter(StateMachine& sm)
     lv_obj_center(label);
 
     spdlog::info("StartMenu: Created start button");
+
+    // Create info panel in bottom-left corner.
+    infoPanel_ = lv_obj_create(container);
+    lv_obj_set_size(infoPanel_, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+    lv_obj_align(infoPanel_, LV_ALIGN_BOTTOM_LEFT, 20, -20);
+    lv_obj_set_style_pad_all(infoPanel_, 15, 0);
+    lv_obj_set_style_bg_opa(infoPanel_, LV_OPA_70, 0);
+    lv_obj_set_style_bg_color(infoPanel_, lv_color_hex(0x000000), 0);
+    lv_obj_set_style_border_width(infoPanel_, 2, 0);
+    lv_obj_set_style_border_color(infoPanel_, lv_color_hex(0x404040), 0);
+    lv_obj_set_style_radius(infoPanel_, 8, 0);
+
+    // Set flex layout for vertical stacking (label on top, button below).
+    lv_obj_set_layout(infoPanel_, LV_LAYOUT_FLEX);
+    lv_obj_set_flex_flow(infoPanel_, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_flex_align(
+        infoPanel_, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
+
+    // Create info label.
+    infoLabel_ = lv_label_create(infoPanel_);
+    lv_label_set_text(infoLabel_, "Loading fractal info...");
+    lv_obj_set_style_text_color(infoLabel_, lv_color_hex(0xFFFFFF), 0);
+    lv_obj_set_style_text_font(infoLabel_, &lv_font_montserrat_14, 0);
+
+    // Create "Next Fractal" button.
+    nextFractalButton_ = lv_btn_create(infoPanel_);
+    lv_obj_set_size(nextFractalButton_, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+    lv_obj_set_style_pad_all(nextFractalButton_, 10, 0);
+    lv_obj_set_style_margin_top(nextFractalButton_, 10, 0);
+    lv_obj_set_user_data(nextFractalButton_, this);
+    lv_obj_add_event_cb(nextFractalButton_, onNextFractalClicked, LV_EVENT_CLICKED, nullptr);
+
+    lv_obj_t* btnLabel = lv_label_create(nextFractalButton_);
+    lv_label_set_text(btnLabel, "Next Fractal");
+    lv_obj_center(btnLabel);
+
+    spdlog::info("StartMenu: Created fractal info panel");
 }
 
 void StartMenu::onExit(StateMachine& sm)
@@ -127,7 +164,76 @@ void StartMenu::updateAnimations()
 {
     if (fractal_) {
         fractal_->update();
+
+        // Update info label with current fractal parameters (~1/sec to reduce overhead).
+        if (infoLabel_) {
+            labelUpdateCounter_++;
+            if (labelUpdateCounter_ >= 60) { // Update ~1/sec at 60fps.
+                labelUpdateCounter_ = 0;
+
+                double cReal = fractal_->getCReal();
+                double cImag = fractal_->getCImag();
+                const char* regionName = fractal_->getRegionName();
+
+                // Get all iteration values atomically to prevent race conditions.
+                int minIter, currentIter, maxIter;
+                fractal_->getIterationInfo(minIter, currentIter, maxIter);
+
+                double fps = fractal_->getDisplayFps();
+
+                // Periodic logging every 100 frames to track iteration values.
+                updateFrameCount_++;
+                if (updateFrameCount_ >= 100) {
+                    spdlog::info(
+                        "StartMenu: Fractal info - Region: {}, Iterations: [{}-{}], current: {}, "
+                        "FPS: {:.1f}",
+                        regionName,
+                        minIter,
+                        maxIter,
+                        currentIter,
+                        fps);
+                    updateFrameCount_ = 0;
+                }
+
+                // Format Julia constant with proper sign for imaginary part.
+                char cConstant[64];
+                if (cImag >= 0) {
+                    snprintf(cConstant, sizeof(cConstant), "%.4f + %.4fi", cReal, cImag);
+                }
+                else {
+                    snprintf(cConstant, sizeof(cConstant), "%.4f - %.4fi", cReal, -cImag);
+                }
+
+                // Build multi-line info text.
+                char infoText[512];
+                snprintf(
+                    infoText,
+                    sizeof(infoText),
+                    "Region: %s\n"
+                    "Julia constant: c = %s\n"
+                    "Iterations: [%d-%d], current: %d\n"
+                    "FPS: %.1f",
+                    regionName,
+                    cConstant,
+                    minIter,
+                    maxIter,
+                    currentIter,
+                    fps);
+
+                lv_label_set_text(infoLabel_, infoText);
+            }
+        }
     }
+}
+
+void StartMenu::onNextFractalClicked(lv_event_t* e)
+{
+    auto* startMenu = static_cast<StartMenu*>(
+        lv_obj_get_user_data(static_cast<lv_obj_t*>(lv_event_get_target(e))));
+    if (!startMenu || !startMenu->fractal_) return;
+
+    spdlog::info("StartMenu: Next fractal button clicked");
+    startMenu->fractal_->advanceToNextFractal();
 }
 
 void StartMenu::onDisplayResized(lv_event_t* e)

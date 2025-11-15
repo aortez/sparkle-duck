@@ -456,20 +456,52 @@ State::Any SimRunning::onEvent(const Api::ScenarioConfigSet::Cwc& cwc, StateMach
         return std::move(*this);
     }
 
+    // Get old config to detect what actually changed.
+    const ScenarioConfig& oldConfig = world->data.scenario_config;
+
     // Apply new config to scenario.
     scenario->setConfig(cwc.command.config);
 
-    // Recreate WorldEventGenerator with new config.
-    auto newGenerator = scenario->createWorldEventGenerator();
-
-    // Apply immediate visual toggles for sandbox scenario.
-    if (std::holds_alternative<SandboxConfig>(cwc.command.config)) {
-        const auto& sandboxConfig = std::get<SandboxConfig>(cwc.command.config);
-        newGenerator->dirtQuadrantToggle(*world, sandboxConfig.quadrant_enabled);
-        newGenerator->waterColumnToggle(*world, sandboxConfig.water_column_enabled);
+    // Update existing generator in-place instead of recreating (avoids calling setup()).
+    auto* generator = world->getWorldEventGenerator();
+    if (!generator) {
+        cwc.sendResponse(Response::error(ApiError("No event generator available")));
+        return std::move(*this);
     }
 
-    world->setWorldEventGenerator(std::move(newGenerator));
+    // Apply immediate visual toggles for sandbox scenario (ONLY if changed).
+    if (std::holds_alternative<SandboxConfig>(cwc.command.config)
+        && std::holds_alternative<SandboxConfig>(oldConfig)) {
+        const auto& newSandboxConfig = std::get<SandboxConfig>(cwc.command.config);
+        const auto& oldSandboxConfig = std::get<SandboxConfig>(oldConfig);
+
+        // Cast to ConfigurableWorldEventGenerator to access setters.
+        auto* configurableGen = dynamic_cast<ConfigurableWorldEventGenerator*>(generator);
+        if (configurableGen) {
+            // Update generator config flags.
+            configurableGen->setLowerRightQuadrantEnabled(newSandboxConfig.quadrant_enabled);
+            configurableGen->setRightThrowEnabled(newSandboxConfig.right_throw_enabled);
+            configurableGen->setRainRate(newSandboxConfig.rain_rate);
+            configurableGen->setWaterColumnEnabled(newSandboxConfig.water_column_enabled);
+
+            // Only toggle visuals if state actually changed.
+            if (newSandboxConfig.quadrant_enabled != oldSandboxConfig.quadrant_enabled) {
+                spdlog::info(
+                    "SimRunning: Quadrant changed: {} -> {}",
+                    oldSandboxConfig.quadrant_enabled,
+                    newSandboxConfig.quadrant_enabled);
+                configurableGen->dirtQuadrantToggle(*world, newSandboxConfig.quadrant_enabled);
+            }
+
+            if (newSandboxConfig.water_column_enabled != oldSandboxConfig.water_column_enabled) {
+                spdlog::info(
+                    "SimRunning: Water column changed: {} -> {}",
+                    oldSandboxConfig.water_column_enabled,
+                    newSandboxConfig.water_column_enabled);
+                configurableGen->waterColumnToggle(*world, newSandboxConfig.water_column_enabled);
+            }
+        }
+    }
 
     // Update WorldData with new config.
     world->data.scenario_config = cwc.command.config;
