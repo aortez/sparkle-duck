@@ -32,28 +32,43 @@ public:
 
     ScenarioConfig getConfig() const override { return config_; }
 
-    void setConfig(const ScenarioConfig& newConfig) override
+    void setConfig(const ScenarioConfig& newConfig, World& world) override
     {
         // Validate type and update.
         if (std::holds_alternative<SandboxConfig>(newConfig)) {
             const SandboxConfig& newSandboxConfig = std::get<SandboxConfig>(newConfig);
 
             // Check if water column state changed.
-            bool wasEnabled = config_.water_column_enabled;
-            bool nowEnabled = newSandboxConfig.water_column_enabled;
+            bool wasWaterEnabled = config_.water_column_enabled;
+            bool nowWaterEnabled = newSandboxConfig.water_column_enabled;
+
+            // Check if quadrant state changed.
+            bool wasQuadrantEnabled = config_.quadrant_enabled;
+            bool nowQuadrantEnabled = newSandboxConfig.quadrant_enabled;
 
             // Update config.
             config_ = newSandboxConfig;
 
-            // If water column was just enabled, reset timer to start fresh.
-            if (!wasEnabled && nowEnabled) {
+            // Apply water column changes immediately.
+            if (!wasWaterEnabled && nowWaterEnabled) {
                 waterColumnStartTime_ = 0.0;
-                spdlog::info(
-                    "SandboxScenario: Water column enabled (timer will start on next tick)");
+                addWaterColumn(world);
+                spdlog::info("SandboxScenario: Water column enabled and added");
             }
-            else if (wasEnabled && !nowEnabled) {
+            else if (wasWaterEnabled && !nowWaterEnabled) {
                 waterColumnStartTime_ = -1.0;
-                spdlog::info("SandboxScenario: Water column disabled");
+                clearWaterColumn(world);
+                spdlog::info("SandboxScenario: Water column disabled and cleared");
+            }
+
+            // Apply quadrant changes immediately.
+            if (!wasQuadrantEnabled && nowQuadrantEnabled) {
+                addDirtQuadrant(world);
+                spdlog::info("SandboxScenario: Dirt quadrant enabled and added");
+            }
+            else if (wasQuadrantEnabled && !nowQuadrantEnabled) {
+                clearDirtQuadrant(world);
+                spdlog::info("SandboxScenario: Dirt quadrant disabled and cleared");
             }
 
             spdlog::info("SandboxScenario: Config updated");
@@ -95,6 +110,10 @@ private:
     static constexpr double WATER_COLUMN_DURATION = 2.0;
 
     // Helper methods (scenario-specific, naturally belong here!).
+    void addWaterColumn(World& world);
+    void clearWaterColumn(World& world);
+    void addDirtQuadrant(World& world);
+    void clearDirtQuadrant(World& world);
     void refillWaterColumn(World& world);
     void addRainDrops(World& world);
     void throwDirtBalls(World& world);
@@ -127,30 +146,14 @@ void SandboxScenario::setup(World& world)
 
     // Fill lower-right quadrant if enabled.
     if (config_.quadrant_enabled) {
-        uint32_t startX = world.data.width / 2;
-        uint32_t startY = world.data.height / 2;
-        for (uint32_t y = startY; y < world.data.height - 1; ++y) {
-            for (uint32_t x = startX; x < world.data.width - 1; ++x) {
-                world.at(x, y).addDirt(1.0);
-            }
-        }
-        spdlog::info(
-            "Adding dirt quadrant ({}x{} cells)", world.data.width / 2, world.data.height / 2);
+        addDirtQuadrant(world);
     }
 
     // Add water column if enabled.
     if (config_.water_column_enabled) {
-        uint32_t columnWidth = std::max(3u, std::min(8u, world.data.width / 20));
-        uint32_t columnHeight = world.data.height / 3;
-        for (uint32_t y = 0; y < columnHeight && y < world.data.height; ++y) {
-            for (uint32_t x = 1; x <= columnWidth && x < world.data.width; ++x) {
-                world.at(x, y).addWater(1.0);
-            }
-        }
+        addWaterColumn(world);
         // Initialize water column start time.
         waterColumnStartTime_ = 0.0;
-        spdlog::info(
-            "Adding water column ({} wide × {} tall) on left side", columnWidth, columnHeight);
     }
 
     spdlog::info("SandboxScenario::setup complete");
@@ -219,6 +222,68 @@ void SandboxScenario::tick(World& world, double deltaTime)
     }
 
     lastSimTime_ = simTime;
+}
+
+void SandboxScenario::addWaterColumn(World& world)
+{
+    // Scale water column dimensions based on world size.
+    uint32_t columnWidth = std::max(3u, std::min(8u, world.data.width / 20));
+    uint32_t columnHeight = world.data.height / 3;
+
+    // Add water column on left side.
+    for (uint32_t y = 0; y < columnHeight && y < world.data.height; ++y) {
+        for (uint32_t x = 1; x <= columnWidth && x < world.data.width; ++x) {
+            world.at(x, y).addWater(1.0);
+        }
+    }
+    spdlog::info("Added water column ({} wide × {} tall) on left side", columnWidth, columnHeight);
+}
+
+void SandboxScenario::clearWaterColumn(World& world)
+{
+    // Scale water column dimensions based on world size.
+    uint32_t columnWidth = std::max(3u, std::min(8u, world.data.width / 20));
+    uint32_t columnHeight = world.data.height / 3;
+
+    // Clear water from the water column area.
+    for (uint32_t y = 0; y < columnHeight && y < world.data.height; ++y) {
+        for (uint32_t x = 1; x <= columnWidth && x < world.data.width; ++x) {
+            Cell& cell = world.at(x, y);
+            if (cell.material_type == MaterialType::WATER) {
+                cell.replaceMaterial(MaterialType::AIR, 0.0);
+            }
+        }
+    }
+    spdlog::info("Cleared water column");
+}
+
+void SandboxScenario::addDirtQuadrant(World& world)
+{
+    // Fill lower-right quadrant with dirt.
+    uint32_t startX = world.data.width / 2;
+    uint32_t startY = world.data.height / 2;
+    for (uint32_t y = startY; y < world.data.height - 1; ++y) {
+        for (uint32_t x = startX; x < world.data.width - 1; ++x) {
+            world.at(x, y).addDirt(1.0);
+        }
+    }
+    spdlog::info("Added dirt quadrant ({}x{} cells)", world.data.width / 2, world.data.height / 2);
+}
+
+void SandboxScenario::clearDirtQuadrant(World& world)
+{
+    // Clear dirt from lower-right quadrant.
+    uint32_t startX = world.data.width / 2;
+    uint32_t startY = world.data.height / 2;
+    for (uint32_t y = startY; y < world.data.height - 1; ++y) {
+        for (uint32_t x = startX; x < world.data.width - 1; ++x) {
+            Cell& cell = world.at(x, y);
+            if (cell.material_type == MaterialType::DIRT) {
+                cell.replaceMaterial(MaterialType::AIR, 0.0);
+            }
+        }
+    }
+    spdlog::info("Cleared dirt quadrant");
 }
 
 void SandboxScenario::refillWaterColumn(World& world)

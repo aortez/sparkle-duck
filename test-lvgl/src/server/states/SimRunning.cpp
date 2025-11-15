@@ -454,7 +454,8 @@ State::Any SimRunning::onEvent(const Api::ScenarioConfigSet::Cwc& cwc, StateMach
     }
 
     // Update scenario's config (scenario is source of truth).
-    scenario->setConfig(cwc.command.config);
+    // Pass world so scenario can immediately apply changes.
+    scenario->setConfig(cwc.command.config, *world);
 
     // Sync to WorldData (will be sent to UI on next frame).
     world->data.scenario_config = scenario->getConfig();

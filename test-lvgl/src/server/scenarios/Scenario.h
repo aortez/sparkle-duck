@@ -54,7 +54,8 @@ public:
     virtual ScenarioConfig getConfig() const = 0;
 
     // Update configuration (UI can change settings at runtime).
-    virtual void setConfig(const ScenarioConfig& config) = 0;
+    // Takes World reference to immediately apply config changes.
+    virtual void setConfig(const ScenarioConfig& config, World& world) = 0;
 
     // Initialize world to scenario's starting state.
     // Default implementation delegates to old generator (migration path).
