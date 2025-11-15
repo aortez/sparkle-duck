@@ -95,19 +95,27 @@ void WorldEventGenerator::dirtQuadrantToggle(World& world, bool enabled)
 
 void WorldEventGenerator::waterColumnToggle(World& world, bool enabled)
 {
+    // Scale water column dimensions based on world size.
+    // Width: 5% of world width, minimum 3, maximum 8.
+    uint32_t columnWidth = std::max(3u, std::min(8u, world.data.width / 20));
+    // Height: Top 1/3 of world height.
+    uint32_t columnHeight = world.data.height / 3;
+
     if (enabled) {
-        spdlog::info("Adding water column (5 wide × 20 tall) on left side");
-        for (uint32_t y = 0; y < 20 && y < world.data.height; ++y) {
-            for (uint32_t x = 1; x <= 5 && x < world.data.width; ++x) {
+        spdlog::info(
+            "Adding water column ({} wide × {} tall) on left side", columnWidth, columnHeight);
+        for (uint32_t y = 0; y < columnHeight && y < world.data.height; ++y) {
+            for (uint32_t x = 1; x <= columnWidth && x < world.data.width; ++x) {
                 Cell& cell = world.at(x, y);
                 cell.addWater(1.0);
             }
         }
     }
     else {
-        spdlog::info("Removing water column (5 wide × 20 tall) on left side");
-        for (uint32_t y = 0; y < 20 && y < world.data.height; ++y) {
-            for (uint32_t x = 1; x <= 5 && x < world.data.width; ++x) {
+        spdlog::info(
+            "Removing water column ({} wide × {} tall) on left side", columnWidth, columnHeight);
+        for (uint32_t y = 0; y < columnHeight && y < world.data.height; ++y) {
+            for (uint32_t x = 1; x <= columnWidth && x < world.data.width; ++x) {
                 Cell& cell = world.at(x, y);
                 cell.clear();
             }

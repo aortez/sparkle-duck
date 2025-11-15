@@ -151,7 +151,7 @@ private:
     bool rightThrowEnabled = true;
     bool sweepEnabled = false;       // Currently disabled.
     double rainRate = 0.0;           // Rain rate in drops per second, 0 = disabled.
-    bool waterColumnEnabled = false; // Water column on left side (5 wide × 20 tall).
+    bool waterColumnEnabled = false; // Water column on left side (scales with world size).
 
     // Event generation state (moved from static variables).
     double lastSimTime = 0.0;

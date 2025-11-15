@@ -311,17 +311,13 @@ Can be found here:
 Awesome Ideas to do soon:
 - Add label for Fractal showing which event type it was currently running.
 - Add button to StartMenu to generate the next fractal.
-- Silence this specific command:
-[2025-11-14 14:38:32.491] [info] WebSocket received command: {"command":"FrameReady"}
-Can we log it but only at debug?
-Also same for this one too:
-[2025-11-14 15:41:07.080] [ui] [info] Ui::EventProcessor: Dropped 1 old frames to catch up (queue overrun)
 - Make the water column size scale with the world size
 - FIX: After resetting, the tree visualization is still showing, it should Only
 be active if a tree is around.
 - Add label to tree's view saying which layer it is from.
 - Consider making air into a gaseous type, rather than the current "empty" behavior.
 - Audit GridMechanics for correctness/relevance.  It might be getting out of date.
+- Refactor PhysicsControls to normalize/DRY up the patterns? (and prevent bugs/share enhancements)
 
 ### Client/Server Architecture (DSSM + UI Client)
 - ✅ Headless server with WebSocket API
