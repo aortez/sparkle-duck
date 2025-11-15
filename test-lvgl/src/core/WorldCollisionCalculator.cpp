@@ -99,8 +99,8 @@ MaterialMove WorldCollisionCalculator::createCollisionAwareMove(
         determineCollisionType(fromCell.material_type, toCell.material_type, move.collision_energy);
 
     // Set material-specific restitution coefficient.
-    const auto& fromProps = getMaterialProperties(fromCell.material_type);
-    const auto& toProps = getMaterialProperties(toCell.material_type);
+    const auto& fromProps = fromCell.material();
+    const auto& toProps = toCell.material();
 
     if (move.collision_type == CollisionType::ELASTIC_REFLECTION) {
         // For elastic collisions, use geometric mean of elasticities.

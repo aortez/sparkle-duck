@@ -251,10 +251,6 @@ TreeSensoryData Tree::gatherSensoryData(const World& world) const
     int bbox_width = max_x - min_x + 1;
     int bbox_height = max_y - min_y + 1;
 
-    // Calculate geometric center of tree's current cells.
-    int center_x = (min_x + max_x) / 2;
-    int center_y = (min_y + max_y) / 2;
-
     // Small trees: Use fixed 15×15 viewing window centered on tree's current position (1:1
     // mapping).
     if (bbox_width <= TreeSensoryData::GRID_SIZE && bbox_height <= TreeSensoryData::GRID_SIZE) {

@@ -15,7 +15,7 @@ struct PhysicsSettings {
     double adhesion_strength = 5.0;
     bool adhesion_enabled = true;
     double air_resistance = 0.1;
-    double cohesion_strength = 150.0;
+    double cohesion_strength = 5.0;
     bool cohesion_enabled = true;
     double elasticity = 0.8;
     double friction_strength = 1.0;

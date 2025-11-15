@@ -7,10 +7,31 @@
 #include "ui/state-machine/api/Screenshot.h"
 #include "ui/state-machine/api/SimPause.h"
 #include "ui/state-machine/api/SimRun.h"
+#include <cctype>
 #include <spdlog/spdlog.h>
 
 namespace DirtSim {
 namespace Ui {
+
+namespace {
+/**
+ * @brief Convert PascalCase to snake_case for command names.
+ *
+ * This allows the C++ API to use PascalCase (e.g., "SimRun") and the
+ * WebSocket API to use snake_case (e.g., "sim_run").
+ */
+std::string toSnakeCase(const std::string& str)
+{
+    std::string result;
+    for (char c : str) {
+        if (std::isupper(c) && !result.empty()) {
+            result += '_';
+        }
+        result += static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    }
+    return result;
+}
+} // namespace
 
 Result<UiApiCommand, ApiError> CommandDeserializerJson::deserialize(const std::string& commandJson)
 {
@@ -34,7 +55,7 @@ Result<UiApiCommand, ApiError> CommandDeserializerJson::deserialize(const std::s
             ApiError("Command must have 'command' field with string value"));
     }
 
-    std::string commandName = cmd["command"].get<std::string>();
+    std::string commandName = toSnakeCase(cmd["command"].get<std::string>());
     spdlog::debug("UI: Deserializing command: {}", commandName);
 
     // Dispatch to appropriate handler.

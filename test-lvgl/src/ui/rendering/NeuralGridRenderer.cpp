@@ -60,8 +60,8 @@ void NeuralGridRenderer::renderSensoryData(const TreeSensoryData& sensory, lv_ob
     lv_canvas_init_layer(gridCanvas_, &layer);
 
     // Render each neural grid cell.
-    for (int ny = 0; ny < GRID_SIZE; ny++) {
-        for (int nx = 0; nx < GRID_SIZE; nx++) {
+    for (uint32_t ny = 0; ny < GRID_SIZE; ny++) {
+        for (uint32_t nx = 0; nx < GRID_SIZE; nx++) {
             const auto& histogram = sensory.material_histograms[ny][nx];
 
             // Convert histogram to color.

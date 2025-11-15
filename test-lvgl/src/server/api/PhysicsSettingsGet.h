@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ApiError.h"
+#include "ApiMacros.h"
 #include "core/CommandWithCallback.h"
 #include "core/PhysicsSettings.h"
 #include "core/Result.h"
@@ -10,7 +11,10 @@ namespace DirtSim {
 namespace Api {
 namespace PhysicsSettingsGet {
 
+DEFINE_API_NAME(PhysicsSettingsGet);
+
 struct Command {
+    API_COMMAND_NAME();
     nlohmann::json toJson() const;
     static Command fromJson(const nlohmann::json& j);
 };
@@ -18,7 +22,7 @@ struct Command {
 struct Okay {
     PhysicsSettings settings;
 
-    static constexpr const char* name() { return "physics_settings_get"; }
+    API_COMMAND_NAME();
     nlohmann::json toJson() const;
 };
 

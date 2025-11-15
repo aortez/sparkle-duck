@@ -78,8 +78,66 @@ SandboxControls::~SandboxControls()
 
 void SandboxControls::updateFromConfig(const SandboxConfig& config)
 {
-    // Update toggle states (would need to check current state to avoid redundant updates).
-    // For now, this is a placeholder - typically called when config changes from server.
+    // Prevent sending updates back to server during UI sync.
+    initializing_ = true;
+
+    // Update quadrant switch.
+    if (quadrantSwitch_) {
+        bool currentState = lv_obj_has_state(quadrantSwitch_, LV_STATE_CHECKED);
+        if (currentState != config.quadrant_enabled) {
+            if (config.quadrant_enabled) {
+                lv_obj_add_state(quadrantSwitch_, LV_STATE_CHECKED);
+            }
+            else {
+                lv_obj_remove_state(quadrantSwitch_, LV_STATE_CHECKED);
+            }
+            spdlog::debug(
+                "SandboxControls: Updated quadrant switch to {}", config.quadrant_enabled);
+        }
+    }
+
+    // Update water column switch.
+    if (waterColumnSwitch_) {
+        bool currentState = lv_obj_has_state(waterColumnSwitch_, LV_STATE_CHECKED);
+        if (currentState != config.water_column_enabled) {
+            if (config.water_column_enabled) {
+                lv_obj_add_state(waterColumnSwitch_, LV_STATE_CHECKED);
+            }
+            else {
+                lv_obj_remove_state(waterColumnSwitch_, LV_STATE_CHECKED);
+            }
+            spdlog::info(
+                "SandboxControls: Updated water column switch to {}", config.water_column_enabled);
+        }
+    }
+
+    // Update right throw switch.
+    if (rightThrowSwitch_) {
+        bool currentState = lv_obj_has_state(rightThrowSwitch_, LV_STATE_CHECKED);
+        if (currentState != config.right_throw_enabled) {
+            if (config.right_throw_enabled) {
+                lv_obj_add_state(rightThrowSwitch_, LV_STATE_CHECKED);
+            }
+            else {
+                lv_obj_remove_state(rightThrowSwitch_, LV_STATE_CHECKED);
+            }
+            spdlog::debug(
+                "SandboxControls: Updated right throw switch to {}", config.right_throw_enabled);
+        }
+    }
+
+    // Update rain slider.
+    if (rainSlider_) {
+        int currentValue = lv_slider_get_value(rainSlider_);
+        int newValue = static_cast<int>(config.rain_rate * 10);
+        if (currentValue != newValue) {
+            lv_slider_set_value(rainSlider_, newValue, LV_ANIM_OFF);
+            spdlog::debug("SandboxControls: Updated rain slider to {}", config.rain_rate);
+        }
+    }
+
+    // Re-enable updates.
+    initializing_ = false;
 }
 
 SandboxConfig SandboxControls::getCurrentConfig() const
@@ -132,15 +190,11 @@ void SandboxControls::sendConfigUpdate(const ScenarioConfig& config)
     }
     lastUpdateTime = now;
 
-    Api::ScenarioConfigSet::Command cmd;
-    cmd.config = config;
-
-    nlohmann::json j = cmd.toJson();
-    j["command"] = "scenario_config_set";
+    const Api::ScenarioConfigSet::Command cmd{ .config = config };
 
     spdlog::info(
         "SandboxControls: Sending config update (update #{} in {}ms)", updateCount, elapsed);
-    wsClient_->send(j.dump());
+    wsClient_->sendCommand(cmd);
 }
 
 void SandboxControls::onAddSeedClicked(lv_event_t* e)
@@ -154,15 +208,10 @@ void SandboxControls::onAddSeedClicked(lv_event_t* e)
     spdlog::info("SandboxControls: Add Seed button clicked");
 
     if (self->wsClient_ && self->wsClient_->isConnected()) {
-        Api::SeedAdd::Command cmd;
-        cmd.x = self->worldWidth_ / 2;
-        cmd.y = 5;
-
-        nlohmann::json json = cmd.toJson();
-        json["command"] = "seed_add";
+        const Api::SeedAdd::Command cmd{ .x = static_cast<int>(self->worldWidth_ / 2), .y = 5 };
 
         spdlog::info("SandboxControls: Sending seed_add at ({}, {})", cmd.x, cmd.y);
-        self->wsClient_->send(json.dump());
+        self->wsClient_->sendCommand(cmd);
     }
 }
 
@@ -177,11 +226,10 @@ void SandboxControls::onDropDirtBallClicked(lv_event_t* e)
     spdlog::info("SandboxControls: Drop Dirt Ball button clicked");
 
     if (self->wsClient_ && self->wsClient_->isConnected()) {
-        nlohmann::json cmd;
-        cmd["command"] = "spawn_dirt_ball";
+        const Api::SpawnDirtBall::Command cmd{};
 
         spdlog::info("SandboxControls: Sending spawn_dirt_ball command");
-        self->wsClient_->send(cmd.dump());
+        self->wsClient_->sendCommand(cmd);
     }
 }
 

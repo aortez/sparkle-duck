@@ -1,13 +1,13 @@
 #pragma once
 
 #include "core/ScenarioConfig.h"
+#include "core/WorldEventGenerator.h"
 #include <memory>
 #include <string>
 
-// Forward declarations
+// Forward declarations.
 namespace DirtSim {
 class World;
-class WorldEventGenerator;
 } // namespace DirtSim
 
 using namespace DirtSim;
@@ -31,12 +31,19 @@ struct ScenarioMetadata {
 
 /**
  * Base interface for scenarios.
- * A scenario encapsulates a complete world configuration including:
+ * A scenario encapsulates a complete world configuration and behavior:
  * - Initial setup (materials, parameters)
- * - Ongoing behavior (timed events, continuous effects)
+ * - Ongoing behavior (particle generation, timed events)
  * - Runtime-configurable parameters (via ScenarioConfig)
+ * - State management (timers, counters specific to the scenario)
+ *
+ * Scenarios are instanced (not singletons) so each can maintain independent state.
  */
 class Scenario {
+protected:
+    // Temporary: Delegate to old generator during migration.
+    mutable std::unique_ptr<WorldEventGenerator> generator_;
+
 public:
     virtual ~Scenario() = default;
 
@@ -47,8 +54,21 @@ public:
     virtual ScenarioConfig getConfig() const = 0;
 
     // Update configuration (UI can change settings at runtime).
-    virtual void setConfig(const ScenarioConfig& config) = 0;
+    // Takes World reference to immediately apply config changes.
+    virtual void setConfig(const ScenarioConfig& config, World& world) = 0;
 
-    // Create a WorldEventGenerator instance for this scenario.
+    // Initialize world to scenario's starting state.
+    // Default implementation delegates to old generator (migration path).
+    virtual void setup(World& world);
+
+    // Reset scenario state (timers, counters) and re-initialize world.
+    // Default implementation recreates generator and calls setup.
+    virtual void reset(World& world);
+
+    // Update scenario behavior each frame (particle generation, timed events, etc.).
+    // Default implementation delegates to old generator (migration path).
+    virtual void tick(World& world, double deltaTime);
+
+    // DEPRECATED: Will be removed after refactor.
     virtual std::unique_ptr<WorldEventGenerator> createWorldEventGenerator() const = 0;
 };

@@ -1,6 +1,7 @@
 #include "IntegrationTest.h"
 #include "SubprocessManager.h"
 #include "WebSocketClient.h"
+#include "server/api/Exit.h"
 #include <chrono>
 #include <iostream>
 #include <nlohmann/json.hpp>
@@ -73,7 +74,9 @@ int IntegrationTest::run(const std::string& serverPath, const std::string& uiPat
 
     // Send exit to server.
     std::cout << "Shutting down server..." << std::endl;
-    nlohmann::json exitCmd = { { "command", "exit" } };
+    const DirtSim::Api::Exit::Command cmd{};
+    nlohmann::json exitCmd = cmd.toJson();
+    exitCmd["command"] = DirtSim::Api::Exit::Command::name();
     client.send(exitCmd.dump());
     client.disconnect();
 

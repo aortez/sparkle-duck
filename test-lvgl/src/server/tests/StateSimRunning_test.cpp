@@ -237,7 +237,8 @@ TEST_F(StateSimRunningTest, ScenarioConfigSet_TogglesWaterColumn)
     SimRunning simRunning = createSimRunningWithWorld();
 
     // Verify: Water column initially exists (check a few cells).
-    const Cell& waterCell = simRunning.world->at(3, 10);
+    // Water column height = world.height / 3 = 28 / 3 = 9, so check y=5 (middle of column).
+    const Cell& waterCell = simRunning.world->at(3, 5);
     EXPECT_EQ(waterCell.material_type, MaterialType::WATER)
         << "Water column should exist initially";
     EXPECT_GT(waterCell.fill_ratio, 0.5) << "Water column cells should be filled";
@@ -287,7 +288,7 @@ TEST_F(StateSimRunningTest, ScenarioConfigSet_TogglesWaterColumn)
 
     // Verify: Water column restored.
     ASSERT_TRUE(callbackInvoked);
-    const Cell& restoredWaterCell = simRunning.world->at(3, 10);
+    const Cell& restoredWaterCell = simRunning.world->at(3, 5);
     EXPECT_EQ(restoredWaterCell.material_type, MaterialType::WATER)
         << "Water column should be restored";
     EXPECT_GT(restoredWaterCell.fill_ratio, 0.9) << "Water should be nearly full";

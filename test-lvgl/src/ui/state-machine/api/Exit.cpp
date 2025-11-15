@@ -1,4 +1,5 @@
 #include "Exit.h"
+#include "core/ReflectSerializer.h"
 
 namespace DirtSim {
 namespace UiApi {
@@ -6,13 +7,12 @@ namespace Exit {
 
 nlohmann::json Command::toJson() const
 {
-    return nlohmann::json{ { "command", "exit" } };
+    return ReflectSerializer::to_json(*this);
 }
 
-Command Command::fromJson(const nlohmann::json& /*j*/)
+Command Command::fromJson(const nlohmann::json& j)
 {
-    // Exit command has no parameters.
-    return Command{};
+    return ReflectSerializer::from_json<Command>(j);
 }
 
 } // namespace Exit

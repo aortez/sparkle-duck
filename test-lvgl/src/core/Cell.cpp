@@ -119,7 +119,7 @@ double Cell::addMaterialWithPhysics(
     if (added > 0.0) {
         // Enhanced momentum conservation: new_COM = (m1*COM1 + m2*COM2)/(m1+m2).
         const double existing_mass = getMass();
-        const double added_mass = added * getMaterialProperties(material_type).density;
+        const double added_mass = added * material().density;
         const double total_mass = existing_mass + added_mass;
 
         // Calculate incoming material's COM in target cell space.

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ApiError.h"
+#include "ApiMacros.h"
 #include "core/CommandWithCallback.h"
 #include "core/Result.h"
 #include <nlohmann/json.hpp>
@@ -11,7 +12,10 @@ namespace DirtSim {
 namespace Api {
 namespace TimerStatsGet {
 
+DEFINE_API_NAME(TimerStatsGet);
+
 struct Command {
+    API_COMMAND_NAME();
     nlohmann::json toJson() const;
     static Command fromJson(const nlohmann::json& j);
 };
@@ -26,7 +30,7 @@ struct Okay {
     // Map of timer name -> stats.
     std::unordered_map<std::string, TimerEntry> timers;
 
-    static constexpr const char* name() { return "timer_stats_get"; }
+    API_COMMAND_NAME();
     nlohmann::json toJson() const;
 };
 

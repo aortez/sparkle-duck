@@ -50,9 +50,9 @@ struct Cell {
     Vector2d pressure_gradient = {};
 
     // Force accumulation for visualization.
-    Vector2d accumulated_cohesion_force = {}; // Repurposed: X=motion_multiplier, Y=damping_factor.
-    Vector2d accumulated_adhesion_force = {};
-    Vector2d accumulated_com_cohesion_force = {};
+    Vector2d accumulated_viscous_force = {};      // Viscous force from momentum diffusion.
+    Vector2d accumulated_adhesion_force = {};     // Adhesion force (different materials).
+    Vector2d accumulated_com_cohesion_force = {}; // COM cohesion force (same material).
 
     // Physics force accumulation.
     Vector2d pending_force = {};
@@ -67,6 +67,8 @@ struct Cell {
     // MATERIAL PROPERTIES
     // =================================================================
 
+    const MaterialProperties& material() const { return getMaterialProperties(material_type); }
+
     // Helper with invariant: clamps fill ratio and auto-converts to AIR.
     void setFillRatio(double ratio);
 
@@ -74,10 +76,9 @@ struct Cell {
     // FORCE ACCUMULATION (for visualization)
     // =================================================================
 
-    // Helper to clear accumulated forces.
     void clearAccumulatedForces()
     {
-        accumulated_cohesion_force = {};
+        accumulated_viscous_force = {};
         accumulated_adhesion_force = {};
         accumulated_com_cohesion_force = {};
     }

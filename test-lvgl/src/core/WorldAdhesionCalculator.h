@@ -33,20 +33,8 @@ public:
     // Main calculation method.
     AdhesionForce calculateAdhesionForce(const World& world, uint32_t x, uint32_t y) const;
 
-    // Adhesion parameters.
-    void setAdhesionEnabled(bool enabled)
-    {
-        // Backward compatibility: set strength to 0 (disabled) or default (enabled).
-        adhesion_strength_ = enabled ? 5.0 : 0.0;
-    }
-    bool isAdhesionEnabled() const { return adhesion_strength_ > 0.0; }
-
-    void setAdhesionStrength(double strength) { adhesion_strength_ = strength; }
-    double getAdhesionStrength() const { return adhesion_strength_; }
-
-private:
-    // Configuration parameters.
-    double adhesion_strength_ = 0.0;
+    // Adhesion parameters - NOTE: Now uses World.physicsSettings, these are legacy wrappers.
+    // These methods are kept for backward compatibility but delegate to World.physicsSettings.
 };
 
 } // namespace DirtSim

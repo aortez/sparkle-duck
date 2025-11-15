@@ -754,42 +754,6 @@ void WorldPressureCalculator::applyPressureDiffusion(World& world, double deltaT
         }
     }
 
-    // // Apply wall reflections before finalizing pressure values.
-    // for (uint32_t y = 0; y < height; ++y) {
-    //     for (uint32_t x = 0; x < width; ++x) {
-    //         // Skip cells with no blocked flux.
-    //         if (wall_reflections_[y][x].blocked_flux <= 0.0) {
-    //             continue;
-    //         }
-    //
-    //         size_t idx = y * width + x;
-    //         const Cell& cell = world.at(x, y);
-    //
-    //         // Calculate reflection coefficient based on material.
-    //         double reflection_coeff = calculateDiffusionReflectionCoefficient(
-    //             cell.material_type, wall_reflections_[y][x].blocked_flux);
-    //
-    //         // Apply reflected pressure.
-    //         double reflected_pressure = wall_reflections_[y][x].blocked_flux * reflection_coeff;
-    //         new_pressure[idx] += reflected_pressure * deltaTime;
-    //
-    //         // Ensure pressure stays positive.
-    //         if (new_pressure[idx] < 0.0) {
-    //             new_pressure[idx] = 0.0;
-    //         }
-    //
-    //         spdlog::trace(
-    //             "Pressure reflection at ({},{}) - material={}, blocked_flux={:.6f}, "
-    //             "reflection_coeff={:.3f}, added_pressure={:.6f}",
-    //             x,
-    //             y,
-    //             getMaterialName(cell.material_type),
-    //             wall_reflections_[y][x].blocked_flux,
-    //             reflection_coeff,
-    //             reflected_pressure * deltaTime);
-    //     }
-    // }
-
     // Apply the new pressure values.
     for (uint32_t y = 0; y < height; ++y) {
         for (uint32_t x = 0; x < width; ++x) {

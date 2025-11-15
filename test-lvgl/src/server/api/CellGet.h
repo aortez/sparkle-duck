@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ApiError.h"
+#include "ApiMacros.h"
 #include "core/Cell.h"
 #include "core/CommandWithCallback.h"
 #include "core/Result.h"
@@ -11,10 +12,13 @@ namespace Api {
 
 namespace CellGet {
 
+DEFINE_API_NAME(CellGet);
+
 struct Command {
     int x;
     int y;
 
+    API_COMMAND_NAME();
     nlohmann::json toJson() const;
     static Command fromJson(const nlohmann::json& j);
 };
@@ -22,7 +26,7 @@ struct Command {
 struct Okay {
     Cell cell;
 
-    static constexpr const char* name() { return "cell_get"; }
+    API_COMMAND_NAME();
     nlohmann::json toJson() const;
 };
 

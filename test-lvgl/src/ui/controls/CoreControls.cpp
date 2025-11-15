@@ -160,10 +160,8 @@ void CoreControls::onResetClicked(lv_event_t* e)
     spdlog::info("CoreControls: Reset button clicked");
 
     // Send reset command to server.
-    Api::Reset::Command cmd;
-    nlohmann::json j = cmd.toJson();
-    j["command"] = "reset";
-    self->wsClient_->send(j.dump());
+    const Api::Reset::Command cmd{};
+    self->wsClient_->sendCommand(cmd);
 }
 
 void CoreControls::onDebugToggled(lv_event_t* e)
@@ -214,36 +212,25 @@ void CoreControls::onWorldSizeToggled(lv_event_t* e)
     // When toggled off, the slider defaults to value 1
     // When toggled on, it uses the slider's current value
     if (!enabled) {
-        // Send resize command with size 1x1 (minimum world size)
-        Api::WorldResize::Command cmd;
-        cmd.width = 1;
-        cmd.height = 1;
-        nlohmann::json j = cmd.toJson();
-        j["command"] = "world_resize";
-        self->wsClient_->send(j.dump());
+        // Send resize command with size 1x1 (minimum world size).
+        const Api::WorldResize::Command cmd{ .width = 1, .height = 1 };
+        self->wsClient_->sendCommand(cmd);
         spdlog::info("CoreControls: Resizing world to 1x1 (toggle off)");
     }
     else {
-        // Get the current slider value and resize to that
+        // Get the current slider value and resize to that.
         if (!self->worldSizeSlider_) {
             spdlog::error("CoreControls: worldSizeSlider_ is null!");
-            // Use default value if slider is not available
-            Api::WorldResize::Command cmd;
-            cmd.width = 28;
-            cmd.height = 28;
-            nlohmann::json j = cmd.toJson();
-            j["command"] = "world_resize";
-            self->wsClient_->send(j.dump());
+            // Use default value if slider is not available.
+            const Api::WorldResize::Command cmd{ .width = 28, .height = 28 };
+            self->wsClient_->sendCommand(cmd);
             spdlog::info("CoreControls: Resizing world to 28x28 (default, slider unavailable)");
         }
         else {
             int32_t value = lv_slider_get_value(self->worldSizeSlider_);
-            Api::WorldResize::Command cmd;
-            cmd.width = value;
-            cmd.height = value;
-            nlohmann::json j = cmd.toJson();
-            j["command"] = "world_resize";
-            self->wsClient_->send(j.dump());
+            const Api::WorldResize::Command cmd{ .width = static_cast<uint32_t>(value),
+                                                 .height = static_cast<uint32_t>(value) };
+            self->wsClient_->sendCommand(cmd);
             spdlog::info("CoreControls: Resizing world to {}x{} (toggle on)", value, value);
         }
     }
@@ -285,13 +272,10 @@ void CoreControls::onWorldSizeChanged(lv_event_t* e)
     if (self->worldSizeSwitch_ && lv_obj_has_state(self->worldSizeSwitch_, LV_STATE_CHECKED)) {
         spdlog::info("CoreControls: World size slider released at {}", value);
 
-        // Send WorldResize API command
-        Api::WorldResize::Command cmd;
-        cmd.width = value;
-        cmd.height = value;
-        nlohmann::json j = cmd.toJson();
-        j["command"] = "world_resize";
-        self->wsClient_->send(j.dump());
+        // Send WorldResize API command.
+        const Api::WorldResize::Command cmd{ .width = static_cast<uint32_t>(value),
+                                             .height = static_cast<uint32_t>(value) };
+        self->wsClient_->sendCommand(cmd);
         spdlog::info("CoreControls: Resizing world to {}x{}", value, value);
     }
 }

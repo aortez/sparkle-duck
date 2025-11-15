@@ -44,6 +44,69 @@ public:
      */
     lv_obj_t* getCanvas() const { return canvas_; }
 
+    /**
+     * @brief Advance to next fractal parameters immediately.
+     * Triggers a new random parameter set with smooth transition.
+     */
+    void advanceToNextFractal();
+
+    /**
+     * @brief Get current Julia constant real part.
+     * Thread-safe access to fractal parameter.
+     */
+    double getCReal() const;
+
+    /**
+     * @brief Get current Julia constant imaginary part.
+     * Thread-safe access to fractal parameter.
+     */
+    double getCImag() const;
+
+    /**
+     * @brief Get current region name.
+     * Returns the human-readable name of the current region, or "Random Exploration".
+     */
+    const char* getRegionName() const;
+
+    /**
+     * @brief Get minimum iterations (detail oscillation lower bound).
+     */
+    int getMinIterations() const { return minIterationBound_; }
+
+    /**
+     * @brief Get maximum iterations (detail oscillation upper bound).
+     */
+    int getMaxIterations() const { return maxIterationBound_; }
+
+    /**
+     * @brief Get current iteration count (oscillates between min and max).
+     */
+    int getCurrentIterations() const;
+
+    /**
+     * @brief Get current transitioning minimum iterations (accounts for smooth transitions).
+     */
+    int getTransitioningMinIterations() const;
+
+    /**
+     * @brief Get current transitioning maximum iterations (accounts for smooth transitions).
+     */
+    int getTransitioningMaxIterations() const;
+
+    /**
+     * @brief Get all iteration info atomically (min, current, max).
+     * Thread-safe - reads all three values under a single lock to prevent inconsistencies.
+     * @param outMin Transitioning minimum iterations.
+     * @param outCurrent Current iteration count.
+     * @param outMax Transitioning maximum iterations.
+     */
+    void getIterationInfo(int& outMin, int& outCurrent, int& outMax) const;
+
+    /**
+     * @brief Get current display FPS (update() call frequency).
+     */
+    double getDisplayFps() const;
+
 private:
     /**
      * @brief Calculate Julia set iteration count for a point.
@@ -127,8 +190,9 @@ private:
     double cRealAmplitude_ = 0.1;
     double cImagCenter_ = 0.27;
     double cImagAmplitude_ = 0.1;
-    int minIterations_ = 0;   // Randomized lower bound for detail oscillation.
-    int maxIterations_ = 200; // Upper bound for detail.
+    int minIterationBound_ = 0;   // Lower bound for detail oscillation (not overwritten).
+    int maxIterationBound_ = 200; // Upper bound for detail oscillation (not overwritten).
+    int maxIterations_ = 200;     // Current max iterations used for rendering (oscillates).
 
     // Smooth transition between parameter sets.
     double transitionProgress_ = 1.0; // 0.0 to 1.0 (1.0 = no transition).
@@ -139,8 +203,8 @@ private:
     double oldCImagAmplitude_ = 0.1;
     double oldDetailPhaseSpeed_ = 0.01;
     double oldCPhaseSpeed_ = 0.01;
-    int oldMinIterations_ = 0;
-    int oldMaxIterations_ = 200;
+    int oldMinIterationBound_ = 0;
+    int oldMaxIterationBound_ = 200;
 
     // Interesting Julia set regions (curated presets).
     static constexpr int NUM_REGIONS = 10;
@@ -157,6 +221,16 @@ private:
         { -0.12, 0.75 },       // Upper region variations.
     };
 
+    // Human-readable names for the curated regions.
+    static constexpr const char* REGION_NAMES[NUM_REGIONS] = {
+        "Douady's Rabbit",         "Dendrite",          "Spiral Arms",
+        "Complex Spirals",         "Delicate Branches", "Siegel Disk",
+        "Dragon-like Curves",      "Swirling Patterns", "Period-2 Bulb",
+        "Upper Region Variations",
+    };
+
+    int currentRegionIdx_ = -1; // Current region index (-1 = random exploration).
+
     void generateRandomParameters(); // Generate new random parameter set.
 
     // Background rendering thread for smooth animation.
@@ -164,6 +238,7 @@ private:
     std::atomic<bool> shouldExit_{ false };
     std::atomic<bool> resizeNeeded_{ false }; // Signal from render thread to main thread.
     std::mutex bufferMutex_;
+    mutable std::mutex parameterMutex_; // Protects animation parameters from race conditions.
 
     // Triple buffering - 3 buffers rotate through roles.
     lv_color_t* buffers_[3] = { nullptr, nullptr, nullptr };

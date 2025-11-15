@@ -1,4 +1,5 @@
 #include "State.h"
+#include "server/api/FrameReady.h"
 #include "ui/SimPlayground.h"
 #include "ui/UiComponentManager.h"
 #include "ui/controls/PhysicsControls.h"
@@ -25,8 +26,8 @@ void SimRunning::onEnter(StateMachine& sm)
     // Send initial frame_ready to kickstart the pipelined frame delivery.
     auto* wsClient = sm.getWebSocketClient();
     if (wsClient && wsClient->isConnected()) {
-        nlohmann::json frameReadyCmd = { { "command", "frame_ready" } };
-        wsClient->send(frameReadyCmd.dump());
+        const Api::FrameReady::Command cmd{};
+        wsClient->sendCommand(cmd);
         spdlog::info("SimRunning: Sent initial frame_ready to start frame delivery");
     }
 }
@@ -166,8 +167,8 @@ State::Any SimRunning::onEvent(const FrameReadyNotification& evt, StateMachine& 
         // Request world state from DSSM (only if no request is pending).
         auto* wsClient = sm.getWebSocketClient();
         if (wsClient && wsClient->isConnected() && !stateGetPending) {
-            nlohmann::json stateGetCmd = { { "command", "state_get" } };
-            wsClient->send(stateGetCmd.dump());
+            const DirtSim::Api::StateGet::Command cmd{};
+            wsClient->sendCommand(cmd);
 
             // Record when request was sent for round-trip timing.
             lastStateGetSentTime = std::chrono::steady_clock::now();
@@ -225,8 +226,8 @@ State::Any SimRunning::onEvent(const UiUpdateEvent& evt, StateMachine& sm)
     // Send frame_ready IMMEDIATELY to pipeline next frame (hide network latency).
     auto* wsClient = sm.getWebSocketClient();
     if (wsClient && wsClient->isConnected()) {
-        nlohmann::json frameReadyCmd = { { "command", "frame_ready" } };
-        wsClient->send(frameReadyCmd.dump());
+        const Api::FrameReady::Command cmd{};
+        wsClient->sendCommand(cmd);
         spdlog::trace("SimRunning: Sent frame_ready to server (pipelining next frame)");
     }
 
@@ -253,7 +254,7 @@ State::Any SimRunning::onEvent(const UiUpdateEvent& evt, StateMachine& sm)
 
     updateCount++;
     // Log performance stats every once in a while.
-    if (updateCount % 100 == 0) {
+    if (updateCount % 10000 == 0) {
         auto& timers = sm.getTimers();
 
         // Get current stats
@@ -262,7 +263,7 @@ State::Any SimRunning::onEvent(const UiUpdateEvent& evt, StateMachine& sm)
         double renderTotal = timers.getAccumulatedTime("render_world");
         uint32_t renderCount = timers.getCallCount("render_world");
 
-        // Calculate interval stats (last 20 updates)
+        // Calculate interval stats
         static double lastParseTotal = 0.0;
         static uint32_t lastParseCount = 0;
         static double lastRenderTotal = 0.0;
@@ -289,7 +290,7 @@ State::Any SimRunning::onEvent(const UiUpdateEvent& evt, StateMachine& sm)
         double intervalUpdateTime = updateTotal - lastUpdateTotal;
         uint32_t intervalUpdateCount = updateCount_ - lastUpdateCount;
 
-        spdlog::info("UI Performance Stats (last 20 updates, total {}):", updateCount);
+        spdlog::info("UI Performance Stats (last n updates, total {}):", updateCount);
         spdlog::info(
             "  Message parse: {:.1f}ms avg ({} calls, {:.1f}ms interval)",
             intervalParseCount > 0 ? intervalParseTime / intervalParseCount : 0.0,

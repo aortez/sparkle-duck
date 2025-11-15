@@ -1,6 +1,7 @@
 #include "RunAllRunner.h"
 #include "SubprocessManager.h"
 #include "WebSocketClient.h"
+#include "server/api/Exit.h"
 #include <chrono>
 #include <iostream>
 #include <nlohmann/json.hpp>
@@ -54,7 +55,9 @@ Result<std::monostate, std::string> runAll(const std::string& serverPath, const 
     // Connect to server and send shutdown command.
     std::cout << "Shutting down server..." << std::endl;
     if (client.connect("ws://localhost:8080")) {
-        nlohmann::json exitCmd = { { "command", "exit" } };
+        const DirtSim::Api::Exit::Command cmd{};
+        nlohmann::json exitCmd = cmd.toJson();
+        exitCmd["command"] = DirtSim::Api::Exit::Command::name();
         client.send(exitCmd.dump());
         std::cout << "Server shutdown command sent" << std::endl;
         // Don't disconnect - let the server close the connection when it exits.

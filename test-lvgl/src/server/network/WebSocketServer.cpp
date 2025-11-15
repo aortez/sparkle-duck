@@ -114,7 +114,8 @@ void WebSocketServer::broadcastBinary(const rtc::binary& data)
 
 void WebSocketServer::onMessage(std::shared_ptr<rtc::WebSocket> ws, const std::string& message)
 {
-    if (message.find("frame_ready") != std::string::npos) {
+    if (message.find("frame_ready") != std::string::npos
+        || message.find("FrameReady") != std::string::npos) {
         spdlog::debug("WebSocket received command: {}", message);
     }
     else {

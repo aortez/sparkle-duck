@@ -70,21 +70,23 @@ std::optional<Event> MessageParser::parseWorldDataResponse(const nlohmann::json&
         WorldData worldData = value["worldData"].get<WorldData>();
 
         uint64_t stepCount = worldData.timestep;
-        double fps = worldData.fps_server;
         UiUpdateEvent evt{ .sequenceNum = 0,
                            .worldData = std::move(worldData),
-                           .fps = fps,
+                           .fps = static_cast<uint32_t>(worldData.fps_server),
                            .stepCount = stepCount,
                            .isPaused = false,
                            .timestamp = std::chrono::steady_clock::now() };
 
         return evt;
     }
-    else if (responseType == "physics_settings_get") {
+    else if (responseType == "PhysicsSettingsGet") {
         // PhysicsSettings response (wrapped in Okay struct).
         PhysicsSettings settings = value["settings"].get<PhysicsSettings>();
 
-        spdlog::info("MessageParser: Parsed PhysicsSettings (gravity={:.2f})", settings.gravity);
+        spdlog::info(
+            "MessageParser: Parsed PhysicsSettings (gravity={:.2f}, hydrostatic={:.2f})",
+            settings.gravity,
+            settings.pressure_hydrostatic_strength);
 
         return PhysicsSettingsReceivedEvent{ settings };
     }

@@ -46,7 +46,7 @@ void EventProcessor::processEventsFromQueue(StateMachine& sm)
     }
 
     if (droppedFrames > 0) {
-        spdlog::info(
+        spdlog::debug(
             "Ui::EventProcessor: Dropped {} old frames to catch up (queue overrun)", droppedFrames);
     }
 

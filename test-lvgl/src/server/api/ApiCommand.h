@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ApiMacros.h"
 #include "CellGet.h"
 #include "CellSet.h"
 #include "DiagramGet.h"
@@ -17,9 +18,28 @@
 #include "StateGet.h"
 #include "TimerStatsGet.h"
 #include "WorldResize.h"
+#include <concepts>
+#include <nlohmann/json.hpp>
+#include <string_view>
 #include <variant>
 
 namespace DirtSim {
+
+/**
+ * @brief Concept for types that represent API commands.
+ *
+ * An API command type must provide:
+ * - A static name() method returning the command name
+ * - A toJson() method for serialization
+ *
+ * This concept enables type-safe generic programming with API commands
+ * and provides clear compiler error messages when constraints are violated.
+ */
+template <typename T>
+concept ApiCommandType = requires(T cmd) {
+    { cmd.toJson() } -> std::convertible_to<nlohmann::json>;
+    { T::name() } -> std::convertible_to<std::string_view>;
+};
 
 /**
  * @brief Variant containing all API command types.
