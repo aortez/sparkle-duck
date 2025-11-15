@@ -167,11 +167,11 @@ PhysicsControls::PhysicsControls(lv_obj_t* container, WebSocketClient* wsClient)
 
     cohesionForceControl_ = LVGLBuilder::toggleSlider(column3_)
                                 .label("Cohesion")
-                                .range(0, 30000)
+                                .range(0, 50000)
                                 .value(15000)
                                 .defaultValue(15000)
                                 .valueScale(0.01)
-                                .valueFormat("%.1f")
+                                .valueFormat("%.0f")
                                 .initiallyEnabled(true)
                                 .sliderWidth(180)
                                 .onToggle(onCohesionForceToggled, this)
@@ -635,6 +635,24 @@ void PhysicsControls::onCohesionForceToggled(lv_event_t* e)
 
     bool enabled = lv_obj_has_state(target, LV_STATE_CHECKED);
     spdlog::info("PhysicsControls: Cohesion Force toggled to {}", enabled ? "ON" : "OFF");
+
+    if (!enabled) {
+        self->settings_.cohesion_strength = 0.0;
+        self->syncSettings();
+    }
+    else {
+        // Restore from slider value.
+        lv_obj_t* container = lv_obj_get_parent(target);
+        if (container) {
+            lv_obj_t* slider = lv_obj_get_child(container, 2);
+            if (slider) {
+                int value = lv_slider_get_value(slider);
+                double scaledValue = value * 0.01;
+                self->settings_.cohesion_strength = scaledValue;
+                self->syncSettings();
+            }
+        }
+    }
 }
 
 void PhysicsControls::onCohesionForceChanged(lv_event_t* e)
@@ -658,6 +676,23 @@ void PhysicsControls::onAdhesionToggled(lv_event_t* e)
 
     bool enabled = lv_obj_has_state(target, LV_STATE_CHECKED);
     spdlog::info("PhysicsControls: Adhesion toggled to {}", enabled ? "ON" : "OFF");
+
+    if (!enabled) {
+        self->settings_.adhesion_strength = 0.0;
+        self->syncSettings();
+    }
+    else {
+        lv_obj_t* container = lv_obj_get_parent(target);
+        if (container) {
+            lv_obj_t* slider = lv_obj_get_child(container, 2);
+            if (slider) {
+                int value = lv_slider_get_value(slider);
+                double scaledValue = value * 0.01;
+                self->settings_.adhesion_strength = scaledValue;
+                self->syncSettings();
+            }
+        }
+    }
 }
 
 void PhysicsControls::onAdhesionChanged(lv_event_t* e)
@@ -681,6 +716,23 @@ void PhysicsControls::onViscosityToggled(lv_event_t* e)
 
     bool enabled = lv_obj_has_state(target, LV_STATE_CHECKED);
     spdlog::info("PhysicsControls: Viscosity toggled to {}", enabled ? "ON" : "OFF");
+
+    if (!enabled) {
+        self->settings_.viscosity_strength = 0.0;
+        self->syncSettings();
+    }
+    else {
+        lv_obj_t* container = lv_obj_get_parent(target);
+        if (container) {
+            lv_obj_t* slider = lv_obj_get_child(container, 2);
+            if (slider) {
+                int value = lv_slider_get_value(slider);
+                double scaledValue = value * 0.01;
+                self->settings_.viscosity_strength = scaledValue;
+                self->syncSettings();
+            }
+        }
+    }
 }
 
 void PhysicsControls::onViscosityChanged(lv_event_t* e)
@@ -704,6 +756,23 @@ void PhysicsControls::onFrictionToggled(lv_event_t* e)
 
     bool enabled = lv_obj_has_state(target, LV_STATE_CHECKED);
     spdlog::info("PhysicsControls: Friction toggled to {}", enabled ? "ON" : "OFF");
+
+    if (!enabled) {
+        self->settings_.friction_strength = 0.0;
+        self->syncSettings();
+    }
+    else {
+        lv_obj_t* container = lv_obj_get_parent(target);
+        if (container) {
+            lv_obj_t* slider = lv_obj_get_child(container, 2);
+            if (slider) {
+                int value = lv_slider_get_value(slider);
+                double scaledValue = value * 0.01;
+                self->settings_.friction_strength = scaledValue;
+                self->syncSettings();
+            }
+        }
+    }
 }
 
 void PhysicsControls::onFrictionChanged(lv_event_t* e)

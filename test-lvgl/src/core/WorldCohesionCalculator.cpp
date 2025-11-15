@@ -206,8 +206,9 @@ WorldCohesionCalculator::COMCohesionForce WorldCohesionCalculator::calculateCOMC
     double force_magnitude;
 
     {
-        // Original mode: original calculation.
-        double distance_factor = std::min(distance, 2.0); // Cap at 2 cell distances.
+        // Inverse distance: stronger pull when closer (realistic cohesion).
+        double distance_factor =
+            1.0 / (distance + 0.1); // Stronger when closer, epsilon prevents /0.
         // Calculate max possible connections for this range: (2*range+1)² - 1 (excluding center)
         double max_connections = static_cast<double>((2 * range + 1) * (2 * range + 1) - 1);
         double connection_factor =
@@ -215,7 +216,8 @@ WorldCohesionCalculator::COMCohesionForce WorldCohesionCalculator::calculateCOMC
         force_magnitude = base_cohesion * connection_factor * distance_factor * cell.fill_ratio;
 
         // Prevent excessive COM forces.
-        double max_com_force = base_cohesion * 2.0; // Cap at 2x base cohesion.
+        double max_com_force =
+            base_cohesion * 10.0; // Cap at 10x base cohesion (higher for inverse).
         force_magnitude = std::min(force_magnitude, max_com_force);
     }
 
