@@ -76,7 +76,7 @@ bool WebSocketClient::connect(const std::string& url)
                     static double totalDeserializeMs = 0.0;
                     deserializeCount++;
                     totalDeserializeMs += deserializeMs;
-                    if (deserializeCount % 100 == 0) {
+                    if (deserializeCount % 10000 == 0) {
                         spdlog::info(
                             "UI WebSocketClient: Deserialization avg {:.1f}ms over {} frames "
                             "(latest: {}ms, {} cells)",

@@ -254,7 +254,7 @@ State::Any SimRunning::onEvent(const UiUpdateEvent& evt, StateMachine& sm)
 
     updateCount++;
     // Log performance stats every once in a while.
-    if (updateCount % 100 == 0) {
+    if (updateCount % 10000 == 0) {
         auto& timers = sm.getTimers();
 
         // Get current stats
@@ -263,7 +263,7 @@ State::Any SimRunning::onEvent(const UiUpdateEvent& evt, StateMachine& sm)
         double renderTotal = timers.getAccumulatedTime("render_world");
         uint32_t renderCount = timers.getCallCount("render_world");
 
-        // Calculate interval stats (last 20 updates)
+        // Calculate interval stats
         static double lastParseTotal = 0.0;
         static uint32_t lastParseCount = 0;
         static double lastRenderTotal = 0.0;
@@ -290,7 +290,7 @@ State::Any SimRunning::onEvent(const UiUpdateEvent& evt, StateMachine& sm)
         double intervalUpdateTime = updateTotal - lastUpdateTotal;
         uint32_t intervalUpdateCount = updateCount_ - lastUpdateCount;
 
-        spdlog::info("UI Performance Stats (last 20 updates, total {}):", updateCount);
+        spdlog::info("UI Performance Stats (last n updates, total {}):", updateCount);
         spdlog::info(
             "  Message parse: {:.1f}ms avg ({} calls, {:.1f}ms interval)",
             intervalParseCount > 0 ? intervalParseTime / intervalParseCount : 0.0,
