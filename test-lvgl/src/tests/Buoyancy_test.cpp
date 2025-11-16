@@ -629,7 +629,7 @@ INSTANTIATE_TEST_SUITE_P(
     ::testing::Values(
         BuoyancyMaterialParams{ .material = MaterialType::WOOD,
                                 .expected_behavior = BuoyancyMaterialParams::ExpectedBehavior::RISE,
-                                .max_steps_to_endpoint = 100,
+                                .max_steps_to_endpoint = 250,
                                 .description = "Wood (density 0.8)" },
 
         BuoyancyMaterialParams{ .material = MaterialType::DIRT,
@@ -644,7 +644,7 @@ INSTANTIATE_TEST_SUITE_P(
 
         BuoyancyMaterialParams{ .material = MaterialType::LEAF,
                                 .expected_behavior = BuoyancyMaterialParams::ExpectedBehavior::RISE,
-                                .max_steps_to_endpoint = 500,
+                                .max_steps_to_endpoint = 1200,
                                 .description = "Leaf (density 0.3)" }));
 
 /**

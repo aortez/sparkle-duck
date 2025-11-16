@@ -777,7 +777,7 @@ bool WorldCollisionCalculator::shouldSwapMaterials(
 
     // Calculate swap cost: energy to accelerate target cell's contents to 1 cell/second.
     const double target_mass = toCell.getEffectiveDensity() * toCell.fill_ratio;
-    const double SWAP_COST_SCALAR = 0.001;
+    const double SWAP_COST_SCALAR = 1;
     const double swap_cost =
         SWAP_COST_SCALAR * 0.5 * target_mass * 1.0; // KE = 0.5 * m * v^2, v = 1.0
 

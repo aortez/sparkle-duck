@@ -317,6 +317,7 @@ Awesome Ideas to do soon:
 be active if a tree is around.
 - Add label to tree's view saying which layer it is from.
 - Consider making air into a gaseous type, rather than the current "empty" behavior.
+It could affect how other things move/displace in interesting/subtle ways.
 - Audit GridMechanics for correctness/relevance.  It might be getting out of date.
 - Refactor PhysicsControls to normalize/DRY up the patterns? (and prevent bugs/share enhancements)
 - Implement fragmentation on high energy impacts (see WorldCollisionCalculator).

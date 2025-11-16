@@ -448,10 +448,15 @@ void PhysicsControls::onAirResistanceChanged(lv_event_t* e)
 
 void PhysicsControls::onSwapEnabledToggled(lv_event_t* e)
 {
-    lv_obj_t* target = static_cast<lv_obj_t*>(lv_event_get_target(e));
-    PhysicsControls* self = static_cast<PhysicsControls*>(lv_obj_get_user_data(target));
-    if (!self) return;
+    spdlog::info("PhysicsControls: onSwapEnabledToggled callback fired");
 
+    PhysicsControls* self = static_cast<PhysicsControls*>(lv_event_get_user_data(e));
+    if (!self) {
+        spdlog::warn("PhysicsControls: onSwapEnabledToggled - self is null!");
+        return;
+    }
+
+    lv_obj_t* target = static_cast<lv_obj_t*>(lv_event_get_target(e));
     bool enabled = lv_obj_has_state(target, LV_STATE_CHECKED);
     spdlog::info("PhysicsControls: Enable Swap toggled to {}", enabled ? "ON" : "OFF");
     self->settings_.swap_enabled = enabled;
