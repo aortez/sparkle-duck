@@ -87,11 +87,27 @@ TEST_F(BuoyancyTest, PureFluidPressureField)
     // Execute: Calculate hydrostatic pressure.
     calculatePressure();
 
-    // Verify: Pressure increases linearly with depth.
-    // Expected: pressure[i] ≈ i * density * gravity * slice_thickness * strength
-    // With water density = 1.0, gravity = 1.0, slice = 1.0, HYDROSTATIC_MULTIPLIER = 1.0
-    const double expected_increment = 1.0 * 1.0 * 1.0 * 1.0; // = 1.0
+    // Calculate expected pressure increment from actual physics configuration.
+    // This uses the same formula as WorldPressureCalculator::calculateHydrostaticPressure().
+    const double gravity = world->physicsSettings.gravity;
+    const double strength = world->physicsSettings.pressure_hydrostatic_strength;
+    const MaterialProperties& water_props = getMaterialProperties(MaterialType::WATER);
+    const double water_density = water_props.density;
+    const double fill_ratio = 1.0;             // Cells are completely full.
+    const double slice_thickness = 1.0;        // WorldPressureCalculator::SLICE_THICKNESS
+    const double hydrostatic_multiplier = 1.0; // WorldPressureCalculator::HYDROSTATIC_MULTIPLIER
 
+    // Formula: pressure[y] = y × (density × fill_ratio × gravity × slice × strength × multiplier)
+    const double expected_increment =
+        water_density * fill_ratio * gravity * slice_thickness * strength * hydrostatic_multiplier;
+
+    spdlog::info("  Physics configuration:");
+    spdlog::info("    gravity = {:.3f}", gravity);
+    spdlog::info("    pressure_hydrostatic_strength = {:.3f}", strength);
+    spdlog::info("    water_density = {:.3f}", water_density);
+    spdlog::info("    Expected increment per cell = {:.6f}", expected_increment);
+
+    // Verify: Pressure increases linearly with depth.
     for (uint32_t y = 0; y < 5; ++y) {
         const Cell& cell = world->at(0, y);
         double expected_pressure = y * expected_increment;
@@ -124,10 +140,28 @@ TEST_F(BuoyancyTest, SolidInFluidColumn)
     // Execute: Calculate hydrostatic pressure.
     calculatePressure();
 
-    // Verify: Pressure increases uniformly despite metal cell.
-    // The metal should contribute ~1.0 (water density) not 7.8 (metal density).
-    const double expected_increment = 1.0 * 1.0 * 1.0 * 1.0; // Same as pure water.
+    // Calculate expected pressure increment from actual physics configuration.
+    // The key test: metal should contribute WATER density (not metal density) to the pressure
+    // field. This is how buoyancy works - solids contribute surrounding fluid density.
+    const double gravity = world->physicsSettings.gravity;
+    const double strength = world->physicsSettings.pressure_hydrostatic_strength;
+    const MaterialProperties& water_props = getMaterialProperties(MaterialType::WATER);
+    const MaterialProperties& metal_props = getMaterialProperties(MaterialType::METAL);
+    const double water_density = water_props.density;
+    const double metal_density = metal_props.density;
 
+    // For buoyancy, solids contribute surrounding fluid density, not their own density.
+    const double expected_increment = water_density * gravity * strength;
+
+    spdlog::info("  Physics configuration:");
+    spdlog::info("    gravity = {:.3f}", gravity);
+    spdlog::info("    pressure_hydrostatic_strength = {:.3f}", strength);
+    spdlog::info("    water_density = {:.3f}", water_density);
+    spdlog::info("    metal_density = {:.3f} (should NOT affect pressure)", metal_density);
+    spdlog::info(
+        "    Expected increment per cell = {:.6f} (using water density)", expected_increment);
+
+    // Verify: Pressure increases uniformly despite metal cell.
     for (uint32_t y = 0; y < 5; ++y) {
         const Cell& cell = world->at(0, y);
         double expected_pressure = y * expected_increment;
