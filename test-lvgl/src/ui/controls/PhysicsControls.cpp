@@ -24,10 +24,13 @@ PhysicsControls::PhysicsControls(lv_obj_t* container, WebSocketClient* wsClient)
         column1_, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
     lv_obj_set_style_pad_row(column1_, 4, 0);
     lv_obj_set_style_pad_all(column1_, 8, 0);
+    lv_obj_set_style_bg_color(column1_, lv_color_hex(0x303030), 0); // Dark gray background.
+    lv_obj_set_style_bg_opa(column1_, LV_OPA_COVER, 0);
 
     lv_obj_t* label1 = lv_label_create(column1_);
     lv_label_set_text(label1, "General Physics");
     lv_obj_set_style_text_font(label1, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_color(label1, lv_color_hex(0xFFFFFF), 0); // White text.
 
     timescaleControl_ = LVGLBuilder::toggleSlider(column1_)
                             .label("Timescale")
@@ -95,10 +98,13 @@ PhysicsControls::PhysicsControls(lv_obj_t* container, WebSocketClient* wsClient)
         column2_, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
     lv_obj_set_style_pad_row(column2_, 4, 0);
     lv_obj_set_style_pad_all(column2_, 8, 0);
+    lv_obj_set_style_bg_color(column2_, lv_color_hex(0x303030), 0); // Dark gray background.
+    lv_obj_set_style_bg_opa(column2_, LV_OPA_COVER, 0);
 
     lv_obj_t* label2 = lv_label_create(column2_);
     lv_label_set_text(label2, "Pressure");
     lv_obj_set_style_text_font(label2, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_color(label2, lv_color_hex(0xFFFFFF), 0); // White text.
 
     hydrostaticPressureControl_ = LVGLBuilder::toggleSlider(column2_)
                                       .label("Hydrostatic")
@@ -160,10 +166,13 @@ PhysicsControls::PhysicsControls(lv_obj_t* container, WebSocketClient* wsClient)
         column3_, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
     lv_obj_set_style_pad_row(column3_, 4, 0);
     lv_obj_set_style_pad_all(column3_, 8, 0);
+    lv_obj_set_style_bg_color(column3_, lv_color_hex(0x303030), 0); // Dark gray background.
+    lv_obj_set_style_bg_opa(column3_, LV_OPA_COVER, 0);
 
     lv_obj_t* label3 = lv_label_create(column3_);
     lv_label_set_text(label3, "Forces");
     lv_obj_set_style_text_font(label3, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_color(label3, lv_color_hex(0xFFFFFF), 0); // White text.
 
     cohesionForceControl_ = LVGLBuilder::toggleSlider(column3_)
                                 .label("Cohesion")
