@@ -640,6 +640,8 @@ void JuliaFractal::resize(int newWidth, int newHeight)
 
 void JuliaFractal::generateRandomParameters()
 {
+    std::lock_guard<std::mutex> lock(parameterMutex_);
+
     // Save old parameters for smooth transition.
     oldCRealCenter_ = cRealCenter_;
     oldCRealAmplitude_ = cRealAmplitude_;
@@ -647,8 +649,8 @@ void JuliaFractal::generateRandomParameters()
     oldCImagAmplitude_ = cImagAmplitude_;
     oldDetailPhaseSpeed_ = detailPhaseSpeed_;
     oldCPhaseSpeed_ = cPhaseSpeed_;
-    oldMinIterations_ = minIterations_;
-    oldMaxIterations_ = maxIterations_;
+    oldMinIterationBound_ = minIterationBound_;
+    oldMaxIterationBound_ = maxIterationBound_;
 
     // 80% curated regions, 20% random exploration.
     std::uniform_real_distribution<double> modeDist(0.0, 1.0);
@@ -657,8 +659,8 @@ void JuliaFractal::generateRandomParameters()
     if (useCuratedRegion) {
         // Pick a random interesting region.
         std::uniform_int_distribution<int> regionDist(0, NUM_REGIONS - 1);
-        int regionIdx = regionDist(rng_);
-        auto [centerReal, centerImag] = INTERESTING_REGIONS[regionIdx];
+        currentRegionIdx_ = regionDist(rng_);
+        auto [centerReal, centerImag] = INTERESTING_REGIONS[currentRegionIdx_];
 
         // Add small random variation around the region center.
         std::normal_distribution<double> variation(0.0, 0.03); // Small jitter.
@@ -666,13 +668,15 @@ void JuliaFractal::generateRandomParameters()
         cImagCenter_ = centerImag + variation(rng_);
 
         spdlog::info(
-            "JuliaFractal: Selected curated region {} - c = {:.4f} + {:.4f}i",
-            regionIdx,
+            "JuliaFractal: Selected curated region {} ({}) - c = {:.4f} + {:.4f}i",
+            currentRegionIdx_,
+            REGION_NAMES[currentRegionIdx_],
             cRealCenter_,
             cImagCenter_);
     }
     else {
         // Random exploration - stay in reasonable bounds.
+        currentRegionIdx_ = -1; // Mark as random exploration.
         std::uniform_real_distribution<double> realDist(-1.2, 0.5);
         std::uniform_real_distribution<double> imagDist(-0.8, 0.8);
         cRealCenter_ = realDist(rng_);
@@ -699,17 +703,18 @@ void JuliaFractal::generateRandomParameters()
     // 5% chance of going to 0, otherwise start at 20-50.
     std::uniform_real_distribution<double> minModeDist(0.0, 1.0);
     if (minModeDist(rng_) < 0.05) {
-        minIterations_ = 0; // Cool minimal look sometimes.
+        minIterationBound_ = 0; // Cool minimal look sometimes.
     }
     else {
         std::uniform_int_distribution<int> minIterDist(20, 50);
-        minIterations_ = minIterDist(rng_);
+        minIterationBound_ = minIterDist(rng_);
     }
 
     std::uniform_int_distribution<int> maxIterDist(280, 500);
-    maxIterations_ = maxIterDist(rng_);
+    maxIterationBound_ = maxIterDist(rng_);
 
-    spdlog::info("JuliaFractal: New iteration range [{}, {}]", minIterations_, maxIterations_);
+    spdlog::info(
+        "JuliaFractal: New iteration range [{}, {}]", minIterationBound_, maxIterationBound_);
 
     phaseSpeed_ = 0.1;
 
@@ -753,31 +758,44 @@ void JuliaFractal::renderThreadFunc()
             }
         }
 
-        // Smooth cubic easing for transitions.
-        double t = transitionProgress_;
-        double smoothT = t * t * (3.0 - 2.0 * t);
+        // Read all animation parameters atomically and compute transition values.
+        double activeCRealCenter, activeCRealAmplitude, activeCImagCenter, activeCImagAmplitude;
+        double activeDetailPhaseSpeed, activeCPhaseSpeed;
+        int activeMinIterations, activeMaxIterations;
+        int newMaxIterations;
+        double newCReal, newCImag;
 
-        // Interpolate parameters during transition.
-        double activeCRealCenter = oldCRealCenter_ + (cRealCenter_ - oldCRealCenter_) * smoothT;
-        double activeCRealAmplitude =
-            oldCRealAmplitude_ + (cRealAmplitude_ - oldCRealAmplitude_) * smoothT;
-        double activeCImagCenter = oldCImagCenter_ + (cImagCenter_ - oldCImagCenter_) * smoothT;
-        double activeCImagAmplitude =
-            oldCImagAmplitude_ + (cImagAmplitude_ - oldCImagAmplitude_) * smoothT;
-        double activeDetailPhaseSpeed =
-            oldDetailPhaseSpeed_ + (detailPhaseSpeed_ - oldDetailPhaseSpeed_) * smoothT;
-        double activeCPhaseSpeed = oldCPhaseSpeed_ + (cPhaseSpeed_ - oldCPhaseSpeed_) * smoothT;
-        int activeMinIterations =
-            oldMinIterations_ + static_cast<int>((minIterations_ - oldMinIterations_) * smoothT);
-        int activeMaxIterations =
-            oldMaxIterations_ + static_cast<int>((maxIterations_ - oldMaxIterations_) * smoothT);
+        {
+            std::lock_guard<std::mutex> lock(parameterMutex_);
+
+            // Smooth cubic easing for transitions.
+            double t = transitionProgress_;
+            double smoothT = t * t * (3.0 - 2.0 * t);
+
+            // Interpolate parameters during transition.
+            activeCRealCenter = oldCRealCenter_ + (cRealCenter_ - oldCRealCenter_) * smoothT;
+            activeCRealAmplitude =
+                oldCRealAmplitude_ + (cRealAmplitude_ - oldCRealAmplitude_) * smoothT;
+            activeCImagCenter = oldCImagCenter_ + (cImagCenter_ - oldCImagCenter_) * smoothT;
+            activeCImagAmplitude =
+                oldCImagAmplitude_ + (cImagAmplitude_ - oldCImagAmplitude_) * smoothT;
+            activeDetailPhaseSpeed =
+                oldDetailPhaseSpeed_ + (detailPhaseSpeed_ - oldDetailPhaseSpeed_) * smoothT;
+            activeCPhaseSpeed = oldCPhaseSpeed_ + (cPhaseSpeed_ - oldCPhaseSpeed_) * smoothT;
+            activeMinIterations = oldMinIterationBound_
+                + static_cast<int>((minIterationBound_ - oldMinIterationBound_) * smoothT);
+            activeMaxIterations = oldMaxIterationBound_
+                + static_cast<int>((maxIterationBound_ - oldMaxIterationBound_) * smoothT);
+
+            // Read current values for this frame.
+            newMaxIterations = maxIterations_;
+            newCReal = cReal_;
+            newCImag = cImag_;
+        }
 
         bool needsUpdate = false;
         bool cChanged = false;
         bool iterationsChanged = false;
-        int newMaxIterations = maxIterations_;
-        double newCReal = cReal_;
-        double newCImag = cImag_;
 
         // Palette cycling animation (constant speed - no pulsing).
         if (phaseSpeed_ > 0.0) {
@@ -861,15 +879,25 @@ void JuliaFractal::renderThreadFunc()
         // Capture all parameters for this frame (prevents data races - all threads use same
         // values).
         int currentPaletteOffset = static_cast<int>(paletteOffset_);
-        int currentMaxIterations = maxIterations_;
-        double currentCReal = cReal_;
-        double currentCImag = cImag_;
+        int currentMaxIterations;
+        double currentCReal;
+        double currentCImag;
+
+        {
+            std::lock_guard<std::mutex> lock(parameterMutex_);
+            currentMaxIterations = maxIterations_;
+            currentCReal = cReal_;
+            currentCImag = cImag_;
+        }
 
         if (cChanged || iterationsChanged) {
-            // Update parameters for next frame.
-            cReal_ = newCReal;
-            cImag_ = newCImag;
-            maxIterations_ = newMaxIterations;
+            // Update parameters for next frame (thread-safe).
+            {
+                std::lock_guard<std::mutex> lock(parameterMutex_);
+                cReal_ = newCReal;
+                cImag_ = newCImag;
+                maxIterations_ = newMaxIterations;
+            }
 
             // Update captured values to use for THIS frame.
             currentMaxIterations = newMaxIterations;
@@ -1006,7 +1034,7 @@ void JuliaFractal::renderThreadFunc()
             // Check FPS every few seconds for dynamic resolution adjustment.
             if (currentTime - lastFpsCheckTime_ >= FPS_CHECK_INTERVAL) {
                 double renderFps = fpsSum_ / fpsSampleCount_;
-                double displayFps =
+                [[maybe_unused]] double displayFps =
                     (displayFpsSampleCount_ > 0) ? (displayFpsSum_ / displayFpsSampleCount_) : 0.0;
 
                 // Adaptive resolution scaling: smooth adjustments based on FPS.
@@ -1062,6 +1090,121 @@ void JuliaFractal::renderThreadFunc()
     }
 
     spdlog::info("JuliaFractal: Render thread exiting");
+}
+
+void JuliaFractal::advanceToNextFractal()
+{
+    spdlog::info("JuliaFractal: Manual advance to next fractal requested");
+    generateRandomParameters();
+}
+
+double JuliaFractal::getCReal() const
+{
+    std::lock_guard<std::mutex> lock(parameterMutex_);
+    return cReal_;
+}
+
+double JuliaFractal::getCImag() const
+{
+    std::lock_guard<std::mutex> lock(parameterMutex_);
+    return cImag_;
+}
+
+const char* JuliaFractal::getRegionName() const
+{
+    if (currentRegionIdx_ >= 0 && currentRegionIdx_ < NUM_REGIONS) {
+        return REGION_NAMES[currentRegionIdx_];
+    }
+    return "Random Exploration";
+}
+
+int JuliaFractal::getTransitioningMinIterations() const
+{
+    std::lock_guard<std::mutex> lock(parameterMutex_);
+    if (transitionProgress_ < 1.0) {
+        // Smoothly transition from old to new minimum.
+        double t_smooth =
+            transitionProgress_ * transitionProgress_ * (3.0 - 2.0 * transitionProgress_);
+        return static_cast<int>(
+            oldMinIterationBound_ + (minIterationBound_ - oldMinIterationBound_) * t_smooth);
+    }
+    return minIterationBound_;
+}
+
+int JuliaFractal::getTransitioningMaxIterations() const
+{
+    std::lock_guard<std::mutex> lock(parameterMutex_);
+    if (transitionProgress_ < 1.0) {
+        // Smoothly transition from old to new maximum.
+        double t_smooth =
+            transitionProgress_ * transitionProgress_ * (3.0 - 2.0 * transitionProgress_);
+        return static_cast<int>(
+            oldMaxIterationBound_ + (maxIterationBound_ - oldMaxIterationBound_) * t_smooth);
+    }
+    return maxIterationBound_;
+}
+
+int JuliaFractal::getCurrentIterations() const
+{
+    std::lock_guard<std::mutex> lock(parameterMutex_);
+
+    // Calculate current iteration count based on detail oscillation.
+    // detailPhase_ oscillates [0, 2π], we use sin to go [0, 1].
+    double t = (std::sin(detailPhase_) + 1.0) / 2.0; // [0, 1].
+
+    // Get transitioning min/max bounds (already under lock).
+    int minIter, maxIter;
+    if (transitionProgress_ < 1.0) {
+        double t_smooth =
+            transitionProgress_ * transitionProgress_ * (3.0 - 2.0 * transitionProgress_);
+        minIter = static_cast<int>(
+            oldMinIterationBound_ + (minIterationBound_ - oldMinIterationBound_) * t_smooth);
+        maxIter = static_cast<int>(
+            oldMaxIterationBound_ + (maxIterationBound_ - oldMaxIterationBound_) * t_smooth);
+    }
+    else {
+        minIter = minIterationBound_;
+        maxIter = maxIterationBound_;
+    }
+
+    return static_cast<int>(minIter + (maxIter - minIter) * t);
+}
+
+void JuliaFractal::getIterationInfo(int& outMin, int& outCurrent, int& outMax) const
+{
+    std::lock_guard<std::mutex> lock(parameterMutex_);
+
+    // Calculate transitioning min/max bounds.
+    int minIter, maxIter;
+    if (transitionProgress_ < 1.0) {
+        double t_smooth =
+            transitionProgress_ * transitionProgress_ * (3.0 - 2.0 * transitionProgress_);
+        minIter = static_cast<int>(
+            oldMinIterationBound_ + (minIterationBound_ - oldMinIterationBound_) * t_smooth);
+        maxIter = static_cast<int>(
+            oldMaxIterationBound_ + (maxIterationBound_ - oldMaxIterationBound_) * t_smooth);
+    }
+    else {
+        minIter = minIterationBound_;
+        maxIter = maxIterationBound_;
+    }
+
+    // Calculate current iteration based on detail oscillation.
+    double t = (std::sin(detailPhase_) + 1.0) / 2.0; // [0, 1].
+    int current = static_cast<int>(minIter + (maxIter - minIter) * t);
+
+    // All three values computed under a single lock - guaranteed consistent.
+    outMin = minIter;
+    outCurrent = current;
+    outMax = maxIter;
+}
+
+double JuliaFractal::getDisplayFps() const
+{
+    if (displayFpsSampleCount_ > 0) {
+        return displayFpsSum_ / displayFpsSampleCount_;
+    }
+    return 0.0;
 }
 
 } // namespace Ui

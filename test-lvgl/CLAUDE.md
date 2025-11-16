@@ -303,10 +303,24 @@ Can be found here:
 - ✅ Basic germination (SEED → WOOD → ROOT)
 
 **Next Steps:**
+- Examine germination in detail. Update implementation and tests.
 - Phase 2: Advanced growth patterns (SAPLING/MATURE stages)
 - Phase 3: Resource systems (light, water, nutrients, photosynthesis)
 - Performance testing and optimization
-- More state machine tests
+
+Awesome Ideas to do soon:
+- WorldEventGenerator methods should be moved into the Scenarios.
+- Add label for Fractal showing which event type it was currently running.
+- Add button to StartMenu to generate the next fractal.
+- Make the water column size scale with the world size
+- FIX: After resetting, the tree visualization is still showing, it should Only
+be active if a tree is around.
+- Add label to tree's view saying which layer it is from.
+- Consider making air into a gaseous type, rather than the current "empty" behavior.
+It could affect how other things move/displace in interesting/subtle ways.
+- Audit GridMechanics for correctness/relevance.  It might be getting out of date.
+- Refactor PhysicsControls to normalize/DRY up the patterns? (and prevent bugs/share enhancements)
+- Implement fragmentation on high energy impacts (see WorldCollisionCalculator).
 
 ### Client/Server Architecture (DSSM + UI Client)
 - ✅ Headless server with WebSocket API

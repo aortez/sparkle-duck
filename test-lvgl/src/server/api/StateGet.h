@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ApiError.h"
+#include "ApiMacros.h"
 #include "core/CommandWithCallback.h"
 #include "core/Result.h"
 #include "core/WorldData.h"
@@ -11,7 +12,10 @@ namespace Api {
 
 namespace StateGet {
 
+DEFINE_API_NAME(StateGet);
+
 struct Command {
+    API_COMMAND_NAME();
     nlohmann::json toJson() const;
     static Command fromJson(const nlohmann::json& j);
 };
@@ -19,7 +23,7 @@ struct Command {
 struct Okay {
     WorldData worldData; // Changed from World to WorldData.
 
-    static constexpr const char* name() { return "state_get"; }
+    API_COMMAND_NAME();
     nlohmann::json toJson() const;
 };
 

@@ -1,3 +1,4 @@
+#include "core/Cell.h"
 #include "core/MaterialType.h"
 #include "core/World.h"
 #include "server/scenarios/Scenario.h"
@@ -25,9 +26,11 @@ public:
 
         // Configure physics for dynamic pressure
         world.physicsSettings.gravity = 9.81;
-        world.setDynamicPressureEnabled(true);
-        world.setHydrostaticPressureEnabled(false);
-        world.setPressureDiffusionEnabled(true);
+        world.physicsSettings.pressure_dynamic_enabled = true;
+        world.physicsSettings.pressure_dynamic_strength = 1.0;
+        world.physicsSettings.pressure_hydrostatic_enabled = false;
+        world.physicsSettings.pressure_hydrostatic_strength = 0.0;
+        world.physicsSettings.pressure_diffusion_strength = 1.0;
         world.physicsSettings.pressure_scale = 1.0;
 
         // Disable extra features for clean demo
@@ -85,7 +88,7 @@ public:
 
     ScenarioConfig getConfig() const override { return config_; }
 
-    void setConfig(const ScenarioConfig& newConfig) override
+    void setConfig(const ScenarioConfig& newConfig, World& /*world*/) override
     {
         // Validate type and update.
         if (std::holds_alternative<DamBreakConfig>(newConfig)) {
@@ -97,6 +100,7 @@ public:
         }
     }
 
+    // DEPRECATED: Temporary compatibility - uses base class defaults.
     std::unique_ptr<WorldEventGenerator> createWorldEventGenerator() const override
     {
         return std::make_unique<DamBreakWorldEventGenerator>();

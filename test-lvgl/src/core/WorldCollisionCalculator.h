@@ -175,14 +175,27 @@ public:
 
     /**
      * @brief Check if two cells should swap due to counter-movement.
+     * Uses energy-based gating: collision energy must exceed swap cost.
      */
     bool shouldSwapMaterials(
-        const Cell& fromCell, const Cell& toCell, const Vector2i& direction) const;
+        const Cell& fromCell,
+        const Cell& toCell,
+        const Vector2i& direction,
+        const MaterialMove& move) const;
 
     /**
-     * @brief Swap materials between two counter-moving cells.
+     * @brief Swap materials between two counter-moving cells with energy conservation.
+     * Deducts swap cost from moving material's velocity.
      */
-    void swapCounterMovingMaterials(Cell& fromCell, Cell& toCell, const Vector2i& direction);
+    void swapCounterMovingMaterials(
+        Cell& fromCell, Cell& toCell, const Vector2i& direction, const MaterialMove& move);
+
+    /**
+     * @brief Check if density difference supports swap in the given direction.
+     * Returns true if lighter material is moving up or heavier material is moving down.
+     */
+    bool densitySupportsSwap(
+        const Cell& fromCell, const Cell& toCell, const Vector2i& direction) const;
 
     // ===== UTILITY METHODS =====
 

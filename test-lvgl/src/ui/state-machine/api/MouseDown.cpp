@@ -6,9 +6,7 @@ namespace MouseDown {
 
 nlohmann::json Command::toJson() const
 {
-    return nlohmann::json{ { "command", "mouse_down" },
-                           { "pixelX", pixelX },
-                           { "pixelY", pixelY } };
+    return nlohmann::json{ { "pixelX", pixelX }, { "pixelY", pixelY } };
 }
 
 Command Command::fromJson(const nlohmann::json& j)

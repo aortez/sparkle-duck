@@ -8,7 +8,6 @@
 namespace DirtSim {
 namespace Ui {
 
-// Material color mapping (from CellB.cpp on main branch).
 static lv_color_t getMaterialColor(MaterialType type)
 {
     switch (type) {
@@ -280,8 +279,8 @@ void CellRenderer::renderWorldData(
             "CellRenderer: Total world rendering size {}x{}, fits in canvas? W:{} H:{}",
             totalW,
             totalH,
-            totalW <= canvasWidth_,
-            totalH <= canvasHeight_);
+            static_cast<uint32_t>(totalW) <= canvasWidth_,
+            static_cast<uint32_t>(totalH) <= canvasHeight_);
         lastWidth = worldData.width;
         lastHeight = worldData.height;
     }
@@ -295,7 +294,7 @@ void CellRenderer::renderWorldData(
     if (renderOffsetY < 0) renderOffsetY = 0;
 
     if (usePixelRenderer) {
-        // FAST PATH: Direct pixel rendering (no LVGL layer)
+        // FAST PATH: Direct pixel rendering with alpha blending
         uint32_t* pixels = reinterpret_cast<uint32_t*>(canvasBuffer_.data());
 
         for (uint32_t y = 0; y < worldData.height; ++y) {
@@ -325,11 +324,47 @@ void CellRenderer::renderWorldData(
                         | matColor.blue;
                 }
 
-                // Fill cell rectangle
+                // Extract alpha for blending
+                uint8_t alpha = (cellColor >> 24) & 0xFF;
+
+                // Fill cell rectangle with alpha blending
                 for (uint32_t py = 0; py < scaledCellHeight_; py++) {
                     uint32_t rowStart = (cellY + py) * canvasWidth_ + cellX;
                     for (uint32_t px = 0; px < scaledCellWidth_; px++) {
-                        pixels[rowStart + px] = cellColor;
+                        uint32_t pixelIdx = rowStart + px;
+
+                        // Alpha blending: blend source with destination
+                        if (alpha == 0) {
+                            // Fully transparent - skip (keep background)
+                            continue;
+                        }
+                        else if (alpha == 255) {
+                            // Fully opaque - direct write (optimization)
+                            pixels[pixelIdx] = cellColor;
+                        }
+                        else {
+                            // Partial transparency - blend
+                            uint32_t dstColor = pixels[pixelIdx];
+                            uint8_t invAlpha = 255 - alpha;
+
+                            // Extract source channels
+                            uint8_t srcR = (cellColor >> 16) & 0xFF;
+                            uint8_t srcG = (cellColor >> 8) & 0xFF;
+                            uint8_t srcB = cellColor & 0xFF;
+
+                            // Extract destination channels
+                            uint8_t dstR = (dstColor >> 16) & 0xFF;
+                            uint8_t dstG = (dstColor >> 8) & 0xFF;
+                            uint8_t dstB = dstColor & 0xFF;
+
+                            // Blend: result = (src * alpha + dst * (1 - alpha)) / 255
+                            uint8_t r = (srcR * alpha + dstR * invAlpha) / 255;
+                            uint8_t g = (srcG * alpha + dstG * invAlpha) / 255;
+                            uint8_t b = (srcB * alpha + dstB * invAlpha) / 255;
+
+                            // Write blended pixel (with full alpha)
+                            pixels[pixelIdx] = 0xFF000000 | (r << 16) | (g << 8) | b;
+                        }
                     }
                 }
             }
@@ -408,7 +443,7 @@ void CellRenderer::renderCellDirectOptimized(
 
     // Branch between pixel renderer (fast) and LVGL renderer (slow but full-featured)
     if (usePixelRenderer) {
-        // FAST PATH: Direct pixel buffer writes
+        // FAST PATH: Direct pixel buffer writes with alpha blending
         uint32_t* pixels = reinterpret_cast<uint32_t*>(canvasBuffer_.data());
 
         // Determine cell color
@@ -423,11 +458,47 @@ void CellRenderer::renderCellDirectOptimized(
                 (alpha << 24) | (matColor.red << 16) | (matColor.green << 8) | matColor.blue;
         }
 
-        // Fill cell rectangle
+        // Extract alpha channel for blending
+        uint8_t alpha = (cellColor >> 24) & 0xFF;
+
+        // Fill cell rectangle with alpha blending
         for (uint32_t py = 0; py < scaledCellHeight_; py++) {
             uint32_t rowStart = (cellY + py) * canvasWidth_ + cellX;
             for (uint32_t px = 0; px < scaledCellWidth_; px++) {
-                pixels[rowStart + px] = cellColor;
+                uint32_t pixelIdx = rowStart + px;
+
+                // Alpha blending: blend source with destination
+                if (alpha == 0) {
+                    // Fully transparent - skip (keep background)
+                    continue;
+                }
+                else if (alpha == 255) {
+                    // Fully opaque - direct write (optimization)
+                    pixels[pixelIdx] = cellColor;
+                }
+                else {
+                    // Partial transparency - blend
+                    uint32_t dstColor = pixels[pixelIdx];
+                    uint8_t invAlpha = 255 - alpha;
+
+                    // Extract source channels
+                    uint8_t srcR = (cellColor >> 16) & 0xFF;
+                    uint8_t srcG = (cellColor >> 8) & 0xFF;
+                    uint8_t srcB = cellColor & 0xFF;
+
+                    // Extract destination channels
+                    uint8_t dstR = (dstColor >> 16) & 0xFF;
+                    uint8_t dstG = (dstColor >> 8) & 0xFF;
+                    uint8_t dstB = dstColor & 0xFF;
+
+                    // Blend: result = (src * alpha + dst * (1 - alpha)) / 255
+                    uint8_t r = (srcR * alpha + dstR * invAlpha) / 255;
+                    uint8_t g = (srcG * alpha + dstG * invAlpha) / 255;
+                    uint8_t b = (srcB * alpha + dstB * invAlpha) / 255;
+
+                    // Write blended pixel (with full alpha)
+                    pixels[pixelIdx] = 0xFF000000 | (r << 16) | (g << 8) | b;
+                }
             }
         }
 
@@ -579,6 +650,73 @@ void CellRenderer::renderCellDirectOptimized(
                 grad_dsc.p2.x = end_x;
                 grad_dsc.p2.y = end_y;
                 lv_draw_line(&layer, &grad_dsc);
+            }
+
+            // Adhesion force vector (orange line from center).
+            if (scaledCellWidth_ >= 10 && cell.accumulated_adhesion_force.magnitude() > 0.01) {
+                const double ADHESION_SCALE = 10.0 * scaleX_;
+                int end_x = com_pixel_x
+                    + static_cast<int>(cell.accumulated_adhesion_force.x * ADHESION_SCALE);
+                int end_y = com_pixel_y
+                    + static_cast<int>(cell.accumulated_adhesion_force.y * ADHESION_SCALE);
+
+                lv_draw_line_dsc_t adhesion_dsc;
+                lv_draw_line_dsc_init(&adhesion_dsc);
+                adhesion_dsc.color = lv_color_hex(0xFF8000); // Orange.
+                adhesion_dsc.width = std::max(1, static_cast<int>(2 * scaleX_));
+                adhesion_dsc.p1.x = com_pixel_x;
+                adhesion_dsc.p1.y = com_pixel_y;
+                adhesion_dsc.p2.x = end_x;
+                adhesion_dsc.p2.y = end_y;
+                lv_draw_line(&layer, &adhesion_dsc);
+            }
+
+            // COM cohesion force vector (purple line from cell center).
+            if (scaledCellWidth_ >= 10 && cell.accumulated_com_cohesion_force.magnitude() > 0.01) {
+                const double COHESION_SCALE = 1.0 * scaleX_;
+
+                // Draw from cell center (not COM).
+                int cell_center_x = cellX + scaledCellWidth_ / 2;
+                int cell_center_y = cellY + scaledCellHeight_ / 2;
+
+                int end_x = cell_center_x
+                    + static_cast<int>(cell.accumulated_com_cohesion_force.x * COHESION_SCALE);
+                int end_y = cell_center_y
+                    + static_cast<int>(cell.accumulated_com_cohesion_force.y * COHESION_SCALE);
+
+                lv_draw_line_dsc_t cohesion_dsc;
+                lv_draw_line_dsc_init(&cohesion_dsc);
+                cohesion_dsc.color = lv_color_hex(0x9370DB); // Purple (medium purple).
+                cohesion_dsc.width = std::max(1, static_cast<int>(2 * scaleX_));
+                cohesion_dsc.p1.x = cell_center_x;
+                cohesion_dsc.p1.y = cell_center_y;
+                cohesion_dsc.p2.x = end_x;
+                cohesion_dsc.p2.y = end_y;
+                lv_draw_line(&layer, &cohesion_dsc);
+            }
+
+            // Viscous force vector (cyan line from cell center).
+            if (scaledCellWidth_ >= 10 && cell.accumulated_viscous_force.magnitude() > 0.01) {
+                const double VISCOUS_SCALE = 5.0 * scaleX_;
+
+                // Draw from cell center.
+                int cell_center_x = cellX + scaledCellWidth_ / 2;
+                int cell_center_y = cellY + scaledCellHeight_ / 2;
+
+                int end_x = cell_center_x
+                    + static_cast<int>(cell.accumulated_viscous_force.x * VISCOUS_SCALE);
+                int end_y = cell_center_y
+                    + static_cast<int>(cell.accumulated_viscous_force.y * VISCOUS_SCALE);
+
+                lv_draw_line_dsc_t viscous_dsc;
+                lv_draw_line_dsc_init(&viscous_dsc);
+                viscous_dsc.color = lv_color_hex(0x00FFFF); // Cyan.
+                viscous_dsc.width = std::max(1, static_cast<int>(2 * scaleX_));
+                viscous_dsc.p1.x = cell_center_x;
+                viscous_dsc.p1.y = cell_center_y;
+                viscous_dsc.p2.x = end_x;
+                viscous_dsc.p2.y = end_y;
+                lv_draw_line(&layer, &viscous_dsc);
             }
         }
     }

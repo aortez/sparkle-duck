@@ -37,19 +37,15 @@ void SimRunning::onEnter(StateMachine& dsm)
         spdlog::info("SimRunning: Applying default 'sandbox' scenario");
 
         auto& registry = dsm.getScenarioRegistry();
-        auto* scenario = registry.getScenario("sandbox");
+        scenario = registry.createScenario("sandbox");
 
         if (scenario) {
-            // Apply scenario's WorldEventGenerator.
-            auto setup = scenario->createWorldEventGenerator();
-            world->setWorldEventGenerator(std::move(setup));
-
             // Populate WorldData with scenario metadata and config.
             world->data.scenario_id = "sandbox";
             world->data.scenario_config = scenario->getConfig();
 
-            // Run setup to actually create scenario features.
-            world->setup();
+            // Run scenario setup to initialize world.
+            scenario->setup(*world);
 
             spdlog::info("SimRunning: Default scenario 'sandbox' applied");
         }
@@ -76,6 +72,17 @@ void SimRunning::tick(StateMachine& dsm)
 
     // Measure real elapsed time since last physics update.
     const auto now = std::chrono::steady_clock::now();
+
+    // Scenario tick (particle generation, timed events, etc.).
+    if (scenario) {
+        dsm.getTimers().startTimer("scenario_tick");
+        scenario->tick(*world, FIXED_TIMESTEP_SECONDS);
+        dsm.getTimers().stopTimer("scenario_tick");
+
+        // Sync scenario's config to WorldData (scenario is source of truth).
+        // This ensures auto-changes (like water column auto-disable) propagate to UI.
+        world->data.scenario_config = scenario->getConfig();
+    }
 
     // Advance physics by fixed timestep.
     dsm.getTimers().startTimer("physics_step");
@@ -242,7 +249,7 @@ State::Any SimRunning::onEvent(const ApplyScenarioCommand& cmd, StateMachine& ds
     spdlog::info("SimRunning: Applying scenario: {}", cmd.scenarioName);
 
     auto& registry = dsm.getScenarioRegistry();
-    auto* scenario = registry.getScenario(cmd.scenarioName);
+    scenario = registry.createScenario(cmd.scenarioName);
 
     if (!scenario) {
         spdlog::error("Scenario not found: {}", cmd.scenarioName);
@@ -251,11 +258,7 @@ State::Any SimRunning::onEvent(const ApplyScenarioCommand& cmd, StateMachine& ds
 
     // TODO: Handle scenario-specific world resizing if needed.
 
-    // Apply scenario's WorldEventGenerator.
-    auto setup = scenario->createWorldEventGenerator();
     if (world) {
-        world->setWorldEventGenerator(std::move(setup));
-
         // Populate WorldData with scenario metadata and config.
         world->data.scenario_id = cmd.scenarioName;
         world->data.scenario_config = scenario->getConfig();
@@ -409,10 +412,9 @@ State::Any SimRunning::onEvent(const Api::Reset::Cwc& cwc, StateMachine& /*dsm*/
 
     spdlog::info("SimRunning: API reset simulation");
 
-    if (world) {
-        // Clear world to empty state, then re-initialize with scenario.
-        world->worldEventGenerator_->clear(*world);
-        world->setup();
+    if (world && scenario) {
+        // Reset scenario (clears world and reinitializes).
+        scenario->reset(*world);
     }
 
     stepCount = 0;
@@ -434,7 +436,7 @@ State::Any SimRunning::onEvent(const Api::FrameReady::Cwc& cwc, StateMachine& /*
     return std::move(*this);
 }
 
-State::Any SimRunning::onEvent(const Api::ScenarioConfigSet::Cwc& cwc, StateMachine& dsm)
+State::Any SimRunning::onEvent(const Api::ScenarioConfigSet::Cwc& cwc, StateMachine& /*dsm*/)
 {
     using Response = Api::ScenarioConfigSet::Response;
 
@@ -445,34 +447,18 @@ State::Any SimRunning::onEvent(const Api::ScenarioConfigSet::Cwc& cwc, StateMach
         return std::move(*this);
     }
 
-    // Get current scenario from ScenarioRegistry.
-    auto& registry = dsm.getScenarioRegistry();
-    auto* scenario = registry.getScenario(world->data.scenario_id);
-
     if (!scenario) {
-        spdlog::error("SimRunning: Scenario '{}' not found in registry", world->data.scenario_id);
-        cwc.sendResponse(
-            Response::error(ApiError("Scenario not found: " + world->data.scenario_id)));
+        spdlog::error("SimRunning: No scenario instance available");
+        cwc.sendResponse(Response::error(ApiError("No scenario available")));
         return std::move(*this);
     }
 
-    // Apply new config to scenario.
-    scenario->setConfig(cwc.command.config);
+    // Update scenario's config (scenario is source of truth).
+    // Pass world so scenario can immediately apply changes.
+    scenario->setConfig(cwc.command.config, *world);
 
-    // Recreate WorldEventGenerator with new config.
-    auto newGenerator = scenario->createWorldEventGenerator();
-
-    // Apply immediate visual toggles for sandbox scenario.
-    if (std::holds_alternative<SandboxConfig>(cwc.command.config)) {
-        const auto& sandboxConfig = std::get<SandboxConfig>(cwc.command.config);
-        newGenerator->dirtQuadrantToggle(*world, sandboxConfig.quadrant_enabled);
-        newGenerator->waterColumnToggle(*world, sandboxConfig.water_column_enabled);
-    }
-
-    world->setWorldEventGenerator(std::move(newGenerator));
-
-    // Update WorldData with new config.
-    world->data.scenario_config = cwc.command.config;
+    // Sync to WorldData (will be sent to UI on next frame).
+    world->data.scenario_config = scenario->getConfig();
 
     spdlog::info("SimRunning: Scenario config updated for '{}'", world->data.scenario_id);
 
@@ -539,8 +525,9 @@ State::Any SimRunning::onEvent(const Api::SpawnDirtBall::Cwc& cwc, StateMachine&
     spdlog::info("SpawnDirtBall: Spawning dirt ball at ({}, {})", centerX, topY);
 
     // Spawn a ball of the currently selected material.
+    // Radius is calculated automatically as 15% of world width.
     MaterialType selectedMaterial = world->getSelectedMaterial();
-    world->spawnMaterialBall(selectedMaterial, centerX, topY, 2);
+    world->spawnMaterialBall(selectedMaterial, centerX, topY);
 
     cwc.sendResponse(Response::okay(std::monostate{}));
     return std::move(*this);
@@ -641,9 +628,9 @@ State::Any SimRunning::onEvent(const Api::SimRun::Cwc& cwc, StateMachine& dsm)
             world->data.scenario_id,
             cwc.command.scenario_id);
 
-        // Validate scenario exists.
+        // Create new scenario instance from factory.
         auto& registry = dsm.getScenarioRegistry();
-        auto* scenario = registry.getScenario(cwc.command.scenario_id);
+        scenario = registry.createScenario(cwc.command.scenario_id);
 
         if (!scenario) {
             spdlog::error(
@@ -680,19 +667,12 @@ State::Any SimRunning::onEvent(const Api::SimRun::Cwc& cwc, StateMachine& dsm)
             world->resizeGrid(targetWidth, targetHeight);
         }
 
-        // Clear current world.
-        world->worldEventGenerator_->clear(*world);
-
-        // Create and apply new WorldEventGenerator from scenario.
-        auto newGenerator = scenario->createWorldEventGenerator();
-        world->setWorldEventGenerator(std::move(newGenerator));
-
         // Update world data.
         world->data.scenario_id = cwc.command.scenario_id;
         world->data.scenario_config = scenario->getConfig();
 
-        // Re-initialize world with new scenario.
-        world->setup();
+        // Initialize world with new scenario.
+        scenario->setup(*world);
 
         // Reset step counter.
         stepCount = 0;
@@ -728,8 +708,8 @@ State::Any SimRunning::onEvent(const ResetSimulationCommand& /*cmd*/, StateMachi
 {
     spdlog::info("SimRunning: Resetting simulation");
 
-    if (world) {
-        world->setup();
+    if (world && scenario) {
+        scenario->reset(*world);
     }
 
     stepCount = 0;
@@ -888,41 +868,8 @@ State::Any SimRunning::onEvent(const SetPressureScaleWorldBCommand& cmd, StateMa
     return std::move(*this);
 }
 
-State::Any SimRunning::onEvent(const SetCohesionForceStrengthCommand& cmd, StateMachine& /*dsm*/)
-{
-    if (world) {
-        world->setCohesionComForceStrength(cmd.strength);
-        spdlog::info("SimRunning: Set cohesion force strength to {}", cmd.strength);
-    }
-    return std::move(*this);
-}
-
-State::Any SimRunning::onEvent(const SetAdhesionStrengthCommand& cmd, StateMachine& /*dsm*/)
-{
-    if (world) {
-        world->setAdhesionStrength(cmd.strength);
-        spdlog::info("SimRunning: Set adhesion strength to {}", cmd.strength);
-    }
-    return std::move(*this);
-}
-
-State::Any SimRunning::onEvent(const SetViscosityStrengthCommand& cmd, StateMachine& /*dsm*/)
-{
-    if (world) {
-        world->setViscosityStrength(cmd.strength);
-        spdlog::info("SimRunning: Set viscosity strength to {}", cmd.strength);
-    }
-    return std::move(*this);
-}
-
-State::Any SimRunning::onEvent(const SetFrictionStrengthCommand& cmd, StateMachine& /*dsm*/)
-{
-    if (world) {
-        world->setFrictionStrength(cmd.strength);
-        spdlog::info("SimRunning: Set friction strength to {}", cmd.strength);
-    }
-    return std::move(*this);
-}
+// Obsolete individual strength commands removed - use PhysicsSettingsSet instead.
+// These settings are now controlled via the unified PhysicsSettings API.
 
 State::Any SimRunning::onEvent(const SetContactFrictionStrengthCommand& cmd, StateMachine& /*dsm*/)
 {
@@ -951,36 +898,7 @@ State::Any SimRunning::onEvent(const SetAirResistanceCommand& cmd, StateMachine&
     return std::move(*this);
 }
 
-State::Any SimRunning::onEvent(
-    const ToggleHydrostaticPressureCommand& /*cmd*/, StateMachine& /*dsm*/)
-{
-    if (world) {
-        bool newValue = !world->isHydrostaticPressureEnabled();
-        world->setHydrostaticPressureEnabled(newValue);
-        spdlog::info("SimRunning: Toggle hydrostatic pressure - now: {}", newValue);
-    }
-    return std::move(*this);
-}
-
-State::Any SimRunning::onEvent(const ToggleDynamicPressureCommand& /*cmd*/, StateMachine& /*dsm*/)
-{
-    if (world) {
-        bool newValue = !world->isDynamicPressureEnabled();
-        world->setDynamicPressureEnabled(newValue);
-        spdlog::info("SimRunning: Toggle dynamic pressure - now: {}", newValue);
-    }
-    return std::move(*this);
-}
-
-State::Any SimRunning::onEvent(const TogglePressureDiffusionCommand& /*cmd*/, StateMachine& /*dsm*/)
-{
-    if (world) {
-        bool newValue = !world->isPressureDiffusionEnabled();
-        world->setPressureDiffusionEnabled(newValue);
-        spdlog::info("SimRunning: Toggle pressure diffusion - now: {}", newValue);
-    }
-    return std::move(*this);
-}
+// Obsolete toggle commands removed - use PhysicsSettingsSet API instead.
 
 State::Any SimRunning::onEvent(
     const SetHydrostaticPressureStrengthCommand& cmd, StateMachine& /*dsm*/)
@@ -1065,15 +983,16 @@ State::Any SimRunning::onEvent(const PrintAsciiDiagramCommand& /*cmd*/, StateMac
 
 State::Any SimRunning::onEvent(const SpawnDirtBallCommand& /*cmd*/, StateMachine& /*dsm*/)
 {
-    // Get the current world and spawn a 5x5 ball at top center.
+    // Get the current world and spawn a ball at top center.
     if (world) {
         // Calculate the top center position.
         uint32_t centerX = world->data.width / 2;
         uint32_t topY = 2; // Start at row 2 to avoid the very top edge.
 
-        // Spawn a 5x5 ball of the currently selected material.
+        // Spawn a ball of the currently selected material.
+        // Radius is calculated automatically as 15% of world width.
         MaterialType selectedMaterial = world->getSelectedMaterial();
-        world->spawnMaterialBall(selectedMaterial, centerX, topY, 2);
+        world->spawnMaterialBall(selectedMaterial, centerX, topY);
     }
     else {
         spdlog::warn("SpawnDirtBallCommand: No world available");

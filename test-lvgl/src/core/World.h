@@ -10,10 +10,10 @@
 #include "WorldCohesionCalculator.h"
 #include "WorldCollisionCalculator.h"
 #include "WorldData.h"
-#include "WorldEventGenerator.h"
 #include "WorldFrictionCalculator.h"
 #include "WorldPressureCalculator.h"
 #include "WorldSupportCalculator.h"
+#include "WorldViscosityCalculator.h"
 #include "organisms/TreeTypes.h"
 
 #include <cstdint>
@@ -104,23 +104,18 @@ public:
     // =================================================================
     // WORLDINTERFACE IMPLEMENTATION - DUAL PRESSURE SYSTEM
     // =================================================================
+    // Use physicsSettings.pressure_*_enabled/strength directly instead of setters.
 
-    void setHydrostaticPressureEnabled(bool enabled);
     bool isHydrostaticPressureEnabled() const
     {
         return physicsSettings.pressure_hydrostatic_strength > 0.0;
     }
 
-    void setDynamicPressureEnabled(bool enabled);
     bool isDynamicPressureEnabled() const
     {
         return physicsSettings.pressure_dynamic_strength > 0.0;
     }
 
-    void setPressureDiffusionEnabled(bool enabled)
-    {
-        physicsSettings.pressure_diffusion_strength = enabled ? 1.0 : 0.0;
-    }
     bool isPressureDiffusionEnabled() const
     {
         return physicsSettings.pressure_diffusion_strength > 0.0;
@@ -165,33 +160,38 @@ public:
 
     void setCohesionComForceEnabled(bool enabled)
     {
-        // Backward compatibility: set strength to 0 (disabled) or default (enabled).
-        cohesion_com_force_strength_ = enabled ? 150.0 : 0.0;
+        // Use PhysicsSettings as single source of truth.
+        physicsSettings.cohesion_enabled = enabled;
+        physicsSettings.cohesion_strength = enabled ? 150.0 : 0.0;
     }
-    bool isCohesionComForceEnabled() const { return cohesion_com_force_strength_ > 0.0; }
+    bool isCohesionComForceEnabled() const { return physicsSettings.cohesion_strength > 0.0; }
 
-    void setCohesionComForceStrength(double strength) { cohesion_com_force_strength_ = strength; }
-    double getCohesionComForceStrength() const { return cohesion_com_force_strength_; }
-
-    void setAdhesionStrength(double strength)
+    void setCohesionComForceStrength(double strength)
     {
-        adhesion_calculator_.setAdhesionStrength(strength);
+        physicsSettings.cohesion_strength = strength;
     }
-    double getAdhesionStrength() const { return adhesion_calculator_.getAdhesionStrength(); }
+    double getCohesionComForceStrength() const { return physicsSettings.cohesion_strength; }
 
-    void setAdhesionEnabled(bool enabled) { adhesion_calculator_.setAdhesionEnabled(enabled); }
-    bool isAdhesionEnabled() const { return adhesion_calculator_.isAdhesionEnabled(); }
+    void setAdhesionStrength(double strength) { physicsSettings.adhesion_strength = strength; }
+    double getAdhesionStrength() const { return physicsSettings.adhesion_strength; }
+
+    void setAdhesionEnabled(bool enabled)
+    {
+        physicsSettings.adhesion_enabled = enabled;
+        physicsSettings.adhesion_strength = enabled ? 5.0 : 0.0;
+    }
+    bool isAdhesionEnabled() const { return physicsSettings.adhesion_strength > 0.0; }
 
     void setCohesionBindForceStrength(double strength) { cohesion_bind_force_strength_ = strength; }
     double getCohesionBindForceStrength() const { return cohesion_bind_force_strength_; }
 
     // Viscosity control.
-    void setViscosityStrength(double strength) { viscosity_strength_ = strength; }
-    double getViscosityStrength() const { return viscosity_strength_; }
+    void setViscosityStrength(double strength) { physicsSettings.viscosity_strength = strength; }
+    double getViscosityStrength() const { return physicsSettings.viscosity_strength; }
 
     // Friction control (velocity-dependent viscosity).
-    void setFrictionStrength(double strength) { friction_strength_ = strength; }
-    double getFrictionStrength() const { return friction_strength_; }
+    void setFrictionStrength(double strength) { physicsSettings.friction_strength = strength; }
+    double getFrictionStrength() const { return physicsSettings.friction_strength; }
 
     // Friction calculator access.
     WorldFrictionCalculator& getFrictionCalculator() { return friction_calculator_; }
@@ -199,6 +199,9 @@ public:
 
     void setCOMCohesionRange(uint32_t range) { com_cohesion_range_ = range; }
     uint32_t getCOMCohesionRange() const { return com_cohesion_range_; }
+
+    // Motion state multiplier calculation (for viscosity and other systems).
+    double getMotionStateMultiplier(MotionState state, double sensitivity) const;
 
     // WORLDINTERFACE IMPLEMENTATION - AIR RESISTANCE CONTROL
     void setAirResistanceEnabled(bool enabled) { air_resistance_enabled_ = enabled; }
@@ -216,9 +219,7 @@ public:
     void markUserInput() { /* no-op for now */ }
     std::string settingsToString() const;
 
-    // World setup management
-    void setWorldEventGenerator(std::shared_ptr<WorldEventGenerator> setup);
-    WorldEventGenerator* getWorldEventGenerator() const;
+    // World setup management (DEPRECATED - scenarios now handle setup directly).
 
     // =================================================================
     // WORLD-SPECIFIC METHODS
@@ -283,8 +284,7 @@ public:
     // Stub methods for unimplemented features (TODO: remove event handlers that call these).
     void setRainRate(double) {}
     double getRainRate() const { return 0.0; }
-    void spawnMaterialBall(
-        MaterialType material, uint32_t centerX, uint32_t centerY, uint32_t radius);
+    void spawnMaterialBall(MaterialType material, uint32_t centerX, uint32_t centerY);
     void setWaterColumnEnabled(bool) {}
     bool isWaterColumnEnabled() const { return false; }
     void setLeftThrowEnabled(bool) {}
@@ -310,12 +310,10 @@ public:
     // =================================================================
 
     // Physics parameters (TODO: migrate to WorldData).
+    // NOTE: Most physics parameters now use physicsSettings as single source of truth.
     bool cohesion_bind_force_enabled_;
-    double cohesion_com_force_strength_;
     double cohesion_bind_force_strength_;
     uint32_t com_cohesion_range_;
-    double viscosity_strength_;
-    double friction_strength_;
     bool air_resistance_enabled_;
     double air_resistance_strength_;
     MaterialType selected_material_;
@@ -329,6 +327,7 @@ public:
     WorldCollisionCalculator collision_calculator_;
     WorldAdhesionCalculator adhesion_calculator_;
     WorldFrictionCalculator friction_calculator_;
+    WorldViscosityCalculator viscosity_calculator_;
 
     // Material transfer queue (internal simulation state).
     std::vector<MaterialMove> pending_moves_;
@@ -338,9 +337,6 @@ public:
 
     // Performance timing.
     mutable Timers timers_;
-
-    // World event generator for dynamic particles.
-    std::shared_ptr<WorldEventGenerator> worldEventGenerator_;
 
     // Tree organism manager.
     std::unique_ptr<class TreeManager> tree_manager_;
@@ -359,7 +355,6 @@ private:
     void applyCohesionForces();
     void applyPressureForces();
     void resolveForces(double deltaTime);
-    double getMotionStateMultiplier(MotionState state, double sensitivity) const;
     void updateTransfers(double deltaTime);
     void processVelocityLimiting(double deltaTime);
     void processMaterialMoves();

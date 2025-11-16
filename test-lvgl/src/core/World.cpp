@@ -9,6 +9,7 @@
 #include "WorldDiagramGeneratorEmoji.h"
 #include "WorldInterpolationTool.h"
 #include "WorldSupportCalculator.h"
+#include "WorldViscosityCalculator.h"
 #include "organisms/TreeManager.h"
 #include "spdlog/spdlog.h"
 
@@ -33,11 +34,8 @@ World::World() : World(1, 1)
 
 World::World(uint32_t width, uint32_t height)
     : cohesion_bind_force_enabled_(false),
-      cohesion_com_force_strength_(0.0),
       cohesion_bind_force_strength_(1.0),
       com_cohesion_range_(1),
-      viscosity_strength_(1.0),
-      friction_strength_(1.0),
       air_resistance_enabled_(true),
       air_resistance_strength_(0.1),
       selected_material_(MaterialType::DIRT),
@@ -46,7 +44,6 @@ World::World(uint32_t width, uint32_t height)
       collision_calculator_(),
       adhesion_calculator_(),
       friction_calculator_(),
-      worldEventGenerator_(nullptr),
       tree_manager_(std::make_unique<TreeManager>())
 {
     // Set dimensions (other WorldData members use defaults from struct declaration).
@@ -96,15 +93,11 @@ void World::advanceTime(double deltaTimeSeconds)
     const double scaledDeltaTime = deltaTimeSeconds * physicsSettings.timescale;
     spdlog::trace(
         "World::advanceTime: deltaTime={:.4f}s, timestep={}", deltaTimeSeconds, data.timestep);
-    if (scaledDeltaTime <= 0.0) {
+    if (scaledDeltaTime == 0.0) {
         return;
     }
 
-    // Add particles if enabled.
-    if (data.add_particles_enabled && worldEventGenerator_) {
-        ScopeTimer addParticlesTimer(timers_, "add_particles");
-        worldEventGenerator_->addParticles(*this, data.timestep, deltaTimeSeconds);
-    }
+    // NOTE: Particle generation now handled by Scenario::tick(), called before advanceTime().
 
     // Pre-compute support map for all cells (bottom-up pass).
     {
@@ -192,20 +185,10 @@ void World::reset()
     spdlog::info("World reset complete - world is now empty");
 }
 
+// DEPRECATED: World setup now handled by Scenario::setup().
 void World::setup()
 {
-    // Call WorldEventGenerator's setup to create scenario features.
-    if (worldEventGenerator_) {
-        worldEventGenerator_->setup(*this);
-    }
-
-    // World-specific: Rebuild boundary walls if enabled.
-    if (areWallsEnabled()) {
-        setupBoundaryWalls();
-    }
-
-    spdlog::info("World setup complete");
-    spdlog::info("DEBUGGING: Total mass after setup = {:.3f}", getTotalMass());
+    spdlog::warn("World::setup() is deprecated - use Scenario::setup() instead");
 }
 
 // =================================================================.
@@ -373,7 +356,7 @@ void World::applyAirResistance()
 
 void World::applyCohesionForces()
 {
-    if (cohesion_com_force_strength_ <= 0.0) {
+    if (physicsSettings.cohesion_strength <= 0.0) {
         return;
     }
 
@@ -399,7 +382,21 @@ void World::applyCohesionForces()
                 // COM cohesion force accumulation (only if force is active).
                 if (com_cohesion.force_active) {
                     Vector2d com_cohesion_force = com_cohesion.force_direction
-                        * com_cohesion.force_magnitude * cohesion_com_force_strength_;
+                        * com_cohesion.force_magnitude * physicsSettings.cohesion_strength;
+
+                    // Directional correction: only apply force when velocity is misaligned.
+                    // This prevents oscillations by not accelerating already-converging particles.
+                    if (cell.velocity.magnitude() > 0.01) {
+                        double alignment = cell.velocity.dot(com_cohesion_force.normalize());
+
+                        // Reduce force when already aligned with cohesion direction.
+                        // alignment = -1.0 (opposite) → 100% force (strong correction)
+                        // alignment =  0.0 (perpendicular) → 100% force (neutral)
+                        // alignment = +1.0 (aligned) → 0% force (no interference)
+                        double correction_factor = std::max(0.0, 1.0 - alignment);
+                        com_cohesion_force = com_cohesion_force * correction_factor;
+                    }
+
                     cell.addPendingForce(com_cohesion_force);
                 }
             }
@@ -407,7 +404,7 @@ void World::applyCohesionForces()
     }
 
     // Adhesion force accumulation (only if enabled).
-    if (adhesion_calculator_.isAdhesionEnabled()) {
+    if (physicsSettings.adhesion_strength > 0.0) {
         ScopeTimer adhesionTimer(timers_, "adhesion_calculation");
         for (uint32_t y = 0; y < data.height; ++y) {
             for (uint32_t x = 0; x < data.width; ++x) {
@@ -420,7 +417,7 @@ void World::applyCohesionForces()
                 WorldAdhesionCalculator::AdhesionForce adhesion =
                     adhesion_calculator_.calculateAdhesionForce(*this, x, y);
                 Vector2d adhesion_force = adhesion.force_direction * adhesion.force_magnitude
-                    * adhesion_calculator_.getAdhesionStrength();
+                    * physicsSettings.adhesion_strength;
                 cell.addPendingForce(adhesion_force);
             }
         }
@@ -528,7 +525,28 @@ void World::resolveForces(double deltaTime)
     // Apply contact-based friction forces.
     friction_calculator_.calculateAndApplyFrictionForces(*this, deltaTime);
 
-    // Now resolve all accumulated forces using viscosity model.
+    // Apply viscous forces (momentum diffusion between same-material neighbors).
+    if (physicsSettings.viscosity_strength > 0.0) {
+        ScopeTimer viscosityTimer(timers_, "apply_viscous_forces");
+        for (uint32_t y = 0; y < data.height; ++y) {
+            for (uint32_t x = 0; x < data.width; ++x) {
+                Cell& cell = at(x, y);
+
+                if (cell.isEmpty() || cell.isWall()) {
+                    continue;
+                }
+
+                // Calculate viscous force from neighbor velocity averaging.
+                auto viscous_result = viscosity_calculator_.calculateViscousForce(*this, x, y);
+                cell.addPendingForce(viscous_result.force);
+
+                // Store for visualization.
+                cell.accumulated_viscous_force = viscous_result.force;
+            }
+        }
+    }
+
+    // Now resolve all accumulated forces directly (no damping).
     for (uint32_t y = 0; y < data.height; ++y) {
         for (uint32_t x = 0; x < data.width; ++x) {
             Cell& cell = at(x, y);
@@ -537,93 +555,28 @@ void World::resolveForces(double deltaTime)
                 continue;
             }
 
-            // Get the total pending force (net driving force).
-            Vector2d net_driving_force = cell.pending_force;
+            // Get the total pending force (includes gravity, pressure, cohesion, adhesion,
+            // friction, viscosity).
+            Vector2d net_force = cell.pending_force;
 
-            // Get material properties.
-            const MaterialProperties& props = getMaterialProperties(cell.material_type);
-
-            // Check if support comes from solid material (not fluid).
-            // Fluids provide buoyancy, not structural support for viscosity amplification.
-            bool has_solid_support = false;
-            if (cell.has_support && y < data.height - 1) {
-                const Cell& below = at(x, y + 1);
-                if (!below.isEmpty()) {
-                    const MaterialProperties& below_props =
-                        getMaterialProperties(below.material_type);
-                    has_solid_support = !below_props.is_fluid;
-                }
-            }
-            double support_factor = has_solid_support ? 1.0 : 0.0;
-
-            // For now, assume STATIC motion state when supported, FALLING otherwise.
-            // TODO: Implement proper motion state detection.
-            MotionState motion_state =
-                support_factor > 0.5 ? MotionState::STATIC : MotionState::FALLING;
-
-            // Calculate motion state multiplier.
-            double motion_multiplier =
-                getMotionStateMultiplier(motion_state, props.motion_sensitivity);
-
-            // Calculate velocity-dependent friction coefficient.
-            double velocity_magnitude = cell.velocity.magnitude();
-            double friction_coefficient = getFrictionCoefficient(velocity_magnitude, props);
-
-            // Apply global friction strength multiplier.
-            friction_coefficient = 1.0 + (friction_coefficient - 1.0) * friction_strength_;
-
-            // Cache the friction coefficient for visualization.
-            cell.cached_friction_coefficient = friction_coefficient;
-
-            // Combine viscosity with friction and motion state.
-            double effective_viscosity =
-                props.viscosity * friction_coefficient * motion_multiplier * 1000;
-
-            // Apply continuous damping with friction (no thresholds).
-            double damping_factor = 1.0
-                + (effective_viscosity * viscosity_strength_ * cell.fill_ratio * support_factor);
-
-            // Ensure damping factor is never zero or negative to prevent division by zero.
-            if (damping_factor <= 0.0) {
-                damping_factor = 0.001; // Minimal damping to prevent division by zero.
-            }
-
-            // Store damping info for visualization (X=friction_coefficient, Y=damping_factor).
-            // Only store if viscosity is actually enabled and having an effect.
-            if (viscosity_strength_ > 0.0 && props.viscosity > 0.0) {
-                cell.accumulated_cohesion_force = Vector2d{ friction_coefficient, damping_factor };
-            }
-            else {
-                cell.accumulated_cohesion_force = {}; // Clear when viscosity is off.
-            }
-
-            // Calculate velocity change from forces.
-            Vector2d velocity_change = net_driving_force / damping_factor * deltaTime;
-
-            // Update velocity.
-            Vector2d new_velocity = cell.velocity + velocity_change;
-            cell.velocity = new_velocity;
+            // Apply forces directly to velocity (no damping factor!).
+            Vector2d velocity_change = net_force * deltaTime;
+            cell.velocity += velocity_change;
 
             // Debug logging.
-            if (net_driving_force.mag() > 0.001) {
+            if (net_force.magnitude() > 0.001) {
                 spdlog::debug(
-                    "Cell ({},{}) {} - Force: ({:.3f},{:.3f}), viscosity: {:.3f}, "
-                    "friction: {:.3f}, support: {:.1f}, motion_mult: {:.3f}, damping: {:.3f}, "
-                    "vel_change: ({:.3f},{:.3f}), new_vel: ({:.3f},{:.3f})",
+                    "Cell ({},{}) {} - Force: ({:.3f},{:.3f}), vel_change: ({:.3f},{:.3f}), "
+                    "new_vel: ({:.3f},{:.3f})",
                     x,
                     y,
                     getMaterialName(cell.material_type),
-                    net_driving_force.x,
-                    net_driving_force.y,
-                    props.viscosity,
-                    friction_coefficient,
-                    support_factor,
-                    motion_multiplier,
-                    damping_factor,
+                    net_force.x,
+                    net_force.y,
                     velocity_change.x,
                     velocity_change.y,
-                    new_velocity.x,
-                    new_velocity.y);
+                    cell.velocity.x,
+                    cell.velocity.y);
             }
         }
     }
@@ -680,7 +633,7 @@ std::vector<MaterialMove> World::computeMaterialMoves(double deltaTime)
 
             // NEW: Calculate COM-based cohesion force.
             WorldCohesionCalculator::COMCohesionForce com_cohesion;
-            if (cohesion_com_force_strength_ > 0.0) {
+            if (physicsSettings.cohesion_strength > 0.0) {
                 WorldCohesionCalculator com_cohesion_calc{};
                 com_cohesion =
                     com_cohesion_calc.calculateCOMCohesionForce(*this, x, y, com_cohesion_range_);
@@ -693,9 +646,9 @@ std::vector<MaterialMove> World::computeMaterialMoves(double deltaTime)
 
             // Apply strength multipliers to forces.
             double effective_adhesion_magnitude =
-                adhesion.force_magnitude * adhesion_calculator_.getAdhesionStrength();
+                adhesion.force_magnitude * physicsSettings.adhesion_strength;
             double effective_com_cohesion_magnitude =
-                com_cohesion.force_magnitude * cohesion_com_force_strength_;
+                com_cohesion.force_magnitude * physicsSettings.cohesion_strength;
 
             // Store forces in cell for visualization.
             // Note: Cohesion force field is now repurposed in resolveForces() for damping info.
@@ -867,8 +820,8 @@ void World::processMaterialMoves()
         // Check if materials should swap instead of colliding (if enabled).
         if (physicsSettings.swap_enabled) {
             Vector2i direction(move.toX - move.fromX, move.toY - move.fromY);
-            if (collision_calculator_.shouldSwapMaterials(fromCell, toCell, direction)) {
-                collision_calculator_.swapCounterMovingMaterials(fromCell, toCell, direction);
+            if (collision_calculator_.shouldSwapMaterials(fromCell, toCell, direction, move)) {
+                collision_calculator_.swapCounterMovingMaterials(fromCell, toCell, direction, move);
                 continue; // Skip normal collision handling.
             }
         }
@@ -992,14 +945,9 @@ size_t World::coordToIndex(const Vector2i& pos) const
 // WORLD SETUP CONTROL METHODS.
 // =================================================================.
 
+// DEPRECATED: Wall management now handled by scenarios.
 void World::setWallsEnabled(bool enabled)
 {
-    ConfigurableWorldEventGenerator* configSetup =
-        dynamic_cast<ConfigurableWorldEventGenerator*>(worldEventGenerator_.get());
-    if (configSetup) {
-        configSetup->setWallsEnabled(enabled);
-    }
-
     // Rebuild walls if needed.
     if (enabled) {
         setupBoundaryWalls();
@@ -1019,41 +967,11 @@ void World::setWallsEnabled(bool enabled)
 
 bool World::areWallsEnabled() const
 {
-    const ConfigurableWorldEventGenerator* configSetup =
-        dynamic_cast<const ConfigurableWorldEventGenerator*>(worldEventGenerator_.get());
-    return configSetup ? configSetup->areWallsEnabled() : false;
+    // Check if boundary cells are walls.
+    return at(0, 0).isWall();
 }
 
-void World::setHydrostaticPressureEnabled(bool enabled)
-{
-    // Backward compatibility: set strength to 0 (disabled) or default (enabled).
-    physicsSettings.pressure_hydrostatic_strength = enabled ? 1.0 : 0.0;
-
-    spdlog::info("Clearing all pressure values");
-    for (auto& cell : data.cells) {
-        cell.setHydrostaticPressure(0.0);
-        if (cell.dynamic_component < MIN_MATTER_THRESHOLD) {
-            cell.pressure_gradient = Vector2d{ 0.0, 0.0 };
-        }
-    }
-}
-
-void World::setDynamicPressureEnabled(bool enabled)
-{
-    // Backward compatibility: set strength to 0 (disabled) or default (enabled).
-    physicsSettings.pressure_dynamic_strength = enabled ? 1.0 : 0.0;
-
-    spdlog::info("Clearing all pressure values");
-    for (auto& cell : data.cells) {
-        cell.setDynamicPressure(0.0);
-        if (cell.hydrostatic_component < MIN_MATTER_THRESHOLD) {
-            cell.pressure_gradient = Vector2d{ 0.0, 0.0 };
-        }
-    }
-
-    // Clear any pending blocked transfers.
-    pressure_calculator_.blocked_transfers_.clear();
-}
+// Legacy pressure toggle methods removed - use physicsSettings directly.
 
 void World::setHydrostaticPressureStrength(double strength)
 {
@@ -1095,11 +1013,11 @@ std::string World::settingsToString() const
     ss << "Right throw enabled: " << (isRightThrowEnabled() ? "true" : "false") << "\n";
     ss << "Lower right quadrant enabled: " << (isLowerRightQuadrantEnabled() ? "true" : "false")
        << "\n";
-    ss << "Cohesion COM force enabled: " << (isCohesionComForceEnabled() ? "true" : "false")
-       << "\n";
+    ss << "Cohesion COM force enabled: "
+       << (physicsSettings.cohesion_strength > 0.0 ? "true" : "false") << "\n";
     ss << "Cohesion bind force enabled: " << (isCohesionBindForceEnabled() ? "true" : "false")
        << "\n";
-    ss << "Adhesion enabled: " << (adhesion_calculator_.isAdhesionEnabled() ? "true" : "false")
+    ss << "Adhesion enabled: " << (physicsSettings.adhesion_strength > 0.0 ? "true" : "false")
        << "\n";
     ss << "Air resistance enabled: " << (air_resistance_enabled_ ? "true" : "false") << "\n";
     ss << "Air resistance strength: " << air_resistance_strength_ << "\n";
@@ -1107,20 +1025,7 @@ std::string World::settingsToString() const
     return ss.str();
 }
 
-// World type management implementation.
-void World::setWorldEventGenerator(std::shared_ptr<WorldEventGenerator> newSetup)
-{
-    worldEventGenerator_ = std::move(newSetup);
-    // Reset and apply the new setup.
-    if (worldEventGenerator_) {
-        this->setup();
-    }
-}
-
-WorldEventGenerator* World::getWorldEventGenerator() const
-{
-    return worldEventGenerator_.get();
-}
+// DEPRECATED: WorldEventGenerator removed - scenarios now handle setup/tick directly.
 
 // =================================================================
 // JSON SERIALIZATION
@@ -1190,19 +1095,46 @@ void from_json(const nlohmann::json& j, World::MotionState& state)
     }
 }
 
-void World::spawnMaterialBall(
-    MaterialType material, uint32_t centerX, uint32_t centerY, uint32_t radius)
+void World::spawnMaterialBall(MaterialType material, uint32_t centerX, uint32_t centerY)
 {
-    // Spawn a ball of material centered at (centerX, centerY) with given radius.
-    for (uint32_t y = 0; y < data.height; ++y) {
-        for (uint32_t x = 0; x < data.width; ++x) {
+    // Calculate radius as 15% of world width (diameter = 15% of width).
+    double diameter = data.width * 0.15;
+    double radius = diameter / 2.0;
+
+    // Round up to ensure at least 1 cell for very small worlds.
+    uint32_t radiusInt = static_cast<uint32_t>(std::ceil(radius));
+    if (radiusInt < 1) {
+        radiusInt = 1;
+    }
+
+    // Clamp center position to ensure ball fits within walls.
+    // Walls occupy the outermost layer (x=0, x=width-1, y=0, y=height-1).
+    // Valid interior range: [1, width-2] for x, [1, height-2] for y.
+    uint32_t minX = 1 + radiusInt;
+    uint32_t maxX = data.width >= 2 + radiusInt ? data.width - 1 - radiusInt : 1;
+    uint32_t minY = 1 + radiusInt;
+    uint32_t maxY = data.height >= 2 + radiusInt ? data.height - 1 - radiusInt : 1;
+
+    // Clamp the provided center to valid range.
+    uint32_t clampedCenterX = std::max(minX, std::min(centerX, maxX));
+    uint32_t clampedCenterY = std::max(minY, std::min(centerY, maxY));
+
+    // Only scan bounding box for efficiency.
+    uint32_t scanMinX = clampedCenterX > radiusInt ? clampedCenterX - radiusInt : 0;
+    uint32_t scanMaxX = std::min(clampedCenterX + radiusInt, data.width - 1);
+    uint32_t scanMinY = clampedCenterY > radiusInt ? clampedCenterY - radiusInt : 0;
+    uint32_t scanMaxY = std::min(clampedCenterY + radiusInt, data.height - 1);
+
+    // Spawn a ball of material centered at the clamped position.
+    for (uint32_t y = scanMinY; y <= scanMaxY; ++y) {
+        for (uint32_t x = scanMinX; x <= scanMaxX; ++x) {
             // Calculate distance from center.
-            int dx = static_cast<int>(x) - static_cast<int>(centerX);
-            int dy = static_cast<int>(y) - static_cast<int>(centerY);
+            int dx = static_cast<int>(x) - static_cast<int>(clampedCenterX);
+            int dy = static_cast<int>(y) - static_cast<int>(clampedCenterY);
             double distance = std::sqrt(dx * dx + dy * dy);
 
             // If within radius, fill the cell.
-            if (distance <= static_cast<double>(radius)) {
+            if (distance <= radius) {
                 addMaterialAtCell(x, y, material, 1.0);
             }
         }

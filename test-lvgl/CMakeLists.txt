@@ -177,6 +177,7 @@ add_library(sparkle-duck-core STATIC
 )
 target_include_directories(sparkle-duck-core PUBLIC ${CMAKE_SOURCE_DIR}/src ${zpp_bits_SOURCE_DIR})
 target_link_libraries(sparkle-duck-core PUBLIC nlohmann_json::nlohmann_json msgpack-cxx spdlog::spdlog)
+target_compile_options(sparkle-duck-core PRIVATE -Wall -Wextra -Werror)
 
 # Server library - physics engine and server logic.
 add_library(sparkle-duck-server-lib STATIC
@@ -213,6 +214,7 @@ add_library(sparkle-duck-server-lib STATIC
     src/server/network/WebSocketServer.cpp
 
     # Scenarios.
+    src/server/scenarios/Scenario.cpp
     src/server/scenarios/ScenarioRegistry.cpp
     src/server/scenarios/ScenarioWorldEventGenerator.cpp
     src/server/scenarios/scenarios/DamBreakScenario.cpp
@@ -236,6 +238,7 @@ add_library(sparkle-duck-server-lib STATIC
     src/core/WorldInterpolationTool.cpp
     src/core/WorldPressureCalculator.cpp
     src/core/WorldSupportCalculator.cpp
+    src/core/WorldViscosityCalculator.cpp
 
     # Organism system.
     src/core/organisms/Tree.cpp
@@ -244,6 +247,7 @@ add_library(sparkle-duck-server-lib STATIC
 )
 target_include_directories(sparkle-duck-server-lib PUBLIC ${CMAKE_SOURCE_DIR}/src ${zpp_bits_SOURCE_DIR})
 target_link_libraries(sparkle-duck-server-lib PUBLIC sparkle-duck-core datachannel-static)
+target_compile_options(sparkle-duck-server-lib PRIVATE -Wall -Wextra -Werror)
 
 # UI library - UI components and client logic.
 add_library(sparkle-duck-ui-lib STATIC
@@ -287,6 +291,7 @@ add_library(sparkle-duck-ui-lib STATIC
 )
 target_include_directories(sparkle-duck-ui-lib PUBLIC ${CMAKE_SOURCE_DIR}/src ${zpp_bits_SOURCE_DIR})
 target_link_libraries(sparkle-duck-ui-lib PUBLIC sparkle-duck-core sparkle-duck-server-lib lvgl_linux lvgl)
+target_compile_options(sparkle-duck-ui-lib PRIVATE -Wall -Wextra -Werror)
 
 add_executable(sparkle-duck-ui
     src/ui/main.cpp
@@ -344,7 +349,7 @@ add_executable(cli
     src/cli/SubprocessManager.cpp
     src/cli/WebSocketClient.cpp
 )
-target_link_libraries(cli PRIVATE sparkle-duck-core datachannel-static pthread)
+target_link_libraries(cli PRIVATE sparkle-duck-server-lib datachannel-static pthread)
 target_include_directories(cli PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/external/args ${zpp_bits_SOURCE_DIR})
 
 # Enable warnings and treat them as errors for CLI executable.
@@ -355,6 +360,7 @@ add_executable(sparkle-duck-tests
     src/server/tests/StateIdle_test.cpp
     src/server/tests/StateSimRunning_test.cpp
     src/tests/Buoyancy_test.cpp
+    src/tests/CohesionDebug_test.cpp
     src/tests/ResultTest.cpp
     src/tests/TimersTest.cpp
     src/tests/Vector2d_test.cpp

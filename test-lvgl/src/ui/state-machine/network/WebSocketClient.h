@@ -1,9 +1,11 @@
 #pragma once
 
 #include "core/WorldData.h"
+#include "server/api/ApiCommand.h"
 #include "ui/state-machine/EventSink.h"
 #include <functional>
 #include <memory>
+#include <nlohmann/json.hpp>
 #include <rtc/rtc.hpp>
 #include <string>
 
@@ -39,6 +41,20 @@ public:
      * @return true if sent successfully.
      */
     bool send(const std::string& message);
+
+    /**
+     * @brief Send an API command with automatic command name insertion.
+     * @tparam CommandT The command type (must satisfy ApiCommandType).
+     * @param cmd The command to send.
+     * @return true if sent successfully.
+     */
+    template <DirtSim::ApiCommandType CommandT>
+    bool sendCommand(const CommandT& cmd)
+    {
+        nlohmann::json json = cmd.toJson();
+        json["command"] = CommandT::name();
+        return send(json.dump());
+    }
 
     /**
      * @brief Send a message and wait for response (blocking).

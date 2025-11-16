@@ -28,7 +28,7 @@ public:
 
     ScenarioConfig getConfig() const override { return config_; }
 
-    void setConfig(const ScenarioConfig& newConfig) override
+    void setConfig(const ScenarioConfig& newConfig, World& /*world*/) override
     {
         // Validate type and update.
         if (std::holds_alternative<FallingDirtConfig>(newConfig)) {
