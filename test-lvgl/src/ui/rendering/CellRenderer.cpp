@@ -294,7 +294,7 @@ void CellRenderer::renderWorldData(
     if (renderOffsetY < 0) renderOffsetY = 0;
 
     if (usePixelRenderer) {
-        // FAST PATH: Direct pixel rendering (no LVGL layer)
+        // FAST PATH: Direct pixel rendering with alpha blending
         uint32_t* pixels = reinterpret_cast<uint32_t*>(canvasBuffer_.data());
 
         for (uint32_t y = 0; y < worldData.height; ++y) {
@@ -324,11 +324,47 @@ void CellRenderer::renderWorldData(
                         | matColor.blue;
                 }
 
-                // Fill cell rectangle
+                // Extract alpha for blending
+                uint8_t alpha = (cellColor >> 24) & 0xFF;
+
+                // Fill cell rectangle with alpha blending
                 for (uint32_t py = 0; py < scaledCellHeight_; py++) {
                     uint32_t rowStart = (cellY + py) * canvasWidth_ + cellX;
                     for (uint32_t px = 0; px < scaledCellWidth_; px++) {
-                        pixels[rowStart + px] = cellColor;
+                        uint32_t pixelIdx = rowStart + px;
+
+                        // Alpha blending: blend source with destination
+                        if (alpha == 0) {
+                            // Fully transparent - skip (keep background)
+                            continue;
+                        }
+                        else if (alpha == 255) {
+                            // Fully opaque - direct write (optimization)
+                            pixels[pixelIdx] = cellColor;
+                        }
+                        else {
+                            // Partial transparency - blend
+                            uint32_t dstColor = pixels[pixelIdx];
+                            uint8_t invAlpha = 255 - alpha;
+
+                            // Extract source channels
+                            uint8_t srcR = (cellColor >> 16) & 0xFF;
+                            uint8_t srcG = (cellColor >> 8) & 0xFF;
+                            uint8_t srcB = cellColor & 0xFF;
+
+                            // Extract destination channels
+                            uint8_t dstR = (dstColor >> 16) & 0xFF;
+                            uint8_t dstG = (dstColor >> 8) & 0xFF;
+                            uint8_t dstB = dstColor & 0xFF;
+
+                            // Blend: result = (src * alpha + dst * (1 - alpha)) / 255
+                            uint8_t r = (srcR * alpha + dstR * invAlpha) / 255;
+                            uint8_t g = (srcG * alpha + dstG * invAlpha) / 255;
+                            uint8_t b = (srcB * alpha + dstB * invAlpha) / 255;
+
+                            // Write blended pixel (with full alpha)
+                            pixels[pixelIdx] = 0xFF000000 | (r << 16) | (g << 8) | b;
+                        }
                     }
                 }
             }
@@ -407,7 +443,7 @@ void CellRenderer::renderCellDirectOptimized(
 
     // Branch between pixel renderer (fast) and LVGL renderer (slow but full-featured)
     if (usePixelRenderer) {
-        // FAST PATH: Direct pixel buffer writes
+        // FAST PATH: Direct pixel buffer writes with alpha blending
         uint32_t* pixels = reinterpret_cast<uint32_t*>(canvasBuffer_.data());
 
         // Determine cell color
@@ -422,11 +458,47 @@ void CellRenderer::renderCellDirectOptimized(
                 (alpha << 24) | (matColor.red << 16) | (matColor.green << 8) | matColor.blue;
         }
 
-        // Fill cell rectangle
+        // Extract alpha channel for blending
+        uint8_t alpha = (cellColor >> 24) & 0xFF;
+
+        // Fill cell rectangle with alpha blending
         for (uint32_t py = 0; py < scaledCellHeight_; py++) {
             uint32_t rowStart = (cellY + py) * canvasWidth_ + cellX;
             for (uint32_t px = 0; px < scaledCellWidth_; px++) {
-                pixels[rowStart + px] = cellColor;
+                uint32_t pixelIdx = rowStart + px;
+
+                // Alpha blending: blend source with destination
+                if (alpha == 0) {
+                    // Fully transparent - skip (keep background)
+                    continue;
+                }
+                else if (alpha == 255) {
+                    // Fully opaque - direct write (optimization)
+                    pixels[pixelIdx] = cellColor;
+                }
+                else {
+                    // Partial transparency - blend
+                    uint32_t dstColor = pixels[pixelIdx];
+                    uint8_t invAlpha = 255 - alpha;
+
+                    // Extract source channels
+                    uint8_t srcR = (cellColor >> 16) & 0xFF;
+                    uint8_t srcG = (cellColor >> 8) & 0xFF;
+                    uint8_t srcB = cellColor & 0xFF;
+
+                    // Extract destination channels
+                    uint8_t dstR = (dstColor >> 16) & 0xFF;
+                    uint8_t dstG = (dstColor >> 8) & 0xFF;
+                    uint8_t dstB = dstColor & 0xFF;
+
+                    // Blend: result = (src * alpha + dst * (1 - alpha)) / 255
+                    uint8_t r = (srcR * alpha + dstR * invAlpha) / 255;
+                    uint8_t g = (srcG * alpha + dstG * invAlpha) / 255;
+                    uint8_t b = (srcB * alpha + dstB * invAlpha) / 255;
+
+                    // Write blended pixel (with full alpha)
+                    pixels[pixelIdx] = 0xFF000000 | (r << 16) | (g << 8) | b;
+                }
             }
         }
 
