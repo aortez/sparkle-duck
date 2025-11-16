@@ -103,11 +103,13 @@ private:
     // Timing state for particle generation.
     double lastSimTime_ = 0.0;
     double nextRightThrow_ = 1.0;
-    double nextRainDrop_ = 0.0;
 
     // Water column auto-disable state.
     double waterColumnStartTime_ = -1.0;
     static constexpr double WATER_COLUMN_DURATION = 2.0;
+
+    // Random number generator for rain drops.
+    std::mt19937 rng_{ std::random_device{}() };
 
     // Helper methods (scenario-specific, naturally belong here!).
     void addWaterColumn(World& world);
@@ -115,7 +117,9 @@ private:
     void addDirtQuadrant(World& world);
     void clearDirtQuadrant(World& world);
     void refillWaterColumn(World& world);
-    void addRainDrops(World& world);
+    void addRainDrops(World& world, double deltaTime);
+    void spawnWaterDrop(
+        World& world, uint32_t centerX, uint32_t centerY, double radius, double fillAmount);
     void throwDirtBalls(World& world);
 };
 
@@ -166,7 +170,6 @@ void SandboxScenario::reset(World& world)
     // Reset timing state.
     lastSimTime_ = 0.0;
     nextRightThrow_ = 1.0;
-    nextRainDrop_ = 0.0;
     waterColumnStartTime_ = -1.0;
 
     // Re-run setup to reinitialize world.
@@ -184,11 +187,9 @@ void SandboxScenario::tick(World& world, double deltaTime)
         nextRightThrow_ += throwPeriod;
     }
 
-    // Rain drops at variable rate (if rain rate > 0).
-    if (config_.rain_rate > 0.0 && simTime >= nextRainDrop_) {
-        addRainDrops(world);
-        double intervalSeconds = 1.0 / config_.rain_rate;
-        nextRainDrop_ = simTime + intervalSeconds;
+    // Rain drops - time-scale independent, probability-based.
+    if (config_.rain_rate > 0.0) {
+        addRainDrops(world, deltaTime);
     }
 
     // Water column refill (if enabled).
@@ -306,22 +307,107 @@ void SandboxScenario::refillWaterColumn(World& world)
     }
 }
 
-void SandboxScenario::addRainDrops(World& world)
+void SandboxScenario::addRainDrops(World& world, double deltaTime)
 {
-    spdlog::debug("Adding rain drop (rate: {:.1f}/s)", config_.rain_rate);
+    // Normalize rain_rate from [0, 10] to [0, 1].
+    double normalized_rate = config_.rain_rate / 10.0;
+    if (normalized_rate <= 0.0) {
+        return;
+    }
 
-    // Use normal distribution for horizontal position.
-    static std::random_device rd;
-    static std::mt19937 gen(rd());
-    static std::normal_distribution<double> normalDist(0.5, 0.15);
+    // Scale with world width so larger worlds get proportionally more rain.
+    double widthScale = world.data.width / 20.0;
 
-    // Generate random position across the top, clamped to world bounds.
-    double randomPos = std::max(0.0, std::min(1.0, normalDist(gen)));
-    uint32_t xPos = static_cast<uint32_t>(randomPos * (world.data.width - 2)) + 1;
+    // Drop count scales linearly with rain_rate (more rain = more drops).
+    const double baseDropsPerSecond = 3.0; // Tunable drop frequency.
+    double expectedDrops = config_.rain_rate * baseDropsPerSecond * deltaTime * widthScale;
 
-    if (xPos < world.data.width && 1 < world.data.height) {
-        Cell& cell = world.at(xPos, 1); // Just below the top wall.
-        cell.addWater(0.8);
+    // Drop radius scales quadratically with rain_rate AND proportionally with world width.
+    // Low rate → tiny misting drops, high rate → large concentrated drops.
+    // Larger worlds → proportionally larger drops (keeps visual consistency).
+    const double scalar_factor = 5.0;
+    double baseRadius = normalized_rate * normalized_rate * scalar_factor;
+    double meanRadius = baseRadius * widthScale;
+
+    // Total water rate scales quadratically (matches drop size scaling).
+    // rain_rate=1 → 0.01× water, rain_rate=5 → 0.25× water, rain_rate=10 → 1.0× water.
+    const double baseWaterConstant = 50.0; // Tunable wetness factor.
+    double targetWaterRate = normalized_rate * normalized_rate * baseWaterConstant * widthScale;
+
+    // Variance: normal distribution with rate-dependent std deviation.
+    // More variance at high rates (20% to 50% std).
+    double stdRadius = meanRadius * (0.2 + normalized_rate * 0.3);
+    std::normal_distribution<double> radiusDist(meanRadius, stdRadius);
+
+    // Use Poisson distribution for realistic randomness in drop count.
+    std::poisson_distribution<int> poissonDrops(std::max(0.0, expectedDrops));
+    int numDrops = poissonDrops(rng_);
+
+    if (numDrops == 0) {
+        return;
+    }
+
+    // Calculate fill amount to achieve target water rate.
+    // fill = targetWater / (drops × area)
+    double meanDropArea = M_PI * meanRadius * meanRadius;
+    double fillAmount = (targetWaterRate * deltaTime) / (numDrops * meanDropArea);
+    fillAmount = std::clamp(fillAmount, 0.01, 1.0);
+
+    spdlog::debug(
+        "Adding {} rain drops (rate: {:.1f}, meanRadius: {:.2f}, fill: {:.2f}, deltaTime: {:.3f}s)",
+        numDrops,
+        config_.rain_rate,
+        meanRadius,
+        fillAmount,
+        deltaTime);
+
+    // Uniform distributions for position.
+    std::uniform_int_distribution<uint32_t> xDist(1, world.data.width - 2);
+
+    // Top 15% of world for vertical spawning (minimum 3 cells).
+    uint32_t maxY = std::max(3u, static_cast<uint32_t>(world.data.height * 0.15));
+    std::uniform_int_distribution<uint32_t> yDist(1, maxY);
+
+    // Spawn drops with varying sizes.
+    for (int i = 0; i < numDrops; i++) {
+        uint32_t x = xDist(rng_);
+        uint32_t y = yDist(rng_);
+
+        // Sample radius from normal distribution (each drop varies).
+        double dropRadius = radiusDist(rng_);
+        dropRadius = std::max(0.01, dropRadius); // Very small minimum for misting.
+
+        // Use the calculated fill amount for all drops.
+        spawnWaterDrop(world, x, y, dropRadius, fillAmount);
+    }
+}
+
+void SandboxScenario::spawnWaterDrop(
+    World& world, uint32_t centerX, uint32_t centerY, double radius, double fillAmount)
+{
+    // Spawn a circular water drop with specified fill amount.
+    // Tiny drops (radius < 1) create misting effect with partial fills.
+    // Large drops (radius ≥ 1) fill cells completely.
+
+    // Calculate bounding box (only scan area that could be affected).
+    uint32_t radiusInt = static_cast<uint32_t>(std::ceil(radius));
+    uint32_t minX = centerX > radiusInt ? centerX - radiusInt : 0;
+    uint32_t maxX = std::min(centerX + radiusInt, world.data.width - 1);
+    uint32_t minY = centerY > radiusInt ? centerY - radiusInt : 0;
+    uint32_t maxY = std::min(centerY + radiusInt, world.data.height - 1);
+
+    for (uint32_t y = minY; y <= maxY; ++y) {
+        for (uint32_t x = minX; x <= maxX; ++x) {
+            // Calculate distance from center.
+            int dx = static_cast<int>(x) - static_cast<int>(centerX);
+            int dy = static_cast<int>(y) - static_cast<int>(centerY);
+            double distance = std::sqrt(dx * dx + dy * dy);
+
+            // If within radius, add water with specified fill amount.
+            if (distance <= radius) {
+                world.at(x, y).addWater(fillAmount);
+            }
+        }
     }
 }
 
