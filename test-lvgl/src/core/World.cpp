@@ -563,12 +563,9 @@ void World::resolveForces(double deltaTime)
             Vector2d velocity_change = net_force * deltaTime;
             cell.velocity += velocity_change;
 
-            // Debug logging (INFO for WOOD to track buoyancy issue).
+            // Debug logging.
             if (net_force.magnitude() > 0.001) {
-                auto log_level = (cell.material_type == MaterialType::WOOD) ? spdlog::level::info
-                                                                            : spdlog::level::debug;
-                spdlog::log(
-                    log_level,
+                spdlog::debug(
                     "Cell ({},{}) {} - Force: ({:.3f},{:.3f}), vel_change: ({:.3f},{:.3f}), "
                     "new_vel: ({:.3f},{:.3f})",
                     x,
@@ -823,20 +820,6 @@ void World::processMaterialMoves()
         // Check if materials should swap instead of colliding (if enabled).
         if (physicsSettings.swap_enabled) {
             Vector2i direction(move.toX - move.fromX, move.toY - move.fromY);
-
-            // DEBUG: Log swap check for wood-related moves.
-            if (fromCell.material_type == MaterialType::WOOD
-                || toCell.material_type == MaterialType::WOOD) {
-                spdlog::info(
-                    "Swap check: {} at ({},{}) -> {} at ({},{})",
-                    getMaterialName(fromCell.material_type),
-                    move.fromX,
-                    move.fromY,
-                    getMaterialName(toCell.material_type),
-                    move.toX,
-                    move.toY);
-            }
-
             if (collision_calculator_.shouldSwapMaterials(fromCell, toCell, direction, move)) {
                 collision_calculator_.swapCounterMovingMaterials(fromCell, toCell, direction, move);
                 continue; // Skip normal collision handling.
@@ -845,12 +828,7 @@ void World::processMaterialMoves()
 
         // Handle collision during the move based on collision_type.
         if (move.collision_type != CollisionType::TRANSFER_ONLY) {
-            auto log_level =
-                (move.material == MaterialType::WOOD || toCell.material_type == MaterialType::WOOD)
-                ? spdlog::level::info
-                : spdlog::level::debug;
-            spdlog::log(
-                log_level,
+            spdlog::debug(
                 "Processing collision: {} vs {} at ({},{}) -> ({},{}) - Type: {}",
                 getMaterialName(move.material),
                 getMaterialName(toCell.material_type),

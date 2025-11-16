@@ -573,125 +573,18 @@ TEST_P(ParameterizedBuoyancyTest, MaterialBuoyancyBehavior)
                 current_y,
                 new_y);
             final_y = new_y;
-
-            // DEBUG: Analyze forces on material immediately after swap.
-            const Cell& material_cell = world->at(0, new_y);
-            const MaterialProperties& props = getMaterialProperties(params.material);
-
-            // Calculate expected forces.
-            double gravity_force = props.density * world->physicsSettings.gravity;
-
-            // Calculate pressure gradient and force.
-            WorldPressureCalculator calc;
-            world->pressure_calculator_.calculateHydrostaticPressure(*world);
-            Vector2d pressure_gradient = calc.calculatePressureGradient(*world, 0, new_y);
-            double pressure_force = pressure_gradient.y * world->physicsSettings.pressure_scale
-                * props.hydrostatic_weight;
-
-            double net_force = gravity_force + pressure_force;
-
-            spdlog::info(
-                "    POST-SWAP FORCES at y={}: {} (ρ={:.1f}, h_weight={:.1f})",
-                new_y,
-                getMaterialName(params.material),
-                props.density,
-                props.hydrostatic_weight);
-            spdlog::info("      Gravity:       {:+.3f} (down)", gravity_force);
-            spdlog::info("      Pressure:      {:+.3f} (negative=up)", pressure_force);
-            spdlog::info("      Net (G+P):     {:+.3f} (negative=up, positive=down)", net_force);
-
-            // Calculate damping/resistance forces.
-            double velocity_mag = material_cell.velocity.magnitude();
-
-            // Air resistance: F = -strength × air_resistance × v².
-            double air_resistance_force = 0.0;
-            if (velocity_mag > 0.001) {
-                air_resistance_force = world->getAirResistanceStrength() * props.air_resistance
-                    * velocity_mag * velocity_mag;
-                // Force opposes motion.
-                double air_force_component =
-                    (material_cell.velocity.y > 0) ? -air_resistance_force : air_resistance_force;
-                spdlog::info(
-                    "      Air resist:    {:+.3f} (opposes motion, v={:.3f})",
-                    air_force_component,
-                    velocity_mag);
-            }
-
-            // Viscosity (simplified estimate).
-            double viscosity_force_estimate =
-                props.viscosity * velocity_mag * 2.0; // Rough estimate.
-            spdlog::info("      Viscosity est: ~{:.3f} (damping)", viscosity_force_estimate);
-
-            // Material properties affecting motion.
-            spdlog::info(
-                "      Material: air_resist={:.2f}, viscosity={:.2f}, cohesion={:.2f}",
-                props.air_resistance,
-                props.viscosity,
-                props.cohesion);
-
-            spdlog::info(
-                "      Velocity: ({:.3f},{:.3f}), COM: ({:.3f},{:.3f})",
-                material_cell.velocity.x,
-                material_cell.velocity.y,
-                material_cell.com.x,
-                material_cell.com.y);
-            spdlog::info(
-                "      Pressure field: y=0:{:.2f}, y=1:{:.2f}, y=2:{:.2f}",
-                world->at(0, std::max(0, new_y - 1)).pressure,
-                world->at(0, new_y).pressure,
-                world->at(0, std::min(4, new_y + 1)).pressure);
-
-            // DETAILED: Track forces frame-by-frame for next 20 timesteps.
-            spdlog::info("    === FRAME-BY-FRAME FORCE TRACKING (20 timesteps) ===");
-            for (int track_step = 0; track_step < 20; track_step++) {
-                const Cell& track_cell = world->at(0, new_y);
-
-                // Snapshot current state.
-                Vector2d vel_before = track_cell.velocity;
-
-                // Advance one timestep.
-                world->advanceTime(deltaTime);
-
-                // Get new state.
-                const Cell& track_cell_after = world->at(0, new_y);
-                Vector2d vel_after = track_cell_after.velocity;
-                Vector2d vel_change = vel_after - vel_before;
-
-                // Log state.
-                spdlog::info(
-                    "      T+{}: vel=({:+.3f},{:+.3f}) Δv=({:+.3f},{:+.3f}) com=({:+.3f},{:+.3f})",
-                    track_step + 1,
-                    vel_after.x,
-                    vel_after.y,
-                    vel_change.x,
-                    vel_change.y,
-                    track_cell_after.com.x,
-                    track_cell_after.com.y);
-
-                // Check if velocity reversed.
-                if (vel_before.y < 0 && vel_after.y > 0) {
-                    spdlog::warn("        ^^^ VELOCITY REVERSED FROM UP TO DOWN!");
-                }
-            }
-            spdlog::info("    === END TRACKING ===");
-
-            // Skip ahead in main loop since we just advanced 20 steps.
-            step += 20;
         }
 
         // Check if reached endpoint.
         bool reached_endpoint = false;
-        if (params.expected_behavior == BuoyancyMaterialParams::ExpectedBehavior::RISE) {
-            // For rising: accept any upward movement (may not reach surface).
-            if (final_y < START_Y && swap_count >= 1) {
-                reached_endpoint = true; // Rose at least one cell.
-            }
+        if (params.expected_behavior == BuoyancyMaterialParams::ExpectedBehavior::RISE
+            && final_y == 0) {
+            reached_endpoint = true; // Reached top.
         }
-        else if (params.expected_behavior == BuoyancyMaterialParams::ExpectedBehavior::SINK) {
-            // For sinking: accept any downward movement (may not reach bottom).
-            if (final_y > START_Y && swap_count >= 1) {
-                reached_endpoint = true; // Sank at least one cell.
-            }
+        else if (
+            params.expected_behavior == BuoyancyMaterialParams::ExpectedBehavior::SINK
+            && final_y == 4) {
+            reached_endpoint = true; // Reached bottom.
         }
 
         if (reached_endpoint) {
@@ -712,16 +605,12 @@ TEST_P(ParameterizedBuoyancyTest, MaterialBuoyancyBehavior)
     // Verify behavior.
     switch (params.expected_behavior) {
         case BuoyancyMaterialParams::ExpectedBehavior::RISE:
-            // Accept any upward movement (lighter materials should rise, may be partial).
-            EXPECT_LT(final_y, START_Y)
-                << params.description << " should rise (move upward from y=" << START_Y << ")";
-            EXPECT_GE(swap_count, 1) << params.description << " should swap at least once";
+            EXPECT_EQ(final_y, 0) << params.description << " should rise to top (y=0) within "
+                                  << params.max_steps_to_endpoint << " steps";
             break;
         case BuoyancyMaterialParams::ExpectedBehavior::SINK:
-            // Accept any downward movement (heavier materials should sink, may be partial).
-            EXPECT_GT(final_y, START_Y)
-                << params.description << " should sink (move downward from y=" << START_Y << ")";
-            EXPECT_GE(swap_count, 1) << params.description << " should swap at least once";
+            EXPECT_EQ(final_y, 4) << params.description << " should sink to bottom (y=4) within "
+                                  << params.max_steps_to_endpoint << " steps";
             break;
         case BuoyancyMaterialParams::ExpectedBehavior::LEVEL:
             EXPECT_EQ(final_y, START_Y) << params.description << " should stay at y=" << START_Y;
@@ -741,22 +630,22 @@ INSTANTIATE_TEST_SUITE_P(
         BuoyancyMaterialParams{ .material = MaterialType::WOOD,
                                 .expected_behavior = BuoyancyMaterialParams::ExpectedBehavior::RISE,
                                 .max_steps_to_endpoint = 250,
-                                .description = "Wood (density 0.8) - partial rise" },
+                                .description = "Wood (density 0.8)" },
 
         BuoyancyMaterialParams{ .material = MaterialType::DIRT,
                                 .expected_behavior = BuoyancyMaterialParams::ExpectedBehavior::SINK,
                                 .max_steps_to_endpoint = 200,
-                                .description = "Dirt (density 1.5) - full sink" },
+                                .description = "Dirt (density 1.5)" },
 
         BuoyancyMaterialParams{ .material = MaterialType::METAL,
                                 .expected_behavior = BuoyancyMaterialParams::ExpectedBehavior::SINK,
-                                .max_steps_to_endpoint = 300,
-                                .description = "Metal (density 7.8) - full sink" },
+                                .max_steps_to_endpoint = 150,
+                                .description = "Metal (density 7.8)" },
 
         BuoyancyMaterialParams{ .material = MaterialType::LEAF,
                                 .expected_behavior = BuoyancyMaterialParams::ExpectedBehavior::RISE,
                                 .max_steps_to_endpoint = 1200,
-                                .description = "Leaf (density 0.3) - partial rise" }));
+                                .description = "Leaf (density 0.3)" }));
 
 /**
  * @brief Test 2.2: Metal Develops Downward Velocity.
