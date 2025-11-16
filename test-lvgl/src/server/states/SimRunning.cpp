@@ -525,8 +525,9 @@ State::Any SimRunning::onEvent(const Api::SpawnDirtBall::Cwc& cwc, StateMachine&
     spdlog::info("SpawnDirtBall: Spawning dirt ball at ({}, {})", centerX, topY);
 
     // Spawn a ball of the currently selected material.
+    // Radius is calculated automatically as 15% of world width.
     MaterialType selectedMaterial = world->getSelectedMaterial();
-    world->spawnMaterialBall(selectedMaterial, centerX, topY, 2);
+    world->spawnMaterialBall(selectedMaterial, centerX, topY);
 
     cwc.sendResponse(Response::okay(std::monostate{}));
     return std::move(*this);
@@ -982,15 +983,16 @@ State::Any SimRunning::onEvent(const PrintAsciiDiagramCommand& /*cmd*/, StateMac
 
 State::Any SimRunning::onEvent(const SpawnDirtBallCommand& /*cmd*/, StateMachine& /*dsm*/)
 {
-    // Get the current world and spawn a 5x5 ball at top center.
+    // Get the current world and spawn a ball at top center.
     if (world) {
         // Calculate the top center position.
         uint32_t centerX = world->data.width / 2;
         uint32_t topY = 2; // Start at row 2 to avoid the very top edge.
 
-        // Spawn a 5x5 ball of the currently selected material.
+        // Spawn a ball of the currently selected material.
+        // Radius is calculated automatically as 15% of world width.
         MaterialType selectedMaterial = world->getSelectedMaterial();
-        world->spawnMaterialBall(selectedMaterial, centerX, topY, 2);
+        world->spawnMaterialBall(selectedMaterial, centerX, topY);
     }
     else {
         spdlog::warn("SpawnDirtBallCommand: No world available");

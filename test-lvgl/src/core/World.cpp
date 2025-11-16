@@ -1095,19 +1095,46 @@ void from_json(const nlohmann::json& j, World::MotionState& state)
     }
 }
 
-void World::spawnMaterialBall(
-    MaterialType material, uint32_t centerX, uint32_t centerY, uint32_t radius)
+void World::spawnMaterialBall(MaterialType material, uint32_t centerX, uint32_t centerY)
 {
-    // Spawn a ball of material centered at (centerX, centerY) with given radius.
-    for (uint32_t y = 0; y < data.height; ++y) {
-        for (uint32_t x = 0; x < data.width; ++x) {
+    // Calculate radius as 15% of world width (diameter = 15% of width).
+    double diameter = data.width * 0.15;
+    double radius = diameter / 2.0;
+
+    // Round up to ensure at least 1 cell for very small worlds.
+    uint32_t radiusInt = static_cast<uint32_t>(std::ceil(radius));
+    if (radiusInt < 1) {
+        radiusInt = 1;
+    }
+
+    // Clamp center position to ensure ball fits within walls.
+    // Walls occupy the outermost layer (x=0, x=width-1, y=0, y=height-1).
+    // Valid interior range: [1, width-2] for x, [1, height-2] for y.
+    uint32_t minX = 1 + radiusInt;
+    uint32_t maxX = data.width >= 2 + radiusInt ? data.width - 1 - radiusInt : 1;
+    uint32_t minY = 1 + radiusInt;
+    uint32_t maxY = data.height >= 2 + radiusInt ? data.height - 1 - radiusInt : 1;
+
+    // Clamp the provided center to valid range.
+    uint32_t clampedCenterX = std::max(minX, std::min(centerX, maxX));
+    uint32_t clampedCenterY = std::max(minY, std::min(centerY, maxY));
+
+    // Only scan bounding box for efficiency.
+    uint32_t scanMinX = clampedCenterX > radiusInt ? clampedCenterX - radiusInt : 0;
+    uint32_t scanMaxX = std::min(clampedCenterX + radiusInt, data.width - 1);
+    uint32_t scanMinY = clampedCenterY > radiusInt ? clampedCenterY - radiusInt : 0;
+    uint32_t scanMaxY = std::min(clampedCenterY + radiusInt, data.height - 1);
+
+    // Spawn a ball of material centered at the clamped position.
+    for (uint32_t y = scanMinY; y <= scanMaxY; ++y) {
+        for (uint32_t x = scanMinX; x <= scanMaxX; ++x) {
             // Calculate distance from center.
-            int dx = static_cast<int>(x) - static_cast<int>(centerX);
-            int dy = static_cast<int>(y) - static_cast<int>(centerY);
+            int dx = static_cast<int>(x) - static_cast<int>(clampedCenterX);
+            int dy = static_cast<int>(y) - static_cast<int>(clampedCenterY);
             double distance = std::sqrt(dx * dx + dy * dy);
 
             // If within radius, fill the cell.
-            if (distance <= static_cast<double>(radius)) {
+            if (distance <= radius) {
                 addMaterialAtCell(x, y, material, 1.0);
             }
         }
