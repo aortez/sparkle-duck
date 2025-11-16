@@ -31,6 +31,12 @@ int main(int argc, char** argv)
         "steps",
         "Number of simulation steps to run (default: unlimited)",
         { 's', "steps" });
+    args::ValueFlag<std::string> logLevel(
+        parser,
+        "log-level",
+        "Set log level (trace, debug, info, warn, error, critical, off)",
+        { 'l', "log-level" },
+        "info");
 
     try {
         parser.ParseCLI(argc, argv);
@@ -48,9 +54,42 @@ int main(int argc, char** argv)
     uint16_t port = portArg ? args::get(portArg) : 8080;
     int maxSteps = stepsArg ? args::get(stepsArg) : -1;
 
-    // Configure logging.
-    spdlog::set_level(spdlog::level::info);
+    // Configure logging based on the requested log level.
+    spdlog::level::level_enum selectedLevel = spdlog::level::info; // Default.
+    if (logLevel) {
+        std::string levelStr = args::get(logLevel);
+        if (levelStr == "trace") {
+            selectedLevel = spdlog::level::trace;
+        }
+        else if (levelStr == "debug") {
+            selectedLevel = spdlog::level::debug;
+        }
+        else if (levelStr == "info") {
+            selectedLevel = spdlog::level::info;
+        }
+        else if (levelStr == "warn" || levelStr == "warning") {
+            selectedLevel = spdlog::level::warn;
+        }
+        else if (levelStr == "error" || levelStr == "err") {
+            selectedLevel = spdlog::level::err;
+        }
+        else if (levelStr == "critical") {
+            selectedLevel = spdlog::level::critical;
+        }
+        else if (levelStr == "off") {
+            selectedLevel = spdlog::level::off;
+        }
+        else {
+            std::cerr << "Invalid log level: " << levelStr << std::endl;
+            std::cerr << "Valid levels: trace, debug, info, warn, error, critical, off"
+                      << std::endl;
+            return 1;
+        }
+    }
+
+    spdlog::set_level(selectedLevel);
     spdlog::info("Starting Sparkle Duck WebSocket Server");
+    spdlog::debug("Log level set to: {}", args::get(logLevel));
     spdlog::info("Port: {}", port);
     if (maxSteps > 0) {
         spdlog::info("Max steps: {}", maxSteps);

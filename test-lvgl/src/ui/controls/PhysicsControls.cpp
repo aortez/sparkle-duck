@@ -1,4 +1,5 @@
 #include "PhysicsControls.h"
+#include "server/api/PhysicsSettingsGet.h"
 #include "server/api/PhysicsSettingsSet.h"
 #include "ui/state-machine/network/WebSocketClient.h"
 #include "ui/ui_builders/LVGLBuilder.h"
@@ -8,6 +9,252 @@
 namespace DirtSim {
 namespace Ui {
 
+// Static function to create all control configurations using brace initialization.
+std::vector<PhysicsControls::ColumnConfig> PhysicsControls::createColumnConfigs()
+{
+    return {
+        // Column 1: General Physics.
+        { .title = "General Physics",
+          .controls = { { .label = "Timescale",
+                          .type = ControlType::TOGGLE_SLIDER,
+                          .rangeMin = -500,
+                          .rangeMax = 1000,
+                          .defaultValue = 100,
+                          .valueScale = 0.01,
+                          .valueFormat = "%.2fx",
+                          .initiallyEnabled = true,
+                          .valueSetter = [](PhysicsSettings& s, double v) { s.timescale = v; },
+                          .valueGetter = [](const PhysicsSettings& s) { return s.timescale; },
+                          .enableSetter =
+                              [](PhysicsSettings& s, bool e) {
+                                  // Special case: timescale doesn't have separate enable flag.
+                                  // When disabled, we set it to 0.
+                                  if (!e) s.timescale = 0.0;
+                              },
+                          .enableGetter =
+                              [](const PhysicsSettings& s) { return s.timescale > 0.0; } },
+                        { .label = "Gravity",
+                          .type = ControlType::TOGGLE_SLIDER,
+                          .rangeMin = -5000,
+                          .rangeMax = 5000,
+                          .defaultValue = 981,
+                          .valueScale = 0.01,
+                          .valueFormat = "%.2f",
+                          .initiallyEnabled = true,
+                          .valueSetter = [](PhysicsSettings& s, double v) { s.gravity = v; },
+                          .valueGetter = [](const PhysicsSettings& s) { return s.gravity; },
+                          .enableSetter =
+                              [](PhysicsSettings& s, bool e) {
+                                  // Special case: gravity doesn't have separate enable flag.
+                                  // When disabled, we set it to 0.
+                                  if (!e) s.gravity = 0.0;
+                              },
+                          .enableGetter =
+                              [](const PhysicsSettings& s) {
+                                  // Consider gravity enabled if it's non-zero.
+                                  // This handles both positive and negative gravity.
+                                  return s.gravity != 0.0;
+                              } },
+                        { .label = "Elasticity",
+                          .type = ControlType::TOGGLE_SLIDER,
+                          .rangeMin = 0,
+                          .rangeMax = 100,
+                          .defaultValue = 80,
+                          .valueScale = 0.01,
+                          .valueFormat = "%.2f",
+                          .initiallyEnabled = true,
+                          .valueSetter = [](PhysicsSettings& s, double v) { s.elasticity = v; },
+                          .valueGetter = [](const PhysicsSettings& s) { return s.elasticity; },
+                          .enableSetter =
+                              []([[maybe_unused]] PhysicsSettings& s, [[maybe_unused]] bool e) {
+                                  // Elasticity doesn't disable, just log the toggle.
+                              },
+                          .enableGetter =
+                              []([[maybe_unused]] const PhysicsSettings& s) { return true; } },
+                        { .label = "Air Resistance",
+                          .type = ControlType::TOGGLE_SLIDER,
+                          .rangeMin = 0,
+                          .rangeMax = 100,
+                          .defaultValue = 10,
+                          .valueScale = 0.01,
+                          .valueFormat = "%.2f",
+                          .initiallyEnabled = true,
+                          .valueSetter = [](PhysicsSettings& s, double v) { s.air_resistance = v; },
+                          .valueGetter = [](const PhysicsSettings& s) { return s.air_resistance; },
+                          .enableSetter =
+                              []([[maybe_unused]] PhysicsSettings& s, [[maybe_unused]] bool e) {
+                                  // Air resistance doesn't disable, just log the toggle.
+                              },
+                          .enableGetter =
+                              []([[maybe_unused]] const PhysicsSettings& s) { return true; } },
+                        { .label = "Enable Swap",
+                          .type = ControlType::SWITCH_ONLY,
+                          .enableSetter = [](PhysicsSettings& s, bool e) { s.swap_enabled = e; },
+                          .enableGetter =
+                              [](const PhysicsSettings& s) { return s.swap_enabled; } } } },
+        // Column 2: Pressure.
+        { .title = "Pressure",
+          .controls = { { .label = "Hydrostatic",
+                          .type = ControlType::TOGGLE_SLIDER,
+                          .rangeMin = 0,
+                          .rangeMax = 300,
+                          .defaultValue = 100,
+                          .valueScale = 0.01,
+                          .valueFormat = "%.2f",
+                          .initiallyEnabled = true,
+                          .valueSetter = [](PhysicsSettings& s,
+                                            double v) { s.pressure_hydrostatic_strength = v; },
+                          .valueGetter =
+                              [](const PhysicsSettings& s) {
+                                  return s.pressure_hydrostatic_strength;
+                              },
+                          .enableSetter =
+                              [](PhysicsSettings& s, bool e) {
+                                  s.pressure_hydrostatic_enabled = e;
+                                  if (!e) s.pressure_hydrostatic_strength = 0.0;
+                              },
+                          .enableGetter =
+                              [](const PhysicsSettings& s) {
+                                  return s.pressure_hydrostatic_enabled;
+                              } },
+                        { .label = "Dynamic",
+                          .type = ControlType::TOGGLE_SLIDER,
+                          .rangeMin = 0,
+                          .rangeMax = 300,
+                          .defaultValue = 100,
+                          .valueScale = 0.01,
+                          .valueFormat = "%.2f",
+                          .initiallyEnabled = true,
+                          .valueSetter = [](PhysicsSettings& s,
+                                            double v) { s.pressure_dynamic_strength = v; },
+                          .valueGetter =
+                              [](const PhysicsSettings& s) { return s.pressure_dynamic_strength; },
+                          .enableSetter =
+                              [](PhysicsSettings& s, bool e) {
+                                  s.pressure_dynamic_enabled = e;
+                                  if (!e) s.pressure_dynamic_strength = 0.0;
+                              },
+                          .enableGetter =
+                              [](const PhysicsSettings& s) { return s.pressure_dynamic_enabled; } },
+                        { .label = "Diffusion",
+                          .type = ControlType::TOGGLE_SLIDER,
+                          .rangeMin = 0,
+                          .rangeMax = 500,
+                          .defaultValue = 100,
+                          .valueScale = 0.01,
+                          .valueFormat = "%.2f",
+                          .initiallyEnabled = true,
+                          .valueSetter = [](PhysicsSettings& s,
+                                            double v) { s.pressure_diffusion_strength = v; },
+                          .valueGetter =
+                              [](const PhysicsSettings& s) {
+                                  return s.pressure_diffusion_strength;
+                              },
+                          .enableSetter =
+                              [](PhysicsSettings& s, bool e) {
+                                  if (!e) s.pressure_diffusion_strength = 0.0;
+                              },
+                          .enableGetter =
+                              [](const PhysicsSettings& s) {
+                                  return s.pressure_diffusion_strength > 0.0;
+                              } },
+                        { .label = "Scale",
+                          .type = ControlType::TOGGLE_SLIDER,
+                          .rangeMin = 0,
+                          .rangeMax = 500,
+                          .defaultValue = 100,
+                          .valueScale = 0.01,
+                          .valueFormat = "%.2f",
+                          .initiallyEnabled = true,
+                          .valueSetter = [](PhysicsSettings& s, double v) { s.pressure_scale = v; },
+                          .valueGetter = [](const PhysicsSettings& s) { return s.pressure_scale; },
+                          .enableSetter =
+                              [](PhysicsSettings& s, bool e) {
+                                  if (!e) s.pressure_scale = 0.0;
+                              },
+                          .enableGetter =
+                              [](const PhysicsSettings& s) { return s.pressure_scale > 0.0; } } } },
+        // Column 3: Forces.
+        { .title = "Forces",
+          .controls = { { .label = "Cohesion",
+                          .type = ControlType::TOGGLE_SLIDER,
+                          .rangeMin = 0,
+                          .rangeMax = 1000,
+                          .defaultValue = 0,
+                          .valueScale = 0.01,
+                          .valueFormat = "%.0f",
+                          .initiallyEnabled = true,
+                          .valueSetter = [](PhysicsSettings& s,
+                                            double v) { s.cohesion_strength = v; },
+                          .valueGetter =
+                              [](const PhysicsSettings& s) { return s.cohesion_strength; },
+                          .enableSetter =
+                              [](PhysicsSettings& s, bool e) {
+                                  s.cohesion_enabled = e;
+                                  if (!e) s.cohesion_strength = 0.0;
+                              },
+                          .enableGetter =
+                              [](const PhysicsSettings& s) { return s.cohesion_enabled; } },
+                        { .label = "Adhesion",
+                          .type = ControlType::TOGGLE_SLIDER,
+                          .rangeMin = 0,
+                          .rangeMax = 1000,
+                          .defaultValue = 500,
+                          .valueScale = 0.01,
+                          .valueFormat = "%.1f",
+                          .initiallyEnabled = true,
+                          .valueSetter = [](PhysicsSettings& s,
+                                            double v) { s.adhesion_strength = v; },
+                          .valueGetter =
+                              [](const PhysicsSettings& s) { return s.adhesion_strength; },
+                          .enableSetter =
+                              [](PhysicsSettings& s, bool e) {
+                                  s.adhesion_enabled = e;
+                                  if (!e) s.adhesion_strength = 0.0;
+                              },
+                          .enableGetter =
+                              [](const PhysicsSettings& s) { return s.adhesion_enabled; } },
+                        { .label = "Viscosity",
+                          .type = ControlType::TOGGLE_SLIDER,
+                          .rangeMin = 0,
+                          .rangeMax = 1000,
+                          .defaultValue = 100,
+                          .valueScale = 0.01,
+                          .valueFormat = "%.2f",
+                          .initiallyEnabled = true,
+                          .valueSetter = [](PhysicsSettings& s,
+                                            double v) { s.viscosity_strength = v; },
+                          .valueGetter =
+                              [](const PhysicsSettings& s) { return s.viscosity_strength; },
+                          .enableSetter =
+                              [](PhysicsSettings& s, bool e) {
+                                  s.viscosity_enabled = e;
+                                  if (!e) s.viscosity_strength = 0.0;
+                              },
+                          .enableGetter =
+                              [](const PhysicsSettings& s) { return s.viscosity_enabled; } },
+                        { .label = "Friction",
+                          .type = ControlType::TOGGLE_SLIDER,
+                          .rangeMin = 0,
+                          .rangeMax = 200,
+                          .defaultValue = 100,
+                          .valueScale = 0.01,
+                          .valueFormat = "%.2f",
+                          .initiallyEnabled = true,
+                          .valueSetter = [](PhysicsSettings& s,
+                                            double v) { s.friction_strength = v; },
+                          .valueGetter =
+                              [](const PhysicsSettings& s) { return s.friction_strength; },
+                          .enableSetter =
+                              [](PhysicsSettings& s, bool e) {
+                                  s.friction_enabled = e;
+                                  if (!e) s.friction_strength = 0.0;
+                              },
+                          .enableGetter =
+                              [](const PhysicsSettings& s) { return s.friction_enabled; } } } }
+    };
+}
+
 PhysicsControls::PhysicsControls(lv_obj_t* container, WebSocketClient* wsClient)
     : container_(container), wsClient_(wsClient)
 {
@@ -16,225 +263,271 @@ PhysicsControls::PhysicsControls(lv_obj_t* container, WebSocketClient* wsClient)
     lv_obj_set_flex_align(
         container_, LV_FLEX_ALIGN_SPACE_EVENLY, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
 
-    // Column 1: General Physics.
-    column1_ = lv_obj_create(container_);
-    lv_obj_set_size(column1_, LV_PCT(30), LV_SIZE_CONTENT);
-    lv_obj_set_flex_flow(column1_, LV_FLEX_FLOW_COLUMN);
-    lv_obj_set_flex_align(
-        column1_, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-    lv_obj_set_style_pad_row(column1_, 4, 0);
-    lv_obj_set_style_pad_all(column1_, 8, 0);
-    lv_obj_set_style_bg_color(column1_, lv_color_hex(0x303030), 0); // Dark gray background.
-    lv_obj_set_style_bg_opa(column1_, LV_OPA_COVER, 0);
+    // Create columns and controls from configuration.
+    auto configs = createColumnConfigs();
 
-    lv_obj_t* label1 = lv_label_create(column1_);
-    lv_label_set_text(label1, "General Physics");
-    lv_obj_set_style_text_font(label1, &lv_font_montserrat_14, 0);
-    lv_obj_set_style_text_color(label1, lv_color_hex(0xFFFFFF), 0); // White text.
+    // Count total controls and reserve space upfront to prevent reallocation.
+    size_t totalControls = 0;
+    for (const auto& columnConfig : configs) {
+        totalControls += columnConfig.controls.size();
+    }
+    controls_.reserve(totalControls);
 
-    timescaleControl_ = LVGLBuilder::toggleSlider(column1_)
-                            .label("Timescale")
-                            .range(-500, 1000)
-                            .value(100)
-                            .defaultValue(100)
-                            .valueScale(0.01)
-                            .valueFormat("%.2fx")
-                            .initiallyEnabled(true)
-                            .sliderWidth(180)
-                            .onToggle(onTimescaleToggled, this)
-                            .onSliderChange(onTimescaleChanged, this)
-                            .buildOrLog();
+    // Create columns and controls in a single pass.
+    for (const auto& columnConfig : configs) {
+        lv_obj_t* column = createColumn(columnConfig.title);
+        columns_.push_back(column);
 
-    gravityControl_ = LVGLBuilder::toggleSlider(column1_)
-                          .label("Gravity")
-                          .range(-5000, 5000)
-                          .value(981)
-                          .defaultValue(981)
-                          .valueScale(0.01)
-                          .valueFormat("%.2f")
-                          .initiallyEnabled(true)
-                          .sliderWidth(180)
-                          .onToggle(onGravityToggled, this)
-                          .onSliderChange(onGravityChanged, this)
-                          .buildOrLog();
+        for (const auto& controlConfig : columnConfig.controls) {
+            // Add control to vector first using emplace_back.
+            size_t index = controls_.size();
+            controls_.emplace_back();
+            Control& control = controls_[index];
+            control.config = controlConfig;
 
-    elasticityControl_ = LVGLBuilder::toggleSlider(column1_)
-                             .label("Elasticity")
-                             .range(0, 100)
-                             .value(80)
-                             .defaultValue(80)
-                             .valueScale(0.01)
-                             .valueFormat("%.2f")
-                             .initiallyEnabled(true)
-                             .sliderWidth(180)
-                             .onToggle(onElasticityToggled, this)
-                             .onSliderChange(onElasticityChanged, this)
-                             .buildOrLog();
-
-    airResistanceControl_ = LVGLBuilder::toggleSlider(column1_)
-                                .label("Air Resistance")
-                                .range(0, 100)
-                                .value(10)
-                                .defaultValue(10)
-                                .valueScale(0.01)
-                                .valueFormat("%.2f")
-                                .initiallyEnabled(true)
-                                .sliderWidth(180)
-                                .onToggle(onAirResistanceToggled, this)
-                                .onSliderChange(onAirResistanceChanged, this)
-                                .buildOrLog();
-
-    swapEnabledControl_ = LVGLBuilder::labeledSwitch(column1_)
-                              .label("Enable Swap")
-                              .initialState(false)
-                              .callback(onSwapEnabledToggled, this)
-                              .buildOrLog();
-
-    // Column 2: Pressure.
-    column2_ = lv_obj_create(container_);
-    lv_obj_set_size(column2_, LV_PCT(30), LV_SIZE_CONTENT);
-    lv_obj_set_flex_flow(column2_, LV_FLEX_FLOW_COLUMN);
-    lv_obj_set_flex_align(
-        column2_, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-    lv_obj_set_style_pad_row(column2_, 4, 0);
-    lv_obj_set_style_pad_all(column2_, 8, 0);
-    lv_obj_set_style_bg_color(column2_, lv_color_hex(0x303030), 0); // Dark gray background.
-    lv_obj_set_style_bg_opa(column2_, LV_OPA_COVER, 0);
-
-    lv_obj_t* label2 = lv_label_create(column2_);
-    lv_label_set_text(label2, "Pressure");
-    lv_obj_set_style_text_font(label2, &lv_font_montserrat_14, 0);
-    lv_obj_set_style_text_color(label2, lv_color_hex(0xFFFFFF), 0); // White text.
-
-    hydrostaticPressureControl_ = LVGLBuilder::toggleSlider(column2_)
-                                      .label("Hydrostatic")
-                                      .range(0, 300)
-                                      .value(100)
-                                      .defaultValue(100)
-                                      .valueScale(0.01)
-                                      .valueFormat("%.2f")
-                                      .initiallyEnabled(true)
-                                      .sliderWidth(180)
-                                      .onToggle(onHydrostaticPressureToggled, this)
-                                      .onSliderChange(onHydrostaticPressureChanged, this)
-                                      .buildOrLog();
-
-    dynamicPressureControl_ = LVGLBuilder::toggleSlider(column2_)
-                                  .label("Dynamic")
-                                  .range(0, 300)
-                                  .value(100)
-                                  .defaultValue(100)
-                                  .valueScale(0.01)
-                                  .valueFormat("%.2f")
-                                  .initiallyEnabled(true)
-                                  .sliderWidth(180)
-                                  .onToggle(onDynamicPressureToggled, this)
-                                  .onSliderChange(onDynamicPressureChanged, this)
-                                  .buildOrLog();
-
-    pressureDiffusionControl_ = LVGLBuilder::toggleSlider(column2_)
-                                    .label("Diffusion")
-                                    .range(0, 500)
-                                    .value(100)
-                                    .defaultValue(100)
-                                    .valueScale(0.01)
-                                    .valueFormat("%.2f")
-                                    .initiallyEnabled(true)
-                                    .sliderWidth(180)
-                                    .onToggle(onPressureDiffusionToggled, this)
-                                    .onSliderChange(onPressureDiffusionChanged, this)
-                                    .buildOrLog();
-
-    pressureScaleControl_ = LVGLBuilder::toggleSlider(column2_)
-                                .label("Scale")
-                                .range(0, 500)
-                                .value(100)
-                                .defaultValue(100)
-                                .valueScale(0.01)
-                                .valueFormat("%.2f")
-                                .initiallyEnabled(true)
-                                .sliderWidth(180)
-                                .onToggle(onPressureScaleToggled, this)
-                                .onSliderChange(onPressureScaleChanged, this)
-                                .buildOrLog();
-
-    // Column 3: Forces.
-    column3_ = lv_obj_create(container_);
-    lv_obj_set_size(column3_, LV_PCT(30), LV_SIZE_CONTENT);
-    lv_obj_set_flex_flow(column3_, LV_FLEX_FLOW_COLUMN);
-    lv_obj_set_flex_align(
-        column3_, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-    lv_obj_set_style_pad_row(column3_, 4, 0);
-    lv_obj_set_style_pad_all(column3_, 8, 0);
-    lv_obj_set_style_bg_color(column3_, lv_color_hex(0x303030), 0); // Dark gray background.
-    lv_obj_set_style_bg_opa(column3_, LV_OPA_COVER, 0);
-
-    lv_obj_t* label3 = lv_label_create(column3_);
-    lv_label_set_text(label3, "Forces");
-    lv_obj_set_style_text_font(label3, &lv_font_montserrat_14, 0);
-    lv_obj_set_style_text_color(label3, lv_color_hex(0xFFFFFF), 0); // White text.
-
-    cohesionForceControl_ = LVGLBuilder::toggleSlider(column3_)
-                                .label("Cohesion")
-                                .range(0, 1000)
-                                .value(0)
-                                .defaultValue(0)
-                                .valueScale(0.01)
-                                .valueFormat("%.0f")
-                                .initiallyEnabled(true)
-                                .sliderWidth(180)
-                                .onToggle(onCohesionForceToggled, this)
-                                .onSliderChange(onCohesionForceChanged, this)
-                                .buildOrLog();
-
-    adhesionControl_ = LVGLBuilder::toggleSlider(column3_)
-                           .label("Adhesion")
-                           .range(0, 1000)
-                           .value(500)
-                           .defaultValue(500)
-                           .valueScale(0.01)
-                           .valueFormat("%.1f")
-                           .initiallyEnabled(true)
-                           .sliderWidth(180)
-                           .onToggle(onAdhesionToggled, this)
-                           .onSliderChange(onAdhesionChanged, this)
-                           .buildOrLog();
-
-    viscosityControl_ = LVGLBuilder::toggleSlider(column3_)
-                            .label("Viscosity")
-                            .range(0, 1000)
-                            .value(100)
-                            .defaultValue(100)
-                            .valueScale(0.01)
-                            .valueFormat("%.2f")
-                            .initiallyEnabled(true)
-                            .sliderWidth(180)
-                            .onToggle(onViscosityToggled, this)
-                            .onSliderChange(onViscosityChanged, this)
-                            .buildOrLog();
-
-    frictionControl_ = LVGLBuilder::toggleSlider(column3_)
-                           .label("Friction")
-                           .range(0, 200)
-                           .value(100)
-                           .defaultValue(100)
-                           .valueScale(0.01)
-                           .valueFormat("%.2f")
-                           .initiallyEnabled(true)
-                           .sliderWidth(180)
-                           .onToggle(onFrictionToggled, this)
-                           .onSliderChange(onFrictionChanged, this)
-                           .buildOrLog();
+            // Create the UI widget and map it.
+            createControlWidget(column, control);
+        }
+    }
 
     // Fetch initial settings from server.
     fetchSettings();
 
-    spdlog::info("PhysicsControls: Initialized");
+    spdlog::info(
+        "PhysicsControls: Initialized with {} controls ({} widgets mapped)",
+        controls_.size(),
+        widgetToControl_.size());
 }
 
 PhysicsControls::~PhysicsControls()
 {
     spdlog::info("PhysicsControls: Destroyed");
+}
+
+lv_obj_t* PhysicsControls::createColumn(const char* title)
+{
+    lv_obj_t* column = lv_obj_create(container_);
+    lv_obj_set_size(column, LV_PCT(30), LV_SIZE_CONTENT);
+    lv_obj_set_flex_flow(column, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_flex_align(column, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_pad_row(column, 4, 0);
+    lv_obj_set_style_pad_all(column, 8, 0);
+    lv_obj_set_style_bg_color(column, lv_color_hex(0x303030), 0); // Dark gray background.
+    lv_obj_set_style_bg_opa(column, LV_OPA_COVER, 0);
+
+    lv_obj_t* label = lv_label_create(column);
+    lv_label_set_text(label, title);
+    lv_obj_set_style_text_font(label, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_color(label, lv_color_hex(0xFFFFFF), 0); // White text.
+
+    return column;
+}
+
+void PhysicsControls::createControlWidget(lv_obj_t* column, Control& control)
+{
+    const auto& config = control.config;
+
+    if (config.type == ControlType::TOGGLE_SLIDER) {
+        control.widget = LVGLBuilder::toggleSlider(column)
+                             .label(config.label)
+                             .range(config.rangeMin, config.rangeMax)
+                             .value(config.defaultValue)
+                             .defaultValue(config.defaultValue)
+                             .valueScale(config.valueScale)
+                             .valueFormat(config.valueFormat)
+                             .initiallyEnabled(config.initiallyEnabled)
+                             .sliderWidth(180)
+                             .onToggle(onGenericToggle, this)
+                             .onSliderChange(onGenericValueChange, this)
+                             .buildOrLog();
+
+        if (control.widget) {
+            // The ToggleSlider creates a container with children.
+            // Child 0: switch, Child 1: label, Child 2: slider, Child 3: value label.
+            control.switchWidget = lv_obj_get_child(control.widget, 0);
+            control.sliderWidget = lv_obj_get_child(control.widget, 2);
+
+            // Map widgets to control for fast lookup.
+            widgetToControl_[control.widget] = &control;
+            if (control.switchWidget) {
+                widgetToControl_[control.switchWidget] = &control;
+            }
+            if (control.sliderWidget) {
+                widgetToControl_[control.sliderWidget] = &control;
+            }
+            spdlog::debug(
+                "PhysicsControls: Mapped '{}' widgets (container, switch, slider) -> control at "
+                "{:p}",
+                config.label,
+                static_cast<void*>(&control));
+        }
+    }
+    else if (config.type == ControlType::SWITCH_ONLY) {
+        control.widget = LVGLBuilder::labeledSwitch(column)
+                             .label(config.label)
+                             .initialState(config.initiallyEnabled)
+                             .callback(onGenericToggle, this)
+                             .buildOrLog();
+
+        if (control.widget) {
+            control.switchWidget = control.widget;
+            widgetToControl_[control.switchWidget] = &control;
+        }
+    }
+}
+
+void PhysicsControls::onGenericToggle(lv_event_t* e)
+{
+    lv_obj_t* target = static_cast<lv_obj_t*>(lv_event_get_target(e));
+
+    // Get user data - try widget first (for toggleSlider), then event (for labeledSwitch).
+    // toggleSlider sets user_data on the widget via lv_obj_set_user_data().
+    // labeledSwitch passes user_data through the event callback.
+    PhysicsControls* self = static_cast<PhysicsControls*>(lv_obj_get_user_data(target));
+    if (!self) {
+        // Try event user data as fallback (for labeledSwitch).
+        self = static_cast<PhysicsControls*>(lv_event_get_user_data(e));
+    }
+
+    if (!self) {
+        spdlog::warn(
+            "PhysicsControls: onGenericToggle - self is null from both widget and event user_data");
+        return;
+    }
+
+    PhysicsControls::Control* control = self->findControl(target);
+    if (!control) {
+        spdlog::warn(
+            "PhysicsControls: Could not find control for toggle event (target ptr: {})",
+            static_cast<void*>(target));
+
+        // Debug: Log what we do have mapped.
+        spdlog::debug("PhysicsControls: Have {} widgets mapped", self->widgetToControl_.size());
+        return;
+    }
+
+    bool enabled = lv_obj_has_state(target, LV_STATE_CHECKED);
+    const char* label = control->config.label ? control->config.label : "Unknown";
+    spdlog::info("PhysicsControls: {} toggled to {}", label, enabled ? "ON" : "OFF");
+
+    // Call the enable setter if it exists.
+    if (control->config.enableSetter) {
+        try {
+            control->config.enableSetter(self->settings_, enabled);
+        }
+        catch (const std::exception& ex) {
+            spdlog::error(
+                "PhysicsControls: Exception in enableSetter for {}: {}", label, ex.what());
+            return;
+        }
+    }
+
+    // For toggle sliders, when re-enabled, restore the slider value.
+    if (enabled && control->config.type == ControlType::TOGGLE_SLIDER) {
+        // The slider is a sibling of the toggle switch, not in parent container.
+        // We need to use the stored sliderWidget pointer.
+        if (control->sliderWidget) {
+            int value = lv_slider_get_value(control->sliderWidget);
+            double scaledValue = value * control->config.valueScale;
+            if (control->config.valueSetter) {
+                control->config.valueSetter(self->settings_, scaledValue);
+            }
+            spdlog::debug(
+                "PhysicsControls: Restored {} to {:.2f}", control->config.label, scaledValue);
+        }
+        else {
+            spdlog::warn("PhysicsControls: No slider widget found for {}", control->config.label);
+        }
+    }
+
+    try {
+        self->syncSettings();
+    }
+    catch (const std::exception& ex) {
+        spdlog::error("PhysicsControls: Exception in syncSettings: {}", ex.what());
+    }
+}
+
+void PhysicsControls::onGenericValueChange(lv_event_t* e)
+{
+    lv_obj_t* target = static_cast<lv_obj_t*>(lv_event_get_target(e));
+
+    // Get user data - try widget first (for toggleSlider), then event as fallback.
+    // toggleSlider sets user_data on the slider widget via lv_obj_set_user_data().
+    PhysicsControls* self = static_cast<PhysicsControls*>(lv_obj_get_user_data(target));
+    if (!self) {
+        // Try event user data as fallback.
+        self = static_cast<PhysicsControls*>(lv_event_get_user_data(e));
+    }
+
+    if (!self) {
+        spdlog::warn("PhysicsControls: onGenericValueChange - self is null from both widget and "
+                     "event user_data");
+        return;
+    }
+
+    PhysicsControls::Control* control = self->findControl(target);
+    if (!control) {
+        spdlog::warn("PhysicsControls: Could not find control for value change event");
+        return;
+    }
+
+    int value = lv_slider_get_value(target);
+    double scaledValue = value * control->config.valueScale;
+
+    spdlog::info("PhysicsControls: {} changed to {:.2f}", control->config.label, scaledValue);
+
+    // Call the value setter if it exists.
+    if (control->config.valueSetter) {
+        control->config.valueSetter(self->settings_, scaledValue);
+    }
+
+    self->syncSettings();
+}
+
+PhysicsControls::Control* PhysicsControls::findControl(lv_obj_t* widget)
+{
+    // Sanity check: the map should have a reasonable number of entries.
+    size_t mapSize = widgetToControl_.size();
+    if (mapSize > 1000) {
+        spdlog::error(
+            "PhysicsControls: findControl - map corrupted! Size={}, this={:p}",
+            mapSize,
+            static_cast<void*>(this));
+        spdlog::error("PhysicsControls: This object may have been moved or is invalid");
+        return nullptr;
+    }
+
+    // Direct lookup.
+    auto it = widgetToControl_.find(widget);
+    if (it != widgetToControl_.end()) {
+        spdlog::debug(
+            "PhysicsControls: Found control '{}' for widget {:p}",
+            it->second->config.label,
+            static_cast<void*>(widget));
+        return it->second;
+    }
+
+    // If not found, check if this widget's parent is in our map.
+    // This handles cases where the event target is a child of the mapped widget.
+    lv_obj_t* parent = lv_obj_get_parent(widget);
+    if (parent) {
+        it = widgetToControl_.find(parent);
+        if (it != widgetToControl_.end()) {
+            return it->second;
+        }
+
+        // Check grandparent too (for deeply nested widgets).
+        lv_obj_t* grandparent = lv_obj_get_parent(parent);
+        if (grandparent) {
+            it = widgetToControl_.find(grandparent);
+            if (it != widgetToControl_.end()) {
+                return it->second;
+            }
+        }
+    }
+
+    return nullptr;
 }
 
 void PhysicsControls::updateFromSettings(const PhysicsSettings& settings)
@@ -245,563 +538,67 @@ void PhysicsControls::updateFromSettings(const PhysicsSettings& settings)
     settings_ = settings;
 
     // Helper to update a toggle slider control.
-    auto updateToggleSlider = [](lv_obj_t* control, double value, bool enabled) {
-        if (!control) return;
+    auto updateToggleSlider = [](PhysicsControls::Control* control, double value, bool enabled) {
+        if (!control || !control->widget) return;
 
-        // Control is a container with toggle (child 0), label (child 1), slider (child 2),
-        // valueLabel (child 3).
-        lv_obj_t* toggle = lv_obj_get_child(control, 0);
-        lv_obj_t* slider = lv_obj_get_child(control, 2);
-        lv_obj_t* valueLabel = lv_obj_get_child(control, 3);
+        // For toggle sliders, update both switch and slider.
+        if (control->config.type == ControlType::TOGGLE_SLIDER) {
+            // Control is a container with toggle (child 0), label (child 1), slider (child 2),
+            // valueLabel (child 3).
+            lv_obj_t* toggle = lv_obj_get_child(control->widget, 0);
+            lv_obj_t* slider = lv_obj_get_child(control->widget, 2);
+            lv_obj_t* valueLabel = lv_obj_get_child(control->widget, 3);
 
-        if (toggle) {
-            if (enabled) {
-                lv_obj_add_state(toggle, LV_STATE_CHECKED);
+            if (toggle) {
+                if (enabled) {
+                    lv_obj_add_state(toggle, LV_STATE_CHECKED);
+                }
+                else {
+                    lv_obj_remove_state(toggle, LV_STATE_CHECKED);
+                }
             }
-            else {
-                lv_obj_remove_state(toggle, LV_STATE_CHECKED);
+
+            if (slider) {
+                // Convert double value back to integer slider value.
+                int sliderValue = static_cast<int>(value / control->config.valueScale);
+                lv_slider_set_value(slider, sliderValue, LV_ANIM_OFF);
+
+                // Manually update value label (lv_slider_set_value doesn't trigger events).
+                if (valueLabel) {
+                    char buf[32];
+                    snprintf(buf, sizeof(buf), control->config.valueFormat, value);
+                    lv_label_set_text(valueLabel, buf);
+                }
             }
         }
-
-        if (slider) {
-            // Convert double value back to integer slider value (reverse the 0.01 scale).
-            int sliderValue = static_cast<int>(value * 100.0);
-            lv_slider_set_value(slider, sliderValue, LV_ANIM_OFF);
-
-            // Manually update value label (lv_slider_set_value doesn't trigger events).
-            if (valueLabel) {
-                char buf[32];
-                snprintf(buf, sizeof(buf), "%.2f", value);
-                lv_label_set_text(valueLabel, buf);
+        else if (control->config.type == ControlType::SWITCH_ONLY) {
+            // For switch-only controls.
+            if (control->switchWidget) {
+                if (enabled) {
+                    lv_obj_add_state(control->switchWidget, LV_STATE_CHECKED);
+                }
+                else {
+                    lv_obj_remove_state(control->switchWidget, LV_STATE_CHECKED);
+                }
             }
         }
     };
 
-    // Update Column 1: General Physics.
-    updateToggleSlider(timescaleControl_, settings.timescale, settings.timescale > 0.0);
-    updateToggleSlider(gravityControl_, settings.gravity, true);
-    updateToggleSlider(elasticityControl_, settings.elasticity, true);
-    updateToggleSlider(airResistanceControl_, settings.air_resistance, true);
-
-    // Update Column 2: Pressure.
-    updateToggleSlider(
-        hydrostaticPressureControl_,
-        settings.pressure_hydrostatic_strength,
-        settings.pressure_hydrostatic_enabled);
-    updateToggleSlider(
-        dynamicPressureControl_,
-        settings.pressure_dynamic_strength,
-        settings.pressure_dynamic_enabled);
-    updateToggleSlider(pressureDiffusionControl_, settings.pressure_diffusion_strength, true);
-    updateToggleSlider(pressureScaleControl_, settings.pressure_scale, true);
-
-    // Update Column 3: Forces.
-    updateToggleSlider(
-        cohesionForceControl_, settings.cohesion_strength, settings.cohesion_enabled);
-    updateToggleSlider(adhesionControl_, settings.adhesion_strength, settings.adhesion_enabled);
-    updateToggleSlider(viscosityControl_, settings.viscosity_strength, settings.viscosity_enabled);
-    updateToggleSlider(frictionControl_, settings.friction_strength, settings.friction_enabled);
-
-    // Update swap toggle.
-    if (swapEnabledControl_) {
-        if (settings.swap_enabled) {
-            lv_obj_add_state(swapEnabledControl_, LV_STATE_CHECKED);
+    // Update all controls from settings.
+    for (auto& control : controls_) {
+        if (control.config.valueGetter && control.config.enableGetter) {
+            double value = control.config.valueGetter(settings);
+            bool enabled = control.config.enableGetter(settings);
+            updateToggleSlider(&control, value, enabled);
         }
-        else {
-            lv_obj_remove_state(swapEnabledControl_, LV_STATE_CHECKED);
+        else if (control.config.enableGetter) {
+            // Switch-only control.
+            bool enabled = control.config.enableGetter(settings);
+            updateToggleSlider(&control, 0.0, enabled);
         }
     }
 
     spdlog::info("PhysicsControls: UI updated from server settings");
-}
-
-// Column 1: General Physics event handlers.
-void PhysicsControls::onTimescaleToggled(lv_event_t* e)
-{
-    lv_obj_t* target = static_cast<lv_obj_t*>(lv_event_get_target(e));
-    PhysicsControls* self = static_cast<PhysicsControls*>(lv_obj_get_user_data(target));
-    if (!self) return;
-
-    bool enabled = lv_obj_has_state(target, LV_STATE_CHECKED);
-    spdlog::info("PhysicsControls: Timescale toggled to {}", enabled ? "ON" : "OFF");
-
-    if (!enabled) {
-        // When disabled, set timescale to 0 to pause simulation time.
-        self->settings_.timescale = 0.0;
-        self->syncSettings();
-    }
-    else {
-        // When re-enabled, LVGLBuilder has restored the slider value.
-        // Read it from the slider and sync to server.
-        // Note: We need to access the slider widget, which is a sibling of the switch.
-        lv_obj_t* container = lv_obj_get_parent(target);
-        if (container) {
-            // Find the slider child (it's the 3rd child: label, switch, slider, value).
-            lv_obj_t* slider = lv_obj_get_child(container, 2);
-            if (slider) {
-                int value = lv_slider_get_value(slider);
-                double scaledValue = value * 0.01;
-                self->settings_.timescale = scaledValue;
-                self->syncSettings();
-                spdlog::debug("PhysicsControls: Restored timescale to {:.2f}", scaledValue);
-            }
-        }
-    }
-}
-
-void PhysicsControls::onTimescaleChanged(lv_event_t* e)
-{
-    lv_obj_t* target = static_cast<lv_obj_t*>(lv_event_get_target(e));
-    PhysicsControls* self = static_cast<PhysicsControls*>(lv_obj_get_user_data(target));
-    if (!self) return;
-
-    int value = lv_slider_get_value(target);
-    double scaledValue = value * 0.01;
-
-    spdlog::info("PhysicsControls: Timescale changed to {:.2f}", scaledValue);
-
-    self->settings_.timescale = scaledValue;
-    self->syncSettings();
-}
-
-void PhysicsControls::onGravityToggled(lv_event_t* e)
-{
-    lv_obj_t* target = static_cast<lv_obj_t*>(lv_event_get_target(e));
-    PhysicsControls* self = static_cast<PhysicsControls*>(lv_obj_get_user_data(target));
-    if (!self) return;
-
-    bool enabled = lv_obj_has_state(target, LV_STATE_CHECKED);
-    spdlog::info("PhysicsControls: Gravity toggled to {}", enabled ? "ON" : "OFF");
-
-    if (!enabled) {
-        // When disabled, set gravity to 0.
-        self->settings_.gravity = 0.0;
-        self->syncSettings();
-    }
-    else {
-        // When re-enabled, LVGLBuilder has restored the slider value.
-        // Read it from the slider and sync to server.
-        lv_obj_t* container = lv_obj_get_parent(target);
-        if (container) {
-            // Find the slider child (it's the 3rd child: label, switch, slider, value).
-            lv_obj_t* slider = lv_obj_get_child(container, 2);
-            if (slider) {
-                int value = lv_slider_get_value(slider);
-                double scaledValue = value * 0.01;
-                self->settings_.gravity = scaledValue;
-                self->syncSettings();
-                spdlog::debug("PhysicsControls: Restored gravity to {:.2f}", scaledValue);
-            }
-        }
-    }
-}
-
-void PhysicsControls::onGravityChanged(lv_event_t* e)
-{
-    lv_obj_t* target = static_cast<lv_obj_t*>(lv_event_get_target(e));
-    PhysicsControls* self = static_cast<PhysicsControls*>(lv_obj_get_user_data(target));
-    if (!self) return;
-
-    int value = lv_slider_get_value(target);
-    double scaledValue = value * 0.01;
-    spdlog::info("PhysicsControls: Gravity changed to {:.2f}", scaledValue);
-    self->settings_.gravity = scaledValue;
-    self->syncSettings();
-}
-
-void PhysicsControls::onElasticityToggled(lv_event_t* e)
-{
-    lv_obj_t* target = static_cast<lv_obj_t*>(lv_event_get_target(e));
-    PhysicsControls* self = static_cast<PhysicsControls*>(lv_obj_get_user_data(target));
-    if (!self) return;
-
-    bool enabled = lv_obj_has_state(target, LV_STATE_CHECKED);
-    spdlog::info("PhysicsControls: Elasticity toggled to {}", enabled ? "ON" : "OFF");
-}
-
-void PhysicsControls::onElasticityChanged(lv_event_t* e)
-{
-    lv_obj_t* target = static_cast<lv_obj_t*>(lv_event_get_target(e));
-    PhysicsControls* self = static_cast<PhysicsControls*>(lv_obj_get_user_data(target));
-    if (!self) return;
-
-    int value = lv_slider_get_value(target);
-    double scaledValue = value * 0.01;
-    spdlog::info("PhysicsControls: Elasticity changed to {:.2f}", scaledValue);
-    self->settings_.elasticity = scaledValue;
-    self->syncSettings();
-}
-
-void PhysicsControls::onAirResistanceToggled(lv_event_t* e)
-{
-    lv_obj_t* target = static_cast<lv_obj_t*>(lv_event_get_target(e));
-    PhysicsControls* self = static_cast<PhysicsControls*>(lv_obj_get_user_data(target));
-    if (!self) return;
-
-    bool enabled = lv_obj_has_state(target, LV_STATE_CHECKED);
-    spdlog::info("PhysicsControls: Air Resistance toggled to {}", enabled ? "ON" : "OFF");
-}
-
-void PhysicsControls::onAirResistanceChanged(lv_event_t* e)
-{
-    lv_obj_t* target = static_cast<lv_obj_t*>(lv_event_get_target(e));
-    PhysicsControls* self = static_cast<PhysicsControls*>(lv_obj_get_user_data(target));
-    if (!self) return;
-
-    int value = lv_slider_get_value(target);
-    double scaledValue = value * 0.01;
-    spdlog::info("PhysicsControls: Air Resistance changed to {:.2f}", scaledValue);
-    self->settings_.air_resistance = scaledValue;
-    self->syncSettings();
-}
-
-void PhysicsControls::onSwapEnabledToggled(lv_event_t* e)
-{
-    spdlog::info("PhysicsControls: onSwapEnabledToggled callback fired");
-
-    PhysicsControls* self = static_cast<PhysicsControls*>(lv_event_get_user_data(e));
-    if (!self) {
-        spdlog::warn("PhysicsControls: onSwapEnabledToggled - self is null!");
-        return;
-    }
-
-    lv_obj_t* target = static_cast<lv_obj_t*>(lv_event_get_target(e));
-    bool enabled = lv_obj_has_state(target, LV_STATE_CHECKED);
-    spdlog::info("PhysicsControls: Enable Swap toggled to {}", enabled ? "ON" : "OFF");
-    self->settings_.swap_enabled = enabled;
-    self->syncSettings();
-}
-
-// Column 2: Pressure event handlers.
-void PhysicsControls::onHydrostaticPressureToggled(lv_event_t* e)
-{
-    lv_obj_t* target = static_cast<lv_obj_t*>(lv_event_get_target(e));
-    PhysicsControls* self = static_cast<PhysicsControls*>(lv_obj_get_user_data(target));
-    if (!self) return;
-
-    bool enabled = lv_obj_has_state(target, LV_STATE_CHECKED);
-    spdlog::info("PhysicsControls: Hydrostatic Pressure toggled to {}", enabled ? "ON" : "OFF");
-
-    if (!enabled) {
-        self->settings_.pressure_hydrostatic_strength = 0.0;
-        self->syncSettings();
-    }
-    else {
-        lv_obj_t* container = lv_obj_get_parent(target);
-        if (container) {
-            lv_obj_t* slider = lv_obj_get_child(container, 2);
-            if (slider) {
-                int value = lv_slider_get_value(slider);
-                double scaledValue = value * 0.01;
-                self->settings_.pressure_hydrostatic_strength = scaledValue;
-                self->syncSettings();
-                spdlog::debug(
-                    "PhysicsControls: Restored hydrostatic pressure to {:.2f}", scaledValue);
-            }
-        }
-    }
-}
-
-void PhysicsControls::onHydrostaticPressureChanged(lv_event_t* e)
-{
-    lv_obj_t* target = static_cast<lv_obj_t*>(lv_event_get_target(e));
-    PhysicsControls* self = static_cast<PhysicsControls*>(lv_obj_get_user_data(target));
-    if (!self) return;
-
-    int value = lv_slider_get_value(target);
-    double scaledValue = value * 0.01;
-    spdlog::info("PhysicsControls: Hydrostatic Pressure changed to {:.2f}", scaledValue);
-    self->settings_.pressure_hydrostatic_strength = scaledValue;
-    self->syncSettings();
-}
-
-void PhysicsControls::onDynamicPressureToggled(lv_event_t* e)
-{
-    lv_obj_t* target = static_cast<lv_obj_t*>(lv_event_get_target(e));
-    PhysicsControls* self = static_cast<PhysicsControls*>(lv_obj_get_user_data(target));
-    if (!self) return;
-
-    bool enabled = lv_obj_has_state(target, LV_STATE_CHECKED);
-    spdlog::info("PhysicsControls: Dynamic Pressure toggled to {}", enabled ? "ON" : "OFF");
-
-    if (!enabled) {
-        self->settings_.pressure_dynamic_strength = 0.0;
-        self->syncSettings();
-    }
-    else {
-        lv_obj_t* container = lv_obj_get_parent(target);
-        if (container) {
-            lv_obj_t* slider = lv_obj_get_child(container, 2);
-            if (slider) {
-                int value = lv_slider_get_value(slider);
-                double scaledValue = value * 0.01;
-                self->settings_.pressure_dynamic_strength = scaledValue;
-                self->syncSettings();
-                spdlog::debug("PhysicsControls: Restored dynamic pressure to {:.2f}", scaledValue);
-            }
-        }
-    }
-}
-
-void PhysicsControls::onDynamicPressureChanged(lv_event_t* e)
-{
-    lv_obj_t* target = static_cast<lv_obj_t*>(lv_event_get_target(e));
-    PhysicsControls* self = static_cast<PhysicsControls*>(lv_obj_get_user_data(target));
-    if (!self) return;
-
-    int value = lv_slider_get_value(target);
-    double scaledValue = value * 0.01;
-    spdlog::info("PhysicsControls: Dynamic Pressure changed to {:.2f}", scaledValue);
-    self->settings_.pressure_dynamic_strength = scaledValue;
-    self->syncSettings();
-}
-
-void PhysicsControls::onPressureDiffusionToggled(lv_event_t* e)
-{
-    lv_obj_t* target = static_cast<lv_obj_t*>(lv_event_get_target(e));
-    PhysicsControls* self = static_cast<PhysicsControls*>(lv_obj_get_user_data(target));
-    if (!self) return;
-
-    bool enabled = lv_obj_has_state(target, LV_STATE_CHECKED);
-    spdlog::info("PhysicsControls: Pressure Diffusion toggled to {}", enabled ? "ON" : "OFF");
-
-    if (!enabled) {
-        self->settings_.pressure_diffusion_strength = 0.0;
-        self->syncSettings();
-    }
-    else {
-        lv_obj_t* container = lv_obj_get_parent(target);
-        if (container) {
-            lv_obj_t* slider = lv_obj_get_child(container, 2);
-            if (slider) {
-                int value = lv_slider_get_value(slider);
-                double scaledValue = value * 0.01;
-                self->settings_.pressure_diffusion_strength = scaledValue;
-                self->syncSettings();
-                spdlog::debug(
-                    "PhysicsControls: Restored pressure diffusion to {:.2f}", scaledValue);
-            }
-        }
-    }
-}
-
-void PhysicsControls::onPressureDiffusionChanged(lv_event_t* e)
-{
-    lv_obj_t* target = static_cast<lv_obj_t*>(lv_event_get_target(e));
-    PhysicsControls* self = static_cast<PhysicsControls*>(lv_obj_get_user_data(target));
-    if (!self) return;
-
-    int value = lv_slider_get_value(target);
-    double scaledValue = value * 0.01;
-    spdlog::info("PhysicsControls: Pressure Diffusion changed to {:.2f}", scaledValue);
-    self->settings_.pressure_diffusion_strength = scaledValue;
-    self->syncSettings();
-}
-
-void PhysicsControls::onPressureScaleToggled(lv_event_t* e)
-{
-    lv_obj_t* target = static_cast<lv_obj_t*>(lv_event_get_target(e));
-    PhysicsControls* self = static_cast<PhysicsControls*>(lv_obj_get_user_data(target));
-    if (!self) return;
-
-    bool enabled = lv_obj_has_state(target, LV_STATE_CHECKED);
-    spdlog::info("PhysicsControls: Pressure Scale toggled to {}", enabled ? "ON" : "OFF");
-
-    if (!enabled) {
-        self->settings_.pressure_scale = 0.0;
-        self->syncSettings();
-    }
-    else {
-        // Restore value from slider when re-enabled.
-        lv_obj_t* container = lv_obj_get_parent(target);
-        if (container) {
-            lv_obj_t* slider = lv_obj_get_child(container, 2);
-            if (slider) {
-                int value = lv_slider_get_value(slider);
-                double scaledValue = value * 0.01;
-                self->settings_.pressure_scale = scaledValue;
-                self->syncSettings();
-                spdlog::debug("PhysicsControls: Restored pressure scale to {:.2f}", scaledValue);
-            }
-        }
-    }
-}
-
-void PhysicsControls::onPressureScaleChanged(lv_event_t* e)
-{
-    lv_obj_t* target = static_cast<lv_obj_t*>(lv_event_get_target(e));
-    PhysicsControls* self = static_cast<PhysicsControls*>(lv_obj_get_user_data(target));
-    if (!self) return;
-
-    int value = lv_slider_get_value(target);
-    double scaledValue = value * 0.01;
-    spdlog::info("PhysicsControls: Pressure Scale changed to {:.2f}", scaledValue);
-    self->settings_.pressure_scale = scaledValue;
-    self->syncSettings();
-}
-
-// Column 3: Forces event handlers.
-void PhysicsControls::onCohesionForceToggled(lv_event_t* e)
-{
-    lv_obj_t* target = static_cast<lv_obj_t*>(lv_event_get_target(e));
-    PhysicsControls* self = static_cast<PhysicsControls*>(lv_obj_get_user_data(target));
-    if (!self) return;
-
-    bool enabled = lv_obj_has_state(target, LV_STATE_CHECKED);
-    spdlog::info("PhysicsControls: Cohesion Force toggled to {}", enabled ? "ON" : "OFF");
-
-    if (!enabled) {
-        self->settings_.cohesion_strength = 0.0;
-        self->syncSettings();
-    }
-    else {
-        // Restore from slider value.
-        lv_obj_t* container = lv_obj_get_parent(target);
-        if (container) {
-            lv_obj_t* slider = lv_obj_get_child(container, 2);
-            if (slider) {
-                int value = lv_slider_get_value(slider);
-                double scaledValue = value * 0.01;
-                self->settings_.cohesion_strength = scaledValue;
-                self->syncSettings();
-            }
-        }
-    }
-}
-
-void PhysicsControls::onCohesionForceChanged(lv_event_t* e)
-{
-    lv_obj_t* target = static_cast<lv_obj_t*>(lv_event_get_target(e));
-    PhysicsControls* self = static_cast<PhysicsControls*>(lv_obj_get_user_data(target));
-    if (!self) return;
-
-    int value = lv_slider_get_value(target);
-    double scaledValue = value * 0.01;
-    spdlog::info("PhysicsControls: Cohesion Force changed to {:.1f}", scaledValue);
-    self->settings_.cohesion_strength = scaledValue;
-    self->syncSettings();
-}
-
-void PhysicsControls::onAdhesionToggled(lv_event_t* e)
-{
-    lv_obj_t* target = static_cast<lv_obj_t*>(lv_event_get_target(e));
-    PhysicsControls* self = static_cast<PhysicsControls*>(lv_obj_get_user_data(target));
-    if (!self) return;
-
-    bool enabled = lv_obj_has_state(target, LV_STATE_CHECKED);
-    spdlog::info("PhysicsControls: Adhesion toggled to {}", enabled ? "ON" : "OFF");
-
-    if (!enabled) {
-        self->settings_.adhesion_strength = 0.0;
-        self->syncSettings();
-    }
-    else {
-        lv_obj_t* container = lv_obj_get_parent(target);
-        if (container) {
-            lv_obj_t* slider = lv_obj_get_child(container, 2);
-            if (slider) {
-                int value = lv_slider_get_value(slider);
-                double scaledValue = value * 0.01;
-                self->settings_.adhesion_strength = scaledValue;
-                self->syncSettings();
-            }
-        }
-    }
-}
-
-void PhysicsControls::onAdhesionChanged(lv_event_t* e)
-{
-    lv_obj_t* target = static_cast<lv_obj_t*>(lv_event_get_target(e));
-    PhysicsControls* self = static_cast<PhysicsControls*>(lv_obj_get_user_data(target));
-    if (!self) return;
-
-    int value = lv_slider_get_value(target);
-    double scaledValue = value * 0.01;
-    spdlog::info("PhysicsControls: Adhesion changed to {:.1f}", scaledValue);
-    self->settings_.adhesion_strength = scaledValue;
-    self->syncSettings();
-}
-
-void PhysicsControls::onViscosityToggled(lv_event_t* e)
-{
-    lv_obj_t* target = static_cast<lv_obj_t*>(lv_event_get_target(e));
-    PhysicsControls* self = static_cast<PhysicsControls*>(lv_obj_get_user_data(target));
-    if (!self) return;
-
-    bool enabled = lv_obj_has_state(target, LV_STATE_CHECKED);
-    spdlog::info("PhysicsControls: Viscosity toggled to {}", enabled ? "ON" : "OFF");
-
-    if (!enabled) {
-        self->settings_.viscosity_strength = 0.0;
-        self->syncSettings();
-    }
-    else {
-        lv_obj_t* container = lv_obj_get_parent(target);
-        if (container) {
-            lv_obj_t* slider = lv_obj_get_child(container, 2);
-            if (slider) {
-                int value = lv_slider_get_value(slider);
-                double scaledValue = value * 0.01;
-                self->settings_.viscosity_strength = scaledValue;
-                self->syncSettings();
-            }
-        }
-    }
-}
-
-void PhysicsControls::onViscosityChanged(lv_event_t* e)
-{
-    lv_obj_t* target = static_cast<lv_obj_t*>(lv_event_get_target(e));
-    PhysicsControls* self = static_cast<PhysicsControls*>(lv_obj_get_user_data(target));
-    if (!self) return;
-
-    int value = lv_slider_get_value(target);
-    double scaledValue = value * 0.01;
-    spdlog::info("PhysicsControls: Viscosity changed to {:.2f}", scaledValue);
-    self->settings_.viscosity_strength = scaledValue;
-    self->syncSettings();
-}
-
-void PhysicsControls::onFrictionToggled(lv_event_t* e)
-{
-    lv_obj_t* target = static_cast<lv_obj_t*>(lv_event_get_target(e));
-    PhysicsControls* self = static_cast<PhysicsControls*>(lv_obj_get_user_data(target));
-    if (!self) return;
-
-    bool enabled = lv_obj_has_state(target, LV_STATE_CHECKED);
-    spdlog::info("PhysicsControls: Friction toggled to {}", enabled ? "ON" : "OFF");
-
-    if (!enabled) {
-        self->settings_.friction_strength = 0.0;
-        self->syncSettings();
-    }
-    else {
-        lv_obj_t* container = lv_obj_get_parent(target);
-        if (container) {
-            lv_obj_t* slider = lv_obj_get_child(container, 2);
-            if (slider) {
-                int value = lv_slider_get_value(slider);
-                double scaledValue = value * 0.01;
-                self->settings_.friction_strength = scaledValue;
-                self->syncSettings();
-            }
-        }
-    }
-}
-
-void PhysicsControls::onFrictionChanged(lv_event_t* e)
-{
-    lv_obj_t* target = static_cast<lv_obj_t*>(lv_event_get_target(e));
-    PhysicsControls* self = static_cast<PhysicsControls*>(lv_obj_get_user_data(target));
-    if (!self) return;
-
-    int value = lv_slider_get_value(target);
-    double scaledValue = value * 0.01;
-
-    spdlog::info("PhysicsControls: Friction changed to {:.2f}", scaledValue);
-
-    self->settings_.friction_strength = scaledValue;
-    self->syncSettings();
 }
 
 void PhysicsControls::fetchSettings()
@@ -817,7 +614,6 @@ void PhysicsControls::fetchSettings()
     wsClient_->sendCommand(cmd);
 
     // Response will be handled by UI state machine and used to update controls.
-    // For now, we just use default values.
 }
 
 void PhysicsControls::syncSettings()
