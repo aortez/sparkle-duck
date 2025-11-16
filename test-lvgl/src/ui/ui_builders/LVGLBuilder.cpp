@@ -952,10 +952,15 @@ Result<lv_obj_t*, std::string> LVGLBuilder::ToggleSliderBuilder::createToggleSli
     lv_obj_set_style_radius(container_, 5, 0);
     lv_obj_clear_flag(container_, LV_OBJ_FLAG_SCROLLABLE);
 
+    // Blue background to match LabeledSwitch theme.
+    lv_obj_set_style_bg_color(container_, lv_color_hex(0x0000FF), 0);
+    lv_obj_set_style_bg_opa(container_, LV_OPA_COVER, 0);
+
     // Create label (top left).
     label_ = lv_label_create(container_);
     lv_label_set_text(label_, label_text_.c_str());
     lv_obj_align(label_, LV_ALIGN_TOP_LEFT, 0, 0);
+    lv_obj_set_style_text_color(label_, lv_color_hex(0xFFFFFF), 0); // White text.
 
     // Create switch (top right).
     switch_ = lv_switch_create(container_);
@@ -992,6 +997,7 @@ Result<lv_obj_t*, std::string> LVGLBuilder::ToggleSliderBuilder::createToggleSli
     lv_label_set_text(valueLabel_, buf);
     lv_obj_align_to(valueLabel_, slider_, LV_ALIGN_OUT_TOP_MID, 0, -5);
     lv_obj_set_style_text_font(valueLabel_, &lv_font_montserrat_12, 0);
+    lv_obj_set_style_text_color(valueLabel_, lv_color_hex(0xFFFFFF), 0); // White text.
 
     // Create persistent state for callbacks.
     ToggleSliderState* state =
