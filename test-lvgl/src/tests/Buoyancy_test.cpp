@@ -29,9 +29,10 @@ protected:
         // Create minimal 1D world for testing (1 cell wide, 5 cells tall).
         world = std::make_unique<World>(1, 5);
 
-        // Use sandbox default physics settings for realistic testing.
+        // Use full-strength hydrostatic pressure for buoyancy testing.
         world->physicsSettings.pressure_hydrostatic_enabled = true;
-        world->physicsSettings.pressure_hydrostatic_strength = 0.3; // Sandbox default.
+        world->physicsSettings.pressure_hydrostatic_strength =
+            1.0; // Full strength for proper buoyancy.
 
         // Enable material swapping for buoyancy.
         world->physicsSettings.swap_enabled = true;
@@ -254,13 +255,13 @@ TEST_F(BuoyancyTest, NetForceCalculation)
 
         // Gravity force (downward, positive y).
         const MaterialProperties& metal_props = getMaterialProperties(MaterialType::METAL);
-        double gravity_magnitude = 1.0; // From setup.
+        double gravity_magnitude = world->physicsSettings.gravity;
         Vector2d gravity_force(0.0, metal_props.density * gravity_magnitude);
 
         // Pressure force (gradient points from high to low pressure).
-        // In World.cpp:459, pressure_force = gradient * pressure_scale
-        double pressure_scale = 1.0; // Default from PhysicsSettings
-        Vector2d pressure_force = pressure_gradient * pressure_scale;
+        double pressure_scale = world->physicsSettings.pressure_scale;
+        double hydrostatic_weight = metal_props.hydrostatic_weight;
+        Vector2d pressure_force = pressure_gradient * pressure_scale * hydrostatic_weight;
 
         // Net force.
         Vector2d net_force = gravity_force + pressure_force;
@@ -296,12 +297,13 @@ TEST_F(BuoyancyTest, NetForceCalculation)
 
         // Gravity force (downward, positive y).
         const MaterialProperties& wood_props = getMaterialProperties(MaterialType::WOOD);
-        double gravity_magnitude = 1.0;
+        double gravity_magnitude = world->physicsSettings.gravity;
         Vector2d gravity_force(0.0, wood_props.density * gravity_magnitude);
 
         // Pressure force (gradient points from high to low pressure).
-        double pressure_scale = 1.0;
-        Vector2d pressure_force = pressure_gradient * pressure_scale;
+        double pressure_scale = world->physicsSettings.pressure_scale;
+        double hydrostatic_weight = wood_props.hydrostatic_weight;
+        Vector2d pressure_force = pressure_gradient * pressure_scale * hydrostatic_weight;
 
         // Net force.
         Vector2d net_force = gravity_force + pressure_force;
@@ -433,6 +435,217 @@ TEST_F(BuoyancyTest, WoodDevelopsUpwardVelocity)
     EXPECT_LT(final_wood_y, initial_wood_y) << "Wood should rise upward through water";
     EXPECT_GE(swap_count, 1) << "Wood should swap at least once to demonstrate buoyancy";
 }
+
+// =============================================================================
+// PARAMETERIZED BUOYANCY TESTS
+// =============================================================================
+
+/**
+ * @brief Test parameters for material buoyancy behavior.
+ */
+struct BuoyancyMaterialParams {
+    MaterialType material;
+
+    enum class ExpectedBehavior { RISE, SINK, LEVEL };
+    ExpectedBehavior expected_behavior;
+
+    int max_steps_to_endpoint; // Max timesteps to reach top (y=0) or bottom (y=4).
+
+    std::string description;
+};
+
+/**
+ * @brief Parameterized test fixture for testing multiple materials.
+ */
+class ParameterizedBuoyancyTest : public ::testing::TestWithParam<BuoyancyMaterialParams> {
+protected:
+    void SetUp() override
+    {
+        spdlog::set_level(spdlog::level::info);
+
+        // Create 1x5 world for testing.
+        world = std::make_unique<World>(1, 5);
+
+        // Full-strength hydrostatic pressure for buoyancy.
+        world->physicsSettings.pressure_hydrostatic_enabled = true;
+        world->physicsSettings.pressure_hydrostatic_strength = 1.0;
+        world->physicsSettings.swap_enabled = true;
+        world->physicsSettings.gravity = 9.81;
+    }
+
+    void TearDown() override { world.reset(); }
+
+    void setupMaterialInWater(MaterialType material)
+    {
+        // Fill entire column with water.
+        for (int y = 0; y < 5; ++y) {
+            world->addMaterialAtCell(0, y, MaterialType::WATER, 1.0);
+        }
+
+        // Place test material in middle (y=2).
+        world->at(0, 2).replaceMaterial(material, 1.0);
+
+        // Pre-position COM for faster testing.
+        if (GetParam().expected_behavior == BuoyancyMaterialParams::ExpectedBehavior::RISE) {
+            world->at(0, 2).setCOM(Vector2d(0.0, -0.7)); // Near top boundary.
+        }
+        else if (GetParam().expected_behavior == BuoyancyMaterialParams::ExpectedBehavior::SINK) {
+            world->at(0, 2).setCOM(Vector2d(0.0, 0.7)); // Near bottom boundary.
+        }
+    }
+
+    std::unique_ptr<World> world;
+};
+
+/**
+ * @brief Parameterized test: Material buoyancy in water column.
+ *
+ * Tests that materials with different densities behave correctly:
+ * - Lighter materials (wood, leaf) rise to surface (y=0)
+ * - Heavier materials (dirt, metal) sink to bottom (y=4)
+ * - Neutral materials stay level (if any)
+ */
+TEST_P(ParameterizedBuoyancyTest, MaterialBuoyancyBehavior)
+{
+    const auto& params = GetParam();
+    const int START_Y = 2; // Middle of 1x5 world.
+
+    std::string behavior_str =
+        (params.expected_behavior == BuoyancyMaterialParams::ExpectedBehavior::RISE)   ? "RISE"
+        : (params.expected_behavior == BuoyancyMaterialParams::ExpectedBehavior::SINK) ? "SINK"
+                                                                                       : "LEVEL";
+
+    spdlog::info("===== Testing {} - Expected: {} =====", params.description, behavior_str);
+
+    // Setup material in water column.
+    setupMaterialInWater(params.material);
+
+    // Run simulation.
+    const double deltaTime = 0.016; // 60 FPS.
+    int final_y = START_Y;
+    int steps_taken = 0;
+    int swap_count = 0;
+
+    for (int step = 0; step < params.max_steps_to_endpoint; ++step) {
+        // Track position before step.
+        int current_y = -1;
+        for (int y = 0; y < 5; ++y) {
+            if (world->at(0, y).material_type == params.material) {
+                current_y = y;
+                break;
+            }
+        }
+
+        // Log every 50 steps.
+        if (step % 50 == 0 && current_y >= 0) {
+            const Cell& cell = world->at(0, current_y);
+            spdlog::info(
+                "  Step {}: {} at y={}, vel=({:.3f},{:.3f}), com=({:.3f},{:.3f})",
+                step,
+                getMaterialName(params.material),
+                current_y,
+                cell.velocity.x,
+                cell.velocity.y,
+                cell.com.x,
+                cell.com.y);
+        }
+
+        world->advanceTime(deltaTime);
+        steps_taken++;
+
+        // Track position after step.
+        int new_y = -1;
+        for (int y = 0; y < 5; ++y) {
+            if (world->at(0, y).material_type == params.material) {
+                new_y = y;
+                break;
+            }
+        }
+
+        // Track swaps.
+        if (new_y != current_y && new_y >= 0) {
+            swap_count++;
+            spdlog::info(
+                "  SWAP #{} at step {}: {} moved y={} -> y={}",
+                swap_count,
+                step,
+                getMaterialName(params.material),
+                current_y,
+                new_y);
+            final_y = new_y;
+        }
+
+        // Check if reached endpoint.
+        bool reached_endpoint = false;
+        if (params.expected_behavior == BuoyancyMaterialParams::ExpectedBehavior::RISE
+            && final_y == 0) {
+            reached_endpoint = true; // Reached top.
+        }
+        else if (
+            params.expected_behavior == BuoyancyMaterialParams::ExpectedBehavior::SINK
+            && final_y == 4) {
+            reached_endpoint = true; // Reached bottom.
+        }
+
+        if (reached_endpoint) {
+            spdlog::info("  SUCCESS: Reached endpoint in {} steps!", steps_taken);
+            break;
+        }
+    }
+
+    // Final results.
+    spdlog::info(
+        "Final: {} at y={} (started at y={}) after {} steps, {} swaps",
+        getMaterialName(params.material),
+        final_y,
+        START_Y,
+        steps_taken,
+        swap_count);
+
+    // Verify behavior.
+    switch (params.expected_behavior) {
+        case BuoyancyMaterialParams::ExpectedBehavior::RISE:
+            EXPECT_EQ(final_y, 0) << params.description << " should rise to top (y=0) within "
+                                  << params.max_steps_to_endpoint << " steps";
+            break;
+        case BuoyancyMaterialParams::ExpectedBehavior::SINK:
+            EXPECT_EQ(final_y, 4) << params.description << " should sink to bottom (y=4) within "
+                                  << params.max_steps_to_endpoint << " steps";
+            break;
+        case BuoyancyMaterialParams::ExpectedBehavior::LEVEL:
+            EXPECT_EQ(final_y, START_Y) << params.description << " should stay at y=" << START_Y;
+            break;
+    }
+
+    EXPECT_LE(steps_taken, params.max_steps_to_endpoint)
+        << params.description << " took too long to reach endpoint";
+}
+
+// Test parameters for different materials.
+// IMPORTANT: WOOD first to ensure it passes (known working case).
+INSTANTIATE_TEST_SUITE_P(
+    Materials,
+    ParameterizedBuoyancyTest,
+    ::testing::Values(
+        BuoyancyMaterialParams{ .material = MaterialType::WOOD,
+                                .expected_behavior = BuoyancyMaterialParams::ExpectedBehavior::RISE,
+                                .max_steps_to_endpoint = 100,
+                                .description = "Wood (density 0.8)" },
+
+        BuoyancyMaterialParams{ .material = MaterialType::DIRT,
+                                .expected_behavior = BuoyancyMaterialParams::ExpectedBehavior::SINK,
+                                .max_steps_to_endpoint = 200,
+                                .description = "Dirt (density 1.5)" },
+
+        BuoyancyMaterialParams{ .material = MaterialType::METAL,
+                                .expected_behavior = BuoyancyMaterialParams::ExpectedBehavior::SINK,
+                                .max_steps_to_endpoint = 150,
+                                .description = "Metal (density 7.8)" },
+
+        BuoyancyMaterialParams{ .material = MaterialType::LEAF,
+                                .expected_behavior = BuoyancyMaterialParams::ExpectedBehavior::RISE,
+                                .max_steps_to_endpoint = 500,
+                                .description = "Leaf (density 0.3)" }));
 
 /**
  * @brief Test 2.2: Metal Develops Downward Velocity.
