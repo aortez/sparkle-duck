@@ -800,7 +800,6 @@ static void toggleSliderSwitchCallback(lv_event_t* e)
         // Toggle ON: Restore saved value (or use default).
         int valueToRestore = (state->savedValue > 0) ? state->savedValue : state->defaultValue;
         lv_slider_set_value(state->slider, valueToRestore, LV_ANIM_OFF);
-        lv_obj_clear_state(state->slider, LV_STATE_DISABLED);
 
         // Restore blue color.
         lv_obj_set_style_bg_color(
@@ -814,16 +813,16 @@ static void toggleSliderSwitchCallback(lv_event_t* e)
         lv_label_set_text(state->valueLabel, buf);
     }
     else {
-        // Toggle OFF: Save current value, set to 0, disable slider.
+        // Toggle OFF: Save current value, set to 0, gray out slider.
+        // Note: Slider stays interactive for auto-enable feature.
         int currentValue = lv_slider_get_value(state->slider);
         if (currentValue > 0) {
             state->savedValue = currentValue;
         }
 
         lv_slider_set_value(state->slider, 0, LV_ANIM_OFF);
-        lv_obj_add_state(state->slider, LV_STATE_DISABLED);
 
-        // Grey color when disabled.
+        // Grey color when disabled (visual feedback only, still interactive).
         lv_obj_set_style_bg_color(state->slider, lv_color_hex(0x808080), LV_PART_INDICATOR);
         lv_obj_set_style_bg_color(state->slider, lv_color_hex(0x808080), LV_PART_KNOB);
 
@@ -858,6 +857,24 @@ static void toggleSliderValueCallback(lv_event_t* e)
     // Call user callback if provided.
     if (state->sliderCallback) {
         state->sliderCallback(e);
+    }
+}
+
+static void toggleSliderAutoEnableCallback(lv_event_t* e)
+{
+    if (lv_event_get_code(e) != LV_EVENT_PRESSED) return;
+
+    ToggleSliderState* state = static_cast<ToggleSliderState*>(lv_event_get_user_data(e));
+    if (!state) return;
+
+    // Check if toggle is currently disabled.
+    bool isEnabled = lv_obj_has_state(state->switch_obj, LV_STATE_CHECKED);
+    if (!isEnabled) {
+        // Auto-enable the toggle when user grabs disabled slider.
+        lv_obj_add_state(state->switch_obj, LV_STATE_CHECKED);
+
+        // Trigger the switch callback to restore value, enable slider, update colors, etc.
+        lv_obj_send_event(state->switch_obj, LV_EVENT_VALUE_CHANGED, nullptr);
     }
 }
 
@@ -978,9 +995,8 @@ Result<lv_obj_t*, std::string> LVGLBuilder::ToggleSliderBuilder::createToggleSli
     lv_slider_set_range(slider_, range_min_, range_max_);
     lv_slider_set_value(slider_, initially_enabled_ ? initial_value_ : 0, LV_ANIM_OFF);
 
-    // Set initial color and state.
+    // Set initial color (slider always interactive for auto-enable).
     if (!initially_enabled_) {
-        lv_obj_add_state(slider_, LV_STATE_DISABLED);
         lv_obj_set_style_bg_color(slider_, lv_color_hex(0x808080), LV_PART_INDICATOR);
         lv_obj_set_style_bg_color(slider_, lv_color_hex(0x808080), LV_PART_KNOB);
     }
@@ -1017,6 +1033,7 @@ Result<lv_obj_t*, std::string> LVGLBuilder::ToggleSliderBuilder::createToggleSli
     // Set up callbacks.
     lv_obj_add_event_cb(switch_, toggleSliderSwitchCallback, LV_EVENT_VALUE_CHANGED, state);
     lv_obj_add_event_cb(slider_, toggleSliderValueCallback, LV_EVENT_VALUE_CHANGED, state);
+    lv_obj_add_event_cb(slider_, toggleSliderAutoEnableCallback, LV_EVENT_PRESSED, state);
 
     // Cleanup callback to free state.
     lv_obj_add_event_cb(container_, toggleSliderDeleteCallback, LV_EVENT_DELETE, state);
