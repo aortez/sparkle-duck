@@ -765,7 +765,12 @@ bool WorldCollisionCalculator::shouldSwapMaterials(
 
     // Density must support buoyancy direction.
     if (!densitySupportsSwap(fromCell, toCell, direction)) {
-        spdlog::debug(
+        auto log_level = (fromCell.material_type == MaterialType::WOOD
+                          || toCell.material_type == MaterialType::WOOD)
+            ? spdlog::level::info
+            : spdlog::level::debug;
+        spdlog::log(
+            log_level,
             "Swap denied: density doesn't support ({}->{}, from_dens={}, to_dens={}, dir.y={})",
             getMaterialName(fromCell.material_type),
             getMaterialName(toCell.material_type),
@@ -775,27 +780,85 @@ bool WorldCollisionCalculator::shouldSwapMaterials(
         return false;
     }
 
-    // Calculate swap cost: energy to accelerate target cell's contents to 1 cell/second.
+    // Calculate swap cost based on displaced mass and COM displacement distance.
     const double target_mass = toCell.getEffectiveDensity() * toCell.fill_ratio;
-    const double SWAP_COST_SCALAR = 1;
-    const double swap_cost =
-        SWAP_COST_SCALAR * 0.5 * target_mass * 1.0; // KE = 0.5 * m * v^2, v = 1.0
+
+    // Calculate how far target's COM must be displaced.
+    // Target needs to cross the boundary in the direction of displacement.
+    double distance_to_boundary;
+    if (direction.y > 0) {
+        // Downward move: target displaces UP, crosses top boundary (-1.0).
+        distance_to_boundary = std::abs(-1.0 - toCell.com.y);
+    }
+    else {
+        // Upward move: target displaces DOWN, crosses bottom boundary (+1.0).
+        distance_to_boundary = std::abs(1.0 - toCell.com.y);
+    }
+
+    // Total displacement: to boundary + settling distance in new cell.
+    const double settling_distance = 0.5; // Assume settles toward center of new cell.
+    const double displacement_distance = distance_to_boundary + settling_distance;
+
+    // Swap cost = work to displace mass over distance.
+    const double k = 1.0; // Tuning constant for cost scaling.
+    double swap_cost = k * target_mass * displacement_distance;
+
+    // Counter-movement bonus: use kinetic energy from relative motion.
+    // If materials moving toward each other, their relative motion energy helps overcome swap
+    // barrier.
+    Vector2d relative_velocity = fromCell.velocity - toCell.velocity;
+    Vector2d direction_vec(direction.x, direction.y);
+    double relative_speed_in_direction = relative_velocity.dot(direction_vec);
+
+    if (relative_speed_in_direction > 0.1) {
+        // Calculate kinetic energy from directed relative motion.
+        // This energy is already in the system from their approach.
+        double counter_movement_energy =
+            0.5 * target_mass * relative_speed_in_direction * relative_speed_in_direction;
+
+        double original_cost = swap_cost;
+        swap_cost -= counter_movement_energy; // Subtract energy (same units as cost).
+        swap_cost = std::max(0.0, swap_cost); // Can't go negative.
+
+        spdlog::info(
+            "Counter-movement bonus: rel_vel={:.3f}, energy={:.3f}, cost {:.3f} -> {:.3f}",
+            relative_speed_in_direction,
+            counter_movement_energy,
+            original_cost,
+            swap_cost);
+    }
 
     // Energy gate: collision energy must exceed swap cost.
     const double available_energy = move.collision_energy;
 
     if (available_energy < swap_cost) {
-        spdlog::debug(
-            "Swap denied: insufficient energy ({:.3f} < {:.3f})", available_energy, swap_cost);
+        auto log_level = (fromCell.material_type == MaterialType::WOOD
+                          || toCell.material_type == MaterialType::WOOD)
+            ? spdlog::level::info
+            : spdlog::level::debug;
+        spdlog::log(
+            log_level,
+            "Swap denied: insufficient energy ({}->{}, E={:.3f} < cost={:.3f}, "
+            "mass={:.2f}, dist_to_boundary={:.2f}, total_dist={:.2f})",
+            getMaterialName(fromCell.material_type),
+            getMaterialName(toCell.material_type),
+            available_energy,
+            swap_cost,
+            target_mass,
+            distance_to_boundary,
+            displacement_distance);
         return false;
     }
 
     spdlog::info(
-        "Swap approved: {} -> {} | Energy: {:.3f} >= {:.3f} | Dir: {}",
+        "Swap approved: {} -> {} | Energy: {:.3f} >= cost: {:.3f} | "
+        "Displacement: {:.2f} (to_boundary={:.2f}) | Dir: {}",
         getMaterialName(fromCell.material_type),
         getMaterialName(toCell.material_type),
         available_energy,
         swap_cost,
+        displacement_distance,
+        distance_to_boundary,
         direction.y > 0 ? "DOWN" : "UP");
 
     return true;
@@ -811,9 +874,32 @@ void WorldCollisionCalculator::swapCounterMovingMaterials(
         direction.x,
         direction.y);
 
-    // Calculate swap cost.
+    // Calculate swap cost (same as in shouldSwapMaterials).
     const double target_mass = toCell.getEffectiveDensity() * toCell.fill_ratio;
-    const double swap_cost = 0.5 * target_mass * 1.0;
+
+    // Calculate displacement distance for target material.
+    double distance_to_boundary;
+    if (direction.y > 0) {
+        distance_to_boundary = std::abs(-1.0 - toCell.com.y);
+    }
+    else {
+        distance_to_boundary = std::abs(1.0 - toCell.com.y);
+    }
+    const double displacement_distance = distance_to_boundary + 0.5;
+    const double k = 0.5; // Tuning constant (must match shouldSwapMaterials).
+    double swap_cost = k * target_mass * displacement_distance;
+
+    // Counter-movement bonus (must match shouldSwapMaterials).
+    Vector2d relative_velocity = fromCell.velocity - toCell.velocity;
+    Vector2d direction_vec(direction.x, direction.y);
+    double relative_speed_in_direction = relative_velocity.dot(direction_vec);
+
+    if (relative_speed_in_direction > 0.1) {
+        double counter_movement_energy =
+            0.5 * target_mass * relative_speed_in_direction * relative_speed_in_direction;
+        swap_cost -= counter_movement_energy;
+        swap_cost = std::max(0.0, swap_cost);
+    }
 
     // Calculate remaining energy after swap.
     const double remaining_energy = std::max(0.0, move.collision_energy - swap_cost);
@@ -821,16 +907,26 @@ void WorldCollisionCalculator::swapCounterMovingMaterials(
     // Get mass of moving material (fromCell -> toCell).
     const double moving_mass = fromCell.getEffectiveDensity() * fromCell.fill_ratio;
 
-    // Calculate new velocity magnitude for moving material after energy deduction.
+    // Calculate new velocity for moving material after energy deduction.
     double velocity_magnitude_new = 0.0;
     if (moving_mass > 1e-6 && remaining_energy > 0.0) {
         velocity_magnitude_new = std::sqrt(2.0 * remaining_energy / moving_mass);
     }
 
-    // Preserve velocity direction, but reduce magnitude.
     Vector2d velocity_direction =
         move.momentum.magnitude() > 1e-6 ? move.momentum.normalize() : Vector2d(0.0, 0.0);
-    Vector2d new_velocity = velocity_direction * velocity_magnitude_new;
+    Vector2d moving_velocity_new = velocity_direction * velocity_magnitude_new;
+
+    // Calculate velocity for displaced material from swap cost energy.
+    // Displaced material gains velocity in the OPPOSITE direction of the move.
+    double displaced_velocity_magnitude = 0.0;
+    if (target_mass > 1e-6 && swap_cost > 0.0) {
+        displaced_velocity_magnitude = std::sqrt(2.0 * swap_cost / target_mass);
+    }
+
+    // Displacement direction is opposite of move direction.
+    Vector2d displacement_direction = Vector2d(-direction.x, -direction.y);
+    Vector2d displaced_velocity_new = displacement_direction * displaced_velocity_magnitude;
 
     // Swap material types and fill ratios (conserve mass).
     MaterialType temp_type = fromCell.material_type;
@@ -850,20 +946,24 @@ void WorldCollisionCalculator::swapCounterMovingMaterials(
     Vector2d landing_com =
         fromCell.calculateTrajectoryLanding(fromCell.com, move.momentum, move.boundary_normal);
     toCell.setCOM(landing_com);
-    toCell.velocity = new_velocity;
+    toCell.velocity = moving_velocity_new;
 
-    // Displaced material (now in fromCell) placed at center with zero velocity.
-    fromCell.setCOM(Vector2d(0.0, 0.0));
-    fromCell.velocity = Vector2d(0.0, 0.0);
+    // Displaced material (now in fromCell) gains velocity from swap cost energy.
+    // Direction is opposite of the move (if moving down, displaced material goes up).
+    fromCell.setCOM(Vector2d(0.0, 0.0)); // Center initially.
+    fromCell.velocity = displaced_velocity_new;
 
     spdlog::info(
-        "SWAP complete: {} | Energy: {:.3f} - {:.3f} = {:.3f} | Vel: {:.3f} -> {:.3f}",
+        "SWAP complete: {} (moving) vel {:.3f} -> {:.3f} | {} (displaced) vel 0.0 -> {:.3f} | "
+        "Energy: {:.3f} - {:.3f} = {:.3f}",
         getMaterialName(temp_type),
+        move.momentum.magnitude(),
+        moving_velocity_new.magnitude(),
+        getMaterialName(fromCell.material_type),
+        displaced_velocity_new.magnitude(),
         move.collision_energy,
         swap_cost,
-        remaining_energy,
-        move.momentum.magnitude(),
-        velocity_magnitude_new);
+        remaining_energy);
 }
 
 // =================================================================

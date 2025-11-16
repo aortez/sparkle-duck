@@ -78,6 +78,44 @@ WorldViscosityCalculator::ViscousForce WorldViscosityCalculator::calculateViscou
                              .neighbor_count = 0 };
     }
 
+    // Count same-material neighbors first.
+    int neighbor_count = 0;
+    for (int dy = -1; dy <= 1; ++dy) {
+        for (int dx = -1; dx <= 1; ++dx) {
+            if (dx == 0 && dy == 0) continue;
+            int nx = static_cast<int>(x) + dx;
+            int ny = static_cast<int>(y) + dy;
+            if (nx >= 0 && ny >= 0 && nx < static_cast<int>(world.data.width)
+                && ny < static_cast<int>(world.data.height)) {
+                const Cell& neighbor = world.at(nx, ny);
+                if (neighbor.material_type == cell.material_type && !neighbor.isEmpty()) {
+                    neighbor_count++;
+                }
+            }
+        }
+    }
+
+    // If no same-material neighbors, no viscous coupling.
+    // Viscosity only transfers momentum between same-material particles.
+    if (neighbor_count == 0) {
+        spdlog::info(
+            "Viscosity SKIP: {} at ({},{}) has no same-material neighbors, zero viscous force",
+            getMaterialName(cell.material_type),
+            x,
+            y);
+        return ViscousForce{ .force = { 0.0, 0.0 },
+                             .neighbor_avg_speed = 0.0,
+                             .neighbor_count = 0 };
+    }
+    else {
+        spdlog::debug(
+            "Viscosity: {} at ({},{}) has {} same-material neighbors",
+            getMaterialName(cell.material_type),
+            x,
+            y,
+            neighbor_count);
+    }
+
     // Calculate weighted average velocity of same-material neighbors.
     Vector2d avg_neighbor_velocity =
         calculateNeighborVelocityAverage(world, x, y, cell.material_type);
@@ -116,7 +154,7 @@ WorldViscosityCalculator::ViscousForce WorldViscosityCalculator::calculateViscou
 
     // Debug info.
     double neighbor_avg_speed = avg_neighbor_velocity.magnitude();
-    int neighbor_count = 0; // TODO: Track actual count if needed for debugging.
+    // Note: neighbor_count already calculated above.
 
     return ViscousForce{ .force = viscous_force,
                          .neighbor_avg_speed = neighbor_avg_speed,
