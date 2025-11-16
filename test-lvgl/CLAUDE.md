@@ -309,6 +309,8 @@ Can be found here:
 - Performance testing and optimization
 
 Awesome Ideas to do soon:
+- Cohesion seems to reach from C N N+1 and not just from C to N - cells get stuck in space sometimes because of this, what's going on?
+- Swapping behavior - vertical only or also horizontal???
 - WorldEventGenerator methods should be moved into the Scenarios.
 - Add label for Fractal showing which event type it was currently running.
 - Add button to StartMenu to generate the next fractal.
@@ -321,6 +323,8 @@ It could affect how other things move/displace in interesting/subtle ways.
 - Audit GridMechanics for correctness/relevance.  It might be getting out of date.
 - Refactor PhysicsControls to normalize/DRY up the patterns? (and prevent bugs/share enhancements)
 - Implement fragmentation on high energy impacts (see WorldCollisionCalculator).
+- Fractal world generator?  Or Start from fractal?
+- mass as a gravity source!  allan.pizza but in a grid!!!
 
 ### Client/Server Architecture (DSSM + UI Client)
 - ✅ Headless server with WebSocket API
