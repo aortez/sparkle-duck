@@ -1,5 +1,6 @@
 #include "WorldCollisionCalculator.h"
 #include "Cell.h"
+#include "LoggingChannels.h"
 #include "MaterialMove.h"
 #include "World.h"
 #include "WorldCohesionCalculator.h"
@@ -753,19 +754,19 @@ bool WorldCollisionCalculator::shouldSwapMaterials(
 {
     // Only vertical swaps for now (buoyancy is primarily vertical).
     if (direction.y == 0) {
-        spdlog::debug("Swap denied: horizontal direction");
+        LoggingChannels::swap()->debug("Swap denied: horizontal direction");
         return false;
     }
 
     // Don't swap same materials.
     if (fromCell.material_type == toCell.material_type) {
-        spdlog::debug("Swap denied: same material type");
+        LoggingChannels::swap()->debug("Swap denied: same material type");
         return false;
     }
 
     // Density must support buoyancy direction.
     if (!densitySupportsSwap(fromCell, toCell, direction)) {
-        spdlog::debug(
+        LoggingChannels::swap()->debug(
             "Swap denied: density doesn't support ({}->{}, from_dens={}, to_dens={}, dir.y={})",
             getMaterialName(fromCell.material_type),
             getMaterialName(toCell.material_type),
@@ -776,7 +777,8 @@ bool WorldCollisionCalculator::shouldSwapMaterials(
     }
 
     // Calculate swap cost: energy to accelerate target cell's contents to 1 cell/second.
-    const double target_mass = toCell.getEffectiveDensity() * toCell.fill_ratio;
+    // Note: getEffectiveDensity() already includes fill_ratio, so don't multiply again.
+    const double target_mass = toCell.getEffectiveDensity();
     const double SWAP_COST_SCALAR = 1;
     const double swap_cost =
         SWAP_COST_SCALAR * 0.5 * target_mass * 1.0; // KE = 0.5 * m * v^2, v = 1.0
@@ -785,12 +787,12 @@ bool WorldCollisionCalculator::shouldSwapMaterials(
     const double available_energy = move.collision_energy;
 
     if (available_energy < swap_cost) {
-        spdlog::debug(
+        LoggingChannels::swap()->debug(
             "Swap denied: insufficient energy ({:.3f} < {:.3f})", available_energy, swap_cost);
         return false;
     }
 
-    spdlog::info(
+    LoggingChannels::swap()->info(
         "Swap approved: {} -> {} | Energy: {:.3f} >= {:.3f} | Dir: {}",
         getMaterialName(fromCell.material_type),
         getMaterialName(toCell.material_type),
@@ -804,7 +806,7 @@ bool WorldCollisionCalculator::shouldSwapMaterials(
 void WorldCollisionCalculator::swapCounterMovingMaterials(
     Cell& fromCell, Cell& toCell, const Vector2i& direction, const MaterialMove& move)
 {
-    spdlog::info(
+    LoggingChannels::swap()->info(
         "SWAP: {} <-> {} (direction: {},{})",
         getMaterialName(fromCell.material_type),
         getMaterialName(toCell.material_type),
@@ -812,14 +814,15 @@ void WorldCollisionCalculator::swapCounterMovingMaterials(
         direction.y);
 
     // Calculate swap cost.
-    const double target_mass = toCell.getEffectiveDensity() * toCell.fill_ratio;
+    // Note: getEffectiveDensity() already includes fill_ratio, so don't multiply again.
+    const double target_mass = toCell.getEffectiveDensity();
     const double swap_cost = 0.5 * target_mass * 1.0;
 
     // Calculate remaining energy after swap.
     const double remaining_energy = std::max(0.0, move.collision_energy - swap_cost);
 
     // Get mass of moving material (fromCell -> toCell).
-    const double moving_mass = fromCell.getEffectiveDensity() * fromCell.fill_ratio;
+    const double moving_mass = fromCell.getEffectiveDensity();
 
     // Calculate new velocity magnitude for moving material after energy deduction.
     double velocity_magnitude_new = 0.0;
