@@ -253,7 +253,7 @@ void Cell::limitVelocity(
     if (speed > damping_threshold_per_timestep) {
         Vector2d old_velocity = velocity;
         velocity = velocity * (1.0 - damping_factor_per_timestep);
-        spdlog::info(
+        spdlog::debug(
             "{} velocity damped: {:.3f} -> {:.3f} (above threshold {:.1f})",
             getMaterialName(material_type),
             old_velocity.magnitude(),

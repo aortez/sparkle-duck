@@ -37,6 +37,8 @@ int main(int argc, char** argv)
         "Set log level (trace, debug, info, warn, error, critical, off)",
         { 'l', "log-level" },
         "info");
+    args::Flag printStats(
+        parser, "print-stats", "Print timer statistics on exit", { "print-stats" });
 
     try {
         parser.ParseCLI(argc, argv);
@@ -123,6 +125,12 @@ int main(int argc, char** argv)
     // Cleanup.
     server.stop();
     spdlog::info("Server shut down cleanly");
+
+    // Print timer statistics if requested.
+    if (printStats) {
+        std::cout << "\n=== Server Timer Statistics ===" << std::endl;
+        stateMachine->getTimers().dumpTimerStats();
+    }
 
     return 0;
 }

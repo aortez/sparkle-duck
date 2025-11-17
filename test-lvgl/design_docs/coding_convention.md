@@ -44,7 +44,7 @@ thus placing things in similar domains adjacent.
 ## Misc
 - Exit early to reduce scope. It makes things easier to understand, due to less nesting and shorter variable lifespans.
 - Use RAII to manage cleanup.
-- Use const for immutable data. Default to const and only change it if you find it needs to be modified.
+- Use const for immutable data. Default to const.  Remove it if it needs to be changed.
 - Prefer alphabetical ordering, unless there is a clear reason not to.
 - Point out opportunities to refactor.
 - It is ok to have public data members. Make them private only if needed.

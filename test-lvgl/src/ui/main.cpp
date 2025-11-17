@@ -92,6 +92,8 @@ int main(int argc, char** argv)
         "server",
         "Auto-connect to DSSM server (format: host:port, e.g. localhost:8080)",
         { 'c', "connect" });
+    args::Flag printStats(
+        parser, "print-stats", "Print timer statistics on exit", { "print-stats" });
 
     // Default values from environment if set.
     settings.window_width = atoi(getenv("LV_SIM_WINDOW_WIDTH") ?: "1200");
@@ -252,6 +254,12 @@ int main(int argc, char** argv)
 
     spdlog::info("Backend run loop exited");
     spdlog::info("Application shutting down cleanly");
+
+    // Print timer statistics if requested.
+    if (printStats) {
+        std::cout << "\n=== UI Timer Statistics ===" << std::endl;
+        stateMachine->getTimers().dumpTimerStats();
+    }
 
     return 0;
 }
