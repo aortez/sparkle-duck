@@ -116,6 +116,9 @@ Result<ApiCommand, ApiError> CommandDeserializerJson::deserialize(const std::str
         else if (commandName == "state_get") {
             return Result<ApiCommand, ApiError>::okay(Api::StateGet::Command::fromJson(cmd));
         }
+        else if (commandName == "status_get") {
+            return Result<ApiCommand, ApiError>::okay(Api::StatusGet::Command::fromJson(cmd));
+        }
         else if (commandName == "timer_stats_get") {
             return Result<ApiCommand, ApiError>::okay(Api::TimerStatsGet::Command::fromJson(cmd));
         }

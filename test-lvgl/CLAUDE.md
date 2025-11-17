@@ -12,6 +12,10 @@ Read design_docs/coding_convention.md for coding guidelines.
 
 ## Essential Commands
 
+### Git
+Use git as needed but never push.
+Don't use git -C, instead just make sure you're in the right directory beforehand.
+
 ### Building
 ```bash
 # Build release version
@@ -65,6 +69,10 @@ make -C build -j12
 
 # CLI integration test
 ./build/bin/cli integration_test
+
+# Clean up all sparkle-duck processes
+./build/bin/cli cleanup
+```
 
 # For complete CLI documentation, see:
 # src/cli/README.md
@@ -234,8 +242,8 @@ The CLI tool includes a benchmark mode for measuring physics performance:
 ./build/bin/cli benchmark --scenario dam_break --steps 120
 ```
 
-### Code Formatter
-Run the formatter before committing.
+## Code Formatter
+The code formatter will run via hook, but you can also run it like so:
 ```bash
 make format
 ```
@@ -384,13 +392,14 @@ It could affect how other things move/displace in interesting/subtle ways.
 - mass as a gravity source!  allan.pizza but in a grid!!!
 - quad-tree or similar optimization applied to the grid?
 - Cohesion seems to reach from C N N+1 and not just from C to N - cells get stuck in space sometimes because of this, what's going on?
-- logger with channels?  E.g. "swap", "cohesion", etc.
+- cli send/receive any command/response automatically.
+- Review CLI and CAUDE README/md files for accuracy and gross omitition  Test things
+to see if they work.
 
 ### Client/Server Architecture (DSSM + UI Client)
 - ✅ Headless server with WebSocket API
 - ✅ UI client with controls and rendering
-- ✅ Binary serialization (zpp_bits) with custom support for 10+ field structs
-- ✅ Frame-based synchronization
+- ✅ Binary serialization (zpp_bits)
 
 See design_docs/plant.md and design_docs/ai-integration-ideas.md for details.
 

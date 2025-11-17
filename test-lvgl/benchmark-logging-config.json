@@ -1,0 +1,43 @@
+{
+  "defaults": {
+    "console_level": "off",
+    "file_level": "info",
+    "pattern": "[%H:%M:%S.%e] [%n] [%^%l%$] %v",
+    "flush_interval_ms": 100
+  },
+
+  "sinks": {
+    "console": {
+      "enabled": false,
+      "level": "off"
+    },
+    "file": {
+      "enabled": true,
+      "level": "info",
+      "path": "sparkle-duck.log",
+      "truncate": true,
+      "max_size_mb": 100,
+      "max_files": 3
+    }
+  },
+
+  "channels": {
+    "collision": "info",
+    "cohesion": "info",
+    "friction": "info",
+    "network": "info",
+    "physics": "info",
+    "pressure": "info",
+    "scenario": "info",
+    "state": "info",
+    "support": "info",
+    "swap": "info",
+    "ui": "info",
+    "viscosity": "info"
+  },
+
+  "runtime": {
+    "allow_reload": false,
+    "watch_config": false
+  }
+}

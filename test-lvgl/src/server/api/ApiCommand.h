@@ -16,6 +16,7 @@
 #include "SimRun.h"
 #include "SpawnDirtBall.h"
 #include "StateGet.h"
+#include "StatusGet.h"
 #include "TimerStatsGet.h"
 #include "WorldResize.h"
 #include <concepts>
@@ -60,6 +61,7 @@ using ApiCommand = std::variant<
     Api::SimRun::Command,
     Api::SpawnDirtBall::Command,
     Api::StateGet::Command,
+    Api::StatusGet::Command,
     Api::TimerStatsGet::Command,
     Api::WorldResize::Command>;
 

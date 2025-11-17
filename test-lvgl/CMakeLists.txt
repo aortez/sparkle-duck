@@ -207,6 +207,7 @@ add_library(sparkle-duck-server-lib STATIC
     src/server/api/SimRun.cpp
     src/server/api/SpawnDirtBall.cpp
     src/server/api/StateGet.cpp
+    src/server/api/StatusGet.cpp
     src/server/api/TimerStatsGet.cpp
     src/server/api/WorldResize.cpp
 
@@ -218,6 +219,7 @@ add_library(sparkle-duck-server-lib STATIC
     src/server/scenarios/Scenario.cpp
     src/server/scenarios/ScenarioRegistry.cpp
     src/server/scenarios/ScenarioWorldEventGenerator.cpp
+    src/server/scenarios/scenarios/BenchmarkScenario.cpp
     src/server/scenarios/scenarios/DamBreakScenario.cpp
     src/server/scenarios/scenarios/EmptyScenario.cpp
     src/server/scenarios/scenarios/FallingDirtScenario.cpp
@@ -345,6 +347,7 @@ add_custom_target (run-server COMMAND ${EXECUTABLE_OUTPUT_PATH}/sparkle-duck-ser
 add_executable(cli
     src/cli/main.cpp
     src/cli/BenchmarkRunner.cpp
+    src/cli/CleanupRunner.cpp
     src/cli/IntegrationTest.cpp
     src/cli/RunAllRunner.cpp
     src/cli/SubprocessManager.cpp

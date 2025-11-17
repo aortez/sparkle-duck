@@ -35,14 +35,28 @@ bool WebSocketClient::connect(const std::string& url)
         // Set up message handler (supports both blocking and async modes, JSON and CBOR).
         ws_->onMessage([this](std::variant<rtc::binary, rtc::string> data) {
             std::string message;
+            std::optional<uint64_t> correlationId;
 
             if (std::holds_alternative<rtc::string>(data)) {
                 // JSON string message.
                 message = std::get<rtc::string>(data);
                 spdlog::debug("WebSocketClient: Received JSON response ({} bytes)", message.size());
+
+                // Check for correlation ID.
+                try {
+                    nlohmann::json json = nlohmann::json::parse(message);
+                    if (json.contains("id") && json["id"].is_number()) {
+                        correlationId = json["id"].get<uint64_t>();
+                        spdlog::debug(
+                            "WebSocketClient: Message has correlation ID: {}", *correlationId);
+                    }
+                }
+                catch (const std::exception& e) {
+                    spdlog::debug("WebSocketClient: Failed to parse correlation ID: {}", e.what());
+                }
             }
             else if (std::holds_alternative<rtc::binary>(data)) {
-                // zpp_bits binary message - unpack WorldData directly.
+                // Binary message (WorldData push) - no correlation ID.
                 const auto& binaryData = std::get<rtc::binary>(data);
                 spdlog::debug(
                     "WebSocketClient: Received binary response ({} bytes)", binaryData.size());
@@ -64,13 +78,35 @@ bool WebSocketClient::connect(const std::string& url)
                 }
             }
 
-            // For blocking mode (sendAndReceive).
-            response_ = message;
-            responseReceived_ = true;
+            // Route message based on correlation ID.
+            if (correlationId.has_value()) {
+                // This is a response to a specific request - route to pending request.
+                std::lock_guard<std::mutex> lock(pendingMutex_);
+                auto it = pendingRequests_.find(*correlationId);
+                if (it != pendingRequests_.end()) {
+                    auto& pending = it->second;
+                    std::lock_guard<std::mutex> reqLock(pending->mutex);
+                    pending->response = message;
+                    pending->received = true;
+                    pending->cv.notify_one();
+                    spdlog::debug(
+                        "WebSocketClient: Routed response to pending request {}", *correlationId);
+                }
+                else {
+                    spdlog::warn(
+                        "WebSocketClient: Received response for unknown ID: {}", *correlationId);
+                }
+            }
+            else {
+                // No correlation ID - this is a notification or legacy blocking mode.
+                // For legacy blocking mode (sendAndReceive without ID).
+                response_ = message;
+                responseReceived_ = true;
 
-            // For async mode (callbacks).
-            if (messageCallback_) {
-                messageCallback_(message);
+                // For async mode (callbacks).
+                if (messageCallback_) {
+                    messageCallback_(message);
+                }
             }
         });
 
@@ -136,26 +172,51 @@ std::string WebSocketClient::sendAndReceive(const std::string& message, int time
         return "";
     }
 
-    // Reset response state.
-    response_.clear();
-    responseReceived_ = false;
+    // Generate unique correlation ID.
+    uint64_t id = nextId_.fetch_add(1);
 
-    // Send message.
-    spdlog::debug("WebSocketClient: Sending: {}", message);
-    ws_->send(message);
-
-    // Wait for response.
-    auto startTime = std::chrono::steady_clock::now();
-    while (!responseReceived_) {
-        auto elapsed = std::chrono::steady_clock::now() - startTime;
-        if (std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count() > timeoutMs) {
-            spdlog::error("WebSocketClient: Response timeout");
-            return "";
-        }
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    // Inject ID into message JSON.
+    std::string messageWithId;
+    try {
+        nlohmann::json json = nlohmann::json::parse(message);
+        json["id"] = id;
+        messageWithId = json.dump();
+    }
+    catch (const std::exception& e) {
+        spdlog::error("WebSocketClient: Failed to inject correlation ID: {}", e.what());
+        return "";
     }
 
-    return response_;
+    // Create pending request.
+    auto pending = std::make_shared<PendingRequest>();
+    {
+        std::lock_guard<std::mutex> lock(pendingMutex_);
+        pendingRequests_[id] = pending;
+    }
+
+    // Send message with correlation ID.
+    spdlog::debug("WebSocketClient: Sending (id={}): {}", id, messageWithId);
+    ws_->send(messageWithId);
+
+    // Wait for response with matching ID.
+    std::unique_lock<std::mutex> reqLock(pending->mutex);
+    bool received = pending->cv.wait_for(
+        reqLock, std::chrono::milliseconds(timeoutMs), [&pending]() { return pending->received; });
+
+    // Clean up pending request.
+    {
+        std::lock_guard<std::mutex> lock(pendingMutex_);
+        pendingRequests_.erase(id);
+    }
+
+    if (!received) {
+        spdlog::error("WebSocketClient: Response timeout for ID {}", id);
+        return "";
+    }
+
+    spdlog::debug(
+        "WebSocketClient: Received response for ID {} ({} bytes)", id, pending->response.size());
+    return pending->response;
 }
 
 bool WebSocketClient::send(const std::string& message)

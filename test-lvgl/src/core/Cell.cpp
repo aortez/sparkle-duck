@@ -1,5 +1,5 @@
 #include "Cell.h"
-#include "World.h" // For MIN_MATTER_THRESHOLD constant.
+#include "World.h"
 
 #include <algorithm>
 #include <cctype>
@@ -10,8 +10,6 @@
 #include "spdlog/spdlog.h"
 
 using namespace DirtSim;
-
-// Cell is now an aggregate - no constructors needed!
 
 void Cell::setFillRatio(double ratio)
 {
@@ -241,8 +239,8 @@ void Cell::limitVelocity(
 {
     const double speed = velocity.mag();
 
-    // Apply velocity limits directly (parameters are already per-timestep).
-    // The parameters define absolute velocity limits per physics timestep.
+    // Apply velocity limits directly (parameters are already per-timestep??? how is this
+    // possible?). The parameters define absolute velocity limits per physics timestep.
 
     // Apply maximum velocity limit.
     if (speed > max_velocityper_timestep) {

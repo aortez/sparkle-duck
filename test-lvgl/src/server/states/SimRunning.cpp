@@ -430,6 +430,33 @@ State::Any SimRunning::onEvent(const Api::TimerStatsGet::Cwc& cwc, StateMachine&
     return std::move(*this);
 }
 
+State::Any SimRunning::onEvent(const Api::StatusGet::Cwc& cwc, StateMachine& /*dsm*/)
+{
+    using Response = Api::StatusGet::Response;
+
+    if (!world) {
+        cwc.sendResponse(Response::error(ApiError("No world available")));
+        return std::move(*this);
+    }
+
+    // Return lightweight status (no cell data).
+    Api::StatusGet::Okay status;
+    status.timestep = stepCount;
+    status.scenario_id = world->data.scenario_id;
+    status.width = world->data.width;
+    status.height = world->data.height;
+    status.is_paused = (targetSteps > 0 && stepCount >= targetSteps);
+
+    spdlog::debug(
+        "SimRunning: API status_get (step {}, {}x{})",
+        status.timestep,
+        status.width,
+        status.height);
+
+    cwc.sendResponse(Response::okay(std::move(status)));
+    return std::move(*this);
+}
+
 State::Any SimRunning::onEvent(const Api::Reset::Cwc& cwc, StateMachine& /*dsm*/)
 {
     using Response = Api::Reset::Response;

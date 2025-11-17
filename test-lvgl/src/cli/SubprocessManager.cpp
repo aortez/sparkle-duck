@@ -1,6 +1,7 @@
 #include "SubprocessManager.h"
 #include "WebSocketClient.h"
 #include <chrono>
+#include <fcntl.h>
 #include <filesystem>
 #include <signal.h>
 #include <spdlog/spdlog.h>
@@ -34,16 +35,32 @@ bool SubprocessManager::launchServer(const std::string& serverPath, const std::s
 
     if (serverPid_ == 0) {
         // Child process - exec server.
-        spdlog::debug("SubprocessManager: Launching server: {}", serverPath);
+        spdlog::debug("SubprocessManager: Launching server: {} {}", serverPath, args);
 
-        // Build argument list.
-        if (args.empty()) {
-            execl(serverPath.c_str(), serverPath.c_str(), nullptr);
+        // No need to redirect stdout - benchmark logging config disables console output.
+        // Stderr is kept for crash reporting (terminate/abort messages).
+
+        // Parse arguments into vector.
+        std::vector<std::string> argVec;
+        argVec.push_back(serverPath); // argv[0] is the program name.
+
+        if (!args.empty()) {
+            std::istringstream iss(args);
+            std::string arg;
+            while (iss >> arg) {
+                argVec.push_back(arg);
+            }
         }
-        else {
-            // Simple args parsing - just pass as single argument for now.
-            execl(serverPath.c_str(), serverPath.c_str(), args.c_str(), nullptr);
+
+        // Convert to char* array for execv.
+        std::vector<char*> execArgs;
+        for (auto& arg : argVec) {
+            execArgs.push_back(const_cast<char*>(arg.c_str()));
         }
+        execArgs.push_back(nullptr);
+
+        // Execute server.
+        execv(serverPath.c_str(), execArgs.data());
 
         // If exec fails, exit child process.
         spdlog::error("SubprocessManager: exec failed");
