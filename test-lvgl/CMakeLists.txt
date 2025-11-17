@@ -169,6 +169,7 @@ target_link_libraries(lvgl_linux PUBLIC msgpack-cxx nlohmann_json::nlohmann_json
 # Core library - minimal shared types for serialization.
 add_library(sparkle-duck-core STATIC
     src/core/Cell.cpp
+    src/core/LoggingChannels.cpp
     src/core/MaterialType.cpp
     src/core/StateMachineBase.cpp
     src/core/Timers.cpp

@@ -1,6 +1,7 @@
 #include "state-machine/StateMachine.h"
 // TODO: Re-enable when integrating UI components:
 // #include "SimulatorUI.h"
+#include "core/LoggingChannels.h"
 #include "core/World.h"
 
 #include "args.hxx"
@@ -71,12 +72,17 @@ int main(int argc, char** argv)
         "Select display backend (wayland, x11, fbdev, sdl)",
         { 'b', "backend" },
         "wayland");
-    args::ValueFlag<std::string> log_level(
+    args::ValueFlag<std::string> log_config(
         parser,
-        "log-level",
-        "Set log level (trace, debug, info, warn, error, critical, off)",
-        { 'l', "log-level" },
-        "info");
+        "log-config",
+        "Path to logging config JSON file (default: logging-config.json)",
+        { "log-config" },
+        "logging-config.json");
+    args::ValueFlag<std::string> log_channels(
+        parser,
+        "channels",
+        "Override log channels (e.g., swap:trace,physics:debug,*:off)",
+        { 'C', "channels" });
     args::ValueFlag<int> window_width(
         parser, "width", "Set window width (default: 1200)", { 'W', "width" }, 1200);
     args::ValueFlag<int> window_height(
@@ -129,58 +135,16 @@ int main(int argc, char** argv)
         return 0;
     }
 
-    // Set up file and console logging based on the requested log level.
+    // Initialize logging from config file (supports .local override).
     try {
-        // Parse the log level string.
-        spdlog::level::level_enum selected_level = spdlog::level::info; // Default.
-        if (log_level) {
-            std::string level_str = args::get(log_level);
-            if (level_str == "trace") {
-                selected_level = spdlog::level::trace;
-            }
-            else if (level_str == "debug") {
-                selected_level = spdlog::level::debug;
-            }
-            else if (level_str == "info") {
-                selected_level = spdlog::level::info;
-            }
-            else if (level_str == "warn" || level_str == "warning") {
-                selected_level = spdlog::level::warn;
-            }
-            else if (level_str == "error" || level_str == "err") {
-                selected_level = spdlog::level::err;
-            }
-            else if (level_str == "critical") {
-                selected_level = spdlog::level::critical;
-            }
-            else if (level_str == "off") {
-                selected_level = spdlog::level::off;
-            }
-            else {
-                std::cerr << "Invalid log level: " << level_str << std::endl;
-                std::cerr << "Valid levels: trace, debug, info, warn, error, critical, off"
-                          << std::endl;
-                return 1;
-            }
+        std::string configPath = log_config ? args::get(log_config) : "logging-config.json";
+        DirtSim::LoggingChannels::initializeFromConfig(configPath);
+
+        // Apply command line channel overrides if provided.
+        if (log_channels) {
+            DirtSim::LoggingChannels::configureFromString(args::get(log_channels));
+            spdlog::info("Applied channel overrides: {}", args::get(log_channels));
         }
-
-        // Create console sink with colors.
-        auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
-        console_sink->set_level(selected_level);
-
-        // Create basic file sink (overwrites each run).
-        auto file_sink =
-            std::make_shared<spdlog::sinks::basic_file_sink_mt>("sparkle-duck.log", true);
-        file_sink->set_level(selected_level);
-
-        // Create logger with both sinks.
-        std::vector<spdlog::sink_ptr> sinks{ console_sink, file_sink };
-        auto logger = std::make_shared<spdlog::logger>("ui", sinks.begin(), sinks.end());
-        logger->set_level(selected_level); // Also set logger level.
-
-        // Set as default logger.
-        spdlog::set_default_logger(logger);
-        spdlog::flush_every(std::chrono::seconds(1));
     }
     catch (const spdlog::spdlog_ex& ex) {
         std::cout << "Log initialization failed: " << ex.what() << std::endl;
@@ -188,7 +152,6 @@ int main(int argc, char** argv)
     }
 
     spdlog::info("🦆 Sparkle Duck Dirt Simulator starting up! 🦆");
-    spdlog::debug("Log level set to: {}", args::get(log_level));
 
     if (backend) {
         selected_backend = args::get(backend);

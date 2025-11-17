@@ -752,28 +752,38 @@ bool WorldCollisionCalculator::shouldSwapMaterials(
     const Vector2i& direction,
     const MaterialMove& move) const
 {
-    // Only vertical swaps for now (buoyancy is primarily vertical).
-    if (direction.y == 0) {
-        LoggingChannels::swap()->debug("Swap denied: horizontal direction");
-        return false;
-    }
-
     // Don't swap same materials.
     if (fromCell.material_type == toCell.material_type) {
         LoggingChannels::swap()->debug("Swap denied: same material type");
         return false;
     }
 
-    // Density must support buoyancy direction.
-    if (!densitySupportsSwap(fromCell, toCell, direction)) {
-        LoggingChannels::swap()->debug(
-            "Swap denied: density doesn't support ({}->{}, from_dens={}, to_dens={}, dir.y={})",
-            getMaterialName(fromCell.material_type),
-            getMaterialName(toCell.material_type),
-            getMaterialProperties(fromCell.material_type).density,
-            getMaterialProperties(toCell.material_type).density,
-            direction.y);
-        return false;
+    // Check swap requirements based on direction.
+    if (direction.y == 0) {
+        // Horizontal swap: require pressure gradient to drive it.
+        const double pressure_diff = std::abs(fromCell.pressure - toCell.pressure);
+        const double MIN_PRESSURE_FOR_HORIZONTAL_SWAP = 1.0; // Tunable threshold.
+
+        if (pressure_diff < MIN_PRESSURE_FOR_HORIZONTAL_SWAP) {
+            LoggingChannels::swap()->debug(
+                "Swap denied: horizontal swap needs pressure gradient ({:.3f} < {:.3f})",
+                pressure_diff,
+                MIN_PRESSURE_FOR_HORIZONTAL_SWAP);
+            return false;
+        }
+    }
+    else {
+        // Vertical swap: require density support (buoyancy).
+        if (!densitySupportsSwap(fromCell, toCell, direction)) {
+            LoggingChannels::swap()->debug(
+                "Swap denied: density doesn't support ({}->{}, from_dens={}, to_dens={}, dir.y={})",
+                getMaterialName(fromCell.material_type),
+                getMaterialName(toCell.material_type),
+                getMaterialProperties(fromCell.material_type).density,
+                getMaterialProperties(toCell.material_type).density,
+                direction.y);
+            return false;
+        }
     }
 
     // Calculate swap cost: energy to accelerate target cell's contents to 1 cell/second.

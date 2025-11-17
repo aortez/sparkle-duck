@@ -1,0 +1,59 @@
+{
+  "defaults": {
+    "console_level": "info",
+    "file_level": "debug",
+    "pattern": "[%H:%M:%S.%e] [%n] [%^%l%$] %v",
+    "flush_interval_ms": 1000
+  },
+
+  "sinks": {
+    "console": {
+      "enabled": true,
+      "level": "info",
+      "colored": true
+    },
+    "file": {
+      "enabled": true,
+      "level": "debug",
+      "path": "sparkle-duck.log",
+      "truncate": true,
+      "max_size_mb": 100,
+      "max_files": 3
+    },
+    "specialized": {
+      "swap_trace": {
+        "enabled": false,
+        "channel_filter": ["swap"],
+        "path": "swap-trace.log",
+        "level": "trace"
+      },
+      "physics_deep": {
+        "enabled": false,
+        "channel_filter": ["physics", "collision", "cohesion"],
+        "path": "physics-deep.log",
+        "level": "trace"
+      }
+    }
+  },
+
+  "channels": {
+    "collision": "info",
+    "cohesion": "info",
+    "friction": "info",
+    "network": "info",
+    "physics": "info",
+    "pressure": "info",
+    "scenario": "info",
+    "state": "debug",
+    "support": "info",
+    "swap": "info",
+    "ui": "info",
+    "viscosity": "info"
+  },
+
+  "runtime": {
+    "allow_reload": true,
+    "watch_config": false,
+    "reload_signal": "SIGUSR1"
+  }
+}
