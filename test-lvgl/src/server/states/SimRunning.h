@@ -50,6 +50,7 @@ struct SimRunning {
     Any onEvent(const DirtSim::Api::FrameReady::Cwc& cwc, StateMachine& dsm);
     Any onEvent(const DirtSim::Api::GravitySet::Cwc& cwc, StateMachine& dsm);
     Any onEvent(const DirtSim::Api::PerfStatsGet::Cwc& cwc, StateMachine& dsm);
+    Any onEvent(const DirtSim::Api::TimerStatsGet::Cwc& cwc, StateMachine& dsm);
     Any onEvent(const DirtSim::Api::PhysicsSettingsGet::Cwc& cwc, StateMachine& dsm);
     Any onEvent(const DirtSim::Api::PhysicsSettingsSet::Cwc& cwc, StateMachine& dsm);
     Any onEvent(const DirtSim::Api::Reset::Cwc& cwc, StateMachine& dsm);

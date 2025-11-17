@@ -58,7 +58,33 @@ Automated performance testing with server auto-launch:
 - Physics timing (avg/total/calls)
 - Serialization timing
 - Client round-trip latency (when --simulate-ui)
-- Detailed timer statistics
+- Detailed timer statistics (subsystem breakdown: cohesion, adhesion, pressure, etc.)
+
+**Example output:**
+```json
+{
+  "scenario": "sandbox",
+  "steps": 120,
+  "server_physics_avg_ms": 0.52,
+  "timer_stats": {
+    "cohesion_calculation": {"avg_ms": 0.09, "total_ms": 10.8, "calls": 120},
+    "adhesion_calculation": {"avg_ms": 0.03, "total_ms": 3.6, "calls": 120},
+    "resolve_forces_total": {"avg_ms": 0.28, "total_ms": 33.6, "calls": 120}
+  }
+}
+```
+
+**Using for optimization testing:**
+```bash
+# Baseline measurement
+./build/bin/cli benchmark --steps 1000 > baseline.json
+
+# After optimization
+./build/bin/cli benchmark --steps 1000 > optimized.json
+
+# Compare specific subsystems
+jq '.timer_stats.cohesion_calculation.avg_ms' baseline.json optimized.json
+```
 
 ### Integration Test Mode
 

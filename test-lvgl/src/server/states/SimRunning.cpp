@@ -406,6 +406,30 @@ State::Any SimRunning::onEvent(const Api::PerfStatsGet::Cwc& cwc, StateMachine& 
     return std::move(*this);
 }
 
+State::Any SimRunning::onEvent(const Api::TimerStatsGet::Cwc& cwc, StateMachine& /*dsm*/)
+{
+    using Response = Api::TimerStatsGet::Response;
+
+    // Gather detailed timer statistics from World's timers.
+    Api::TimerStatsGet::Okay stats;
+
+    if (world) {
+        auto timerNames = world->timers_.getAllTimerNames();
+        for (const auto& name : timerNames) {
+            Api::TimerStatsGet::TimerEntry entry;
+            entry.total_ms = world->timers_.getAccumulatedTime(name);
+            entry.calls = world->timers_.getCallCount(name);
+            entry.avg_ms = entry.calls > 0 ? entry.total_ms / entry.calls : 0.0;
+            stats.timers[name] = entry;
+        }
+    }
+
+    spdlog::info("SimRunning: API timer_stats_get returning {} timer entries", stats.timers.size());
+
+    cwc.sendResponse(Response::okay(std::move(stats)));
+    return std::move(*this);
+}
+
 State::Any SimRunning::onEvent(const Api::Reset::Cwc& cwc, StateMachine& /*dsm*/)
 {
     using Response = Api::Reset::Response;

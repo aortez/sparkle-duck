@@ -240,7 +240,7 @@ Run the formatter before committing.
 make format
 ```
 
-The benchmark auto-launches the server, runs the simulation, collects performance metrics from both server and client, then outputs JSON results including FPS, physics timing, serialization timing, and round-trip latencies.
+The benchmark auto-launches the server, runs the simulation, collects performance metrics from both server and client, then outputs JSON results including FPS, physics timing, serialization timing, round-trip latencies, and detailed timer statistics for each physics subsystem (cohesion, adhesion, pressure diffusion, etc.).
 
 ## Coding Practices
 
