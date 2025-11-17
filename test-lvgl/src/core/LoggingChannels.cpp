@@ -387,10 +387,28 @@ void LoggingChannels::applyConfig(const nlohmann::json& config)
                 bool enabled = fileCfg.value("enabled", true);
                 if (enabled) {
                     std::string path = fileCfg.value("path", "sparkle-duck.log");
-                    bool truncate = fileCfg.value("truncate", true);
-                    auto file_sink =
-                        std::make_shared<spdlog::sinks::basic_file_sink_mt>(path, truncate);
                     auto level = parseLevelString(fileCfg.value("level", "debug"));
+
+                    // Use rotating sink if max_size_mb is specified, otherwise basic sink.
+                    std::shared_ptr<spdlog::sinks::sink> file_sink;
+                    if (fileCfg.contains("max_size_mb")) {
+                        size_t maxSizeMB = fileCfg.value("max_size_mb", 100);
+                        size_t maxFiles = fileCfg.value("max_files", 3);
+                        size_t maxSizeBytes = maxSizeMB * 1024 * 1024;
+                        file_sink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(
+                            path, maxSizeBytes, maxFiles);
+                        spdlog::info(
+                            "Using rotating file sink: {} (max {} MB, {} files)",
+                            path,
+                            maxSizeMB,
+                            maxFiles);
+                    }
+                    else {
+                        bool truncate = fileCfg.value("truncate", true);
+                        file_sink =
+                            std::make_shared<spdlog::sinks::basic_file_sink_mt>(path, truncate);
+                    }
+
                     file_sink->set_level(level);
                     sinks.push_back(file_sink);
                 }
