@@ -25,8 +25,8 @@
 namespace DirtSim {
 
 // Velocities are in Cells/second.
-static constexpr double MAX_VELOCITY_PER_TIMESTEP = 1000.0;
-static constexpr double VELOCITY_DAMPING_THRESHOLD_PER_TIMESTEP = 100.0;
+static constexpr double MAX_VELOCITY_PER_TIMESTEP = 40.0;
+static constexpr double VELOCITY_DAMPING_THRESHOLD_PER_TIMESTEP = 20.0;
 static constexpr double VELOCITY_DAMPING_FACTOR_PER_TIMESTEP = 0.10;
 
 World::World() : World(1, 1)
