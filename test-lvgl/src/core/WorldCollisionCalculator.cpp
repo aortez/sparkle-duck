@@ -201,7 +201,20 @@ double WorldCollisionCalculator::calculateCollisionEnergy(
     // Use FULL cell mass for collision energy, not just transferable amount.
     // This is needed for swap decisions when target cell is full (move.amount = 0).
     double movingMass = calculateMaterialMass(fromCell);
-    double velocity_magnitude = move.momentum.length();
+
+    // IMPORTANT: Use velocity component in direction of movement, not total magnitude.
+    // For swaps, only energy in the swap direction matters.
+    // If falling vertically with little horizontal velocity, horizontal swaps should be hard.
+    Vector2d direction_vector(move.toX - move.fromX, move.toY - move.fromY);
+    double velocity_in_direction = std::abs(move.momentum.dot(direction_vector));
+
+    LoggingChannels::swap()->debug(
+        "Energy calc: total_vel=({:.3f},{:.3f}), dir=({},{}), vel_in_dir={:.3f}",
+        move.momentum.x,
+        move.momentum.y,
+        move.toX - move.fromX,
+        move.toY - move.fromY,
+        velocity_in_direction);
 
     // If target cell has material, include reduced mass for collision.
     double targetMass = calculateMaterialMass(toCell);
@@ -212,7 +225,7 @@ double WorldCollisionCalculator::calculateCollisionEnergy(
         effective_mass = (movingMass * targetMass) / (movingMass + targetMass);
     }
 
-    return 0.5 * effective_mass * velocity_magnitude * velocity_magnitude;
+    return 0.5 * effective_mass * velocity_in_direction * velocity_in_direction;
 }
 
 double WorldCollisionCalculator::calculateMaterialMass(const Cell& cell) const
@@ -760,28 +773,48 @@ bool WorldCollisionCalculator::shouldSwapMaterials(
 
     // Check swap requirements based on direction.
     if (direction.y == 0) {
-        // Horizontal swap: require pressure gradient to drive it.
-        const double pressure_diff = std::abs(fromCell.pressure - toCell.pressure);
-        const double MIN_PRESSURE_FOR_HORIZONTAL_SWAP = 1.0; // Tunable threshold.
+        // Horizontal swap: require pressure gradient driving in the swap direction.
+        // For swap to be pressure-driven, fromCell must have higher pressure (pushing material
+        // forward).
+        const double pressure_diff = fromCell.pressure - toCell.pressure; // Signed difference.
 
-        if (pressure_diff < MIN_PRESSURE_FOR_HORIZONTAL_SWAP) {
-            LoggingChannels::swap()->debug(
-                "Swap denied: horizontal swap needs pressure gradient ({:.3f} < {:.3f})",
-                pressure_diff,
-                MIN_PRESSURE_FOR_HORIZONTAL_SWAP);
+        // Mass-normalized pressure threshold: heavier materials need more pressure to displace.
+        const double BASE_PRESSURE_THRESHOLD = 2.0; // Tunable base value.
+        const double target_mass = toCell.getEffectiveDensity();
+        const double required_pressure = BASE_PRESSURE_THRESHOLD * target_mass;
+        const bool swap_ok = pressure_diff >= required_pressure;
+
+        LoggingChannels::swap()->info(
+            "Horizontal swap check: {} <-> {} | pressure_diff: {:.3f} required: {:.3f} (mass: "
+            "{:.3f}) | swap_ok: {}",
+            getMaterialName(fromCell.material_type),
+            getMaterialName(toCell.material_type),
+            pressure_diff,
+            required_pressure,
+            target_mass,
+            swap_ok);
+
+        if (!swap_ok) {
             return false;
         }
     }
     else {
         // Vertical swap: require density support (buoyancy).
-        if (!densitySupportsSwap(fromCell, toCell, direction)) {
-            LoggingChannels::swap()->debug(
-                "Swap denied: density doesn't support ({}->{}, from_dens={}, to_dens={}, dir.y={})",
-                getMaterialName(fromCell.material_type),
-                getMaterialName(toCell.material_type),
-                getMaterialProperties(fromCell.material_type).density,
-                getMaterialProperties(toCell.material_type).density,
-                direction.y);
+        const double from_density = getMaterialProperties(fromCell.material_type).density;
+        const double to_density = getMaterialProperties(toCell.material_type).density;
+        const bool swap_ok = densitySupportsSwap(fromCell, toCell, direction);
+
+        LoggingChannels::swap()->info(
+            "Vertical swap check: {} <-> {} | from_dens: {:.2f} to_dens: {:.2f} dir.y: {} | "
+            "swap_ok: {}",
+            getMaterialName(fromCell.material_type),
+            getMaterialName(toCell.material_type),
+            from_density,
+            to_density,
+            direction.y,
+            swap_ok);
+
+        if (!swap_ok) {
             return false;
         }
     }
@@ -829,7 +862,11 @@ void WorldCollisionCalculator::swapCounterMovingMaterials(
     const double swap_cost = 0.5 * target_mass * 1.0;
 
     // Calculate remaining energy after swap.
-    const double remaining_energy = std::max(0.0, move.collision_energy - swap_cost);
+    // Swaps are inelastic - materials lose significant energy during position exchange.
+    const double SWAP_ENERGY_RETENTION =
+        0.5; // Retain 50% of energy (lose 50% to turbulence/friction).
+    const double remaining_energy =
+        std::max(0.0, (move.collision_energy - swap_cost) * SWAP_ENERGY_RETENTION);
 
     // Get mass of moving material (fromCell -> toCell).
     const double moving_mass = fromCell.getEffectiveDensity();
@@ -869,7 +906,7 @@ void WorldCollisionCalculator::swapCounterMovingMaterials(
     fromCell.setCOM(Vector2d(0.0, 0.0));
     fromCell.velocity = Vector2d(0.0, 0.0);
 
-    spdlog::info(
+    LoggingChannels::swap()->info(
         "SWAP complete: {} | Energy: {:.3f} - {:.3f} = {:.3f} | Vel: {:.3f} -> {:.3f}",
         getMaterialName(temp_type),
         move.collision_energy,
