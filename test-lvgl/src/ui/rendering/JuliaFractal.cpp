@@ -7,7 +7,19 @@ namespace DirtSim {
 namespace Ui {
 
 // Rendering performance.
-constexpr int RENDER_THREADS = 8;        // Number of parallel threads for fractal calculation.
+// Detect hardware concurrency: use n/2 cores (capped at 8), fallback to 1 if detection fails.
+const int RENDER_THREADS = []() {
+    unsigned int hwThreads = std::thread::hardware_concurrency();
+    if (hwThreads == 0) {
+        spdlog::warn("JuliaFractal: hardware_concurrency() failed, using 1 thread");
+        return 1;
+    }
+    int threads = static_cast<int>(hwThreads / 2);
+    threads = std::min(threads, 8);  // Cap at 8 threads.
+    threads = std::max(threads, 1);  // Minimum 1 thread.
+    spdlog::info("JuliaFractal: Detected {} hardware threads, using {} render threads", hwThreads, threads);
+    return threads;
+}();
 constexpr double MAX_CYCLE_SPEED = 0.05; // Maximum palette advance per frame.
 
 // Palette extracted from pal.png (256x1).
