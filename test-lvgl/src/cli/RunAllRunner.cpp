@@ -28,9 +28,25 @@ Result<std::monostate, std::string> runAll(const std::string& serverPath, const 
     }
     std::cout << "Server is ready" << std::endl;
 
+    // Auto-detect display backend.
+    std::string backend = "x11"; // Default to X11 for better compatibility
+    const char* waylandDisplay = std::getenv("WAYLAND_DISPLAY");
+    const char* x11Display = std::getenv("DISPLAY");
+
+    if (waylandDisplay && waylandDisplay[0] != '\0') {
+        backend = "wayland";
+        std::cout << "Detected Wayland display, using Wayland backend" << std::endl;
+    } else if (x11Display && x11Display[0] != '\0') {
+        backend = "x11";
+        std::cout << "Detected X11 display, using X11 backend" << std::endl;
+    } else {
+        std::cout << "Warning: No display detected, attempting X11 backend" << std::endl;
+    }
+
     // Launch UI.
-    std::cout << "Launching UI (Wayland backend)..." << std::endl;
-    if (!subprocessManager.launchUI(uiPath, "-b wayland --connect localhost:8080")) {
+    std::cout << "Launching UI (" << backend << " backend)..." << std::endl;
+    std::string uiArgs = "-b " + backend + " --connect localhost:8080";
+    if (!subprocessManager.launchUI(uiPath, uiArgs)) {
         return Result<std::monostate, std::string>::error("Failed to launch UI");
     }
 

@@ -120,6 +120,9 @@ void run_loop_x11(DirtSim::Ui::StateMachine& sm)
         // Process UI state machine events.
         sm.processEvents();
 
+        // Update background animations (event-driven, no timer).
+        sm.updateAnimations();
+
         /* Returns the time to the next timer execution. */
         idle_time = lv_timer_handler();
 
