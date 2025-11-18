@@ -44,6 +44,8 @@ public:
     // Grid dimensions.
     uint32_t getWidth() const { return width_; }
     uint32_t getHeight() const { return height_; }
+    uint32_t getBlocksX() const { return empty_cells_.getBlocksX(); }
+    uint32_t getBlocksY() const { return empty_cells_.getBlocksY(); }
 };
 
 } // namespace DirtSim

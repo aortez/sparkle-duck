@@ -395,6 +395,7 @@ It could affect how other things move/displace in interesting/subtle ways.
 - cli send/receive any command/response automatically.
 - Review CLI and CAUDE README/md files for accuracy and gross omitition  Test things
 to see if they work.
+- refactor World to use Pimple pattern.  Use elsewhere too?
 
 ### Client/Server Architecture (DSSM + UI Client)
 - ✅ Headless server with WebSocket API

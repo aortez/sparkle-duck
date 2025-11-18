@@ -52,4 +52,20 @@ bool CellBitmap::isSet(uint32_t x, uint32_t y) const
     return (blocks_[block_idx] >> bit_idx) & 1;
 }
 
+uint64_t CellBitmap::getBlock(uint32_t block_x, uint32_t block_y) const
+{
+    uint32_t block_idx = block_y * blocks_x_ + block_x;
+    return blocks_[block_idx];
+}
+
+bool CellBitmap::isBlockAllSet(uint32_t block_x, uint32_t block_y) const
+{
+    return getBlock(block_x, block_y) == 0xFFFFFFFFFFFFFFFFULL;
+}
+
+bool CellBitmap::isBlockAllClear(uint32_t block_x, uint32_t block_y) const
+{
+    return getBlock(block_x, block_y) == 0;
+}
+
 } // namespace DirtSim

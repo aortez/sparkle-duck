@@ -38,9 +38,16 @@ public:
     void clear(uint32_t x, uint32_t y);
     bool isSet(uint32_t x, uint32_t y) const;
 
+    // Block-level operations.
+    uint64_t getBlock(uint32_t block_x, uint32_t block_y) const;
+    bool isBlockAllSet(uint32_t block_x, uint32_t block_y) const;   // All bits = 1.
+    bool isBlockAllClear(uint32_t block_x, uint32_t block_y) const; // All bits = 0.
+
     // Grid dimensions.
     uint32_t getWidth() const { return grid_width_; }
     uint32_t getHeight() const { return grid_height_; }
+    uint32_t getBlocksX() const { return blocks_x_; }
+    uint32_t getBlocksY() const { return blocks_y_; }
 };
 
 } // namespace DirtSim

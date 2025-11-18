@@ -149,11 +149,6 @@ bool WorldSupportCalculator::hasHorizontalSupport(const World& world, uint32_t x
 
 bool WorldSupportCalculator::hasStructuralSupport(const World& world, uint32_t x, uint32_t y) const
 {
-    //    if (!isValidCell(world, static_cast<int>(x), static_cast<int>(y))) {
-    //        spdlog::error("hasStructuralSupport({},{}) = false (invalid cell)", x, y);
-    //        return false;
-    //    }
-
     const Cell& cell = getCellAt(world, x, y);
 
     // Empty cells provide no support.
@@ -266,58 +261,113 @@ bool WorldSupportCalculator::hasStructuralSupport(const World& world, uint32_t x
 
 void WorldSupportCalculator::computeSupportMapBottomUp(World& world, const GridOfCells& grid) const
 {
-    // Bottom-up pass: compute support for entire grid in one sweep.
-    // Start from bottom row (ground) and work upward.
-    for (int y = world.data.height - 1; y >= 0; y--) {
-        for (uint32_t x = 0; x < world.data.width; x++) {
-            Cell& cell = world.at(x, y);
+    // Hoist branch outside loop to eliminate per-cell branching overhead.
+    if (GridOfCells::USE_CACHE) {
+        // ========== CACHED PATH: Block-centric iteration ==========
+        // Iterate over 8×8 blocks from bottom to top (bottom-up support propagation).
+        for (int block_y = static_cast<int>(grid.getBlocksY()) - 1; block_y >= 0; --block_y) {
+            for (uint32_t block_x = 0; block_x < grid.getBlocksX(); ++block_x) {
+                // Get empty cell bitmap for this 8×8 block.
+                uint64_t empty_block = grid.emptyCells().getBlock(block_x, block_y);
 
-            // Check if cell is empty - use GridOfCells cache if enabled.
-            bool is_empty;
-            if (GridOfCells::USE_CACHE) {
-                is_empty = grid.emptyCells().isSet(x, y);
+                // Fast path: Skip if entire block is empty.
+                if (empty_block == 0xFFFFFFFFFFFFFFFFULL) {
+                    // Mark all cells in block as unsupported.
+                    uint32_t start_x = block_x * 8;
+                    uint32_t start_y = block_y * 8;
+                    uint32_t end_x = std::min(start_x + 8, world.data.width);
+                    uint32_t end_y = std::min(start_y + 8, world.data.height);
+
+                    for (uint32_t y = start_y; y < end_y; ++y) {
+                        for (uint32_t x = start_x; x < end_x; ++x) {
+                            world.at(x, y).has_support = false;
+                        }
+                    }
+                    continue;
+                }
+
+                // Process each cell in block (bottom to top within block).
+                uint32_t start_x = block_x * 8;
+                uint32_t start_y = block_y * 8;
+                uint32_t end_x = std::min(start_x + 8, world.data.width);
+                uint32_t end_y = std::min(start_y + 8, world.data.height);
+
+                for (int y = static_cast<int>(end_y) - 1; y >= static_cast<int>(start_y); --y) {
+                    for (uint32_t x = start_x; x < end_x; ++x) {
+                        // Check emptiness using bitmap.
+                        if (grid.emptyCells().isSet(x, y)) {
+                            world.at(x, y).has_support = false;
+                            continue;
+                        }
+
+                        Cell& cell = world.at(x, y);
+
+                        // WALL material is always structurally supported.
+                        if (cell.material_type == MaterialType::WALL) {
+                            cell.has_support = true;
+                            continue;
+                        }
+
+                        // Bottom edge of world (ground) provides support.
+                        if (y == static_cast<int>(world.data.height) - 1) {
+                            cell.has_support = true;
+                            continue;
+                        }
+
+                        // Check vertical support: cell below must be non-empty AND supported.
+                        bool below_empty = grid.emptyCells().isSet(x, y + 1);
+                        bool has_vertical = !below_empty && world.at(x, y + 1).has_support;
+
+                        // Check horizontal support if no vertical.
+                        bool has_horizontal = false;
+                        if (!has_vertical) {
+                            has_horizontal = hasHorizontalSupport(world, x, y);
+                        }
+
+                        cell.has_support = has_vertical || has_horizontal;
+                    }
+                }
             }
-            else {
-                is_empty = cell.isEmpty();
+        }
+    }
+    else {
+        // ========== DIRECT PATH: Traditional cell access ==========
+        // Bottom-up pass: compute support for entire grid in one sweep.
+        // Start from bottom row (ground) and work upward.
+        for (int y = world.data.height - 1; y >= 0; y--) {
+            for (uint32_t x = 0; x < world.data.width; x++) {
+                Cell& cell = world.at(x, y);
+
+                // Check emptiness directly.
+                if (cell.isEmpty()) {
+                    cell.has_support = false;
+                    continue;
+                }
+
+                // WALL material is always structurally supported.
+                if (cell.material_type == MaterialType::WALL) {
+                    cell.has_support = true;
+                    continue;
+                }
+
+                // Bottom edge of world (ground) provides support.
+                if (y == static_cast<int>(world.data.height) - 1) {
+                    cell.has_support = true;
+                    continue;
+                }
+
+                // Check vertical support: cell below must be non-empty AND supported.
+                const Cell& below = world.at(x, y + 1);
+                bool has_vertical = !below.isEmpty() && below.has_support;
+
+                // Check horizontal support if no vertical.
+                bool has_horizontal = false;
+                if (!has_vertical) {
+                    has_horizontal = hasHorizontalSupport(world, x, y);
+                }
+
+                cell.has_support = has_vertical || has_horizontal;
             }
-
-            if (is_empty) {
-                cell.has_support = false;
-                continue;
-            }
-
-            // WALL material is always structurally supported.
-            if (cell.material_type == MaterialType::WALL) {
-                cell.has_support = true;
-                continue;
-            }
-
-            // Bottom edge of world (ground) provides support.
-            if (y == static_cast<int>(world.data.height) - 1) {
-                cell.has_support = true;
-                continue;
-            }
-
-            // Check vertical support: cell below must be non-empty AND supported.
-            const Cell& below = world.at(x, y + 1);
-
-            bool below_empty;
-            if (GridOfCells::USE_CACHE) {
-                below_empty = grid.emptyCells().isSet(x, y + 1);
-            }
-            else {
-                below_empty = below.isEmpty();
-            }
-
-            bool has_vertical = !below_empty && below.has_support;
-
-            // Check horizontal support if no vertical.
-            bool has_horizontal = false;
-            if (!has_vertical) {
-                has_horizontal = hasHorizontalSupport(world, x, y);
-            }
-
-            cell.has_support = has_vertical || has_horizontal;
         }
     }
 }
