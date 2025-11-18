@@ -175,6 +175,12 @@ add_library(sparkle-duck-core STATIC
     src/core/Timers.cpp
     src/core/Vector2d.cpp
     src/core/Vector2i.cpp
+
+    # Bitmap infrastructure.
+    src/core/bitmaps/CellBitmap.cpp
+
+    # Grid cache layer.
+    src/core/GridOfCells.cpp
 )
 target_include_directories(sparkle-duck-core PUBLIC ${CMAKE_SOURCE_DIR}/src ${zpp_bits_SOURCE_DIR})
 target_link_libraries(sparkle-duck-core PUBLIC nlohmann_json::nlohmann_json msgpack-cxx spdlog::spdlog)
@@ -369,6 +375,10 @@ add_executable(sparkle-duck-tests
     src/tests/TimersTest.cpp
     src/tests/Vector2d_test.cpp
     src/tests/Vector2i_test.cpp
+
+    # Bitmap tests.
+    src/core/bitmaps/tests/CellBitmap_test.cpp
+    src/core/bitmaps/tests/GridOfCells_integration_test.cpp
 )
 target_link_libraries(sparkle-duck-tests
     PRIVATE

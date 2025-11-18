@@ -216,6 +216,151 @@ BenchmarkResults BenchmarkRunner::run(
     return results;
 }
 
+BenchmarkResults BenchmarkRunner::runWithServerArgs(
+    const std::string& serverPath,
+    uint32_t steps,
+    const std::string& scenario,
+    const std::string& serverArgs)
+{
+    BenchmarkResults results;
+    results.scenario = scenario;
+    results.steps = steps;
+
+    // Build combined server arguments.
+    std::string combinedArgs = "--log-config benchmark-logging-config.json " + serverArgs;
+
+    // Launch server with custom arguments.
+    if (!subprocessManager_.launchServer(serverPath, combinedArgs)) {
+        spdlog::error("BenchmarkRunner: Failed to launch server with args: {}", serverArgs);
+        return results;
+    }
+
+    if (!subprocessManager_.waitForServerReady("ws://localhost:8080", 10)) {
+        spdlog::error("BenchmarkRunner: Server failed to start");
+        return results;
+    }
+
+    if (!client_.connect("ws://localhost:8080")) {
+        spdlog::error("BenchmarkRunner: Failed to connect to server");
+        return results;
+    }
+
+    // Start simulation.
+    auto benchmarkStart = std::chrono::steady_clock::now();
+
+    nlohmann::json simRunCmd = { { "command", "sim_run" },
+                                 { "timestep", 0.016 },
+                                 { "max_steps", steps },
+                                 { "scenario_id", scenario } };
+    std::string simRunResponse = client_.sendAndReceive(simRunCmd.dump(), 5000);
+
+    try {
+        nlohmann::json json = nlohmann::json::parse(simRunResponse);
+        if (json.contains("error")) {
+            spdlog::error("BenchmarkRunner: SimRun failed: {}", json["error"].get<std::string>());
+            return results;
+        }
+    }
+    catch (const std::exception& e) {
+        spdlog::error("BenchmarkRunner: Failed to parse SimRun response: {}", e.what());
+        return results;
+    }
+
+    // Wait for completion (inline polling loop).
+    int timeoutSec = (steps * 50) / 1000 + 10;
+    bool benchmarkComplete = false;
+
+    while (true) {
+        if (!subprocessManager_.isServerRunning()) {
+            spdlog::error("BenchmarkRunner: Server died!");
+            break;
+        }
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+
+        nlohmann::json statusCmd = { { "command", "status_get" } };
+        std::string response = client_.sendAndReceive(statusCmd.dump(), 1000);
+
+        if (response.empty()) continue;
+
+        try {
+            nlohmann::json json = nlohmann::json::parse(response);
+            if (json.contains("value") && json["value"].contains("timestep")) {
+                uint64_t step = json["value"]["timestep"].get<uint64_t>();
+
+                // Capture grid size.
+                if (results.grid_size == "28x28" && json["value"].contains("width")) {
+                    uint32_t w = json["value"]["width"].get<uint32_t>();
+                    uint32_t h = json["value"]["height"].get<uint32_t>();
+                    results.grid_size = std::to_string(w) + "x" + std::to_string(h);
+                }
+
+                if (step >= steps) {
+                    benchmarkComplete = true;
+                    break;
+                }
+            }
+        }
+        catch (...) {
+        }
+
+        auto elapsed = std::chrono::steady_clock::now() - benchmarkStart;
+        if (std::chrono::duration_cast<std::chrono::seconds>(elapsed).count() > timeoutSec) {
+            spdlog::error("BenchmarkRunner: Timeout ({}s)", timeoutSec);
+            break;
+        }
+    }
+
+    auto benchmarkEnd = std::chrono::steady_clock::now();
+    results.duration_sec = std::chrono::duration<double>(benchmarkEnd - benchmarkStart).count();
+
+    if (!benchmarkComplete) {
+        client_.disconnect();
+        return results;
+    }
+
+    // Query perf stats.
+    nlohmann::json perfStatsJson = queryPerfStats();
+    if (!perfStatsJson.empty()) {
+        results.server_fps = perfStatsJson.value("fps", 0.0);
+        results.server_physics_avg_ms = perfStatsJson.value("physics_avg_ms", 0.0);
+        results.server_physics_total_ms = perfStatsJson.value("physics_total_ms", 0.0);
+        results.server_physics_calls = perfStatsJson.value("physics_calls", 0U);
+        results.server_serialization_avg_ms = perfStatsJson.value("serialization_avg_ms", 0.0);
+        results.server_serialization_total_ms = perfStatsJson.value("serialization_total_ms", 0.0);
+        results.server_serialization_calls = perfStatsJson.value("serialization_calls", 0U);
+        results.server_cache_update_avg_ms = perfStatsJson.value("cache_update_avg_ms", 0.0);
+        results.server_network_send_avg_ms = perfStatsJson.value("network_send_avg_ms", 0.0);
+    }
+
+    // Query timer stats for detailed breakdown.
+    nlohmann::json timerStatsCmd = { { "command", "timer_stats_get" } };
+    std::string timerResponse = client_.sendAndReceive(timerStatsCmd.dump(), 2000);
+
+    try {
+        nlohmann::json timerJson = nlohmann::json::parse(timerResponse);
+        if (timerJson.contains("value")) {
+            results.timer_stats = timerJson["value"];
+        }
+    }
+    catch (const std::exception& e) {
+        spdlog::error("BenchmarkRunner: Failed to parse timer_stats: {}", e.what());
+    }
+
+    // Send exit and disconnect.
+    nlohmann::json exitCmd = { { "command", "exit" } };
+    try {
+        client_.sendAndReceive(exitCmd.dump(), 1000);
+    }
+    catch (const std::exception& e) {
+        spdlog::debug("BenchmarkRunner: Exit response: {}", e.what());
+    }
+
+    client_.disconnect();
+
+    return results;
+}
+
 nlohmann::json BenchmarkRunner::queryPerfStats()
 {
     nlohmann::json cmd = { { "command", "perf_stats_get" } };

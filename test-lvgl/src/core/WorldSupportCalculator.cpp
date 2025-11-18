@@ -1,5 +1,6 @@
 #include "WorldSupportCalculator.h"
 #include "Cell.h"
+#include "GridOfCells.h"
 #include "MaterialType.h"
 #include "Vector2i.h"
 #include "World.h"
@@ -263,7 +264,7 @@ bool WorldSupportCalculator::hasStructuralSupport(const World& world, uint32_t x
     return false;
 }
 
-void WorldSupportCalculator::computeSupportMapBottomUp(World& world) const
+void WorldSupportCalculator::computeSupportMapBottomUp(World& world, const GridOfCells& grid) const
 {
     // Bottom-up pass: compute support for entire grid in one sweep.
     // Start from bottom row (ground) and work upward.
@@ -271,7 +272,16 @@ void WorldSupportCalculator::computeSupportMapBottomUp(World& world) const
         for (uint32_t x = 0; x < world.data.width; x++) {
             Cell& cell = world.at(x, y);
 
-            if (cell.isEmpty()) {
+            // Check if cell is empty - use GridOfCells cache if enabled.
+            bool is_empty;
+            if (GridOfCells::USE_CACHE) {
+                is_empty = grid.emptyCells().isSet(x, y);
+            }
+            else {
+                is_empty = cell.isEmpty();
+            }
+
+            if (is_empty) {
                 cell.has_support = false;
                 continue;
             }
@@ -290,7 +300,16 @@ void WorldSupportCalculator::computeSupportMapBottomUp(World& world) const
 
             // Check vertical support: cell below must be non-empty AND supported.
             const Cell& below = world.at(x, y + 1);
-            bool has_vertical = !below.isEmpty() && below.has_support;
+
+            bool below_empty;
+            if (GridOfCells::USE_CACHE) {
+                below_empty = grid.emptyCells().isSet(x, y + 1);
+            }
+            else {
+                below_empty = below.isEmpty();
+            }
+
+            bool has_vertical = !below_empty && below.has_support;
 
             // Check horizontal support if no vertical.
             bool has_horizontal = false;

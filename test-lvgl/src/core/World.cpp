@@ -1,5 +1,6 @@
 #include "World.h"
 #include "Cell.h"
+#include "GridOfCells.h"
 #include "ReflectSerializer.h"
 #include "ScopeTimer.h"
 #include "Vector2i.h"
@@ -44,7 +45,8 @@ World::World(uint32_t width, uint32_t height)
       collision_calculator_(),
       adhesion_calculator_(),
       friction_calculator_(),
-      tree_manager_(std::make_unique<TreeManager>())
+      tree_manager_(std::make_unique<TreeManager>()),
+      rng_(std::make_unique<std::mt19937>(std::random_device{}()))
 {
     // Set dimensions (other WorldData members use defaults from struct declaration).
     data.width = width;
@@ -77,6 +79,12 @@ World::~World()
     timers_.dumpTimerStats();
 }
 
+void World::setRandomSeed(uint32_t seed)
+{
+    rng_ = std::make_unique<std::mt19937>(seed);
+    spdlog::debug("World RNG seed set to {}", seed);
+}
+
 std::string World::toAsciiDiagram() const
 {
     return WorldDiagramGeneratorEmoji::generateEmojiDiagram(*this);
@@ -99,11 +107,14 @@ void World::advanceTime(double deltaTimeSeconds)
 
     // NOTE: Particle generation now handled by Scenario::tick(), called before advanceTime().
 
+    // Build grid cache for optimized empty cell lookups.
+    GridOfCells grid(data.cells, data.width, data.height);
+
     // Pre-compute support map for all cells (bottom-up pass).
     {
         ScopeTimer supportMapTimer(timers_, "compute_support_map");
         WorldSupportCalculator support_calc{};
-        support_calc.computeSupportMapBottomUp(*this);
+        support_calc.computeSupportMapBottomUp(*this, grid);
     }
 
     // Calculate hydrostatic pressure based on current material positions.
@@ -206,24 +217,6 @@ void World::addMaterialAtCell(uint32_t x, uint32_t y, MaterialType type, double 
 
     if (added > 0.0) {
         spdlog::trace("Added {:.3f} {} at cell ({},{})", added, getMaterialName(type), x, y);
-    }
-}
-
-void World::addMaterialAtPixel(int pixelX, int pixelY, MaterialType type, double amount)
-{
-    int cellX, cellY;
-    pixelToCell(pixelX, pixelY, cellX, cellY);
-
-    spdlog::debug(
-        "World::addMaterialAtPixel({}) at pixel ({},{}) -> cell ({},{})",
-        getMaterialName(type),
-        pixelX,
-        pixelY,
-        cellX,
-        cellY);
-
-    if (isValidCell(cellX, cellY)) {
-        addMaterialAtCell(static_cast<uint32_t>(cellX), static_cast<uint32_t>(cellY), type, amount);
     }
 }
 
@@ -785,9 +778,7 @@ void World::processMaterialMoves()
     ScopeTimer timer(timers_, "process_moves");
 
     // Shuffle moves to handle conflicts randomly.
-    static std::random_device rd;
-    static std::mt19937 gen(rd());
-    std::shuffle(pending_moves_.begin(), pending_moves_.end(), gen);
+    std::shuffle(pending_moves_.begin(), pending_moves_.end(), *rng_);
 
     for (const auto& move : pending_moves_) {
         Cell& fromCell = at(move.fromX, move.fromY);

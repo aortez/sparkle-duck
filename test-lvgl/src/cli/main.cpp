@@ -118,6 +118,11 @@ int main(int argc, char** argv)
         "Benchmark: scenario name (default: benchmark)",
         { "scenario" },
         "benchmark");
+    args::Flag compareCache(
+        parser,
+        "compare-cache",
+        "Benchmark: Run twice to compare cached vs non-cached performance",
+        { "compare-cache" });
 
     args::Positional<std::string> command(parser, "command", getCommandListHelp());
     args::Positional<std::string> address(
@@ -177,18 +182,50 @@ int main(int argc, char** argv)
         int actualSteps = benchSteps ? args::get(benchSteps) : 120;
         std::string actualScenario = benchScenario ? args::get(benchScenario) : "benchmark";
 
-        Client::BenchmarkRunner runner;
-        auto results = runner.run(serverPath.string(), actualSteps, actualScenario);
+        if (compareCache) {
+            // Run twice: with and without cache.
+            Client::BenchmarkRunner runner;
 
-        // Output results as JSON using ReflectSerializer.
-        nlohmann::json resultJson = ReflectSerializer::to_json(results);
+            spdlog::set_level(spdlog::level::info);
+            spdlog::info("Running benchmark WITH cache enabled...");
+            auto results_cached = runner.run(serverPath.string(), actualSteps, actualScenario);
 
-        // Add timer_stats (already in JSON format).
-        if (!results.timer_stats.empty()) {
-            resultJson["timer_stats"] = results.timer_stats;
+            spdlog::info("Running benchmark WITHOUT cache (--no-grid-cache)...");
+            auto results_direct = runner.runWithServerArgs(
+                serverPath.string(), actualSteps, actualScenario, "--no-grid-cache");
+
+            // Build comparison output.
+            nlohmann::json comparison;
+            comparison["scenario"] = actualScenario;
+            comparison["steps"] = actualSteps;
+            comparison["with_cache"] = ReflectSerializer::to_json(results_cached);
+            comparison["without_cache"] = ReflectSerializer::to_json(results_direct);
+
+            // Calculate speedup.
+            double cached_fps = results_cached.server_fps;
+            double direct_fps = results_direct.server_fps;
+            double speedup = (cached_fps / direct_fps - 1.0) * 100.0;
+
+            comparison["speedup_percent"] = speedup;
+            comparison["summary"] = speedup > 0 ? "Cache is faster" : "Cache is slower";
+
+            std::cout << comparison.dump(2) << std::endl;
         }
+        else {
+            // Single run (default behavior).
+            Client::BenchmarkRunner runner;
+            auto results = runner.run(serverPath.string(), actualSteps, actualScenario);
 
-        std::cout << resultJson.dump(2) << std::endl;
+            // Output results as JSON using ReflectSerializer.
+            nlohmann::json resultJson = ReflectSerializer::to_json(results);
+
+            // Add timer_stats (already in JSON format).
+            if (!results.timer_stats.empty()) {
+                resultJson["timer_stats"] = results.timer_stats;
+            }
+
+            std::cout << resultJson.dump(2) << std::endl;
+        }
         return 0;
     }
 

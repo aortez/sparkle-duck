@@ -1,4 +1,5 @@
 #include "StateMachine.h"
+#include "core/GridOfCells.h"
 #include "core/LoggingChannels.h"
 #include "network/WebSocketServer.h"
 #include <args.hxx>
@@ -45,6 +46,11 @@ int main(int argc, char** argv)
         { 'C', "channels" });
     args::Flag printStats(
         parser, "print-stats", "Print timer statistics on exit", { "print-stats" });
+    args::Flag gridCacheDisabled(
+        parser,
+        "no-grid-cache",
+        "Disable GridOfCells bitmap cache (for benchmarking)",
+        { "no-grid-cache" });
 
     try {
         parser.ParseCLI(argc, argv);
@@ -61,6 +67,10 @@ int main(int argc, char** argv)
 
     uint16_t port = portArg ? args::get(portArg) : 8080;
     int maxSteps = stepsArg ? args::get(stepsArg) : -1;
+
+    // Configure GridOfCells cache (default: enabled).
+    GridOfCells::USE_CACHE = !gridCacheDisabled;
+    spdlog::info("GridOfCells cache: {}", GridOfCells::USE_CACHE ? "ENABLED" : "DISABLED");
 
     // Initialize logging from config file (supports .local override).
     std::string configPath = logConfig ? args::get(logConfig) : "logging-config.json";

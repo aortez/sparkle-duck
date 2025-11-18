@@ -480,6 +480,92 @@ std::string Cell::toAsciiCharacter() const
 }
 
 // =================================================================
+// INLINE METHOD IMPLEMENTATIONS (moved from header)
+// =================================================================
+
+const MaterialProperties& Cell::material() const
+{
+    return getMaterialProperties(material_type);
+}
+
+void Cell::clearAccumulatedForces()
+{
+    accumulated_viscous_force = {};
+    accumulated_adhesion_force = {};
+    accumulated_com_cohesion_force = {};
+}
+
+void Cell::addPendingForce(const Vector2d& force)
+{
+    pending_force = pending_force + force;
+}
+
+void Cell::clearPendingForce()
+{
+    pending_force = {};
+}
+
+bool Cell::isEmpty() const
+{
+    return fill_ratio < MIN_FILL_THRESHOLD;
+}
+
+bool Cell::isFull() const
+{
+    return fill_ratio > MAX_FILL_THRESHOLD;
+}
+
+bool Cell::isAir() const
+{
+    return material_type == MaterialType::AIR;
+}
+
+bool Cell::isWall() const
+{
+    return material_type == MaterialType::WALL;
+}
+
+void Cell::setCOM(double x, double y)
+{
+    setCOM(Vector2d{ x, y });
+}
+
+void Cell::setHydrostaticPressure(double p)
+{
+    hydrostatic_component = p;
+    updateUnifiedPressure();
+}
+
+void Cell::setDynamicPressure(double p)
+{
+    dynamic_component = p;
+    updateUnifiedPressure();
+}
+
+void Cell::addDynamicPressure(double p)
+{
+    dynamic_component += p;
+    updateUnifiedPressure();
+}
+
+void Cell::clearPressure()
+{
+    pressure = 0.0;
+    hydrostatic_component = 0.0;
+    dynamic_component = 0.0;
+}
+
+double Cell::getCapacity() const
+{
+    return 1.0 - fill_ratio;
+}
+
+void Cell::updateUnifiedPressure()
+{
+    pressure = hydrostatic_component + dynamic_component;
+}
+
+// =================================================================
 // JSON SERIALIZATION
 // =================================================================
 

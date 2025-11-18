@@ -49,6 +49,12 @@ public:
     BenchmarkResults run(
         const std::string& serverPath, uint32_t steps, const std::string& scenario = "benchmark");
 
+    BenchmarkResults runWithServerArgs(
+        const std::string& serverPath,
+        uint32_t steps,
+        const std::string& scenario,
+        const std::string& serverArgs);
+
 private:
     SubprocessManager subprocessManager_;
     WebSocketClient client_;
