@@ -173,9 +173,12 @@ int main(int argc, char** argv)
         }
 
         // Run benchmark.
+        // Follow args library pattern: check presence before get.
+        int actualSteps = benchSteps ? args::get(benchSteps) : 120;
+        std::string actualScenario = benchScenario ? args::get(benchScenario) : "benchmark";
+
         Client::BenchmarkRunner runner;
-        auto results =
-            runner.run(serverPath.string(), args::get(benchSteps), args::get(benchScenario));
+        auto results = runner.run(serverPath.string(), actualSteps, actualScenario);
 
         // Output results as JSON using ReflectSerializer.
         nlohmann::json resultJson = ReflectSerializer::to_json(results);
