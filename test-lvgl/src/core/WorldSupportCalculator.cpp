@@ -294,8 +294,12 @@ void WorldSupportCalculator::computeSupportMapBottomUp(World& world, const GridO
 
                 for (int y = static_cast<int>(end_y) - 1; y >= static_cast<int>(start_y); --y) {
                     for (uint32_t x = start_x; x < end_x; ++x) {
-                        // Check emptiness using bitmap.
-                        if (grid.emptyCells().isSet(x, y)) {
+                        // Check emptiness using block we already fetched.
+                        int local_x = x - start_x;
+                        int local_y = y - start_y;
+                        int bit_idx = (local_y << 3) | local_x;
+
+                        if ((empty_block >> bit_idx) & 1) {
                             world.at(x, y).has_support = false;
                             continue;
                         }
@@ -315,6 +319,7 @@ void WorldSupportCalculator::computeSupportMapBottomUp(World& world, const GridO
                         }
 
                         // Check vertical support: cell below must be non-empty AND supported.
+                        // Note: Cell below might be in a different block, so we use isSet().
                         bool below_empty = grid.emptyCells().isSet(x, y + 1);
                         bool has_vertical = !below_empty && world.at(x, y + 1).has_support;
 
