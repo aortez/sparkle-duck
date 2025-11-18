@@ -2,7 +2,6 @@
 #include "core/World.h"
 #include "server/scenarios/Scenario.h"
 #include "server/scenarios/ScenarioRegistry.h"
-#include "server/scenarios/ScenarioWorldEventGenerator.h"
 #include "spdlog/spdlog.h"
 
 using namespace DirtSim;
@@ -35,16 +34,29 @@ public:
         }
     }
 
-    // DEPRECATED: Temporary compatibility - uses base class defaults.
-    std::unique_ptr<WorldEventGenerator> createWorldEventGenerator() const override
+    void setup(World& world) override
     {
-        auto setup = std::make_unique<ScenarioWorldEventGenerator>();
-        setup->setSetupFunction(
-            [](World& /*world*/) { spdlog::info("Setting up Empty scenario"); });
-        setup->setUpdateFunction([](World& /*world*/, uint32_t /*timestep*/, double /*deltaTime*/) {
-            // Intentionally empty - no particles added.
-        });
-        return setup;
+        spdlog::info("EmptyScenario::setup - clearing world");
+
+        // Clear world to empty state.
+        for (uint32_t y = 0; y < world.data.height; ++y) {
+            for (uint32_t x = 0; x < world.data.width; ++x) {
+                world.at(x, y) = Cell(); // Reset to empty cell.
+            }
+        }
+
+        spdlog::info("EmptyScenario::setup complete");
+    }
+
+    void reset(World& world) override
+    {
+        spdlog::info("EmptyScenario::reset");
+        setup(world);
+    }
+
+    void tick(World& /*world*/, double /*deltaTime*/) override
+    {
+        // Intentionally empty - no dynamic particles.
     }
 
 private:

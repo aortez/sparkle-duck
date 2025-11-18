@@ -44,6 +44,13 @@ void SimRunning::onEnter(StateMachine& dsm)
             world->data.scenario_id = "sandbox";
             world->data.scenario_config = scenario->getConfig();
 
+            // Clear world before applying scenario.
+            for (uint32_t y = 0; y < world->data.height; ++y) {
+                for (uint32_t x = 0; x < world->data.width; ++x) {
+                    world->at(x, y) = Cell(); // Reset to empty cell.
+                }
+            }
+
             // Run scenario setup to initialize world.
             scenario->setup(*world);
 
@@ -670,6 +677,14 @@ State::Any SimRunning::onEvent(const Api::SimRun::Cwc& cwc, StateMachine& dsm)
         // Update world data.
         world->data.scenario_id = cwc.command.scenario_id;
         world->data.scenario_config = scenario->getConfig();
+
+        // Clear world before applying new scenario.
+        for (uint32_t y = 0; y < world->data.height; ++y) {
+            for (uint32_t x = 0; x < world->data.width; ++x) {
+                world->at(x, y) = Cell(); // Reset to empty cell.
+            }
+        }
+        spdlog::info("SimRunning: World cleared for new scenario '{}'", cwc.command.scenario_id);
 
         // Initialize world with new scenario.
         scenario->setup(*world);

@@ -3,7 +3,6 @@
 #include "core/World.h"
 #include "server/scenarios/Scenario.h"
 #include "server/scenarios/ScenarioRegistry.h"
-#include "server/scenarios/ScenarioWorldEventGenerator.h"
 #include "spdlog/spdlog.h"
 
 using namespace DirtSim;
@@ -12,62 +11,6 @@ using namespace DirtSim;
  * Dam Break scenario - Classic fluid dynamics demonstration.
  * Water held by a wall dam that breaks after pressure builds up.
  */
-class DamBreakWorldEventGenerator : public ScenarioWorldEventGenerator {
-private:
-    bool damBroken = false;
-
-public:
-    void setup(World& world) override
-    {
-        spdlog::info("Setting up Dam Break scenario");
-
-        // Reset state
-        damBroken = false;
-
-        // Configure physics for dynamic pressure
-        world.physicsSettings.gravity = 9.81;
-        world.physicsSettings.pressure_dynamic_enabled = true;
-        world.physicsSettings.pressure_dynamic_strength = 1.0;
-        world.physicsSettings.pressure_hydrostatic_enabled = false;
-        world.physicsSettings.pressure_hydrostatic_strength = 0.0;
-        world.physicsSettings.pressure_diffusion_strength = 1.0;
-        world.physicsSettings.pressure_scale = 1.0;
-
-        // Disable extra features for clean demo
-        world.setWallsEnabled(false);
-        world.setLeftThrowEnabled(false);
-        world.setRightThrowEnabled(false);
-        world.setLowerRightQuadrantEnabled(false);
-
-        // Create water column on left side - full height
-        // Matches test case: water columns at x=0,1
-        for (int x = 0; x < 2; x++) {
-            for (int y = 0; y < 6; y++) {
-                world.addMaterialAtCell(x, y, MaterialType::WATER, 1.0);
-            }
-        }
-
-        // Create dam (temporary wall) at x=2 - full height using WALL
-        for (int y = 0; y < 6; y++) {
-            world.addMaterialAtCell(2, y, MaterialType::WALL, 1.0);
-        }
-
-        spdlog::info("Dam Break setup complete: 6x6 world, water columns at x=0,1, dam at x=2");
-    }
-
-    void addParticles(World& world, uint32_t timestep, double /*deltaTimeSeconds*/) override
-    {
-        if (!damBroken && timestep == 30) {
-            spdlog::info("Breaking the dam at timestep {}", timestep);
-
-            // Dam is at x=2, break only the bottom cell for realistic flow
-            world.at(2, 5).clear(); // Bottom cell at (2,5)
-            spdlog::info("Dam broken at (2, 5)");
-            damBroken = true;
-        }
-    }
-};
-
 class DamBreakScenario : public Scenario {
 public:
     DamBreakScenario()
@@ -80,8 +23,8 @@ public:
 
         // Initialize with default config.
         config_.dam_height = 10.0;
-        config_.auto_release = false;
-        config_.release_time = 2.0;
+        config_.auto_release = true;
+        config_.release_time = 2.0; // 2 seconds ~= timestep 30 at 60fps
     }
 
     const ScenarioMetadata& getMetadata() const override { return metadata_; }
@@ -100,13 +43,79 @@ public:
         }
     }
 
-    // DEPRECATED: Temporary compatibility - uses base class defaults.
-    std::unique_ptr<WorldEventGenerator> createWorldEventGenerator() const override
+    void setup(World& world) override
     {
-        return std::make_unique<DamBreakWorldEventGenerator>();
+        spdlog::info("DamBreakScenario::setup - initializing world");
+
+        // Clear world first.
+        for (uint32_t y = 0; y < world.data.height; ++y) {
+            for (uint32_t x = 0; x < world.data.width; ++x) {
+                world.at(x, y) = Cell(); // Reset to empty cell.
+            }
+        }
+
+        // Reset state.
+        damBroken_ = false;
+        elapsedTime_ = 0.0;
+
+        // Configure physics for dynamic pressure.
+        world.physicsSettings.gravity = 9.81;
+        world.physicsSettings.pressure_dynamic_enabled = true;
+        world.physicsSettings.pressure_dynamic_strength = 1.0;
+        world.physicsSettings.pressure_hydrostatic_enabled = false;
+        world.physicsSettings.pressure_hydrostatic_strength = 0.0;
+        world.physicsSettings.pressure_diffusion_strength = 1.0;
+        world.physicsSettings.pressure_scale = 1.0;
+
+        // Disable extra features for clean demo.
+        world.setWallsEnabled(false);
+        world.setLeftThrowEnabled(false);
+        world.setRightThrowEnabled(false);
+        world.setLowerRightQuadrantEnabled(false);
+
+        // Create water column on left side - full height.
+        for (uint32_t x = 0; x < 2; x++) {
+            for (uint32_t y = 0; y < 6; y++) {
+                world.addMaterialAtCell(x, y, MaterialType::WATER, 1.0);
+            }
+        }
+
+        // Create dam (wall) at x=2 - full height.
+        for (uint32_t y = 0; y < 6; y++) {
+            world.addMaterialAtCell(2, y, MaterialType::WALL, 1.0);
+        }
+
+        spdlog::info("DamBreakScenario::setup complete - water at x=0-1, dam at x=2");
+    }
+
+    void reset(World& world) override
+    {
+        spdlog::info("DamBreakScenario::reset");
+        setup(world);
+    }
+
+    void tick(World& world, double deltaTime) override
+    {
+        // Break dam automatically based on time if configured.
+        if (!damBroken_ && config_.auto_release) {
+            elapsedTime_ += deltaTime;
+
+            if (elapsedTime_ >= config_.release_time) {
+                spdlog::info("DamBreakScenario: Breaking dam at t={:.2f}s", elapsedTime_);
+
+                // Dam is at x=2, break only the bottom cell for realistic flow.
+                world.at(2, 5).clear(); // Bottom cell at (2,5)
+                spdlog::info("DamBreakScenario: Dam broken at (2, 5)");
+                damBroken_ = true;
+            }
+        }
     }
 
 private:
     ScenarioMetadata metadata_;
     DamBreakConfig config_;
+
+    // Scenario state.
+    bool damBroken_ = false;
+    double elapsedTime_ = 0.0;
 };

@@ -1,9 +1,7 @@
 #include "core/Cell.h"
 #include "core/World.h"
-#include "core/WorldEventGenerator.h"
 #include "server/scenarios/Scenario.h"
 #include "server/scenarios/ScenarioRegistry.h"
-#include "server/scenarios/ScenarioWorldEventGenerator.h"
 #include "spdlog/spdlog.h"
 #include <random>
 
@@ -81,20 +79,6 @@ public:
     void setup(World& world) override;
     void reset(World& world) override;
     void tick(World& world, double deltaTime) override;
-
-    // DEPRECATED: Temporary compatibility.
-    std::unique_ptr<WorldEventGenerator> createWorldEventGenerator() const override
-    {
-        // Create a ConfigurableWorldEventGenerator with config (generator owns it).
-        auto configurableSetup = std::make_unique<ConfigurableWorldEventGenerator>(config_);
-
-        // Apply non-config settings.
-        configurableSetup->setWallsEnabled(true); // Walls always enabled for physics containment.
-        configurableSetup->setMiddleMetalWallEnabled(false);
-        configurableSetup->setLeftThrowEnabled(false);
-
-        return configurableSetup;
-    }
 
 private:
     ScenarioMetadata metadata_;

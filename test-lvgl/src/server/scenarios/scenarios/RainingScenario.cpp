@@ -1,26 +1,26 @@
+#include "core/Cell.h"
 #include "core/MaterialType.h"
 #include "core/World.h"
 #include "server/scenarios/Scenario.h"
 #include "server/scenarios/ScenarioRegistry.h"
-#include "server/scenarios/ScenarioWorldEventGenerator.h"
 #include "spdlog/spdlog.h"
-
-using namespace DirtSim;
 #include <random>
 
+using namespace DirtSim;
+
 /**
- * Raining scenario - Just rain falling from the sky.
+ * Raining scenario - Rain falling from the sky.
  */
 class RainingScenario : public Scenario {
 public:
     RainingScenario()
     {
         metadata_.name = "Raining";
-        metadata_.description = "Rain falling from the sky in a 50x50 world";
+        metadata_.description = "Rain falling from the sky";
         metadata_.category = "demo";
 
         // Initialize with default config.
-        config_.rain_rate = 5.0;
+        config_.rain_rate = 10.0; // 10 drops per second
         config_.puddle_floor = true;
     }
 
@@ -40,47 +40,60 @@ public:
         }
     }
 
-    std::unique_ptr<WorldEventGenerator> createWorldEventGenerator() const override
+    void setup(World& world) override
     {
-        auto setup = std::make_unique<ScenarioWorldEventGenerator>();
+        spdlog::info("RainingScenario::setup - initializing world");
 
-        // Setup function - configure world size if possible
-        setup->setSetupFunction([](World& world) {
-            spdlog::info("Setting up Raining scenario");
-            // Note: Current interface doesn't support resize, so we work with whatever size we have
-            // In the future, we might want to add resize capability to WorldInterface
-            world.setWallsEnabled(false);
-            world.setLeftThrowEnabled(false);
-            world.setRightThrowEnabled(false);
-            world.setLowerRightQuadrantEnabled(false);
-            // Gravity should already be set, but ensure it's on
-            world.physicsSettings.gravity = 9.81;
-        });
-
-        // Update function - add rain drops
-        setup->setUpdateFunction([](World& world, uint32_t /*timestep*/, double deltaTime) {
-            static std::mt19937 rng(42); // Deterministic for consistency
-            static std::uniform_real_distribution<double> drop_dist(0.0, 1.0);
-            static std::uniform_int_distribution<int> x_dist(1, world.data.width - 2);
-
-            // Rain rate: drops per second
-            const double rain_rate = 10.0; // 10 drops per second
-            const double drop_probability = rain_rate * deltaTime;
-
-            // Add rain drops based on probability
-            if (drop_dist(rng) < drop_probability) {
-                int x = x_dist(rng);
-                int y = 1; // Start near top
-
-                // Add water at the position
-                world.addMaterialAtCell(x, y, MaterialType::WATER, 0.5);
+        // Clear world first.
+        for (uint32_t y = 0; y < world.data.height; ++y) {
+            for (uint32_t x = 0; x < world.data.width; ++x) {
+                world.at(x, y) = Cell(); // Reset to empty cell.
             }
-        });
+        }
 
-        return setup;
+        // Configure physics.
+        world.setWallsEnabled(false);
+        world.setLeftThrowEnabled(false);
+        world.setRightThrowEnabled(false);
+        world.setLowerRightQuadrantEnabled(false);
+        world.physicsSettings.gravity = 9.81;
+
+        // Add floor if configured.
+        if (config_.puddle_floor) {
+            for (uint32_t x = 0; x < world.data.width; ++x) {
+                world.at(x, world.data.height - 1).replaceMaterial(MaterialType::WALL, 1.0);
+            }
+        }
+
+        spdlog::info("RainingScenario::setup complete");
+    }
+
+    void reset(World& world) override
+    {
+        spdlog::info("RainingScenario::reset");
+        setup(world);
+    }
+
+    void tick(World& world, double deltaTime) override
+    {
+        // Add rain drops based on configured rain rate.
+        const double drop_probability = config_.rain_rate * deltaTime;
+
+        if (drop_dist_(rng_) < drop_probability) {
+            std::uniform_int_distribution<uint32_t> x_dist(1, world.data.width - 2);
+            uint32_t x = x_dist(rng_);
+            uint32_t y = 1; // Start near top.
+
+            // Add water at the position.
+            world.addMaterialAtCell(x, y, MaterialType::WATER, 0.5);
+        }
     }
 
 private:
     ScenarioMetadata metadata_;
     RainingConfig config_;
+
+    // Random number generation for rain drops.
+    std::mt19937 rng_{ 42 }; // Deterministic seed for consistency
+    std::uniform_real_distribution<double> drop_dist_{ 0.0, 1.0 };
 };

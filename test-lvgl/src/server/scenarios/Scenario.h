@@ -40,10 +40,6 @@ struct ScenarioMetadata {
  * Scenarios are instanced (not singletons) so each can maintain independent state.
  */
 class Scenario {
-protected:
-    // Temporary: Delegate to old generator during migration.
-    mutable std::unique_ptr<WorldEventGenerator> generator_;
-
 public:
     virtual ~Scenario() = default;
 
@@ -58,17 +54,11 @@ public:
     virtual void setConfig(const ScenarioConfig& config, World& world) = 0;
 
     // Initialize world to scenario's starting state.
-    // Default implementation delegates to old generator (migration path).
-    virtual void setup(World& world);
+    virtual void setup(World& world) = 0;
 
     // Reset scenario state (timers, counters) and re-initialize world.
-    // Default implementation recreates generator and calls setup.
-    virtual void reset(World& world);
+    virtual void reset(World& world) = 0;
 
     // Update scenario behavior each frame (particle generation, timed events, etc.).
-    // Default implementation delegates to old generator (migration path).
-    virtual void tick(World& world, double deltaTime);
-
-    // DEPRECATED: Will be removed after refactor.
-    virtual std::unique_ptr<WorldEventGenerator> createWorldEventGenerator() const = 0;
+    virtual void tick(World& world, double deltaTime) = 0;
 };

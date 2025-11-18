@@ -1,9 +1,9 @@
+#include "core/Cell.h"
 #include "core/MaterialType.h"
 #include "core/World.h"
 #include "core/organisms/TreeManager.h"
 #include "server/scenarios/Scenario.h"
 #include "server/scenarios/ScenarioRegistry.h"
-#include "server/scenarios/ScenarioWorldEventGenerator.h"
 #include "spdlog/spdlog.h"
 
 using namespace DirtSim;
@@ -48,49 +48,55 @@ public:
         }
     }
 
-    std::unique_ptr<WorldEventGenerator> createWorldEventGenerator() const override
+    void setup(World& world) override
     {
-        auto setup = std::make_unique<ScenarioWorldEventGenerator>();
+        spdlog::info("TreeGerminationScenario::setup - creating 5x5 world");
 
-        // Setup function - create 5x5 world layout.
-        setup->setSetupFunction([](World& world) {
-            spdlog::info("Setting up Tree Germination scenario (5x5 world)");
+        // Clear world first.
+        for (uint32_t y = 0; y < world.data.height; ++y) {
+            for (uint32_t x = 0; x < world.data.width; ++x) {
+                world.at(x, y) = Cell(); // Reset to empty cell.
+            }
+        }
 
-            // Row 0: ----- (AIR - already default).
-            // Row 1: ----- (AIR - already default).
+        // Row 0: ----- (AIR - already default).
+        // Row 1: ----- (AIR - already default).
 
-            // Row 2: wwsdd.
-            world.addMaterialAtCell(0, 2, MaterialType::WALL, 1.0);
-            world.addMaterialAtCell(1, 2, MaterialType::WALL, 1.0);
-            // Seed at (2, 2) planted via TreeManager below.
-            world.addMaterialAtCell(3, 2, MaterialType::DIRT, 1.0);
-            world.addMaterialAtCell(4, 2, MaterialType::DIRT, 1.0);
+        // Row 2: wwsdd.
+        world.addMaterialAtCell(0, 2, MaterialType::WALL, 1.0);
+        world.addMaterialAtCell(1, 2, MaterialType::WALL, 1.0);
+        // Seed at (2, 2) planted via TreeManager below.
+        world.addMaterialAtCell(3, 2, MaterialType::DIRT, 1.0);
+        world.addMaterialAtCell(4, 2, MaterialType::DIRT, 1.0);
 
-            // Row 3: wwddd.
-            world.addMaterialAtCell(0, 3, MaterialType::WALL, 1.0);
-            world.addMaterialAtCell(1, 3, MaterialType::WALL, 1.0);
-            world.addMaterialAtCell(2, 3, MaterialType::DIRT, 1.0);
-            world.addMaterialAtCell(3, 3, MaterialType::DIRT, 1.0);
-            world.addMaterialAtCell(4, 3, MaterialType::DIRT, 1.0);
+        // Row 3: wwddd.
+        world.addMaterialAtCell(0, 3, MaterialType::WALL, 1.0);
+        world.addMaterialAtCell(1, 3, MaterialType::WALL, 1.0);
+        world.addMaterialAtCell(2, 3, MaterialType::DIRT, 1.0);
+        world.addMaterialAtCell(3, 3, MaterialType::DIRT, 1.0);
+        world.addMaterialAtCell(4, 3, MaterialType::DIRT, 1.0);
 
-            // Row 4: ddddd.
-            world.addMaterialAtCell(0, 4, MaterialType::DIRT, 1.0);
-            world.addMaterialAtCell(1, 4, MaterialType::DIRT, 1.0);
-            world.addMaterialAtCell(2, 4, MaterialType::DIRT, 1.0);
-            world.addMaterialAtCell(3, 4, MaterialType::DIRT, 1.0);
-            world.addMaterialAtCell(4, 4, MaterialType::DIRT, 1.0);
+        // Row 4: ddddd.
+        world.addMaterialAtCell(0, 4, MaterialType::DIRT, 1.0);
+        world.addMaterialAtCell(1, 4, MaterialType::DIRT, 1.0);
+        world.addMaterialAtCell(2, 4, MaterialType::DIRT, 1.0);
+        world.addMaterialAtCell(3, 4, MaterialType::DIRT, 1.0);
+        world.addMaterialAtCell(4, 4, MaterialType::DIRT, 1.0);
 
-            // Plant seed organism at (2, 2).
-            TreeId tree_id = world.getTreeManager().plantSeed(world, 2, 2);
-            spdlog::info("TreeGerminationScenario: Planted seed organism {} at (2, 2)", tree_id);
-        });
+        // Plant seed organism at (2, 2).
+        TreeId tree_id = world.getTreeManager().plantSeed(world, 2, 2);
+        spdlog::info("TreeGerminationScenario: Planted seed organism {} at (2, 2)", tree_id);
+    }
 
-        // Update function - no dynamic particles.
-        setup->setUpdateFunction([](World& /*world*/, uint32_t /*timestep*/, double /*deltaTime*/) {
-            // No dynamic particles - just watch the tree grow.
-        });
+    void reset(World& world) override
+    {
+        spdlog::info("TreeGerminationScenario::reset");
+        setup(world);
+    }
 
-        return setup;
+    void tick(World& /*world*/, double /*deltaTime*/) override
+    {
+        // No dynamic particles - just watch the tree grow.
     }
 
 private:
