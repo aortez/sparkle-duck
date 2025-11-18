@@ -59,23 +59,40 @@ bool WebSocketClient::connect(const std::string& url)
                 // Binary message (WorldData push) - no correlation ID.
                 const auto& binaryData = std::get<rtc::binary>(data);
                 spdlog::debug(
-                    "WebSocketClient: Received binary response ({} bytes)", binaryData.size());
+                    "WebSocketClient: Received binary push ({} bytes)", binaryData.size());
+
+                // Optimization: Skip processing if no callback registered.
+                // Binary WorldData pushes are unsolicited and only needed for async callbacks.
+                // Benchmark mode doesn't use callbacks, so skip expensive JSON conversion.
+                if (!messageCallback_) {
+                    spdlog::trace("WebSocketClient: Dropping binary push (no callback)");
+                    return;
+                }
+
+                timers_.startTimer("binary_worlddata_processing");
 
                 try {
+                    timers_.startTimer("binary_deserialize");
                     // Unpack binary to WorldData using zpp_bits.
                     WorldData worldData;
                     zpp::bits::in in(binaryData);
                     in(worldData).or_throw();
+                    timers_.stopTimer("binary_deserialize");
 
+                    timers_.startTimer("json_conversion");
                     // Convert to JSON string for MessageParser compatibility.
                     nlohmann::json doc;
                     doc["value"] = ReflectSerializer::to_json(worldData);
                     message = doc.dump();
+                    timers_.stopTimer("json_conversion");
                 }
                 catch (const std::exception& e) {
                     spdlog::error("WebSocketClient: Failed to decode binary: {}", e.what());
+                    timers_.stopTimer("binary_worlddata_processing");
                     return;
                 }
+
+                timers_.stopTimer("binary_worlddata_processing");
             }
 
             // Route message based on correlation ID.

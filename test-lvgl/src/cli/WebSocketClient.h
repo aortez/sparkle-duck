@@ -1,5 +1,6 @@
 #pragma once
 
+#include "core/Timers.h"
 #include <atomic>
 #include <condition_variable>
 #include <functional>
@@ -35,7 +36,14 @@ public:
     void onDisconnected(ConnectionCallback callback);
     void onError(ErrorCallback callback);
 
+    /**
+     * @brief Get performance timers for instrumentation.
+     * @return Reference to timers.
+     */
+    Timers& getTimers() { return timers_; }
+
 private:
+    Timers timers_; // Performance instrumentation.
     struct PendingRequest {
         std::string response;
         bool received = false;

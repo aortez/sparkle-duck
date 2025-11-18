@@ -206,6 +206,10 @@ BenchmarkResults BenchmarkRunner::run(
         spdlog::debug("BenchmarkRunner: Exit response: {}", e.what());
     }
 
+    // Log client timing stats.
+    spdlog::info("BenchmarkRunner: Client timer stats:");
+    client_.getTimers().dumpTimerStats();
+
     // Disconnect and cleanup.
     client_.disconnect();
 
