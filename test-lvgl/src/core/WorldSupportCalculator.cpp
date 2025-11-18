@@ -129,7 +129,7 @@ bool WorldSupportCalculator::hasHorizontalSupport(const World& world, uint32_t x
                 double mutual_adhesion = std::sqrt(cell_props.adhesion * neighbor_props.adhesion);
 
                 if (mutual_adhesion > STRONG_ADHESION_THRESHOLD) {
-                    spdlog::trace(
+                    spdlog::debug(
                         "hasHorizontalSupport({},{}) = true (rigid {} neighbor with adhesion "
                         "{:.3f})",
                         x,
@@ -263,75 +263,47 @@ void WorldSupportCalculator::computeSupportMapBottomUp(World& world, const GridO
 {
     // Hoist branch outside loop to eliminate per-cell branching overhead.
     if (GridOfCells::USE_CACHE) {
-        // ========== CACHED PATH: Block-centric iteration ==========
-        // Iterate over 8×8 blocks from bottom to top (bottom-up support propagation).
-        for (int block_y = static_cast<int>(grid.getBlocksY()) - 1; block_y >= 0; --block_y) {
-            for (uint32_t block_x = 0; block_x < grid.getBlocksX(); ++block_x) {
-                // Get empty cell bitmap for this 8×8 block.
-                uint64_t empty_block = grid.emptyCells().getBlock(block_x, block_y);
+        // ========== CACHED PATH: 3×3 neighborhood-focused ==========
+        // Simple y/x iteration using precomputed 3×3 neighborhoods.
+        // Bottom-up pass: start from bottom row and work upward.
+        for (int y = world.data.height - 1; y >= 0; y--) {
+            for (uint32_t x = 0; x < world.data.width; x++) {
+                // Get precomputed 3×3 neighborhood - single array lookup!
+                Neighborhood3x3 n = grid.getEmptyNeighborhood(x, y);
 
-                // Fast path: Skip if entire block is empty.
-                if (empty_block == 0xFFFFFFFFFFFFFFFFULL) {
-                    // Mark all cells in block as unsupported.
-                    uint32_t start_x = block_x * 8;
-                    uint32_t start_y = block_y * 8;
-                    uint32_t end_x = std::min(start_x + 8, world.data.width);
-                    uint32_t end_y = std::min(start_y + 8, world.data.height);
-
-                    for (uint32_t y = start_y; y < end_y; ++y) {
-                        for (uint32_t x = start_x; x < end_x; ++x) {
-                            world.at(x, y).has_support = false;
-                        }
-                    }
+                // Check if current cell is empty using neighborhood.
+                if (n.center()) {
+                    world.at(x, y).has_support = false;
                     continue;
                 }
 
-                // Process each cell in block (bottom to top within block).
-                uint32_t start_x = block_x * 8;
-                uint32_t start_y = block_y * 8;
-                uint32_t end_x = std::min(start_x + 8, world.data.width);
-                uint32_t end_y = std::min(start_y + 8, world.data.height);
+                Cell& cell = world.at(x, y);
 
-                for (int y = static_cast<int>(end_y) - 1; y >= static_cast<int>(start_y); --y) {
-                    for (uint32_t x = start_x; x < end_x; ++x) {
-                        // Check emptiness using block we already fetched.
-                        int local_x = x - start_x;
-                        int local_y = y - start_y;
-                        int bit_idx = (local_y << 3) | local_x;
-
-                        if ((empty_block >> bit_idx) & 1) {
-                            world.at(x, y).has_support = false;
-                            continue;
-                        }
-
-                        Cell& cell = world.at(x, y);
-
-                        // WALL material is always structurally supported.
-                        if (cell.material_type == MaterialType::WALL) {
-                            cell.has_support = true;
-                            continue;
-                        }
-
-                        // Bottom edge of world (ground) provides support.
-                        if (y == static_cast<int>(world.data.height) - 1) {
-                            cell.has_support = true;
-                            continue;
-                        }
-
-                        // Check vertical support: cell below must be non-empty AND supported.
-                        // Note: Cell below might be in a different block, so we use isSet().
-                        bool below_empty = grid.emptyCells().isSet(x, y + 1);
-                        bool has_vertical = !below_empty && world.at(x, y + 1).has_support;
-
-                        // Check horizontal support if no vertical.
-                        bool has_horizontal = false;
-                        if (!has_vertical) {
-                            has_horizontal = hasHorizontalSupport(world, x, y);
-                        }
-
-                        cell.has_support = has_vertical || has_horizontal;
-                    }
+                // WALL material is always structurally supported.
+                if (cell.material_type == MaterialType::WALL) {
+                    cell.has_support = true;
+                    continue;
                 }
+
+                // Bottom edge of world (ground) provides support.
+                if (y == static_cast<int>(world.data.height) - 1) {
+                    cell.has_support = true;
+                    continue;
+                }
+
+                // Check vertical support using precomputed neighborhood.
+                // No coordinate calculations, no isSet() calls - just bit tests!
+                bool below_empty = n.south();
+                bool has_vertical =
+                    n.southValid() && !below_empty && world.at(x, y + 1).has_support;
+
+                // Check horizontal support if no vertical.
+                bool has_horizontal = false;
+                if (!has_vertical) {
+                    has_horizontal = hasHorizontalSupport(world, x, y);
+                }
+
+                cell.has_support = has_vertical || has_horizontal;
             }
         }
     }
