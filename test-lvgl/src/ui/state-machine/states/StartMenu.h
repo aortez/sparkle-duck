@@ -35,11 +35,13 @@ private:
     static void onStartButtonClicked(lv_event_t* e);
     static void onDisplayResized(lv_event_t* e);
     static void onNextFractalClicked(lv_event_t* e);
+    static void onQuitButtonClicked(lv_event_t* e);
 
     JuliaFractal* fractal_ = nullptr;       // Fractal background animation.
     lv_obj_t* infoPanel_ = nullptr;         // Bottom-left info panel container.
     lv_obj_t* infoLabel_ = nullptr;         // Fractal info label.
     lv_obj_t* nextFractalButton_ = nullptr; // Button to advance fractal.
+    lv_obj_t* quitButton_ = nullptr;        // Quit button (top-left corner).
     int updateFrameCount_ = 0;              // Frame counter for periodic logging.
     int labelUpdateCounter_ = 0;            // Frame counter for label updates (~1/sec).
 };

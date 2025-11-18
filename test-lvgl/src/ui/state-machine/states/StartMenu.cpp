@@ -85,6 +85,20 @@ void StartMenu::onEnter(StateMachine& sm)
     lv_obj_center(btnLabel);
 
     spdlog::info("StartMenu: Created fractal info panel");
+
+    // Create Quit button in top-left corner (same style as SimRunning).
+    quitButton_ = lv_btn_create(container);
+    lv_obj_set_size(quitButton_, 80, 40);
+    lv_obj_align(quitButton_, LV_ALIGN_TOP_LEFT, 20, 20);
+    lv_obj_set_style_bg_color(quitButton_, lv_palette_main(LV_PALETTE_RED), 0);
+    lv_obj_set_user_data(quitButton_, &sm);
+    lv_obj_add_event_cb(quitButton_, onQuitButtonClicked, LV_EVENT_CLICKED, nullptr);
+
+    lv_obj_t* quitLabel = lv_label_create(quitButton_);
+    lv_label_set_text(quitLabel, "Quit");
+    lv_obj_center(quitLabel);
+
+    spdlog::info("StartMenu: Created Quit button");
 }
 
 void StartMenu::onExit(StateMachine& sm)
@@ -234,6 +248,20 @@ void StartMenu::onNextFractalClicked(lv_event_t* e)
 
     spdlog::info("StartMenu: Next fractal button clicked");
     startMenu->fractal_->advanceToNextFractal();
+}
+
+void StartMenu::onQuitButtonClicked(lv_event_t* e)
+{
+    auto* sm = static_cast<StateMachine*>(
+        lv_obj_get_user_data(static_cast<lv_obj_t*>(lv_event_get_target(e))));
+    if (!sm) return;
+
+    spdlog::info("StartMenu: Quit button clicked");
+
+    // Queue UI-local exit event (works in all states).
+    UiApi::Exit::Cwc cwc;
+    cwc.callback = [](auto&&) {}; // No response needed.
+    sm->queueEvent(cwc);
 }
 
 void StartMenu::onDisplayResized(lv_event_t* e)
