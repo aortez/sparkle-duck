@@ -445,7 +445,6 @@ State::Any SimRunning::onEvent(const Api::StatusGet::Cwc& cwc, StateMachine& /*d
     status.scenario_id = world->data.scenario_id;
     status.width = world->data.width;
     status.height = world->data.height;
-    status.is_paused = (targetSteps > 0 && stepCount >= targetSteps);
 
     spdlog::debug(
         "SimRunning: API status_get (step {}, {}x{})",

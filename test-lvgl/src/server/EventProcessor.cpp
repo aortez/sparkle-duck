@@ -20,11 +20,21 @@ void EventProcessor::processEvent(StateMachine& sm, const Event& eventVariant)
 
 void EventProcessor::processEventsFromQueue(StateMachine& sm)
 {
+    size_t initialQueueDepth = eventQueue->queue.size();
+
+    // Log queue depth if there are events to process.
+    if (initialQueueDepth > 0) {
+        spdlog::info("Server::EventProcessor: Processing {} queued events", initialQueueDepth);
+    }
+
     while (!eventQueue->queue.empty()) {
         auto event = eventQueue->queue.tryPop();
         if (event.has_value()) {
-            spdlog::trace(
-                "Server::EventProcessor: Processing event: {}", getEventName(event.value()));
+            size_t remaining = eventQueue->queue.size();
+            spdlog::info(
+                "Server::EventProcessor: Processing event: {} (queue depth: {})",
+                getEventName(event.value()),
+                remaining);
             processEvent(sm, event.value());
         }
     }

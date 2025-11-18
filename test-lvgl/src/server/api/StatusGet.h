@@ -25,7 +25,6 @@ struct Okay {
     std::string scenario_id;
     uint32_t width = 0;
     uint32_t height = 0;
-    bool is_paused = false;
 
     API_COMMAND_NAME();
     nlohmann::json toJson() const;

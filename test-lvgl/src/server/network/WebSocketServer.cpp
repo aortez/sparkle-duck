@@ -145,9 +145,14 @@ void WebSocketServer::onMessage(std::shared_ptr<rtc::WebSocket> ws, const std::s
         return;
     }
 
-    // Some commands are handled immedately, by the websocket thread.
+    // Some commands are handled immediately, by the websocket thread.
     if (std::holds_alternative<Api::StateGet::Command>(cmdResult.value())) {
         handleStateGetImmediate(ws, correlationId);
+        return;
+    }
+
+    if (std::holds_alternative<Api::StatusGet::Command>(cmdResult.value())) {
+        handleStatusGetImmediate(ws, correlationId);
         return;
     }
 
@@ -423,6 +428,55 @@ void WebSocketServer::handleStateGetImmediate(
     }
 
     timers.stopTimer("state_get_immediate_total");
+}
+
+void WebSocketServer::handleStatusGetImmediate(
+    std::shared_ptr<rtc::WebSocket> ws, std::optional<uint64_t> correlationId)
+{
+    // Cast to concrete StateMachine type to access cached WorldData.
+    auto& dsm = static_cast<StateMachine&>(stateMachine_);
+
+    // Get cached WorldData (already updated by physics thread).
+    auto cachedPtr = dsm.getCachedWorldData();
+    if (!cachedPtr) {
+        spdlog::warn("WebSocketServer: status_get immediate - no cached data available");
+        std::string errorJson = R"({"error": "No world data available"})";
+
+        // Inject correlation ID if present.
+        if (correlationId.has_value()) {
+            try {
+                nlohmann::json json = nlohmann::json::parse(errorJson);
+                json["id"] = correlationId.value();
+                errorJson = json.dump();
+            }
+            catch (...) {
+            }
+        }
+
+        ws->send(errorJson);
+        return;
+    }
+
+    // Build lightweight status from cached data.
+    Api::StatusGet::Okay status;
+    status.timestep = cachedPtr->timestep;
+    status.scenario_id = cachedPtr->scenario_id;
+    status.width = cachedPtr->width;
+    status.height = cachedPtr->height;
+
+    // Serialize to JSON.
+    nlohmann::json response;
+    response["value"] = ReflectSerializer::to_json(status);
+
+    // Inject correlation ID if present.
+    if (correlationId.has_value()) {
+        response["id"] = correlationId.value();
+    }
+
+    std::string jsonResponse = response.dump();
+
+    spdlog::info("StatusGet: Sending response ({} bytes)", jsonResponse.size());
+    ws->send(jsonResponse);
 }
 
 } // namespace Server
