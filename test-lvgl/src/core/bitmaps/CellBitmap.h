@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Neighborhood3x3.h"
+
 #include <cstdint>
 #include <vector>
 
@@ -42,6 +44,9 @@ public:
     uint64_t getBlock(uint32_t block_x, uint32_t block_y) const;
     bool isBlockAllSet(uint32_t block_x, uint32_t block_y) const;   // All bits = 1.
     bool isBlockAllClear(uint32_t block_x, uint32_t block_y) const; // All bits = 0.
+
+    // Neighborhood extraction.
+    Neighborhood3x3 getNeighborhood3x3(uint32_t x, uint32_t y) const;
 
     // Grid dimensions.
     uint32_t getWidth() const { return grid_width_; }

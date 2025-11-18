@@ -378,7 +378,9 @@ add_executable(sparkle-duck-tests
 
     # Bitmap tests.
     src/core/bitmaps/tests/CellBitmap_test.cpp
+    src/core/bitmaps/tests/CellBitmap_neighborhood_test.cpp
     src/core/bitmaps/tests/GridOfCells_integration_test.cpp
+    src/core/bitmaps/tests/Neighborhood3x3_test.cpp
 )
 target_link_libraries(sparkle-duck-tests
     PRIVATE

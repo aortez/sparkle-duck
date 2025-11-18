@@ -27,12 +27,14 @@ public:
     static bool USE_CACHE;
 
 private:
-    std::vector<Cell> cells_; // Owned copy of cells (for future use).
-    CellBitmap empty_cells_;  // Bitmap: 1 = empty (fill_ratio == 0).
+    std::vector<Cell> cells_;                   // Owned copy of cells (for future use).
+    CellBitmap empty_cells_;                    // Bitmap: 1 = empty (fill_ratio == 0).
+    std::vector<uint64_t> empty_neighborhoods_; // Precomputed 3×3 neighborhoods.
     uint32_t width_;
     uint32_t height_;
 
     void buildEmptyCellMap();
+    void precomputeEmptyNeighborhoods();
 
 public:
     // Constructor: Copy cells and compute bitmap.
@@ -40,6 +42,12 @@ public:
 
     // Accessor to empty cells bitmap.
     const CellBitmap& emptyCells() const { return empty_cells_; }
+
+    // Accessor to precomputed empty neighborhoods.
+    Neighborhood3x3 getEmptyNeighborhood(uint32_t x, uint32_t y) const
+    {
+        return Neighborhood3x3{ empty_neighborhoods_[y * width_ + x] };
+    }
 
     // Grid dimensions.
     uint32_t getWidth() const { return width_; }
