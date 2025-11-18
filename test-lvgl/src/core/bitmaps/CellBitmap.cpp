@@ -15,16 +15,17 @@ CellBitmap::CellBitmap(uint32_t width, uint32_t height) : grid_width_(width), gr
 inline void CellBitmap::cellToBlockAndBit(
     uint32_t x, uint32_t y, uint32_t& block_idx, int& bit_idx) const
 {
-    uint32_t block_x = x / BLOCK_SIZE;
-    uint32_t block_y = y / BLOCK_SIZE;
+    // Block coordinates using bit shifts instead of division.
+    uint32_t block_x = x >> 3; // x / 8
+    uint32_t block_y = y >> 3; // y / 8
     block_idx = block_y * blocks_x_ + block_x;
 
-    // Local coordinates within the 8×8 block.
-    int local_x = x % BLOCK_SIZE;
-    int local_y = y % BLOCK_SIZE;
+    // Local coordinates within the 8×8 block using bit masks instead of modulo.
+    int local_x = x & 7; // x % 8 (7 = 0b111)
+    int local_y = y & 7; // y % 8
 
-    // Bit index: row-major order (y * 8 + x).
-    bit_idx = local_y * BLOCK_SIZE + local_x;
+    // Bit index using shift instead of multiplication: row-major order (y * 8 + x).
+    bit_idx = (local_y << 3) | local_x; // local_y * 8 + local_x
 }
 
 void CellBitmap::set(uint32_t x, uint32_t y)
