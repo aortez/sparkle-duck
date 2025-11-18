@@ -44,13 +44,169 @@ if (activity_block == 0) skip_entire_block();
 - Hardware-friendly (popcount, bit scan instructions)
 
 ### Multiple Activity Layers
-- `has_matter` - Non-empty cells
+- `has_matter` - Non-empty cells (✅ **IMPLEMENTED** as `empty_cells` in GridOfCells)
 - `is_moving` - Velocity above threshold
 - `has_pressure` - Pressure gradients present
 - `needs_physics` - Requires processing this frame
 - `neighbor_activity` - Has active neighbors (for wake-up)
 
-## 2. Unified Neighbor Processing
+### Implementation Status (Nov 2025)
+
+**Completed:**
+- ✅ CellBitmap: Generic bit-packed grid with 8×8 blocks
+- ✅ GridOfCells: Frame-scoped cache with `emptyCells()` bitmap
+- ✅ Bit operation optimizations (shifts/masks instead of div/mod)
+- ✅ Support calculator integration with runtime toggle
+- ✅ Comprehensive testing (12 tests passing)
+- ✅ CLI `--compare-cache` benchmarking tool
+
+**Current Performance (100×100 grid):**
+- Construction: 357μs/frame
+- Overhead: -0.5% (expected - most cells are full)
+- Ready for future optimizations when sleep/wake systems are added
+
+**Next Steps:**
+- Branch hoisting (hoist `USE_CACHE` check outside loops)
+- Neighborhood bitmap extraction (see below)
+- Multi-layer property bitmaps
+
+## 1b. Neighborhood Bitmap Extraction (NEW IDEA)
+
+### Concept: 3×3 Local Neighborhoods in uint64_t
+
+Instead of querying neighbors individually (8 `isSet()` calls with coordinate math),
+extract a local 3×3 neighborhood once and query with simple bit shifts.
+
+### Basic 3×3 Layout (9 bits)
+```cpp
+// 3×3 grid around cell (x, y):
+//   NW N  NE     Bit positions:
+//   W  C  E      0  1  2
+//   SW S  SE     3  4  5
+//                6  7  8
+
+uint64_t neighborhood = grid.emptyCells().getNeighborhood3x3(x, y);
+
+// Query neighbors with bit shifts (no coordinate math!):
+bool north_empty = (neighborhood >> 1) & 1;
+bool south_empty = (neighborhood >> 7) & 1;
+bool east_empty = (neighborhood >> 5) & 1;
+```
+
+**Benefits:**
+- One fetch instead of 8 separate `isSet()` calls
+- Neighbor checks are pure bit operations (1 cycle vs ~20 cycles)
+- ~3× faster for neighbor-heavy calculations
+
+### Using Extra Bits in uint64_t
+
+A 3×3 grid only uses 9 bits, leaving **55 bits free**! Here's how to use them:
+
+#### Option 1: Validity/OOB Bits (9 additional bits)
+```cpp
+// Bits 0-8:   Property values (empty/full)
+// Bits 9-17:  Validity flags (1 = in-bounds, 0 = out-of-bounds)
+// Bits 18-63: Unused (46 bits)
+
+uint64_t neighborhood = grid.getNeighborhood3x3WithValidity(x, y);
+
+// Check if neighbor exists AND is empty:
+bool north_valid = (neighborhood >> (9 + 1)) & 1;
+bool north_empty = (neighborhood >> 1) & 1;
+
+if (north_valid && !north_empty) {
+    // Safe to use - neighbor exists and has material
+}
+
+// Edge case handling becomes trivial - no branching needed!
+```
+
+**Use case:** Eliminates boundary checking in physics calculations.
+
+#### Option 2: Material Type Neighborhoods (36 bits)
+```cpp
+// With 9 material types, use 4 bits per cell:
+// Bits 0-35:  Material types (9 cells × 4 bits)
+// Bits 36-63: Unused (28 bits)
+//
+// Layout:
+//   NW    N     NE        Bits 0-3   4-7   8-11
+//   W     C     E              12-15  16-19 20-23
+//   SW    S     SE             24-27  28-31 32-35
+
+uint64_t mat_neighborhood = grid.getMaterialNeighborhood3x3(x, y);
+
+// Extract material types:
+MaterialType north = static_cast<MaterialType>((mat_neighborhood >> 4) & 0xF);
+MaterialType center = static_cast<MaterialType>((mat_neighborhood >> 16) & 0xF);
+
+// Count water neighbors in one loop:
+int water_count = 0;
+for (int i = 0; i < 9; ++i) {
+    if (i == 4) continue;  // Skip center
+    MaterialType mat = static_cast<MaterialType>((mat_neighborhood >> (i * 4)) & 0xF);
+    if (mat == MaterialType::WATER) ++water_count;
+}
+
+// Check if all neighbors are same material (cohesion test):
+MaterialType first = mat_neighborhood & 0xF;
+bool all_same = true;
+for (int i = 1; i < 9; ++i) {
+    if (((mat_neighborhood >> (i * 4)) & 0xF) != first) {
+        all_same = false;
+        break;
+    }
+}
+```
+
+**Use case:** Cohesion, adhesion, viscosity calculations (all need neighbor materials).
+
+#### Option 3: Multi-Layer Properties (45 bits for 5 layers)
+```cpp
+// Store 5 boolean properties × 9 cells = 45 bits:
+// Bits 0-8:   isEmpty
+// Bits 9-17:  isWall
+// Bits 18-26: hasSupport
+// Bits 27-35: isMoving
+// Bits 36-44: hasPressure
+// Bits 45-63: Unused (19 bits)
+
+uint64_t multi_props = grid.getMultiLayerNeighborhood3x3(x, y);
+
+// Extract property layers:
+uint16_t empty_layer = multi_props & 0x1FF;           // Bits 0-8
+uint16_t wall_layer = (multi_props >> 9) & 0x1FF;     // Bits 9-17
+uint16_t support_layer = (multi_props >> 18) & 0x1FF; // Bits 18-26
+
+// Count supported neighbors:
+int supported_count = __builtin_popcount(support_layer & ~(1 << 4));  // Exclude center
+
+// Check if surrounded by walls:
+bool walled_in = (wall_layer & 0x1EF) == 0x1EF;  // All except center
+```
+
+**Use case:** Complex queries needing multiple properties.
+
+#### Option 4: Hybrid Approach (Best Flexibility)
+```cpp
+// Bits 0-8:   Property value (e.g., isEmpty)
+// Bits 9-17:  Validity flags (OOB handling)
+// Bits 18-49: Material types (8 neighbors × 4 bits, skip center)
+// Bits 50-63: Future use (14 bits)
+
+// Now you get BOTH edge handling AND material types!
+```
+
+## Which to Implement?
+
+**My suggestion:**
+1. **Start with Option 1 (Validity bits)** - Eliminates edge branching, simple
+2. **Add Option 2 (Material neighborhoods)** - Huge win for cohesion/adhesion
+3. **Later: Option 3** - When we have more boolean properties to track
+
+The material type neighborhood could **dramatically** speed up cohesion/adhesion calculations since they currently iterate neighbors multiple times!
+
+Want me to implement validity bits + material neighborhoods?
 
 ### Problem
 Currently 5-7 separate neighbor access passes per cell:
