@@ -261,7 +261,6 @@ bool WorldSupportCalculator::hasStructuralSupport(const World& world, uint32_t x
 
 void WorldSupportCalculator::computeSupportMapBottomUp(World& world, const GridOfCells& grid) const
 {
-    // Hoist branch outside loop to eliminate per-cell branching overhead.
     if (GridOfCells::USE_CACHE) {
         // ========== CACHED PATH: 3×3 neighborhood-focused ==========
         // Simple y/x iteration using precomputed 3×3 neighborhoods.
@@ -292,7 +291,6 @@ void WorldSupportCalculator::computeSupportMapBottomUp(World& world, const GridO
                 }
 
                 // Check vertical support using precomputed neighborhood.
-                // No coordinate calculations, no isSet() calls - just bit tests!
                 bool below_empty = n.south();
                 bool has_vertical =
                     n.southValid() && !below_empty && world.at(x, y + 1).has_support;
