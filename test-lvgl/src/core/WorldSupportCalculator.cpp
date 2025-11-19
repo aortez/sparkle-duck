@@ -1,5 +1,6 @@
 #include "WorldSupportCalculator.h"
 #include "Cell.h"
+#include "GridOfCells.h"
 #include "MaterialType.h"
 #include "Vector2i.h"
 #include "World.h"
@@ -128,7 +129,7 @@ bool WorldSupportCalculator::hasHorizontalSupport(const World& world, uint32_t x
                 double mutual_adhesion = std::sqrt(cell_props.adhesion * neighbor_props.adhesion);
 
                 if (mutual_adhesion > STRONG_ADHESION_THRESHOLD) {
-                    spdlog::trace(
+                    spdlog::debug(
                         "hasHorizontalSupport({},{}) = true (rigid {} neighbor with adhesion "
                         "{:.3f})",
                         x,
@@ -148,11 +149,6 @@ bool WorldSupportCalculator::hasHorizontalSupport(const World& world, uint32_t x
 
 bool WorldSupportCalculator::hasStructuralSupport(const World& world, uint32_t x, uint32_t y) const
 {
-    //    if (!isValidCell(world, static_cast<int>(x), static_cast<int>(y))) {
-    //        spdlog::error("hasStructuralSupport({},{}) = false (invalid cell)", x, y);
-    //        return false;
-    //    }
-
     const Cell& cell = getCellAt(world, x, y);
 
     // Empty cells provide no support.
@@ -263,42 +259,90 @@ bool WorldSupportCalculator::hasStructuralSupport(const World& world, uint32_t x
     return false;
 }
 
-void WorldSupportCalculator::computeSupportMapBottomUp(World& world) const
+void WorldSupportCalculator::computeSupportMapBottomUp(World& world, const GridOfCells& grid) const
 {
-    // Bottom-up pass: compute support for entire grid in one sweep.
-    // Start from bottom row (ground) and work upward.
-    for (int y = world.data.height - 1; y >= 0; y--) {
-        for (uint32_t x = 0; x < world.data.width; x++) {
-            Cell& cell = world.at(x, y);
+    if (GridOfCells::USE_CACHE) {
+        // ========== CACHED PATH: 3×3 neighborhood-focused ==========
+        // Simple y/x iteration using precomputed 3×3 neighborhoods.
+        // Bottom-up pass: start from bottom row and work upward.
+        for (int y = world.data.height - 1; y >= 0; y--) {
+            for (uint32_t x = 0; x < world.data.width; x++) {
+                // Get precomputed 3×3 neighborhood - single array lookup!
+                Neighborhood3x3 n = grid.getEmptyNeighborhood(x, y);
 
-            if (cell.isEmpty()) {
-                cell.has_support = false;
-                continue;
+                // Check if current cell is empty using neighborhood.
+                if (n.center()) {
+                    world.at(x, y).has_support = false;
+                    continue;
+                }
+
+                Cell& cell = world.at(x, y);
+
+                // WALL material is always structurally supported.
+                if (cell.material_type == MaterialType::WALL) {
+                    cell.has_support = true;
+                    continue;
+                }
+
+                // Bottom edge of world (ground) provides support.
+                if (y == static_cast<int>(world.data.height) - 1) {
+                    cell.has_support = true;
+                    continue;
+                }
+
+                // Check vertical support using precomputed neighborhood.
+                bool below_empty = n.south();
+                bool has_vertical =
+                    n.southValid() && !below_empty && world.at(x, y + 1).has_support;
+
+                // Check horizontal support if no vertical.
+                bool has_horizontal = false;
+                if (!has_vertical) {
+                    has_horizontal = hasHorizontalSupport(world, x, y);
+                }
+
+                cell.has_support = has_vertical || has_horizontal;
             }
+        }
+    }
+    else {
+        // ========== DIRECT PATH: Traditional cell access ==========
+        // Bottom-up pass: compute support for entire grid in one sweep.
+        // Start from bottom row (ground) and work upward.
+        for (int y = world.data.height - 1; y >= 0; y--) {
+            for (uint32_t x = 0; x < world.data.width; x++) {
+                Cell& cell = world.at(x, y);
 
-            // WALL material is always structurally supported.
-            if (cell.material_type == MaterialType::WALL) {
-                cell.has_support = true;
-                continue;
+                // Check emptiness directly.
+                if (cell.isEmpty()) {
+                    cell.has_support = false;
+                    continue;
+                }
+
+                // WALL material is always structurally supported.
+                if (cell.material_type == MaterialType::WALL) {
+                    cell.has_support = true;
+                    continue;
+                }
+
+                // Bottom edge of world (ground) provides support.
+                if (y == static_cast<int>(world.data.height) - 1) {
+                    cell.has_support = true;
+                    continue;
+                }
+
+                // Check vertical support: cell below must be non-empty AND supported.
+                const Cell& below = world.at(x, y + 1);
+                bool has_vertical = !below.isEmpty() && below.has_support;
+
+                // Check horizontal support if no vertical.
+                bool has_horizontal = false;
+                if (!has_vertical) {
+                    has_horizontal = hasHorizontalSupport(world, x, y);
+                }
+
+                cell.has_support = has_vertical || has_horizontal;
             }
-
-            // Bottom edge of world (ground) provides support.
-            if (y == static_cast<int>(world.data.height) - 1) {
-                cell.has_support = true;
-                continue;
-            }
-
-            // Check vertical support: cell below must be non-empty AND supported.
-            const Cell& below = world.at(x, y + 1);
-            bool has_vertical = !below.isEmpty() && below.has_support;
-
-            // Check horizontal support if no vertical.
-            bool has_horizontal = false;
-            if (!has_vertical) {
-                has_horizontal = hasHorizontalSupport(world, x, y);
-            }
-
-            cell.has_support = has_vertical || has_horizontal;
         }
     }
 }

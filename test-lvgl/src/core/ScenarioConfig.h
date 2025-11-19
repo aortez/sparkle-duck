@@ -81,6 +81,13 @@ struct FallingDirtConfig {
 };
 
 /**
+ * @brief Benchmark scenario - performance testing with complex physics.
+ */
+struct BenchmarkConfig {
+    using serialize = zpp::bits::members<0>;
+};
+
+/**
  * @brief Variant type containing all scenario configurations.
  *
  * Use std::visit() or std::get<>() to access the active config.
@@ -91,7 +98,8 @@ using ScenarioConfig = std::variant<
     DamBreakConfig,
     RainingConfig,
     WaterEqualizationConfig,
-    FallingDirtConfig>;
+    FallingDirtConfig,
+    BenchmarkConfig>;
 
 /**
  * @brief Get scenario ID string from config variant.
@@ -115,6 +123,8 @@ inline std::string getScenarioId(const ScenarioConfig& config)
                 return "water_equalization";
             else if constexpr (std::is_same_v<T, FallingDirtConfig>)
                 return "falling_dirt";
+            else if constexpr (std::is_same_v<T, BenchmarkConfig>)
+                return "benchmark";
             else
                 return "unknown";
         },
@@ -157,6 +167,9 @@ inline void to_json(nlohmann::json& j, const ScenarioConfig& config)
             else if constexpr (std::is_same_v<T, FallingDirtConfig>) {
                 j["type"] = "falling_dirt";
             }
+            else if constexpr (std::is_same_v<T, BenchmarkConfig>) {
+                j["type"] = "benchmark";
+            }
         },
         config);
 }
@@ -183,6 +196,9 @@ inline void from_json(const nlohmann::json& j, ScenarioConfig& config)
     }
     else if (type == "falling_dirt") {
         config = ReflectSerializer::from_json<FallingDirtConfig>(j);
+    }
+    else if (type == "benchmark") {
+        config = ReflectSerializer::from_json<BenchmarkConfig>(j);
     }
     else {
         config = EmptyConfig{};

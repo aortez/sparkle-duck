@@ -12,6 +12,10 @@ Read design_docs/coding_convention.md for coding guidelines.
 
 ## Essential Commands
 
+### Git
+Use git as needed but never push.
+Don't use git -C, instead just make sure you're in the right directory beforehand.
+
 ### Building
 ```bash
 # Build release version
@@ -66,6 +70,10 @@ make -C build -j12
 # CLI integration test
 ./build/bin/cli integration_test
 
+# Clean up all sparkle-duck processes
+./build/bin/cli cleanup
+```
+
 # For complete CLI documentation, see:
 # src/cli/README.md
 ```
@@ -87,6 +95,66 @@ make test ARGS='--gtest_filter=State*'
 
 # Run specific test
 ./build/bin/sparkle-duck-tests --gtest_filter="StateSimRunningTest.AdvanceSimulation_StepsPhysicsAndDirtFalls"
+```
+
+### Debugging and Logging
+
+#### Log Levels
+All applications support `--log-level` flag to control logging verbosity:
+```bash
+# Server with debug logging
+./build/bin/sparkle-duck-server --log-level debug -p 8080
+
+# UI with trace logging
+./build/bin/sparkle-duck-ui --log-level trace -b wayland
+
+# Use with run_debug.sh
+./run_debug.sh -l debug      # Debug level
+./run_debug.sh -l trace      # Maximum verbosity
+./run_debug.sh --log-level info  # Default
+
+# Valid levels: trace, debug, info, warn, error, critical, off
+```
+
+#### Core Dumps for Crash Analysis
+When applications crash with segmentation faults, core dumps provide invaluable debugging information.
+
+**Locating Core Dumps:**
+```bash
+# List recent core dumps (systemd-coredump)
+coredumpctl list | grep sparkle-duck | tail -5
+
+# Get info about the latest crash
+coredumpctl info
+
+# Analyze with gdb
+coredumpctl gdb <PID>
+
+# Quick backtrace from most recent crash
+coredumpctl gdb --batch -ex "bt" -ex "quit"
+```
+
+**Analyzing Core Dumps:**
+```bash
+# Get backtrace of all threads
+coredumpctl gdb <PID>
+(gdb) bt            # Main thread backtrace
+(gdb) info threads  # List all threads
+(gdb) thread apply all bt  # Backtrace of all threads
+(gdb) frame 5       # Jump to specific frame
+(gdb) print variable_name  # Inspect variables
+(gdb) quit
+
+# Or use batch mode for automated analysis
+cat > /tmp/gdb_commands.txt << 'EOF'
+set pagination off
+bt
+info threads
+thread apply all bt
+quit
+EOF
+
+coredumpctl gdb <PID> < /tmp/gdb_commands.txt > crash_analysis.txt 2>&1
 ```
 
 ## Architecture
@@ -174,13 +242,13 @@ The CLI tool includes a benchmark mode for measuring physics performance:
 ./build/bin/cli benchmark --scenario dam_break --steps 120
 ```
 
-### Code Formatter
-Run the formatter before committing.
+## Code Formatter
+The code formatter will run via hook, but you can also run it like so:
 ```bash
 make format
 ```
 
-The benchmark auto-launches the server, runs the simulation, collects performance metrics from both server and client, then outputs JSON results including FPS, physics timing, serialization timing, and round-trip latencies.
+The benchmark auto-launches the server, runs the simulation, collects performance metrics from both server and client, then outputs JSON results including FPS, physics timing, serialization timing, round-trip latencies, and detailed timer statistics for each physics subsystem (cohesion, adhesion, pressure diffusion, etc.).
 
 ## Coding Practices
 
@@ -303,16 +371,14 @@ Can be found here:
 - ✅ Basic germination (SEED → WOOD → ROOT)
 
 **Next Steps:**
-- Examine germination in detail. Update implementation and tests.
+- Examine germination in detail, right now it's crazy. Update implementation and tests.
 - Phase 2: Advanced growth patterns (SAPLING/MATURE stages)
 - Phase 3: Resource systems (light, water, nutrients, photosynthesis)
 - Performance testing and optimization
 
 Awesome Ideas to do soon:
+- Swapping behavior - vertical only or also horizontal???
 - WorldEventGenerator methods should be moved into the Scenarios.
-- Add label for Fractal showing which event type it was currently running.
-- Add button to StartMenu to generate the next fractal.
-- Make the water column size scale with the world size
 - FIX: After resetting, the tree visualization is still showing, it should Only
 be active if a tree is around.
 - Add label to tree's view saying which layer it is from.
@@ -321,12 +387,20 @@ It could affect how other things move/displace in interesting/subtle ways.
 - Audit GridMechanics for correctness/relevance.  It might be getting out of date.
 - Refactor PhysicsControls to normalize/DRY up the patterns? (and prevent bugs/share enhancements)
 - Implement fragmentation on high energy impacts (see WorldCollisionCalculator).
+- Improve some of the scenarios - like the dam break and water equalization ones.
+- Fractal world generator?  Or Start from fractal?
+- mass as a gravity source!  allan.pizza but in a grid!!!
+- quad-tree or similar optimization applied to the grid?
+- Cohesion seems to reach from C N N+1 and not just from C to N - cells get stuck in space sometimes because of this, what's going on?
+- cli send/receive any command/response automatically.
+- Review CLI and CAUDE README/md files for accuracy and gross omitition  Test things
+to see if they work.
+- refactor World to use Pimple pattern.  Use elsewhere too?
 
 ### Client/Server Architecture (DSSM + UI Client)
 - ✅ Headless server with WebSocket API
 - ✅ UI client with controls and rendering
-- ✅ Binary serialization (zpp_bits) with custom support for 10+ field structs
-- ✅ Frame-based synchronization
+- ✅ Binary serialization (zpp_bits)
 
 See design_docs/plant.md and design_docs/ai-integration-ideas.md for details.
 

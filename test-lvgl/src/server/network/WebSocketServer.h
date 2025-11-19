@@ -72,15 +72,29 @@ private:
      * @brief Wrap ApiCommand in appropriate Cwc with response callback.
      * @param command The command to wrap.
      * @param ws The WebSocket connection for sending response.
+     * @param correlationId Optional correlation ID from request.
      * @return Event variant containing the Cwc.
      */
-    Event createCwcForCommand(const ApiCommand& command, std::shared_ptr<rtc::WebSocket> ws);
+    Event createCwcForCommand(
+        const ApiCommand& command,
+        std::shared_ptr<rtc::WebSocket> ws,
+        std::optional<uint64_t> correlationId);
 
     /**
      * @brief Handle state_get immediately without queuing (low latency path).
      * @param ws The WebSocket connection for sending response.
+     * @param correlationId Optional correlation ID from request.
      */
-    void handleStateGetImmediate(std::shared_ptr<rtc::WebSocket> ws);
+    void handleStateGetImmediate(
+        std::shared_ptr<rtc::WebSocket> ws, std::optional<uint64_t> correlationId);
+
+    /**
+     * @brief Handle status_get immediately without queuing (low latency path).
+     * @param ws The WebSocket connection for sending response.
+     * @param correlationId Optional correlation ID from request.
+     */
+    void handleStatusGetImmediate(
+        std::shared_ptr<rtc::WebSocket> ws, std::optional<uint64_t> correlationId);
 };
 
 } // namespace Server

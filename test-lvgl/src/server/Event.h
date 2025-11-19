@@ -15,6 +15,7 @@
 #include "api/SimRun.h"
 #include "api/SpawnDirtBall.h"
 #include "api/StateGet.h"
+#include "api/StatusGet.h"
 #include "api/TimerStatsGet.h"
 #include "api/WorldResize.h"
 #include "core/MaterialType.h"
@@ -546,6 +547,7 @@ using Event = std::variant<
     DirtSim::Api::SimRun::Cwc,
     DirtSim::Api::SpawnDirtBall::Cwc,
     DirtSim::Api::StateGet::Cwc,
+    DirtSim::Api::StatusGet::Cwc,
     DirtSim::Api::TimerStatsGet::Cwc,
     DirtSim::Api::WorldResize::Cwc,
 

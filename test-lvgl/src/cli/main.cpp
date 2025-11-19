@@ -1,4 +1,5 @@
 #include "BenchmarkRunner.h"
+#include "CleanupRunner.h"
 #include "IntegrationTest.h"
 #include "RunAllRunner.h"
 #include "WebSocketClient.h"
@@ -7,6 +8,7 @@
 #include <filesystem>
 #include <iostream>
 #include <nlohmann/json.hpp>
+#include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
 #include <string>
 
@@ -21,6 +23,7 @@ struct CommandInfo {
 
 static const std::vector<CommandInfo> AVAILABLE_COMMANDS = {
     { "benchmark", "Run performance benchmark (launches server)", "" },
+    { "cleanup", "Clean up rogue sparkle-duck processes", "" },
     { "integration_test", "Run integration test (launches server + UI)", "" },
     { "run-all", "Launch server + UI and monitor (exits when UI closes)", "" },
     { "cell_get", "Get cell state at coordinates", R"({"x": 10, "y": 20})" },
@@ -92,6 +95,10 @@ std::string buildCommand(const std::string& commandName, const std::string& json
 
 int main(int argc, char** argv)
 {
+    // Configure spdlog to output to stderr (stdout reserved for JSON output).
+    auto logger = spdlog::stderr_color_mt("cli");
+    spdlog::set_default_logger(logger);
+
     // Parse command line arguments.
     args::ArgumentParser parser(
         "Sparkle Duck CLI Client",
@@ -108,11 +115,14 @@ int main(int argc, char** argv)
     args::ValueFlag<std::string> benchScenario(
         parser,
         "scenario",
-        "Benchmark: scenario name (default: sandbox)",
+        "Benchmark: scenario name (default: benchmark)",
         { "scenario" },
-        "sandbox");
-    args::Flag simulateUI(
-        parser, "simulate-ui", "Benchmark: simulate UI client behavior", { "simulate-ui" });
+        "benchmark");
+    args::Flag compareCache(
+        parser,
+        "compare-cache",
+        "Benchmark: Run twice to compare cached vs non-cached performance",
+        { "compare-cache" });
 
     args::Positional<std::string> command(parser, "command", getCommandListHelp());
     args::Positional<std::string> address(
@@ -152,6 +162,11 @@ int main(int argc, char** argv)
 
     // Handle benchmark command (auto-launches server).
     if (commandName == "benchmark") {
+        // Set log level to error for clean JSON output (unless --verbose).
+        if (!verbose) {
+            spdlog::set_level(spdlog::level::err);
+        }
+
         // Find server binary (assume it's in same directory as CLI).
         std::filesystem::path exePath = std::filesystem::read_symlink("/proc/self/exe");
         std::filesystem::path binDir = exePath.parent_path();
@@ -163,20 +178,67 @@ int main(int argc, char** argv)
         }
 
         // Run benchmark.
-        Client::BenchmarkRunner runner;
-        auto results = runner.run(
-            serverPath.string(), args::get(benchSteps), args::get(benchScenario), simulateUI);
+        // Follow args library pattern: check presence before get.
+        int actualSteps = benchSteps ? args::get(benchSteps) : 120;
+        std::string actualScenario = benchScenario ? args::get(benchScenario) : "benchmark";
 
-        // Output results as JSON using ReflectSerializer.
-        nlohmann::json resultJson = ReflectSerializer::to_json(results);
+        if (compareCache) {
+            // Run twice: with and without cache.
+            Client::BenchmarkRunner runner;
 
-        // Add timer_stats (already in JSON format).
-        if (!results.timer_stats.empty()) {
-            resultJson["timer_stats"] = results.timer_stats;
+            spdlog::set_level(spdlog::level::info);
+            spdlog::info("Running benchmark WITH cache enabled...");
+            auto results_cached = runner.run(serverPath.string(), actualSteps, actualScenario);
+
+            spdlog::info("Running benchmark WITHOUT cache (--no-grid-cache)...");
+            auto results_direct = runner.runWithServerArgs(
+                serverPath.string(), actualSteps, actualScenario, "--no-grid-cache");
+
+            // Build comparison output.
+            nlohmann::json comparison;
+            comparison["scenario"] = actualScenario;
+            comparison["steps"] = actualSteps;
+            comparison["with_cache"] = ReflectSerializer::to_json(results_cached);
+            comparison["without_cache"] = ReflectSerializer::to_json(results_direct);
+
+            // Calculate speedup.
+            double cached_fps = results_cached.server_fps;
+            double direct_fps = results_direct.server_fps;
+            double speedup = (cached_fps / direct_fps - 1.0) * 100.0;
+
+            comparison["speedup_percent"] = speedup;
+            comparison["summary"] = speedup > 0 ? "Cache is faster" : "Cache is slower";
+
+            std::cout << comparison.dump(2) << std::endl;
+        }
+        else {
+            // Single run (default behavior).
+            Client::BenchmarkRunner runner;
+            auto results = runner.run(serverPath.string(), actualSteps, actualScenario);
+
+            // Output results as JSON using ReflectSerializer.
+            nlohmann::json resultJson = ReflectSerializer::to_json(results);
+
+            // Add timer_stats (already in JSON format).
+            if (!results.timer_stats.empty()) {
+                resultJson["timer_stats"] = results.timer_stats;
+            }
+
+            std::cout << resultJson.dump(2) << std::endl;
+        }
+        return 0;
+    }
+
+    // Handle cleanup command (find and kill rogue processes).
+    if (commandName == "cleanup") {
+        // Always show cleanup output (unless explicitly verbose).
+        if (!verbose) {
+            spdlog::set_level(spdlog::level::info);
         }
 
-        std::cout << resultJson.dump(2) << std::endl;
-        return 0;
+        Client::CleanupRunner cleanup;
+        auto results = cleanup.run();
+        return results.empty() ? 0 : 0; // Always return 0 on success.
     }
 
     // Handle integration_test command (auto-launches server and UI).

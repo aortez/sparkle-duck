@@ -1,5 +1,6 @@
 #include "WebSocketServer.h"
 #include "core/MsgPackAdapter.h"
+#include "core/ReflectSerializer.h"
 #include "server/StateMachine.h"
 #include <cstring>
 #include <spdlog/spdlog.h>
@@ -122,6 +123,18 @@ void WebSocketServer::onMessage(std::shared_ptr<rtc::WebSocket> ws, const std::s
         spdlog::info("WebSocket received command: {}", message);
     }
 
+    // Extract correlation ID from request (optional field).
+    std::optional<uint64_t> correlationId;
+    try {
+        nlohmann::json json = nlohmann::json::parse(message);
+        if (json.contains("id") && json["id"].is_number()) {
+            correlationId = json["id"].get<uint64_t>();
+        }
+    }
+    catch (const std::exception& e) {
+        spdlog::error("Failed to parse correlation ID: {}", e.what());
+    }
+
     // Deserialize JSON → Command.
     auto cmdResult = deserializer_.deserialize(message);
     if (cmdResult.isError()) {
@@ -132,14 +145,19 @@ void WebSocketServer::onMessage(std::shared_ptr<rtc::WebSocket> ws, const std::s
         return;
     }
 
-    // Some commands are handled immedately, by the websocket thread.
+    // Some commands are handled immediately, by the websocket thread.
     if (std::holds_alternative<Api::StateGet::Command>(cmdResult.value())) {
-        handleStateGetImmediate(ws);
+        handleStateGetImmediate(ws, correlationId);
+        return;
+    }
+
+    if (std::holds_alternative<Api::StatusGet::Command>(cmdResult.value())) {
+        handleStatusGetImmediate(ws, correlationId);
         return;
     }
 
     // Others are queued for processing in FIFO order.
-    Event cwcEvent = createCwcForCommand(cmdResult.value(), ws);
+    Event cwcEvent = createCwcForCommand(cmdResult.value(), ws, correlationId);
     stateMachine_.queueEvent(cwcEvent);
 }
 
@@ -179,7 +197,8 @@ REGISTER_API_NAMESPACE(SeedAdd)
 REGISTER_API_NAMESPACE(SimRun)
 REGISTER_API_NAMESPACE(SpawnDirtBall)
 REGISTER_API_NAMESPACE(StateGet)
-REGISTER_API_NAMESPACE(TimerStatsGet) // Note: Not in deserializer yet, but needed for compile.
+REGISTER_API_NAMESPACE(StatusGet)
+REGISTER_API_NAMESPACE(TimerStatsGet)
 REGISTER_API_NAMESPACE(WorldResize)
 
 #undef REGISTER_API_NAMESPACE
@@ -189,12 +208,26 @@ template <typename Info>
 auto makeStandardCwc(
     WebSocketServer* self,
     std::shared_ptr<rtc::WebSocket> ws,
-    const typename Info::CommandType& cmd) -> typename Info::CwcType
+    const typename Info::CommandType& cmd,
+    std::optional<uint64_t> correlationId) -> typename Info::CwcType
 {
     typename Info::CwcType cwc;
     cwc.command = cmd;
-    cwc.callback = [self, ws](typename Info::ResponseType&& response) {
+    cwc.callback = [self, ws, correlationId](typename Info::ResponseType&& response) {
         std::string jsonResponse = self->serializer_.serialize(std::move(response));
+
+        // Inject correlation ID if present.
+        if (correlationId.has_value()) {
+            try {
+                nlohmann::json json = nlohmann::json::parse(jsonResponse);
+                json["id"] = correlationId.value();
+                jsonResponse = json.dump();
+            }
+            catch (const std::exception& e) {
+                spdlog::error("Failed to inject correlation ID: {}", e.what());
+            }
+        }
+
         if (std::strcmp(Info::name, "FrameReady") == 0) {
             spdlog::debug("{}: Sending response ({} bytes)", Info::name, jsonResponse.size());
         }
@@ -211,42 +244,83 @@ template <>
 auto makeStandardCwc<ApiInfo<DirtSim::Api::StateGet::Command>>(
     WebSocketServer* self,
     std::shared_ptr<rtc::WebSocket> ws,
-    const DirtSim::Api::StateGet::Command& cmd) -> DirtSim::Api::StateGet::Cwc
+    const DirtSim::Api::StateGet::Command& cmd,
+    std::optional<uint64_t> correlationId) -> DirtSim::Api::StateGet::Cwc
 {
     DirtSim::Api::StateGet::Cwc cwc;
     cwc.command = cmd;
-    cwc.callback = [self, ws](DirtSim::Api::StateGet::Response&& response) {
+    cwc.callback = [self, ws, correlationId](DirtSim::Api::StateGet::Response&& response) {
         // Get timers for instrumentation.
         auto& dsm = static_cast<StateMachine&>(self->stateMachine_);
         auto& timers = dsm.getTimers();
 
         if (response.isError()) {
-            // Send errors as JSON still.
+            // Send errors as JSON.
             std::string jsonResponse = self->serializer_.serialize(std::move(response));
+
+            // Inject correlation ID if present.
+            if (correlationId.has_value()) {
+                try {
+                    nlohmann::json json = nlohmann::json::parse(jsonResponse);
+                    json["id"] = correlationId.value();
+                    jsonResponse = json.dump();
+                }
+                catch (const std::exception& e) {
+                    spdlog::error("Failed to inject correlation ID: {}", e.what());
+                }
+            }
+
             spdlog::info("StateGet: Sending error response ({} bytes)", jsonResponse.size());
             timers.startTimer("network_send");
             ws->send(jsonResponse);
             timers.stopTimer("network_send");
         }
         else {
-            // Pack WorldData directly to binary with zpp_bits.
-            timers.startTimer("serialize_worlddata");
+            // Check if this is a correlated request (needs JSON) or unsolicited push (binary).
+            if (correlationId.has_value()) {
+                // Explicit state_get with correlation ID - send as JSON with ID.
+                timers.startTimer("serialize_worlddata");
+                std::string jsonResponse = self->serializer_.serialize(std::move(response));
+                timers.stopTimer("serialize_worlddata");
 
-            std::vector<std::byte> data;
-            zpp::bits::out out(data);
-            out(response.value().worldData).or_throw();
+                // Inject correlation ID.
+                try {
+                    nlohmann::json json = nlohmann::json::parse(jsonResponse);
+                    json["id"] = correlationId.value();
+                    jsonResponse = json.dump();
+                }
+                catch (const std::exception& e) {
+                    spdlog::error("Failed to inject correlation ID: {}", e.what());
+                }
 
-            timers.stopTimer("serialize_worlddata");
+                spdlog::debug(
+                    "StateGet: Sending JSON response with ID {} ({} bytes)",
+                    correlationId.value(),
+                    jsonResponse.size());
 
-            // Convert to rtc::binary (already std::vector<std::byte>).
-            rtc::binary binaryMsg(data.begin(), data.end());
+                timers.startTimer("network_send");
+                ws->send(jsonResponse);
+                timers.stopTimer("network_send");
+            }
+            else {
+                // Unsolicited push - send as binary (no ID).
+                timers.startTimer("serialize_worlddata");
 
-            spdlog::debug("StateGet: Sending binary response ({} bytes)", data.size());
+                std::vector<std::byte> data;
+                zpp::bits::out out(data);
+                out(response.value().worldData).or_throw();
 
-            // Send as binary message.
-            timers.startTimer("network_send");
-            ws->send(binaryMsg);
-            timers.stopTimer("network_send");
+                timers.stopTimer("serialize_worlddata");
+
+                // Convert to rtc::binary.
+                rtc::binary binaryMsg(data.begin(), data.end());
+
+                spdlog::debug("StateGet: Sending binary push ({} bytes)", data.size());
+
+                timers.startTimer("network_send");
+                ws->send(binaryMsg);
+                timers.stopTimer("network_send");
+            }
         }
     };
     return cwc;
@@ -255,21 +329,24 @@ auto makeStandardCwc<ApiInfo<DirtSim::Api::StateGet::Command>>(
 } // anonymous namespace
 
 Event WebSocketServer::createCwcForCommand(
-    const ApiCommand& command, std::shared_ptr<rtc::WebSocket> ws)
+    const ApiCommand& command,
+    std::shared_ptr<rtc::WebSocket> ws,
+    std::optional<uint64_t> correlationId)
 {
     // Generic visitor that works for ALL command types.
     // Compile-time error if a command type is added to ApiCommand but not registered above.
     return std::visit(
-        [this, ws](auto&& cmd) -> Event {
+        [this, ws, correlationId](auto&& cmd) -> Event {
             using CommandType = std::decay_t<decltype(cmd)>;
             using Info = ApiInfo<CommandType>;
 
-            return makeStandardCwc<Info>(this, ws, cmd);
+            return makeStandardCwc<Info>(this, ws, cmd, correlationId);
         },
         command);
 }
 
-void WebSocketServer::handleStateGetImmediate(std::shared_ptr<rtc::WebSocket> ws)
+void WebSocketServer::handleStateGetImmediate(
+    std::shared_ptr<rtc::WebSocket> ws, std::optional<uint64_t> correlationId)
 {
     // Cast to concrete StateMachine type to access cached WorldData.
     auto& dsm = static_cast<StateMachine&>(stateMachine_);
@@ -283,27 +360,123 @@ void WebSocketServer::handleStateGetImmediate(std::shared_ptr<rtc::WebSocket> ws
     if (!cachedPtr) {
         spdlog::warn("WebSocketServer: state_get immediate - no cached data available");
         std::string errorJson = R"({"error": "No world data available"})";
+
+        // Inject correlation ID if present.
+        if (correlationId.has_value()) {
+            try {
+                nlohmann::json json = nlohmann::json::parse(errorJson);
+                json["id"] = correlationId.value();
+                errorJson = json.dump();
+            }
+            catch (...) {
+            }
+        }
+
         ws->send(errorJson);
         timers.stopTimer("state_get_immediate_total");
         return;
     }
 
-    // Pack WorldData directly to binary with zpp_bits.
-    timers.startTimer("serialize_worlddata");
-    std::vector<std::byte> data;
-    zpp::bits::out out(data);
-    out(*cachedPtr).or_throw();
-    timers.stopTimer("serialize_worlddata");
+    // Check if this is a correlated request or unsolicited push.
+    if (correlationId.has_value()) {
+        // Explicit state_get with ID - send as JSON.
+        spdlog::debug("StateGet: Handling correlated request (ID {})", correlationId.value());
+        timers.startTimer("serialize_worlddata");
 
-    // Convert to rtc::binary.
-    rtc::binary binaryMsg(data.begin(), data.end());
+        try {
+            // Serialize WorldData to JSON.
+            nlohmann::json doc;
+            doc["value"] = ReflectSerializer::to_json(*cachedPtr);
+            doc["id"] = correlationId.value();
+            std::string jsonResponse = doc.dump();
 
-    // Send immediately.
-    timers.startTimer("network_send");
-    ws->send(binaryMsg);
-    timers.stopTimer("network_send");
+            timers.stopTimer("serialize_worlddata");
+
+            spdlog::debug(
+                "StateGet: Sending JSON response with ID {} ({} bytes)",
+                correlationId.value(),
+                jsonResponse.size());
+
+            timers.startTimer("network_send");
+            ws->send(jsonResponse);
+            timers.stopTimer("network_send");
+        }
+        catch (const std::exception& e) {
+            spdlog::error("StateGet: Failed to serialize JSON response: {}", e.what());
+            timers.stopTimer("serialize_worlddata");
+        }
+    }
+    else {
+        // Unsolicited push - send as binary (more efficient).
+        timers.startTimer("serialize_worlddata");
+
+        std::vector<std::byte> data;
+        zpp::bits::out out(data);
+        out(*cachedPtr).or_throw();
+
+        timers.stopTimer("serialize_worlddata");
+
+        // Convert to rtc::binary.
+        rtc::binary binaryMsg(data.begin(), data.end());
+
+        spdlog::debug("StateGet: Sending binary push ({} bytes)", data.size());
+
+        // Send immediately.
+        timers.startTimer("network_send");
+        ws->send(binaryMsg);
+        timers.stopTimer("network_send");
+    }
 
     timers.stopTimer("state_get_immediate_total");
+}
+
+void WebSocketServer::handleStatusGetImmediate(
+    std::shared_ptr<rtc::WebSocket> ws, std::optional<uint64_t> correlationId)
+{
+    // Cast to concrete StateMachine type to access cached WorldData.
+    auto& dsm = static_cast<StateMachine&>(stateMachine_);
+
+    // Get cached WorldData (already updated by physics thread).
+    auto cachedPtr = dsm.getCachedWorldData();
+    if (!cachedPtr) {
+        spdlog::warn("WebSocketServer: status_get immediate - no cached data available");
+        std::string errorJson = R"({"error": "No world data available"})";
+
+        // Inject correlation ID if present.
+        if (correlationId.has_value()) {
+            try {
+                nlohmann::json json = nlohmann::json::parse(errorJson);
+                json["id"] = correlationId.value();
+                errorJson = json.dump();
+            }
+            catch (...) {
+            }
+        }
+
+        ws->send(errorJson);
+        return;
+    }
+
+    // Build lightweight status from cached data.
+    Api::StatusGet::Okay status;
+    status.timestep = cachedPtr->timestep;
+    status.scenario_id = cachedPtr->scenario_id;
+    status.width = cachedPtr->width;
+    status.height = cachedPtr->height;
+
+    // Serialize to JSON.
+    nlohmann::json response;
+    response["value"] = ReflectSerializer::to_json(status);
+
+    // Inject correlation ID if present.
+    if (correlationId.has_value()) {
+        response["id"] = correlationId.value();
+    }
+
+    std::string jsonResponse = response.dump();
+
+    spdlog::info("StatusGet: Sending response ({} bytes)", jsonResponse.size());
+    ws->send(jsonResponse);
 }
 
 } // namespace Server

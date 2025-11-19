@@ -67,7 +67,7 @@ struct Cell {
     // MATERIAL PROPERTIES
     // =================================================================
 
-    const MaterialProperties& material() const { return getMaterialProperties(material_type); }
+    const MaterialProperties& material() const;
 
     // Helper with invariant: clamps fill ratio and auto-converts to AIR.
     void setFillRatio(double ratio);
@@ -76,26 +76,21 @@ struct Cell {
     // FORCE ACCUMULATION (for visualization)
     // =================================================================
 
-    void clearAccumulatedForces()
-    {
-        accumulated_viscous_force = {};
-        accumulated_adhesion_force = {};
-        accumulated_com_cohesion_force = {};
-    }
+    void clearAccumulatedForces();
 
     // =================================================================
     // PHYSICS FORCE ACCUMULATION
     // =================================================================
 
     // Helper to add and clear pending forces.
-    void addPendingForce(const Vector2d& force) { pending_force = pending_force + force; }
-    void clearPendingForce() { pending_force = {}; }
+    void addPendingForce(const Vector2d& force);
+    void clearPendingForce();
 
     // Convenience queries.
-    bool isEmpty() const { return fill_ratio < MIN_FILL_THRESHOLD; }
-    bool isFull() const { return fill_ratio > MAX_FILL_THRESHOLD; }
-    bool isAir() const { return material_type == MaterialType::AIR; }
-    bool isWall() const { return material_type == MaterialType::WALL; }
+    bool isEmpty() const;
+    bool isFull() const;
+    bool isAir() const;
+    bool isWall() const;
 
     // =================================================================
     // PHYSICS PROPERTIES
@@ -103,40 +98,20 @@ struct Cell {
 
     // Center of mass position [-1,1] within cell (has clamping logic).
     void setCOM(const Vector2d& com);
-    void setCOM(double x, double y) { setCOM(Vector2d{ x, y }); }
+    void setCOM(double x, double y);
 
     // Helpers with logic for pressure component management.
-    void setHydrostaticPressure(double p)
-    {
-        hydrostatic_component = p;
-        updateUnifiedPressure();
-    }
-
-    void setDynamicPressure(double p)
-    {
-        dynamic_component = p;
-        updateUnifiedPressure();
-    }
-
-    void addDynamicPressure(double p)
-    {
-        dynamic_component += p;
-        updateUnifiedPressure();
-    }
-
-    void clearPressure()
-    {
-        pressure = 0.0;
-        hydrostatic_component = 0.0;
-        dynamic_component = 0.0;
-    }
+    void setHydrostaticPressure(double p);
+    void setDynamicPressure(double p);
+    void addDynamicPressure(double p);
+    void clearPressure();
 
     // =================================================================
     // CALCULATED PROPERTIES
     // =================================================================
 
     // Available capacity for more material.
-    double getCapacity() const { return 1.0 - fill_ratio; }
+    double getCapacity() const;
 
     // Effective mass (fill_ratio * material_density)
     double getMass() const;
@@ -215,8 +190,6 @@ struct Cell {
     void addDirtWithVelocity(double amount, const Vector2d& newVel);
     void addDirtWithCOM(double amount, const Vector2d& newCom, const Vector2d& newVel);
 
-    // Cell state management (markDirty declared above in rendering section).
-
     // Material properties.
     double getTotalMaterial() const;
 
@@ -241,7 +214,7 @@ struct Cell {
         const Vector2d& boundary_normal) const;
 
     // Helper to update unified pressure from components.
-    void updateUnifiedPressure() { pressure = hydrostatic_component + dynamic_component; }
+    void updateUnifiedPressure();
 };
 
 /**

@@ -4,11 +4,12 @@ Command-line client for interacting with Sparkle Duck server and UI via WebSocke
 
 ## Overview
 
-The CLI provides three modes of operation:
+The CLI provides four modes of operation:
 
 1. **Command Mode**: Send individual commands to server or UI
 2. **Benchmark Mode**: Automated performance testing with metrics collection
-3. **Integration Test Mode**: Automated server + UI lifecycle testing
+3. **Cleanup Mode**: Find and gracefully shutdown rogue sparkle-duck processes
+4. **Integration Test Mode**: Automated server + UI lifecycle testing
 
 ## Usage
 
@@ -43,22 +44,77 @@ Send commands to the server or UI:
 Automated performance testing with server auto-launch:
 
 ```bash
-# Basic benchmark (headless server, 120 steps)
+# Basic benchmark (headless server, default: benchmark scenario, 120 steps)
 ./build/bin/cli benchmark --steps 120
 
-# Simulate UI client load (realistic with frame_ready responses)
-./build/bin/cli benchmark --steps 120 --simulate-ui
-
 # Different scenario
-./build/bin/cli benchmark --scenario dam_break --steps 120
+./build/bin/cli benchmark --scenario sandbox --steps 120
+
+# Custom scenario with more steps
+./build/bin/cli benchmark --scenario dam_break --steps 1000
 ```
 
-**Output**: JSON results including:
+**Output**: Clean JSON results including:
+- Scenario name and grid size
+- Total duration
 - Server FPS
 - Physics timing (avg/total/calls)
 - Serialization timing
-- Client round-trip latency (when --simulate-ui)
-- Detailed timer statistics
+- Detailed timer statistics (subsystem breakdown: cohesion, adhesion, pressure, etc.)
+
+**Features**:
+- Server runs with logging disabled (`--log-level off`) for clean output
+- Client logs suppressed (use `--verbose` to see debug info)
+- Pure JSON output suitable for piping to `jq` or CI/CD tools
+
+**Example output:**
+```json
+{
+  "scenario": "sandbox",
+  "steps": 120,
+  "server_physics_avg_ms": 0.52,
+  "timer_stats": {
+    "cohesion_calculation": {"avg_ms": 0.09, "total_ms": 10.8, "calls": 120},
+    "adhesion_calculation": {"avg_ms": 0.03, "total_ms": 3.6, "calls": 120},
+    "resolve_forces_total": {"avg_ms": 0.28, "total_ms": 33.6, "calls": 120}
+  }
+}
+```
+
+**Using for optimization testing:**
+```bash
+# Baseline measurement
+./build/bin/cli benchmark --steps 1000 > baseline.json
+
+# After optimization
+./build/bin/cli benchmark --steps 1000 > optimized.json
+
+# Compare specific subsystems
+jq '.timer_stats.cohesion_calculation.avg_ms' baseline.json optimized.json
+```
+
+### Cleanup Mode
+
+Find and gracefully shutdown rogue sparkle-duck processes:
+
+```bash
+# Clean up all sparkle-duck processes
+./build/bin/cli cleanup
+```
+
+**Shutdown cascade** (tries each method in order):
+1. **WebSocket API** - Send Exit command (most graceful)
+   - Server: `ws://localhost:8080`
+   - UI: `ws://localhost:7070`
+2. **SIGTERM** - Graceful OS signal
+3. **SIGKILL** - Force kill (last resort)
+
+**All waits exit early** if process dies before timeout.
+
+**Use cases:**
+- Clean up after crashes during development
+- Ensure clean slate before running benchmarks or tests
+- Fix "port already in use" errors
 
 ### Integration Test Mode
 

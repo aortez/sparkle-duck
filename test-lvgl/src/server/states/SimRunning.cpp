@@ -413,6 +413,56 @@ State::Any SimRunning::onEvent(const Api::PerfStatsGet::Cwc& cwc, StateMachine& 
     return std::move(*this);
 }
 
+State::Any SimRunning::onEvent(const Api::TimerStatsGet::Cwc& cwc, StateMachine& /*dsm*/)
+{
+    using Response = Api::TimerStatsGet::Response;
+
+    // Gather detailed timer statistics from World's timers.
+    Api::TimerStatsGet::Okay stats;
+
+    if (world) {
+        auto timerNames = world->timers_.getAllTimerNames();
+        for (const auto& name : timerNames) {
+            Api::TimerStatsGet::TimerEntry entry;
+            entry.total_ms = world->timers_.getAccumulatedTime(name);
+            entry.calls = world->timers_.getCallCount(name);
+            entry.avg_ms = entry.calls > 0 ? entry.total_ms / entry.calls : 0.0;
+            stats.timers[name] = entry;
+        }
+    }
+
+    spdlog::info("SimRunning: API timer_stats_get returning {} timer entries", stats.timers.size());
+
+    cwc.sendResponse(Response::okay(std::move(stats)));
+    return std::move(*this);
+}
+
+State::Any SimRunning::onEvent(const Api::StatusGet::Cwc& cwc, StateMachine& /*dsm*/)
+{
+    using Response = Api::StatusGet::Response;
+
+    if (!world) {
+        cwc.sendResponse(Response::error(ApiError("No world available")));
+        return std::move(*this);
+    }
+
+    // Return lightweight status (no cell data).
+    Api::StatusGet::Okay status;
+    status.timestep = stepCount;
+    status.scenario_id = world->data.scenario_id;
+    status.width = world->data.width;
+    status.height = world->data.height;
+
+    spdlog::debug(
+        "SimRunning: API status_get (step {}, {}x{})",
+        status.timestep,
+        status.width,
+        status.height);
+
+    cwc.sendResponse(Response::okay(std::move(status)));
+    return std::move(*this);
+}
+
 State::Any SimRunning::onEvent(const Api::Reset::Cwc& cwc, StateMachine& /*dsm*/)
 {
     using Response = Api::Reset::Response;

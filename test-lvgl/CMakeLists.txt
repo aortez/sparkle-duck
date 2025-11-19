@@ -169,11 +169,18 @@ target_link_libraries(lvgl_linux PUBLIC msgpack-cxx nlohmann_json::nlohmann_json
 # Core library - minimal shared types for serialization.
 add_library(sparkle-duck-core STATIC
     src/core/Cell.cpp
+    src/core/LoggingChannels.cpp
     src/core/MaterialType.cpp
     src/core/StateMachineBase.cpp
     src/core/Timers.cpp
     src/core/Vector2d.cpp
     src/core/Vector2i.cpp
+
+    # Bitmap infrastructure.
+    src/core/bitmaps/CellBitmap.cpp
+
+    # Grid cache layer.
+    src/core/GridOfCells.cpp
 )
 target_include_directories(sparkle-duck-core PUBLIC ${CMAKE_SOURCE_DIR}/src ${zpp_bits_SOURCE_DIR})
 target_link_libraries(sparkle-duck-core PUBLIC nlohmann_json::nlohmann_json msgpack-cxx spdlog::spdlog)
@@ -206,6 +213,7 @@ add_library(sparkle-duck-server-lib STATIC
     src/server/api/SimRun.cpp
     src/server/api/SpawnDirtBall.cpp
     src/server/api/StateGet.cpp
+    src/server/api/StatusGet.cpp
     src/server/api/TimerStatsGet.cpp
     src/server/api/WorldResize.cpp
 
@@ -216,6 +224,7 @@ add_library(sparkle-duck-server-lib STATIC
     # Scenarios.
     src/server/scenarios/ScenarioRegistry.cpp
     src/server/scenarios/ScenarioWorldEventGenerator.cpp
+    src/server/scenarios/scenarios/BenchmarkScenario.cpp
     src/server/scenarios/scenarios/DamBreakScenario.cpp
     src/server/scenarios/scenarios/EmptyScenario.cpp
     src/server/scenarios/scenarios/FallingDirtScenario.cpp
@@ -343,6 +352,7 @@ add_custom_target (run-server COMMAND ${EXECUTABLE_OUTPUT_PATH}/sparkle-duck-ser
 add_executable(cli
     src/cli/main.cpp
     src/cli/BenchmarkRunner.cpp
+    src/cli/CleanupRunner.cpp
     src/cli/IntegrationTest.cpp
     src/cli/RunAllRunner.cpp
     src/cli/SubprocessManager.cpp
@@ -363,6 +373,12 @@ add_executable(sparkle-duck-tests
     src/tests/TimersTest.cpp
     src/tests/Vector2d_test.cpp
     src/tests/Vector2i_test.cpp
+
+    # Bitmap tests.
+    src/core/bitmaps/tests/CellBitmap_test.cpp
+    src/core/bitmaps/tests/CellBitmap_neighborhood_test.cpp
+    src/core/bitmaps/tests/GridOfCells_integration_test.cpp
+    src/core/bitmaps/tests/Neighborhood3x3_test.cpp
 )
 target_link_libraries(sparkle-duck-tests
     PRIVATE

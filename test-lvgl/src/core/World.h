@@ -18,6 +18,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <random>
 #include <vector>
 
 /**
@@ -29,7 +30,7 @@
 
 namespace DirtSim {
 
-// Forward declaration.
+// Forward declarations.
 class TreeManager;
 
 class World {
@@ -82,9 +83,6 @@ public:
     // =================================================================
     // WORLDINTERFACE IMPLEMENTATION - MATERIAL ADDITION
     // =================================================================
-
-    // Universal material addition (direct support for all 8 material types).
-    void addMaterialAtPixel(int pixelX, int pixelY, MaterialType type, double amount = 1.0);
 
     // Material selection state management (for UI/API coordination).
     void setSelectedMaterial(MaterialType type) { selected_material_ = type; }
@@ -344,6 +342,12 @@ public:
     // Accessor for tree manager.
     class TreeManager& getTreeManager() { return *tree_manager_; }
     const class TreeManager& getTreeManager() const { return *tree_manager_; }
+
+    // Per-world random number generator for deterministic testing.
+    std::unique_ptr<std::mt19937> rng_;
+
+    // Set RNG seed (for deterministic testing).
+    void setRandomSeed(uint32_t seed);
 
 private:
     // =================================================================

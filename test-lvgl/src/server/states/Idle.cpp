@@ -46,19 +46,33 @@ State::Any Idle::onEvent(const Api::SimRun::Cwc& cwc, StateMachine& dsm)
     // Create new SimRunning state with world.
     SimRunning newState;
 
-    // Create world immediately.
-    spdlog::info("Idle: Creating new World {}x{}", dsm.defaultWidth, dsm.defaultHeight);
-    newState.world = std::make_unique<World>(dsm.defaultWidth, dsm.defaultHeight);
+    // Get scenario metadata first to check for required dimensions.
+    auto& registry = dsm.getScenarioRegistry();
+    const ScenarioMetadata* metadata = registry.getMetadata(cwc.command.scenario_id);
+
+    if (!metadata) {
+        spdlog::error("Idle: Scenario '{}' not found in registry", cwc.command.scenario_id);
+        cwc.sendResponse(Api::SimRun::Response::error(
+            ApiError("Scenario not found: " + cwc.command.scenario_id)));
+        return Idle{};
+    }
+
+    // Use scenario's required dimensions if specified, otherwise use defaults.
+    uint32_t worldWidth = metadata->requiredWidth > 0 ? metadata->requiredWidth : dsm.defaultWidth;
+    uint32_t worldHeight =
+        metadata->requiredHeight > 0 ? metadata->requiredHeight : dsm.defaultHeight;
+
+    // Create world with appropriate dimensions.
+    spdlog::info("Idle: Creating new World {}x{}", worldWidth, worldHeight);
+    newState.world = std::make_unique<World>(worldWidth, worldHeight);
 
     // Create scenario instance from factory.
-    auto& registry = dsm.getScenarioRegistry();
     newState.scenario = registry.createScenario(cwc.command.scenario_id);
 
     if (!newState.scenario) {
         spdlog::error("Idle: Scenario '{}' not found in registry", cwc.command.scenario_id);
         cwc.sendResponse(Api::SimRun::Response::error(
             ApiError("Scenario not found: " + cwc.command.scenario_id)));
-        // Return to Idle state (don't transition).
         return Idle{};
     }
 

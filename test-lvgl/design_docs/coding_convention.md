@@ -9,10 +9,10 @@ which is valuable context.
 ## Comments
 Comments that do not add any more information than code should be removed.
 
-None of this - it's repeating the same thing three times.
+None of this - it's repeating the same thing many times.
 ```
 // Do it.
-thingDoIt(); // Make the thing do it.
+thingDoIt(); // Make the thing do it. (do it)
 ```
 Instead, just do this:
 ```
@@ -41,10 +41,31 @@ from order of bigger to smaller context. E.g. `DirtSimStateMachine` and it's
 `CellGet` method.  Then, within a file, things should put in alphabetical order,
 thus placing things in similar domains adjacent.
 
+## CLI Output Convention
+
+For command-line tools that produce machine-readable output:
+- **stdout**: Machine-readable output only (JSON, CSV, etc.)
+- **stderr**: Human-readable messages (logs, errors, progress, warnings)
+
+This separation allows:
+```bash
+# Pipe JSON to tools while still seeing errors on terminal
+./cli benchmark | jq '.server_fps'
+
+# Redirect outputs independently
+./cli benchmark > results.json 2> logs.txt
+```
+
+Implementation:
+- Configure spdlog to output to stderr
+- Use `std::cout` only for final structured output (JSON)
+- All logging (info, debug, error) goes to stderr
+- JSON output is in Result<okay,error> format for standardized parsing.
+
 ## Misc
 - Exit early to reduce scope. It makes things easier to understand, due to less nesting and shorter variable lifespans.
 - Use RAII to manage cleanup.
-- Use const for immutable data. Default to const and only change it if you find it needs to be modified.
+- Use const for immutable data. Default to const.  Remove it if it needs to be changed.
 - Prefer alphabetical ordering, unless there is a clear reason not to.
 - Point out opportunities to refactor.
 - It is ok to have public data members. Make them private only if needed.

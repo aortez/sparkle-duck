@@ -1,5 +1,5 @@
 #include "Cell.h"
-#include "World.h" // For MIN_MATTER_THRESHOLD constant.
+#include "World.h"
 
 #include <algorithm>
 #include <cctype>
@@ -10,8 +10,6 @@
 #include "spdlog/spdlog.h"
 
 using namespace DirtSim;
-
-// Cell is now an aggregate - no constructors needed!
 
 void Cell::setFillRatio(double ratio)
 {
@@ -241,8 +239,8 @@ void Cell::limitVelocity(
 {
     const double speed = velocity.mag();
 
-    // Apply velocity limits directly (parameters are already per-timestep).
-    // The parameters define absolute velocity limits per physics timestep.
+    // Apply velocity limits directly (parameters are already per-timestep??? how is this
+    // possible?). The parameters define absolute velocity limits per physics timestep.
 
     // Apply maximum velocity limit.
     if (speed > max_velocityper_timestep) {
@@ -251,8 +249,22 @@ void Cell::limitVelocity(
 
     // Apply damping when above threshold.
     if (speed > damping_threshold_per_timestep) {
-        // Apply damping factor directly (parameters already account for timestep).
+        Vector2d old_velocity = velocity;
         velocity = velocity * (1.0 - damping_factor_per_timestep);
+        spdlog::debug(
+            "{} velocity damped: {:.3f} -> {:.3f} (above threshold {:.1f})",
+            getMaterialName(material_type),
+            old_velocity.magnitude(),
+            velocity.magnitude(),
+            damping_threshold_per_timestep);
+    }
+    else if (speed > 0.5) {
+        // Log when close to threshold for debugging.
+        spdlog::debug(
+            "{} velocity {:.3f} below damping threshold {:.1f}",
+            getMaterialName(material_type),
+            speed,
+            damping_threshold_per_timestep);
     }
 }
 
@@ -465,6 +477,92 @@ std::string Cell::toAsciiCharacter() const
 
     // Return 2-character representation: material + fill level.
     return std::string(1, material_char) + std::to_string(fill_level);
+}
+
+// =================================================================
+// INLINE METHOD IMPLEMENTATIONS (moved from header)
+// =================================================================
+
+const MaterialProperties& Cell::material() const
+{
+    return getMaterialProperties(material_type);
+}
+
+void Cell::clearAccumulatedForces()
+{
+    accumulated_viscous_force = {};
+    accumulated_adhesion_force = {};
+    accumulated_com_cohesion_force = {};
+}
+
+void Cell::addPendingForce(const Vector2d& force)
+{
+    pending_force = pending_force + force;
+}
+
+void Cell::clearPendingForce()
+{
+    pending_force = {};
+}
+
+bool Cell::isEmpty() const
+{
+    return fill_ratio < MIN_FILL_THRESHOLD;
+}
+
+bool Cell::isFull() const
+{
+    return fill_ratio > MAX_FILL_THRESHOLD;
+}
+
+bool Cell::isAir() const
+{
+    return material_type == MaterialType::AIR;
+}
+
+bool Cell::isWall() const
+{
+    return material_type == MaterialType::WALL;
+}
+
+void Cell::setCOM(double x, double y)
+{
+    setCOM(Vector2d{ x, y });
+}
+
+void Cell::setHydrostaticPressure(double p)
+{
+    hydrostatic_component = p;
+    updateUnifiedPressure();
+}
+
+void Cell::setDynamicPressure(double p)
+{
+    dynamic_component = p;
+    updateUnifiedPressure();
+}
+
+void Cell::addDynamicPressure(double p)
+{
+    dynamic_component += p;
+    updateUnifiedPressure();
+}
+
+void Cell::clearPressure()
+{
+    pressure = 0.0;
+    hydrostatic_component = 0.0;
+    dynamic_component = 0.0;
+}
+
+double Cell::getCapacity() const
+{
+    return 1.0 - fill_ratio;
+}
+
+void Cell::updateUnifiedPressure()
+{
+    pressure = hydrostatic_component + dynamic_component;
 }
 
 // =================================================================

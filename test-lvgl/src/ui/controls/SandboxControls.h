@@ -37,7 +37,7 @@ private:
     lv_obj_t* quadrantSwitch_ = nullptr;
     lv_obj_t* waterColumnSwitch_ = nullptr;
     lv_obj_t* rightThrowSwitch_ = nullptr;
-    lv_obj_t* rainSlider_ = nullptr;
+    lv_obj_t* rainControl_ = nullptr;
 
     // World dimensions for seed placement.
     uint32_t worldWidth_ = 28;
@@ -49,6 +49,7 @@ private:
     static void onQuadrantToggled(lv_event_t* e);
     static void onWaterColumnToggled(lv_event_t* e);
     static void onRightThrowToggled(lv_event_t* e);
+    static void onRainToggled(lv_event_t* e);
     static void onRainSliderChanged(lv_event_t* e);
 
     /**

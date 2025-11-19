@@ -1,6 +1,7 @@
 #include "state-machine/StateMachine.h"
 // TODO: Re-enable when integrating UI components:
 // #include "SimulatorUI.h"
+#include "core/LoggingChannels.h"
 #include "core/World.h"
 
 #include "args.hxx"
@@ -54,32 +55,6 @@ static void print_lvgl_version()
 
 int main(int argc, char** argv)
 {
-    // Set up file and console logging.
-    try {
-        // Create console sink with colors.
-        auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
-        console_sink->set_level(spdlog::level::info);
-
-        // Create basic file sink (overwrites each run).
-        auto file_sink =
-            std::make_shared<spdlog::sinks::basic_file_sink_mt>("sparkle-duck.log", true);
-        file_sink->set_level(spdlog::level::info);
-
-        // Create logger with both sinks.
-        std::vector<spdlog::sink_ptr> sinks{ console_sink, file_sink };
-        auto logger = std::make_shared<spdlog::logger>("ui", sinks.begin(), sinks.end());
-
-        // Set as default logger.
-        spdlog::set_default_logger(logger);
-        spdlog::flush_every(std::chrono::seconds(1));
-    }
-    catch (const spdlog::spdlog_ex& ex) {
-        std::cout << "Log initialization failed: " << ex.what() << std::endl;
-        return 1;
-    }
-
-    spdlog::info("🦆 Sparkle Duck Dirt Simulator starting up! 🦆");
-
     driver_backends_register();
 
     args::ArgumentParser parser(
@@ -97,6 +72,17 @@ int main(int argc, char** argv)
         "Select display backend (wayland, x11, fbdev, sdl)",
         { 'b', "backend" },
         "wayland");
+    args::ValueFlag<std::string> log_config(
+        parser,
+        "log-config",
+        "Path to logging config JSON file (default: logging-config.json)",
+        { "log-config" },
+        "logging-config.json");
+    args::ValueFlag<std::string> log_channels(
+        parser,
+        "channels",
+        "Override log channels (e.g., swap:trace,physics:debug,*:off)",
+        { 'C', "channels" });
     args::ValueFlag<int> window_width(
         parser, "width", "Set window width (default: 1200)", { 'W', "width" }, 1200);
     args::ValueFlag<int> window_height(
@@ -112,6 +98,8 @@ int main(int argc, char** argv)
         "server",
         "Auto-connect to DSSM server (format: host:port, e.g. localhost:8080)",
         { 'c', "connect" });
+    args::Flag printStats(
+        parser, "print-stats", "Print timer statistics on exit", { "print-stats" });
 
     // Default values from environment if set.
     settings.window_width = atoi(getenv("LV_SIM_WINDOW_WIDTH") ?: "1200");
@@ -146,6 +134,24 @@ int main(int argc, char** argv)
         driver_backends_print_supported();
         return 0;
     }
+
+    // Initialize logging from config file (supports .local override).
+    try {
+        std::string configPath = log_config ? args::get(log_config) : "logging-config.json";
+        DirtSim::LoggingChannels::initializeFromConfig(configPath);
+
+        // Apply command line channel overrides if provided.
+        if (log_channels) {
+            DirtSim::LoggingChannels::configureFromString(args::get(log_channels));
+            spdlog::info("Applied channel overrides: {}", args::get(log_channels));
+        }
+    }
+    catch (const spdlog::spdlog_ex& ex) {
+        std::cout << "Log initialization failed: " << ex.what() << std::endl;
+        return 1;
+    }
+
+    spdlog::info("🦆 Sparkle Duck Dirt Simulator starting up! 🦆");
 
     if (backend) {
         selected_backend = args::get(backend);
@@ -211,6 +217,12 @@ int main(int argc, char** argv)
 
     spdlog::info("Backend run loop exited");
     spdlog::info("Application shutting down cleanly");
+
+    // Print timer statistics if requested.
+    if (printStats) {
+        std::cout << "\n=== UI Timer Statistics ===" << std::endl;
+        stateMachine->getTimers().dumpTimerStats();
+    }
 
     return 0;
 }

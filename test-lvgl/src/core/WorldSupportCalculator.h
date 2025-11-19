@@ -81,9 +81,12 @@ public:
      * Calculates support for all cells in a single bottom-to-top pass.
      * Much more efficient than per-cell recursive checks.
      *
+     * Uses GridOfCells::USE_CACHE to toggle between bitmap lookups and direct cell access.
+     *
      * @param world World to compute support for (modifies cached_has_support).
+     * @param grid GridOfCells cache for optimized empty cell lookups.
      */
-    void computeSupportMapBottomUp(World& world) const;
+    void computeSupportMapBottomUp(World& world, const class GridOfCells& grid) const;
 
     /**
      * @brief Calculate distance to structural support.

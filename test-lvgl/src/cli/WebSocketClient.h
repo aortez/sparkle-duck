@@ -1,7 +1,12 @@
 #pragma once
 
+#include "core/Timers.h"
+#include <atomic>
+#include <condition_variable>
 #include <functional>
+#include <map>
 #include <memory>
+#include <mutex>
 #include <rtc/rtc.hpp>
 #include <string>
 
@@ -31,7 +36,21 @@ public:
     void onDisconnected(ConnectionCallback callback);
     void onError(ErrorCallback callback);
 
+    /**
+     * @brief Get performance timers for instrumentation.
+     * @return Reference to timers.
+     */
+    Timers& getTimers() { return timers_; }
+
 private:
+    Timers timers_; // Performance instrumentation.
+    struct PendingRequest {
+        std::string response;
+        bool received = false;
+        std::mutex mutex;
+        std::condition_variable cv;
+    };
+
     std::shared_ptr<rtc::WebSocket> ws_;
     std::string response_;
     bool responseReceived_;
@@ -40,6 +59,11 @@ private:
     ConnectionCallback connectedCallback_;
     ConnectionCallback disconnectedCallback_;
     ErrorCallback errorCallback_;
+
+    // Correlation ID support.
+    std::atomic<uint64_t> nextId_{ 1 };
+    std::map<uint64_t, std::shared_ptr<PendingRequest>> pendingRequests_;
+    std::mutex pendingMutex_;
 };
 
 } // namespace Client

@@ -4,6 +4,7 @@
 #include <algorithm>
 
 // Include scenario implementations.
+#include "scenarios/BenchmarkScenario.cpp"
 #include "scenarios/DamBreakScenario.cpp"
 #include "scenarios/EmptyScenario.cpp"
 #include "scenarios/FallingDirtScenario.cpp"
@@ -18,6 +19,13 @@ ScenarioRegistry ScenarioRegistry::createDefault()
 
     // Register all scenarios with metadata and factory functions.
     // Each registration creates a lambda that produces fresh instances.
+
+    {
+        auto temp = std::make_unique<BenchmarkScenario>();
+        registry.registerScenario("benchmark", temp->getMetadata(), []() {
+            return std::make_unique<BenchmarkScenario>();
+        });
+    }
 
     {
         auto temp = std::make_unique<DamBreakScenario>();

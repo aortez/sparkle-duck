@@ -32,13 +32,6 @@ struct BenchmarkResults {
     double server_cache_update_avg_ms = 0.0;
     double server_network_send_avg_ms = 0.0;
 
-    // Client metrics.
-    bool client_polling_enabled = false;
-    uint32_t client_requests_sent = 0;
-    double client_avg_round_trip_ms = 0.0;
-    double client_avg_deserialize_ms = 0.0;
-    double client_total_data_kb = 0.0;
-
     nlohmann::json timer_stats;
 };
 
@@ -54,10 +47,13 @@ public:
     ~BenchmarkRunner();
 
     BenchmarkResults run(
+        const std::string& serverPath, uint32_t steps, const std::string& scenario = "benchmark");
+
+    BenchmarkResults runWithServerArgs(
         const std::string& serverPath,
         uint32_t steps,
-        const std::string& scenario = "sandbox",
-        bool simulateUI = false);
+        const std::string& scenario,
+        const std::string& serverArgs);
 
 private:
     SubprocessManager subprocessManager_;
