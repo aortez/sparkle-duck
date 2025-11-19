@@ -178,6 +178,7 @@ add_library(sparkle-duck-core STATIC
 
     # Bitmap infrastructure.
     src/core/bitmaps/CellBitmap.cpp
+    src/core/bitmaps/EmptyNeighborhood.cpp
 
     # Grid cache layer.
     src/core/GridOfCells.cpp

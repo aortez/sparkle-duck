@@ -2,6 +2,7 @@
 
 #include "Cell.h"
 #include "bitmaps/CellBitmap.h"
+#include "bitmaps/EmptyNeighborhood.h"
 
 #include <vector>
 
@@ -43,10 +44,10 @@ public:
     // Accessor to empty cells bitmap.
     const CellBitmap& emptyCells() const { return empty_cells_; }
 
-    // Accessor to precomputed empty neighborhoods.
-    Neighborhood3x3 getEmptyNeighborhood(uint32_t x, uint32_t y) const
+    // Accessor to precomputed empty neighborhoods (typed wrapper).
+    EmptyNeighborhood getEmptyNeighborhood(uint32_t x, uint32_t y) const
     {
-        return Neighborhood3x3{ empty_neighborhoods_[y * width_ + x] };
+        return EmptyNeighborhood{ Neighborhood3x3{ empty_neighborhoods_[y * width_ + x] } };
     }
 
     // Grid dimensions.

@@ -15,9 +15,10 @@ const int RENDER_THREADS = []() {
         return 1;
     }
     int threads = static_cast<int>(hwThreads / 2);
-    threads = std::min(threads, 8);  // Cap at 8 threads.
-    threads = std::max(threads, 1);  // Minimum 1 thread.
-    spdlog::info("JuliaFractal: Detected {} hardware threads, using {} render threads", hwThreads, threads);
+    threads = std::min(threads, 8); // Cap at 8 threads.
+    threads = std::max(threads, 1); // Minimum 1 thread.
+    spdlog::info(
+        "JuliaFractal: Detected {} hardware threads, using {} render threads", hwThreads, threads);
     return threads;
 }();
 constexpr double MAX_CYCLE_SPEED = 0.05; // Maximum palette advance per frame.

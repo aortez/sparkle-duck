@@ -113,8 +113,8 @@ void World::advanceTime(double deltaTimeSeconds)
     // Pre-compute support map for all cells (bottom-up pass).
     {
         ScopeTimer supportMapTimer(timers_, "compute_support_map");
-        WorldSupportCalculator support_calc{};
-        support_calc.computeSupportMapBottomUp(*this, grid);
+        WorldSupportCalculator support_calc{ grid };
+        support_calc.computeSupportMapBottomUp(*this);
     }
 
     // Calculate hydrostatic pressure based on current material positions.

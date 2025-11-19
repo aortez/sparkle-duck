@@ -13,6 +13,12 @@
 
 using namespace DirtSim;
 
+WorldSupportCalculator::WorldSupportCalculator(const GridOfCells& grid) : grid_(&grid)
+{}
+
+WorldSupportCalculator::WorldSupportCalculator() : grid_(nullptr)
+{}
+
 bool WorldSupportCalculator::hasVerticalSupport(const World& world, uint32_t x, uint32_t y) const
 {
     if (!isValidCell(world, static_cast<int>(x), static_cast<int>(y))) {
@@ -94,57 +100,121 @@ bool WorldSupportCalculator::hasVerticalSupport(const World& world, uint32_t x, 
 
 bool WorldSupportCalculator::hasHorizontalSupport(const World& world, uint32_t x, uint32_t y) const
 {
-    if (!isValidCell(world, static_cast<int>(x), static_cast<int>(y))) {
-        spdlog::trace("hasHorizontalSupport({},{}) = false (invalid cell)", x, y);
-        return false;
-    }
+    if (GridOfCells::USE_CACHE && grid_) {
+        const EmptyNeighborhood n = grid_->getEmptyNeighborhood(x, y);
 
-    const Cell& cell = getCellAt(world, x, y);
-    if (cell.isEmpty()) {
-        spdlog::trace("hasHorizontalSupport({},{}) = false (empty cell)", x, y);
-        return false;
-    }
+        // Check center using optimized helper (single operation).
+        if (!n.centerHasMaterial()) {
+            return false;
+        }
 
-    const MaterialProperties& cell_props = getMaterialProperties(cell.material_type);
+        // Get material neighbors bit grid (excludes center, ready for scanning).
+        uint16_t material_mask = n.getMaterialNeighborsBitGrid();
+        if (material_mask == 0) {
+            return false;
+        }
 
-    // Check immediate neighbors only (no BFS for horizontal support)
-    for (int dx = -1; dx <= 1; dx++) {
+        // NOW do the world lookup (only when we know cell is valid and has material).
+        const Cell& cell = world.at(x, y);
+        const MaterialProperties& cell_props = getMaterialProperties(cell.material_type);
+
+        // Iterate through 3×3 grid, checking only neighbors with material.
+        // Linear scan is faster than bit scanning for small (3×3) grids.
         for (int dy = -1; dy <= 1; dy++) {
-            if (dx == 0 && dy == 0) continue; // Skip self.
+            for (int dx = -1; dx <= 1; dx++) {
+                if (dx == 0 && dy == 0) continue; // Skip center.
 
-            int nx = static_cast<int>(x) + dx;
-            int ny = static_cast<int>(y) + dy;
+                // Check if this neighbor has material using the precomputed mask.
+                int bit_pos = (dy + 1) * 3 + (dx + 1);
+                if (!(material_mask & (1 << bit_pos))) continue;
 
-            if (!isValidCell(world, nx, ny)) continue;
+                // Neighbor has material - get the cell.
+                int nx = static_cast<int>(x) + dx;
+                int ny = static_cast<int>(y) + dy;
+                const Cell& neighbor = world.at(nx, ny);
 
-            const Cell& neighbor = getCellAt(world, nx, ny);
-            if (neighbor.isEmpty()) continue;
+                const MaterialProperties& neighbor_props =
+                    getMaterialProperties(neighbor.material_type);
 
-            const MaterialProperties& neighbor_props =
-                getMaterialProperties(neighbor.material_type);
+                // Check for rigid support: high-density neighbor with strong adhesion.
+                if (neighbor_props.density > RIGID_DENSITY_THRESHOLD) {
+                    // Calculate mutual adhesion between materials.
+                    double mutual_adhesion =
+                        std::sqrt(cell_props.adhesion * neighbor_props.adhesion);
 
-            // Check for rigid support: high-density neighbor with strong adhesion.
-            if (neighbor_props.density > RIGID_DENSITY_THRESHOLD) {
-                // Calculate mutual adhesion between materials.
-                double mutual_adhesion = std::sqrt(cell_props.adhesion * neighbor_props.adhesion);
-
-                if (mutual_adhesion > STRONG_ADHESION_THRESHOLD) {
-                    spdlog::debug(
-                        "hasHorizontalSupport({},{}) = true (rigid {} neighbor with adhesion "
-                        "{:.3f})",
-                        x,
-                        y,
-                        getMaterialName(neighbor.material_type),
-                        mutual_adhesion);
-                    return true;
+                    if (mutual_adhesion > STRONG_ADHESION_THRESHOLD) {
+                        spdlog::debug(
+                            "hasHorizontalSupport({},{}) = true (rigid {} neighbor with adhesion "
+                            "{:.3f})",
+                            x,
+                            y,
+                            getMaterialName(neighbor.material_type),
+                            mutual_adhesion);
+                        return true;
+                    }
                 }
             }
         }
-    }
 
-    spdlog::trace(
-        "hasHorizontalSupport({},{}) = false (no rigid neighbors with strong adhesion)", x, y);
-    return false;
+        spdlog::trace(
+            "hasHorizontalSupport({},{}) = false (no rigid neighbors with strong adhesion)", x, y);
+        return false;
+    }
+    else {
+        // ========== DIRECT PATH: Traditional cell access ==========
+        if (!isValidCell(world, static_cast<int>(x), static_cast<int>(y))) {
+            spdlog::trace("hasHorizontalSupport({},{}) = false (invalid cell)", x, y);
+            return false;
+        }
+
+        const Cell& cell = getCellAt(world, x, y);
+        if (cell.isEmpty()) {
+            spdlog::trace("hasHorizontalSupport({},{}) = false (empty cell)", x, y);
+            return false;
+        }
+
+        const MaterialProperties& cell_props = getMaterialProperties(cell.material_type);
+
+        // Check immediate neighbors only (no BFS for horizontal support).
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dy = -1; dy <= 1; dy++) {
+                if (dx == 0 && dy == 0) continue; // Skip self.
+
+                int nx = static_cast<int>(x) + dx;
+                int ny = static_cast<int>(y) + dy;
+
+                if (!isValidCell(world, nx, ny)) continue;
+
+                const Cell& neighbor = getCellAt(world, nx, ny);
+                if (neighbor.isEmpty()) continue;
+
+                const MaterialProperties& neighbor_props =
+                    getMaterialProperties(neighbor.material_type);
+
+                // Check for rigid support: high-density neighbor with strong adhesion.
+                if (neighbor_props.density > RIGID_DENSITY_THRESHOLD) {
+                    // Calculate mutual adhesion between materials.
+                    double mutual_adhesion =
+                        std::sqrt(cell_props.adhesion * neighbor_props.adhesion);
+
+                    if (mutual_adhesion > STRONG_ADHESION_THRESHOLD) {
+                        spdlog::debug(
+                            "hasHorizontalSupport({},{}) = true (rigid {} neighbor with adhesion "
+                            "{:.3f})",
+                            x,
+                            y,
+                            getMaterialName(neighbor.material_type),
+                            mutual_adhesion);
+                        return true;
+                    }
+                }
+            }
+        }
+
+        spdlog::trace(
+            "hasHorizontalSupport({},{}) = false (no rigid neighbors with strong adhesion)", x, y);
+        return false;
+    }
 }
 
 bool WorldSupportCalculator::hasStructuralSupport(const World& world, uint32_t x, uint32_t y) const
@@ -259,19 +329,19 @@ bool WorldSupportCalculator::hasStructuralSupport(const World& world, uint32_t x
     return false;
 }
 
-void WorldSupportCalculator::computeSupportMapBottomUp(World& world, const GridOfCells& grid) const
+void WorldSupportCalculator::computeSupportMapBottomUp(World& world) const
 {
-    if (GridOfCells::USE_CACHE) {
+    if (GridOfCells::USE_CACHE && grid_) {
         // ========== CACHED PATH: 3×3 neighborhood-focused ==========
         // Simple y/x iteration using precomputed 3×3 neighborhoods.
         // Bottom-up pass: start from bottom row and work upward.
         for (int y = world.data.height - 1; y >= 0; y--) {
             for (uint32_t x = 0; x < world.data.width; x++) {
                 // Get precomputed 3×3 neighborhood - single array lookup!
-                Neighborhood3x3 n = grid.getEmptyNeighborhood(x, y);
+                EmptyNeighborhood n = grid_->getEmptyNeighborhood(x, y);
 
-                // Check if current cell is empty using neighborhood.
-                if (n.center()) {
+                // Check if current cell is empty using typed API.
+                if (n.raw().center()) {
                     world.at(x, y).has_support = false;
                     continue;
                 }
@@ -291,9 +361,7 @@ void WorldSupportCalculator::computeSupportMapBottomUp(World& world, const GridO
                 }
 
                 // Check vertical support using precomputed neighborhood.
-                bool below_empty = n.south();
-                bool has_vertical =
-                    n.southValid() && !below_empty && world.at(x, y + 1).has_support;
+                bool has_vertical = n.southHasMaterial() && world.at(x, y + 1).has_support;
 
                 // Check horizontal support if no vertical.
                 bool has_horizontal = false;

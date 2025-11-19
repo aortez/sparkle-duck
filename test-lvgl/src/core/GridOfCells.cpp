@@ -14,10 +14,10 @@ GridOfCells::GridOfCells(const std::vector<Cell>& source_cells, uint32_t width, 
       width_(width),
       height_(height)
 {
-    spdlog::trace("GridOfCells: Constructing cache ({}x{})", width, height);
+    spdlog::debug("GridOfCells: Constructing cache ({}x{})", width, height);
     buildEmptyCellMap();
     precomputeEmptyNeighborhoods();
-    spdlog::trace("GridOfCells: Construction complete");
+    spdlog::debug("GridOfCells: Construction complete");
 }
 
 void GridOfCells::buildEmptyCellMap()

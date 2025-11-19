@@ -1,8 +1,56 @@
 #pragma once
 
+#include <array>
 #include <cstdint>
+#include <utility>
 
 namespace DirtSim {
+
+/**
+ * Utility functions for working with 3×3 neighborhood bit grids.
+ *
+ * These helpers are useful when you need to convert between bit positions
+ * and spatial offsets (dx, dy) from the center of a 3×3 grid.
+ */
+namespace Neighborhood3x3Utils {
+
+/**
+ * Lookup table: 3×3 bit position → (dx, dy) offset from center.
+ *
+ * Bit layout (row-major):
+ *   0  1  2    →    NW  N  NE
+ *   3  4  5    →    W   C  E
+ *   6  7  8    →    SW  S  SE
+ *
+ * Offsets are relative to center:
+ *   dx: -1 (left), 0 (center), +1 (right)
+ *   dy: -1 (top),  0 (center), +1 (bottom)
+ *
+ * Usage:
+ *   int bit_pos = 1;  // North
+ *   auto [dx, dy] = BIT_TO_OFFSET[bit_pos];  // (0, -1)
+ *
+ * Note: For most 3×3 iterations, a simple nested loop is faster:
+ *   for (int dy = -1; dy <= 1; dy++)
+ *     for (int dx = -1; dx <= 1; dx++)
+ *       int bit_pos = (dy + 1) * 3 + (dx + 1);
+ *
+ * Use this table when you have a bit position and need the offset,
+ * not when iterating through all positions.
+ */
+static constexpr std::array<std::pair<int8_t, int8_t>, 9> BIT_TO_OFFSET = { {
+    { -1, -1 },
+    { 0, -1 },
+    { 1, -1 }, // Bits 0-2: Row 0 (NW, N, NE)
+    { -1, 0 },
+    { 0, 0 },
+    { 1, 0 }, // Bits 3-5: Row 1 (W,  C, E)
+    { -1, 1 },
+    { 0, 1 },
+    { 1, 1 } // Bits 6-8: Row 2 (SW, S, SE)
+} };
+
+} // namespace Neighborhood3x3Utils
 
 /**
  * 3×3 neighborhood extracted from CellBitmap.
