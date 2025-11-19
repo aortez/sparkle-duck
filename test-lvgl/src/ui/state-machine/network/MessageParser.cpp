@@ -11,18 +11,13 @@ std::optional<Event> MessageParser::parse(const std::string& message)
     try {
         nlohmann::json json = nlohmann::json::parse(message);
 
-        // Type 1: Notifications (proactive from server).
-        if (json.contains("type")) {
-            return parseFrameReady(json);
-        }
-
-        // Type 2: Error responses.
+        // Type 1: Error responses.
         if (json.contains("error")) {
             handleError(json);
             return std::nullopt; // Error responses don't generate events.
         }
 
-        // Type 3: Success responses with data.
+        // Type 2: Success responses with data.
         if (json.contains("value")) {
             return parseWorldDataResponse(json);
         }
@@ -35,21 +30,6 @@ std::optional<Event> MessageParser::parse(const std::string& message)
         spdlog::debug("MessageParser: Invalid message: {}", message);
         return std::nullopt;
     }
-}
-
-std::optional<Event> MessageParser::parseFrameReady(const nlohmann::json& json)
-{
-    if (json["type"] == "frame_ready") {
-        uint64_t stepNumber = json.value("stepNumber", 0ULL);
-        int64_t timestamp = json.value("timestamp", 0LL);
-
-        spdlog::debug("MessageParser: Parsed frame_ready (step {})", stepNumber);
-
-        return FrameReadyNotification{ stepNumber, timestamp };
-    }
-
-    spdlog::warn("MessageParser: Unknown notification type: {}", json["type"].get<std::string>());
-    return std::nullopt;
 }
 
 std::optional<Event> MessageParser::parseWorldDataResponse(const nlohmann::json& json)

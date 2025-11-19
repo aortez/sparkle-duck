@@ -115,13 +115,7 @@ void WebSocketServer::broadcastBinary(const rtc::binary& data)
 
 void WebSocketServer::onMessage(std::shared_ptr<rtc::WebSocket> ws, const std::string& message)
 {
-    if (message.find("frame_ready") != std::string::npos
-        || message.find("FrameReady") != std::string::npos) {
-        spdlog::debug("WebSocket received command: {}", message);
-    }
-    else {
-        spdlog::info("WebSocket received command: {}", message);
-    }
+    spdlog::info("WebSocket received command: {}", message);
 
     // Extract correlation ID from request (optional field).
     std::optional<uint64_t> correlationId;
@@ -192,7 +186,6 @@ REGISTER_API_NAMESPACE(PhysicsSettingsGet)
 REGISTER_API_NAMESPACE(PhysicsSettingsSet)
 REGISTER_API_NAMESPACE(Reset)
 REGISTER_API_NAMESPACE(ScenarioConfigSet)
-REGISTER_API_NAMESPACE(FrameReady)
 REGISTER_API_NAMESPACE(SeedAdd)
 REGISTER_API_NAMESPACE(SimRun)
 REGISTER_API_NAMESPACE(SpawnDirtBall)
@@ -228,12 +221,7 @@ auto makeStandardCwc(
             }
         }
 
-        if (std::strcmp(Info::name, "FrameReady") == 0) {
-            spdlog::debug("{}: Sending response ({} bytes)", Info::name, jsonResponse.size());
-        }
-        else {
-            spdlog::info("{}: Sending response ({} bytes)", Info::name, jsonResponse.size());
-        }
+        spdlog::info("{}: Sending response ({} bytes)", Info::name, jsonResponse.size());
         ws->send(jsonResponse);
     };
     return cwc;

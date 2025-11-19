@@ -88,7 +88,7 @@ bool WebSocketClient::connect(const std::string& url)
 
                     // Fast path: queue UiUpdateEvent directly via EventSink.
                     if (eventSink_) {
-                        // No throttling needed - backpressure via frame_ready handles flow control.
+                        // No throttling needed - server pushes frames continuously.
                         auto now = std::chrono::steady_clock::now();
                         uint64_t stepCount = worldData.timestep;
                         UiUpdateEvent evt{ .sequenceNum = 0,

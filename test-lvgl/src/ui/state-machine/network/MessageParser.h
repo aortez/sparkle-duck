@@ -12,8 +12,8 @@ namespace Ui {
  * @brief Parses WebSocket messages from DSSM server into UI events.
  *
  * This is a state-independent message parser that converts JSON messages
- * into strongly-typed events for the UI state machine. It handles both
- * notifications (frame_ready) and responses (state_get, errors).
+ * into strongly-typed events for the UI state machine. It handles responses
+ * (state_get, errors).
  */
 class MessageParser {
 public:
@@ -25,11 +25,6 @@ public:
     static std::optional<Event> parse(const std::string& message);
 
 private:
-    /**
-     * @brief Try to parse as a frame_ready notification.
-     */
-    static std::optional<Event> parseFrameReady(const nlohmann::json& json);
-
     /**
      * @brief Try to parse as a state_get response with WorldData.
      */

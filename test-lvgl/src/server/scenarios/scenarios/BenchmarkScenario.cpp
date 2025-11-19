@@ -47,12 +47,6 @@ public:
     // No ongoing behavior needed - just initial setup.
     void tick(World& /*world*/, double /*deltaTime*/) override {}
 
-    // DEPRECATED: Temporary compatibility.
-    std::unique_ptr<WorldEventGenerator> createWorldEventGenerator() const override
-    {
-        return nullptr;
-    }
-
 private:
     ScenarioMetadata metadata_;
     BenchmarkConfig config_;

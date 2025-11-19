@@ -286,18 +286,6 @@ State::Any StartMenu::onEvent(const ServerRunningConfirmedEvent& /*evt*/, StateM
     return SimRunning{};
 }
 
-State::Any StartMenu::onEvent(const FrameReadyNotification& evt, StateMachine& /*sm*/)
-{
-    spdlog::info(
-        "StartMenu: Received frame_ready (step {}), server already running simulation",
-        evt.stepNumber);
-    spdlog::info("StartMenu: Transitioning to SimRunning to display visualization");
-
-    // Server already has a running simulation - transition to SimRunning to render it.
-    SimRunning newState; // Default initialization handles all fields.
-    return newState;     // Will initialize worldData, renderer, and controls in onEnter.
-}
-
 State::Any StartMenu::onEvent(const ServerDisconnectedEvent& evt, StateMachine& /*sm*/)
 {
     spdlog::warn("StartMenu: Server disconnected (reason: {})", evt.reason);

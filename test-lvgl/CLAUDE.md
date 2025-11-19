@@ -18,10 +18,7 @@ Don't use git -C, instead just make sure you're in the right directory beforehan
 
 ### Building
 ```bash
-# Build release version
-make release
-
-# Build debug version (since we're usually doing development, generally prefer this over the release version)
+# Build debug version (don't build release unless asked)
 make debug
 
 # Make the unit tests
