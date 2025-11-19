@@ -106,7 +106,7 @@ public:
     double calculateDistanceToSupport(const World& world, uint32_t x, uint32_t y) const;
 
 private:
-    const GridOfCells* grid_; // Optional pointer to grid cache for bitmap optimizations.
+    const GridOfCells* grid_; // Optional reference to grid cache for bitmap optimizations.
 };
 
 } // namespace DirtSim

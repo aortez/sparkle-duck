@@ -179,6 +179,7 @@ add_library(sparkle-duck-core STATIC
     # Bitmap infrastructure.
     src/core/bitmaps/CellBitmap.cpp
     src/core/bitmaps/EmptyNeighborhood.cpp
+    src/core/bitmaps/MaterialNeighborhood.cpp
 
     # Grid cache layer.
     src/core/GridOfCells.cpp
@@ -378,6 +379,7 @@ add_executable(sparkle-duck-tests
     src/core/bitmaps/tests/CellBitmap_test.cpp
     src/core/bitmaps/tests/CellBitmap_neighborhood_test.cpp
     src/core/bitmaps/tests/GridOfCells_integration_test.cpp
+    src/core/bitmaps/tests/MaterialNeighborhood_test.cpp
     src/core/bitmaps/tests/Neighborhood3x3_test.cpp
 )
 target_link_libraries(sparkle-duck-tests

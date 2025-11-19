@@ -127,7 +127,7 @@ TEST(GridOfCellsTest, EmptyCellBitmapMatchesCellState)
     world.addMaterialAtCell(15, 15, MaterialType::METAL, 0.8);
 
     // Build grid cache.
-    GridOfCells grid(world.data.cells, world.data.width, world.data.height);
+    GridOfCells grid(world.data.cells, world.data.width, world.data.height, world.timers_);
 
     // Verify every cell's bitmap state matches actual cell state.
     int mismatches = 0;
@@ -170,7 +170,7 @@ TEST(GridOfCellsTest, CacheConstructionOverhead)
 
     // Measure cache construction time.
     auto start = std::chrono::high_resolution_clock::now();
-    GridOfCells grid(world.data.cells, world.data.width, world.data.height);
+    GridOfCells grid(world.data.cells, world.data.width, world.data.height, world.timers_);
     auto end = std::chrono::high_resolution_clock::now();
 
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);

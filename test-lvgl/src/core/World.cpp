@@ -107,8 +107,8 @@ void World::advanceTime(double deltaTimeSeconds)
 
     // NOTE: Particle generation now handled by Scenario::tick(), called before advanceTime().
 
-    // Build grid cache for optimized empty cell lookups.
-    GridOfCells grid(data.cells, data.width, data.height);
+    // Build grid cache for optimized empty cell and material lookups.
+    GridOfCells grid(data.cells, data.width, data.height, timers_);
 
     // Pre-compute support map for all cells (bottom-up pass).
     {

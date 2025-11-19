@@ -101,40 +101,36 @@ bool WorldSupportCalculator::hasVerticalSupport(const World& world, uint32_t x, 
 bool WorldSupportCalculator::hasHorizontalSupport(const World& world, uint32_t x, uint32_t y) const
 {
     if (GridOfCells::USE_CACHE && grid_) {
-        const EmptyNeighborhood n = grid_->getEmptyNeighborhood(x, y);
+        const EmptyNeighborhood empty_n = grid_->getEmptyNeighborhood(x, y);
+        const MaterialNeighborhood mat_n = grid_->getMaterialNeighborhood(x, y);
 
-        // Check center using optimized helper (single operation).
-        if (!n.centerHasMaterial()) {
+        // Check center has material.
+        if (!empty_n.centerHasMaterial()) {
             return false;
         }
 
-        // Get material neighbors bit grid (excludes center, ready for scanning).
-        uint16_t material_mask = n.getMaterialNeighborsBitGrid();
+        // Get material neighbors bit grid.
+        const uint16_t material_mask = empty_n.getMaterialNeighborsBitGrid();
         if (material_mask == 0) {
             return false;
         }
 
-        // NOW do the world lookup (only when we know cell is valid and has material).
-        const Cell& cell = world.at(x, y);
-        const MaterialProperties& cell_props = getMaterialProperties(cell.material_type);
+        // Get center material properties from bitmap.
+        const MaterialType center_mat = mat_n.getCenterMaterial();
+        const MaterialProperties& cell_props = getMaterialProperties(center_mat);
 
-        // Iterate through 3×3 grid, checking only neighbors with material.
-        // Linear scan is faster than bit scanning for small (3×3) grids.
+        // Iterate through neighbors with material.
         for (int dy = -1; dy <= 1; dy++) {
             for (int dx = -1; dx <= 1; dx++) {
-                if (dx == 0 && dy == 0) continue; // Skip center.
+                if (dx == 0 && dy == 0) continue;
 
-                // Check if this neighbor has material using the precomputed mask.
+                // Check if this neighbor has material.
                 int bit_pos = (dy + 1) * 3 + (dx + 1);
                 if (!(material_mask & (1 << bit_pos))) continue;
 
-                // Neighbor has material - get the cell.
-                int nx = static_cast<int>(x) + dx;
-                int ny = static_cast<int>(y) + dy;
-                const Cell& neighbor = world.at(nx, ny);
-
-                const MaterialProperties& neighbor_props =
-                    getMaterialProperties(neighbor.material_type);
+                // Get neighbor material properties from bitmap.
+                const MaterialType neighbor_mat = mat_n.getMaterial(dx, dy);
+                const MaterialProperties& neighbor_props = getMaterialProperties(neighbor_mat);
 
                 // Check for rigid support: high-density neighbor with strong adhesion.
                 if (neighbor_props.density > RIGID_DENSITY_THRESHOLD) {
@@ -148,7 +144,7 @@ bool WorldSupportCalculator::hasHorizontalSupport(const World& world, uint32_t x
                             "{:.3f})",
                             x,
                             y,
-                            getMaterialName(neighbor.material_type),
+                            getMaterialName(neighbor_mat),
                             mutual_adhesion);
                         return true;
                     }
@@ -337,31 +333,30 @@ void WorldSupportCalculator::computeSupportMapBottomUp(World& world) const
         // Bottom-up pass: start from bottom row and work upward.
         for (int y = world.data.height - 1; y >= 0; y--) {
             for (uint32_t x = 0; x < world.data.width; x++) {
-                // Get precomputed 3×3 neighborhood - single array lookup!
-                EmptyNeighborhood n = grid_->getEmptyNeighborhood(x, y);
+                // Get precomputed neighborhoods - two array lookups (very fast).
+                const EmptyNeighborhood empty_n = grid_->getEmptyNeighborhood(x, y);
+                const MaterialNeighborhood mat_n = grid_->getMaterialNeighborhood(x, y);
 
-                // Check if current cell is empty using typed API.
-                if (n.raw().center()) {
+                // Check if current cell is empty using bitmap.
+                if (empty_n.raw().center()) {
                     world.at(x, y).has_support = false;
                     continue;
                 }
 
-                Cell& cell = world.at(x, y);
-
                 // WALL material is always structurally supported.
-                if (cell.material_type == MaterialType::WALL) {
-                    cell.has_support = true;
+                if (mat_n.getCenterMaterial() == MaterialType::WALL) {
+                    world.at(x, y).has_support = true;
                     continue;
                 }
 
                 // Bottom edge of world (ground) provides support.
                 if (y == static_cast<int>(world.data.height) - 1) {
-                    cell.has_support = true;
+                    world.at(x, y).has_support = true;
                     continue;
                 }
 
                 // Check vertical support using precomputed neighborhood.
-                bool has_vertical = n.southHasMaterial() && world.at(x, y + 1).has_support;
+                bool has_vertical = empty_n.southHasMaterial() && world.at(x, y + 1).has_support;
 
                 // Check horizontal support if no vertical.
                 bool has_horizontal = false;
@@ -369,7 +364,8 @@ void WorldSupportCalculator::computeSupportMapBottomUp(World& world) const
                     has_horizontal = hasHorizontalSupport(world, x, y);
                 }
 
-                cell.has_support = has_vertical || has_horizontal;
+                // Set support.
+                world.at(x, y).has_support = has_vertical || has_horizontal;
             }
         }
     }
