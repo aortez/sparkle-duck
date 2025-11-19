@@ -59,16 +59,22 @@ if (activity_block == 0) skip_entire_block();
 - ✅ Support calculator integration with runtime toggle
 - ✅ Comprehensive testing (12 tests passing)
 - ✅ CLI `--compare-cache` benchmarking tool
+- ✅ EmptyNeighborhood: Typed wrapper with semantic API
+- ✅ MaterialNeighborhood: 4-bit packed material types (9 cells = 36 bits)
+- ✅ Optimized helpers: centerHasMaterial(), getMaterialNeighborsBitGrid()
+- ✅ Performance timers for cache construction
+- ✅ WorldSupportCalculator: Eliminated cell lookups for material type queries
 
 **Current Performance (100×100 grid):**
-- Construction: 357μs/frame
-- Overhead: -0.5% (expected - most cells are full)
-- Ready for future optimizations when sleep/wake systems are added
+- Construction: ~400μs/frame (includes material neighborhoods)
+- Material lookups: 0 cell lookups (bitmap only)
+- Ready for further optimizations
 
 **Next Steps:**
+- Apply MaterialNeighborhood to cohesion/adhesion calculators
+- Optimize has_support checks (use bitmap for vertical support lookups)
 - Branch hoisting (hoist `USE_CACHE` check outside loops)
-- Neighborhood bitmap extraction (see below)
-- Multi-layer property bitmaps
+- Multi-layer property bitmaps (velocity, pressure, etc.)
 
 ## 1b. Neighborhood Bitmap Extraction (NEW IDEA)
 
