@@ -9,6 +9,7 @@
 namespace DirtSim {
 
 class Cell;
+class GridOfCells;
 class World;
 class WorldSupportCalculator;
 
@@ -52,7 +53,10 @@ public:
     CohesionForce calculateCohesionForce(const World& world, uint32_t x, uint32_t y) const;
 
     COMCohesionForce calculateCOMCohesionForce(
-        const World& world, uint32_t x, uint32_t y, uint32_t com_cohesion_range) const;
+        const World& world,
+        uint32_t x,
+        uint32_t y,
+        uint32_t com_cohesion_range) const;
 };
 
 } // namespace DirtSim

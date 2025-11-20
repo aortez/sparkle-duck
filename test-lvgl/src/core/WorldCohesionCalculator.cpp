@@ -1,5 +1,6 @@
 #include "WorldCohesionCalculator.h"
 #include "Cell.h"
+#include "GridOfCells.h"
 #include "MaterialType.h"
 #include "World.h"
 #include "WorldSupportCalculator.h"
@@ -124,7 +125,10 @@ WorldCohesionCalculator::CohesionForce WorldCohesionCalculator::calculateCohesio
 }
 
 WorldCohesionCalculator::COMCohesionForce WorldCohesionCalculator::calculateCOMCohesionForce(
-    const World& world, uint32_t x, uint32_t y, uint32_t com_cohesion_range) const
+    const World& world,
+    uint32_t x,
+    uint32_t y,
+    uint32_t com_cohesion_range) const
 {
     const Cell& cell = getCellAt(world, x, y);
     if (cell.isEmpty()) {
@@ -150,8 +154,8 @@ WorldCohesionCalculator::COMCohesionForce WorldCohesionCalculator::calculateCOMC
     double total_weight = 0.0;
     uint32_t connection_count = 0;
 
-    // Check all neighbors within range for same-material connections.
     int range = static_cast<int>(com_cohesion_range);
+
     for (int dx = -range; dx <= range; dx++) {
         for (int dy = -range; dy <= range; dy++) {
             if (dx == 0 && dy == 0) continue;
@@ -164,7 +168,6 @@ WorldCohesionCalculator::COMCohesionForce WorldCohesionCalculator::calculateCOMC
                 if (neighbor.material_type == cell.material_type
                     && neighbor.fill_ratio > MIN_MATTER_THRESHOLD) {
 
-                    // Get neighbor's COM position in world coordinates.
                     Vector2d neighbor_world_pos(
                         static_cast<double>(nx) + neighbor.com.x,
                         static_cast<double>(ny) + neighbor.com.y);

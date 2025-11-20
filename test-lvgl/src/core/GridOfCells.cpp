@@ -65,26 +65,23 @@ void GridOfCells::precomputeEmptyNeighborhoods()
 
 void GridOfCells::precomputeMaterialNeighborhoods()
 {
-    // Precompute 3×3 material neighborhood for every cell.
     for (uint32_t y = 0; y < height_; ++y) {
         for (uint32_t x = 0; x < width_; ++x) {
             uint64_t packed = 0;
 
-            // Pack 9 material types (4 bits each) into uint64_t.
             for (int dy = -1; dy <= 1; ++dy) {
                 for (int dx = -1; dx <= 1; ++dx) {
-                    int bit_group = (dy + 1) * 3 + (dx + 1); // 0-8
+                    int bit_group = (dy + 1) * 3 + (dx + 1);
                     int nx = static_cast<int>(x) + dx;
                     int ny = static_cast<int>(y) + dy;
 
-                    MaterialType mat = MaterialType::AIR; // Default for OOB.
+                    MaterialType mat = MaterialType::AIR;
                     if (nx >= 0 && nx < static_cast<int>(width_) && ny >= 0
                         && ny < static_cast<int>(height_)) {
                         const Cell& cell = cells_[ny * width_ + nx];
                         mat = cell.material_type;
                     }
 
-                    // Pack material type (4 bits) into position.
                     uint64_t mat_bits = static_cast<uint64_t>(mat) & 0xF;
                     packed |= (mat_bits << (bit_group * 4));
                 }
