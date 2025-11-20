@@ -39,6 +39,7 @@ public:
 private:
     lv_obj_t* gridCanvas_ = nullptr;
     lv_obj_t* thoughtLabel_ = nullptr;
+    lv_obj_t* energyLabel_ = nullptr;
     std::vector<uint8_t> canvasBuffer_;
 
     static constexpr uint32_t GRID_SIZE = 15;

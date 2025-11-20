@@ -76,7 +76,6 @@ World::~World()
 {
     spdlog::info("Destroying World: {}x{} grid", data.width, data.height);
     timers_.stopTimer("total_simulation");
-    timers_.dumpTimerStats();
 }
 
 void World::setRandomSeed(uint32_t seed)
@@ -812,7 +811,27 @@ void World::processMaterialMoves()
         if (physicsSettings.swap_enabled) {
             Vector2i direction(move.toX - move.fromX, move.toY - move.fromY);
             if (collision_calculator_.shouldSwapMaterials(fromCell, toCell, direction, move)) {
+                TreeId from_organism = fromCell.organism_id;
+                TreeId to_organism = toCell.organism_id;
+
                 collision_calculator_.swapCounterMovingMaterials(fromCell, toCell, direction, move);
+
+                if (from_organism != INVALID_TREE_ID) {
+                    organism_transfers_.push_back(
+                        { Vector2i{ static_cast<int>(move.fromX), static_cast<int>(move.fromY) },
+                          Vector2i{ static_cast<int>(move.toX), static_cast<int>(move.toY) },
+                          from_organism,
+                          fromCell.fill_ratio });
+                }
+
+                if (to_organism != INVALID_TREE_ID) {
+                    organism_transfers_.push_back(
+                        { Vector2i{ static_cast<int>(move.toX), static_cast<int>(move.toY) },
+                          Vector2i{ static_cast<int>(move.fromX), static_cast<int>(move.fromY) },
+                          to_organism,
+                          toCell.fill_ratio });
+                }
+
                 continue; // Skip normal collision handling.
             }
         }

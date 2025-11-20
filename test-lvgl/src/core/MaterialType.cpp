@@ -122,7 +122,7 @@ static std::array<MaterialProperties, 10> MATERIAL_PROPERTIES = {
         .is_rigid = false },
 
       // ========== SEED ==========
-      { .density = 8.0,
+      { .density = 1.5,
         .elasticity = 0.2,
         .cohesion = 0.9,
         .adhesion = 0.3,

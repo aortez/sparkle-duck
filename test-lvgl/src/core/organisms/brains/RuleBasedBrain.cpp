@@ -46,7 +46,8 @@ TreeCommand RuleBasedBrain::decide(const TreeSensoryData& sensory)
 
         double observation_time = sensory.age_seconds - dirt_contact_age_seconds_;
         if (observation_time >= 2.0) {
-            GrowthSuitability suitability = checkGrowthSuitability(sensory, root_target_pos_);
+            GrowthSuitability suitability =
+                checkGrowthSuitability(sensory, root_target_pos_, MaterialType::ROOT);
 
             if (suitability == GrowthSuitability::SUITABLE) {
                 spdlog::info(
@@ -75,7 +76,8 @@ TreeCommand RuleBasedBrain::decide(const TreeSensoryData& sensory)
         if (!has_grown_first_wood_) {
             Vector2i wood_pos{ sensory.seed_position.x, sensory.seed_position.y - 1 };
 
-            GrowthSuitability suitability = checkGrowthSuitability(sensory, wood_pos);
+            GrowthSuitability suitability =
+                checkGrowthSuitability(sensory, wood_pos, MaterialType::WOOD);
 
             if (suitability == GrowthSuitability::SUITABLE) {
                 has_grown_first_wood_ = true;
@@ -111,7 +113,8 @@ TreeCommand RuleBasedBrain::decide(const TreeSensoryData& sensory)
 
     if (root_ratio < root_target) {
         Vector2i pos = findGrowthPosition(sensory, MaterialType::ROOT);
-        if (checkGrowthSuitability(sensory, pos) == GrowthSuitability::SUITABLE) {
+        if (checkGrowthSuitability(sensory, pos, MaterialType::ROOT)
+            == GrowthSuitability::SUITABLE) {
             return GrowRootCommand{ .target_pos = pos,
                                     .execution_time_seconds = 2.0,
                                     .energy_cost = 12.0 };
@@ -120,7 +123,8 @@ TreeCommand RuleBasedBrain::decide(const TreeSensoryData& sensory)
 
     if (wood_ratio < 0.35) {
         Vector2i pos = findGrowthPosition(sensory, MaterialType::WOOD);
-        if (checkGrowthSuitability(sensory, pos) == GrowthSuitability::SUITABLE) {
+        if (checkGrowthSuitability(sensory, pos, MaterialType::WOOD)
+            == GrowthSuitability::SUITABLE) {
             return GrowWoodCommand{ .target_pos = pos,
                                     .execution_time_seconds = 3.0,
                                     .energy_cost = 10.0 };
@@ -129,7 +133,8 @@ TreeCommand RuleBasedBrain::decide(const TreeSensoryData& sensory)
 
     if (leaf_ratio < 0.25) {
         Vector2i pos = findGrowthPosition(sensory, MaterialType::LEAF);
-        if (checkGrowthSuitability(sensory, pos) == GrowthSuitability::SUITABLE) {
+        if (checkGrowthSuitability(sensory, pos, MaterialType::LEAF)
+            == GrowthSuitability::SUITABLE) {
             return GrowLeafCommand{ .target_pos = pos,
                                     .execution_time_seconds = 0.5,
                                     .energy_cost = 8.0 };
@@ -137,7 +142,7 @@ TreeCommand RuleBasedBrain::decide(const TreeSensoryData& sensory)
     }
 
     Vector2i pos = findGrowthPosition(sensory, MaterialType::WOOD);
-    if (checkGrowthSuitability(sensory, pos) == GrowthSuitability::SUITABLE) {
+    if (checkGrowthSuitability(sensory, pos, MaterialType::WOOD) == GrowthSuitability::SUITABLE) {
         return GrowWoodCommand{ .target_pos = pos,
                                 .execution_time_seconds = 3.0,
                                 .energy_cost = 10.0 };
@@ -147,7 +152,7 @@ TreeCommand RuleBasedBrain::decide(const TreeSensoryData& sensory)
 }
 
 GrowthSuitability RuleBasedBrain::checkGrowthSuitability(
-    const TreeSensoryData& sensory, Vector2i world_pos)
+    const TreeSensoryData& sensory, Vector2i world_pos, MaterialType target_material)
 {
     int grid_x = world_pos.x - sensory.world_offset.x;
     int grid_y = world_pos.y - sensory.world_offset.y;
@@ -167,6 +172,10 @@ GrowthSuitability RuleBasedBrain::checkGrowthSuitability(
 
     if (wall > 0.5 || metal > 0.5 || water > 0.5) {
         return GrowthSuitability::BLOCKED;
+    }
+
+    if (target_material == MaterialType::LEAF) {
+        return (air > 0.5) ? GrowthSuitability::SUITABLE : GrowthSuitability::BLOCKED;
     }
 
     if (air > 0.3 || dirt > 0.3 || sand > 0.3) {
@@ -203,29 +212,55 @@ Vector2i RuleBasedBrain::findGrowthPosition(
 {
     Vector2i seed = sensory.seed_position;
 
+    if (target_material == MaterialType::LEAF) {
+        int wood_idx = static_cast<int>(MaterialType::WOOD);
+        Vector2i best_pos = seed;
+        double best_distance = -1.0;
+
+        for (int y = 0; y < sensory.GRID_SIZE; y++) {
+            for (int x = 0; x < sensory.GRID_SIZE; x++) {
+                if (sensory.material_histograms[y][x][wood_idx] > 0.5) {
+                    Vector2i wood_pos = sensory.world_offset + Vector2i{ x, y };
+
+                    Vector2i directions[] = { { 0, 1 }, { 0, -1 }, { -1, 0 }, { 1, 0 } };
+                    for (const auto& dir : directions) {
+                        Vector2i candidate = wood_pos + dir;
+
+                        if (checkGrowthSuitability(sensory, candidate, MaterialType::LEAF)
+                            == GrowthSuitability::SUITABLE) {
+                            int dx = candidate.x - seed.x;
+                            int dy = candidate.y - seed.y;
+                            double dist = dx * dx + dy * dy;
+
+                            if (dist > best_distance) {
+                                best_distance = dist;
+                                best_pos = candidate;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return best_pos;
+    }
+
     if (target_material == MaterialType::ROOT) {
-        Vector2i directions[] = { { 0, 1 }, { -1, 1 }, { 1, 1 }, { -1, 0 }, { 1, 0 } };
+        Vector2i directions[] = { { 0, 1 }, { -1, 0 }, { 1, 0 } };
         for (const auto& dir : directions) {
             Vector2i pos = seed + dir;
-            if (checkGrowthSuitability(sensory, pos) == GrowthSuitability::SUITABLE) {
+            if (checkGrowthSuitability(sensory, pos, MaterialType::ROOT)
+                == GrowthSuitability::SUITABLE) {
                 return pos;
             }
         }
     }
     else if (target_material == MaterialType::WOOD) {
-        Vector2i directions[] = { { 0, -1 }, { -1, -1 }, { 1, -1 }, { -1, 0 }, { 1, 0 } };
+        Vector2i directions[] = { { 0, -1 }, { -1, 0 }, { 1, 0 } };
         for (const auto& dir : directions) {
             Vector2i pos = seed + dir;
-            if (checkGrowthSuitability(sensory, pos) == GrowthSuitability::SUITABLE) {
-                return pos;
-            }
-        }
-    }
-    else if (target_material == MaterialType::LEAF) {
-        Vector2i directions[] = { { -1, 0 }, { 1, 0 }, { -1, -1 }, { 1, -1 }, { 0, -1 } };
-        for (const auto& dir : directions) {
-            Vector2i pos = seed + dir;
-            if (checkGrowthSuitability(sensory, pos) == GrowthSuitability::SUITABLE) {
+            if (checkGrowthSuitability(sensory, pos, MaterialType::WOOD)
+                == GrowthSuitability::SUITABLE) {
                 return pos;
             }
         }

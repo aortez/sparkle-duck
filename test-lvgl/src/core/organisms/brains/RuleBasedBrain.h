@@ -27,7 +27,8 @@ private:
     bool has_grown_first_root_ = false;
     bool has_grown_first_wood_ = false;
 
-    GrowthSuitability checkGrowthSuitability(const TreeSensoryData& sensory, Vector2i world_pos);
+    GrowthSuitability checkGrowthSuitability(
+        const TreeSensoryData& sensory, Vector2i world_pos, MaterialType target_material);
     TreeComposition analyzeTreeComposition(const TreeSensoryData& sensory);
     Vector2i findGrowthPosition(const TreeSensoryData& sensory, MaterialType target_material);
     bool hasWaterAccess(const TreeSensoryData& sensory);

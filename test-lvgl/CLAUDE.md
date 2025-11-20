@@ -398,6 +398,7 @@ to see if they work.
 - refactor World to use Pimple pattern.  Use elsewhere too?
 - bit grid cache for has_support instead of storing it in each cell.
 - debug and release builds in different directories, then performance testing with release builds.
+- Add light tracing! (from top down)
 
 ### Client/Server Architecture (DSSM + UI Client)
 - ✅ Headless server with WebSocket API
