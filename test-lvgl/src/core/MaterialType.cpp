@@ -51,8 +51,8 @@ static std::array<MaterialProperties, 10> MATERIAL_PROPERTIES = {
       // ========== LEAF ==========
       { .density = 0.3,
         .elasticity = 0.4,
-        .cohesion = 0.3,
-        .adhesion = 0.2,
+        .cohesion = 0.7,
+        .adhesion = 0.8,
         .air_resistance = 0.8,
         .hydrostatic_weight = 1.0,
         .dynamic_weight = 0.6,

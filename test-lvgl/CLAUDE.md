@@ -413,6 +413,7 @@ to see if they work.
 - bit grid cache for has_support instead of storing it in each cell.
 - debug and release builds in different directories, then performance testing with release builds.
 - Add light tracing! (from top down)
+- Consider a single int64 bitmap cache, directly inside each cell.
 
 ### Client/Server Architecture (DSSM + UI Client)
 - ✅ Headless server with WebSocket API
