@@ -17,6 +17,7 @@ enum class MaterialType : uint8_t {
     DIRT,    // Granular solid material.
     LEAF,    // Light organic matter.
     METAL,   // Dense rigid solid.
+    ROOT,    // Underground tree tissue (grips soil, extracts nutrients).
     SAND,    // Granular solid (faster settling than dirt).
     SEED,    // Tree seed material (dense, grows into tree).
     WALL,    // Immobile boundary material.

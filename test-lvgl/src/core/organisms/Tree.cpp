@@ -1,4 +1,5 @@
 #include "Tree.h"
+#include "TreeCommandProcessor.h"
 #include "core/MaterialType.h"
 #include "core/World.h"
 #include <algorithm>
@@ -11,161 +12,30 @@ Tree::Tree(TreeId id, std::unique_ptr<TreeBrain> brain) : id(id), brain_(std::mo
 
 void Tree::update(World& world, double deltaTime)
 {
-    (void)deltaTime; // Trees use discrete timesteps, not continuous time.
+    age_seconds += deltaTime;
 
-    age++;
-
-    // Execute current command (tick down timer).
     if (current_command.has_value()) {
-        if (--steps_remaining == 0) {
+        time_remaining_seconds -= deltaTime;
+        if (time_remaining_seconds <= 0.0) {
             executeCommand(world);
             current_command.reset();
         }
     }
 
-    // When idle, ask brain for next action.
     if (!current_command.has_value()) {
         decideNextAction(world);
     }
 
-    // Resource updates (continuous).
     updateResources(world);
 }
 
 void Tree::executeCommand(World& world)
 {
-    std::visit(
-        [&](auto&& cmd) {
-            using T = std::decay_t<decltype(cmd)>;
+    CommandExecutionResult result = TreeCommandProcessor::execute(*this, world, *current_command);
 
-            if constexpr (std::is_same_v<T, GrowWoodCommand>) {
-                // Check if target position is valid and adjacent to tree.
-                if (cmd.target_pos.x < 0 || cmd.target_pos.y < 0
-                    || static_cast<uint32_t>(cmd.target_pos.x) >= world.data.width
-                    || static_cast<uint32_t>(cmd.target_pos.y) >= world.data.height) {
-                    spdlog::warn(
-                        "Tree {}: GrowWoodCommand invalid position ({}, {})",
-                        id,
-                        cmd.target_pos.x,
-                        cmd.target_pos.y);
-                    return;
-                }
-
-                // TODO: Validate adjacency to existing tree cells.
-                // TODO: Check energy availability.
-
-                // Replace target cell with WOOD.
-                world.addMaterialAtCell(
-                    cmd.target_pos.x, cmd.target_pos.y, MaterialType::WOOD, 1.0);
-
-                // Mark cell as owned by this tree.
-                world.at(cmd.target_pos.x, cmd.target_pos.y).organism_id = id;
-
-                cells.insert(cmd.target_pos);
-                total_energy -= cmd.energy_cost;
-
-                spdlog::info(
-                    "Tree {}: Grew WOOD at ({}, {})", id, cmd.target_pos.x, cmd.target_pos.y);
-
-                // Stage transition: SEED → GERMINATION when first wood appears.
-                if (stage == GrowthStage::SEED) {
-                    stage = GrowthStage::GERMINATION;
-                    spdlog::info("Tree {}: Transitioned to GERMINATION stage", id);
-                }
-            }
-            else if constexpr (std::is_same_v<T, GrowLeafCommand>) {
-                if (cmd.target_pos.x < 0 || cmd.target_pos.y < 0
-                    || static_cast<uint32_t>(cmd.target_pos.x) >= world.data.width
-                    || static_cast<uint32_t>(cmd.target_pos.y) >= world.data.height) {
-                    spdlog::warn(
-                        "Tree {}: GrowLeafCommand invalid position ({}, {})",
-                        id,
-                        cmd.target_pos.x,
-                        cmd.target_pos.y);
-                    return;
-                }
-
-                world.addMaterialAtCell(
-                    cmd.target_pos.x, cmd.target_pos.y, MaterialType::LEAF, 1.0);
-
-                // Mark cell as owned by this tree.
-                world.at(cmd.target_pos.x, cmd.target_pos.y).organism_id = id;
-
-                cells.insert(cmd.target_pos);
-                total_energy -= cmd.energy_cost;
-
-                spdlog::info(
-                    "Tree {}: Grew LEAF at ({}, {})", id, cmd.target_pos.x, cmd.target_pos.y);
-            }
-            else if constexpr (std::is_same_v<T, GrowRootCommand>) {
-                if (cmd.target_pos.x < 0 || cmd.target_pos.y < 0
-                    || static_cast<uint32_t>(cmd.target_pos.x) >= world.data.width
-                    || static_cast<uint32_t>(cmd.target_pos.y) >= world.data.height) {
-                    spdlog::warn(
-                        "Tree {}: GrowRootCommand invalid position ({}, {})",
-                        id,
-                        cmd.target_pos.x,
-                        cmd.target_pos.y);
-                    return;
-                }
-
-                // TODO: Add ROOT material type first.
-                // For now, use WOOD as placeholder.
-                world.addMaterialAtCell(
-                    cmd.target_pos.x, cmd.target_pos.y, MaterialType::WOOD, 1.0);
-
-                // Mark cell as owned by this tree.
-                world.at(cmd.target_pos.x, cmd.target_pos.y).organism_id = id;
-
-                cells.insert(cmd.target_pos);
-                total_energy -= cmd.energy_cost;
-
-                spdlog::info(
-                    "Tree {}: Grew ROOT at ({}, {}) [using WOOD placeholder]",
-                    id,
-                    cmd.target_pos.x,
-                    cmd.target_pos.y);
-
-                // Stage transition: GERMINATION → SAPLING when first root appears.
-                if (stage == GrowthStage::GERMINATION) {
-                    stage = GrowthStage::SAPLING;
-                    spdlog::info("Tree {}: Transitioned to SAPLING stage", id);
-                }
-            }
-            else if constexpr (std::is_same_v<T, ReinforceCellCommand>) {
-                // TODO: Implement cell reinforcement once we have structural integrity tracking.
-                spdlog::info(
-                    "Tree {}: Reinforced cell at ({}, {}) [not yet implemented]",
-                    id,
-                    cmd.position.x,
-                    cmd.position.y);
-                total_energy -= cmd.energy_cost;
-            }
-            else if constexpr (std::is_same_v<T, ProduceSeedCommand>) {
-                if (cmd.position.x < 0 || cmd.position.y < 0
-                    || static_cast<uint32_t>(cmd.position.x) >= world.data.width
-                    || static_cast<uint32_t>(cmd.position.y) >= world.data.height) {
-                    spdlog::warn(
-                        "Tree {}: ProduceSeedCommand invalid position ({}, {})",
-                        id,
-                        cmd.position.x,
-                        cmd.position.y);
-                    return;
-                }
-
-                world.addMaterialAtCell(cmd.position.x, cmd.position.y, MaterialType::SEED, 1.0);
-
-                total_energy -= cmd.energy_cost;
-
-                spdlog::info(
-                    "Tree {}: Produced SEED at ({}, {})", id, cmd.position.x, cmd.position.y);
-            }
-            else if constexpr (std::is_same_v<T, WaitCommand>) {
-                // Intentionally empty - just idle.
-                spdlog::debug("Tree {}: Waited for {} steps", id, cmd.duration);
-            }
-        },
-        *current_command);
+    if (!result.succeeded()) {
+        spdlog::warn("Tree {}: Command failed - {}", id, result.message);
+    }
 }
 
 void Tree::decideNextAction(const World& world)
@@ -177,28 +47,27 @@ void Tree::decideNextAction(const World& world)
     // Enqueue command.
     current_command = command;
 
-    // Extract execution time from command.
     std::visit(
         [&](auto&& cmd) {
             using T = std::decay_t<decltype(cmd)>;
 
             if constexpr (std::is_same_v<T, GrowWoodCommand>) {
-                steps_remaining = cmd.execution_time;
+                time_remaining_seconds = cmd.execution_time_seconds;
             }
             else if constexpr (std::is_same_v<T, GrowLeafCommand>) {
-                steps_remaining = cmd.execution_time;
+                time_remaining_seconds = cmd.execution_time_seconds;
             }
             else if constexpr (std::is_same_v<T, GrowRootCommand>) {
-                steps_remaining = cmd.execution_time;
+                time_remaining_seconds = cmd.execution_time_seconds;
             }
             else if constexpr (std::is_same_v<T, ReinforceCellCommand>) {
-                steps_remaining = cmd.execution_time;
+                time_remaining_seconds = cmd.execution_time_seconds;
             }
             else if constexpr (std::is_same_v<T, ProduceSeedCommand>) {
-                steps_remaining = cmd.execution_time;
+                time_remaining_seconds = cmd.execution_time_seconds;
             }
             else if constexpr (std::is_same_v<T, WaitCommand>) {
-                steps_remaining = cmd.duration;
+                time_remaining_seconds = cmd.duration_seconds;
             }
         },
         command);
@@ -328,14 +197,45 @@ TreeSensoryData Tree::gatherSensoryData(const World& world) const
         }
     }
 
-    // Populate internal state.
-    data.age = age;
+    data.seed_position = seed_position;
+    data.age_seconds = age_seconds;
     data.stage = stage;
     data.total_energy = total_energy;
     data.total_water = total_water;
-    data.root_count = 0; // TODO: Count ROOT cells.
-    data.leaf_count = 0; // TODO: Count LEAF cells.
-    data.wood_count = 0; // TODO: Count WOOD cells.
+
+    if (current_command.has_value()) {
+        std::visit(
+            [&](auto&& cmd) {
+                using T = std::decay_t<decltype(cmd)>;
+                if constexpr (std::is_same_v<T, GrowWoodCommand>) {
+                    data.current_thought = "Growing WOOD at (" + std::to_string(cmd.target_pos.x)
+                        + ", " + std::to_string(cmd.target_pos.y) + ")";
+                }
+                else if constexpr (std::is_same_v<T, GrowLeafCommand>) {
+                    data.current_thought = "Growing LEAF at (" + std::to_string(cmd.target_pos.x)
+                        + ", " + std::to_string(cmd.target_pos.y) + ")";
+                }
+                else if constexpr (std::is_same_v<T, GrowRootCommand>) {
+                    data.current_thought = "Growing ROOT at (" + std::to_string(cmd.target_pos.x)
+                        + ", " + std::to_string(cmd.target_pos.y) + ")";
+                }
+                else if constexpr (std::is_same_v<T, ReinforceCellCommand>) {
+                    data.current_thought = "Reinforcing cell at (" + std::to_string(cmd.position.x)
+                        + ", " + std::to_string(cmd.position.y) + ")";
+                }
+                else if constexpr (std::is_same_v<T, ProduceSeedCommand>) {
+                    data.current_thought = "Producing SEED at (" + std::to_string(cmd.position.x)
+                        + ", " + std::to_string(cmd.position.y) + ")";
+                }
+                else if constexpr (std::is_same_v<T, WaitCommand>) {
+                    data.current_thought = "Waiting";
+                }
+            },
+            *current_command);
+    }
+    else {
+        data.current_thought = "Idle";
+    }
 
     return data;
 }

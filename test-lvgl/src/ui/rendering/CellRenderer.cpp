@@ -19,6 +19,8 @@ static lv_color_t getMaterialColor(MaterialType type)
             return lv_color_hex(0x00FF32); // Bright lime green.
         case MaterialType::METAL:
             return lv_color_hex(0xC0C0C0); // Silver.
+        case MaterialType::ROOT:
+            return lv_color_hex(0x654321); // Dark brown.
         case MaterialType::SAND:
             return lv_color_hex(0xFFB347); // Sandy orange.
         case MaterialType::SEED:

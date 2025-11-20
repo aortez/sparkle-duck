@@ -1,0 +1,158 @@
+#include "TreeCommandProcessor.h"
+#include "Tree.h"
+#include "core/MaterialType.h"
+#include "core/World.h"
+#include <spdlog/spdlog.h>
+
+namespace DirtSim {
+
+CommandExecutionResult TreeCommandProcessor::execute(
+    Tree& tree, World& world, const TreeCommand& cmd)
+{
+    return std::visit(
+        [&](auto&& command) -> CommandExecutionResult {
+            using T = std::decay_t<decltype(command)>;
+
+            if constexpr (std::is_same_v<T, GrowWoodCommand>) {
+                if (tree.total_energy < command.energy_cost) {
+                    return { CommandResult::INSUFFICIENT_ENERGY,
+                             "Not enough energy for WOOD growth" };
+                }
+
+                if (command.target_pos.x < 0 || command.target_pos.y < 0
+                    || static_cast<uint32_t>(command.target_pos.x) >= world.data.width
+                    || static_cast<uint32_t>(command.target_pos.y) >= world.data.height) {
+                    return { CommandResult::INVALID_TARGET, "WOOD target out of bounds" };
+                }
+
+                world.at(command.target_pos.x, command.target_pos.y)
+                    .replaceMaterial(MaterialType::WOOD, 1.0);
+                world.at(command.target_pos.x, command.target_pos.y).organism_id = tree.id;
+
+                tree.cells.insert(command.target_pos);
+                tree.total_energy -= command.energy_cost;
+
+                spdlog::info(
+                    "Tree {}: Grew WOOD at ({}, {})",
+                    tree.id,
+                    command.target_pos.x,
+                    command.target_pos.y);
+
+                if (tree.stage == GrowthStage::GERMINATION) {
+                    tree.stage = GrowthStage::SAPLING;
+                    spdlog::info("Tree {}: Transitioned to SAPLING stage", tree.id);
+                }
+
+                return { CommandResult::SUCCESS, "WOOD growth successful" };
+            }
+            else if constexpr (std::is_same_v<T, GrowLeafCommand>) {
+                if (tree.total_energy < command.energy_cost) {
+                    return { CommandResult::INSUFFICIENT_ENERGY,
+                             "Not enough energy for LEAF growth" };
+                }
+
+                if (command.target_pos.x < 0 || command.target_pos.y < 0
+                    || static_cast<uint32_t>(command.target_pos.x) >= world.data.width
+                    || static_cast<uint32_t>(command.target_pos.y) >= world.data.height) {
+                    return { CommandResult::INVALID_TARGET, "LEAF target out of bounds" };
+                }
+
+                world.at(command.target_pos.x, command.target_pos.y)
+                    .replaceMaterial(MaterialType::LEAF, 1.0);
+                world.at(command.target_pos.x, command.target_pos.y).organism_id = tree.id;
+
+                tree.cells.insert(command.target_pos);
+                tree.total_energy -= command.energy_cost;
+
+                spdlog::info(
+                    "Tree {}: Grew LEAF at ({}, {})",
+                    tree.id,
+                    command.target_pos.x,
+                    command.target_pos.y);
+
+                return { CommandResult::SUCCESS, "LEAF growth successful" };
+            }
+            else if constexpr (std::is_same_v<T, GrowRootCommand>) {
+                if (tree.total_energy < command.energy_cost) {
+                    return { CommandResult::INSUFFICIENT_ENERGY,
+                             "Not enough energy for ROOT growth" };
+                }
+
+                if (command.target_pos.x < 0 || command.target_pos.y < 0
+                    || static_cast<uint32_t>(command.target_pos.x) >= world.data.width
+                    || static_cast<uint32_t>(command.target_pos.y) >= world.data.height) {
+                    return { CommandResult::INVALID_TARGET, "ROOT target out of bounds" };
+                }
+
+                world.at(command.target_pos.x, command.target_pos.y)
+                    .replaceMaterial(MaterialType::ROOT, 1.0);
+                world.at(command.target_pos.x, command.target_pos.y).organism_id = tree.id;
+
+                tree.cells.insert(command.target_pos);
+                tree.total_energy -= command.energy_cost;
+
+                spdlog::info(
+                    "Tree {}: Grew ROOT at ({}, {})",
+                    tree.id,
+                    command.target_pos.x,
+                    command.target_pos.y);
+
+                if (tree.stage == GrowthStage::SEED) {
+                    tree.stage = GrowthStage::GERMINATION;
+                    spdlog::info("Tree {}: Transitioned to GERMINATION stage", tree.id);
+                }
+
+                return { CommandResult::SUCCESS, "ROOT growth successful" };
+            }
+            else if constexpr (std::is_same_v<T, ReinforceCellCommand>) {
+                if (tree.total_energy < command.energy_cost) {
+                    return { CommandResult::INSUFFICIENT_ENERGY,
+                             "Not enough energy for cell reinforcement" };
+                }
+
+                tree.total_energy -= command.energy_cost;
+
+                spdlog::info(
+                    "Tree {}: Reinforced cell at ({}, {}) [not yet implemented]",
+                    tree.id,
+                    command.position.x,
+                    command.position.y);
+
+                return { CommandResult::SUCCESS, "Cell reinforcement successful" };
+            }
+            else if constexpr (std::is_same_v<T, ProduceSeedCommand>) {
+                if (tree.total_energy < command.energy_cost) {
+                    return { CommandResult::INSUFFICIENT_ENERGY,
+                             "Not enough energy for seed production" };
+                }
+
+                if (command.position.x < 0 || command.position.y < 0
+                    || static_cast<uint32_t>(command.position.x) >= world.data.width
+                    || static_cast<uint32_t>(command.position.y) >= world.data.height) {
+                    return { CommandResult::INVALID_TARGET, "Seed position out of bounds" };
+                }
+
+                world.at(command.position.x, command.position.y)
+                    .replaceMaterial(MaterialType::SEED, 1.0);
+
+                tree.total_energy -= command.energy_cost;
+
+                spdlog::info(
+                    "Tree {}: Produced SEED at ({}, {})",
+                    tree.id,
+                    command.position.x,
+                    command.position.y);
+
+                return { CommandResult::SUCCESS, "Seed production successful" };
+            }
+            else if constexpr (std::is_same_v<T, WaitCommand>) {
+                spdlog::debug("Tree {}: Waited for {} seconds", tree.id, command.duration_seconds);
+                return { CommandResult::SUCCESS, "Wait completed" };
+            }
+
+            return { CommandResult::INVALID_TARGET, "Unknown command type" };
+        },
+        cmd);
+}
+
+} // namespace DirtSim

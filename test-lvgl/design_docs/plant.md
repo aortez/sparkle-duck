@@ -348,6 +348,10 @@ void Tree::executeCommand(WorldB& world) {
 
 ## Resource Systems
 
+**Air**
+- Absorbed by leaves and at a lower rate, by roots in dirt or air.
+- Required for photosynthesis.
+
 **Light**
 - Cast from top of world downward
 - Blocked by opaque materials
@@ -355,8 +359,9 @@ void Tree::executeCommand(WorldB& world) {
 - Drives photosynthesis
 
 **Water**
-- Absorbed from adjacent WATER cells
-- Can extract from AIR (lower rate)
+- Absorbed from adjacent WATER cells (very high rate)
+- Can extract from DIRT (low rate)
+- Can extract from AIR (very low rate)
 - Required for growth and photosynthesis
 
 **Nutrients**

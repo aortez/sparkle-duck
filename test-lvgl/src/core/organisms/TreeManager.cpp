@@ -8,40 +8,31 @@ namespace DirtSim {
 
 void TreeManager::update(World& world, double deltaTime)
 {
-    // Update all trees.
     for (auto& [id, tree] : trees_) {
         tree.update(world, deltaTime);
     }
-
-    // TODO: Phase 3 - Update light map and process photosynthesis.
 }
 
 TreeId TreeManager::plantSeed(World& world, uint32_t x, uint32_t y)
 {
-    // Allocate new tree ID.
     TreeId id = next_tree_id_++;
 
-    // Create tree with rule-based brain.
     auto brain = std::make_unique<RuleBasedBrain>();
     Tree tree(id, std::move(brain));
 
-    // Set seed position (center for neural grid).
     Vector2i pos{ static_cast<int>(x), static_cast<int>(y) };
     tree.seed_position = pos;
+    tree.total_energy = 100.0;
 
-    // Place SEED material at position.
     world.addMaterialAtCell(x, y, MaterialType::SEED, 1.0);
 
-    // Register seed cell with tree.
     tree.cells.insert(pos);
     cell_to_tree_[pos] = id;
 
-    // Mark cell as owned by this tree.
     world.at(x, y).organism_id = id;
 
     spdlog::info("TreeManager: Planted seed for tree {} at ({}, {})", id, x, y);
 
-    // Store tree.
     trees_.emplace(id, std::move(tree));
 
     return id;

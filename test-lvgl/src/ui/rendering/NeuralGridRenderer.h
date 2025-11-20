@@ -1,6 +1,6 @@
 #pragma once
 
-#include "core/organisms/TreeTypes.h"
+#include "core/organisms/TreeSensoryData.h"
 #include "lvgl/lvgl.h"
 #include <cstdint>
 #include <optional>
@@ -9,13 +9,6 @@
 namespace DirtSim {
 namespace Ui {
 
-/**
- * @brief Renders the 15x15 neural grid visualization for tree organisms.
- *
- * Shows how a tree "sees" the world through its scale-invariant sensory system.
- * Each cell displays material histograms as color-coded blocks with opacity
- * indicating histogram purity (one-hot vs mixed).
- */
 class NeuralGridRenderer {
 public:
     NeuralGridRenderer() = default;
@@ -44,13 +37,12 @@ public:
     void cleanup();
 
 private:
-    // Canvas for rendering the 15x15 grid.
     lv_obj_t* gridCanvas_ = nullptr;
+    lv_obj_t* thoughtLabel_ = nullptr;
     std::vector<uint8_t> canvasBuffer_;
 
-    // Canvas dimensions.
     static constexpr uint32_t GRID_SIZE = 15;
-    static constexpr uint32_t CELL_SIZE = 32; // Pixels per neural cell.
+    static constexpr uint32_t CELL_SIZE = 32;
     static constexpr uint32_t CANVAS_WIDTH = GRID_SIZE * CELL_SIZE;
     static constexpr uint32_t CANVAS_HEIGHT = GRID_SIZE * CELL_SIZE;
 

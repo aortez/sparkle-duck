@@ -3,7 +3,7 @@
 #include "Cell.h"
 #include "ReflectSerializer.h"
 #include "ScenarioConfig.h"
-#include "organisms/TreeTypes.h"
+#include "organisms/TreeSensoryData.h"
 #include <cstdint>
 #include <nlohmann/json.hpp>
 #include <optional>
@@ -13,12 +13,6 @@
 
 namespace DirtSim {
 
-/**
- * @brief World state data - public source of truth.
- *
- * Simple aggregate struct - automatically serializable via ReflectSerializer.
- * All world state that needs to be saved/transmitted lives here.
- */
 struct WorldData {
     // Grid dimensions and cells (1D storage for performance).
     uint32_t width = 0;

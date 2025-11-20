@@ -58,8 +58,14 @@ std::string WorldDiagramGeneratorEmoji::generateEmojiDiagram(const World& world)
                         case MaterialType::METAL:
                             diagram << "🔩";
                             break;
+                        case MaterialType::ROOT:
+                            diagram << "🌿";
+                            break;
                         case MaterialType::LEAF:
                             diagram << "🍃";
+                            break;
+                        case MaterialType::SEED:
+                            diagram << "🌰";
                             break;
                         case MaterialType::WALL:
                             diagram << "🧱";
@@ -144,8 +150,14 @@ std::string WorldDiagramGeneratorEmoji::generateMixedDiagram(const World& world)
                         case MaterialType::METAL:
                             diagram << "🔩";
                             break;
+                        case MaterialType::ROOT:
+                            diagram << "🌿";
+                            break;
                         case MaterialType::LEAF:
                             diagram << "🍃";
+                            break;
+                        case MaterialType::SEED:
+                            diagram << "🌰";
                             break;
                         case MaterialType::WALL:
                             diagram << "🧱";

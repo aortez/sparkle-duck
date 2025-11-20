@@ -161,9 +161,9 @@ void SimRunning::tick(StateMachine& dsm)
 
         if (stepCount % 100 == 0) {
             spdlog::info(
-                "SimRunning: Tree vision active (tree_id={}, age={}, stage={})",
+                "SimRunning: Tree vision active (tree_id={}, age_seconds={}, stage={})",
                 firstTree.id,
-                firstTree.age,
+                firstTree.age_seconds,
                 static_cast<int>(firstTree.stage));
         }
     }

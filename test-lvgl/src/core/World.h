@@ -14,24 +14,18 @@
 #include "WorldPressureCalculator.h"
 #include "WorldSupportCalculator.h"
 #include "WorldViscosityCalculator.h"
-#include "organisms/TreeTypes.h"
 
 #include <cstdint>
 #include <memory>
 #include <random>
 #include <vector>
 
-/**
- * \file
- * World implements the pure-material physics system based on GridMechanics.md.
- * Unlike World (mixed dirt/water), World uses Cell with pure materials and
- * fill ratios, providing a simpler but different physics model.
- */
-
 namespace DirtSim {
 
-// Forward declarations.
+using TreeId = uint32_t;
+
 class TreeManager;
+struct OrganismTransfer;
 
 class World {
 public:

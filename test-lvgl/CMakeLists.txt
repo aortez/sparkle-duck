@@ -251,7 +251,9 @@ add_library(sparkle-duck-server-lib STATIC
 
     # Organism system.
     src/core/organisms/Tree.cpp
+    src/core/organisms/TreeCommandProcessor.cpp
     src/core/organisms/TreeManager.cpp
+    src/core/organisms/TreeSensoryData.cpp
     src/core/organisms/brains/RuleBasedBrain.cpp
 )
 target_include_directories(sparkle-duck-server-lib PUBLIC ${CMAKE_SOURCE_DIR}/src ${zpp_bits_SOURCE_DIR})
@@ -381,6 +383,10 @@ add_executable(sparkle-duck-tests
     src/core/bitmaps/tests/GridOfCells_integration_test.cpp
     src/core/bitmaps/tests/MaterialNeighborhood_test.cpp
     src/core/bitmaps/tests/Neighborhood3x3_test.cpp
+
+    # Organism tests.
+    src/core/organisms/tests/TreeGermination_test.cpp
+    src/core/organisms/tests/TreeManager_test.cpp
 )
 target_link_libraries(sparkle-duck-tests
     PRIVATE
