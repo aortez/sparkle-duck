@@ -64,7 +64,10 @@ make -C build -j12
 ./build/bin/cli ws://localhost:8080 sim_run '{"timestep": 0.016, "max_steps": 1}'
 ./build/bin/cli ws://localhost:8080 diagram_get
 
-# CLI integration test
+# Run both client and server
+./build/bin/cli run-all
+
+# CLI integration test (quick, verifies ui, server, and cli).
 ./build/bin/cli integration_test
 
 # Clean up all sparkle-duck processes
@@ -393,6 +396,8 @@ It could affect how other things move/displace in interesting/subtle ways.
 - Review CLI and CAUDE README/md files for accuracy and gross omitition  Test things
 to see if they work.
 - refactor World to use Pimple pattern.  Use elsewhere too?
+- bit grid cache for has_support instead of storing it in each cell.
+- debug and release builds in different directories, then performance testing with release builds.
 
 ### Client/Server Architecture (DSSM + UI Client)
 - ✅ Headless server with WebSocket API

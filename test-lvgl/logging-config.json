@@ -46,7 +46,7 @@
     "scenario": "info",
     "state": "debug",
     "support": "info",
-    "swap": "debug",
+    "swap": "warn",
     "ui": "info",
     "viscosity": "info"
   },
