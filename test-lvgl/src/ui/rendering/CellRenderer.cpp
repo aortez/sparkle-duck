@@ -20,7 +20,7 @@ static lv_color_t getMaterialColor(MaterialType type)
         case MaterialType::METAL:
             return lv_color_hex(0xC0C0C0); // Silver.
         case MaterialType::ROOT:
-            return lv_color_hex(0x654321); // Dark brown.
+            return lv_color_hex(0xDEB887); // Burlywood.
         case MaterialType::SAND:
             return lv_color_hex(0xFFB347); // Sandy orange.
         case MaterialType::SEED:
@@ -30,7 +30,7 @@ static lv_color_t getMaterialColor(MaterialType type)
         case MaterialType::WATER:
             return lv_color_hex(0x00BFFF); // Deep sky blue.
         case MaterialType::WOOD:
-            return lv_color_hex(0xDEB887); // Burlywood.
+            return lv_color_hex(0x654321); // Dark brown.
         default:
             return lv_color_hex(0xFF00FF); // Magenta for unknown.
     }

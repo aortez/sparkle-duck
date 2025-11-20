@@ -108,9 +108,23 @@ TEST_F(TreeGerminationTest, SaplingGrowsBalanced)
     TreeId id = world->getTreeManager().plantSeed(*world, 3, 3);
     const Tree* tree = world->getTreeManager().getTree(id);
 
+    std::cout << "Initial state:\n"
+              << WorldDiagramGeneratorEmoji::generateEmojiDiagram(*world) << "\n";
+
     for (int i = 0; i < 2000; i++) {
         world->advanceTime(0.016);
+
+        // Print every 50 frames for detailed view.
+        if (i % 50 == 0 && i > 0) {
+            std::cout << "After " << (i * 0.016) << "s (Energy: " << tree->total_energy
+                      << ", Cells: " << tree->cells.size() << "):\n"
+                      << WorldDiagramGeneratorEmoji::generateEmojiDiagram(*world) << "\n";
+        }
     }
+
+    std::cout << "Final state (Energy: " << tree->total_energy << ", Cells: " << tree->cells.size()
+              << "):\n"
+              << WorldDiagramGeneratorEmoji::generateEmojiDiagram(*world) << "\n";
 
     EXPECT_EQ(tree->stage, GrowthStage::SAPLING);
     EXPECT_GT(tree->cells.size(), 3);

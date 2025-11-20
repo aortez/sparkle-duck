@@ -246,24 +246,66 @@ Vector2i RuleBasedBrain::findGrowthPosition(
     }
 
     if (target_material == MaterialType::ROOT) {
-        Vector2i directions[] = { { 0, 1 }, { -1, 0 }, { 1, 0 } };
-        for (const auto& dir : directions) {
-            Vector2i pos = seed + dir;
-            if (checkGrowthSuitability(sensory, pos, MaterialType::ROOT)
-                == GrowthSuitability::SUITABLE) {
-                return pos;
+        // Find all ROOT cells and grow downward from the deepest ones.
+        int root_idx = static_cast<int>(MaterialType::ROOT);
+        Vector2i best_pos = seed;
+        int best_depth = -1; // Higher y = deeper.
+
+        for (int y = 0; y < sensory.GRID_SIZE; y++) {
+            for (int x = 0; x < sensory.GRID_SIZE; x++) {
+                if (sensory.material_histograms[y][x][root_idx] > 0.5) {
+                    Vector2i root_pos = sensory.world_offset + Vector2i{ x, y };
+
+                    // Prioritize downward growth: down, then lateral (cardinal only).
+                    Vector2i directions[] = { { 0, 1 }, { -1, 0 }, { 1, 0 } };
+                    for (const auto& dir : directions) {
+                        Vector2i candidate = root_pos + dir;
+
+                        if (checkGrowthSuitability(sensory, candidate, MaterialType::ROOT)
+                            == GrowthSuitability::SUITABLE) {
+                            // Prefer deeper positions (higher y values).
+                            if (candidate.y > best_depth) {
+                                best_depth = candidate.y;
+                                best_pos = candidate;
+                            }
+                        }
+                    }
+                }
             }
         }
+
+        return best_pos;
     }
     else if (target_material == MaterialType::WOOD) {
-        Vector2i directions[] = { { 0, -1 }, { -1, 0 }, { 1, 0 } };
-        for (const auto& dir : directions) {
-            Vector2i pos = seed + dir;
-            if (checkGrowthSuitability(sensory, pos, MaterialType::WOOD)
-                == GrowthSuitability::SUITABLE) {
-                return pos;
+        // Find all WOOD cells and grow upward from the highest ones.
+        int wood_idx = static_cast<int>(MaterialType::WOOD);
+        Vector2i best_pos = seed;
+        int best_height = INT32_MAX; // Lower y = higher.
+
+        for (int y = 0; y < sensory.GRID_SIZE; y++) {
+            for (int x = 0; x < sensory.GRID_SIZE; x++) {
+                if (sensory.material_histograms[y][x][wood_idx] > 0.5) {
+                    Vector2i wood_pos = sensory.world_offset + Vector2i{ x, y };
+
+                    // Prioritize upward growth: up, then lateral (cardinal only).
+                    Vector2i directions[] = { { 0, -1 }, { -1, 0 }, { 1, 0 } };
+                    for (const auto& dir : directions) {
+                        Vector2i candidate = wood_pos + dir;
+
+                        if (checkGrowthSuitability(sensory, candidate, MaterialType::WOOD)
+                            == GrowthSuitability::SUITABLE) {
+                            // Prefer higher positions (lower y values).
+                            if (candidate.y < best_height) {
+                                best_height = candidate.y;
+                                best_pos = candidate;
+                            }
+                        }
+                    }
+                }
             }
         }
+
+        return best_pos;
     }
 
     return seed;

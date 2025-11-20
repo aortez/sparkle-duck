@@ -551,6 +551,25 @@ void World::resolveForces(double deltaTime)
             // friction, viscosity).
             Vector2d net_force = cell.pending_force;
 
+            // Check cohesion resistance threshold.
+            double net_force_magnitude = net_force.magnitude();
+            double cohesion_strength =
+                collision_calculator_.calculateCohesionStrength(cell, *this, x, y);
+            double cohesion_resistance_force = cohesion_strength * 20.0;
+
+            if (cohesion_resistance_force > 0.01
+                && net_force_magnitude < cohesion_resistance_force) {
+                spdlog::debug(
+                    "Force blocked: {} at ({},{}) held by cohesion (force: {:.3f} < resistance: "
+                    "{:.3f})",
+                    getMaterialName(cell.material_type),
+                    x,
+                    y,
+                    net_force_magnitude,
+                    cohesion_resistance_force);
+                continue;
+            }
+
             // Apply forces directly to velocity (no damping factor!).
             Vector2d velocity_change = net_force * deltaTime;
             cell.velocity += velocity_change;
@@ -810,7 +829,8 @@ void World::processMaterialMoves()
         // Check if materials should swap instead of colliding (if enabled).
         if (physicsSettings.swap_enabled) {
             Vector2i direction(move.toX - move.fromX, move.toY - move.fromY);
-            if (collision_calculator_.shouldSwapMaterials(fromCell, toCell, direction, move)) {
+            if (collision_calculator_.shouldSwapMaterials(
+                    *this, move.fromX, move.fromY, fromCell, toCell, direction, move)) {
                 TreeId from_organism = fromCell.organism_id;
                 TreeId to_organism = toCell.organism_id;
 

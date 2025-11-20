@@ -760,12 +760,14 @@ bool WorldCollisionCalculator::densitySupportsSwap(
 }
 
 bool WorldCollisionCalculator::shouldSwapMaterials(
+    const World& world,
+    uint32_t fromX,
+    uint32_t fromY,
     const Cell& fromCell,
     const Cell& toCell,
     const Vector2i& direction,
     const MaterialMove& move) const
 {
-    // Don't swap same materials.
     if (fromCell.material_type == toCell.material_type) {
         LoggingChannels::swap()->debug("Swap denied: same material type");
         return false;
@@ -804,7 +806,7 @@ bool WorldCollisionCalculator::shouldSwapMaterials(
         const double to_density = getMaterialProperties(toCell.material_type).density;
         const bool swap_ok = densitySupportsSwap(fromCell, toCell, direction);
 
-        LoggingChannels::swap()->info(
+        LoggingChannels::swap()->debug(
             "Vertical swap check: {} <-> {} | from_dens: {:.2f} to_dens: {:.2f} dir.y: {} | "
             "swap_ok: {}",
             getMaterialName(fromCell.material_type),
@@ -819,28 +821,55 @@ bool WorldCollisionCalculator::shouldSwapMaterials(
         }
     }
 
+    // Check cohesion resistance.
+    double cohesion_strength = calculateCohesionStrength(fromCell, world, fromX, fromY);
+    double bond_breaking_cost = cohesion_strength * COHESION_RESISTANCE_FACTOR;
+
+    if (cohesion_strength > 0.01) {
+        LoggingChannels::swap()->debug(
+            "Cohesion check: {} at ({},{}) | strength: {:.3f}, bond_cost: {:.3f}",
+            getMaterialName(fromCell.material_type),
+            fromX,
+            fromY,
+            cohesion_strength,
+            bond_breaking_cost);
+    }
+
     // Calculate swap cost: energy to accelerate target cell's contents to 1 cell/second.
-    // Note: getEffectiveDensity() already includes fill_ratio, so don't multiply again.
     const double target_mass = toCell.getEffectiveDensity();
     const double SWAP_COST_SCALAR = 1;
     const double swap_cost =
         SWAP_COST_SCALAR * 0.5 * target_mass * 1.0; // KE = 0.5 * m * v^2, v = 1.0
 
-    // Energy gate: collision energy must exceed swap cost.
+    // Total cost includes base swap cost + bond breaking cost.
+    const double total_cost = swap_cost + bond_breaking_cost;
     const double available_energy = move.collision_energy;
 
-    if (available_energy < swap_cost) {
-        LoggingChannels::swap()->debug(
-            "Swap denied: insufficient energy ({:.3f} < {:.3f})", available_energy, swap_cost);
+    if (available_energy < total_cost) {
+        if (bond_breaking_cost > 0.01) {
+            LoggingChannels::swap()->debug(
+                "Swap denied: insufficient energy to break cohesive bonds ({:.3f} < {:.3f}, "
+                "bond_cost: {:.3f})",
+                available_energy,
+                total_cost,
+                bond_breaking_cost);
+        }
+        else {
+            LoggingChannels::swap()->debug(
+                "Swap denied: insufficient energy ({:.3f} < {:.3f})", available_energy, total_cost);
+        }
         return false;
     }
 
     LoggingChannels::swap()->info(
-        "Swap approved: {} -> {} | Energy: {:.3f} >= {:.3f} | Dir: {}",
+        "Swap approved: {} -> {} | Energy: {:.3f} >= {:.3f} (base: {:.3f}, bonds: {:.3f}) | Dir: "
+        "{}",
         getMaterialName(fromCell.material_type),
         getMaterialName(toCell.material_type),
         available_energy,
+        total_cost,
         swap_cost,
+        bond_breaking_cost,
         direction.y > 0 ? "DOWN" : "UP");
 
     return true;
@@ -946,4 +975,47 @@ bool WorldCollisionCalculator::isMaterialRigid(MaterialType material)
         default:
             return false;
     }
+}
+
+double WorldCollisionCalculator::calculateCohesionStrength(
+    const Cell& cell, const World& world, uint32_t x, uint32_t y) const
+{
+    if (cell.isEmpty()) {
+        return 0.0;
+    }
+
+    const MaterialProperties& props = getMaterialProperties(cell.material_type);
+    double material_cohesion = props.cohesion;
+
+    if (material_cohesion < 0.01) {
+        return 0.0;
+    }
+
+    // Count same-material neighbors.
+    uint32_t neighbor_count = 0;
+    for (int dx = -1; dx <= 1; dx++) {
+        for (int dy = -1; dy <= 1; dy++) {
+            if (dx == 0 && dy == 0) continue;
+
+            int nx = static_cast<int>(x) + dx;
+            int ny = static_cast<int>(y) + dy;
+
+            if (isValidCell(world, nx, ny)) {
+                const Cell& neighbor = getCellAt(world, nx, ny);
+                if (neighbor.material_type == cell.material_type && neighbor.fill_ratio > 0.1) {
+                    neighbor_count++;
+                }
+            }
+        }
+    }
+
+    // Cohesion strength scales with material cohesion and number of neighbors.
+    double strength = material_cohesion * neighbor_count * cell.fill_ratio;
+
+    // spdlog::info(
+    // "Cohesion calc: {} at ({},{}) has {} neighbors, cohesion={:.2f}, fill={:.2f} =>
+    // strength={:.3f}", getMaterialName(cell.material_type), x, y, neighbor_count,
+    // material_cohesion, cell.fill_ratio, strength);
+
+    return strength;
 }

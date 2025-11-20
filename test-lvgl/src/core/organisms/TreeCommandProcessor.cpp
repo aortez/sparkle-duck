@@ -25,6 +25,29 @@ CommandExecutionResult TreeCommandProcessor::execute(
                     return { CommandResult::INVALID_TARGET, "WOOD target out of bounds" };
                 }
 
+                // Check cardinal adjacency to WOOD or SEED (structural elements only).
+                Vector2i cardinal_dirs[] = { { 0, 1 }, { 0, -1 }, { -1, 0 }, { 1, 0 } };
+                bool has_structural_neighbor = false;
+                for (const auto& dir : cardinal_dirs) {
+                    Vector2i neighbor_pos = command.target_pos + dir;
+                    if (neighbor_pos.x >= 0 && neighbor_pos.y >= 0
+                        && static_cast<uint32_t>(neighbor_pos.x) < world.data.width
+                        && static_cast<uint32_t>(neighbor_pos.y) < world.data.height) {
+                        const Cell& neighbor = world.at(neighbor_pos.x, neighbor_pos.y);
+                        if (neighbor.organism_id == tree.id
+                            && (neighbor.material_type == MaterialType::WOOD
+                                || neighbor.material_type == MaterialType::SEED)) {
+                            has_structural_neighbor = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (!has_structural_neighbor) {
+                    return { CommandResult::INVALID_TARGET,
+                             "WOOD requires cardinal adjacency to WOOD or SEED" };
+                }
+
                 world.at(command.target_pos.x, command.target_pos.y)
                     .replaceMaterial(MaterialType::WOOD, 1.0);
                 world.at(command.target_pos.x, command.target_pos.y).organism_id = tree.id;
@@ -57,6 +80,28 @@ CommandExecutionResult TreeCommandProcessor::execute(
                     return { CommandResult::INVALID_TARGET, "LEAF target out of bounds" };
                 }
 
+                // Check cardinal adjacency to WOOD (leaves grow from branches).
+                Vector2i cardinal_dirs[] = { { 0, 1 }, { 0, -1 }, { -1, 0 }, { 1, 0 } };
+                bool has_wood_neighbor = false;
+                for (const auto& dir : cardinal_dirs) {
+                    Vector2i neighbor_pos = command.target_pos + dir;
+                    if (neighbor_pos.x >= 0 && neighbor_pos.y >= 0
+                        && static_cast<uint32_t>(neighbor_pos.x) < world.data.width
+                        && static_cast<uint32_t>(neighbor_pos.y) < world.data.height) {
+                        const Cell& neighbor = world.at(neighbor_pos.x, neighbor_pos.y);
+                        if (neighbor.organism_id == tree.id
+                            && neighbor.material_type == MaterialType::WOOD) {
+                            has_wood_neighbor = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (!has_wood_neighbor) {
+                    return { CommandResult::INVALID_TARGET,
+                             "LEAF requires cardinal adjacency to WOOD" };
+                }
+
                 world.at(command.target_pos.x, command.target_pos.y)
                     .replaceMaterial(MaterialType::LEAF, 1.0);
                 world.at(command.target_pos.x, command.target_pos.y).organism_id = tree.id;
@@ -82,6 +127,29 @@ CommandExecutionResult TreeCommandProcessor::execute(
                     || static_cast<uint32_t>(command.target_pos.x) >= world.data.width
                     || static_cast<uint32_t>(command.target_pos.y) >= world.data.height) {
                     return { CommandResult::INVALID_TARGET, "ROOT target out of bounds" };
+                }
+
+                // Check cardinal adjacency to SEED or ROOT (root network).
+                Vector2i cardinal_dirs[] = { { 0, 1 }, { 0, -1 }, { -1, 0 }, { 1, 0 } };
+                bool has_root_neighbor = false;
+                for (const auto& dir : cardinal_dirs) {
+                    Vector2i neighbor_pos = command.target_pos + dir;
+                    if (neighbor_pos.x >= 0 && neighbor_pos.y >= 0
+                        && static_cast<uint32_t>(neighbor_pos.x) < world.data.width
+                        && static_cast<uint32_t>(neighbor_pos.y) < world.data.height) {
+                        const Cell& neighbor = world.at(neighbor_pos.x, neighbor_pos.y);
+                        if (neighbor.organism_id == tree.id
+                            && (neighbor.material_type == MaterialType::ROOT
+                                || neighbor.material_type == MaterialType::SEED)) {
+                            has_root_neighbor = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (!has_root_neighbor) {
+                    return { CommandResult::INVALID_TARGET,
+                             "ROOT requires cardinal adjacency to SEED or ROOT" };
                 }
 
                 world.at(command.target_pos.x, command.target_pos.y)

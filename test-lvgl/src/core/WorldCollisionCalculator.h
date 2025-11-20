@@ -173,11 +173,10 @@ public:
      */
     void applyCellBoundaryReflection(Cell& cell, const Vector2i& direction, MaterialType material);
 
-    /**
-     * @brief Check if two cells should swap due to counter-movement.
-     * Uses energy-based gating: collision energy must exceed swap cost.
-     */
     bool shouldSwapMaterials(
+        const World& world,
+        uint32_t fromX,
+        uint32_t fromY,
         const Cell& fromCell,
         const Cell& toCell,
         const Vector2i& direction,
@@ -224,10 +223,13 @@ public:
      */
     static bool isMaterialRigid(MaterialType material);
 
+    double calculateCohesionStrength(
+        const Cell& cell, const World& world, uint32_t x, uint32_t y) const;
+
 private:
-    // Physics constants.
     static constexpr double FRAGMENTATION_THRESHOLD = 15.0;
     static constexpr double INELASTIC_RESTITUTION_FACTOR = 0.5;
+    static constexpr double COHESION_RESISTANCE_FACTOR = 20.0;
 };
 
 } // namespace DirtSim
