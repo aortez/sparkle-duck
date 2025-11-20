@@ -7,6 +7,7 @@
 
 namespace DirtSim {
 
+class GridOfCells;
 class World;
 
 /**
@@ -43,7 +44,8 @@ public:
      * @param y Cell y coordinate.
      * @return Viscous force structure with force vector and debug info.
      */
-    ViscousForce calculateViscousForce(const World& world, uint32_t x, uint32_t y) const;
+    ViscousForce calculateViscousForce(
+        const World& world, uint32_t x, uint32_t y, const GridOfCells* grid = nullptr) const;
 
 private:
     /**

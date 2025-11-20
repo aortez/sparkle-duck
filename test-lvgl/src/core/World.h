@@ -358,7 +358,7 @@ private:
     void applyAirResistance();
     void applyCohesionForces();
     void applyPressureForces();
-    void resolveForces(double deltaTime);
+    void resolveForces(double deltaTime, const GridOfCells* grid = nullptr);
     void updateTransfers(double deltaTime);
     void processVelocityLimiting(double deltaTime);
     void processMaterialMoves();

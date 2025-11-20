@@ -63,10 +63,8 @@ WorldCohesionCalculator::CohesionForce WorldCohesionCalculator::calculateCohesio
         }
     }
 
-    // Use cached support from computeSupportMapBottomUp (already computed this frame).
     bool is_supported = cell.has_support;
 
-    // Calculate support factor based on support type.
     double support_factor;
 
     // Metal with sufficient metal neighbors provides full structural support.

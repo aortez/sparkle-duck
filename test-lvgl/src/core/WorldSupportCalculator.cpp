@@ -360,12 +360,6 @@ void WorldSupportCalculator::computeSupportMapBottomUp(World& world) const
                 }
             }
         }
-
-        for (uint32_t y = 0; y < world.data.height; y++) {
-            for (uint32_t x = 0; x < world.data.width; x++) {
-                world.at(x, y).has_support = support.isSet(x, y);
-            }
-        }
     }
     else {
         // ========== DIRECT PATH: Traditional cell access ==========

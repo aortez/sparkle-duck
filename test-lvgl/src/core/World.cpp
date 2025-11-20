@@ -128,7 +128,7 @@ void World::advanceTime(double deltaTimeSeconds)
     // This now includes pressure forces from the current frame.
     {
         ScopeTimer resolveTimer(timers_, "resolve_forces_total");
-        resolveForces(scaledDeltaTime);
+        resolveForces(scaledDeltaTime, &grid);
     }
 
     {
@@ -494,7 +494,7 @@ double World::getMotionStateMultiplier(MotionState state, double sensitivity) co
     return 1.0 - sensitivity * (1.0 - base_multiplier);
 }
 
-void World::resolveForces(double deltaTime)
+void World::resolveForces(double deltaTime, const GridOfCells* grid)
 {
     ScopeTimer timer(timers_, "resolve_forces");
 
@@ -530,7 +530,7 @@ void World::resolveForces(double deltaTime)
                 }
 
                 // Calculate viscous force from neighbor velocity averaging.
-                auto viscous_result = viscosity_calculator_.calculateViscousForce(*this, x, y);
+                auto viscous_result = viscosity_calculator_.calculateViscousForce(*this, x, y, grid);
                 cell.addPendingForce(viscous_result.force);
 
                 // Store for visualization.
