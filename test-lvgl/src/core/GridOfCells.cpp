@@ -10,8 +10,9 @@ bool GridOfCells::USE_CACHE = true;
 
 GridOfCells::GridOfCells(
     const std::vector<Cell>& source_cells, uint32_t width, uint32_t height, Timers& timers)
-    : cells_(source_cells), // Copy cells.
+    : cells_(source_cells),
       empty_cells_(width, height),
+      support_bitmap_(width, height),
       empty_neighborhoods_(width * height, 0),
       material_neighborhoods_(width * height, 0),
       width_(width),

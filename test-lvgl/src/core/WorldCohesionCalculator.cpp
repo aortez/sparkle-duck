@@ -63,12 +63,10 @@ WorldCohesionCalculator::CohesionForce WorldCohesionCalculator::calculateCohesio
         }
     }
 
-    // Use directional support for realistic physics.
-    WorldSupportCalculator support_calc;
-    bool has_vertical = support_calc.hasVerticalSupport(world, x, y);
-    bool has_horizontal = support_calc.hasHorizontalSupport(world, x, y);
+    // Use cached support from computeSupportMapBottomUp (already computed this frame).
+    bool is_supported = cell.has_support;
 
-    // Calculate support factor based on directional support.
+    // Calculate support factor based on support type.
     double support_factor;
 
     // Metal with sufficient metal neighbors provides full structural support.
@@ -82,17 +80,26 @@ WorldCohesionCalculator::CohesionForce WorldCohesionCalculator::calculateCohesio
             y,
             metal_neighbors);
     }
-    else if (has_vertical) {
-        // Full cohesion with vertical support (load-bearing from below)
-        support_factor = 1.0;
-        spdlog::trace(
-            "Full vertical support for {} at ({},{})", getMaterialName(cell.material_type), x, y);
-    }
-    else if (has_horizontal) {
-        // Reduced cohesion with only horizontal support (rigid lateral connections)
-        support_factor = 0.5;
-        spdlog::trace(
-            "Horizontal support only for {} at ({},{})", getMaterialName(cell.material_type), x, y);
+    else if (is_supported) {
+        // Determine support type by checking cell below.
+        bool has_vertical = false;
+        if (y < world.data.height - 1) {
+            const Cell& below = getCellAt(world, x, y + 1);
+            has_vertical = !below.isEmpty() && below.has_support;
+        }
+
+        if (has_vertical) {
+            // Full cohesion with vertical support (load-bearing from below).
+            support_factor = 1.0;
+            spdlog::trace(
+                "Full vertical support for {} at ({},{})", getMaterialName(cell.material_type), x, y);
+        }
+        else {
+            // Reduced cohesion with horizontal/other support (rigid lateral connections).
+            support_factor = 0.5;
+            spdlog::trace(
+                "Horizontal support only for {} at ({},{})", getMaterialName(cell.material_type), x, y);
+        }
     }
     else {
         // Minimal cohesion without structural support.
@@ -105,14 +112,13 @@ WorldCohesionCalculator::CohesionForce WorldCohesionCalculator::calculateCohesio
     double resistance = material_cohesion * connected_neighbors * cell.fill_ratio * support_factor;
 
     spdlog::trace(
-        "Cohesion calculation for {} at ({},{}): neighbors={}, vertical_support={}, "
-        "horizontal_support={}, support_factor={:.2f}, resistance={:.3f}",
+        "Cohesion calculation for {} at ({},{}): neighbors={}, has_support={}, "
+        "support_factor={:.2f}, resistance={:.3f}",
         getMaterialName(cell.material_type),
         x,
         y,
         connected_neighbors,
-        has_vertical,
-        has_horizontal,
+        is_supported,
         support_factor,
         resistance);
 

@@ -54,11 +54,8 @@ public:
      */
     MaterialType getMaterial(int dx, int dy) const;
 
-    /**
-     * Get center cell material type.
-     *
-     * @return MaterialType of center cell
-     */
+    MaterialType getMaterialByBitPos(int bit_pos) const;
+
     MaterialType getCenterMaterial() const;
 
     // ========== Named Directional Accessors ==========
