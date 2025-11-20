@@ -363,17 +363,31 @@ Can be found here:
 
 ## Development Status
 
-### Current Focus: Tree Organisms (Phase 1 Complete, Phase 2 Next)
+### Current Focus: Tree Organisms (Phase 2 Complete, Phase 3 Next)
 
-**Completed:**
-- ✅ Neural grid visualization (side-by-side UI with 15×15 tree vision)
-- ✅ Efficient organism tracking (transfer-based updates)
-- ✅ Basic germination (SEED → WOOD → ROOT)
+**Phase 2 Completed:**
+- ✅ ROOT material type (grips soil, can bend)
+- ✅ Continuous time system (real deltaTime, all timing in seconds)
+- ✅ Contact-based germination (observe dirt 2s → ROOT 2s → WOOD 3s)
+- ✅ SEED stays permanent as tree core
+- ✅ TreeCommandProcessor (validates energy, adjacency, bounds)
+- ✅ Adjacency validation (respects WALL/METAL/WATER boundaries)
+- ✅ Balanced growth (maintains ROOT/WOOD/LEAF ratios based on water access)
+- ✅ Water-seeking behavior (roots adjust target ratios when water found)
+- ✅ LEAF restrictions (air-only, grows from WOOD, cardinal directions)
+- ✅ Swap physics integration (organism tracking works with material swaps)
+- ✅ UI displays (energy level, current thought)
+- ✅ Test coverage (6 passing tests with emoji visualization)
+
+**Known Limitations:**
+- Growth only from seed position (trees grow as blobs, not realistic branching)
+- No energy regeneration (trees deplete and stop)
+- No MATURE stage transition
 
 **Next Steps:**
-- Examine germination in detail, right now it's crazy. Update implementation and tests.
-- Phase 2: Advanced growth patterns (SAPLING/MATURE stages)
-- Phase 3: Resource systems (light, water, nutrients, photosynthesis)
+- Fix growth topology (extend from tree edges for realistic branching)
+- Add basic energy regeneration (LEAFs produce energy over time)
+- Phase 3: Resource systems (light ray-casting, photosynthesis, water/nutrient absorption)
 - Performance testing and optimization
 
 Awesome Ideas to do soon:
