@@ -85,15 +85,6 @@ struct RequestWorldUpdateCommand {
 };
 
 /**
- * @brief Frame ready notification from DSSM server.
- */
-struct FrameReadyNotification {
-    uint64_t stepNumber;
-    int64_t timestamp;
-    static constexpr const char* name() { return "FrameReadyNotification"; }
-};
-
-/**
  * @brief Server confirmed it's running (response to sim_run command).
  */
 struct ServerRunningConfirmedEvent {
@@ -125,7 +116,6 @@ using Event = std::variant<
     ServerDisconnectedEvent,
     ServerRunningConfirmedEvent,
     RequestWorldUpdateCommand,
-    FrameReadyNotification,
 
     // Server data updates
     DirtSim::UiUpdateEvent,

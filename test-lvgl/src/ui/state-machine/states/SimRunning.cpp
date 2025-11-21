@@ -1,5 +1,4 @@
 #include "State.h"
-#include "server/api/FrameReady.h"
 #include "ui/SimPlayground.h"
 #include "ui/UiComponentManager.h"
 #include "ui/controls/PhysicsControls.h"
@@ -21,14 +20,6 @@ void SimRunning::onEnter(StateMachine& sm)
         playground_ = std::make_unique<SimPlayground>(
             sm.getUiComponentManager(), sm.getWebSocketClient(), sm);
         spdlog::info("SimRunning: Created simulation playground");
-    }
-
-    // Send initial frame_ready to kickstart the pipelined frame delivery.
-    auto* wsClient = sm.getWebSocketClient();
-    if (wsClient && wsClient->isConnected()) {
-        const Api::FrameReady::Command cmd{};
-        wsClient->sendCommand(cmd);
-        spdlog::info("SimRunning: Sent initial frame_ready to start frame delivery");
     }
 }
 
@@ -134,69 +125,6 @@ State::Any SimRunning::onEvent(const UiApi::SimPause::Cwc& cwc, StateMachine& /*
     return Paused{ std::move(worldData) };
 }
 
-State::Any SimRunning::onEvent(const FrameReadyNotification& evt, StateMachine& sm)
-{
-    // Time-based frame limiting: only request updates at target frame rate.
-    auto now = std::chrono::steady_clock::now();
-    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastFrameTime);
-
-    const std::chrono::milliseconds targetFrameInterval{ 16 }; // 60 FPS target.
-    if (elapsed >= targetFrameInterval) {
-        // Enough time passed - request new frame.
-        spdlog::info(
-            "SimRunning: Frame ready (step {}), requesting update (skipped {} frames)",
-            evt.stepNumber,
-            skippedFrames);
-
-        // Calculate actual UI FPS.
-        if (elapsed.count() > 0) {
-            measuredUiFps = 1000.0 / elapsed.count();
-
-            // Exponentially weighted moving average (90% old, 10% new) for smooth display.
-            if (smoothedUiFps == 0.0) {
-                smoothedUiFps = measuredUiFps; // Initialize.
-            }
-            else {
-                smoothedUiFps = 0.9 * smoothedUiFps + 0.1 * measuredUiFps;
-            }
-
-            spdlog::info(
-                "SimRunning: UI FPS: {:.1f} (smoothed: {:.1f})", measuredUiFps, smoothedUiFps);
-        }
-
-        // Request world state from DSSM (only if no request is pending).
-        auto* wsClient = sm.getWebSocketClient();
-        if (wsClient && wsClient->isConnected() && !stateGetPending) {
-            const DirtSim::Api::StateGet::Command cmd{};
-            wsClient->sendCommand(cmd);
-
-            // Record when request was sent for round-trip timing.
-            lastStateGetSentTime = std::chrono::steady_clock::now();
-            stateGetPending = true;
-            spdlog::debug("SimRunning: Sent state_get request (step {})", evt.stepNumber);
-        }
-        else if (stateGetPending) {
-            spdlog::debug(
-                "SimRunning: Skipping state_get request - previous request still pending (step {})",
-                evt.stepNumber);
-        }
-
-        lastFrameTime = now;
-        skippedFrames = 0;
-    }
-    else {
-        // Too soon - skip this frame.
-        skippedFrames++;
-        spdlog::debug(
-            "SimRunning: Skipping frame {} (elapsed {}ms < target {}ms)",
-            evt.stepNumber,
-            elapsed.count(),
-            targetFrameInterval.count());
-    }
-
-    return std::move(*this);
-}
-
 State::Any SimRunning::onEvent(const PhysicsSettingsReceivedEvent& evt, StateMachine& /*sm*/)
 {
     spdlog::info(
@@ -222,14 +150,6 @@ State::Any SimRunning::onEvent(const PhysicsSettingsReceivedEvent& evt, StateMac
 State::Any SimRunning::onEvent(const UiUpdateEvent& evt, StateMachine& sm)
 {
     spdlog::debug("SimRunning: Received world update (step {}) via push", evt.stepCount);
-
-    // Send frame_ready IMMEDIATELY to pipeline next frame (hide network latency).
-    auto* wsClient = sm.getWebSocketClient();
-    if (wsClient && wsClient->isConnected()) {
-        const Api::FrameReady::Command cmd{};
-        wsClient->sendCommand(cmd);
-        spdlog::trace("SimRunning: Sent frame_ready to server (pipelining next frame)");
-    }
 
     // Calculate UI FPS based on time between updates.
     auto now = std::chrono::steady_clock::now();

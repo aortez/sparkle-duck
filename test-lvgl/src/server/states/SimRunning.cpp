@@ -480,19 +480,6 @@ State::Any SimRunning::onEvent(const Api::Reset::Cwc& cwc, StateMachine& /*dsm*/
     return std::move(*this);
 }
 
-State::Any SimRunning::onEvent(const Api::FrameReady::Cwc& cwc, StateMachine& /*dsm*/)
-{
-    using Response = Api::FrameReady::Response;
-
-    // frame_ready is sent by the UI after rendering a frame (pipelining optimization).
-    // Currently a NO-OP: The server pushes frames continuously via sim_step events,
-    // not in response to frame_ready. This command exists for potential future backpressure.
-    spdlog::debug("SimRunning: Received frame_ready (no-op)");
-
-    cwc.sendResponse(Response::okay(std::monostate{}));
-    return std::move(*this);
-}
-
 State::Any SimRunning::onEvent(const Api::ScenarioConfigSet::Cwc& cwc, StateMachine& /*dsm*/)
 {
     using Response = Api::ScenarioConfigSet::Response;

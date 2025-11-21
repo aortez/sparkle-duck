@@ -1,5 +1,6 @@
 #include "WorldViscosityCalculator.h"
 #include "Cell.h"
+#include "GridOfCells.h"
 #include "World.h"
 #include <cmath>
 #include <spdlog/spdlog.h>
@@ -57,7 +58,7 @@ Vector2d WorldViscosityCalculator::calculateNeighborVelocityAverage(
 }
 
 WorldViscosityCalculator::ViscousForce WorldViscosityCalculator::calculateViscousForce(
-    const World& world, uint32_t x, uint32_t y) const
+    const World& world, uint32_t x, uint32_t y, const GridOfCells* grid) const
 {
     const Cell& cell = world.at(x, y);
 
@@ -85,13 +86,22 @@ WorldViscosityCalculator::ViscousForce WorldViscosityCalculator::calculateViscou
     // Velocity difference drives viscous force.
     Vector2d velocity_difference = avg_neighbor_velocity - cell.velocity;
 
-    // Check if support comes from solid material (not fluid).
     bool has_solid_support = false;
-    if (cell.has_support && y < world.data.height - 1) {
-        const Cell& below = world.at(x, y + 1);
-        if (!below.isEmpty()) {
-            const MaterialProperties& below_props = getMaterialProperties(below.material_type);
-            has_solid_support = !below_props.is_fluid;
+    if (GridOfCells::USE_CACHE && grid) {
+        if (grid->supportBitmap().isSet(x, y) && y < world.data.height - 1) {
+            const Cell& below = world.at(x, y + 1);
+            if (!below.isEmpty()) {
+                const MaterialProperties& below_props = getMaterialProperties(below.material_type);
+                has_solid_support = !below_props.is_fluid;
+            }
+        }
+    } else {
+        if (cell.has_support && y < world.data.height - 1) {
+            const Cell& below = world.at(x, y + 1);
+            if (!below.isEmpty()) {
+                const MaterialProperties& below_props = getMaterialProperties(below.material_type);
+                has_solid_support = !below_props.is_fluid;
+            }
         }
     }
     double support_factor = has_solid_support ? 1.0 : 0.0;

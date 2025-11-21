@@ -36,10 +36,12 @@ Result<std::monostate, std::string> runAll(const std::string& serverPath, const 
     if (waylandDisplay && waylandDisplay[0] != '\0') {
         backend = "wayland";
         std::cout << "Detected Wayland display, using Wayland backend" << std::endl;
-    } else if (x11Display && x11Display[0] != '\0') {
+    }
+    else if (x11Display && x11Display[0] != '\0') {
         backend = "x11";
         std::cout << "Detected X11 display, using X11 backend" << std::endl;
-    } else {
+    }
+    else {
         std::cout << "Warning: No display detected, attempting X11 backend" << std::endl;
     }
 
