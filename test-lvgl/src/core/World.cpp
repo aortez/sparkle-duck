@@ -127,7 +127,7 @@ void World::advanceTime(double deltaTimeSeconds)
     // This now includes pressure forces from the current frame.
     {
         ScopeTimer resolveTimer(timers_, "resolve_forces_total");
-        resolveForces(scaledDeltaTime);
+        resolveForces(scaledDeltaTime, &grid);
     }
 
     {
@@ -371,26 +371,20 @@ void World::applyCohesionForces()
                 WorldCohesionCalculator::COMCohesionForce com_cohesion =
                     cohesion_calc.calculateCOMCohesionForce(*this, x, y, com_cohesion_range_);
 
-                // COM cohesion force accumulation (only if force is active).
+                Vector2d com_cohesion_force(0.0, 0.0);
                 if (com_cohesion.force_active) {
-                    Vector2d com_cohesion_force = com_cohesion.force_direction
+                    com_cohesion_force = com_cohesion.force_direction
                         * com_cohesion.force_magnitude * physicsSettings.cohesion_strength;
 
-                    // Directional correction: only apply force when velocity is misaligned.
-                    // This prevents oscillations by not accelerating already-converging particles.
                     if (cell.velocity.magnitude() > 0.01) {
                         double alignment = cell.velocity.dot(com_cohesion_force.normalize());
-
-                        // Reduce force when already aligned with cohesion direction.
-                        // alignment = -1.0 (opposite) → 100% force (strong correction)
-                        // alignment =  0.0 (perpendicular) → 100% force (neutral)
-                        // alignment = +1.0 (aligned) → 0% force (no interference)
                         double correction_factor = std::max(0.0, 1.0 - alignment);
                         com_cohesion_force = com_cohesion_force * correction_factor;
                     }
 
                     cell.addPendingForce(com_cohesion_force);
                 }
+                cell.accumulated_com_cohesion_force = com_cohesion_force;
             }
         }
     }
@@ -411,6 +405,7 @@ void World::applyCohesionForces()
                 Vector2d adhesion_force = adhesion.force_direction * adhesion.force_magnitude
                     * physicsSettings.adhesion_strength;
                 cell.addPendingForce(adhesion_force);
+                cell.accumulated_adhesion_force = adhesion_force;
             }
         }
     }
@@ -493,7 +488,7 @@ double World::getMotionStateMultiplier(MotionState state, double sensitivity) co
     return 1.0 - sensitivity * (1.0 - base_multiplier);
 }
 
-void World::resolveForces(double deltaTime)
+void World::resolveForces(double deltaTime, const GridOfCells* grid)
 {
     ScopeTimer timer(timers_, "resolve_forces");
 
@@ -547,7 +542,7 @@ void World::resolveForces(double deltaTime)
                 }
 
                 // Calculate viscous force from neighbor velocity averaging.
-                auto viscous_result = viscosity_calculator_.calculateViscousForce(*this, x, y);
+                auto viscous_result = viscosity_calculator_.calculateViscousForce(*this, x, y, grid);
                 cell.addPendingForce(viscous_result.force);
 
                 // Store for visualization.
@@ -656,47 +651,9 @@ std::vector<MaterialMove> World::computeMaterialMoves(double deltaTime)
                 continue;
             }
 
-            // PHASE 2: Force-Based Movement Threshold.
-            // Calculate cohesion and adhesion forces before movement decisions.
-            WorldCohesionCalculator::CohesionForce cohesion;
-            if (cohesion_bind_force_enabled_) {
-                WorldCohesionCalculator cohesion_calc{};
-                cohesion = cohesion_calc.calculateCohesionForce(*this, x, y);
-            }
-            else {
-                cohesion = { 0.0, 0 }; // No cohesion resistance when disabled.
-            }
-            WorldAdhesionCalculator::AdhesionForce adhesion =
-                adhesion_calculator_.calculateAdhesionForce(*this, x, y);
-
-            // NEW: Calculate COM-based cohesion force.
-            WorldCohesionCalculator::COMCohesionForce com_cohesion;
-            if (physicsSettings.cohesion_strength > 0.0) {
-                WorldCohesionCalculator com_cohesion_calc{};
-                com_cohesion =
-                    com_cohesion_calc.calculateCOMCohesionForce(*this, x, y, com_cohesion_range_);
-            }
-            else {
-                com_cohesion = {
-                    { 0.0, 0.0 }, 0.0, { 0.0, 0.0 }, 0, 0.0, 0.0, false
-                }; // No COM cohesion when disabled.
-            }
-
-            // Apply strength multipliers to forces.
-            double effective_adhesion_magnitude =
-                adhesion.force_magnitude * physicsSettings.adhesion_strength;
-            double effective_com_cohesion_magnitude =
-                com_cohesion.force_magnitude * physicsSettings.cohesion_strength;
-
-            // Store forces in cell for visualization.
-            // Note: Cohesion force field is now repurposed in resolveForces() for damping info.
-            cell.accumulated_adhesion_force =
-                adhesion.force_direction * effective_adhesion_magnitude;
-            cell.accumulated_com_cohesion_force =
-                com_cohesion.force_direction * effective_com_cohesion_magnitude;
-
-            // NOTE: Force calculation and resistance checking now handled in resolveForces().
-            // This method only needs to handle material movement based on COM positions.
+            WorldCohesionCalculator::COMCohesionForce com_cohesion = {
+                { 0.0, 0.0 }, 0.0, { 0.0, 0.0 }, 0, 0.0, 0.0, false
+            };
 
             // Debug: Check if cell has any velocity or interesting COM.
             Vector2d current_velocity = cell.velocity;

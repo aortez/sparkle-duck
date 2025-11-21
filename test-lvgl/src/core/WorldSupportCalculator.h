@@ -9,6 +9,9 @@ namespace DirtSim {
 
 // Forward declarations
 class Cell;
+class EmptyNeighborhood;
+class GridOfCells;
+class MaterialNeighborhood;
 class World;
 class GridOfCells;
 
@@ -65,6 +68,12 @@ public:
      * @return true if cell has horizontal support.
      */
     bool hasHorizontalSupport(const World& world, uint32_t x, uint32_t y) const;
+
+    bool hasHorizontalSupport(
+        uint32_t x,
+        uint32_t y,
+        const EmptyNeighborhood& empty_n,
+        const MaterialNeighborhood& mat_n) const;
 
     /**
      * @brief Check if a position has structural support.

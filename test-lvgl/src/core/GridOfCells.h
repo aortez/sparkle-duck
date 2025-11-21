@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Cell.h"
+#include "Vector2d.h"
 #include "bitmaps/CellBitmap.h"
 #include "bitmaps/EmptyNeighborhood.h"
 #include "bitmaps/MaterialNeighborhood.h"
@@ -33,10 +34,11 @@ public:
     static bool USE_CACHE;
 
 private:
-    std::vector<Cell> cells_;                      // Owned copy of cells (for future use).
-    CellBitmap empty_cells_;                       // Bitmap: 1 = empty (fill_ratio == 0).
-    std::vector<uint64_t> empty_neighborhoods_;    // Precomputed 3×3 empty neighborhoods.
-    std::vector<uint64_t> material_neighborhoods_; // Precomputed 3×3 material neighborhoods.
+    std::vector<Cell> cells_;
+    CellBitmap empty_cells_;
+    CellBitmap support_bitmap_;
+    std::vector<uint64_t> empty_neighborhoods_;
+    std::vector<uint64_t> material_neighborhoods_;
     uint32_t width_;
     uint32_t height_;
 
@@ -49,16 +51,15 @@ public:
     GridOfCells(
         const std::vector<Cell>& source_cells, uint32_t width, uint32_t height, Timers& timers);
 
-    // Accessor to empty cells bitmap.
     const CellBitmap& emptyCells() const { return empty_cells_; }
+    const CellBitmap& supportBitmap() const { return support_bitmap_; }
+    CellBitmap& supportBitmap() { return support_bitmap_; }
 
-    // Accessor to precomputed empty neighborhoods (typed wrapper).
     EmptyNeighborhood getEmptyNeighborhood(uint32_t x, uint32_t y) const
     {
         return EmptyNeighborhood{ Neighborhood3x3{ empty_neighborhoods_[y * width_ + x] } };
     }
 
-    // Accessor to precomputed material neighborhoods (typed wrapper).
     MaterialNeighborhood getMaterialNeighborhood(uint32_t x, uint32_t y) const
     {
         return MaterialNeighborhood{ material_neighborhoods_[y * width_ + x] };
