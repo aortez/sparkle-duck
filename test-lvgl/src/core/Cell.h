@@ -61,7 +61,8 @@ struct Cell {
     double cached_friction_coefficient = 1.0;
 
     // Computed structural support (updated via bottom-up scan each frame).
-    bool has_support = false;
+    bool has_any_support = false;
+    bool has_vertical_support = false;
 
     // =================================================================
     // MATERIAL PROPERTIES

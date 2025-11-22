@@ -87,7 +87,7 @@ WorldViscosityCalculator::ViscousForce WorldViscosityCalculator::calculateViscou
 
     // Check if support comes from solid material (not fluid).
     bool has_solid_support = false;
-    if (cell.has_support && y < world.data.height - 1) {
+    if (cell.has_any_support && y < world.data.height - 1) {
         const Cell& below = world.at(x, y + 1);
         if (!below.isEmpty()) {
             const MaterialProperties& below_props = getMaterialProperties(below.material_type);

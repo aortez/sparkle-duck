@@ -339,24 +339,28 @@ void WorldSupportCalculator::computeSupportMapBottomUp(World& world) const
 
                 // Check if current cell is empty using bitmap.
                 if (empty_n.raw().center()) {
-                    world.at(x, y).has_support = false;
+                    world.at(x, y).has_any_support = false;
+                    world.at(x, y).has_vertical_support = false;
                     continue;
                 }
 
                 // WALL material is always structurally supported.
                 if (mat_n.getCenterMaterial() == MaterialType::WALL) {
-                    world.at(x, y).has_support = true;
+                    world.at(x, y).has_any_support = true;
+                    world.at(x, y).has_vertical_support = true;
                     continue;
                 }
 
                 // Bottom edge of world (ground) provides support.
                 if (y == static_cast<int>(world.data.height) - 1) {
-                    world.at(x, y).has_support = true;
+                    world.at(x, y).has_any_support = true;
+                    world.at(x, y).has_vertical_support = true;
                     continue;
                 }
 
                 // Check vertical support using precomputed neighborhood.
-                bool has_vertical = empty_n.southHasMaterial() && world.at(x, y + 1).has_support;
+                bool has_vertical =
+                    empty_n.southHasMaterial() && world.at(x, y + 1).has_any_support;
 
                 // Check horizontal support if no vertical.
                 bool has_horizontal = false;
@@ -364,8 +368,9 @@ void WorldSupportCalculator::computeSupportMapBottomUp(World& world) const
                     has_horizontal = hasHorizontalSupport(world, x, y);
                 }
 
-                // Set support.
-                world.at(x, y).has_support = has_vertical || has_horizontal;
+                // Set support fields.
+                world.at(x, y).has_vertical_support = has_vertical;
+                world.at(x, y).has_any_support = has_vertical || has_horizontal;
             }
         }
     }
@@ -379,25 +384,28 @@ void WorldSupportCalculator::computeSupportMapBottomUp(World& world) const
 
                 // Check emptiness directly.
                 if (cell.isEmpty()) {
-                    cell.has_support = false;
+                    cell.has_any_support = false;
+                    cell.has_vertical_support = false;
                     continue;
                 }
 
                 // WALL material is always structurally supported.
                 if (cell.material_type == MaterialType::WALL) {
-                    cell.has_support = true;
+                    cell.has_any_support = true;
+                    cell.has_vertical_support = true;
                     continue;
                 }
 
                 // Bottom edge of world (ground) provides support.
                 if (y == static_cast<int>(world.data.height) - 1) {
-                    cell.has_support = true;
+                    cell.has_any_support = true;
+                    cell.has_vertical_support = true;
                     continue;
                 }
 
                 // Check vertical support: cell below must be non-empty AND supported.
                 const Cell& below = world.at(x, y + 1);
-                bool has_vertical = !below.isEmpty() && below.has_support;
+                bool has_vertical = !below.isEmpty() && below.has_any_support;
 
                 // Check horizontal support if no vertical.
                 bool has_horizontal = false;
@@ -405,7 +413,9 @@ void WorldSupportCalculator::computeSupportMapBottomUp(World& world) const
                     has_horizontal = hasHorizontalSupport(world, x, y);
                 }
 
-                cell.has_support = has_vertical || has_horizontal;
+                // Set support fields.
+                cell.has_vertical_support = has_vertical;
+                cell.has_any_support = has_vertical || has_horizontal;
             }
         }
     }

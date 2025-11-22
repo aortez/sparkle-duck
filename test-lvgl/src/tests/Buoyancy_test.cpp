@@ -811,7 +811,7 @@ TEST_F(BuoyancyTest, WoodCanRiseIn3x3World)
                         spdlog::info(
                             "      Expected net force: {:.4f} (should be negative = upward)",
                             gravity_force + pressure_grad.y);
-                        spdlog::info("      Has support: {}", c.has_support);
+                        spdlog::info("      Has support: {}", c.has_any_support);
                     }
                 }
             }

@@ -63,10 +63,9 @@ WorldCohesionCalculator::CohesionForce WorldCohesionCalculator::calculateCohesio
         }
     }
 
-    // Use directional support for realistic physics.
-    WorldSupportCalculator support_calc;
-    bool has_vertical = support_calc.hasVerticalSupport(world, x, y);
-    bool has_horizontal = support_calc.hasHorizontalSupport(world, x, y);
+    // Use pre-computed directional support from support map.
+    bool has_vertical = cell.has_vertical_support;
+    bool has_horizontal = cell.has_any_support && !has_vertical;
 
     // Calculate support factor based on directional support.
     double support_factor;
