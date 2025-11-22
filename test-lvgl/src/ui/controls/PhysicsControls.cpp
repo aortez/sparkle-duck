@@ -257,10 +257,10 @@ std::vector<PhysicsControls::ColumnConfig> PhysicsControls::createColumnConfigs(
                           .type = ControlType::TOGGLE_SLIDER,
                           .rangeMin = 0,
                           .rangeMax = 100,
-                          .defaultValue = 0,
+                          .defaultValue = 20,
                           .valueScale = 1.0,
                           .valueFormat = "%.0f",
-                          .initiallyEnabled = false,
+                          .initiallyEnabled = true,
                           .valueSetter = [](PhysicsSettings& s,
                                             double v) { s.cohesion_resistance_factor = v; },
                           .valueGetter =
