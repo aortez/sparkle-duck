@@ -1,6 +1,8 @@
 #include "WebSocketClient.h"
 #include "core/MsgPackAdapter.h"
 #include "core/ReflectSerializer.h"
+#include "core/RenderMessage.h"
+#include "core/RenderMessageUtils.h"
 #include "core/WorldData.h"
 #include "core/api/UiUpdateEvent.h"
 #include <chrono>
@@ -56,21 +58,81 @@ bool WebSocketClient::connect(const std::string& url)
                     "UI WebSocketClient: Received JSON message (length: {})", message.length());
             }
             else if (std::holds_alternative<rtc::binary>(data)) {
-                // zpp_bits binary message - unpack WorldData directly.
+                // zpp_bits binary message - unpack RenderMessage.
                 const auto& binaryData = std::get<rtc::binary>(data);
-                spdlog::debug(
+                spdlog::info(
                     "UI WebSocketClient: Received binary message ({} bytes)", binaryData.size());
 
                 try {
-                    // Unpack binary to WorldData using zpp_bits (fast!).
+                    // Unpack binary to RenderMessage using zpp_bits.
                     auto deserializeStart = std::chrono::steady_clock::now();
-                    WorldData worldData;
+                    RenderMessage renderMsg;
+                    spdlog::info("UI WebSocketClient: Deserializing RenderMessage...");
                     zpp::bits::in in(binaryData);
-                    in(worldData).or_throw();
+                    in(renderMsg).or_throw();
+                    spdlog::info(
+                        "UI WebSocketClient: Deserialized format={}, width={}, height={}",
+                        static_cast<int>(renderMsg.format),
+                        renderMsg.width,
+                        renderMsg.height);
                     auto deserializeEnd = std::chrono::steady_clock::now();
                     auto deserializeMs = std::chrono::duration_cast<std::chrono::milliseconds>(
                                              deserializeEnd - deserializeStart)
                                              .count();
+
+                    // Reconstruct WorldData from RenderMessage.
+                    WorldData worldData;
+                    worldData.width = renderMsg.width;
+                    worldData.height = renderMsg.height;
+                    worldData.timestep = renderMsg.timestep;
+                    worldData.fps_server = renderMsg.fps_server;
+                    worldData.scenario_id = renderMsg.scenario_id;
+                    worldData.scenario_config = renderMsg.scenario_config;
+                    worldData.tree_vision = renderMsg.tree_vision;
+
+                    // Unpack cells based on format.
+                    size_t numCells = renderMsg.width * renderMsg.height;
+                    worldData.cells.resize(numCells);
+
+                    if (renderMsg.format == RenderFormat::BASIC) {
+                        // Unpack BasicCell format.
+                        const BasicCell* basicCells =
+                            reinterpret_cast<const BasicCell*>(renderMsg.payload.data());
+                        for (size_t i = 0; i < numCells; ++i) {
+                            MaterialType material;
+                            double fill_ratio;
+                            RenderMessageUtils::unpackBasicCell(
+                                basicCells[i], material, fill_ratio);
+
+                            worldData.cells[i].material_type = material;
+                            worldData.cells[i].fill_ratio = fill_ratio;
+                            // Other fields remain at default values.
+                        }
+                    }
+                    else if (renderMsg.format == RenderFormat::DEBUG) {
+                        // Unpack DebugCell format.
+                        const DebugCell* debugCells =
+                            reinterpret_cast<const DebugCell*>(renderMsg.payload.data());
+                        for (size_t i = 0; i < numCells; ++i) {
+                            auto unpacked = RenderMessageUtils::unpackDebugCell(debugCells[i]);
+
+                            worldData.cells[i].material_type = unpacked.material_type;
+                            worldData.cells[i].fill_ratio = unpacked.fill_ratio;
+                            worldData.cells[i].com = unpacked.com;
+                            worldData.cells[i].velocity = unpacked.velocity;
+                            worldData.cells[i].hydrostatic_component = unpacked.pressure_hydro;
+                            worldData.cells[i].dynamic_component = unpacked.pressure_dynamic;
+                            worldData.cells[i].pressure =
+                                unpacked.pressure_hydro + unpacked.pressure_dynamic;
+                        }
+                    }
+
+                    // Apply sparse organism data.
+                    std::vector<uint8_t> organism_ids =
+                        RenderMessageUtils::applyOrganismData(renderMsg.organisms, numCells);
+                    for (size_t i = 0; i < numCells; ++i) {
+                        worldData.cells[i].organism_id = organism_ids[i];
+                    }
 
                     static int deserializeCount = 0;
                     static double totalDeserializeMs = 0.0;
@@ -78,12 +140,14 @@ bool WebSocketClient::connect(const std::string& url)
                     totalDeserializeMs += deserializeMs;
                     if (deserializeCount % 10000 == 0) {
                         spdlog::info(
-                            "UI WebSocketClient: Deserialization avg {:.1f}ms over {} frames "
-                            "(latest: {}ms, {} cells)",
+                            "UI WebSocketClient: RenderMessage deserialization avg {:.1f}ms over "
+                            "{} "
+                            "frames (latest: {}ms, {} cells, format: {})",
                             totalDeserializeMs / deserializeCount,
                             deserializeCount,
                             deserializeMs,
-                            worldData.cells.size());
+                            worldData.cells.size(),
+                            renderMsg.format == RenderFormat::BASIC ? "BASIC" : "DEBUG");
                     }
 
                     // Fast path: queue UiUpdateEvent directly via EventSink.

@@ -107,7 +107,7 @@ void SimRunning::tick(StateMachine& dsm)
         lastFrameTime = now;
 
         // Log FPS and performance stats intermittently.
-        if (stepCount == 100 || stepCount % 1000 == 0) {
+        if (stepCount == 100 || stepCount % 500 == 0) {
             spdlog::info("SimRunning: Actual FPS: {:.1f} (step {})", actualFPS, stepCount);
 
             // Log performance timing stats.
@@ -184,53 +184,31 @@ void SimRunning::tick(StateMachine& dsm)
     if (dsm.getWebSocketServer()) {
         auto& timers = dsm.getTimers();
 
-        // Pack WorldData to binary.
-        auto serializeStart = std::chrono::steady_clock::now();
-        timers.startTimer("serialize_worlddata");
-        std::vector<std::byte> data;
-        zpp::bits::out out(data);
-        out(world->data).or_throw();
-        timers.stopTimer("serialize_worlddata");
-        auto serializeEnd = std::chrono::steady_clock::now();
-        auto serializeMs =
-            std::chrono::duration_cast<std::chrono::milliseconds>(serializeEnd - serializeStart)
+        // Broadcast RenderMessage to all clients (per-client format).
+        auto broadcastStart = std::chrono::steady_clock::now();
+        timers.startTimer("broadcast_render_message");
+        dsm.getWebSocketServer()->broadcastRenderMessage(world->data);
+        timers.stopTimer("broadcast_render_message");
+        auto broadcastEnd = std::chrono::steady_clock::now();
+        auto broadcastMs =
+            std::chrono::duration_cast<std::chrono::milliseconds>(broadcastEnd - broadcastStart)
                 .count();
 
-        // Broadcast binary WorldData to all clients.
-        rtc::binary binaryMsg(data.begin(), data.end());
-
         static int sendCount = 0;
-        static double totalSerializeMs = 0.0;
+        static double totalBroadcastMs = 0.0;
         sendCount++;
-        totalSerializeMs += serializeMs;
+        totalBroadcastMs += broadcastMs;
         if (sendCount % 1000 == 0) {
             spdlog::info(
-                "Server: Serialization avg {:.1f}ms over {} frames (latest: {}ms, {} bytes, {} "
+                "Server: RenderMessage broadcast avg {:.1f}ms over {} frames (latest: {}ms, {} "
                 "cells)",
-                totalSerializeMs / sendCount,
+                totalBroadcastMs / sendCount,
                 sendCount,
-                serializeMs,
-                data.size(),
+                broadcastMs,
                 world->data.cells.size());
         }
 
-        auto networkStart = std::chrono::steady_clock::now();
-        timers.startTimer("network_send");
-        dsm.getWebSocketServer()->broadcastBinary(binaryMsg);
-        timers.stopTimer("network_send");
-        auto networkEnd = std::chrono::steady_clock::now();
-        auto networkUs =
-            std::chrono::duration_cast<std::chrono::microseconds>(networkEnd - networkStart)
-                .count();
-
-        if (networkUs > 10000) {
-            spdlog::info(
-                "SimRunning: Network send took {:.1f}ms for {} bytes",
-                networkUs / 1000.0,
-                data.size());
-        }
-
-        // Track FPS.
+        // Track FPS for frame send rate.
         auto now = std::chrono::steady_clock::now();
         if (lastFrameSendTime.time_since_epoch().count() > 0) {
             auto sendElapsed =
@@ -242,12 +220,6 @@ void SimRunning::tick(StateMachine& dsm)
             }
         }
         lastFrameSendTime = now;
-
-        spdlog::debug(
-            "SimRunning: Sent frame to UI ({} bytes, network {:.2f}ms, send FPS: {:.1f})",
-            data.size(),
-            networkUs / 1000.0,
-            frameSendFPS);
     }
 }
 

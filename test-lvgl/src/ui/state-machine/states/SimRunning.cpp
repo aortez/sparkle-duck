@@ -1,4 +1,5 @@
 #include "State.h"
+#include "server/api/RenderFormatSet.h"
 #include "ui/SimPlayground.h"
 #include "ui/UiComponentManager.h"
 #include "ui/controls/PhysicsControls.h"
@@ -37,12 +38,21 @@ State::Any SimRunning::onEvent(const ServerDisconnectedEvent& evt, StateMachine&
     return Disconnected{};
 }
 
-State::Any SimRunning::onEvent(const UiApi::DrawDebugToggle::Cwc& cwc, StateMachine& /*sm*/)
+State::Any SimRunning::onEvent(const UiApi::DrawDebugToggle::Cwc& cwc, StateMachine& sm)
 {
     using Response = UiApi::DrawDebugToggle::Response;
 
     debugDrawEnabled = cwc.command.enabled;
     spdlog::info("SimRunning: Debug draw mode {}", debugDrawEnabled ? "enabled" : "disabled");
+
+    // Auto-switch render format based on debug mode.
+    if (sm.getWebSocketClient()) {
+        Api::RenderFormatSet::Command cmd;
+        cmd.format = debugDrawEnabled ? RenderFormat::DEBUG : RenderFormat::BASIC;
+        sm.getWebSocketClient()->sendCommand(cmd);
+        spdlog::info(
+            "SimRunning: Sent render_format_set to {}", debugDrawEnabled ? "DEBUG" : "BASIC");
+    }
 
     cwc.sendResponse(Response::okay(UiApi::DrawDebugToggle::Okay{ debugDrawEnabled }));
     return std::move(*this);

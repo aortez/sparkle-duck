@@ -8,6 +8,7 @@
 #include "api/PerfStatsGet.h"
 #include "api/PhysicsSettingsGet.h"
 #include "api/PhysicsSettingsSet.h"
+#include "api/RenderFormatSet.h"
 #include "api/Reset.h"
 #include "api/ScenarioConfigSet.h"
 #include "api/SeedAdd.h"
@@ -539,6 +540,7 @@ using Event = std::variant<
     DirtSim::Api::PerfStatsGet::Cwc,
     DirtSim::Api::PhysicsSettingsGet::Cwc,
     DirtSim::Api::PhysicsSettingsSet::Cwc,
+    DirtSim::Api::RenderFormatSet::Cwc,
     DirtSim::Api::Reset::Cwc,
     DirtSim::Api::ScenarioConfigSet::Cwc,
     DirtSim::Api::SeedAdd::Cwc,

@@ -9,6 +9,7 @@
 #include "PerfStatsGet.h"
 #include "PhysicsSettingsGet.h"
 #include "PhysicsSettingsSet.h"
+#include "RenderFormatSet.h"
 #include "Reset.h"
 #include "ScenarioConfigSet.h"
 #include "SeedAdd.h"
@@ -53,6 +54,7 @@ using ApiCommand = std::variant<
     Api::PerfStatsGet::Command,
     Api::PhysicsSettingsGet::Command,
     Api::PhysicsSettingsSet::Command,
+    Api::RenderFormatSet::Command,
     Api::Reset::Command,
     Api::ScenarioConfigSet::Command,
     Api::SeedAdd::Command,
