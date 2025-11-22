@@ -718,7 +718,7 @@ Result<lv_obj_t*, std::string> LVGLBuilder::LabeledSwitchBuilder::createLabeledS
         return Result<lv_obj_t*, std::string>::error("Failed to create container");
     }
 
-    lv_obj_set_size(container_, LV_PCT(100), LV_SIZE_CONTENT); // Full width to prevent scrolling.
+    lv_obj_set_size(container_, LV_PCT(90), LV_SIZE_CONTENT);
     lv_obj_set_flex_flow(container_, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(
         container_, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
@@ -962,7 +962,7 @@ Result<lv_obj_t*, std::string> LVGLBuilder::ToggleSliderBuilder::createToggleSli
 {
     // Create container for the whole control group.
     container_ = lv_obj_create(parent_);
-    lv_obj_set_size(container_, LV_PCT(90), 80);
+    lv_obj_set_size(container_, LV_PCT(90), 60);
     lv_obj_set_style_pad_all(container_, 8, 0);
     lv_obj_set_style_border_width(container_, 1, 0);
     lv_obj_set_style_border_color(container_, lv_color_hex(0x404040), 0);

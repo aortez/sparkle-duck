@@ -35,12 +35,6 @@ CoreControls::CoreControls(lv_obj_t* container, WebSocketClient* wsClient, Event
     lv_obj_center(resetLabel);
     lv_obj_add_event_cb(resetButton_, onResetClicked, LV_EVENT_CLICKED, this);
 
-    // Add spacing after buttons.
-    lv_obj_t* spacer1 = lv_obj_create(container_);
-    lv_obj_set_size(spacer1, LV_PCT(100), 10);
-    lv_obj_set_style_bg_opa(spacer1, LV_OPA_TRANSP, 0);
-    lv_obj_set_style_border_width(spacer1, 0, 0);
-
     // Stats display.
     statsLabel_ = lv_label_create(container_);
     lv_label_set_text(statsLabel_, "Server: -- FPS");
@@ -51,12 +45,6 @@ CoreControls::CoreControls(lv_obj_t* container, WebSocketClient* wsClient, Event
     lv_label_set_text(statsLabelUI_, "UI: -- FPS");
     lv_obj_set_style_text_font(statsLabelUI_, &lv_font_montserrat_12, 0);
     lv_obj_set_style_text_color(statsLabelUI_, lv_color_white(), 0);
-
-    // Add spacing after stats labels.
-    lv_obj_t* spacer2 = lv_obj_create(container_);
-    lv_obj_set_size(spacer2, LV_PCT(100), 10);
-    lv_obj_set_style_bg_opa(spacer2, LV_OPA_TRANSP, 0);
-    lv_obj_set_style_border_width(spacer2, 0, 0);
 
     // Debug toggle.
     debugSwitch_ = LVGLBuilder::labeledSwitch(container_)
