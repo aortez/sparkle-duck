@@ -815,7 +815,7 @@ bool WorldCollisionCalculator::shouldSwapMaterials(
         double effective_flowability = flowability * velocity_boost;
 
         // Natural flow condition: material flows if it can overcome target resistance.
-        const double FLOW_RESISTANCE_FACTOR = 5;
+        const double FLOW_RESISTANCE_FACTOR = 0.;
         const bool swap_ok = effective_flowability > (target_resistance * FLOW_RESISTANCE_FACTOR);
 
         if (!swap_ok) {
@@ -856,7 +856,7 @@ bool WorldCollisionCalculator::shouldSwapMaterials(
 
     // Reduce bond cost for fluid interactions (fluids help separate materials).
     if (from_props.is_fluid || to_props.is_fluid) {
-        const double FLUID_LUBRICATION_FACTOR = 0.1; // Fluids reduce cohesion by 90%.
+        const double FLUID_LUBRICATION_FACTOR = 0.5;
         bond_breaking_cost *= FLUID_LUBRICATION_FACTOR;
     }
 
@@ -877,13 +877,35 @@ bool WorldCollisionCalculator::shouldSwapMaterials(
 
     // Non-fluids require more energy to displace (both source and target).
     if (!from_props.is_fluid || !to_props.is_fluid) {
-        const double NON_FLUID_ENERGY_MULTIPLIER = 2.0; // Requires 2x energy for non-fluid swaps.
+        const double NON_FLUID_ENERGY_MULTIPLIER = 4.0;
         swap_cost *= NON_FLUID_ENERGY_MULTIPLIER;
     }
 
     // Total cost includes base swap cost + bond breaking cost.
     const double total_cost = swap_cost + bond_breaking_cost;
-    const double available_energy = move.collision_energy;
+    double available_energy = move.collision_energy;
+
+    // Add buoyancy energy for vertical swaps driven by density differences.
+    // Light materials rising or heavy materials sinking get "free" energy from buoyancy.
+    if (direction.y != 0) {
+        const double density_diff = std::abs(from_props.density - to_props.density);
+        const bool is_buoyancy_driven = densitySupportsSwap(fromCell, toCell, direction);
+
+        if (is_buoyancy_driven && density_diff > 0.1) {
+            const double BUOYANCY_ENERGY_SCALE = 5.0;
+            const double buoyancy_energy = density_diff * BUOYANCY_ENERGY_SCALE;
+            available_energy += buoyancy_energy;
+
+            LoggingChannels::swap()->debug(
+                "Buoyancy boost: {} <-> {} | density_diff: {:.3f}, buoyancy_energy: {:.3f}, total: "
+                "{:.3f}",
+                getMaterialName(fromCell.material_type),
+                getMaterialName(toCell.material_type),
+                density_diff,
+                buoyancy_energy,
+                available_energy);
+        }
+    }
 
     if (available_energy < total_cost) {
         if (bond_breaking_cost > 0.01) {

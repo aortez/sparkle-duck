@@ -555,7 +555,7 @@ void World::resolveForces(double deltaTime)
             double net_force_magnitude = net_force.magnitude();
             double cohesion_strength =
                 collision_calculator_.calculateCohesionStrength(cell, *this, x, y);
-            double cohesion_resistance_force = cohesion_strength * 20.0;
+            double cohesion_resistance_force = cohesion_strength * 0.0;
 
             if (cohesion_resistance_force > 0.01
                 && net_force_magnitude < cohesion_resistance_force) {

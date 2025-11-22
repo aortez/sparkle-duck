@@ -90,6 +90,7 @@ private:
 
     // Setup methods.
     lv_obj_t* createColumn(const char* title);
+    lv_obj_t* createCollapsibleColumn(const char* title);
     void createControlWidget(lv_obj_t* column, Control& control);
 
     // Generic event handlers (replaces 18+ static callbacks).

@@ -275,7 +275,8 @@ PhysicsControls::PhysicsControls(lv_obj_t* container, WebSocketClient* wsClient)
 
     // Create columns and controls in a single pass.
     for (const auto& columnConfig : configs) {
-        lv_obj_t* column = createColumn(columnConfig.title);
+        // Use collapsible panel for all columns.
+        lv_obj_t* column = createCollapsibleColumn(columnConfig.title);
         columns_.push_back(column);
 
         for (const auto& controlConfig : columnConfig.controls) {
@@ -321,6 +322,28 @@ lv_obj_t* PhysicsControls::createColumn(const char* title)
     lv_obj_set_style_text_color(label, lv_color_hex(0xFFFFFF), 0); // White text.
 
     return column;
+}
+
+lv_obj_t* PhysicsControls::createCollapsibleColumn(const char* title)
+{
+    lv_obj_t* panel = LVGLBuilder::collapsiblePanel(container_)
+                          .title(title)
+                          .size(LV_PCT(30), LV_SIZE_CONTENT)
+                          .initiallyExpanded(true)
+                          .backgroundColor(0x303030)
+                          .headerColor(0x404040)
+                          .buildOrLog();
+
+    if (!panel) {
+        spdlog::error("PhysicsControls: Failed to create collapsible panel '{}'", title);
+        return nullptr;
+    }
+
+    // The content area is the second child (index 1) of the panel.
+    // Child 0 is the header, child 1 is the content area.
+    lv_obj_t* content = lv_obj_get_child(panel, 1);
+
+    return content;
 }
 
 void PhysicsControls::createControlWidget(lv_obj_t* column, Control& control)

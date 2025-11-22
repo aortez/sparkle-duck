@@ -1057,6 +1057,239 @@ lv_obj_t* LVGLBuilder::ToggleSliderBuilder::buildOrLog()
 }
 
 // ============================================================================
+// CollapsiblePanelBuilder Implementation.
+// ============================================================================
+
+LVGLBuilder::CollapsiblePanelBuilder::CollapsiblePanelBuilder(lv_obj_t* parent)
+    : parent_(parent),
+      container_(nullptr),
+      header_(nullptr),
+      content_(nullptr),
+      title_label_(nullptr),
+      indicator_(nullptr),
+      size_(LV_PCT(30), LV_SIZE_CONTENT),
+      is_expanded_(true),
+      bg_color_(0x303030),
+      header_color_(0x404040),
+      toggle_callback_(nullptr),
+      user_data_(nullptr)
+{}
+
+LVGLBuilder::CollapsiblePanelBuilder& LVGLBuilder::CollapsiblePanelBuilder::title(const char* text)
+{
+    if (text) {
+        title_text_ = text;
+    }
+    return *this;
+}
+
+LVGLBuilder::CollapsiblePanelBuilder& LVGLBuilder::CollapsiblePanelBuilder::size(
+    int width, int height)
+{
+    size_ = Size(width, height);
+    return *this;
+}
+
+LVGLBuilder::CollapsiblePanelBuilder& LVGLBuilder::CollapsiblePanelBuilder::size(const Size& sz)
+{
+    size_ = sz;
+    return *this;
+}
+
+LVGLBuilder::CollapsiblePanelBuilder& LVGLBuilder::CollapsiblePanelBuilder::initiallyExpanded(
+    bool expanded)
+{
+    is_expanded_ = expanded;
+    return *this;
+}
+
+LVGLBuilder::CollapsiblePanelBuilder& LVGLBuilder::CollapsiblePanelBuilder::backgroundColor(
+    uint32_t color)
+{
+    bg_color_ = color;
+    return *this;
+}
+
+LVGLBuilder::CollapsiblePanelBuilder& LVGLBuilder::CollapsiblePanelBuilder::headerColor(
+    uint32_t color)
+{
+    header_color_ = color;
+    return *this;
+}
+
+LVGLBuilder::CollapsiblePanelBuilder& LVGLBuilder::CollapsiblePanelBuilder::onToggle(
+    lv_event_cb_t cb, void* user_data)
+{
+    toggle_callback_ = cb;
+    user_data_ = user_data;
+    return *this;
+}
+
+Result<lv_obj_t*, std::string> LVGLBuilder::CollapsiblePanelBuilder::build()
+{
+    if (!parent_) {
+        std::string error = "CollapsiblePanelBuilder: parent cannot be null";
+        spdlog::error(error);
+        return Result<lv_obj_t*, std::string>::error(error);
+    }
+
+    auto result = createCollapsiblePanel();
+    if (result.isError()) {
+        return result;
+    }
+
+    spdlog::debug(
+        "CollapsiblePanelBuilder: Successfully created collapsible panel '{}'", title_text_);
+
+    return Result<lv_obj_t*, std::string>::okay(container_);
+}
+
+lv_obj_t* LVGLBuilder::CollapsiblePanelBuilder::buildOrLog()
+{
+    auto result = build();
+    if (result.isError()) {
+        spdlog::error("CollapsiblePanelBuilder: {}", result.error());
+        return nullptr;
+    }
+    return result.value();
+}
+
+Result<lv_obj_t*, std::string> LVGLBuilder::CollapsiblePanelBuilder::createCollapsiblePanel()
+{
+    // Create main container.
+    container_ = lv_obj_create(parent_);
+    if (!container_) {
+        std::string error = "CollapsiblePanelBuilder: Failed to create container";
+        spdlog::error(error);
+        return Result<lv_obj_t*, std::string>::error(error);
+    }
+
+    lv_obj_set_size(container_, size_.width, size_.height);
+    lv_obj_set_flex_flow(container_, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_flex_align(
+        container_, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_pad_all(container_, 0, 0);
+    lv_obj_set_style_bg_color(container_, lv_color_hex(bg_color_), 0);
+    lv_obj_set_style_bg_opa(container_, LV_OPA_COVER, 0);
+
+    // Create clickable header.
+    header_ = lv_obj_create(container_);
+    if (!header_) {
+        std::string error = "CollapsiblePanelBuilder: Failed to create header";
+        spdlog::error(error);
+        return Result<lv_obj_t*, std::string>::error(error);
+    }
+
+    lv_obj_set_size(header_, LV_PCT(100), LV_SIZE_CONTENT);
+    lv_obj_set_flex_flow(header_, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(header_, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_START);
+    lv_obj_set_style_pad_all(header_, 8, 0);
+    lv_obj_set_style_bg_color(header_, lv_color_hex(header_color_), 0);
+    lv_obj_set_style_bg_opa(header_, LV_OPA_COVER, 0);
+    lv_obj_add_flag(header_, LV_OBJ_FLAG_CLICKABLE);
+
+    // Create expand/collapse indicator.
+    indicator_ = lv_label_create(header_);
+    if (!indicator_) {
+        std::string error = "CollapsiblePanelBuilder: Failed to create indicator";
+        spdlog::error(error);
+        return Result<lv_obj_t*, std::string>::error(error);
+    }
+
+    lv_label_set_text(indicator_, is_expanded_ ? LV_SYMBOL_DOWN : LV_SYMBOL_RIGHT);
+    lv_obj_set_style_text_color(indicator_, lv_color_hex(0xFFFFFF), 0);
+
+    // Create title label.
+    title_label_ = lv_label_create(header_);
+    if (!title_label_) {
+        std::string error = "CollapsiblePanelBuilder: Failed to create title label";
+        spdlog::error(error);
+        return Result<lv_obj_t*, std::string>::error(error);
+    }
+
+    lv_label_set_text(title_label_, title_text_.c_str());
+    lv_obj_set_style_text_font(title_label_, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_color(title_label_, lv_color_hex(0xFFFFFF), 0);
+    lv_obj_set_style_pad_left(title_label_, 8, 0);
+
+    // Create content area.
+    content_ = lv_obj_create(container_);
+    if (!content_) {
+        std::string error = "CollapsiblePanelBuilder: Failed to create content area";
+        spdlog::error(error);
+        return Result<lv_obj_t*, std::string>::error(error);
+    }
+
+    lv_obj_set_size(content_, LV_PCT(100), LV_SIZE_CONTENT);
+    lv_obj_set_flex_flow(content_, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_flex_align(
+        content_, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_pad_row(content_, 4, 0);
+    lv_obj_set_style_pad_all(content_, 8, 0);
+    lv_obj_set_style_bg_opa(content_, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_border_width(content_, 0, 0);
+
+    // Set initial state.
+    if (!is_expanded_) {
+        lv_obj_add_flag(content_, LV_OBJ_FLAG_HIDDEN);
+    }
+
+    // Allocate and store state for the header click callback.
+    PanelState* state = new PanelState{ content_, indicator_, is_expanded_ };
+    lv_obj_set_user_data(header_, state);
+
+    // Setup header click event.
+    lv_obj_add_event_cb(header_, onHeaderClick, LV_EVENT_CLICKED, nullptr);
+
+    // Setup optional user callback (called after internal state change).
+    if (toggle_callback_) {
+        lv_obj_add_event_cb(header_, toggle_callback_, LV_EVENT_CLICKED, user_data_);
+    }
+
+    // Add delete callback to clean up allocated state.
+    lv_obj_add_event_cb(
+        header_,
+        [](lv_event_t* e) {
+            lv_obj_t* header = static_cast<lv_obj_t*>(lv_event_get_target(e));
+            PanelState* state = static_cast<PanelState*>(lv_obj_get_user_data(header));
+            delete state;
+        },
+        LV_EVENT_DELETE,
+        nullptr);
+
+    return Result<lv_obj_t*, std::string>::okay(container_);
+}
+
+void LVGLBuilder::CollapsiblePanelBuilder::onHeaderClick(lv_event_t* e)
+{
+    lv_obj_t* header = static_cast<lv_obj_t*>(lv_event_get_target(e));
+    PanelState* state = static_cast<PanelState*>(lv_obj_get_user_data(header));
+
+    if (!state || !state->content || !state->indicator) {
+        spdlog::warn("CollapsiblePanelBuilder: Invalid panel state in header click");
+        return;
+    }
+
+    // Toggle expanded state.
+    state->is_expanded = !state->is_expanded;
+
+    // Update indicator symbol.
+    lv_label_set_text(state->indicator, state->is_expanded ? LV_SYMBOL_DOWN : LV_SYMBOL_RIGHT);
+
+    // Show/hide content with animation.
+    if (state->is_expanded) {
+        lv_obj_remove_flag(state->content, LV_OBJ_FLAG_HIDDEN);
+    }
+    else {
+        lv_obj_add_flag(state->content, LV_OBJ_FLAG_HIDDEN);
+    }
+
+    spdlog::debug(
+        "CollapsiblePanelBuilder: Panel toggled to {}",
+        state->is_expanded ? "expanded" : "collapsed");
+}
+
+// ============================================================================
 // Static Factory Methods.
 // ============================================================================
 
@@ -1068,6 +1301,11 @@ LVGLBuilder::SliderBuilder LVGLBuilder::slider(lv_obj_t* parent)
 LVGLBuilder::ButtonBuilder LVGLBuilder::button(lv_obj_t* parent)
 {
     return ButtonBuilder(parent);
+}
+
+LVGLBuilder::LabelBuilder LVGLBuilder::label(lv_obj_t* parent)
+{
+    return LabelBuilder(parent);
 }
 
 LVGLBuilder::DropdownBuilder LVGLBuilder::dropdown(lv_obj_t* parent)
@@ -1083,4 +1321,9 @@ LVGLBuilder::LabeledSwitchBuilder LVGLBuilder::labeledSwitch(lv_obj_t* parent)
 LVGLBuilder::ToggleSliderBuilder LVGLBuilder::toggleSlider(lv_obj_t* parent)
 {
     return ToggleSliderBuilder(parent);
+}
+
+LVGLBuilder::CollapsiblePanelBuilder LVGLBuilder::collapsiblePanel(lv_obj_t* parent)
+{
+    return CollapsiblePanelBuilder(parent);
 }
