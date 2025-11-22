@@ -350,7 +350,7 @@ private:
 
     void applyGravity();
     void applyAirResistance();
-    void applyCohesionForces();
+    void applyCohesionForces(const GridOfCells* grid = nullptr);
     void applyPressureForces();
     void resolveForces(double deltaTime, const GridOfCells* grid = nullptr);
     void updateTransfers(double deltaTime);

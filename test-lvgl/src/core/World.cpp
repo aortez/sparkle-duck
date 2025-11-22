@@ -346,7 +346,7 @@ void World::applyAirResistance()
     }
 }
 
-void World::applyCohesionForces()
+void World::applyCohesionForces(const GridOfCells* grid)
 {
     if (physicsSettings.cohesion_strength <= 0.0) {
         return;
@@ -367,9 +367,9 @@ void World::applyCohesionForces()
                     continue;
                 }
 
-                // Calculate COM cohesion force.
+                // Calculate COM cohesion force (passes grid for cache optimization).
                 WorldCohesionCalculator::COMCohesionForce com_cohesion =
-                    cohesion_calc.calculateCOMCohesionForce(*this, x, y, com_cohesion_range_);
+                    cohesion_calc.calculateCOMCohesionForce(*this, x, y, com_cohesion_range_, grid);
 
                 Vector2d com_cohesion_force(0.0, 0.0);
                 if (com_cohesion.force_active) {
@@ -521,7 +521,7 @@ void World::resolveForces(double deltaTime, const GridOfCells* grid)
     // Apply cohesion and adhesion forces.
     {
         ScopeTimer cohesionTimer(timers_, "resolve_forces_apply_cohesion");
-        applyCohesionForces();
+        applyCohesionForces(grid);
     }
 
     // Apply contact-based friction forces.

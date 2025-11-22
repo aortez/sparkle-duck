@@ -4,6 +4,7 @@
 #include "MaterialType.h"
 #include "World.h"
 #include "WorldSupportCalculator.h"
+#include "bitmaps/MaterialNeighborhood.h"
 #include "spdlog/spdlog.h"
 #include <algorithm>
 #include <cmath>
@@ -121,8 +122,19 @@ WorldCohesionCalculator::CohesionForce WorldCohesionCalculator::calculateCohesio
 }
 
 WorldCohesionCalculator::COMCohesionForce WorldCohesionCalculator::calculateCOMCohesionForce(
-    const World& world, uint32_t x, uint32_t y, uint32_t com_cohesion_range) const
+    const World& world,
+    uint32_t x,
+    uint32_t y,
+    uint32_t com_cohesion_range,
+    const GridOfCells* grid) const
 {
+    // Use cache-optimized path if available.
+    if (GridOfCells::USE_CACHE && grid) {
+        const MaterialNeighborhood mat_n = grid->getMaterialNeighborhood(x, y);
+        return calculateCOMCohesionForceCached(world, x, y, com_cohesion_range, mat_n);
+    }
+
+    // Fallback to direct cell access.
     const Cell& cell = getCellAt(world, x, y);
     if (cell.isEmpty()) {
         return { { 0.0, 0.0 }, 0.0, { 0.0, 0.0 }, 0, 0.0, 0.0, false };
@@ -282,6 +294,122 @@ WorldCohesionCalculator::COMCohesionForce WorldCohesionCalculator::calculateCOMC
              neighbor_center,
              connection_count,
              0.0,
+             cell_mass,
+             (connection_count > 0 || com_offset_sq > 0.000001) };
+}
+
+WorldCohesionCalculator::COMCohesionForce WorldCohesionCalculator::calculateCOMCohesionForceCached(
+    const World& world,
+    uint32_t x,
+    uint32_t y,
+    uint32_t com_cohesion_range,
+    const MaterialNeighborhood& mat_n) const
+{
+    const Cell& cell = getCellAt(world, x, y);
+    if (cell.isEmpty()) {
+        return { { 0.0, 0.0 }, 0.0, { 0.0, 0.0 }, 0, 0.0, 0.0, false };
+    }
+
+    // Tunable force balance (same as non-cached version).
+    static constexpr double CLUSTERING_WEIGHT = 0.5;
+    static constexpr double CENTERING_WEIGHT = 1.0;
+
+    const double cell_mass = cell.getMass();
+    const Vector2d com = cell.com;
+    const Vector2d cell_world_pos(
+        static_cast<double>(x) + cell.com.x, static_cast<double>(y) + cell.com.y);
+    const MaterialProperties& props = getMaterialProperties(cell.material_type);
+
+    // Get center material from cache.
+    MaterialType my_material = mat_n.getCenterMaterial();
+
+    // ===================================================================
+    // FORCE 1: Clustering (cache-optimized - use MaterialNeighborhood)
+    // ===================================================================
+
+    Vector2d neighbor_center_sum(0.0, 0.0);
+    double total_weight = 0.0;
+    uint32_t connection_count = 0;
+
+    int range = static_cast<int>(com_cohesion_range);
+
+    for (int dx = -range; dx <= range; dx++) {
+        for (int dy = -range; dy <= range; dy++) {
+            if (dx == 0 && dy == 0) continue;
+            if (dx != 0 && dy != 0) continue; // Cardinals only.
+
+            int nx = static_cast<int>(x) + dx;
+            int ny = static_cast<int>(y) + dy;
+
+            // Use cached material check (avoids isValidCell and getCellAt).
+            if (isValidCell(world, nx, ny) && mat_n.getMaterial(dx, dy) == my_material) {
+                const Cell& neighbor = getCellAt(world, nx, ny);
+                if (neighbor.fill_ratio > MIN_MATTER_THRESHOLD) {
+                    Vector2d neighbor_world_pos(
+                        static_cast<double>(nx) + neighbor.com.x,
+                        static_cast<double>(ny) + neighbor.com.y);
+                    double weight = neighbor.fill_ratio;
+                    neighbor_center_sum += neighbor_world_pos * weight;
+                    total_weight += weight;
+                    connection_count++;
+                }
+            }
+        }
+    }
+
+    // Calculate clustering force (same logic as non-cached version).
+    Vector2d clustering_force(0.0, 0.0);
+    Vector2d neighbor_center(0.0, 0.0);
+
+    if (connection_count > 0 && total_weight > MIN_MATTER_THRESHOLD) {
+        neighbor_center = neighbor_center_sum / total_weight;
+        Vector2d to_neighbors = neighbor_center - cell_world_pos;
+        double distance_sq = to_neighbors.x * to_neighbors.x + to_neighbors.y * to_neighbors.y;
+
+        if (distance_sq > 0.000001) {
+            double distance = std::sqrt(distance_sq);
+            Vector2d clustering_direction = to_neighbors * (1.0 / distance);
+
+            double distance_factor = 1.0 / (distance + 0.1);
+            int range = static_cast<int>(com_cohesion_range);
+            double max_connections = (2 * range + 1) * (2 * range + 1) - 1;
+
+            double mass_factor = total_weight / max_connections;
+            double clustering_magnitude =
+                props.cohesion * mass_factor * distance_factor * cell.fill_ratio;
+
+            clustering_magnitude = std::min(clustering_magnitude, props.cohesion * 10.0);
+            clustering_force = clustering_direction * clustering_magnitude * CLUSTERING_WEIGHT;
+        }
+    }
+
+    // ===================================================================
+    // FORCE 2: Centering (same as non-cached version)
+    // ===================================================================
+
+    Vector2d centering_force(0.0, 0.0);
+    Vector2d centering_direction(0.0, 0.0);
+    double com_offset_sq = com.x * com.x + com.y * com.y;
+    double com_offset = 0.0;
+
+    if (com_offset_sq > 0.000001) {
+        com_offset = std::sqrt(com_offset_sq);
+        centering_direction = com * (-1.0 / com_offset);
+
+        double centering_magnitude = props.cohesion * com_offset * cell.fill_ratio;
+        centering_force = centering_direction * centering_magnitude * CENTERING_WEIGHT;
+    }
+
+    // Combine forces.
+    Vector2d total_force = clustering_force + centering_force;
+    Vector2d force_direction =
+        (total_force.magnitude() > 0.000001) ? total_force.normalize() : Vector2d(0.0, 0.0);
+
+    return { force_direction,
+             total_force.magnitude(),
+             neighbor_center,
+             connection_count,
+             total_weight,
              cell_mass,
              (connection_count > 0 || com_offset_sq > 0.000001) };
 }
