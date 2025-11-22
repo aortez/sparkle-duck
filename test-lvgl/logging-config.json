@@ -21,11 +21,11 @@
       "max_files": 3
     },
     "specialized": {
-      "swap_trace": {
-        "enabled": false,
+      "swap_debug": {
+        "enabled": true,
         "channel_filter": ["swap"],
-        "path": "swap-trace.log",
-        "level": "trace"
+        "path": "swap-debug.log",
+        "level": "debug"
       },
       "physics_deep": {
         "enabled": false,
@@ -46,7 +46,7 @@
     "scenario": "info",
     "state": "debug",
     "support": "info",
-    "swap": "warn",
+    "swap": "debug",
     "ui": "info",
     "viscosity": "info"
   },
