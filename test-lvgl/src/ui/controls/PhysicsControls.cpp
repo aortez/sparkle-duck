@@ -5,6 +5,7 @@
 #include "ui/ui_builders/LVGLBuilder.h"
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
+#include <string>
 
 namespace DirtSim {
 namespace Ui {
@@ -251,7 +252,137 @@ std::vector<PhysicsControls::ColumnConfig> PhysicsControls::createColumnConfigs(
                                   if (!e) s.friction_strength = 0.0;
                               },
                           .enableGetter =
-                              [](const PhysicsSettings& s) { return s.friction_enabled; } } } }
+                              [](const PhysicsSettings& s) { return s.friction_enabled; } } } },
+        // Column 4: Swap Tuning.
+        { .title = "Swap Tuning",
+          .controls = { { .label = "Buoyancy Energy",
+                          .type = ControlType::TOGGLE_SLIDER,
+                          .rangeMin = 0,
+                          .rangeMax = 2000,
+                          .defaultValue = 500,
+                          .valueScale = 0.01,
+                          .valueFormat = "%.1f",
+                          .initiallyEnabled = true,
+                          .valueSetter = [](PhysicsSettings& s,
+                                            double v) { s.buoyancy_energy_scale = v; },
+                          .valueGetter =
+                              [](const PhysicsSettings& s) { return s.buoyancy_energy_scale; },
+                          .enableSetter = []([[maybe_unused]] PhysicsSettings& s,
+                                             [[maybe_unused]] bool e) {},
+                          .enableGetter =
+                              []([[maybe_unused]] const PhysicsSettings& s) { return true; } },
+                        { .label = "Cohesion Bonds",
+                          .type = ControlType::TOGGLE_SLIDER,
+                          .rangeMin = 0,
+                          .rangeMax = 5000,
+                          .defaultValue = 2000,
+                          .valueScale = 0.01,
+                          .valueFormat = "%.0f",
+                          .initiallyEnabled = true,
+                          .valueSetter = [](PhysicsSettings& s,
+                                            double v) { s.cohesion_resistance_factor = v; },
+                          .valueGetter =
+                              [](const PhysicsSettings& s) { return s.cohesion_resistance_factor; },
+                          .enableSetter = []([[maybe_unused]] PhysicsSettings& s,
+                                             [[maybe_unused]] bool e) {},
+                          .enableGetter =
+                              []([[maybe_unused]] const PhysicsSettings& s) { return true; } },
+                        { .label = "Horizontal Flow Resist",
+                          .type = ControlType::TOGGLE_SLIDER,
+                          .rangeMin = 0,
+                          .rangeMax = 2000,
+                          .defaultValue = 50,
+                          .valueScale = 0.01,
+                          .valueFormat = "%.1f",
+                          .initiallyEnabled = true,
+                          .valueSetter =
+                              [](PhysicsSettings& s, double v) {
+                                  s.horizontal_flow_resistance_factor = v;
+                              },
+                          .valueGetter =
+                              [](const PhysicsSettings& s) {
+                                  return s.horizontal_flow_resistance_factor;
+                              },
+                          .enableSetter = []([[maybe_unused]] PhysicsSettings& s,
+                                             [[maybe_unused]] bool e) {},
+                          .enableGetter =
+                              []([[maybe_unused]] const PhysicsSettings& s) { return true; } },
+                        { .label = "Fluid Lubrication",
+                          .type = ControlType::TOGGLE_SLIDER,
+                          .rangeMin = 0,
+                          .rangeMax = 100,
+                          .defaultValue = 50,
+                          .valueScale = 0.01,
+                          .valueFormat = "%.2f",
+                          .initiallyEnabled = true,
+                          .valueSetter =
+                              [](PhysicsSettings& s, double v) { s.fluid_lubrication_factor = v; },
+                          .valueGetter =
+                              [](const PhysicsSettings& s) { return s.fluid_lubrication_factor; },
+                          .enableSetter = []([[maybe_unused]] PhysicsSettings& s,
+                                             [[maybe_unused]] bool e) {},
+                          .enableGetter =
+                              []([[maybe_unused]] const PhysicsSettings& s) { return true; } } } },
+        // Column 5: Swap2 (Advanced swap parameters).
+        { .title = "Swap2",
+          .controls = { { .label = "Horizontal Non-Fluid Penalty",
+                          .type = ControlType::TOGGLE_SLIDER,
+                          .rangeMin = 0,
+                          .rangeMax = 100,
+                          .defaultValue = 10,
+                          .valueScale = 0.01,
+                          .valueFormat = "%.2f",
+                          .initiallyEnabled = true,
+                          .valueSetter = [](PhysicsSettings& s,
+                                            double v) { s.horizontal_non_fluid_penalty = v; },
+                          .valueGetter =
+                              [](const PhysicsSettings& s) {
+                                  return s.horizontal_non_fluid_penalty;
+                              },
+                          .enableSetter = []([[maybe_unused]] PhysicsSettings& s,
+                                             [[maybe_unused]] bool e) {},
+                          .enableGetter =
+                              []([[maybe_unused]] const PhysicsSettings& s) { return true; } },
+                        { .label = "Horizontal Target Resist",
+                          .type = ControlType::TOGGLE_SLIDER,
+                          .rangeMin = 0,
+                          .rangeMax = 1000,
+                          .defaultValue = 200,
+                          .valueScale = 0.01,
+                          .valueFormat = "%.1f",
+                          .initiallyEnabled = true,
+                          .valueSetter =
+                              [](PhysicsSettings& s, double v) {
+                                  s.horizontal_non_fluid_target_resistance = v;
+                              },
+                          .valueGetter =
+                              [](const PhysicsSettings& s) {
+                                  return s.horizontal_non_fluid_target_resistance;
+                              },
+                          .enableSetter = []([[maybe_unused]] PhysicsSettings& s,
+                                             [[maybe_unused]] bool e) {},
+                          .enableGetter =
+                              []([[maybe_unused]] const PhysicsSettings& s) { return true; } },
+                        { .label = "Non-Fluid Energy Mult",
+                          .type = ControlType::TOGGLE_SLIDER,
+                          .rangeMin = 0,
+                          .rangeMax = 1000,
+                          .defaultValue = 400,
+                          .valueScale = 0.01,
+                          .valueFormat = "%.1f",
+                          .initiallyEnabled = true,
+                          .valueSetter =
+                              [](PhysicsSettings& s, double v) {
+                                  s.non_fluid_energy_multiplier = v;
+                              },
+                          .valueGetter =
+                              [](const PhysicsSettings& s) {
+                                  return s.non_fluid_energy_multiplier;
+                              },
+                          .enableSetter = []([[maybe_unused]] PhysicsSettings& s,
+                                             [[maybe_unused]] bool e) {},
+                          .enableGetter =
+                              []([[maybe_unused]] const PhysicsSettings& s) { return true; } } } }
     };
 }
 
@@ -274,10 +405,28 @@ PhysicsControls::PhysicsControls(lv_obj_t* container, WebSocketClient* wsClient)
     controls_.reserve(totalControls);
 
     // Create columns and controls in a single pass.
+    lv_obj_t* forces_parent_column = nullptr;
     for (const auto& columnConfig : configs) {
-        // Use collapsible panel for all columns.
-        lv_obj_t* column = createCollapsibleColumn(columnConfig.title);
-        columns_.push_back(column);
+        lv_obj_t* column;
+
+        // Special case: Forces, Swap Tuning, and Swap2 share a parent column container.
+        const std::string title = columnConfig.title;
+        if (title == "Forces") {
+            // Create parent column for all swap-related panels (no label - panels have their own).
+            forces_parent_column = createColumn("");
+            columns_.push_back(forces_parent_column);
+            // Create Forces panel inside parent column.
+            column = createCollapsibleColumnInContainer(forces_parent_column, columnConfig.title);
+        }
+        else if ((title == "Swap Tuning" || title == "Swap2") && forces_parent_column) {
+            // Create panels inside same parent column.
+            column = createCollapsibleColumnInContainer(forces_parent_column, columnConfig.title);
+        }
+        else {
+            // Create new column container with panel.
+            column = createCollapsibleColumn(columnConfig.title);
+            columns_.push_back(column);
+        }
 
         for (const auto& controlConfig : columnConfig.controls) {
             // Add control to vector first using emplace_back.
@@ -326,16 +475,49 @@ lv_obj_t* PhysicsControls::createColumn(const char* title)
 
 lv_obj_t* PhysicsControls::createCollapsibleColumn(const char* title)
 {
+    // Collapse swap-related panels by default.
+    const std::string title_str(title);
+    const bool should_expand =
+        (title_str != "Forces" && title_str != "Swap Tuning" && title_str != "Swap2");
+
     lv_obj_t* panel = LVGLBuilder::collapsiblePanel(container_)
                           .title(title)
                           .size(LV_PCT(30), LV_SIZE_CONTENT)
-                          .initiallyExpanded(true)
+                          .initiallyExpanded(should_expand)
                           .backgroundColor(0x303030)
                           .headerColor(0x404040)
                           .buildOrLog();
 
     if (!panel) {
         spdlog::error("PhysicsControls: Failed to create collapsible panel '{}'", title);
+        return nullptr;
+    }
+
+    // The content area is the second child (index 1) of the panel.
+    // Child 0 is the header, child 1 is the content area.
+    lv_obj_t* content = lv_obj_get_child(panel, 1);
+
+    return content;
+}
+
+lv_obj_t* PhysicsControls::createCollapsibleColumnInContainer(lv_obj_t* parent, const char* title)
+{
+    // Collapse swap-related panels by default.
+    const std::string title_str(title);
+    const bool should_expand =
+        (title_str != "Forces" && title_str != "Swap Tuning" && title_str != "Swap2");
+
+    lv_obj_t* panel = LVGLBuilder::collapsiblePanel(parent)
+                          .title(title)
+                          .size(LV_PCT(100), LV_SIZE_CONTENT)
+                          .initiallyExpanded(should_expand)
+                          .backgroundColor(0x303030)
+                          .headerColor(0x404040)
+                          .buildOrLog();
+
+    if (!panel) {
+        spdlog::error(
+            "PhysicsControls: Failed to create collapsible panel '{}' in container", title);
         return nullptr;
     }
 
