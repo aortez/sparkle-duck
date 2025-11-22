@@ -257,10 +257,7 @@ void ControlPanel::onScenarioChanged(lv_event_t* e)
     // Send sim_run command with new scenario_id to DSSM server.
     if (panel->wsClient_ && panel->wsClient_->isConnected()) {
         const DirtSim::Api::SimRun::Command cmd{
-            .timestep = 0.016,
-            .max_steps = -1,
-            .scenario_id = scenario_id,
-            .max_frame_ms = 16 // Cap at 60 FPS for UI visualization.
+            .timestep = 0.016, .max_steps = -1, .scenario_id = scenario_id, .max_frame_ms = 16
         };
 
         spdlog::info("ControlPanel: Sending sim_run with scenario '{}'", scenario_id);

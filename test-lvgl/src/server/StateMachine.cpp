@@ -47,8 +47,12 @@ void StateMachine::mainLoopRun()
 
     // Main event processing loop.
     while (!shouldExit()) {
+        auto loopIterationStart = std::chrono::steady_clock::now();
+
         // Process events from queue.
+        auto eventProcessStart = std::chrono::steady_clock::now();
         eventProcessor.processEventsFromQueue(*this);
+        auto eventProcessEnd = std::chrono::steady_clock::now();
 
         // Tick the simulation if in SimRunning state.
         if (std::holds_alternative<State::SimRunning>(fsmState)) {
@@ -60,18 +64,61 @@ void StateMachine::mainLoopRun()
             // Advance simulation.
             simRunning.tick(*this);
 
+            auto frameEnd = std::chrono::steady_clock::now();
+
+            // Log timing breakdown every 1000 frames.
+            static int frameCount = 0;
+            static double totalEventProcessMs = 0.0;
+            static double totalTickMs = 0.0;
+            static double totalSleepMs = 0.0;
+            static double totalIterationMs = 0.0;
+
+            double eventProcessMs =
+                std::chrono::duration<double, std::milli>(eventProcessEnd - eventProcessStart)
+                    .count();
+            double tickMs =
+                std::chrono::duration<double, std::milli>(frameEnd - frameStart).count();
+
+            totalEventProcessMs += eventProcessMs;
+            totalTickMs += tickMs;
+
             // Apply frame rate limiting if configured.
+            double sleepMs = 0.0;
             if (simRunning.frameLimit > 0) {
-                auto frameEnd = std::chrono::steady_clock::now();
                 auto elapsedMs =
                     std::chrono::duration_cast<std::chrono::milliseconds>(frameEnd - frameStart)
                         .count();
 
                 int remainingMs = simRunning.frameLimit - static_cast<int>(elapsedMs);
                 if (remainingMs > 0) {
+                    auto sleepStart = std::chrono::steady_clock::now();
                     std::this_thread::sleep_for(std::chrono::milliseconds(remainingMs));
+                    auto sleepEnd = std::chrono::steady_clock::now();
+                    sleepMs =
+                        std::chrono::duration<double, std::milli>(sleepEnd - sleepStart).count();
+                    totalSleepMs += sleepMs;
                 }
             }
+
+            auto loopIterationEnd = std::chrono::steady_clock::now();
+            double iterationMs =
+                std::chrono::duration<double, std::milli>(loopIterationEnd - loopIterationStart)
+                    .count();
+            totalIterationMs += iterationMs;
+
+            frameCount++;
+            if (frameCount % 1000 == 0) {
+                spdlog::info("Main loop timing (avg over {} frames):", frameCount);
+                spdlog::info("  Event processing: {:.2f}ms", totalEventProcessMs / frameCount);
+                spdlog::info("  Simulation tick: {:.2f}ms", totalTickMs / frameCount);
+                spdlog::info("  Sleep: {:.2f}ms", totalSleepMs / frameCount);
+                spdlog::info("  Total iteration: {:.2f}ms", totalIterationMs / frameCount);
+                spdlog::info(
+                    "  Unaccounted: {:.2f}ms",
+                    (totalIterationMs - totalEventProcessMs - totalTickMs - totalSleepMs)
+                        / frameCount);
+            }
+
             // If frameLimit == 0, no sleep (run as fast as possible).
         }
         else {
