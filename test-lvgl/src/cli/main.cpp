@@ -1,5 +1,6 @@
 #include "BenchmarkRunner.h"
 #include "CleanupRunner.h"
+#include "CommandRegistry.h"
 #include "IntegrationTest.h"
 #include "RunAllRunner.h"
 #include "WebSocketClient.h"
@@ -14,59 +15,67 @@
 
 using namespace DirtSim;
 
-// Command registry for help text and validation.
-struct CommandInfo {
+// CLI-specific commands (not server/UI API commands).
+struct CliCommandInfo {
     std::string name;
     std::string description;
-    std::string example_params;
 };
 
-static const std::vector<CommandInfo> AVAILABLE_COMMANDS = {
-    { "benchmark", "Run performance benchmark (launches server)", "" },
-    { "cleanup", "Clean up rogue sparkle-duck processes", "" },
-    { "integration_test", "Run integration test (launches server + UI)", "" },
-    { "run-all", "Launch server + UI and monitor (exits when UI closes)", "" },
-    { "cell_get", "Get cell state at coordinates", R"({"x": 10, "y": 20})" },
-    { "cell_set",
-      "Place material at coordinates",
-      R"({"x": 50, "y": 50, "material": "WATER", "fill": 1.0})" },
-    { "diagram_get", "Get emoji visualization of world", "" },
-    { "exit", "Shutdown server", "" },
-    { "gravity_set", "Set gravity value", R"({"gravity": 15.0})" },
-    { "perf_stats_get", "Get server performance statistics", "" },
-    { "physics_settings_get", "Get current physics settings", "" },
-    { "physics_settings_set",
-      "Set physics parameters",
-      R"({"settings": {"timescale": 1.5, "gravity": 0.8}})" },
-    { "reset", "Reset simulation to initial state", "" },
-    { "scenario_config_set",
-      "Update scenario configuration",
-      R"({"config": {"type": "sandbox", "quadrant_enabled": true, "water_column_enabled": true, "right_throw_enabled": true, "top_drop_enabled": true, "rain_rate": 0.0}})" },
-    { "sim_run", "Start autonomous simulation", R"({"timestep": 0.016, "max_steps": 100})" },
-    { "state_get", "Get complete world state as JSON", "" },
-    { "timer_stats_get", "Get detailed physics timing breakdown", "" },
+static const std::vector<CliCommandInfo> CLI_COMMANDS = {
+    { "benchmark", "Run performance benchmark (launches server)" },
+    { "cleanup", "Clean up rogue sparkle-duck processes" },
+    { "integration_test", "Run integration test (launches server + UI)" },
+    { "run-all", "Launch server + UI and monitor (exits when UI closes)" },
 };
 
 std::string getCommandListHelp()
 {
-    std::string help = "Available commands:\n";
-    for (const auto& cmd : AVAILABLE_COMMANDS) {
+    std::string help = "Available commands:\n\n";
+
+    // CLI-specific commands.
+    help += "CLI Commands:\n";
+    for (const auto& cmd : CLI_COMMANDS) {
         help += "  " + cmd.name + " - " + cmd.description + "\n";
     }
+
+    // Auto-generated server API commands.
+    help += "\nServer API Commands (ws://localhost:8080):\n";
+    for (const auto& cmdName : Client::SERVER_COMMAND_NAMES) {
+        help += "  " + std::string(cmdName) + "\n";
+    }
+
+    // Auto-generated UI API commands.
+    help += "\nUI API Commands (ws://localhost:7070):\n";
+    for (const auto& cmdName : Client::UI_COMMAND_NAMES) {
+        help += "  " + std::string(cmdName) + "\n";
+    }
+
     return help;
 }
 
 std::string getExamplesHelp()
 {
-    std::string examples = "Examples:\n";
-    for (const auto& cmd : AVAILABLE_COMMANDS) {
-        if (!cmd.example_params.empty()) {
-            examples += "  cli ws://localhost:8080 " + cmd.name + " '" + cmd.example_params + "'\n";
-        }
-        else {
-            examples += "  cli ws://localhost:8080 " + cmd.name + "\n";
-        }
+    std::string examples = "Examples:\n\n";
+
+    // CLI-specific examples.
+    examples += "CLI Commands:\n";
+    for (const auto& cmd : CLI_COMMANDS) {
+        examples += "  cli " + cmd.name + "\n";
     }
+
+    // Server API examples (show a few common ones).
+    examples += "\nServer API Examples:\n";
+    examples += "  cli ws://localhost:8080 state_get\n";
+    examples += "  cli ws://localhost:8080 sim_run '{\"timestep\": 0.016, \"max_steps\": 100}'\n";
+    examples += "  cli ws://localhost:8080 cell_set '{\"x\": 50, \"y\": 50, \"material\": "
+                "\"WATER\", \"fill\": 1.0}'\n";
+    examples += "  cli ws://localhost:8080 diagram_get\n";
+
+    // UI API examples.
+    examples += "\nUI API Examples:\n";
+    examples += "  cli ws://localhost:7070 draw_debug_toggle '{\"enabled\": true}'\n";
+    examples += "  cli ws://localhost:7070 screenshot\n";
+
     return examples;
 }
 
@@ -118,6 +127,11 @@ int main(int argc, char** argv)
         "Benchmark: scenario name (default: benchmark)",
         { "scenario" },
         "benchmark");
+    args::ValueFlag<int> benchWorldSize(
+        parser,
+        "size",
+        "Benchmark: world grid size (default: scenario default)",
+        { "world-size", "size" });
     args::Flag compareCache(
         parser,
         "compare-cache",
@@ -181,6 +195,7 @@ int main(int argc, char** argv)
         // Follow args library pattern: check presence before get.
         int actualSteps = benchSteps ? args::get(benchSteps) : 120;
         std::string actualScenario = benchScenario ? args::get(benchScenario) : "benchmark";
+        int actualWorldSize = benchWorldSize ? args::get(benchWorldSize) : 0;
 
         if (compareCache) {
             // Run twice: with and without cache.
@@ -188,11 +203,16 @@ int main(int argc, char** argv)
 
             spdlog::set_level(spdlog::level::info);
             spdlog::info("Running benchmark WITH cache enabled...");
-            auto results_cached = runner.run(serverPath.string(), actualSteps, actualScenario);
+            auto results_cached =
+                runner.run(serverPath.string(), actualSteps, actualScenario, actualWorldSize);
 
             spdlog::info("Running benchmark WITHOUT cache (--no-grid-cache)...");
             auto results_direct = runner.runWithServerArgs(
-                serverPath.string(), actualSteps, actualScenario, "--no-grid-cache");
+                serverPath.string(),
+                actualSteps,
+                actualScenario,
+                "--no-grid-cache",
+                actualWorldSize);
 
             // Build comparison output.
             nlohmann::json comparison;
@@ -214,7 +234,8 @@ int main(int argc, char** argv)
         else {
             // Single run (default behavior).
             Client::BenchmarkRunner runner;
-            auto results = runner.run(serverPath.string(), actualSteps, actualScenario);
+            auto results =
+                runner.run(serverPath.string(), actualSteps, actualScenario, actualWorldSize);
 
             // Output results as JSON using ReflectSerializer.
             nlohmann::json resultJson = ReflectSerializer::to_json(results);

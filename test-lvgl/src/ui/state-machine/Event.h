@@ -9,6 +9,7 @@
 #include "api/Screenshot.h"
 #include "api/SimPause.h"
 #include "api/SimRun.h"
+#include "api/StatusGet.h"
 #include "core/PhysicsSettings.h"
 #include "core/api/UiUpdateEvent.h"
 #include <concepts>
@@ -130,7 +131,8 @@ using Event = std::variant<
     DirtSim::UiApi::PixelRendererToggle::Cwc,
     DirtSim::UiApi::Screenshot::Cwc,
     DirtSim::UiApi::SimPause::Cwc,
-    DirtSim::UiApi::SimRun::Cwc>;
+    DirtSim::UiApi::SimRun::Cwc,
+    DirtSim::UiApi::StatusGet::Cwc>;
 
 /**
  * @brief Helper to get event name from variant.

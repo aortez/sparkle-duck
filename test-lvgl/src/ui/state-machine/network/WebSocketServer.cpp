@@ -65,6 +65,19 @@ void WebSocketServer::onMessage(std::shared_ptr<rtc::WebSocket> ws, const std::s
 {
     spdlog::info("UI WebSocket received command: {}", message);
 
+    // Extract correlation ID from incoming message.
+    std::optional<uint64_t> correlationId;
+    try {
+        nlohmann::json json = nlohmann::json::parse(message);
+        if (json.contains("id") && json["id"].is_number()) {
+            correlationId = json["id"].get<uint64_t>();
+            spdlog::debug("UI WebSocket: Correlation ID = {}", *correlationId);
+        }
+    }
+    catch (const std::exception& e) {
+        spdlog::warn("UI WebSocket: Failed to extract correlation ID: {}", e.what());
+    }
+
     // Deserialize JSON → Command.
     auto cmdResult = deserializer_.deserialize(message);
     if (cmdResult.isError()) {
@@ -75,81 +88,124 @@ void WebSocketServer::onMessage(std::shared_ptr<rtc::WebSocket> ws, const std::s
         return;
     }
 
-    // Wrap Command in Cwc with response callback.
-    Event cwcEvent = createCwcForCommand(cmdResult.value(), ws);
+    // Wrap Command in Cwc with response callback (includes correlation ID).
+    Event cwcEvent = createCwcForCommand(cmdResult.value(), ws, correlationId);
 
     // Queue to state machine.
     stateMachine_.queueEvent(cwcEvent);
 }
 
 Event WebSocketServer::createCwcForCommand(
-    const UiApiCommand& command, std::shared_ptr<rtc::WebSocket> ws)
+    const UiApiCommand& command,
+    std::shared_ptr<rtc::WebSocket> ws,
+    std::optional<uint64_t> correlationId)
 {
     return std::visit(
-        [this, ws](auto&& cmd) -> Event {
+        [this, ws, correlationId](auto&& cmd) -> Event {
             using CommandType = std::decay_t<decltype(cmd)>;
 
             // Create Cwc for each command type.
             if constexpr (std::is_same_v<CommandType, UiApi::Exit::Command>) {
                 UiApi::Exit::Cwc cwc;
                 cwc.command = cmd;
-                cwc.callback = [this, ws](UiApi::Exit::Response&& response) {
-                    std::string jsonResponse = serializer_.serialize(std::move(response));
-                    ws->send(jsonResponse);
+                cwc.callback = [this, ws, correlationId](UiApi::Exit::Response&& response) {
+                    nlohmann::json json =
+                        nlohmann::json::parse(serializer_.serialize(std::move(response)));
+                    if (correlationId.has_value()) {
+                        json["id"] = correlationId.value();
+                    }
+                    ws->send(json.dump());
                 };
                 return cwc;
             }
             else if constexpr (std::is_same_v<CommandType, UiApi::SimRun::Command>) {
                 UiApi::SimRun::Cwc cwc;
                 cwc.command = cmd;
-                cwc.callback = [this, ws](UiApi::SimRun::Response&& response) {
-                    std::string jsonResponse = serializer_.serialize(std::move(response));
-                    ws->send(jsonResponse);
+                cwc.callback = [this, ws, correlationId](UiApi::SimRun::Response&& response) {
+                    nlohmann::json json =
+                        nlohmann::json::parse(serializer_.serialize(std::move(response)));
+                    if (correlationId.has_value()) {
+                        json["id"] = correlationId.value();
+                    }
+                    ws->send(json.dump());
                 };
                 return cwc;
             }
             else if constexpr (std::is_same_v<CommandType, UiApi::SimPause::Command>) {
                 UiApi::SimPause::Cwc cwc;
                 cwc.command = cmd;
-                cwc.callback = [this, ws](UiApi::SimPause::Response&& response) {
-                    std::string jsonResponse = serializer_.serialize(std::move(response));
-                    ws->send(jsonResponse);
+                cwc.callback = [this, ws, correlationId](UiApi::SimPause::Response&& response) {
+                    nlohmann::json json =
+                        nlohmann::json::parse(serializer_.serialize(std::move(response)));
+                    if (correlationId.has_value()) {
+                        json["id"] = correlationId.value();
+                    }
+                    ws->send(json.dump());
                 };
                 return cwc;
             }
             else if constexpr (std::is_same_v<CommandType, UiApi::Screenshot::Command>) {
                 UiApi::Screenshot::Cwc cwc;
                 cwc.command = cmd;
-                cwc.callback = [this, ws](UiApi::Screenshot::Response&& response) {
-                    std::string jsonResponse = serializer_.serialize(std::move(response));
-                    ws->send(jsonResponse);
+                cwc.callback = [this, ws, correlationId](UiApi::Screenshot::Response&& response) {
+                    nlohmann::json json =
+                        nlohmann::json::parse(serializer_.serialize(std::move(response)));
+                    if (correlationId.has_value()) {
+                        json["id"] = correlationId.value();
+                    }
+                    ws->send(json.dump());
                 };
                 return cwc;
             }
             else if constexpr (std::is_same_v<CommandType, UiApi::MouseDown::Command>) {
                 UiApi::MouseDown::Cwc cwc;
                 cwc.command = cmd;
-                cwc.callback = [this, ws](UiApi::MouseDown::Response&& response) {
-                    std::string jsonResponse = serializer_.serialize(std::move(response));
-                    ws->send(jsonResponse);
+                cwc.callback = [this, ws, correlationId](UiApi::MouseDown::Response&& response) {
+                    nlohmann::json json =
+                        nlohmann::json::parse(serializer_.serialize(std::move(response)));
+                    if (correlationId.has_value()) {
+                        json["id"] = correlationId.value();
+                    }
+                    ws->send(json.dump());
                 };
                 return cwc;
             }
             else if constexpr (std::is_same_v<CommandType, UiApi::MouseMove::Command>) {
                 UiApi::MouseMove::Cwc cwc;
                 cwc.command = cmd;
-                cwc.callback = [this, ws](UiApi::MouseMove::Response&& response) {
-                    std::string jsonResponse = serializer_.serialize(std::move(response));
-                    ws->send(jsonResponse);
+                cwc.callback = [this, ws, correlationId](UiApi::MouseMove::Response&& response) {
+                    nlohmann::json json =
+                        nlohmann::json::parse(serializer_.serialize(std::move(response)));
+                    if (correlationId.has_value()) {
+                        json["id"] = correlationId.value();
+                    }
+                    ws->send(json.dump());
                 };
                 return cwc;
             }
             else if constexpr (std::is_same_v<CommandType, UiApi::MouseUp::Command>) {
                 UiApi::MouseUp::Cwc cwc;
                 cwc.command = cmd;
-                cwc.callback = [this, ws](UiApi::MouseUp::Response&& response) {
-                    std::string jsonResponse = serializer_.serialize(std::move(response));
-                    ws->send(jsonResponse);
+                cwc.callback = [this, ws, correlationId](UiApi::MouseUp::Response&& response) {
+                    nlohmann::json json =
+                        nlohmann::json::parse(serializer_.serialize(std::move(response)));
+                    if (correlationId.has_value()) {
+                        json["id"] = correlationId.value();
+                    }
+                    ws->send(json.dump());
+                };
+                return cwc;
+            }
+            else if constexpr (std::is_same_v<CommandType, UiApi::StatusGet::Command>) {
+                UiApi::StatusGet::Cwc cwc;
+                cwc.command = cmd;
+                cwc.callback = [this, ws, correlationId](UiApi::StatusGet::Response&& response) {
+                    nlohmann::json json =
+                        nlohmann::json::parse(serializer_.serialize(std::move(response)));
+                    if (correlationId.has_value()) {
+                        json["id"] = correlationId.value();
+                    }
+                    ws->send(json.dump());
                 };
                 return cwc;
             }

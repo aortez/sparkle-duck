@@ -59,10 +59,10 @@ make -C build -j12
 ./build/bin/sparkle-duck-ui -W 1200 -H 1200   # Custom window size
 ./build/bin/sparkle-duck-ui -s 100            # Auto-exit after 100 steps
 
-# CLI client for sending commands
-./build/bin/cli ws://localhost:8080 state_get
-./build/bin/cli ws://localhost:8080 sim_run '{"timestep": 0.016, "max_steps": 1}'
-./build/bin/cli ws://localhost:8080 diagram_get
+# CLI client for sending commands (syntax: cli [command] [address] [params])
+./build/bin/cli state_get ws://localhost:8080
+./build/bin/cli sim_run ws://localhost:8080 '{"timestep": 0.016, "max_steps": 1}'
+./build/bin/cli diagram_get ws://localhost:8080
 
 # Run both client and server
 ./build/bin/cli run-all
@@ -163,7 +163,7 @@ coredumpctl gdb <PID> < /tmp/gdb_commands.txt > crash_analysis.txt 2>&1
 
 The project is organized into three component libraries:
 
-- **sparkle-duck-core**: Shared types for serialization (MaterialType, Vector2d/i, Cell, WorldData, ScenarioConfig)
+- **sparkle-duck-core**: Shared types for serialization (MaterialType, Vector2d/i, Cell, WorldData, ScenarioConfig, RenderMessage)
 - **sparkle-duck-server**: Physics engine (World + calculators), server logic, scenarios, server API commands
 - **sparkle-duck-ui**: UI components (controls, rendering, LVGL builders), UI state machine, UI API commands
 
@@ -397,15 +397,14 @@ Awesome Ideas to do soon:
 be active if a tree is around.
 - Add label to tree's view saying which layer it is from.
 - Consider making air into a gaseous type, rather than the current "empty" behavior.
-It could affect how other things move/displace in interesting/subtle ways.
+It could affect how other things move/displace in interesting/subtle ways.  The sim speed might drop some.
 - Audit GridMechanics for correctness/relevance.  It might be getting out of date.
 - Refactor PhysicsControls to normalize/DRY up the patterns? (and prevent bugs/share enhancements)
 - Implement fragmentation on high energy impacts (see WorldCollisionCalculator).
 - Improve some of the scenarios - like the dam break and water equalization ones.
 - Fractal world generator?  Or Start from fractal?
 - mass as a gravity source!  allan.pizza but in a grid!!!
-- quad-tree or similar optimization applied to the grid?
-- Cohesion seems to reach from C N N+1 and not just from C to N - cells get stuck in space sometimes because of this, what's going on?
+- quad-tree or quantization or other spatial optimization applied to the grid?
 - cli send/receive any command/response automatically.
 - Review CLI and CAUDE README/md files for accuracy and gross omitition  Test things
 to see if they work.
@@ -413,12 +412,14 @@ to see if they work.
 - bit grid cache for has_support instead of storing it in each cell.
 - debug and release builds in different directories, then performance testing with release builds.
 - Add light tracing! (from top down)
-- Consider a single int64 bitmap cache, directly inside each cell.
+- Per-cell neighborhood cache: 64-bit bitmap in each Cell for instant neighbor queries (see design_docs/optimization-ideas.md Section 10).
 
 ### Client/Server Architecture (DSSM + UI Client)
 - ✅ Headless server with WebSocket API
 - ✅ UI client with controls and rendering
+- ✅ Optimized RenderMessage format (BASIC: 2 bytes/cell, DEBUG: 16 bytes/cell)
 - ✅ Binary serialization (zpp_bits)
+- ✅ Per-client format selection with render_format_set API
 
 See design_docs/plant.md and design_docs/ai-integration-ideas.md for details.
 

@@ -55,9 +55,13 @@ private:
      * @brief Wrap UiApiCommand in appropriate Cwc with response callback.
      * @param command The command to wrap.
      * @param ws The WebSocket connection for sending response.
+     * @param correlationId Optional correlation ID to include in response.
      * @return Event variant containing the Cwc.
      */
-    Event createCwcForCommand(const UiApiCommand& command, std::shared_ptr<rtc::WebSocket> ws);
+    Event createCwcForCommand(
+        const UiApiCommand& command,
+        std::shared_ptr<rtc::WebSocket> ws,
+        std::optional<uint64_t> correlationId);
 };
 
 } // namespace Ui

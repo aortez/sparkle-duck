@@ -282,6 +282,7 @@ add_library(sparkle-duck-ui-lib STATIC
     src/ui/state-machine/api/Screenshot.cpp
     src/ui/state-machine/api/SimPause.cpp
     src/ui/state-machine/api/SimRun.cpp
+    src/ui/state-machine/api/StatusGet.cpp
 
     # UI network.
     src/ui/state-machine/network/CommandDeserializerJson.cpp

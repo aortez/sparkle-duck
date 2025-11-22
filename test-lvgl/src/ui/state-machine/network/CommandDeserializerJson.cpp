@@ -7,6 +7,7 @@
 #include "ui/state-machine/api/Screenshot.h"
 #include "ui/state-machine/api/SimPause.h"
 #include "ui/state-machine/api/SimRun.h"
+#include "ui/state-machine/api/StatusGet.h"
 #include <cctype>
 #include <spdlog/spdlog.h>
 
@@ -84,6 +85,9 @@ Result<UiApiCommand, ApiError> CommandDeserializerJson::deserialize(const std::s
         }
         else if (commandName == "sim_run") {
             return Result<UiApiCommand, ApiError>::okay(UiApi::SimRun::Command::fromJson(cmd));
+        }
+        else if (commandName == "status_get") {
+            return Result<UiApiCommand, ApiError>::okay(UiApi::StatusGet::Command::fromJson(cmd));
         }
         else {
             return Result<UiApiCommand, ApiError>::error(
