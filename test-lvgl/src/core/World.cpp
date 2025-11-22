@@ -498,24 +498,42 @@ void World::resolveForces(double deltaTime)
     ScopeTimer timer(timers_, "resolve_forces");
 
     // Clear pending forces at the start of each physics frame.
-    for (auto& cell : data.cells) {
-        cell.clearPendingForce();
+    {
+        ScopeTimer clearTimer(timers_, "resolve_forces_clear_pending");
+        for (auto& cell : data.cells) {
+            cell.clearPendingForce();
+        }
     }
 
     // Apply gravity forces.
-    applyGravity();
+    {
+        ScopeTimer gravityTimer(timers_, "resolve_forces_apply_gravity");
+        applyGravity();
+    }
 
     // Apply air resistance forces.
-    applyAirResistance();
+    {
+        ScopeTimer airResistanceTimer(timers_, "resolve_forces_apply_air_resistance");
+        applyAirResistance();
+    }
 
     // Apply pressure forces from previous frame.
-    applyPressureForces();
+    {
+        ScopeTimer pressureTimer(timers_, "resolve_forces_apply_pressure");
+        applyPressureForces();
+    }
 
     // Apply cohesion and adhesion forces.
-    applyCohesionForces();
+    {
+        ScopeTimer cohesionTimer(timers_, "resolve_forces_apply_cohesion");
+        applyCohesionForces();
+    }
 
     // Apply contact-based friction forces.
-    friction_calculator_.calculateAndApplyFrictionForces(*this, deltaTime);
+    {
+        ScopeTimer frictionTimer(timers_, "resolve_forces_apply_friction");
+        friction_calculator_.calculateAndApplyFrictionForces(*this, deltaTime);
+    }
 
     // Apply viscous forces (momentum diffusion between same-material neighbors).
     if (physicsSettings.viscosity_strength > 0.0) {
@@ -539,55 +557,64 @@ void World::resolveForces(double deltaTime)
     }
 
     // Now resolve all accumulated forces directly (no damping).
-    for (uint32_t y = 0; y < data.height; ++y) {
-        for (uint32_t x = 0; x < data.width; ++x) {
-            Cell& cell = at(x, y);
+    {
+        ScopeTimer resolutionLoopTimer(timers_, "resolve_forces_resolution_loop");
+        for (uint32_t y = 0; y < data.height; ++y) {
+            for (uint32_t x = 0; x < data.width; ++x) {
+                Cell& cell = at(x, y);
 
-            if (cell.isEmpty() || cell.isWall()) {
-                continue;
-            }
+                if (cell.isEmpty() || cell.isWall()) {
+                    continue;
+                }
 
-            // Get the total pending force (includes gravity, pressure, cohesion, adhesion,
-            // friction, viscosity).
-            Vector2d net_force = cell.pending_force;
+                // Get the total pending force (includes gravity, pressure, cohesion, adhesion,
+                // friction, viscosity).
+                Vector2d net_force = cell.pending_force;
 
-            // Check cohesion resistance threshold.
-            double net_force_magnitude = net_force.magnitude();
-            double cohesion_strength =
-                collision_calculator_.calculateCohesionStrength(cell, *this, x, y);
-            double cohesion_resistance_force = cohesion_strength * 0.0;
+                // Check cohesion resistance threshold.
+                double net_force_magnitude = net_force.magnitude();
+                double cohesion_strength;
+                {
+                    ScopeTimer cohesionStrengthTimer(
+                        timers_, "resolve_forces_cohesion_strength_calc");
+                    cohesion_strength =
+                        collision_calculator_.calculateCohesionStrength(cell, *this, x, y);
+                }
+                double cohesion_resistance_force = cohesion_strength * 0.0;
 
-            if (cohesion_resistance_force > 0.01
-                && net_force_magnitude < cohesion_resistance_force) {
-                spdlog::debug(
-                    "Force blocked: {} at ({},{}) held by cohesion (force: {:.3f} < resistance: "
-                    "{:.3f})",
-                    getMaterialName(cell.material_type),
-                    x,
-                    y,
-                    net_force_magnitude,
-                    cohesion_resistance_force);
-                continue;
-            }
+                if (cohesion_resistance_force > 0.01
+                    && net_force_magnitude < cohesion_resistance_force) {
+                    spdlog::debug(
+                        "Force blocked: {} at ({},{}) held by cohesion (force: {:.3f} < "
+                        "resistance: "
+                        "{:.3f})",
+                        getMaterialName(cell.material_type),
+                        x,
+                        y,
+                        net_force_magnitude,
+                        cohesion_resistance_force);
+                    continue;
+                }
 
-            // Apply forces directly to velocity (no damping factor!).
-            Vector2d velocity_change = net_force * deltaTime;
-            cell.velocity += velocity_change;
+                // Apply forces directly to velocity (no damping factor!).
+                Vector2d velocity_change = net_force * deltaTime;
+                cell.velocity += velocity_change;
 
-            // Debug logging.
-            if (net_force.magnitude() > 0.001) {
-                spdlog::debug(
-                    "Cell ({},{}) {} - Force: ({:.3f},{:.3f}), vel_change: ({:.3f},{:.3f}), "
-                    "new_vel: ({:.3f},{:.3f})",
-                    x,
-                    y,
-                    getMaterialName(cell.material_type),
-                    net_force.x,
-                    net_force.y,
-                    velocity_change.x,
-                    velocity_change.y,
-                    cell.velocity.x,
-                    cell.velocity.y);
+                // Debug logging.
+                if (net_force.magnitude() > 0.001) {
+                    spdlog::debug(
+                        "Cell ({},{}) {} - Force: ({:.3f},{:.3f}), vel_change: ({:.3f},{:.3f}), "
+                        "new_vel: ({:.3f},{:.3f})",
+                        x,
+                        y,
+                        getMaterialName(cell.material_type),
+                        net_force.x,
+                        net_force.y,
+                        velocity_change.x,
+                        velocity_change.y,
+                        cell.velocity.x,
+                        cell.velocity.y);
+                }
             }
         }
     }
