@@ -373,8 +373,8 @@ void World::applyCohesionForces()
 
                 Vector2d com_cohesion_force(0.0, 0.0);
                 if (com_cohesion.force_active) {
-                    com_cohesion_force = com_cohesion.force_direction
-                        * com_cohesion.force_magnitude * physicsSettings.cohesion_strength;
+                    com_cohesion_force = com_cohesion.force_direction * com_cohesion.force_magnitude
+                        * physicsSettings.cohesion_strength;
 
                     if (cell.velocity.magnitude() > 0.01) {
                         double alignment = cell.velocity.dot(com_cohesion_force.normalize());
@@ -542,7 +542,8 @@ void World::resolveForces(double deltaTime, const GridOfCells* grid)
                 }
 
                 // Calculate viscous force from neighbor velocity averaging.
-                auto viscous_result = viscosity_calculator_.calculateViscousForce(*this, x, y, grid);
+                auto viscous_result =
+                    viscosity_calculator_.calculateViscousForce(*this, x, y, grid);
                 cell.addPendingForce(viscous_result.force);
 
                 // Store for visualization.
@@ -575,7 +576,8 @@ void World::resolveForces(double deltaTime, const GridOfCells* grid)
                     cohesion_strength =
                         collision_calculator_.calculateCohesionStrength(cell, *this, x, y);
                 }
-                double cohesion_resistance_force = cohesion_strength * 0.0;
+                double cohesion_resistance_force =
+                    cohesion_strength * physicsSettings.cohesion_resistance_factor;
 
                 if (cohesion_resistance_force > 0.01
                     && net_force_magnitude < cohesion_resistance_force) {

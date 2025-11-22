@@ -331,6 +331,7 @@ void WorldSupportCalculator::computeSupportMapBottomUp(World& world) const
                 if (!empty_n.centerHasMaterial()) {
                     support.clear(x, y);
                     world.at(x, y).has_vertical_support = false;
+                    world.at(x, y).has_any_support = false;
                     continue;
                 }
 
@@ -339,12 +340,14 @@ void WorldSupportCalculator::computeSupportMapBottomUp(World& world) const
                 if (mat_n.getCenterMaterial() == MaterialType::WALL) {
                     support.set(x, y);
                     world.at(x, y).has_vertical_support = true;
+                    world.at(x, y).has_any_support = true;
                     continue;
                 }
 
                 if (y == static_cast<int>(world.data.height) - 1) {
                     support.set(x, y);
                     world.at(x, y).has_vertical_support = true;
+                    world.at(x, y).has_any_support = true;
                     continue;
                 }
 
@@ -357,6 +360,7 @@ void WorldSupportCalculator::computeSupportMapBottomUp(World& world) const
 
                 // Set support fields - both bitmap and cell fields.
                 world.at(x, y).has_vertical_support = has_vertical;
+                world.at(x, y).has_any_support = has_vertical || has_horizontal;
                 if (has_vertical || has_horizontal) {
                     support.set(x, y);
                 }

@@ -336,13 +336,16 @@ Vector2d Cell::calculateTrajectoryLanding(
     Vector2d target_com = boundary_crossing_point;
 
     // Wrap coordinates across boundary.
+    // Use 0.99 instead of 1.0 to avoid immediate re-crossing on next frame.
+    constexpr double BOUNDARY_EPSILON = 0.99;
     if (std::abs(boundary_normal.x) > 0.5) {
         // Material crossed left/right - wrap X coordinate.
-        target_com.x = (boundary_normal.x > 0) ? -1.0 : 1.0;
+        target_com.x = (boundary_normal.x > 0) ? -BOUNDARY_EPSILON : BOUNDARY_EPSILON;
     }
     if (std::abs(boundary_normal.y) > 0.5) {
         // Material crossed top/bottom - wrap Y coordinate.
-        target_com.y = (boundary_normal.y > 0) ? -1.0 : 1.0;
+        // DOWN (y > 0): appear at top edge (-0.99), UP (y < 0): appear at bottom edge (0.99).
+        target_com.y = (boundary_normal.y > 0) ? -BOUNDARY_EPSILON : BOUNDARY_EPSILON;
     }
 
     // Clamp to valid COM bounds.

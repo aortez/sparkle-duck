@@ -24,7 +24,7 @@ struct Cell {
     static constexpr double MIN_FILL_THRESHOLD = 0.001; // Minimum matter to consider
     static constexpr double MAX_FILL_THRESHOLD = 0.999; // Maximum fill before "full"
 
-    // COM bounds (matches original World system).
+    // COM bounds.
     static constexpr double COM_MIN = -1.0;
     static constexpr double COM_MAX = 1.0;
 
@@ -171,15 +171,6 @@ struct Cell {
     Vector2d getTransferDirection() const;
 
     // =================================================================
-
-    // =================================================================
-    // DEBUGGING
-    // =================================================================
-
-    // Debug string representation
-    std::string toString() const;
-
-    // =================================================================
     // CELLINTERFACE IMPLEMENTATION
     // =================================================================
 
@@ -200,6 +191,9 @@ struct Cell {
     // =================================================================
     // JSON SERIALIZATION
     // =================================================================
+
+    // Debug string representation
+    std::string toString() const;
 
     nlohmann::json toJson() const;
     static Cell fromJson(const nlohmann::json& json);

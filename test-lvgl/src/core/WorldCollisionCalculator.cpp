@@ -922,30 +922,42 @@ bool WorldCollisionCalculator::shouldSwapMaterials(
 
     if (toCell.material_type == MaterialType::AIR) {
         LoggingChannels::swap()->debug(
-            "Swap approved: {} -> {} | Energy: {:.3f} >= {:.3f} (base: {:.3f}, bonds: {:.3f}) | "
-            "Dir: "
-            "{}",
+            "Swap approved: {} -> {} at ({},{}) -> ({},{}) | Energy: {:.3f} >= {:.3f} (base: "
+            "{:.3f}, bonds: {:.3f}) | Dir: ({},{}) {}",
             getMaterialName(fromCell.material_type),
             getMaterialName(toCell.material_type),
+            fromX,
+            fromY,
+            fromX + direction.x,
+            fromY + direction.y,
             available_energy,
             total_cost,
             swap_cost,
             bond_breaking_cost,
-            direction.y > 0 ? "DOWN" : "UP");
+            direction.x,
+            direction.y,
+            direction.y > 0 ? "DOWN"
+                            : (direction.y < 0 ? "UP" : (direction.x > 0 ? "RIGHT" : "LEFT")));
     }
     else {
 
         LoggingChannels::swap()->info(
-            "Swap approved: {} -> {} | Energy: {:.3f} >= {:.3f} (base: {:.3f}, bonds: {:.3f}) | "
-            "Dir: "
-            "{}",
+            "Swap approved: {} -> {} at ({},{}) -> ({},{}) | Energy: {:.3f} >= {:.3f} (base: "
+            "{:.3f}, bonds: {:.3f}) | Dir: ({},{}) {}",
             getMaterialName(fromCell.material_type),
             getMaterialName(toCell.material_type),
+            fromX,
+            fromY,
+            fromX + direction.x,
+            fromY + direction.y,
             available_energy,
             total_cost,
             swap_cost,
             bond_breaking_cost,
-            direction.y > 0 ? "DOWN" : "UP");
+            direction.x,
+            direction.y,
+            direction.y > 0 ? "DOWN"
+                            : (direction.y < 0 ? "UP" : (direction.x > 0 ? "RIGHT" : "LEFT")));
     }
 
     return true;
@@ -1015,27 +1027,45 @@ void WorldCollisionCalculator::swapCounterMovingMaterials(
 
     if (involves_air) {
         LoggingChannels::swap()->debug(
-            "SWAP: {} <-> {} ({}) | Energy: {:.3f} - {:.3f} = {:.3f} | Vel: {:.3f} -> {:.3f}",
+            "SWAP: {} <-> {} at ({},{}) <-> ({},{}) Dir:({},{}) {} | Energy: {:.3f} - {:.3f} = "
+            "{:.3f} | Vel: {:.3f} -> {:.3f} | landing_com: ({:.2f},{:.2f})",
             getMaterialName(from_type),
             getMaterialName(to_type),
+            move.fromX,
+            move.fromY,
+            move.toX,
+            move.toY,
+            direction.x,
+            direction.y,
             direction_str,
             move.collision_energy,
             swap_cost,
             remaining_energy,
             move.momentum.magnitude(),
-            velocity_magnitude_new);
+            velocity_magnitude_new,
+            landing_com.x,
+            landing_com.y);
     }
     else {
         LoggingChannels::swap()->info(
-            "SWAP: {} <-> {} ({}) | Energy: {:.3f} - {:.3f} = {:.3f} | Vel: {:.3f} -> {:.3f}",
+            "SWAP: {} <-> {} at ({},{}) <-> ({},{}) Dir:({},{}) {} | Energy: {:.3f} - {:.3f} = "
+            "{:.3f} | Vel: {:.3f} -> {:.3f} | landing_com: ({:.2f},{:.2f})",
             getMaterialName(from_type),
             getMaterialName(to_type),
+            move.fromX,
+            move.fromY,
+            move.toX,
+            move.toY,
+            direction.x,
+            direction.y,
             direction_str,
             move.collision_energy,
             swap_cost,
             remaining_energy,
             move.momentum.magnitude(),
-            velocity_magnitude_new);
+            velocity_magnitude_new,
+            landing_com.x,
+            landing_com.y);
     }
 }
 

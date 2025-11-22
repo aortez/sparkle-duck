@@ -252,7 +252,27 @@ std::vector<PhysicsControls::ColumnConfig> PhysicsControls::createColumnConfigs(
                                   if (!e) s.friction_strength = 0.0;
                               },
                           .enableGetter =
-                              [](const PhysicsSettings& s) { return s.friction_enabled; } } } },
+                              [](const PhysicsSettings& s) { return s.friction_enabled; } },
+                        { .label = "Cohesion Resist",
+                          .type = ControlType::TOGGLE_SLIDER,
+                          .rangeMin = 0,
+                          .rangeMax = 100,
+                          .defaultValue = 0,
+                          .valueScale = 1.0,
+                          .valueFormat = "%.0f",
+                          .initiallyEnabled = false,
+                          .valueSetter = [](PhysicsSettings& s,
+                                            double v) { s.cohesion_resistance_factor = v; },
+                          .valueGetter =
+                              [](const PhysicsSettings& s) { return s.cohesion_resistance_factor; },
+                          .enableSetter =
+                              [](PhysicsSettings& s, bool e) {
+                                  if (!e) s.cohesion_resistance_factor = 0.0;
+                              },
+                          .enableGetter =
+                              [](const PhysicsSettings& s) {
+                                  return s.cohesion_resistance_factor > 0.0;
+                              } } } },
         // Column 4: Swap Tuning.
         { .title = "Swap Tuning",
           .controls = { { .label = "Buoyancy Energy",
@@ -279,8 +299,10 @@ std::vector<PhysicsControls::ColumnConfig> PhysicsControls::createColumnConfigs(
                           .valueScale = 0.01,
                           .valueFormat = "%.0f",
                           .initiallyEnabled = true,
-                          .valueSetter = [](PhysicsSettings& s,
-                                            double v) { s.cohesion_resistance_factor = v; },
+                          .valueSetter =
+                              [](PhysicsSettings& s, double v) {
+                                  s.cohesion_resistance_factor = v;
+                              },
                           .valueGetter =
                               [](const PhysicsSettings& s) { return s.cohesion_resistance_factor; },
                           .enableSetter = []([[maybe_unused]] PhysicsSettings& s,
