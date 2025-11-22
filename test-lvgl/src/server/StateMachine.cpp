@@ -107,7 +107,7 @@ void StateMachine::mainLoopRun()
             totalIterationMs += iterationMs;
 
             frameCount++;
-            if (frameCount % 1000 == 0) {
+            if (frameCount % 500 == 0) {
                 spdlog::info("Main loop timing (avg over {} frames):", frameCount);
                 spdlog::info("  Event processing: {:.2f}ms", totalEventProcessMs / frameCount);
                 spdlog::info("  Simulation tick: {:.2f}ms", totalTickMs / frameCount);

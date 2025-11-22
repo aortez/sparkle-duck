@@ -314,26 +314,41 @@ void CellRenderer::renderWorldData(
                     continue;
                 }
 
-                // Determine cell color
-                uint32_t cellColor = 0xFF000000; // ARGB black
+                // Prepare border color and interior color.
+                uint32_t borderColor = 0xFF000000;   // ARGB black with full alpha.
+                uint32_t interiorColor = 0xFF000000; // ARGB black with full alpha.
 
                 if (!cell.isEmpty() && cell.material_type != MaterialType::AIR) {
                     lv_color_t matColor = getMaterialColor(cell.material_type);
-                    uint8_t alpha = static_cast<uint8_t>(cell.fill_ratio * 255.0 * 0.7);
+                    // Border opacity varies by debug mode.
+                    // Debug mode: full opacity (pronounced border).
+                    // Normal mode: 0.85 opacity (subtle/faint border).
+                    double borderOpacityFactor = debugDraw ? 1.0 : 0.85;
+                    uint8_t borderAlpha =
+                        static_cast<uint8_t>(cell.fill_ratio * 255.0 * borderOpacityFactor);
+                    // Interior always at 0.7 opacity (darker).
+                    uint8_t interiorAlpha = static_cast<uint8_t>(cell.fill_ratio * 255.0 * 0.7);
 
-                    // Convert to ARGB32
-                    cellColor = (alpha << 24) | (matColor.red << 16) | (matColor.green << 8)
+                    borderColor = (borderAlpha << 24) | (matColor.red << 16) | (matColor.green << 8)
                         | matColor.blue;
+                    interiorColor = (interiorAlpha << 24) | (matColor.red << 16)
+                        | (matColor.green << 8) | matColor.blue;
                 }
 
-                // Extract alpha for blending
-                uint8_t alpha = (cellColor >> 24) & 0xFF;
-
-                // Fill cell rectangle with alpha blending
+                // Fill cell rectangle with border and interior.
                 for (uint32_t py = 0; py < scaledCellHeight_; py++) {
                     uint32_t rowStart = (cellY + py) * canvasWidth_ + cellX;
                     for (uint32_t px = 0; px < scaledCellWidth_; px++) {
                         uint32_t pixelIdx = rowStart + px;
+
+                        // Determine if this pixel is on the border.
+                        bool isBorder =
+                            (px == 0 || px == scaledCellWidth_ - 1 || py == 0
+                             || py == scaledCellHeight_ - 1);
+
+                        // Select color based on position (border vs interior).
+                        uint32_t pixelColor = isBorder ? borderColor : interiorColor;
+                        uint8_t alpha = (pixelColor >> 24) & 0xFF;
 
                         // Alpha blending: blend source with destination
                         if (alpha == 0) {
@@ -342,7 +357,7 @@ void CellRenderer::renderWorldData(
                         }
                         else if (alpha == 255) {
                             // Fully opaque - direct write (optimization)
-                            pixels[pixelIdx] = cellColor;
+                            pixels[pixelIdx] = pixelColor;
                         }
                         else {
                             // Partial transparency - blend
@@ -350,9 +365,9 @@ void CellRenderer::renderWorldData(
                             uint8_t invAlpha = 255 - alpha;
 
                             // Extract source channels
-                            uint8_t srcR = (cellColor >> 16) & 0xFF;
-                            uint8_t srcG = (cellColor >> 8) & 0xFF;
-                            uint8_t srcB = cellColor & 0xFF;
+                            uint8_t srcR = (pixelColor >> 16) & 0xFF;
+                            uint8_t srcG = (pixelColor >> 8) & 0xFF;
+                            uint8_t srcB = pixelColor & 0xFF;
 
                             // Extract destination channels
                             uint8_t dstR = (dstColor >> 16) & 0xFF;
@@ -367,6 +382,24 @@ void CellRenderer::renderWorldData(
                             // Write blended pixel (with full alpha)
                             pixels[pixelIdx] = 0xFF000000 | (r << 16) | (g << 8) | b;
                         }
+                    }
+                }
+
+                // Debug draw: COM indicator (single pixel)
+                if (debugDraw && !cell.isEmpty() && cell.material_type != MaterialType::AIR) {
+                    // Calculate COM position in pixel coordinates.
+                    // COM ranges from [-1, 1] where -1 is top/left and +1 is bottom/right.
+                    int com_pixel_x =
+                        cellX + static_cast<int>((cell.com.x + 1.0) * (scaledCellWidth_ - 1) / 2.0);
+                    int com_pixel_y = cellY
+                        + static_cast<int>((cell.com.y + 1.0) * (scaledCellHeight_ - 1) / 2.0);
+
+                    // Bounds check.
+                    if (com_pixel_x >= 0 && com_pixel_x < static_cast<int>(canvasWidth_)
+                        && com_pixel_y >= 0 && com_pixel_y < static_cast<int>(canvasHeight_)) {
+                        uint32_t comPixelIdx = com_pixel_y * canvasWidth_ + com_pixel_x;
+                        // Yellow pixel for COM (same as LVGL debug draw).
+                        pixels[comPixelIdx] = 0xFFFFFF00; // ARGB: full alpha, yellow.
                     }
                 }
             }

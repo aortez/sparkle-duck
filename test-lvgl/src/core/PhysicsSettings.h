@@ -16,8 +16,8 @@ struct PhysicsSettings {
     bool adhesion_enabled = true;
     double air_resistance = 0.1;
     double buoyancy_energy_scale = 5.0;
-    double cohesion_resistance_factor = 20.0;
-    double cohesion_strength = 5.0;
+    double cohesion_resistance_factor = 5.0;
+    double cohesion_strength = 10.0;
     bool cohesion_enabled = true;
     double elasticity = 0.8;
     double fluid_lubrication_factor = 0.5;

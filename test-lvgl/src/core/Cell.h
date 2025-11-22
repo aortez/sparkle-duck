@@ -60,7 +60,7 @@ struct Cell {
     // Cached physics values for visualization.
     double cached_friction_coefficient = 1.0;
 
-    // Computed structural support (updated via bottom-up scan each frame).
+    // Computed structural support (updated each frame).
     bool has_any_support = false;
     bool has_vertical_support = false;
 

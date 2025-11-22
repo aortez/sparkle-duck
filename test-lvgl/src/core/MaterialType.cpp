@@ -33,10 +33,10 @@ static std::array<MaterialProperties, 10> MATERIAL_PROPERTIES = {
       // ========== DIRT ==========
       { .density = 1.5,
         .elasticity = 0.2,
-        .cohesion = 0.9,
+        .cohesion = 0.5,
         .adhesion = 0.2,
-        .air_resistance = 0.3,
-        .hydrostatic_weight = 0.5,
+        .air_resistance = 0.1,
+        .hydrostatic_weight = 0.3,
         .dynamic_weight = 1.0,
         .pressure_diffusion = 0.3,
         .viscosity = 0.5,

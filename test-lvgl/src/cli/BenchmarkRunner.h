@@ -47,13 +47,17 @@ public:
     ~BenchmarkRunner();
 
     BenchmarkResults run(
-        const std::string& serverPath, uint32_t steps, const std::string& scenario = "benchmark");
+        const std::string& serverPath,
+        uint32_t steps,
+        const std::string& scenario = "benchmark",
+        int worldSize = 0);
 
     BenchmarkResults runWithServerArgs(
         const std::string& serverPath,
         uint32_t steps,
         const std::string& scenario,
-        const std::string& serverArgs);
+        const std::string& serverArgs,
+        int worldSize = 0);
 
 private:
     SubprocessManager subprocessManager_;

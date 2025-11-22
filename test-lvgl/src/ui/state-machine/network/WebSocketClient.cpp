@@ -60,17 +60,17 @@ bool WebSocketClient::connect(const std::string& url)
             else if (std::holds_alternative<rtc::binary>(data)) {
                 // zpp_bits binary message - unpack RenderMessage.
                 const auto& binaryData = std::get<rtc::binary>(data);
-                spdlog::info(
+                spdlog::debug(
                     "UI WebSocketClient: Received binary message ({} bytes)", binaryData.size());
 
                 try {
                     // Unpack binary to RenderMessage using zpp_bits.
                     auto deserializeStart = std::chrono::steady_clock::now();
                     RenderMessage renderMsg;
-                    spdlog::info("UI WebSocketClient: Deserializing RenderMessage...");
+                    spdlog::debug("UI WebSocketClient: Deserializing RenderMessage...");
                     zpp::bits::in in(binaryData);
                     in(renderMsg).or_throw();
-                    spdlog::info(
+                    spdlog::debug(
                         "UI WebSocketClient: Deserialized format={}, width={}, height={}",
                         static_cast<int>(renderMsg.format),
                         renderMsg.width,
@@ -139,7 +139,7 @@ bool WebSocketClient::connect(const std::string& url)
                     deserializeCount++;
                     totalDeserializeMs += deserializeMs;
                     if (deserializeCount % 10000 == 0) {
-                        spdlog::info(
+                        spdlog::debug(
                             "UI WebSocketClient: RenderMessage deserialization avg {:.1f}ms over "
                             "{} "
                             "frames (latest: {}ms, {} cells, format: {})",

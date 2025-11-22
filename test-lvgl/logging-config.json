@@ -14,7 +14,7 @@
     },
     "file": {
       "enabled": true,
-      "level": "debug",
+      "level": "info",
       "path": "sparkle-duck.log",
       "truncate": true,
       "max_size_mb": 100,
@@ -22,7 +22,7 @@
     },
     "specialized": {
       "swap_debug": {
-        "enabled": true,
+        "enabled": false,
         "channel_filter": ["swap"],
         "path": "swap-debug.log",
         "level": "debug"
@@ -46,7 +46,7 @@
     "scenario": "info",
     "state": "debug",
     "support": "info",
-    "swap": "debug",
+    "swap": "warn",
     "ui": "info",
     "viscosity": "info"
   },
