@@ -24,7 +24,7 @@ struct SimRunning {
 
     // UI-local draw mode toggles.
     bool debugDrawEnabled = false;
-    bool pixelRendererEnabled = false;
+    bool pixelRendererEnabled = true;
 
     // UI FPS tracking.
     std::chrono::steady_clock::time_point lastFrameTime;
