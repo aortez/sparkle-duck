@@ -1,7 +1,9 @@
 #include "Tree.h"
 #include "TreeCommandProcessor.h"
+#include "core/Cell.h"
 #include "core/MaterialType.h"
 #include "core/World.h"
+#include "core/WorldData.h"
 #include <algorithm>
 #include <spdlog/spdlog.h>
 
@@ -96,8 +98,8 @@ TreeSensoryData Tree::gatherSensoryData(const World& world) const
     int max_x = INT32_MIN, max_y = INT32_MIN;
     int cell_count = 0;
 
-    for (uint32_t y = 0; y < world.data.height; y++) {
-        for (uint32_t x = 0; x < world.data.width; x++) {
+    for (uint32_t y = 0; y < world.getData().height; y++) {
+        for (uint32_t x = 0; x < world.getData().width; x++) {
             if (world.at(x, y).organism_id == id) {
                 min_x = std::min(min_x, static_cast<int>(x));
                 min_y = std::min(min_y, static_cast<int>(y));
@@ -134,10 +136,13 @@ TreeSensoryData Tree::gatherSensoryData(const World& world) const
 
         // Clamp to world bounds.
         offset_x = std::max(
-            0, std::min(static_cast<int>(world.data.width) - TreeSensoryData::GRID_SIZE, offset_x));
+            0,
+            std::min(
+                static_cast<int>(world.getData().width) - TreeSensoryData::GRID_SIZE, offset_x));
         offset_y = std::max(
             0,
-            std::min(static_cast<int>(world.data.height) - TreeSensoryData::GRID_SIZE, offset_y));
+            std::min(
+                static_cast<int>(world.getData().height) - TreeSensoryData::GRID_SIZE, offset_y));
 
         data.world_offset = Vector2i{ offset_x, offset_y };
     }
@@ -146,8 +151,8 @@ TreeSensoryData Tree::gatherSensoryData(const World& world) const
         // Add 1-cell padding.
         min_x = std::max(0, min_x - 1);
         min_y = std::max(0, min_y - 1);
-        max_x = std::min(static_cast<int>(world.data.width) - 1, max_x + 1);
-        max_y = std::min(static_cast<int>(world.data.height) - 1, max_y + 1);
+        max_x = std::min(static_cast<int>(world.getData().width) - 1, max_x + 1);
+        max_y = std::min(static_cast<int>(world.getData().height) - 1, max_y + 1);
 
         data.actual_width = max_x - min_x + 1;
         data.actual_height = max_y - min_y + 1;
@@ -167,10 +172,11 @@ TreeSensoryData Tree::gatherSensoryData(const World& world) const
             int wy_end = data.world_offset.y + static_cast<int>((ny + 1) * data.scale_factor);
 
             // Clamp to world bounds.
-            wx_start = std::max(0, std::min(static_cast<int>(world.data.width) - 1, wx_start));
-            wy_start = std::max(0, std::min(static_cast<int>(world.data.height) - 1, wy_start));
-            wx_end = std::max(0, std::min(static_cast<int>(world.data.width), wx_end));
-            wy_end = std::max(0, std::min(static_cast<int>(world.data.height), wy_end));
+            wx_start = std::max(0, std::min(static_cast<int>(world.getData().width) - 1, wx_start));
+            wy_start =
+                std::max(0, std::min(static_cast<int>(world.getData().height) - 1, wy_start));
+            wx_end = std::max(0, std::min(static_cast<int>(world.getData().width), wx_end));
+            wy_end = std::max(0, std::min(static_cast<int>(world.getData().height), wy_end));
 
             // Count materials in this region.
             std::array<int, TreeSensoryData::NUM_MATERIALS> counts = {};

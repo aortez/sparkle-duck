@@ -15,6 +15,38 @@
 
 using namespace DirtSim;
 
+// Helper function to sort timer_stats by total_ms in descending order.
+// Returns an array of objects (to preserve sort order) instead of a JSON object.
+nlohmann::json sortTimerStats(const nlohmann::json& timer_stats)
+{
+    if (timer_stats.empty()) {
+        return nlohmann::json::array();
+    }
+
+    // Convert to vector of pairs for sorting.
+    std::vector<std::pair<std::string, nlohmann::json>> timer_pairs;
+    for (auto it = timer_stats.begin(); it != timer_stats.end(); ++it) {
+        timer_pairs.push_back({ it.key(), it.value() });
+    }
+
+    // Sort by total_ms descending.
+    std::sort(timer_pairs.begin(), timer_pairs.end(), [](const auto& a, const auto& b) {
+        double a_total = a.second.value("total_ms", 0.0);
+        double b_total = b.second.value("total_ms", 0.0);
+        return a_total > b_total;
+    });
+
+    // Build as array of objects with "name" field to preserve order.
+    nlohmann::json sorted_timers = nlohmann::json::array();
+    for (const auto& pair : timer_pairs) {
+        nlohmann::json entry = pair.second;
+        entry["name"] = pair.first;
+        sorted_timers.push_back(entry);
+    }
+
+    return sorted_timers;
+}
+
 // CLI-specific commands (not server/UI API commands).
 struct CliCommandInfo {
     std::string name;
@@ -218,8 +250,20 @@ int main(int argc, char** argv)
             nlohmann::json comparison;
             comparison["scenario"] = actualScenario;
             comparison["steps"] = actualSteps;
-            comparison["with_cache"] = ReflectSerializer::to_json(results_cached);
-            comparison["without_cache"] = ReflectSerializer::to_json(results_direct);
+
+            // Serialize results and sort timer_stats.
+            nlohmann::json cached_json = ReflectSerializer::to_json(results_cached);
+            if (!results_cached.timer_stats.empty()) {
+                cached_json["timer_stats"] = sortTimerStats(results_cached.timer_stats);
+            }
+
+            nlohmann::json direct_json = ReflectSerializer::to_json(results_direct);
+            if (!results_direct.timer_stats.empty()) {
+                direct_json["timer_stats"] = sortTimerStats(results_direct.timer_stats);
+            }
+
+            comparison["with_cache"] = cached_json;
+            comparison["without_cache"] = direct_json;
 
             // Calculate speedup.
             double cached_fps = results_cached.server_fps;
@@ -240,9 +284,9 @@ int main(int argc, char** argv)
             // Output results as JSON using ReflectSerializer.
             nlohmann::json resultJson = ReflectSerializer::to_json(results);
 
-            // Add timer_stats (already in JSON format).
+            // Add timer_stats (already in JSON format), sorted by total_ms descending.
             if (!results.timer_stats.empty()) {
-                resultJson["timer_stats"] = results.timer_stats;
+                resultJson["timer_stats"] = sortTimerStats(results.timer_stats);
             }
 
             std::cout << resultJson.dump(2) << std::endl;

@@ -1,24 +1,30 @@
 #pragma once
 
-#include "Cell.h"
-#include "MaterialMove.h"
 #include "MaterialType.h"
-#include "PhysicsSettings.h"
-#include "Timers.h"
+#include "Pimpl.h"
 #include "Vector2i.h"
-#include "WorldAdhesionCalculator.h"
-#include "WorldCohesionCalculator.h"
-#include "WorldCollisionCalculator.h"
-#include "WorldData.h"
-#include "WorldFrictionCalculator.h"
-#include "WorldPressureCalculator.h"
-#include "WorldSupportCalculator.h"
-#include "WorldViscosityCalculator.h"
 
 #include <cstdint>
 #include <memory>
 #include <random>
 #include <vector>
+
+class Timers;
+
+namespace DirtSim {
+class Cell;
+class Vector2d;
+struct MaterialMove;
+struct WorldData;
+struct PhysicsSettings;
+class WorldPressureCalculator;
+class WorldCollisionCalculator;
+class WorldFrictionCalculator;
+class WorldSupportCalculator;
+class WorldAdhesionCalculator;
+class WorldViscosityCalculator;
+class GridOfCells;
+} // namespace DirtSim
 
 namespace DirtSim {
 
@@ -41,14 +47,13 @@ public:
     World(uint32_t width, uint32_t height);
     ~World();
 
-    // Copy and move - trivially copyable now that calculators are stateless!
     World(const World& other) = default;
     World& operator=(const World& other) = default;
     World(World&&) = default;
     World& operator=(World&&) = default;
 
     // =================================================================
-    // WORLDINTERFACE IMPLEMENTATION - CORE SIMULATION
+    // CORE SIMULATION
     // =================================================================
 
     void advanceTime(double deltaTimeSeconds);
@@ -57,17 +62,16 @@ public:
     void applyPhysicsSettings(const PhysicsSettings& settings);
 
     // =================================================================
-    // WORLDINTERFACE IMPLEMENTATION - GRID ACCESS
+    // GRID ACCESS
     // =================================================================
 
-    // Direct cell access.
     Cell& at(uint32_t x, uint32_t y);
     const Cell& at(uint32_t x, uint32_t y) const;
     Cell& at(const Vector2i& pos);
     const Cell& at(const Vector2i& pos) const;
 
     // =================================================================
-    // WORLDINTERFACE IMPLEMENTATION - SIMULATION CONTROL
+    // SIMULATION CONTROL
     // =================================================================
 
     // NOTE: Use physicsSettings.timescale for physics, data.removed_mass,
@@ -75,43 +79,32 @@ public:
     double getTotalMass() const;
 
     // =================================================================
-    // WORLDINTERFACE IMPLEMENTATION - MATERIAL ADDITION
+    // MATERIAL ADDITION
     // =================================================================
 
     // Material selection state management (for UI/API coordination).
-    void setSelectedMaterial(MaterialType type) { selected_material_ = type; }
-    MaterialType getSelectedMaterial() const { return selected_material_; }
+    void setSelectedMaterial(MaterialType type);
+    MaterialType getSelectedMaterial() const;
 
     // =================================================================
-    // WORLDINTERFACE IMPLEMENTATION - PHYSICS PARAMETERS
+    // PHYSICS PARAMETERS
     // =================================================================
 
-    Vector2d getGravityVector() const { return Vector2d{ 0.0, physicsSettings.gravity }; }
-    void setDirtFragmentationFactor(double /* factor */) { /* no-op for World */ }
+    Vector2d getGravityVector() const;
+    void setDirtFragmentationFactor(double factor);
 
     // =================================================================
-    // WORLDINTERFACE IMPLEMENTATION - PRESSURE SYSTEM
+    // PRESSURE SYSTEM
     // =================================================================
 
     // =================================================================
-    // WORLDINTERFACE IMPLEMENTATION - DUAL PRESSURE SYSTEM
+    // DUAL PRESSURE SYSTEM
     // =================================================================
     // Use physicsSettings.pressure_*_enabled/strength directly instead of setters.
 
-    bool isHydrostaticPressureEnabled() const
-    {
-        return physicsSettings.pressure_hydrostatic_strength > 0.0;
-    }
-
-    bool isDynamicPressureEnabled() const
-    {
-        return physicsSettings.pressure_dynamic_strength > 0.0;
-    }
-
-    bool isPressureDiffusionEnabled() const
-    {
-        return physicsSettings.pressure_diffusion_strength > 0.0;
-    }
+    bool isHydrostaticPressureEnabled() const;
+    bool isDynamicPressureEnabled() const;
+    bool isPressureDiffusionEnabled() const;
 
     void setHydrostaticPressureStrength(double strength);
     double getHydrostaticPressureStrength() const;
@@ -119,99 +112,94 @@ public:
     void setDynamicPressureStrength(double strength);
     double getDynamicPressureStrength() const;
 
-    // Pressure calculator access.
-    WorldPressureCalculator& getPressureCalculator() { return pressure_calculator_; }
-    const WorldPressureCalculator& getPressureCalculator() const { return pressure_calculator_; }
+    // Calculator access methods.
+    WorldPressureCalculator& getPressureCalculator();
+    const WorldPressureCalculator& getPressureCalculator() const;
 
-    // Collision calculator access.
-    WorldCollisionCalculator& getCollisionCalculator() { return collision_calculator_; }
-    const WorldCollisionCalculator& getCollisionCalculator() const { return collision_calculator_; }
+    WorldCollisionCalculator& getCollisionCalculator();
+    const WorldCollisionCalculator& getCollisionCalculator() const;
+
+    WorldSupportCalculator& getSupportCalculator();
+    const WorldSupportCalculator& getSupportCalculator() const;
+
+    WorldAdhesionCalculator& getAdhesionCalculator();
+    const WorldAdhesionCalculator& getAdhesionCalculator() const;
+
+    WorldViscosityCalculator& getViscosityCalculator();
+    const WorldViscosityCalculator& getViscosityCalculator() const;
 
     // =================================================================
-    // WORLDINTERFACE IMPLEMENTATION - TIME REVERSAL (NO-OP)
+    // TIME REVERSAL (NO-OP)
     // =================================================================
 
-    void enableTimeReversal(bool /* enabled */) { /* no-op */ }
-    bool isTimeReversalEnabled() const { return false; }
-    void saveWorldState() { /* no-op */ }
-    bool canGoBackward() const { return false; }
-    bool canGoForward() const { return false; }
-    void goBackward() { /* no-op */ }
-    void goForward() { /* no-op */ }
-    void clearHistory() { /* no-op */ }
-    size_t getHistorySize() const { return 0; }
+    void enableTimeReversal(bool enabled);
+    bool isTimeReversalEnabled() const;
+    void saveWorldState();
+    bool canGoBackward() const;
+    bool canGoForward() const;
+    void goBackward();
+    void goForward();
+    void clearHistory();
+    size_t getHistorySize() const;
 
-    // WORLDINTERFACE IMPLEMENTATION - WORLD SETUP (SIMPLIFIED)
-    // World-specific wall setup behavior (s base class)
+    // World-specific wall setup behavior
     void setWallsEnabled(bool enabled);
     bool areWallsEnabled() const; // World defaults to true instead of false
 
-    // WORLDINTERFACE IMPLEMENTATION - COHESION PHYSICS CONTROL
-    void setCohesionBindForceEnabled(bool enabled) { cohesion_bind_force_enabled_ = enabled; }
-    bool isCohesionBindForceEnabled() const { return cohesion_bind_force_enabled_; }
+    // COHESION PHYSICS CONTROL
+    void setCohesionBindForceEnabled(bool enabled);
+    bool isCohesionBindForceEnabled() const;
 
-    void setCohesionComForceEnabled(bool enabled)
-    {
-        // Use PhysicsSettings as single source of truth.
-        physicsSettings.cohesion_enabled = enabled;
-        physicsSettings.cohesion_strength = enabled ? 150.0 : 0.0;
-    }
-    bool isCohesionComForceEnabled() const { return physicsSettings.cohesion_strength > 0.0; }
+    void setCohesionComForceEnabled(bool enabled);
+    bool isCohesionComForceEnabled() const;
 
-    void setCohesionComForceStrength(double strength)
-    {
-        physicsSettings.cohesion_strength = strength;
-    }
-    double getCohesionComForceStrength() const { return physicsSettings.cohesion_strength; }
+    void setCohesionComForceStrength(double strength);
+    double getCohesionComForceStrength() const;
 
-    void setAdhesionStrength(double strength) { physicsSettings.adhesion_strength = strength; }
-    double getAdhesionStrength() const { return physicsSettings.adhesion_strength; }
+    void setAdhesionStrength(double strength);
+    double getAdhesionStrength() const;
 
-    void setAdhesionEnabled(bool enabled)
-    {
-        physicsSettings.adhesion_enabled = enabled;
-        physicsSettings.adhesion_strength = enabled ? 5.0 : 0.0;
-    }
-    bool isAdhesionEnabled() const { return physicsSettings.adhesion_strength > 0.0; }
+    void setAdhesionEnabled(bool enabled);
+    bool isAdhesionEnabled() const;
 
-    void setCohesionBindForceStrength(double strength) { cohesion_bind_force_strength_ = strength; }
-    double getCohesionBindForceStrength() const { return cohesion_bind_force_strength_; }
+    void setCohesionBindForceStrength(double strength);
+    double getCohesionBindForceStrength() const;
 
     // Viscosity control.
-    void setViscosityStrength(double strength) { physicsSettings.viscosity_strength = strength; }
-    double getViscosityStrength() const { return physicsSettings.viscosity_strength; }
+    void setViscosityStrength(double strength);
+    double getViscosityStrength() const;
 
     // Friction control (velocity-dependent viscosity).
-    void setFrictionStrength(double strength) { physicsSettings.friction_strength = strength; }
-    double getFrictionStrength() const { return physicsSettings.friction_strength; }
+    void setFrictionStrength(double strength);
+    double getFrictionStrength() const;
 
     // Friction calculator access.
-    WorldFrictionCalculator& getFrictionCalculator() { return friction_calculator_; }
-    const WorldFrictionCalculator& getFrictionCalculator() const { return friction_calculator_; }
+    WorldFrictionCalculator& getFrictionCalculator();
+    const WorldFrictionCalculator& getFrictionCalculator() const;
 
-    void setCOMCohesionRange(uint32_t range) { com_cohesion_range_ = range; }
-    uint32_t getCOMCohesionRange() const { return com_cohesion_range_; }
+    void setCOMCohesionRange(uint32_t range);
+    uint32_t getCOMCohesionRange() const;
 
     // Motion state multiplier calculation (for viscosity and other systems).
     double getMotionStateMultiplier(MotionState state, double sensitivity) const;
 
-    // WORLDINTERFACE IMPLEMENTATION - AIR RESISTANCE CONTROL
-    void setAirResistanceEnabled(bool enabled) { air_resistance_enabled_ = enabled; }
-    bool isAirResistanceEnabled() const { return air_resistance_enabled_; }
-    void setAirResistanceStrength(double strength) { air_resistance_strength_ = strength; }
-    double getAirResistanceStrength() const { return air_resistance_strength_; }
+    // AIR RESISTANCE CONTROL
+    void setAirResistanceEnabled(bool enabled);
+    bool isAirResistanceEnabled() const;
+    void setAirResistanceStrength(double strength);
+    double getAirResistanceStrength() const;
 
     // COM cohesion mode removed - always uses ORIGINAL implementation
 
-    // WORLDINTERFACE IMPLEMENTATION - GRID MANAGEMENT
+    // GRID MANAGEMENT
     void resizeGrid(uint32_t newWidth, uint32_t newHeight);
 
-    // WORLDINTERFACE IMPLEMENTATION - PERFORMANCE AND DEBUGGING
-    void dumpTimerStats() const { timers_.dumpTimerStats(); }
-    void markUserInput() { /* no-op for now */ }
+    // PERFORMANCE AND DEBUGGING
+    void dumpTimerStats() const;
+    void markUserInput();
     std::string settingsToString() const;
-
-    // World setup management (DEPRECATED - scenarios now handle setup directly).
+    Timers& getTimers();
+    const Timers& getTimers() const;
 
     // =================================================================
     // WORLD-SPECIFIC METHODS
@@ -273,24 +261,26 @@ public:
 
     std::string toAsciiDiagram() const;
 
-    // Stub methods for unimplemented features (TODO: remove event handlers that call these).
-    void setRainRate(double) {}
-    double getRainRate() const { return 0.0; }
+    // TODO: These should be part of world event generator.
+    void setRainRate(double rate);
+    double getRainRate() const;
     void spawnMaterialBall(MaterialType material, uint32_t centerX, uint32_t centerY);
-    void setWaterColumnEnabled(bool) {}
-    bool isWaterColumnEnabled() const { return false; }
-    void setLeftThrowEnabled(bool) {}
-    bool isLeftThrowEnabled() const { return false; }
-    void setRightThrowEnabled(bool) {}
-    bool isRightThrowEnabled() const { return false; }
-    void setLowerRightQuadrantEnabled(bool) {}
-    bool isLowerRightQuadrantEnabled() const { return false; }
+    void setWaterColumnEnabled(bool enabled);
+    bool isWaterColumnEnabled() const;
+    void setLeftThrowEnabled(bool enabled);
+    bool isLeftThrowEnabled() const;
+    void setRightThrowEnabled(bool enabled);
+    bool isRightThrowEnabled() const;
+    void setLowerRightQuadrantEnabled(bool enabled);
+    bool isLowerRightQuadrantEnabled() const;
 
-    // World state data - public source of truth for all serializable state.
-    WorldData data;
+    // World state data - public accessors for Pimpl-stored state.
+    WorldData& getData();
+    const WorldData& getData() const;
 
-    // Physics settings - public source of truth for physics parameters.
-    PhysicsSettings physicsSettings;
+    // Physics settings - public accessors for Pimpl-stored settings.
+    PhysicsSettings& getPhysicsSettings();
+    const PhysicsSettings& getPhysicsSettings() const;
 
     // WorldInterface hook implementations (rarely overridden - can be public).
     void onPostResize();
@@ -311,24 +301,11 @@ public:
     MaterialType selected_material_;
 
     // =================================================================
-    // CALCULATORS (public for direct access)
+    // INTERNAL IMPLEMENTATION (moved to Pimpl for reduced dependencies)
     // =================================================================
 
-    WorldSupportCalculator support_calculator_;
-    WorldPressureCalculator pressure_calculator_;
-    WorldCollisionCalculator collision_calculator_;
-    WorldAdhesionCalculator adhesion_calculator_;
-    WorldFrictionCalculator friction_calculator_;
-    WorldViscosityCalculator viscosity_calculator_;
-
-    // Material transfer queue (internal simulation state).
-    std::vector<MaterialMove> pending_moves_;
-
-    // Organism transfer tracking (for efficient TreeManager updates).
-    std::vector<OrganismTransfer> organism_transfers_;
-
-    // Performance timing.
-    mutable Timers timers_;
+    struct Impl;       // Forward declaration.
+    Pimpl<Impl> pImpl; // Pimpl containing calculators and internal state.
 
     // Tree organism manager.
     std::unique_ptr<class TreeManager> tree_manager_;

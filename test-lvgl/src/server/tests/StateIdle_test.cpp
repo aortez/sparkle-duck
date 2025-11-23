@@ -54,8 +54,8 @@ TEST_F(StateIdleTest, SimRunCreatesWorldAndTransitionsToSimRunning)
     // Verify: SimRunning has valid World.
     SimRunning& simRunning = std::get<SimRunning>(newState);
     ASSERT_NE(simRunning.world, nullptr) << "SimRunning should have a World";
-    EXPECT_EQ(simRunning.world->data.width, stateMachine->defaultWidth);
-    EXPECT_EQ(simRunning.world->data.height, stateMachine->defaultHeight);
+    EXPECT_EQ(simRunning.world->getData().width, stateMachine->defaultWidth);
+    EXPECT_EQ(simRunning.world->getData().height, stateMachine->defaultHeight);
 
     // Verify: SimRunning has correct run parameters.
     EXPECT_EQ(simRunning.stepCount, 0u) << "Initial step count should be 0";

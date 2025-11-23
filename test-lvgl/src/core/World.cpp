@@ -1,14 +1,20 @@
 #include "World.h"
 #include "Cell.h"
 #include "GridOfCells.h"
+#include "PhysicsSettings.h"
 #include "ReflectSerializer.h"
 #include "ScopeTimer.h"
+#include "Timers.h"
 #include "Vector2i.h"
+#include "WorldAdhesionCalculator.h"
 #include "WorldAirResistanceCalculator.h"
 #include "WorldCohesionCalculator.h"
 #include "WorldCollisionCalculator.h"
+#include "WorldData.h"
 #include "WorldDiagramGeneratorEmoji.h"
+#include "WorldFrictionCalculator.h"
 #include "WorldInterpolationTool.h"
+#include "WorldPressureCalculator.h"
 #include "WorldSupportCalculator.h"
 #include "WorldViscosityCalculator.h"
 #include "organisms/TreeManager.h"
@@ -25,6 +31,41 @@
 
 namespace DirtSim {
 
+// =================================================================
+// PIMPL IMPLEMENTATION STRUCT
+// =================================================================
+
+struct World::Impl {
+    // World state data (previously public).
+    WorldData data_;
+
+    // Physics settings (previously public).
+    PhysicsSettings physicsSettings_;
+
+    // Calculators (previously public).
+    WorldSupportCalculator support_calculator_;
+    WorldPressureCalculator pressure_calculator_;
+    WorldCollisionCalculator collision_calculator_;
+    WorldAdhesionCalculator adhesion_calculator_;
+    WorldFrictionCalculator friction_calculator_;
+    WorldViscosityCalculator viscosity_calculator_;
+
+    // Material transfer queue (internal simulation state).
+    std::vector<MaterialMove> pending_moves_;
+
+    // Organism transfer tracking (for efficient TreeManager updates).
+    std::vector<OrganismTransfer> organism_transfers_;
+
+    // Performance timing.
+    mutable Timers timers_;
+
+    // Constructor.
+    Impl() { timers_.startTimer("total_simulation"); }
+
+    // Destructor.
+    ~Impl() { timers_.stopTimer("total_simulation"); }
+};
+
 // Velocities are in Cells/second.
 static constexpr double MAX_VELOCITY_PER_TIMESTEP = 40.0;
 static constexpr double VELOCITY_DAMPING_THRESHOLD_PER_TIMESTEP = 20.0;
@@ -40,25 +81,24 @@ World::World(uint32_t width, uint32_t height)
       air_resistance_enabled_(true),
       air_resistance_strength_(0.1),
       selected_material_(MaterialType::DIRT),
-      support_calculator_(),
-      pressure_calculator_(),
-      collision_calculator_(),
-      adhesion_calculator_(),
-      friction_calculator_(),
+      pImpl(),
       tree_manager_(std::make_unique<TreeManager>()),
       rng_(std::make_unique<std::mt19937>(std::random_device{}()))
 {
     // Set dimensions (other WorldData members use defaults from struct declaration).
-    data.width = width;
-    data.height = height;
+    pImpl->data_.width = width;
+    pImpl->data_.height = height;
 
-    spdlog::info("Creating World: {}x{} grid with pure-material physics", data.width, data.height);
+    spdlog::info(
+        "Creating World: {}x{} grid with pure-material physics",
+        pImpl->data_.width,
+        pImpl->data_.height);
 
     // Initialize cell grid.
-    data.cells.resize(data.width * data.height);
+    pImpl->data_.cells.resize(pImpl->data_.width * pImpl->data_.height);
 
     // Initialize with air.
-    for (auto& cell : data.cells) {
+    for (auto& cell : pImpl->data_.cells) {
         cell = Cell{ MaterialType::AIR, 0.0 };
     }
 
@@ -67,16 +107,354 @@ World::World(uint32_t width, uint32_t height)
         setupBoundaryWalls();
     }
 
-    timers_.startTimer("total_simulation");
-
     spdlog::info("World initialization complete");
 }
 
 World::~World()
 {
-    spdlog::info("Destroying World: {}x{} grid", data.width, data.height);
-    timers_.stopTimer("total_simulation");
+    spdlog::info("Destroying World: {}x{} grid", pImpl->data_.width, pImpl->data_.height);
 }
+
+// =================================================================
+// CALCULATOR ACCESSORS
+// =================================================================
+
+WorldPressureCalculator& World::getPressureCalculator()
+{
+    return pImpl->pressure_calculator_;
+}
+
+const WorldPressureCalculator& World::getPressureCalculator() const
+{
+    return pImpl->pressure_calculator_;
+}
+
+WorldCollisionCalculator& World::getCollisionCalculator()
+{
+    return pImpl->collision_calculator_;
+}
+
+const WorldCollisionCalculator& World::getCollisionCalculator() const
+{
+    return pImpl->collision_calculator_;
+}
+
+WorldSupportCalculator& World::getSupportCalculator()
+{
+    return pImpl->support_calculator_;
+}
+
+const WorldSupportCalculator& World::getSupportCalculator() const
+{
+    return pImpl->support_calculator_;
+}
+
+WorldAdhesionCalculator& World::getAdhesionCalculator()
+{
+    return pImpl->adhesion_calculator_;
+}
+
+const WorldAdhesionCalculator& World::getAdhesionCalculator() const
+{
+    return pImpl->adhesion_calculator_;
+}
+
+WorldViscosityCalculator& World::getViscosityCalculator()
+{
+    return pImpl->viscosity_calculator_;
+}
+
+const WorldViscosityCalculator& World::getViscosityCalculator() const
+{
+    return pImpl->viscosity_calculator_;
+}
+
+WorldFrictionCalculator& World::getFrictionCalculator()
+{
+    return pImpl->friction_calculator_;
+}
+
+const WorldFrictionCalculator& World::getFrictionCalculator() const
+{
+    return pImpl->friction_calculator_;
+}
+
+Timers& World::getTimers()
+{
+    return pImpl->timers_;
+}
+
+const Timers& World::getTimers() const
+{
+    return pImpl->timers_;
+}
+
+void World::dumpTimerStats() const
+{
+    pImpl->timers_.dumpTimerStats();
+}
+
+WorldData& World::getData()
+{
+    return pImpl->data_;
+}
+
+const WorldData& World::getData() const
+{
+    return pImpl->data_;
+}
+
+PhysicsSettings& World::getPhysicsSettings()
+{
+    return pImpl->physicsSettings_;
+}
+
+const PhysicsSettings& World::getPhysicsSettings() const
+{
+    return pImpl->physicsSettings_;
+}
+
+// =================================================================
+// SIMPLE GETTERS/SETTERS (moved from inline in header)
+// =================================================================
+
+void World::setSelectedMaterial(MaterialType type)
+{
+    selected_material_ = type;
+}
+
+MaterialType World::getSelectedMaterial() const
+{
+    return selected_material_;
+}
+
+Vector2d World::getGravityVector() const
+{
+    return Vector2d{ 0.0, pImpl->physicsSettings_.gravity };
+}
+
+void World::setDirtFragmentationFactor(double /* factor */)
+{
+    // No-op for World.
+}
+
+bool World::isHydrostaticPressureEnabled() const
+{
+    return pImpl->physicsSettings_.pressure_hydrostatic_strength > 0.0;
+}
+
+bool World::isDynamicPressureEnabled() const
+{
+    return pImpl->physicsSettings_.pressure_dynamic_strength > 0.0;
+}
+
+bool World::isPressureDiffusionEnabled() const
+{
+    return pImpl->physicsSettings_.pressure_diffusion_strength > 0.0;
+}
+
+// =================================================================
+// TIME REVERSAL STUBS (no-op implementations)
+// =================================================================
+
+void World::enableTimeReversal(bool /* enabled */)
+{}
+bool World::isTimeReversalEnabled() const
+{
+    return false;
+}
+void World::saveWorldState()
+{}
+bool World::canGoBackward() const
+{
+    return false;
+}
+bool World::canGoForward() const
+{
+    return false;
+}
+void World::goBackward()
+{}
+void World::goForward()
+{}
+void World::clearHistory()
+{}
+size_t World::getHistorySize() const
+{
+    return 0;
+}
+
+// =================================================================
+// COHESION/ADHESION CONTROL
+// =================================================================
+
+void World::setCohesionBindForceEnabled(bool enabled)
+{
+    cohesion_bind_force_enabled_ = enabled;
+}
+
+bool World::isCohesionBindForceEnabled() const
+{
+    return cohesion_bind_force_enabled_;
+}
+
+void World::setCohesionComForceEnabled(bool enabled)
+{
+    pImpl->physicsSettings_.cohesion_enabled = enabled;
+    pImpl->physicsSettings_.cohesion_strength = enabled ? 150.0 : 0.0;
+}
+
+bool World::isCohesionComForceEnabled() const
+{
+    return pImpl->physicsSettings_.cohesion_strength > 0.0;
+}
+
+void World::setCohesionComForceStrength(double strength)
+{
+    pImpl->physicsSettings_.cohesion_strength = strength;
+}
+
+double World::getCohesionComForceStrength() const
+{
+    return pImpl->physicsSettings_.cohesion_strength;
+}
+
+void World::setAdhesionStrength(double strength)
+{
+    pImpl->physicsSettings_.adhesion_strength = strength;
+}
+
+double World::getAdhesionStrength() const
+{
+    return pImpl->physicsSettings_.adhesion_strength;
+}
+
+void World::setAdhesionEnabled(bool enabled)
+{
+    pImpl->physicsSettings_.adhesion_enabled = enabled;
+    pImpl->physicsSettings_.adhesion_strength = enabled ? 5.0 : 0.0;
+}
+
+bool World::isAdhesionEnabled() const
+{
+    return pImpl->physicsSettings_.adhesion_strength > 0.0;
+}
+
+void World::setCohesionBindForceStrength(double strength)
+{
+    cohesion_bind_force_strength_ = strength;
+}
+
+double World::getCohesionBindForceStrength() const
+{
+    return cohesion_bind_force_strength_;
+}
+
+// =================================================================
+// VISCOSITY/FRICTION CONTROL
+// =================================================================
+
+void World::setViscosityStrength(double strength)
+{
+    pImpl->physicsSettings_.viscosity_strength = strength;
+}
+
+double World::getViscosityStrength() const
+{
+    return pImpl->physicsSettings_.viscosity_strength;
+}
+
+void World::setFrictionStrength(double strength)
+{
+    pImpl->physicsSettings_.friction_strength = strength;
+}
+
+double World::getFrictionStrength() const
+{
+    return pImpl->physicsSettings_.friction_strength;
+}
+
+void World::setCOMCohesionRange(uint32_t range)
+{
+    com_cohesion_range_ = range;
+}
+
+uint32_t World::getCOMCohesionRange() const
+{
+    return com_cohesion_range_;
+}
+
+// =================================================================
+// AIR RESISTANCE CONTROL
+// =================================================================
+
+void World::setAirResistanceEnabled(bool enabled)
+{
+    air_resistance_enabled_ = enabled;
+}
+
+bool World::isAirResistanceEnabled() const
+{
+    return air_resistance_enabled_;
+}
+
+void World::setAirResistanceStrength(double strength)
+{
+    air_resistance_strength_ = strength;
+}
+
+double World::getAirResistanceStrength() const
+{
+    return air_resistance_strength_;
+}
+
+// =================================================================
+// DEBUGGING/UTILITY
+// =================================================================
+
+void World::markUserInput()
+{
+    // No-op for now.
+}
+
+// =================================================================
+// STUB METHODS (unimplemented features)
+// =================================================================
+
+void World::setRainRate(double /* rate */)
+{}
+double World::getRainRate() const
+{
+    return 0.0;
+}
+void World::setWaterColumnEnabled(bool /* enabled */)
+{}
+bool World::isWaterColumnEnabled() const
+{
+    return false;
+}
+void World::setLeftThrowEnabled(bool /* enabled */)
+{}
+bool World::isLeftThrowEnabled() const
+{
+    return false;
+}
+void World::setRightThrowEnabled(bool /* enabled */)
+{}
+bool World::isRightThrowEnabled() const
+{
+    return false;
+}
+void World::setLowerRightQuadrantEnabled(bool /* enabled */)
+{}
+bool World::isLowerRightQuadrantEnabled() const
+{
+    return false;
+}
+
+// =================================================================
+// OTHER METHODS
+// =================================================================
 
 void World::setRandomSeed(uint32_t seed)
 {
@@ -95,11 +473,13 @@ std::string World::toAsciiDiagram() const
 
 void World::advanceTime(double deltaTimeSeconds)
 {
-    ScopeTimer timer(timers_, "advance_time");
+    ScopeTimer timer(pImpl->timers_, "advance_time");
 
-    const double scaledDeltaTime = deltaTimeSeconds * physicsSettings.timescale;
+    const double scaledDeltaTime = deltaTimeSeconds * pImpl->physicsSettings_.timescale;
     spdlog::trace(
-        "World::advanceTime: deltaTime={:.4f}s, timestep={}", deltaTimeSeconds, data.timestep);
+        "World::advanceTime: deltaTime={:.4f}s, timestep={}",
+        deltaTimeSeconds,
+        pImpl->data_.timestep);
     if (scaledDeltaTime == 0.0) {
         return;
     }
@@ -107,88 +487,88 @@ void World::advanceTime(double deltaTimeSeconds)
     // NOTE: Particle generation now handled by Scenario::tick(), called before advanceTime().
 
     // Build grid cache for optimized empty cell and material lookups.
-    GridOfCells grid(data.cells, data.width, data.height, timers_);
+    GridOfCells grid(pImpl->data_.cells, pImpl->data_.width, pImpl->data_.height, pImpl->timers_);
 
     // Pre-compute support map for all cells (bottom-up pass).
     {
-        ScopeTimer supportMapTimer(timers_, "compute_support_map");
+        ScopeTimer supportMapTimer(pImpl->timers_, "compute_support_map");
         WorldSupportCalculator support_calc{ grid };
         support_calc.computeSupportMapBottomUp(*this);
     }
 
     // Calculate hydrostatic pressure based on current material positions.
     // This must happen before force resolution so buoyancy forces are immediate.
-    if (physicsSettings.pressure_hydrostatic_strength > 0.0) {
-        ScopeTimer hydroTimer(timers_, "hydrostatic_pressure");
-        pressure_calculator_.calculateHydrostaticPressure(*this);
+    if (pImpl->physicsSettings_.pressure_hydrostatic_strength > 0.0) {
+        ScopeTimer hydroTimer(pImpl->timers_, "hydrostatic_pressure");
+        pImpl->pressure_calculator_.calculateHydrostaticPressure(*this);
     }
 
     // Accumulate and apply all forces based on resistance.
     // This now includes pressure forces from the current frame.
     {
-        ScopeTimer resolveTimer(timers_, "resolve_forces_total");
+        ScopeTimer resolveTimer(pImpl->timers_, "resolve_forces_total");
         resolveForces(scaledDeltaTime, &grid);
     }
 
     {
-        ScopeTimer velocityTimer(timers_, "velocity_limiting");
+        ScopeTimer velocityTimer(pImpl->timers_, "velocity_limiting");
         processVelocityLimiting(scaledDeltaTime);
     }
 
     {
-        ScopeTimer transfersTimer(timers_, "update_transfers");
+        ScopeTimer transfersTimer(pImpl->timers_, "update_transfers");
         updateTransfers(scaledDeltaTime);
     }
 
     // Process queued material moves - this detects NEW blocked transfers.
     {
-        ScopeTimer movesTimer(timers_, "process_moves_total");
+        ScopeTimer movesTimer(pImpl->timers_, "process_moves_total");
         processMaterialMoves();
     }
 
     // Process any blocked transfers that were queued during processMaterialMoves.
     // This generates dynamic pressure from collisions.
-    if (physicsSettings.pressure_dynamic_strength > 0.0) {
-        ScopeTimer dynamicTimer(timers_, "dynamic_pressure");
+    if (pImpl->physicsSettings_.pressure_dynamic_strength > 0.0) {
+        ScopeTimer dynamicTimer(pImpl->timers_, "dynamic_pressure");
         // Generate virtual gravity transfers to create pressure from gravity forces.
         // This allows dynamic pressure to model hydrostatic-like behavior.
-        //        pressure_calculator_.generateVirtualGravityTransfers(scaledDeltaTime);
+        //        pImpl->pressure_calculator_.generateVirtualGravityTransfers(scaledDeltaTime);
 
-        pressure_calculator_.processBlockedTransfers(
-            *this, pressure_calculator_.blocked_transfers_);
-        pressure_calculator_.blocked_transfers_.clear();
+        pImpl->pressure_calculator_.processBlockedTransfers(
+            *this, pImpl->pressure_calculator_.blocked_transfers_);
+        pImpl->pressure_calculator_.blocked_transfers_.clear();
     }
 
     // Apply pressure diffusion before decay.
-    if (physicsSettings.pressure_diffusion_strength > 0.0) {
-        ScopeTimer diffusionTimer(timers_, "pressure_diffusion");
-        pressure_calculator_.applyPressureDiffusion(*this, scaledDeltaTime);
+    if (pImpl->physicsSettings_.pressure_diffusion_strength > 0.0) {
+        ScopeTimer diffusionTimer(pImpl->timers_, "pressure_diffusion");
+        pImpl->pressure_calculator_.applyPressureDiffusion(*this, scaledDeltaTime);
     }
 
     // Apply pressure decay after material moves.
     {
-        ScopeTimer decayTimer(timers_, "pressure_decay");
-        pressure_calculator_.applyPressureDecay(*this, scaledDeltaTime);
+        ScopeTimer decayTimer(pImpl->timers_, "pressure_decay");
+        pImpl->pressure_calculator_.applyPressureDecay(*this, scaledDeltaTime);
     }
 
     // Update tree organisms after physics is complete.
     if (tree_manager_) {
-        ScopeTimer treeTimer(timers_, "tree_organisms");
+        ScopeTimer treeTimer(pImpl->timers_, "tree_organisms");
         tree_manager_->update(*this, scaledDeltaTime);
     }
 
-    data.timestep++;
+    pImpl->data_.timestep++;
 }
 void World::reset()
 {
     spdlog::info("Resetting World to empty state");
 
-    data.timestep = 0;
-    data.removed_mass = 0.0;
-    pending_moves_.clear();
+    pImpl->data_.timestep = 0;
+    pImpl->data_.removed_mass = 0.0;
+    pImpl->pending_moves_.clear();
 
     // Clear all cells to air.
-    for (auto& cell : data.cells) {
+    for (auto& cell : pImpl->data_.cells) {
         cell.clear();
     }
 
@@ -233,12 +613,12 @@ void World::resizeGrid(uint32_t newWidth, uint32_t newHeight)
 
     // Phase 1: Generate interpolated cells using the interpolation tool.
     std::vector<Cell> interpolatedCells = WorldInterpolationTool::generateInterpolatedCellsB(
-        data.cells, data.width, data.height, newWidth, newHeight);
+        pImpl->data_.cells, pImpl->data_.width, pImpl->data_.height, newWidth, newHeight);
 
     // Phase 2: Update world state with the new interpolated cells.
-    data.width = newWidth;
-    data.height = newHeight;
-    data.cells = std::move(interpolatedCells);
+    pImpl->data_.width = newWidth;
+    pImpl->data_.height = newHeight;
+    pImpl->data_.cells = std::move(interpolatedCells);
 
     onPostResize();
 
@@ -259,14 +639,14 @@ void World::onPostResize()
 
 Cell& World::at(uint32_t x, uint32_t y)
 {
-    assert(x < data.width && y < data.height);
-    return data.cells[coordToIndex(x, y)];
+    assert(x < pImpl->data_.width && y < pImpl->data_.height);
+    return pImpl->data_.cells[coordToIndex(x, y)];
 }
 
 const Cell& World::at(uint32_t x, uint32_t y) const
 {
-    assert(x < data.width && y < data.height);
-    return data.cells[coordToIndex(x, y)];
+    assert(x < pImpl->data_.width && y < pImpl->data_.height);
+    return pImpl->data_.cells[coordToIndex(x, y)];
 }
 
 Cell& World::at(const Vector2i& pos)
@@ -285,7 +665,7 @@ double World::getTotalMass() const
     int cellCount = 0;
     int nonEmptyCells = 0;
 
-    for (const auto& cell : data.cells) {
+    for (const auto& cell : pImpl->data_.cells) {
         double cellMass = cell.getMass();
         totalMass += cellMass;
         cellCount++;
@@ -308,14 +688,14 @@ double World::getTotalMass() const
 
 void World::applyGravity()
 {
-    ScopeTimer timer(timers_, "apply_gravity");
+    ScopeTimer timer(pImpl->timers_, "apply_gravity");
 
-    for (auto& cell : data.cells) {
+    for (auto& cell : pImpl->data_.cells) {
         if (!cell.isEmpty() && !cell.isWall()) {
             // Gravity force is proportional to material density (F = m × g).
             // This enables buoyancy: denser materials sink, lighter materials float.
             const MaterialProperties& props = getMaterialProperties(cell.material_type);
-            Vector2d gravityForce(0.0, props.density * physicsSettings.gravity);
+            Vector2d gravityForce(0.0, props.density * pImpl->physicsSettings_.gravity);
 
             // Accumulate gravity force instead of applying directly.
             cell.addPendingForce(gravityForce);
@@ -329,12 +709,12 @@ void World::applyAirResistance()
         return;
     }
 
-    ScopeTimer timer(timers_, "apply_air_resistance");
+    ScopeTimer timer(pImpl->timers_, "apply_air_resistance");
 
     WorldAirResistanceCalculator air_resistance_calculator{};
 
-    for (uint32_t y = 0; y < data.height; ++y) {
-        for (uint32_t x = 0; x < data.width; ++x) {
+    for (uint32_t y = 0; y < pImpl->data_.height; ++y) {
+        for (uint32_t x = 0; x < pImpl->data_.width; ++x) {
             Cell& cell = at(x, y);
 
             if (!cell.isEmpty() && !cell.isWall()) {
@@ -348,19 +728,19 @@ void World::applyAirResistance()
 
 void World::applyCohesionForces(const GridOfCells* grid)
 {
-    if (physicsSettings.cohesion_strength <= 0.0) {
+    if (pImpl->physicsSettings_.cohesion_strength <= 0.0) {
         return;
     }
 
-    ScopeTimer timer(timers_, "apply_cohesion_forces");
+    ScopeTimer timer(pImpl->timers_, "apply_cohesion_forces");
 
     // Create calculators once outside the loop.
     WorldCohesionCalculator cohesion_calc{};
 
     {
-        ScopeTimer cohesionTimer(timers_, "cohesion_calculation");
-        for (uint32_t y = 0; y < data.height; ++y) {
-            for (uint32_t x = 0; x < data.width; ++x) {
+        ScopeTimer cohesionTimer(pImpl->timers_, "cohesion_calculation");
+        for (uint32_t y = 0; y < pImpl->data_.height; ++y) {
+            for (uint32_t x = 0; x < pImpl->data_.width; ++x) {
                 Cell& cell = at(x, y);
 
                 if (cell.isEmpty() || cell.isWall()) {
@@ -374,7 +754,7 @@ void World::applyCohesionForces(const GridOfCells* grid)
                 Vector2d com_cohesion_force(0.0, 0.0);
                 if (com_cohesion.force_active) {
                     com_cohesion_force = com_cohesion.force_direction * com_cohesion.force_magnitude
-                        * physicsSettings.cohesion_strength;
+                        * pImpl->physicsSettings_.cohesion_strength;
 
                     if (cell.velocity.magnitude() > 0.01) {
                         double alignment = cell.velocity.dot(com_cohesion_force.normalize());
@@ -390,10 +770,10 @@ void World::applyCohesionForces(const GridOfCells* grid)
     }
 
     // Adhesion force accumulation (only if enabled).
-    if (physicsSettings.adhesion_strength > 0.0) {
-        ScopeTimer adhesionTimer(timers_, "adhesion_calculation");
-        for (uint32_t y = 0; y < data.height; ++y) {
-            for (uint32_t x = 0; x < data.width; ++x) {
+    if (pImpl->physicsSettings_.adhesion_strength > 0.0) {
+        ScopeTimer adhesionTimer(pImpl->timers_, "adhesion_calculation");
+        for (uint32_t y = 0; y < pImpl->data_.height; ++y) {
+            for (uint32_t x = 0; x < pImpl->data_.width; ++x) {
                 Cell& cell = at(x, y);
 
                 if (cell.isEmpty() || cell.isWall()) {
@@ -401,9 +781,9 @@ void World::applyCohesionForces(const GridOfCells* grid)
                 }
 
                 WorldAdhesionCalculator::AdhesionForce adhesion =
-                    adhesion_calculator_.calculateAdhesionForce(*this, x, y);
+                    pImpl->adhesion_calculator_.calculateAdhesionForce(*this, x, y);
                 Vector2d adhesion_force = adhesion.force_direction * adhesion.force_magnitude
-                    * physicsSettings.adhesion_strength;
+                    * pImpl->physicsSettings_.adhesion_strength;
                 cell.addPendingForce(adhesion_force);
                 cell.accumulated_adhesion_force = adhesion_force;
             }
@@ -413,16 +793,16 @@ void World::applyCohesionForces(const GridOfCells* grid)
 
 void World::applyPressureForces()
 {
-    if (physicsSettings.pressure_hydrostatic_strength <= 0.0
-        && physicsSettings.pressure_dynamic_strength <= 0.0) {
+    if (pImpl->physicsSettings_.pressure_hydrostatic_strength <= 0.0
+        && pImpl->physicsSettings_.pressure_dynamic_strength <= 0.0) {
         return;
     }
 
-    ScopeTimer timer(timers_, "apply_pressure_forces");
+    ScopeTimer timer(pImpl->timers_, "apply_pressure_forces");
 
     // Apply pressure forces through the pending force system.
-    for (uint32_t y = 0; y < data.height; ++y) {
-        for (uint32_t x = 0; x < data.width; ++x) {
+    for (uint32_t y = 0; y < pImpl->data_.height; ++y) {
+        for (uint32_t x = 0; x < pImpl->data_.width; ++x) {
             Cell& cell = at(x, y);
 
             // Skip empty cells and walls.
@@ -439,7 +819,7 @@ void World::applyPressureForces()
             // Calculate pressure gradient to determine force direction.
             // The gradient is calculated as (center_pressure - neighbor_pressure) * direction,
             // which points AWAY from high pressure regions (toward increasing pressure).
-            Vector2d gradient = pressure_calculator_.calculatePressureGradient(*this, x, y);
+            Vector2d gradient = pImpl->pressure_calculator_.calculatePressureGradient(*this, x, y);
 
             // Only apply force if system is out of equilibrium.
             if (gradient.magnitude() > 0.001) {
@@ -448,7 +828,7 @@ void World::applyPressureForces()
                 double hydrostatic_weight = props.hydrostatic_weight;
 
                 Vector2d pressure_force =
-                    gradient * physicsSettings.pressure_scale * hydrostatic_weight;
+                    gradient * pImpl->physicsSettings_.pressure_scale * hydrostatic_weight;
                 cell.addPendingForce(pressure_force);
 
                 spdlog::debug(
@@ -490,51 +870,51 @@ double World::getMotionStateMultiplier(MotionState state, double sensitivity) co
 
 void World::resolveForces(double deltaTime, const GridOfCells* grid)
 {
-    ScopeTimer timer(timers_, "resolve_forces");
+    ScopeTimer timer(pImpl->timers_, "resolve_forces");
 
     // Clear pending forces at the start of each physics frame.
     {
-        ScopeTimer clearTimer(timers_, "resolve_forces_clear_pending");
-        for (auto& cell : data.cells) {
+        ScopeTimer clearTimer(pImpl->timers_, "resolve_forces_clear_pending");
+        for (auto& cell : pImpl->data_.cells) {
             cell.clearPendingForce();
         }
     }
 
     // Apply gravity forces.
     {
-        ScopeTimer gravityTimer(timers_, "resolve_forces_apply_gravity");
+        ScopeTimer gravityTimer(pImpl->timers_, "resolve_forces_apply_gravity");
         applyGravity();
     }
 
     // Apply air resistance forces.
     {
-        ScopeTimer airResistanceTimer(timers_, "resolve_forces_apply_air_resistance");
+        ScopeTimer airResistanceTimer(pImpl->timers_, "resolve_forces_apply_air_resistance");
         applyAirResistance();
     }
 
     // Apply pressure forces from previous frame.
     {
-        ScopeTimer pressureTimer(timers_, "resolve_forces_apply_pressure");
+        ScopeTimer pressureTimer(pImpl->timers_, "resolve_forces_apply_pressure");
         applyPressureForces();
     }
 
     // Apply cohesion and adhesion forces.
     {
-        ScopeTimer cohesionTimer(timers_, "resolve_forces_apply_cohesion");
+        ScopeTimer cohesionTimer(pImpl->timers_, "resolve_forces_apply_cohesion");
         applyCohesionForces(grid);
     }
 
     // Apply contact-based friction forces.
     {
-        ScopeTimer frictionTimer(timers_, "resolve_forces_apply_friction");
-        friction_calculator_.calculateAndApplyFrictionForces(*this, deltaTime);
+        ScopeTimer frictionTimer(pImpl->timers_, "resolve_forces_apply_friction");
+        pImpl->friction_calculator_.calculateAndApplyFrictionForces(*this, deltaTime);
     }
 
     // Apply viscous forces (momentum diffusion between same-material neighbors).
-    if (physicsSettings.viscosity_strength > 0.0) {
-        ScopeTimer viscosityTimer(timers_, "apply_viscous_forces");
-        for (uint32_t y = 0; y < data.height; ++y) {
-            for (uint32_t x = 0; x < data.width; ++x) {
+    if (pImpl->physicsSettings_.viscosity_strength > 0.0) {
+        ScopeTimer viscosityTimer(pImpl->timers_, "apply_viscous_forces");
+        for (uint32_t y = 0; y < pImpl->data_.height; ++y) {
+            for (uint32_t x = 0; x < pImpl->data_.width; ++x) {
                 Cell& cell = at(x, y);
 
                 if (cell.isEmpty() || cell.isWall()) {
@@ -543,7 +923,7 @@ void World::resolveForces(double deltaTime, const GridOfCells* grid)
 
                 // Calculate viscous force from neighbor velocity averaging.
                 auto viscous_result =
-                    viscosity_calculator_.calculateViscousForce(*this, x, y, grid);
+                    pImpl->viscosity_calculator_.calculateViscousForce(*this, x, y, grid);
                 cell.addPendingForce(viscous_result.force);
 
                 // Store for visualization.
@@ -554,9 +934,9 @@ void World::resolveForces(double deltaTime, const GridOfCells* grid)
 
     // Now resolve all accumulated forces directly (no damping).
     {
-        ScopeTimer resolutionLoopTimer(timers_, "resolve_forces_resolution_loop");
-        for (uint32_t y = 0; y < data.height; ++y) {
-            for (uint32_t x = 0; x < data.width; ++x) {
+        ScopeTimer resolutionLoopTimer(pImpl->timers_, "resolve_forces_resolution_loop");
+        for (uint32_t y = 0; y < pImpl->data_.height; ++y) {
+            for (uint32_t x = 0; x < pImpl->data_.width; ++x) {
                 Cell& cell = at(x, y);
 
                 if (cell.isEmpty() || cell.isWall()) {
@@ -572,12 +952,12 @@ void World::resolveForces(double deltaTime, const GridOfCells* grid)
                 double cohesion_strength;
                 {
                     ScopeTimer cohesionStrengthTimer(
-                        timers_, "resolve_forces_cohesion_strength_calc");
+                        pImpl->timers_, "resolve_forces_cohesion_strength_calc");
                     cohesion_strength =
-                        collision_calculator_.calculateCohesionStrength(cell, *this, x, y);
+                        pImpl->collision_calculator_.calculateCohesionStrength(cell, *this, x, y);
                 }
                 double cohesion_resistance_force =
-                    cohesion_strength * physicsSettings.cohesion_resistance_factor;
+                    cohesion_strength * pImpl->physicsSettings_.cohesion_resistance_factor;
 
                 if (cohesion_resistance_force > 0.01
                     && net_force_magnitude < cohesion_resistance_force) {
@@ -619,7 +999,7 @@ void World::resolveForces(double deltaTime, const GridOfCells* grid)
 
 void World::processVelocityLimiting(double deltaTime)
 {
-    for (auto& cell : data.cells) {
+    for (auto& cell : pImpl->data_.cells) {
         if (!cell.isEmpty()) {
             cell.limitVelocity(
                 MAX_VELOCITY_PER_TIMESTEP,
@@ -632,21 +1012,21 @@ void World::processVelocityLimiting(double deltaTime)
 
 void World::updateTransfers(double deltaTime)
 {
-    ScopeTimer timer(timers_, "update_transfers");
+    ScopeTimer timer(pImpl->timers_, "update_transfers");
 
     // Clear previous moves.
-    pending_moves_.clear();
+    pImpl->pending_moves_.clear();
 
     // Compute material moves based on COM positions and velocities.
-    pending_moves_ = computeMaterialMoves(deltaTime);
+    pImpl->pending_moves_ = computeMaterialMoves(deltaTime);
 }
 
 std::vector<MaterialMove> World::computeMaterialMoves(double deltaTime)
 {
     std::vector<MaterialMove> moves;
 
-    for (uint32_t y = 0; y < data.height; ++y) {
-        for (uint32_t x = 0; x < data.width; ++x) {
+    for (uint32_t y = 0; y < pImpl->data_.height; ++y) {
+        for (uint32_t x = 0; x < pImpl->data_.width; ++x) {
             Cell& cell = at(x, y);
 
             if (cell.isEmpty() || cell.isWall()) {
@@ -677,8 +1057,8 @@ std::vector<MaterialMove> World::computeMaterialMoves(double deltaTime)
             Vector2d newCOM = cell.com + cell.velocity * deltaTime;
 
             // Enhanced: Check if COM crosses any boundary [-1,1] for universal collision detection.
-            std::vector<Vector2i> crossed_boundaries =
-                collision_calculator_.getAllBoundaryCrossings(newCOM);
+            BoundaryCrossings crossed_boundaries =
+                pImpl->collision_calculator_.getAllBoundaryCrossings(newCOM);
 
             if (!crossed_boundaries.empty()) {
                 spdlog::debug(
@@ -689,17 +1069,19 @@ std::vector<MaterialMove> World::computeMaterialMoves(double deltaTime)
                     y,
                     newCOM.x,
                     newCOM.y,
-                    crossed_boundaries.size());
+                    crossed_boundaries.count);
             }
 
             bool boundary_reflection_applied = false;
 
-            for (const Vector2i& direction : crossed_boundaries) {
+            for (uint8_t i = 0; i < crossed_boundaries.count; ++i) {
+                const Vector2i& direction = crossed_boundaries.dirs[i];
                 Vector2i targetPos = Vector2i(x, y) + direction;
 
                 if (isValidCell(targetPos)) {
-                    // Create enhanced MaterialMove with collision physics and COM cohesion data.
-                    MaterialMove move = collision_calculator_.createCollisionAwareMove(
+                    // Create enhanced MaterialMove with collision physics and COM cohesion
+                    // pImpl->data_.
+                    MaterialMove move = pImpl->collision_calculator_.createCollisionAwareMove(
                         *this,
                         cell,
                         at(targetPos),
@@ -736,7 +1118,7 @@ std::vector<MaterialMove> World::computeMaterialMoves(double deltaTime)
                         direction.x,
                         direction.y);
 
-                    collision_calculator_.applyBoundaryReflection(cell, direction);
+                    pImpl->collision_calculator_.applyBoundaryReflection(cell, direction);
                     boundary_reflection_applied = true;
                 }
             }
@@ -756,7 +1138,8 @@ std::vector<MaterialMove> World::computeMaterialMoves(double deltaTime)
                 bool x_reflected = false;
                 bool y_reflected = false;
 
-                for (const Vector2i& dir : crossed_boundaries) {
+                for (uint8_t i = 0; i < crossed_boundaries.count; ++i) {
+                    const Vector2i& dir = crossed_boundaries.dirs[i];
                     if (dir.x != 0) x_reflected = true;
                     if (dir.y != 0) y_reflected = true;
                 }
@@ -779,12 +1162,12 @@ std::vector<MaterialMove> World::computeMaterialMoves(double deltaTime)
 
 void World::processMaterialMoves()
 {
-    ScopeTimer timer(timers_, "process_moves");
+    ScopeTimer timer(pImpl->timers_, "process_moves");
 
     // Shuffle moves to handle conflicts randomly.
-    std::shuffle(pending_moves_.begin(), pending_moves_.end(), *rng_);
+    std::shuffle(pImpl->pending_moves_.begin(), pImpl->pending_moves_.end(), *rng_);
 
-    for (const auto& move : pending_moves_) {
+    for (const auto& move : pImpl->pending_moves_) {
         Cell& fromCell = at(move.fromX, move.fromY);
         Cell& toCell = at(move.toX, move.toY);
 
@@ -813,17 +1196,18 @@ void World::processMaterialMoves()
         }
 
         // Check if materials should swap instead of colliding (if enabled).
-        if (physicsSettings.swap_enabled) {
+        if (pImpl->physicsSettings_.swap_enabled) {
             Vector2i direction(move.toX - move.fromX, move.toY - move.fromY);
-            if (collision_calculator_.shouldSwapMaterials(
+            if (pImpl->collision_calculator_.shouldSwapMaterials(
                     *this, move.fromX, move.fromY, fromCell, toCell, direction, move)) {
                 TreeId from_organism = fromCell.organism_id;
                 TreeId to_organism = toCell.organism_id;
 
-                collision_calculator_.swapCounterMovingMaterials(fromCell, toCell, direction, move);
+                pImpl->collision_calculator_.swapCounterMovingMaterials(
+                    fromCell, toCell, direction, move);
 
                 if (from_organism != INVALID_TREE_ID) {
-                    organism_transfers_.push_back(
+                    pImpl->organism_transfers_.push_back(
                         { Vector2i{ static_cast<int>(move.fromX), static_cast<int>(move.fromY) },
                           Vector2i{ static_cast<int>(move.toX), static_cast<int>(move.toY) },
                           from_organism,
@@ -831,7 +1215,7 @@ void World::processMaterialMoves()
                 }
 
                 if (to_organism != INVALID_TREE_ID) {
-                    organism_transfers_.push_back(
+                    pImpl->organism_transfers_.push_back(
                         { Vector2i{ static_cast<int>(move.toX), static_cast<int>(move.toY) },
                           Vector2i{ static_cast<int>(move.fromX), static_cast<int>(move.fromY) },
                           to_organism,
@@ -860,19 +1244,20 @@ void World::processMaterialMoves()
 
         switch (move.collision_type) {
             case CollisionType::TRANSFER_ONLY:
-                collision_calculator_.handleTransferMove(*this, fromCell, toCell, move);
+                pImpl->collision_calculator_.handleTransferMove(*this, fromCell, toCell, move);
                 break;
             case CollisionType::ELASTIC_REFLECTION:
-                collision_calculator_.handleElasticCollision(fromCell, toCell, move);
+                pImpl->collision_calculator_.handleElasticCollision(fromCell, toCell, move);
                 break;
             case CollisionType::INELASTIC_COLLISION:
-                collision_calculator_.handleInelasticCollision(*this, fromCell, toCell, move);
+                pImpl->collision_calculator_.handleInelasticCollision(
+                    *this, fromCell, toCell, move);
                 break;
             case CollisionType::FRAGMENTATION:
-                collision_calculator_.handleFragmentation(*this, fromCell, toCell, move);
+                pImpl->collision_calculator_.handleFragmentation(*this, fromCell, toCell, move);
                 break;
             case CollisionType::ABSORPTION:
-                collision_calculator_.handleAbsorption(*this, fromCell, toCell, move);
+                pImpl->collision_calculator_.handleAbsorption(*this, fromCell, toCell, move);
                 break;
         }
 
@@ -884,19 +1269,19 @@ void World::processMaterialMoves()
         }
     }
 
-    pending_moves_.clear();
+    pImpl->pending_moves_.clear();
 
     // Notify TreeManager of all organism transfers for efficient tracking updates.
-    if (!organism_transfers_.empty() && tree_manager_) {
-        tree_manager_->notifyTransfers(organism_transfers_);
-        organism_transfers_.clear();
+    if (!pImpl->organism_transfers_.empty() && tree_manager_) {
+        tree_manager_->notifyTransfers(pImpl->organism_transfers_);
+        pImpl->organism_transfers_.clear();
     }
 }
 
 void World::recordOrganismTransfer(
     int fromX, int fromY, int toX, int toY, TreeId organism_id, double amount)
 {
-    organism_transfers_.push_back(
+    pImpl->organism_transfers_.push_back(
         OrganismTransfer{ Vector2i{ fromX, fromY }, Vector2i{ toX, toY }, organism_id, amount });
 }
 
@@ -905,15 +1290,15 @@ void World::setupBoundaryWalls()
     spdlog::info("Setting up boundary walls for World");
 
     // Top and bottom walls.
-    for (uint32_t x = 0; x < data.width; ++x) {
+    for (uint32_t x = 0; x < pImpl->data_.width; ++x) {
         at(x, 0).replaceMaterial(MaterialType::WALL, 1.0);
-        at(x, data.height - 1).replaceMaterial(MaterialType::WALL, 1.0);
+        at(x, pImpl->data_.height - 1).replaceMaterial(MaterialType::WALL, 1.0);
     }
 
     // Left and right walls.
-    for (uint32_t y = 0; y < data.height; ++y) {
+    for (uint32_t y = 0; y < pImpl->data_.height; ++y) {
         at(0, y).replaceMaterial(MaterialType::WALL, 1.0);
-        at(data.width - 1, y).replaceMaterial(MaterialType::WALL, 1.0);
+        at(pImpl->data_.width - 1, y).replaceMaterial(MaterialType::WALL, 1.0);
     }
 
     spdlog::info("Boundary walls setup complete");
@@ -933,13 +1318,13 @@ void World::pixelToCell(int pixelX, int pixelY, int& cellX, int& cellY) const
 
 bool World::isValidCell(int x, int y) const
 {
-    return x >= 0 && y >= 0 && static_cast<uint32_t>(x) < data.width
-        && static_cast<uint32_t>(y) < data.height;
+    return x >= 0 && y >= 0 && static_cast<uint32_t>(x) < pImpl->data_.width
+        && static_cast<uint32_t>(y) < pImpl->data_.height;
 }
 
 size_t World::coordToIndex(uint32_t x, uint32_t y) const
 {
-    return y * data.width + x;
+    return y * pImpl->data_.width + x;
 }
 
 Vector2i World::pixelToCell(int pixelX, int pixelY) const
@@ -970,13 +1355,13 @@ void World::setWallsEnabled(bool enabled)
     }
     else {
         // Clear existing walls by resetting boundary cells to air.
-        for (uint32_t x = 0; x < data.width; ++x) {
-            at(x, 0).clear();               // Top wall.
-            at(x, data.height - 1).clear(); // Bottom wall.
+        for (uint32_t x = 0; x < pImpl->data_.width; ++x) {
+            at(x, 0).clear();                       // Top wall.
+            at(x, pImpl->data_.height - 1).clear(); // Bottom wall.
         }
-        for (uint32_t y = 0; y < data.height; ++y) {
-            at(0, y).clear();              // Left wall.
-            at(data.width - 1, y).clear(); // Right wall.
+        for (uint32_t y = 0; y < pImpl->data_.height; ++y) {
+            at(0, y).clear();                      // Left wall.
+            at(pImpl->data_.width - 1, y).clear(); // Right wall.
         }
     }
 }
@@ -991,38 +1376,39 @@ bool World::areWallsEnabled() const
 
 void World::setHydrostaticPressureStrength(double strength)
 {
-    physicsSettings.pressure_hydrostatic_strength = strength;
+    pImpl->physicsSettings_.pressure_hydrostatic_strength = strength;
     spdlog::info("Hydrostatic pressure strength set to {:.2f}", strength);
 }
 
 double World::getHydrostaticPressureStrength() const
 {
-    return physicsSettings.pressure_hydrostatic_strength;
+    return pImpl->physicsSettings_.pressure_hydrostatic_strength;
 }
 
 void World::setDynamicPressureStrength(double strength)
 {
-    physicsSettings.pressure_dynamic_strength = strength;
+    pImpl->physicsSettings_.pressure_dynamic_strength = strength;
     spdlog::info("Dynamic pressure strength set to {:.2f}", strength);
 }
 
 double World::getDynamicPressureStrength() const
 {
-    return physicsSettings.pressure_dynamic_strength;
+    return pImpl->physicsSettings_.pressure_dynamic_strength;
 }
 
 std::string World::settingsToString() const
 {
     std::stringstream ss;
     ss << "=== World Settings ===\n";
-    ss << "Grid size: " << data.width << "x" << data.height << "\n";
-    ss << "Gravity: " << physicsSettings.gravity << "\n";
+    ss << "Grid size: " << pImpl->data_.width << "x" << pImpl->data_.height << "\n";
+    ss << "Gravity: " << pImpl->physicsSettings_.gravity << "\n";
     ss << "Hydrostatic pressure enabled: " << (isHydrostaticPressureEnabled() ? "true" : "false")
        << "\n";
     ss << "Dynamic pressure enabled: " << (isDynamicPressureEnabled() ? "true" : "false") << "\n";
-    ss << "Pressure scale: " << physicsSettings.pressure_scale << "\n";
-    ss << "Elasticity factor: " << physicsSettings.elasticity << "\n";
-    ss << "Add particles enabled: " << (data.add_particles_enabled ? "true" : "false") << "\n";
+    ss << "Pressure scale: " << pImpl->physicsSettings_.pressure_scale << "\n";
+    ss << "Elasticity factor: " << pImpl->physicsSettings_.elasticity << "\n";
+    ss << "Add particles enabled: " << (pImpl->data_.add_particles_enabled ? "true" : "false")
+       << "\n";
     ss << "Walls enabled: " << (areWallsEnabled() ? "true" : "false") << "\n";
     ss << "Rain rate: " << getRainRate() /* stub */ << "\n";
     ss << "Left throw enabled: " << (isLeftThrowEnabled() ? "true" : "false") << "\n";
@@ -1030,11 +1416,11 @@ std::string World::settingsToString() const
     ss << "Lower right quadrant enabled: " << (isLowerRightQuadrantEnabled() ? "true" : "false")
        << "\n";
     ss << "Cohesion COM force enabled: "
-       << (physicsSettings.cohesion_strength > 0.0 ? "true" : "false") << "\n";
+       << (pImpl->physicsSettings_.cohesion_strength > 0.0 ? "true" : "false") << "\n";
     ss << "Cohesion bind force enabled: " << (isCohesionBindForceEnabled() ? "true" : "false")
        << "\n";
-    ss << "Adhesion enabled: " << (physicsSettings.adhesion_strength > 0.0 ? "true" : "false")
-       << "\n";
+    ss << "Adhesion enabled: "
+       << (pImpl->physicsSettings_.adhesion_strength > 0.0 ? "true" : "false") << "\n";
     ss << "Air resistance enabled: " << (air_resistance_enabled_ ? "true" : "false") << "\n";
     ss << "Air resistance strength: " << air_resistance_strength_ << "\n";
     ss << "Material removal threshold: " << MIN_MATTER_THRESHOLD << "\n";
@@ -1050,26 +1436,30 @@ std::string World::settingsToString() const
 nlohmann::json World::toJSON() const
 {
     // Automatic serialization via ReflectSerializer!
-    return ReflectSerializer::to_json(data);
+    return ReflectSerializer::to_json(pImpl->data_);
 }
 
 void World::fromJSON(const nlohmann::json& doc)
 {
     // Automatic deserialization via ReflectSerializer!
-    data = ReflectSerializer::from_json<WorldData>(doc);
-    spdlog::info("World deserialized: {}x{} grid", data.width, data.height);
+    pImpl->data_ = ReflectSerializer::from_json<WorldData>(doc);
+    spdlog::info("World deserialized: {}x{} grid", pImpl->data_.width, pImpl->data_.height);
 }
 
 // Stub implementations for WorldInterface methods.
 void World::onPreResize(uint32_t newWidth, uint32_t newHeight)
 {
     spdlog::debug(
-        "World::onPreResize: {}x{} -> {}x{}", data.width, data.height, newWidth, newHeight);
+        "World::onPreResize: {}x{} -> {}x{}",
+        pImpl->data_.width,
+        pImpl->data_.height,
+        newWidth,
+        newHeight);
 }
 
 bool World::shouldResize(uint32_t newWidth, uint32_t newHeight) const
 {
-    return data.width != newWidth || data.height != newHeight;
+    return pImpl->data_.width != newWidth || pImpl->data_.height != newHeight;
 }
 
 // ADL functions for MotionState JSON serialization.
@@ -1114,7 +1504,7 @@ void from_json(const nlohmann::json& j, World::MotionState& state)
 void World::spawnMaterialBall(MaterialType material, uint32_t centerX, uint32_t centerY)
 {
     // Calculate radius as 15% of world width (diameter = 15% of width).
-    double diameter = data.width * 0.15;
+    double diameter = pImpl->data_.width * 0.15;
     double radius = diameter / 2.0;
 
     // Round up to ensure at least 1 cell for very small worlds.
@@ -1127,9 +1517,9 @@ void World::spawnMaterialBall(MaterialType material, uint32_t centerX, uint32_t 
     // Walls occupy the outermost layer (x=0, x=width-1, y=0, y=height-1).
     // Valid interior range: [1, width-2] for x, [1, height-2] for y.
     uint32_t minX = 1 + radiusInt;
-    uint32_t maxX = data.width >= 2 + radiusInt ? data.width - 1 - radiusInt : 1;
+    uint32_t maxX = pImpl->data_.width >= 2 + radiusInt ? pImpl->data_.width - 1 - radiusInt : 1;
     uint32_t minY = 1 + radiusInt;
-    uint32_t maxY = data.height >= 2 + radiusInt ? data.height - 1 - radiusInt : 1;
+    uint32_t maxY = pImpl->data_.height >= 2 + radiusInt ? pImpl->data_.height - 1 - radiusInt : 1;
 
     // Clamp the provided center to valid range.
     uint32_t clampedCenterX = std::max(minX, std::min(centerX, maxX));
@@ -1137,9 +1527,9 @@ void World::spawnMaterialBall(MaterialType material, uint32_t centerX, uint32_t 
 
     // Only scan bounding box for efficiency.
     uint32_t scanMinX = clampedCenterX > radiusInt ? clampedCenterX - radiusInt : 0;
-    uint32_t scanMaxX = std::min(clampedCenterX + radiusInt, data.width - 1);
+    uint32_t scanMaxX = std::min(clampedCenterX + radiusInt, pImpl->data_.width - 1);
     uint32_t scanMinY = clampedCenterY > radiusInt ? clampedCenterY - radiusInt : 0;
-    uint32_t scanMaxY = std::min(clampedCenterY + radiusInt, data.height - 1);
+    uint32_t scanMaxY = std::min(clampedCenterY + radiusInt, pImpl->data_.height - 1);
 
     // Spawn a ball of material centered at the clamped position.
     for (uint32_t y = scanMinY; y <= scanMaxY; ++y) {

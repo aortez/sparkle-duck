@@ -3,8 +3,10 @@
 #include "LoggingChannels.h"
 #include "MaterialMove.h"
 #include "MaterialType.h"
+#include "PhysicsSettings.h"
 #include "World.h"
 #include "WorldCohesionCalculator.h"
+#include "WorldData.h"
 #include "WorldPressureCalculator.h"
 #include "spdlog/spdlog.h"
 #include <algorithm>
@@ -16,16 +18,15 @@ using namespace DirtSim;
 // COLLISION DETECTION.
 // =================================================================
 
-std::vector<Vector2i> WorldCollisionCalculator::getAllBoundaryCrossings(
-    const Vector2d& newCOM) const
+BoundaryCrossings WorldCollisionCalculator::getAllBoundaryCrossings(const Vector2d& newCOM) const
 {
-    std::vector<Vector2i> crossings;
+    BoundaryCrossings crossings;
 
-    // Check each boundary independently (aligned with original shouldTransfer logic)
-    if (newCOM.x >= 1.0) crossings.push_back(Vector2i(1, 0));   // Right boundary.
-    if (newCOM.x <= -1.0) crossings.push_back(Vector2i(-1, 0)); // Left boundary.
-    if (newCOM.y >= 1.0) crossings.push_back(Vector2i(0, 1));   // Down boundary.
-    if (newCOM.y <= -1.0) crossings.push_back(Vector2i(0, -1)); // Up boundary.
+    // Check each boundary independently (aligned with original shouldTransfer logic).
+    if (newCOM.x >= 1.0) crossings.add(Vector2i(1, 0));   // Right boundary.
+    if (newCOM.x <= -1.0) crossings.add(Vector2i(-1, 0)); // Left boundary.
+    if (newCOM.y >= 1.0) crossings.add(Vector2i(0, 1));   // Down boundary.
+    if (newCOM.y <= -1.0) crossings.add(Vector2i(0, -1)); // Up boundary.
 
     return crossings;
 }
@@ -796,7 +797,7 @@ bool WorldCollisionCalculator::shouldSwapMaterials(
         // Non-fluids have much higher resistance to horizontal movement.
         // This allows granular materials to swap but makes it harder.
         if (!from_props.is_fluid) {
-            flowability *= world.physicsSettings.horizontal_non_fluid_penalty;
+            flowability *= world.getPhysicsSettings().horizontal_non_fluid_penalty;
         }
 
         // Target's resistance to displacement (density * viscosity).
@@ -805,7 +806,7 @@ bool WorldCollisionCalculator::shouldSwapMaterials(
 
         // Non-fluid targets also have higher resistance to being displaced.
         if (!to_props.is_fluid) {
-            target_resistance *= world.physicsSettings.horizontal_non_fluid_target_resistance;
+            target_resistance *= world.getPhysicsSettings().horizontal_non_fluid_target_resistance;
         }
 
         // Add velocity boost - moving materials displace easier.
@@ -814,7 +815,7 @@ bool WorldCollisionCalculator::shouldSwapMaterials(
 
         // Natural flow condition: material flows if it can overcome target resistance.
         const bool swap_ok = effective_flowability
-            > (target_resistance * world.physicsSettings.horizontal_flow_resistance_factor);
+            > (target_resistance * world.getPhysicsSettings().horizontal_flow_resistance_factor);
 
         if (!swap_ok) {
             return false;
@@ -848,14 +849,14 @@ bool WorldCollisionCalculator::shouldSwapMaterials(
     // Check cohesion resistance.
     double cohesion_strength = calculateCohesionStrength(fromCell, world, fromX, fromY);
     double bond_breaking_cost =
-        cohesion_strength * world.physicsSettings.cohesion_resistance_factor;
+        cohesion_strength * world.getPhysicsSettings().cohesion_resistance_factor;
 
     // Get material properties for fluid checks.
     const MaterialProperties& from_props = getMaterialProperties(fromCell.material_type);
 
     // Reduce bond cost for fluid interactions (fluids help separate materials).
     if (from_props.is_fluid || to_props.is_fluid) {
-        bond_breaking_cost *= world.physicsSettings.fluid_lubrication_factor;
+        bond_breaking_cost *= world.getPhysicsSettings().fluid_lubrication_factor;
     }
 
     if (cohesion_strength > 0.01) {
@@ -875,7 +876,7 @@ bool WorldCollisionCalculator::shouldSwapMaterials(
 
     // Non-fluids require more energy to displace (both source and target).
     if (!from_props.is_fluid || !to_props.is_fluid) {
-        swap_cost *= world.physicsSettings.non_fluid_energy_multiplier;
+        swap_cost *= world.getPhysicsSettings().non_fluid_energy_multiplier;
     }
 
     // Total cost includes base swap cost + bond breaking cost.
@@ -890,7 +891,7 @@ bool WorldCollisionCalculator::shouldSwapMaterials(
 
         if (is_buoyancy_driven && density_diff > 0.1) {
             const double buoyancy_energy =
-                density_diff * world.physicsSettings.buoyancy_energy_scale;
+                density_diff * world.getPhysicsSettings().buoyancy_energy_scale;
             available_energy += buoyancy_energy;
 
             LoggingChannels::swap()->debug(

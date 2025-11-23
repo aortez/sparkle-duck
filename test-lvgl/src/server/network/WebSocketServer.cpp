@@ -2,6 +2,7 @@
 #include "core/MsgPackAdapter.h"
 #include "core/ReflectSerializer.h"
 #include "core/RenderMessageUtils.h"
+#include "core/Timers.h"
 #include "server/StateMachine.h"
 #include <cstring>
 #include <spdlog/spdlog.h>

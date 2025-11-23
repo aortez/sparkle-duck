@@ -24,7 +24,7 @@ namespace DirtSim {
  * - Compile-time toggle to switch between old/new lookup approach.
  *
  * Usage:
- *   GridOfCells grid(world.data.cells, width, height, timers);
+ *   GridOfCells grid(world.getData().cells, width, height, timers);
  *   if (grid.emptyCells().isSet(x, y)) { ... }  // Check if cell is empty.
  */
 class GridOfCells {

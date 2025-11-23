@@ -1,6 +1,8 @@
 #include "WorldPressureCalculator.h"
 #include "Cell.h"
+#include "PhysicsSettings.h"
 #include "World.h"
+#include "WorldData.h"
 
 #include <algorithm>
 #include <cmath>
@@ -31,12 +33,12 @@ void WorldPressureCalculator::calculateHydrostaticPressure(World& world)
     constexpr bool USE_COLUMN_BASED_BUOYANCY = true;
 
     // Process each column independently.
-    for (uint32_t x = 0; x < world.data.width; ++x) {
+    for (uint32_t x = 0; x < world.getData().width; ++x) {
         // Top-down pressure accumulation with buoyancy support.
         double accumulated_pressure = 0.0;
         double current_fluid_density = 0.001; // Start assuming air environment.
 
-        for (uint32_t y = 0; y < world.data.height; ++y) {
+        for (uint32_t y = 0; y < world.getData().height; ++y) {
             Cell& cell = world.at(x, y);
 
             if (cell.isEmpty()) {
@@ -243,7 +245,7 @@ Vector2d WorldPressureCalculator::calculatePressureGradient(
         }
 
         // Right neighbor.
-        if (x < world.data.width - 1) {
+        if (x < world.getData().width - 1) {
             const Cell& right = world.at(x + 1, y);
             if (!right.isWall()) {
                 p_right = right.pressure; // Use actual pressure (0 for empty cells).
@@ -282,7 +284,7 @@ Vector2d WorldPressureCalculator::calculatePressureGradient(
         }
 
         // Down neighbor.
-        if (y < world.data.height - 1) {
+        if (y < world.getData().height - 1) {
             const Cell& down = world.at(x, y + 1);
             if (!down.isWall() && !down.isEmpty()) {
                 p_down = down.pressure;
@@ -379,8 +381,8 @@ void WorldPressureCalculator::applyPressureDecay(World& world, double deltaTime)
     // Apply decay to dynamic pressure only (not hydrostatic).
     // Hydrostatic pressure is recalculated each frame based on material positions,
     // so it doesn't need decay. Only dynamic pressure from collisions should dissipate.
-    for (uint32_t y = 0; y < world.data.height; ++y) {
-        for (uint32_t x = 0; x < world.data.width; ++x) {
+    for (uint32_t y = 0; y < world.getData().height; ++y) {
+        for (uint32_t x = 0; x < world.getData().width; ++x) {
             Cell& cell = world.at(x, y);
 
             // Only decay the dynamic component.
@@ -423,8 +425,8 @@ void WorldPressureCalculator::generateVirtualGravityTransfers(World& world, doub
     }
 
     // Process all cells to generate virtual gravity transfers.
-    for (uint32_t y = 0; y < world.data.height; ++y) {
-        for (uint32_t x = 0; x < world.data.width; ++x) {
+    for (uint32_t y = 0; y < world.getData().height; ++y) {
+        for (uint32_t x = 0; x < world.getData().width; ++x) {
             Cell& cell = world.at(x, y);
 
             // Skip empty cells and walls.
@@ -553,8 +555,8 @@ double WorldPressureCalculator::getSurroundingFluidDensity(
         int ny = static_cast<int>(y) + dy[i];
 
         // Check bounds.
-        if (nx < 0 || nx >= static_cast<int>(world.data.width) || ny < 0
-            || ny >= static_cast<int>(world.data.height)) {
+        if (nx < 0 || nx >= static_cast<int>(world.getData().width) || ny < 0
+            || ny >= static_cast<int>(world.getData().height)) {
             continue; // Out of bounds.
         }
 
@@ -585,8 +587,8 @@ double WorldPressureCalculator::getSurroundingFluidDensity(
 void WorldPressureCalculator::applyPressureDiffusion(World& world, double deltaTime)
 {
     // Create a temporary copy of pressure values to avoid order-dependent updates.
-    const uint32_t width = world.data.width;
-    const uint32_t height = world.data.height;
+    const uint32_t width = world.getData().width;
+    const uint32_t height = world.getData().height;
     std::vector<double> new_pressure(width * height);
 
     // Copy current pressure values.
@@ -617,7 +619,7 @@ void WorldPressureCalculator::applyPressureDiffusion(World& world, double deltaT
             // Get material diffusion coefficient.
             const MaterialProperties& props = getMaterialProperties(cell.material_type);
             double diffusion_rate =
-                props.pressure_diffusion * world.physicsSettings.pressure_diffusion_strength;
+                props.pressure_diffusion * world.getPhysicsSettings().pressure_diffusion_strength;
 
             // Calculate pressure flux with neighbors.
             double pressure_flux = 0.0;

@@ -26,7 +26,7 @@ TEST_F(CohesionDebugTest, OneByThreeColumn)
 
     // Create 1x3 world.
     world = std::make_unique<World>(1, 3);
-    world->physicsSettings.cohesion_strength = 150.0;
+    world->getPhysicsSettings().cohesion_strength = 150.0;
 
     // Fill all cells with dirt.
     for (uint32_t y = 0; y < 3; y++) {
@@ -66,7 +66,7 @@ TEST_F(CohesionDebugTest, ThreeByThreeGrid)
 
     // Create 3x3 world.
     world = std::make_unique<World>(3, 3);
-    world->physicsSettings.cohesion_strength = 150.0;
+    world->getPhysicsSettings().cohesion_strength = 150.0;
 
     // Fill all cells with dirt.
     for (uint32_t y = 0; y < 3; y++) {
@@ -110,7 +110,7 @@ TEST_F(CohesionDebugTest, OffsetCOMs)
     spdlog::info("=== Testing 3x3 Grid - Offset COMs ===");
 
     world = std::make_unique<World>(3, 3);
-    world->physicsSettings.cohesion_strength = 150.0;
+    world->getPhysicsSettings().cohesion_strength = 150.0;
 
     // Fill all cells with dirt.
     for (uint32_t y = 0; y < 3; y++) {
@@ -144,7 +144,7 @@ TEST_F(CohesionDebugTest, DirectionalCorrection)
     spdlog::info("=== Testing Directional Correction ===");
 
     world = std::make_unique<World>(3, 1);
-    world->physicsSettings.cohesion_strength = 150.0;
+    world->getPhysicsSettings().cohesion_strength = 150.0;
 
     // Setup: Left-Center-Right dirt cells.
     world->at(0, 0).replaceMaterial(MaterialType::DIRT, 1.0);
@@ -190,8 +190,8 @@ TEST_F(CohesionDebugTest, AlignmentGating)
 
     // Create 1x3 horizontal row.
     world = std::make_unique<World>(3, 1);
-    world->physicsSettings.cohesion_strength = 3.0; // Lower strength for testing.
-    spdlog::set_level(spdlog::level::trace);        // Enable trace logging.
+    world->getPhysicsSettings().cohesion_strength = 3.0; // Lower strength for testing.
+    spdlog::set_level(spdlog::level::trace);             // Enable trace logging.
 
     // All dirt cells.
     world->at(0, 0).replaceMaterial(MaterialType::DIRT, 1.0);

@@ -28,14 +28,14 @@ protected:
         world = std::make_unique<World>(3, 6);
 
         // Configure physics for hydrostatic pressure demonstration.
-        world->physicsSettings.gravity = 9.81;
-        world->physicsSettings.pressure_dynamic_enabled = false;
-        world->physicsSettings.pressure_dynamic_strength = 0.0;
-        world->physicsSettings.pressure_hydrostatic_enabled = true;
-        world->physicsSettings.pressure_hydrostatic_strength = 0.3;
-        world->physicsSettings.pressure_diffusion_strength = 1.0;
-        world->physicsSettings.pressure_scale = 1.0;
-        world->physicsSettings.swap_enabled = true;
+        world->getPhysicsSettings().gravity = 9.81;
+        world->getPhysicsSettings().pressure_dynamic_enabled = false;
+        world->getPhysicsSettings().pressure_dynamic_strength = 0.0;
+        world->getPhysicsSettings().pressure_hydrostatic_enabled = true;
+        world->getPhysicsSettings().pressure_hydrostatic_strength = 0.3;
+        world->getPhysicsSettings().pressure_diffusion_strength = 1.0;
+        world->getPhysicsSettings().pressure_scale = 1.0;
+        world->getPhysicsSettings().swap_enabled = true;
 
         world->setWallsEnabled(false);
         world->setLeftThrowEnabled(false);
@@ -75,7 +75,7 @@ protected:
     uint32_t countWaterInColumn(uint32_t x) const
     {
         uint32_t count = 0;
-        for (uint32_t y = 0; y < world->data.height; ++y) {
+        for (uint32_t y = 0; y < world->getData().height; ++y) {
             const Cell& cell = world->at(x, y);
             if (cell.material_type == MaterialType::WATER && cell.fill_ratio > 0.5) {
                 count++;
@@ -90,9 +90,9 @@ protected:
     void printWorld() const
     {
         spdlog::info("World state:");
-        for (uint32_t y = 0; y < world->data.height; ++y) {
+        for (uint32_t y = 0; y < world->getData().height; ++y) {
             std::string row = "  y=" + std::to_string(y) + ": ";
-            for (uint32_t x = 0; x < world->data.width; ++x) {
+            for (uint32_t x = 0; x < world->getData().width; ++x) {
                 const Cell& cell = world->at(x, y);
                 if (cell.material_type == MaterialType::WATER) {
                     row += "[W]";

@@ -14,6 +14,23 @@ class Cell;
 class World;
 
 /**
+ * @brief Stack-based container for boundary crossings (max 4 directions).
+ * Eliminates heap allocations compared to std::vector<Vector2i>.
+ */
+struct BoundaryCrossings {
+    Vector2i dirs[4]; // Max 4 cardinal directions.
+    uint8_t count = 0;
+
+    bool empty() const { return count == 0; }
+    void add(const Vector2i& dir)
+    {
+        if (count < 4) {
+            dirs[count++] = dir;
+        }
+    }
+};
+
+/**
  * @brief Calculator for collision detection and response in World
  *
  * This calculator handles all collision-related physics including:
@@ -36,9 +53,9 @@ public:
     /**
      * @brief Detect all boundary crossings for a given COM position.
      * @param newCOM The new center of mass position to check.
-     * @return Vector of directions where boundaries are crossed.
+     * @return BoundaryCrossings struct with directions (max 4, stack-based).
      */
-    std::vector<Vector2i> getAllBoundaryCrossings(const Vector2d& newCOM) const;
+    BoundaryCrossings getAllBoundaryCrossings(const Vector2d& newCOM) const;
 
     /**
      * @brief Create a collision-aware material move with physics data.

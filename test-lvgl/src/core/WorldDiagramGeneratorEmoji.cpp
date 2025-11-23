@@ -1,7 +1,9 @@
 #include "WorldDiagramGeneratorEmoji.h"
 #include "Cell.h"
 #include "MaterialType.h"
+#include "PhysicsSettings.h"
 #include "World.h"
+#include "WorldData.h"
 
 #include <cmath>
 #include <sstream>
@@ -12,8 +14,8 @@ std::string WorldDiagramGeneratorEmoji::generateEmojiDiagram(const World& world)
 {
     std::ostringstream diagram;
 
-    uint32_t width = world.data.width;
-    uint32_t height = world.data.height;
+    uint32_t width = world.getData().width;
+    uint32_t height = world.getData().height;
 
     // Top border with sparkles!
     diagram << "✨";
@@ -102,8 +104,8 @@ std::string WorldDiagramGeneratorEmoji::generateMixedDiagram(const World& world)
 {
     std::ostringstream diagram;
 
-    uint32_t width = world.data.width;
-    uint32_t height = world.data.height;
+    uint32_t width = world.getData().width;
+    uint32_t height = world.getData().height;
 
     // Top border.
     diagram << "🦆✨ Sparkle Duck World ✨🦆\n";

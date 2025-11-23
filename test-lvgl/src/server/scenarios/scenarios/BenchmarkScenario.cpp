@@ -1,6 +1,8 @@
 #include "core/Cell.h"
 #include "core/MaterialType.h"
+#include "core/PhysicsSettings.h"
 #include "core/World.h"
+#include "core/WorldData.h"
 #include "server/scenarios/Scenario.h"
 #include "server/scenarios/ScenarioRegistry.h"
 #include "spdlog/spdlog.h"
@@ -64,52 +66,57 @@ private:
 void BenchmarkScenario::setup(World& world)
 {
     spdlog::info(
-        "BenchmarkScenario::setup - initializing {}x{} world", world.data.width, world.data.height);
+        "BenchmarkScenario::setup - initializing {}x{} world",
+        world.getData().width,
+        world.getData().height);
 
     // Clear world first.
-    for (uint32_t y = 0; y < world.data.height; ++y) {
-        for (uint32_t x = 0; x < world.data.width; ++x) {
+    for (uint32_t y = 0; y < world.getData().height; ++y) {
+        for (uint32_t x = 0; x < world.getData().width; ++x) {
             world.at(x, y) = Cell(); // Reset to empty cell.
         }
     }
 
     // Create boundary walls.
-    for (uint32_t x = 0; x < world.data.width; ++x) {
-        world.at(x, 0).replaceMaterial(MaterialType::WALL, 1.0);                     // Top wall.
-        world.at(x, world.data.height - 1).replaceMaterial(MaterialType::WALL, 1.0); // Bottom wall.
+    for (uint32_t x = 0; x < world.getData().width; ++x) {
+        world.at(x, 0).replaceMaterial(MaterialType::WALL, 1.0); // Top wall.
+        world.at(x, world.getData().height - 1)
+            .replaceMaterial(MaterialType::WALL, 1.0); // Bottom wall.
     }
-    for (uint32_t y = 0; y < world.data.height; ++y) {
-        world.at(0, y).replaceMaterial(MaterialType::WALL, 1.0);                    // Left wall.
-        world.at(world.data.width - 1, y).replaceMaterial(MaterialType::WALL, 1.0); // Right wall.
+    for (uint32_t y = 0; y < world.getData().height; ++y) {
+        world.at(0, y).replaceMaterial(MaterialType::WALL, 1.0); // Left wall.
+        world.at(world.getData().width - 1, y)
+            .replaceMaterial(MaterialType::WALL, 1.0); // Right wall.
     }
 
     // Fill bottom 1/3 with water.
-    uint32_t waterStartY = world.data.height - (world.data.height / 3);
-    for (uint32_t y = waterStartY; y < world.data.height - 1; ++y) {
-        for (uint32_t x = 1; x < world.data.width - 1; ++x) {
+    uint32_t waterStartY = world.getData().height - (world.getData().height / 3);
+    for (uint32_t y = waterStartY; y < world.getData().height - 1; ++y) {
+        for (uint32_t x = 1; x < world.getData().width - 1; ++x) {
             world.at(x, y).replaceMaterial(MaterialType::WATER, 1.0);
         }
     }
-    spdlog::info("Added water pool (bottom 1/3): rows {}-{}", waterStartY, world.data.height - 1);
+    spdlog::info(
+        "Added water pool (bottom 1/3): rows {}-{}", waterStartY, world.getData().height - 1);
 
     // Calculate ball diameter as 15% of minimum world dimension.
-    uint32_t minDimension = std::min(world.data.width, world.data.height);
+    uint32_t minDimension = std::min(world.getData().width, world.getData().height);
     uint32_t ballDiameter = static_cast<uint32_t>(minDimension * 0.15);
     uint32_t ballRadius = ballDiameter / 2;
 
     // Position balls proportionally to world size.
-    uint32_t metalBallX = world.data.width / 5;
-    uint32_t metalBallY = world.data.height / 10;
+    uint32_t metalBallX = world.getData().width / 5;
+    uint32_t metalBallY = world.getData().height / 10;
     addBall(world, metalBallX, metalBallY, ballRadius, MaterialType::METAL);
     spdlog::info("Added metal ball at ({}, {}), radius {}", metalBallX, metalBallY, ballRadius);
 
-    uint32_t woodBallX = (4 * world.data.width) / 5;
-    uint32_t woodBallY = world.data.height / 10;
+    uint32_t woodBallX = (4 * world.getData().width) / 5;
+    uint32_t woodBallY = world.getData().height / 10;
     addBall(world, woodBallX, woodBallY, ballRadius, MaterialType::WOOD);
     spdlog::info("Added wood ball at ({}, {}), radius {}", woodBallX, woodBallY, ballRadius);
 
     // Add random sand particles (5% of world space).
-    uint32_t totalCells = world.data.width * world.data.height;
+    uint32_t totalCells = world.getData().width * world.getData().height;
     uint32_t sandCellCount = static_cast<uint32_t>(totalCells * 0.05);
     uint32_t sandAdded = 0;
 
@@ -117,8 +124,8 @@ void BenchmarkScenario::setup(World& world)
     std::srand(42); // Fixed seed for consistent benchmarks.
 
     while (sandAdded < sandCellCount) {
-        uint32_t x = 1 + (std::rand() % (world.data.width - 2));
-        uint32_t y = 1 + (std::rand() % (world.data.height - 2));
+        uint32_t x = 1 + (std::rand() % (world.getData().width - 2));
+        uint32_t y = 1 + (std::rand() % (world.getData().height - 2));
 
         // Only add sand to empty cells (don't overwrite water, balls, or walls).
         if (world.at(x, y).material_type == MaterialType::AIR && world.at(x, y).fill_ratio == 0.0) {
@@ -141,8 +148,8 @@ void BenchmarkScenario::addBall(
     World& world, uint32_t centerX, uint32_t centerY, uint32_t radius, MaterialType material)
 {
     // Create a circular ball of material.
-    for (uint32_t y = 0; y < world.data.height; ++y) {
-        for (uint32_t x = 0; x < world.data.width; ++x) {
+    for (uint32_t y = 0; y < world.getData().height; ++y) {
+        for (uint32_t x = 0; x < world.getData().width; ++x) {
             // Calculate distance from center.
             int dx = static_cast<int>(x) - static_cast<int>(centerX);
             int dy = static_cast<int>(y) - static_cast<int>(centerY);

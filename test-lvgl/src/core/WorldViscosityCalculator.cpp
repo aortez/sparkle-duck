@@ -1,7 +1,9 @@
 #include "WorldViscosityCalculator.h"
 #include "Cell.h"
 #include "GridOfCells.h"
+#include "PhysicsSettings.h"
 #include "World.h"
+#include "WorldData.h"
 #include <cmath>
 #include <spdlog/spdlog.h>
 
@@ -24,8 +26,8 @@ Vector2d WorldViscosityCalculator::calculateNeighborVelocityAverage(
             int ny = static_cast<int>(y) + dy;
 
             // Bounds check.
-            if (nx < 0 || ny < 0 || nx >= static_cast<int>(world.data.width)
-                || ny >= static_cast<int>(world.data.height)) {
+            if (nx < 0 || ny < 0 || nx >= static_cast<int>(world.getData().width)
+                || ny >= static_cast<int>(world.getData().height)) {
                 continue;
             }
 
@@ -88,7 +90,7 @@ WorldViscosityCalculator::ViscousForce WorldViscosityCalculator::calculateViscou
 
     bool has_solid_support = false;
     if (GridOfCells::USE_CACHE && grid) {
-        if (grid->supportBitmap().isSet(x, y) && y < world.data.height - 1) {
+        if (grid->supportBitmap().isSet(x, y) && y < world.getData().height - 1) {
             const Cell& below = world.at(x, y + 1);
             if (!below.isEmpty()) {
                 const MaterialProperties& below_props = getMaterialProperties(below.material_type);
@@ -97,7 +99,7 @@ WorldViscosityCalculator::ViscousForce WorldViscosityCalculator::calculateViscou
         }
     }
     else {
-        if (cell.has_any_support && y < world.data.height - 1) {
+        if (cell.has_any_support && y < world.getData().height - 1) {
             const Cell& below = world.at(x, y + 1);
             if (!below.isEmpty()) {
                 const MaterialProperties& below_props = getMaterialProperties(below.material_type);
@@ -123,7 +125,7 @@ WorldViscosityCalculator::ViscousForce WorldViscosityCalculator::calculateViscou
     // Viscous force tries to eliminate velocity differences.
     // Scale by viscosity strength (UI control) and fill ratio.
     Vector2d viscous_force = velocity_difference * effective_viscosity
-        * world.physicsSettings.viscosity_strength * cell.fill_ratio;
+        * world.getPhysicsSettings().viscosity_strength * cell.fill_ratio;
 
     // Debug info.
     double neighbor_avg_speed = avg_neighbor_velocity.magnitude();

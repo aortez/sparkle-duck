@@ -83,18 +83,19 @@ TEST_F(StateSimRunningTest, OnEnter_AppliesDefaultScenario)
 
     // Verify: World exists and scenario already applied by Idle.
     ASSERT_NE(simRunning.world, nullptr);
-    EXPECT_EQ(simRunning.world->data.scenario_id, "sandbox") << "Scenario applied by Idle";
+    EXPECT_EQ(simRunning.world->getData().scenario_id, "sandbox") << "Scenario applied by Idle";
 
     // Execute: Call onEnter (should not change scenario since it's already set).
     simRunning.onEnter(*stateMachine);
 
     // Verify: Sandbox scenario is still applied.
-    EXPECT_EQ(simRunning.world->data.scenario_id, "sandbox") << "Scenario should remain sandbox";
+    EXPECT_EQ(simRunning.world->getData().scenario_id, "sandbox")
+        << "Scenario should remain sandbox";
 
     // Verify: Walls exist (basic scenario setup check).
     const Cell& topLeft = simRunning.world->at(0, 0);
-    const Cell& bottomRight =
-        simRunning.world->at(simRunning.world->data.width - 1, simRunning.world->data.height - 1);
+    const Cell& bottomRight = simRunning.world->at(
+        simRunning.world->getData().width - 1, simRunning.world->getData().height - 1);
     EXPECT_EQ(topLeft.material_type, MaterialType::WALL) << "Walls should be created";
     EXPECT_EQ(bottomRight.material_type, MaterialType::WALL) << "Walls should be created";
 }
@@ -115,9 +116,9 @@ TEST_F(StateSimRunningTest, AdvanceSimulation_StepsPhysicsAndDirtFalls)
     // Debug: Check world state before adding dirt.
     spdlog::info(
         "TEST: World dimensions: {}x{}",
-        simRunning.world->data.width,
-        simRunning.world->data.height);
-    spdlog::info("TEST: Gravity: {}", simRunning.world->physicsSettings.gravity);
+        simRunning.world->getData().width,
+        simRunning.world->getData().height);
+    spdlog::info("TEST: Gravity: {}", simRunning.world->getPhysicsSettings().gravity);
     spdlog::info("TEST: Total mass before adding dirt: {}", simRunning.world->getTotalMass());
 
     simRunning.world->at(testX, testY).addDirt(1.0);
@@ -303,8 +304,8 @@ TEST_F(StateSimRunningTest, ScenarioConfigSet_TogglesDirtQuadrant)
     SimRunning simRunning = createSimRunningWithWorld();
 
     // Verify: Dirt quadrant initially exists (check a cell in lower-right).
-    uint32_t quadX = simRunning.world->data.width - 5;
-    uint32_t quadY = simRunning.world->data.height - 5;
+    uint32_t quadX = simRunning.world->getData().width - 5;
+    uint32_t quadY = simRunning.world->getData().height - 5;
     const Cell& quadCell = simRunning.world->at(quadX, quadY);
     EXPECT_EQ(quadCell.material_type, MaterialType::DIRT) << "Quadrant should exist initially";
     EXPECT_GT(quadCell.fill_ratio, 0.5) << "Quadrant cells should be filled";
@@ -493,7 +494,7 @@ TEST_F(StateSimRunningTest, SeedAdd_RejectsInvalidCoordinates)
     // Test coordinates beyond world bounds.
     callbackInvoked = false;
     Api::SeedAdd::Command cmd2;
-    cmd2.x = simRunning.world->data.width + 10;
+    cmd2.x = simRunning.world->getData().width + 10;
     cmd2.y = 10;
     Api::SeedAdd::Cwc cwc2(cmd2, [&](Api::SeedAdd::Response&& response) {
         callbackInvoked = true;
@@ -515,8 +516,8 @@ TEST_F(StateSimRunningTest, WorldResize_ResizesWorldGrid)
     SimRunning simRunning = createSimRunningWithWorld();
 
     // Get initial world size.
-    const uint32_t initialWidth = simRunning.world->data.width;
-    const uint32_t initialHeight = simRunning.world->data.height;
+    const uint32_t initialWidth = simRunning.world->getData().width;
+    const uint32_t initialHeight = simRunning.world->getData().height;
 
     EXPECT_GT(initialWidth, 0) << "Initial width should be positive";
     EXPECT_GT(initialHeight, 0) << "Initial height should be positive";
@@ -539,8 +540,8 @@ TEST_F(StateSimRunningTest, WorldResize_ResizesWorldGrid)
 
     // Verify: World resized correctly.
     ASSERT_TRUE(callbackInvoked) << "Callback should be invoked";
-    EXPECT_EQ(simRunning.world->data.width, 50) << "World width should be resized to 50";
-    EXPECT_EQ(simRunning.world->data.height, 50) << "World height should be resized to 50";
+    EXPECT_EQ(simRunning.world->getData().width, 50) << "World width should be resized to 50";
+    EXPECT_EQ(simRunning.world->getData().height, 50) << "World height should be resized to 50";
 
     // Execute: Resize world to smaller size (10x10).
     callbackInvoked = false;
@@ -559,8 +560,8 @@ TEST_F(StateSimRunningTest, WorldResize_ResizesWorldGrid)
     simRunning = std::move(std::get<SimRunning>(newState));
 
     ASSERT_TRUE(callbackInvoked) << "Callback should be invoked for resize";
-    EXPECT_EQ(simRunning.world->data.width, 10) << "World width should be resized to 10";
-    EXPECT_EQ(simRunning.world->data.height, 10) << "World height should be resized to 10";
+    EXPECT_EQ(simRunning.world->getData().width, 10) << "World width should be resized to 10";
+    EXPECT_EQ(simRunning.world->getData().height, 10) << "World height should be resized to 10";
 
     // Execute: Resize world to larger size (100x100).
     callbackInvoked = false;
@@ -579,6 +580,6 @@ TEST_F(StateSimRunningTest, WorldResize_ResizesWorldGrid)
     simRunning = std::move(std::get<SimRunning>(newState));
 
     ASSERT_TRUE(callbackInvoked) << "Callback should be invoked for resize";
-    EXPECT_EQ(simRunning.world->data.width, 100) << "World width should be resized to 100";
-    EXPECT_EQ(simRunning.world->data.height, 100) << "World height should be resized to 100";
+    EXPECT_EQ(simRunning.world->getData().width, 100) << "World width should be resized to 100";
+    EXPECT_EQ(simRunning.world->getData().height, 100) << "World height should be resized to 100";
 }

@@ -1,7 +1,9 @@
 #include "TreeManager.h"
 #include "brains/RuleBasedBrain.h"
+#include "core/Cell.h"
 #include "core/MaterialType.h"
 #include "core/World.h"
+#include "core/WorldData.h"
 #include <spdlog/spdlog.h>
 
 namespace DirtSim {

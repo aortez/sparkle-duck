@@ -1,6 +1,8 @@
 #include "core/Cell.h"
 #include "core/MaterialType.h"
+#include "core/PhysicsSettings.h"
 #include "core/World.h"
+#include "core/WorldData.h"
 #include "server/scenarios/Scenario.h"
 #include "server/scenarios/ScenarioRegistry.h"
 #include "spdlog/spdlog.h"
@@ -45,27 +47,27 @@ public:
         spdlog::info("FallingDirtScenario::setup - initializing world");
 
         // Clear world first.
-        for (uint32_t y = 0; y < world.data.height; ++y) {
-            for (uint32_t x = 0; x < world.data.width; ++x) {
+        for (uint32_t y = 0; y < world.getData().height; ++y) {
+            for (uint32_t x = 0; x < world.getData().width; ++x) {
                 world.at(x, y) = Cell(); // Reset to empty cell.
             }
         }
 
         // Configure physics.
-        world.physicsSettings.gravity = 9.81;
+        world.getPhysicsSettings().gravity = 9.81;
         world.setWallsEnabled(false);
         world.setLeftThrowEnabled(false);
         world.setRightThrowEnabled(false);
         world.setLowerRightQuadrantEnabled(false);
 
         // Add floor.
-        for (uint32_t x = 0; x < world.data.width; ++x) {
-            world.at(x, world.data.height - 1).replaceMaterial(MaterialType::WALL, 1.0);
+        for (uint32_t x = 0; x < world.getData().width; ++x) {
+            world.at(x, world.getData().height - 1).replaceMaterial(MaterialType::WALL, 1.0);
         }
 
         // Add some initial dirt piles to make it interesting.
-        uint32_t width = world.data.width;
-        uint32_t height = world.data.height;
+        uint32_t width = world.getData().width;
+        uint32_t height = world.getData().height;
 
         if (width >= 7 && height >= 7) {
             // Left mound
@@ -94,7 +96,7 @@ public:
         const double drop_probability = config_.drop_rate * deltaTime;
 
         if (drop_dist_(rng_) < drop_probability) {
-            std::uniform_int_distribution<uint32_t> x_dist(1, world.data.width - 2);
+            std::uniform_int_distribution<uint32_t> x_dist(1, world.getData().width - 2);
             uint32_t x = x_dist(rng_);
             uint32_t y = 1; // Start near top.
 

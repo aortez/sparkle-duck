@@ -1,7 +1,9 @@
 #include "TreeCommandProcessor.h"
 #include "Tree.h"
+#include "core/Cell.h"
 #include "core/MaterialType.h"
 #include "core/World.h"
+#include "core/WorldData.h"
 #include <spdlog/spdlog.h>
 
 namespace DirtSim {
@@ -20,8 +22,8 @@ CommandExecutionResult TreeCommandProcessor::execute(
                 }
 
                 if (command.target_pos.x < 0 || command.target_pos.y < 0
-                    || static_cast<uint32_t>(command.target_pos.x) >= world.data.width
-                    || static_cast<uint32_t>(command.target_pos.y) >= world.data.height) {
+                    || static_cast<uint32_t>(command.target_pos.x) >= world.getData().width
+                    || static_cast<uint32_t>(command.target_pos.y) >= world.getData().height) {
                     return { CommandResult::INVALID_TARGET, "WOOD target out of bounds" };
                 }
 
@@ -31,8 +33,8 @@ CommandExecutionResult TreeCommandProcessor::execute(
                 for (const auto& dir : cardinal_dirs) {
                     Vector2i neighbor_pos = command.target_pos + dir;
                     if (neighbor_pos.x >= 0 && neighbor_pos.y >= 0
-                        && static_cast<uint32_t>(neighbor_pos.x) < world.data.width
-                        && static_cast<uint32_t>(neighbor_pos.y) < world.data.height) {
+                        && static_cast<uint32_t>(neighbor_pos.x) < world.getData().width
+                        && static_cast<uint32_t>(neighbor_pos.y) < world.getData().height) {
                         const Cell& neighbor = world.at(neighbor_pos.x, neighbor_pos.y);
                         if (neighbor.organism_id == tree.id
                             && (neighbor.material_type == MaterialType::WOOD
@@ -75,8 +77,8 @@ CommandExecutionResult TreeCommandProcessor::execute(
                 }
 
                 if (command.target_pos.x < 0 || command.target_pos.y < 0
-                    || static_cast<uint32_t>(command.target_pos.x) >= world.data.width
-                    || static_cast<uint32_t>(command.target_pos.y) >= world.data.height) {
+                    || static_cast<uint32_t>(command.target_pos.x) >= world.getData().width
+                    || static_cast<uint32_t>(command.target_pos.y) >= world.getData().height) {
                     return { CommandResult::INVALID_TARGET, "LEAF target out of bounds" };
                 }
 
@@ -86,8 +88,8 @@ CommandExecutionResult TreeCommandProcessor::execute(
                 for (const auto& dir : cardinal_dirs) {
                     Vector2i neighbor_pos = command.target_pos + dir;
                     if (neighbor_pos.x >= 0 && neighbor_pos.y >= 0
-                        && static_cast<uint32_t>(neighbor_pos.x) < world.data.width
-                        && static_cast<uint32_t>(neighbor_pos.y) < world.data.height) {
+                        && static_cast<uint32_t>(neighbor_pos.x) < world.getData().width
+                        && static_cast<uint32_t>(neighbor_pos.y) < world.getData().height) {
                         const Cell& neighbor = world.at(neighbor_pos.x, neighbor_pos.y);
                         if (neighbor.organism_id == tree.id
                             && neighbor.material_type == MaterialType::WOOD) {
@@ -124,8 +126,8 @@ CommandExecutionResult TreeCommandProcessor::execute(
                 }
 
                 if (command.target_pos.x < 0 || command.target_pos.y < 0
-                    || static_cast<uint32_t>(command.target_pos.x) >= world.data.width
-                    || static_cast<uint32_t>(command.target_pos.y) >= world.data.height) {
+                    || static_cast<uint32_t>(command.target_pos.x) >= world.getData().width
+                    || static_cast<uint32_t>(command.target_pos.y) >= world.getData().height) {
                     return { CommandResult::INVALID_TARGET, "ROOT target out of bounds" };
                 }
 
@@ -135,8 +137,8 @@ CommandExecutionResult TreeCommandProcessor::execute(
                 for (const auto& dir : cardinal_dirs) {
                     Vector2i neighbor_pos = command.target_pos + dir;
                     if (neighbor_pos.x >= 0 && neighbor_pos.y >= 0
-                        && static_cast<uint32_t>(neighbor_pos.x) < world.data.width
-                        && static_cast<uint32_t>(neighbor_pos.y) < world.data.height) {
+                        && static_cast<uint32_t>(neighbor_pos.x) < world.getData().width
+                        && static_cast<uint32_t>(neighbor_pos.y) < world.getData().height) {
                         const Cell& neighbor = world.at(neighbor_pos.x, neighbor_pos.y);
                         if (neighbor.organism_id == tree.id
                             && (neighbor.material_type == MaterialType::ROOT
@@ -195,8 +197,8 @@ CommandExecutionResult TreeCommandProcessor::execute(
                 }
 
                 if (command.position.x < 0 || command.position.y < 0
-                    || static_cast<uint32_t>(command.position.x) >= world.data.width
-                    || static_cast<uint32_t>(command.position.y) >= world.data.height) {
+                    || static_cast<uint32_t>(command.position.x) >= world.getData().width
+                    || static_cast<uint32_t>(command.position.y) >= world.getData().height) {
                     return { CommandResult::INVALID_TARGET, "Seed position out of bounds" };
                 }
 

@@ -1,6 +1,8 @@
 #include "WorldFrictionCalculator.h"
 #include "Cell.h"
+#include "PhysicsSettings.h"
 #include "World.h"
+#include "WorldData.h"
 #include "spdlog/spdlog.h"
 #include <cmath>
 
@@ -24,8 +26,8 @@ std::vector<WorldFrictionCalculator::ContactInterface> WorldFrictionCalculator::
 {
     std::vector<ContactInterface> contacts;
 
-    const uint32_t width = world.data.width;
-    const uint32_t height = world.data.height;
+    const uint32_t width = world.getData().width;
+    const uint32_t height = world.getData().height;
 
     // Iterate over all cells.
     for (uint32_t y = 0; y < height; ++y) {
@@ -144,7 +146,7 @@ double WorldFrictionCalculator::calculateNormalForce(
 
     // Source 2: Weight for vertical contacts.
     // If B is below A (interface normal points downward), weight of A creates normal force.
-    double gravity_magnitude = world.physicsSettings.gravity;
+    double gravity_magnitude = world.getPhysicsSettings().gravity;
 
     if (interface_normal.y > 0.5) { // B is below A (normal points down).
         double massA = cellA.getMass();

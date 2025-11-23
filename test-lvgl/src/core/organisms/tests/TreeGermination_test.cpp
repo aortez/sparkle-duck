@@ -1,4 +1,6 @@
+#include "core/PhysicsSettings.h"
 #include "core/World.h"
+#include "core/WorldData.h"
 #include "core/WorldDiagramGeneratorEmoji.h"
 #include "core/organisms/TreeManager.h"
 #include <gtest/gtest.h>
@@ -42,10 +44,10 @@ TEST_F(TreeGerminationTest, SeedFallsOntoGround)
     for (int i = 0; i < 100; i++) {
         world->advanceTime(0.016);
 
-        if (world->data.timestep * 0.016 - last_print >= 1.0) {
-            std::cout << "After " << (world->data.timestep * 0.016) << " seconds:\n"
+        if (world->getData().timestep * 0.016 - last_print >= 1.0) {
+            std::cout << "After " << (world->getData().timestep * 0.016) << " seconds:\n"
                       << WorldDiagramGeneratorEmoji::generateEmojiDiagram(*world) << "\n";
-            last_print = world->data.timestep * 0.016;
+            last_print = world->getData().timestep * 0.016;
         }
     }
 
@@ -132,7 +134,7 @@ TEST_F(TreeGerminationTest, SaplingGrowsBalanced)
 
 TEST_F(TreeGerminationTest, RootsStopAtWater)
 {
-    world->physicsSettings.swap_enabled = false;
+    world->getPhysicsSettings().swap_enabled = false;
 
     for (uint32_t y = 0; y < 7; ++y) {
         for (uint32_t x = 0; x < 7; ++x) {

@@ -1,6 +1,8 @@
 #include "core/Cell.h"
 #include "core/MaterialType.h"
+#include "core/PhysicsSettings.h"
 #include "core/World.h"
+#include "core/WorldData.h"
 #include "core/organisms/TreeManager.h"
 #include "server/scenarios/Scenario.h"
 #include "server/scenarios/ScenarioRegistry.h"
@@ -38,14 +40,14 @@ public:
     {
         spdlog::info("TreeGerminationScenario::setup - creating 7x7 world");
 
-        for (uint32_t y = 0; y < world.data.height; ++y) {
-            for (uint32_t x = 0; x < world.data.width; ++x) {
+        for (uint32_t y = 0; y < world.getData().height; ++y) {
+            for (uint32_t x = 0; x < world.getData().width; ++x) {
                 world.at(x, y) = Cell();
             }
         }
 
-        for (uint32_t y = 4; y < world.data.height; ++y) {
-            for (uint32_t x = 0; x < world.data.width; ++x) {
+        for (uint32_t y = 4; y < world.getData().height; ++y) {
+            for (uint32_t x = 0; x < world.getData().width; ++x) {
                 world.addMaterialAtCell(x, y, MaterialType::DIRT, 1.0);
             }
         }

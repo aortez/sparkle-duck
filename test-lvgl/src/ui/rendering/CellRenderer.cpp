@@ -8,6 +8,15 @@
 namespace DirtSim {
 namespace Ui {
 
+// Compile-time toggle for dithering in pixel renderer.
+constexpr bool ENABLE_DITHERING = false;
+
+// 4x4 Bayer matrix for ordered dithering (values 0-15).
+// Used to create stable, pattern-based transparency instead of alpha blending.
+constexpr int BAYER_MATRIX_4X4[4][4] = {
+    { 0, 8, 2, 10 }, { 12, 4, 14, 6 }, { 3, 11, 1, 9 }, { 15, 7, 13, 5 }
+};
+
 static lv_color_t getMaterialColor(MaterialType type)
 {
     switch (type) {
@@ -350,37 +359,65 @@ void CellRenderer::renderWorldData(
                         uint32_t pixelColor = isBorder ? borderColor : interiorColor;
                         uint8_t alpha = (pixelColor >> 24) & 0xFF;
 
-                        // Alpha blending: blend source with destination
-                        if (alpha == 0) {
-                            // Fully transparent - skip (keep background)
-                            continue;
-                        }
-                        else if (alpha == 255) {
-                            // Fully opaque - direct write (optimization)
-                            pixels[pixelIdx] = pixelColor;
+                        if constexpr (ENABLE_DITHERING) {
+                            // Dithered rendering: use Bayer matrix to decide pixel on/off.
+                            if (alpha == 0) {
+                                // Fully transparent - skip.
+                                continue;
+                            }
+                            else if (alpha == 255) {
+                                // Fully opaque - direct write.
+                                pixels[pixelIdx] = pixelColor;
+                            }
+                            else {
+                                // Partial transparency - use dithering.
+                                // Get Bayer threshold for this pixel position.
+                                int bayerX = (cellX + px) % 4;
+                                int bayerY = (cellY + py) % 4;
+                                int bayerThreshold = BAYER_MATRIX_4X4[bayerY][bayerX];
+
+                                // Compare alpha to threshold (scaled 0-255 to 0-15).
+                                // If alpha > threshold, draw pixel at full opacity.
+                                if ((alpha * 16 / 256) > bayerThreshold) {
+                                    // Draw pixel with full material color (no alpha).
+                                    pixels[pixelIdx] = 0xFF000000 | (pixelColor & 0x00FFFFFF);
+                                }
+                                // Otherwise skip pixel (leave background).
+                            }
                         }
                         else {
-                            // Partial transparency - blend
-                            uint32_t dstColor = pixels[pixelIdx];
-                            uint8_t invAlpha = 255 - alpha;
+                            // Alpha blending: blend source with destination
+                            if (alpha == 0) {
+                                // Fully transparent - skip (keep background)
+                                continue;
+                            }
+                            else if (alpha == 255) {
+                                // Fully opaque - direct write (optimization)
+                                pixels[pixelIdx] = pixelColor;
+                            }
+                            else {
+                                // Partial transparency - blend
+                                uint32_t dstColor = pixels[pixelIdx];
+                                uint8_t invAlpha = 255 - alpha;
 
-                            // Extract source channels
-                            uint8_t srcR = (pixelColor >> 16) & 0xFF;
-                            uint8_t srcG = (pixelColor >> 8) & 0xFF;
-                            uint8_t srcB = pixelColor & 0xFF;
+                                // Extract source channels
+                                uint8_t srcR = (pixelColor >> 16) & 0xFF;
+                                uint8_t srcG = (pixelColor >> 8) & 0xFF;
+                                uint8_t srcB = pixelColor & 0xFF;
 
-                            // Extract destination channels
-                            uint8_t dstR = (dstColor >> 16) & 0xFF;
-                            uint8_t dstG = (dstColor >> 8) & 0xFF;
-                            uint8_t dstB = dstColor & 0xFF;
+                                // Extract destination channels
+                                uint8_t dstR = (dstColor >> 16) & 0xFF;
+                                uint8_t dstG = (dstColor >> 8) & 0xFF;
+                                uint8_t dstB = dstColor & 0xFF;
 
-                            // Blend: result = (src * alpha + dst * (1 - alpha)) / 255
-                            uint8_t r = (srcR * alpha + dstR * invAlpha) / 255;
-                            uint8_t g = (srcG * alpha + dstG * invAlpha) / 255;
-                            uint8_t b = (srcB * alpha + dstB * invAlpha) / 255;
+                                // Blend: result = (src * alpha + dst * (1 - alpha)) / 255
+                                uint8_t r = (srcR * alpha + dstR * invAlpha) / 255;
+                                uint8_t g = (srcG * alpha + dstG * invAlpha) / 255;
+                                uint8_t b = (srcB * alpha + dstB * invAlpha) / 255;
 
-                            // Write blended pixel (with full alpha)
-                            pixels[pixelIdx] = 0xFF000000 | (r << 16) | (g << 8) | b;
+                                // Write blended pixel (with full alpha)
+                                pixels[pixelIdx] = 0xFF000000 | (r << 16) | (g << 8) | b;
+                            }
                         }
                     }
                 }

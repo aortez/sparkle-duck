@@ -2,8 +2,10 @@
 #include "Cell.h"
 #include "GridOfCells.h"
 #include "MaterialType.h"
+#include "PhysicsSettings.h"
 #include "Vector2i.h"
 #include "World.h"
+#include "WorldData.h"
 #include "spdlog/spdlog.h"
 #include <algorithm>
 #include <array>
@@ -33,7 +35,7 @@ bool WorldSupportCalculator::hasVerticalSupport(const World& world, uint32_t x, 
     }
 
     // Check if already at ground level.
-    if (y == world.data.height - 1) {
+    if (y == world.getData().height - 1) {
         spdlog::trace("hasVerticalSupport({},{}) = true (at ground level)", x, y);
         return true;
     }
@@ -43,7 +45,7 @@ bool WorldSupportCalculator::hasVerticalSupport(const World& world, uint32_t x, 
         uint32_t support_y = y + dy;
 
         // If we reach beyond the world boundary, no material support available.
-        if (support_y >= world.data.height) {
+        if (support_y >= world.getData().height) {
             spdlog::info(
                 "hasVerticalSupport({},{}) = false (reached world boundary at distance {}, no "
                 "material below)",
@@ -224,7 +226,7 @@ bool WorldSupportCalculator::hasStructuralSupport(const World& world, uint32_t x
     }
 
     // 2. Bottom edge of world (ground) provides support.
-    if (y == world.data.height - 1) {
+    if (y == world.getData().height - 1) {
         return true;
     }
 
@@ -284,7 +286,7 @@ bool WorldSupportCalculator::hasStructuralSupport(const World& world, uint32_t x
                     // Fluids adjacent to walls are NOT structurally supported.
                 }
                 // Ground level provides support to all materials.
-                else if (ny == static_cast<int>(world.data.height) - 1) {
+                else if (ny == static_cast<int>(world.getData().height) - 1) {
                     return true;
                 }
 
@@ -324,8 +326,8 @@ void WorldSupportCalculator::computeSupportMapBottomUp(World& world) const
     if (GridOfCells::USE_CACHE && grid_) {
         CellBitmap& support = const_cast<GridOfCells*>(grid_)->supportBitmap();
 
-        for (int y = world.data.height - 1; y >= 0; y--) {
-            for (uint32_t x = 0; x < world.data.width; x++) {
+        for (int y = world.getData().height - 1; y >= 0; y--) {
+            for (uint32_t x = 0; x < world.getData().width; x++) {
                 const EmptyNeighborhood empty_n = grid_->getEmptyNeighborhood(x, y);
 
                 if (!empty_n.centerHasMaterial()) {
@@ -344,7 +346,7 @@ void WorldSupportCalculator::computeSupportMapBottomUp(World& world) const
                     continue;
                 }
 
-                if (y == static_cast<int>(world.data.height) - 1) {
+                if (y == static_cast<int>(world.getData().height) - 1) {
                     support.set(x, y);
                     world.at(x, y).has_vertical_support = true;
                     world.at(x, y).has_any_support = true;
@@ -374,8 +376,8 @@ void WorldSupportCalculator::computeSupportMapBottomUp(World& world) const
         // ========== DIRECT PATH: Traditional cell access ==========
         // Bottom-up pass: compute support for entire grid in one sweep.
         // Start from bottom row (ground) and work upward.
-        for (int y = world.data.height - 1; y >= 0; y--) {
-            for (uint32_t x = 0; x < world.data.width; x++) {
+        for (int y = world.getData().height - 1; y >= 0; y--) {
+            for (uint32_t x = 0; x < world.getData().width; x++) {
                 Cell& cell = world.at(x, y);
 
                 // Check emptiness directly.
@@ -393,7 +395,7 @@ void WorldSupportCalculator::computeSupportMapBottomUp(World& world) const
                 }
 
                 // Bottom edge of world (ground) provides support.
-                if (y == static_cast<int>(world.data.height) - 1) {
+                if (y == static_cast<int>(world.getData().height) - 1) {
                     cell.has_any_support = true;
                     cell.has_vertical_support = true;
                     continue;
@@ -432,7 +434,7 @@ double WorldSupportCalculator::calculateDistanceToSupport(
 
     // Use simpler 2D array for distance tracking (avoid Vector2i comparisons)
     std::vector<std::vector<int>> distances(
-        world.data.width, std::vector<int>(world.data.height, -1));
+        world.getData().width, std::vector<int>(world.getData().height, -1));
     std::queue<std::pair<uint32_t, uint32_t>> queue;
 
     queue.push({ x, y });
@@ -467,8 +469,8 @@ double WorldSupportCalculator::calculateDistanceToSupport(
             int nx = static_cast<int>(cx) + dir.first;
             int ny = static_cast<int>(cy) + dir.second;
 
-            if (nx >= 0 && ny >= 0 && nx < static_cast<int>(world.data.width)
-                && ny < static_cast<int>(world.data.height)
+            if (nx >= 0 && ny >= 0 && nx < static_cast<int>(world.getData().width)
+                && ny < static_cast<int>(world.getData().height)
                 && distances[nx][ny] == -1) { // Not visited.
 
                 const Cell& nextCell = getCellAt(world, nx, ny);

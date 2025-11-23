@@ -1,4 +1,6 @@
+#include "core/PhysicsSettings.h"
 #include "core/World.h"
+#include "core/WorldData.h"
 #include "core/organisms/TreeManager.h"
 #include <gtest/gtest.h>
 

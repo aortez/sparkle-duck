@@ -1,6 +1,8 @@
 #include "WorldAdhesionCalculator.h"
 #include "Cell.h"
+#include "PhysicsSettings.h"
 #include "World.h"
+#include "WorldData.h"
 #include <cmath>
 
 using namespace DirtSim;

@@ -1,7 +1,9 @@
 #include "WorldAirResistanceCalculator.h"
 #include "Cell.h"
 #include "MaterialType.h"
+#include "PhysicsSettings.h"
 #include "World.h"
+#include "WorldData.h"
 #include <cmath>
 #include <spdlog/spdlog.h>
 

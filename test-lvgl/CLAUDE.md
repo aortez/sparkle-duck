@@ -411,7 +411,7 @@ to see if they work.
 - refactor World to use Pimple pattern.  Use elsewhere too?
 - bit grid cache for has_support instead of storing it in each cell.
 - debug and release builds in different directories, then performance testing with release builds.
-- Add light tracing! (from top down)
+- Add light tracing and illumination! (from top down)
 - Per-cell neighborhood cache: 64-bit bitmap in each Cell for instant neighbor queries (see design_docs/optimization-ideas.md Section 10).
 
 ### Client/Server Architecture (DSSM + UI Client)
