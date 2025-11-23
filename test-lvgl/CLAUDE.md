@@ -16,6 +16,12 @@ Read design_docs/coding_convention.md for coding guidelines.
 Use git as needed but never push.
 Don't use git -C, instead just make sure you're in the right directory beforehand.
 
+#### Git Hooks
+Install pre-commit hooks to automatically format code and run tests:
+```bash
+./hooks/install-hooks.sh
+```
+
 ### Building
 ```bash
 # Build debug version (don't build release unless asked)

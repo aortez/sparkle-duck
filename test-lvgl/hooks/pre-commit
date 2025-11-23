@@ -1,0 +1,51 @@
+#!/bin/bash
+#
+# Pre-commit hook: Format and test staged C++ files.
+#
+# Installation: ln -sf ../../test-lvgl/hooks/pre-commit .git/hooks/pre-commit
+#
+
+# Get the root of the git repository.
+REPO_ROOT=$(git rev-parse --show-toplevel)
+
+# Get list of staged .cpp and .h files in test-lvgl.
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '^test-lvgl/.*\.(cpp|h)$')
+
+if [ -z "$STAGED_FILES" ]; then
+    # No C++ files staged in test-lvgl, allow commit.
+    exit 0
+fi
+
+echo "Running clang-format on staged files (matching CI behavior)..."
+
+# Run make format in test-lvgl directory (same as CI).
+cd "$REPO_ROOT/test-lvgl" || exit 1
+make format
+
+# Re-add all formatted files that were originally staged.
+cd "$REPO_ROOT" || exit 1
+for FILE in $STAGED_FILES; do
+    git add "$FILE"
+done
+
+echo "Formatting complete. Files have been formatted and re-staged."
+
+# Run tests unless explicitly skipped.
+if [ "$SKIP_TESTS" != "1" ]; then
+    echo "Running tests..."
+    cd "$REPO_ROOT/test-lvgl" || exit 1
+
+    # Run tests quietly, only show summary.
+    TEST_OUTPUT=$(make test 2>&1)
+    if echo "$TEST_OUTPUT" | tail -10 | grep -q "\[  FAILED  \]"; then
+        echo ""
+        echo "❌ Tests failed! Commit blocked."
+        echo "To see details: make test"
+        echo "To skip tests: SKIP_TESTS=1 git commit"
+        exit 1
+    fi
+
+    echo "✅ All tests passed."
+fi
+
+exit 0

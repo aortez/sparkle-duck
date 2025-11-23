@@ -402,13 +402,50 @@ WorldCohesionCalculator::COMCohesionForce WorldCohesionCalculator::calculateCOMC
         centering_force = centering_direction * centering_magnitude * CENTERING_WEIGHT;
     }
 
-    // Combine forces.
-    Vector2d total_force = clustering_force + centering_force;
-    Vector2d force_direction =
-        (total_force.magnitude() > 0.000001) ? total_force.normalize() : Vector2d(0.0, 0.0);
+    // Combine forces with alignment check (matching non-cached version).
+    Vector2d final_force = centering_force;
 
-    return { force_direction,
-             total_force.magnitude(),
+    double clustering_force_sq =
+        clustering_force.x * clustering_force.x + clustering_force.y * clustering_force.y;
+    if (clustering_force_sq > 0.000001 && com_offset_sq > 0.000001) {
+        Vector2d cell_grid_pos(static_cast<double>(x), static_cast<double>(y));
+        Vector2d to_neighbors_vec = neighbor_center - cell_grid_pos;
+        double to_neighbors_mag_sq =
+            to_neighbors_vec.x * to_neighbors_vec.x + to_neighbors_vec.y * to_neighbors_vec.y;
+        Vector2d to_neighbors = to_neighbors_vec * (1.0 / std::sqrt(to_neighbors_mag_sq));
+
+        double alignment = to_neighbors.dot(centering_direction);
+
+        spdlog::trace(
+            "Alignment check at ({},{}): to_neighbors=({:.3f},{:.3f}), to_center=({:.3f},{:.3f}), "
+            "alignment={:.3f}",
+            x,
+            y,
+            to_neighbors.x,
+            to_neighbors.y,
+            centering_direction.x,
+            centering_direction.y,
+            alignment);
+
+        if (alignment > 0.0) {
+            // Clustering helps centering → apply it (weighted by alignment strength).
+            final_force = final_force + clustering_force * alignment;
+            spdlog::trace(
+                "Clustering APPLIED (alignment={:.3f}): boost=({:.4f},{:.4f})",
+                alignment,
+                (clustering_force * alignment).x,
+                (clustering_force * alignment).y);
+        }
+        else {
+            spdlog::trace("Clustering SKIPPED (alignment={:.3f} <= 0)", alignment);
+        }
+    }
+
+    double total_force_magnitude =
+        std::sqrt(final_force.x * final_force.x + final_force.y * final_force.y);
+
+    return { final_force,
+             total_force_magnitude,
              neighbor_center,
              connection_count,
              total_weight,
