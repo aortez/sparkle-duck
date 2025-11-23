@@ -97,8 +97,7 @@ public:
     WorldCollisionCalculator& getCollisionCalculator();
     const WorldCollisionCalculator& getCollisionCalculator() const;
 
-    WorldSupportCalculator& getSupportCalculator();
-    const WorldSupportCalculator& getSupportCalculator() const;
+    // WorldSupportCalculator removed - now constructed locally with GridOfCells reference.
 
     WorldAdhesionCalculator& getAdhesionCalculator();
     const WorldAdhesionCalculator& getAdhesionCalculator() const;

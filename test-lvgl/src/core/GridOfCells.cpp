@@ -8,9 +8,8 @@ namespace DirtSim {
 // Runtime toggle for cache usage (default: enabled).
 bool GridOfCells::USE_CACHE = true;
 
-GridOfCells::GridOfCells(
-    const std::vector<Cell>& source_cells, uint32_t width, uint32_t height, Timers& timers)
-    : cells_(source_cells),
+GridOfCells::GridOfCells(std::vector<Cell>& cells, uint32_t width, uint32_t height, Timers& timers)
+    : cells_(cells),
       empty_cells_(width, height),
       support_bitmap_(width, height),
       empty_neighborhoods_(width * height, 0),

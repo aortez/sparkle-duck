@@ -30,11 +30,8 @@ class GridOfCells;
  */
 class WorldSupportCalculator : public WorldCalculatorBase {
 public:
-    // Constructor takes GridOfCells reference for optimized bitmap lookups.
-    explicit WorldSupportCalculator(const GridOfCells& grid);
-
-    // Default constructor - creates calculator without grid (grid can be set later).
-    WorldSupportCalculator();
+    // Constructor requires GridOfCells reference for bitmap and cell access.
+    explicit WorldSupportCalculator(GridOfCells& grid);
 
     // Support-specific constants.
     static constexpr uint32_t MAX_VERTICAL_SUPPORT_DISTANCE =
@@ -81,12 +78,11 @@ public:
      * Determines overall structural support by checking both vertical and horizontal
      * support systems. Used for determining material stability.
      *
-     * @param world World providing access to grid and cells.
      * @param x Cell X coordinate.
      * @param y Cell Y coordinate.
      * @return true if cell has any form of structural support.
      */
-    bool hasStructuralSupport(const World& world, uint32_t x, uint32_t y) const;
+    bool hasStructuralSupport(uint32_t x, uint32_t y) const;
 
     /**
      * @brief Compute support map for entire grid using bottom-up scan.
@@ -115,7 +111,7 @@ public:
     double calculateDistanceToSupport(const World& world, uint32_t x, uint32_t y) const;
 
 private:
-    const GridOfCells* grid_; // Optional reference to grid cache for bitmap optimizations.
+    GridOfCells& grid_; // Required reference to grid for bitmap and cell access.
 };
 
 } // namespace DirtSim

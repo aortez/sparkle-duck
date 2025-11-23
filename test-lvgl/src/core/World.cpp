@@ -43,7 +43,7 @@ struct World::Impl {
     PhysicsSettings physicsSettings_;
 
     // Calculators (previously public).
-    WorldSupportCalculator support_calculator_;
+    // WorldSupportCalculator removed - now constructed locally with GridOfCells reference.
     WorldPressureCalculator pressure_calculator_;
     WorldCollisionCalculator collision_calculator_;
     WorldAdhesionCalculator adhesion_calculator_;
@@ -137,16 +137,6 @@ WorldCollisionCalculator& World::getCollisionCalculator()
 const WorldCollisionCalculator& World::getCollisionCalculator() const
 {
     return pImpl->collision_calculator_;
-}
-
-WorldSupportCalculator& World::getSupportCalculator()
-{
-    return pImpl->support_calculator_;
-}
-
-const WorldSupportCalculator& World::getSupportCalculator() const
-{
-    return pImpl->support_calculator_;
 }
 
 WorldAdhesionCalculator& World::getAdhesionCalculator()
@@ -456,7 +446,7 @@ void World::advanceTime(double deltaTimeSeconds)
     ScopeTimer timer(pImpl->timers_, "advance_time");
 
     const double scaledDeltaTime = deltaTimeSeconds * pImpl->physicsSettings_.timescale;
-    spdlog::trace(
+    spdlog::debug(
         "World::advanceTime: deltaTime={:.4f}s, timestep={}",
         deltaTimeSeconds,
         pImpl->data_.timestep);
@@ -531,6 +521,7 @@ void World::advanceTime(double deltaTimeSeconds)
 
     pImpl->data_.timestep++;
 }
+
 void World::reset()
 {
     spdlog::info("Resetting World to empty state");
