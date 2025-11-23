@@ -6,6 +6,7 @@
 #include "server/states/Idle.h"
 #include "server/states/Shutdown.h"
 #include "server/states/SimRunning.h"
+#include "server/states/State.h"
 #include <gtest/gtest.h>
 #include <spdlog/spdlog.h>
 

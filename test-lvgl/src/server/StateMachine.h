@@ -3,7 +3,6 @@
 #include "core/Pimpl.h"
 #include "core/StateMachineBase.h"
 #include "core/StateMachineInterface.h"
-#include "states/State.h"
 
 #include <functional>
 #include <memory>
@@ -24,6 +23,10 @@ class WebSocketServer;
 struct QuitApplicationCommand;
 struct GetFPSCommand;
 struct GetSimStatsCommand;
+
+namespace State {
+class Any;
+}
 
 class StateMachine : public StateMachineBase, public StateMachineInterface<Event> {
 public:
