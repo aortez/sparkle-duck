@@ -368,15 +368,16 @@ With a 3×3 neighborhood (9 cells), we can pack rich information:
 ```cpp
 // Center cell (16 bits):
 [4 bits]  Own material type (0-15, supports all 9 types)
-[2 bits]  Own motion state (STATIC, SLIDING, FALLING, TURBULENT)
 [2 bits]  Support level (0-3)
 [8 bits]  Neighbor presence flags (1 bit per 8 neighbors)
+[2 bits]  unused
 
 // Each of 8 neighbors (6 bits × 8 = 48 bits):
 [1 bit]   Has material (fill_ratio > threshold)
 [1 bit]   Same material as center
-[1 bit]   Can provide support
-[3 bits]  Reserved for future use (fill ratio bins, pressure level, etc.)
+[1 bit]   horizontal support
+[1 bit]   vert support
+[2 bits]  unused
 
 Total: 16 + 48 = 64 bits
 ```

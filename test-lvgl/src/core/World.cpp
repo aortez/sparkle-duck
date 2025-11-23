@@ -485,7 +485,7 @@ void World::advanceTime(double deltaTimeSeconds)
 
     // Accumulate and apply all forces based on resistance.
     // This now includes pressure forces from the current frame.
-    resolveForces(scaledDeltaTime, &grid);
+    resolveForces(scaledDeltaTime, grid);
 
     {
         ScopeTimer velocityTimer(pImpl->timers_, "velocity_limiting");
@@ -681,7 +681,7 @@ void World::applyAirResistance()
     }
 }
 
-void World::applyCohesionForces(const GridOfCells* grid)
+void World::applyCohesionForces(const GridOfCells& grid)
 {
     // Cache pImpl members as local references.
     PhysicsSettings& settings = pImpl->physicsSettings_;
@@ -708,7 +708,12 @@ void World::applyCohesionForces(const GridOfCells* grid)
 
                 // Calculate COM cohesion force (passes grid for cache optimization).
                 WorldCohesionCalculator::COMCohesionForce com_cohesion =
-                    cohesion_calc.calculateCOMCohesionForce(*this, x, y, com_cohesion_range_, grid);
+                    cohesion_calc.calculateCOMCohesionForce(
+                        *this, x, y, com_cohesion_range_, &grid);
+
+                // Cache resistance for use in resolveForces (eliminates redundant calculation).
+                const_cast<GridOfCells&>(grid).setCohesionResistance(
+                    x, y, com_cohesion.resistance_magnitude);
 
                 Vector2d com_cohesion_force(0.0, 0.0);
                 if (com_cohesion.force_active) {
@@ -807,12 +812,11 @@ void World::applyPressureForces()
     }
 }
 
-void World::resolveForces(double deltaTime, const GridOfCells* grid)
+void World::resolveForces(double deltaTime, const GridOfCells& grid)
 {
     // Cache frequently accessed pImpl members as local references to eliminate indirection
     // overhead.
     Timers& timers = pImpl->timers_;
-    WorldCollisionCalculator& collision_calc = pImpl->collision_calculator_;
     WorldViscosityCalculator& viscosity_calc = pImpl->viscosity_calculator_;
     PhysicsSettings& settings = pImpl->physicsSettings_;
     WorldData& data = pImpl->data_;
@@ -872,7 +876,7 @@ void World::resolveForces(double deltaTime, const GridOfCells* grid)
 
                 // Calculate viscous force from neighbor velocity averaging.
                 auto viscous_result =
-                    viscosity_calc.calculateViscousForce(*this, x, y, visc_strength, grid);
+                    viscosity_calc.calculateViscousForce(*this, x, y, visc_strength, &grid);
                 cell.addPendingForce(viscous_result.force);
 
                 // Store for visualization.
@@ -898,12 +902,9 @@ void World::resolveForces(double deltaTime, const GridOfCells* grid)
 
                 // Check cohesion resistance threshold.
                 double net_force_magnitude = net_force.magnitude();
-                double cohesion_strength;
-                {
-                    ScopeTimer cohesionStrengthTimer(
-                        timers, "resolve_forces_cohesion_strength_calc");
-                    cohesion_strength = collision_calc.calculateCohesionStrength(cell, *this, x, y);
-                }
+
+                // Use cached cohesion strength (computed during applyCohesionForces).
+                double cohesion_strength = grid.getCohesionResistance(x, y);
                 double cohesion_resistance_force =
                     cohesion_strength * settings.cohesion_resistance_factor;
 

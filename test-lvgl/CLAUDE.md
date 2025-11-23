@@ -56,7 +56,8 @@ make -C build -j12
 ./build/bin/cli cleanup
 
 # Run benchmark and output results to file.
-./build/bin/cli benchmark > benchmarks.json
+# Human readable output is on stderr.
+./build/bin/cli benchmark > benchmark.json && cat benchmark.json | jq .server_fps
 
 # Sending commands to server and ui (syntax: cli [command] [address] [params])
 ./build/bin/cli state_get ws://localhost:8080

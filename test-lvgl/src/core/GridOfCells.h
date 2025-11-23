@@ -39,6 +39,7 @@ private:
     CellBitmap support_bitmap_;
     std::vector<uint64_t> empty_neighborhoods_;
     std::vector<uint64_t> material_neighborhoods_;
+    std::vector<double> cohesion_resistance_; // Frame-scoped cohesion resistance cache.
     uint32_t width_;
     uint32_t height_;
 
@@ -63,6 +64,17 @@ public:
     MaterialNeighborhood getMaterialNeighborhood(uint32_t x, uint32_t y) const
     {
         return MaterialNeighborhood{ material_neighborhoods_[y * width_ + x] };
+    }
+
+    // Cohesion resistance cache (computed during applyCohesionForces, used in resolveForces).
+    void setCohesionResistance(uint32_t x, uint32_t y, double resistance)
+    {
+        cohesion_resistance_[y * width_ + x] = resistance;
+    }
+
+    double getCohesionResistance(uint32_t x, uint32_t y) const
+    {
+        return cohesion_resistance_[y * width_ + x];
     }
 
     // Grid dimensions.

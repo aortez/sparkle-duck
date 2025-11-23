@@ -43,9 +43,10 @@ public:
         Vector2d center_of_neighbors; // Average position of connected neighbors.
         uint32_t active_connections;  // Number of neighbors contributing.
         // NEW fields for mass-based calculations:
-        double total_neighbor_mass; // Sum of all neighbor masses.
-        double cell_mass;           // Mass of current cell.
-        bool force_active;          // Whether force should be applied (cutoff check).
+        double total_neighbor_mass;  // Sum of all neighbor masses.
+        double cell_mass;            // Mass of current cell.
+        bool force_active;           // Whether force should be applied (cutoff check).
+        double resistance_magnitude; // Cohesion resistance (for force blocking in resolveForces).
     };
 
     // Cohesion-specific constants.

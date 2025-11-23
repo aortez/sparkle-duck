@@ -6,6 +6,7 @@
 #include <args.hxx>
 #include <csignal>
 #include <memory>
+#include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
 
 using namespace DirtSim;
@@ -23,6 +24,11 @@ void signalHandler(int signum)
 
 int main(int argc, char** argv)
 {
+    // Configure default logger to stderr BEFORE any logging.
+    // This ensures early log messages don't pollute stdout (important for benchmark mode).
+    auto stderr_logger = spdlog::stderr_color_mt("server");
+    spdlog::set_default_logger(stderr_logger);
+
     // Parse command line arguments.
     args::ArgumentParser parser(
         "Sparkle Duck WebSocket Server", "Remote simulation control via WebSocket.");

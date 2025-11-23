@@ -139,7 +139,7 @@ WorldCohesionCalculator::COMCohesionForce WorldCohesionCalculator::calculateCOMC
     // Fallback to direct cell access.
     const Cell& cell = getCellAt(world, x, y);
     if (cell.isEmpty()) {
-        return { { 0.0, 0.0 }, 0.0, { 0.0, 0.0 }, 0, 0.0, 0.0, false };
+        return { { 0.0, 0.0 }, 0.0, { 0.0, 0.0 }, 0, 0.0, 0.0, false, 0.0 };
     }
 
     // Tunable force balance (adjust these to tune clustering vs stability).
@@ -291,13 +291,28 @@ WorldCohesionCalculator::COMCohesionForce WorldCohesionCalculator::calculateCOMC
         centering_force.y,
         total_force_magnitude);
 
+    // Calculate resistance magnitude (same as calculateCohesionForce).
+    double support_factor;
+    if (cell.has_vertical_support) {
+        support_factor = 1.0;
+    }
+    else if (cell.has_any_support) {
+        support_factor = 0.5;
+    }
+    else {
+        support_factor = World::MIN_SUPPORT_FACTOR;
+    }
+
+    const double resistance = props.cohesion * connection_count * cell.fill_ratio * support_factor;
+
     return { final_force,
              total_force_magnitude,
              neighbor_center,
              connection_count,
              0.0,
              cell_mass,
-             (connection_count > 0 || com_offset_sq > 0.000001) };
+             (connection_count > 0 || com_offset_sq > 0.000001),
+             resistance };
 }
 
 WorldCohesionCalculator::COMCohesionForce WorldCohesionCalculator::calculateCOMCohesionForceCached(
@@ -309,7 +324,7 @@ WorldCohesionCalculator::COMCohesionForce WorldCohesionCalculator::calculateCOMC
 {
     const Cell& cell = getCellAt(world, x, y);
     if (cell.isEmpty()) {
-        return { { 0.0, 0.0 }, 0.0, { 0.0, 0.0 }, 0, 0.0, 0.0, false };
+        return { { 0.0, 0.0 }, 0.0, { 0.0, 0.0 }, 0, 0.0, 0.0, false, 0.0 };
     }
 
     // Tunable force balance (same as non-cached version).
@@ -343,19 +358,20 @@ WorldCohesionCalculator::COMCohesionForce WorldCohesionCalculator::calculateCOMC
             int nx = static_cast<int>(x) + dx;
             int ny = static_cast<int>(y) + dy;
 
-            // Use cached material check (avoids isValidCell and getCellAt).
-            if (isValidCell(world, nx, ny) && mat_n.getMaterial(dx, dy) == my_material) {
-                const Cell& neighbor = getCellAt(world, nx, ny);
-                if (neighbor.fill_ratio > MIN_MATTER_THRESHOLD) {
-                    Vector2d neighbor_world_pos(
-                        static_cast<double>(nx) + neighbor.com.x,
-                        static_cast<double>(ny) + neighbor.com.y);
-                    double weight = neighbor.fill_ratio;
-                    neighbor_center_sum += neighbor_world_pos * weight;
-                    total_weight += weight;
-                    connection_count++;
-                }
-            }
+            // Multi-stage cache filtering (bounds check handled by cache).
+            // Stage 1: Material match check (pure cache - no cell access).
+            if (mat_n.getMaterial(dx, dy) != my_material) continue;
+
+            // At this point: same material type, guaranteed non-empty due to AIR conversion.
+            // Fetch cell only when we know we need it.
+            const Cell& neighbor = getCellAt(world, nx, ny);
+
+            Vector2d neighbor_world_pos(
+                static_cast<double>(nx) + neighbor.com.x, static_cast<double>(ny) + neighbor.com.y);
+            double weight = neighbor.fill_ratio;
+            neighbor_center_sum += neighbor_world_pos * weight;
+            total_weight += weight;
+            connection_count++;
         }
     }
 
@@ -405,44 +421,39 @@ WorldCohesionCalculator::COMCohesionForce WorldCohesionCalculator::calculateCOMC
     // Combine forces with alignment check (matching non-cached version).
     Vector2d final_force = centering_force;
 
-    double clustering_force_sq =
+    const double clustering_force_sq =
         clustering_force.x * clustering_force.x + clustering_force.y * clustering_force.y;
     if (clustering_force_sq > 0.000001 && com_offset_sq > 0.000001) {
-        Vector2d cell_grid_pos(static_cast<double>(x), static_cast<double>(y));
-        Vector2d to_neighbors_vec = neighbor_center - cell_grid_pos;
-        double to_neighbors_mag_sq =
+        const Vector2d cell_grid_pos(static_cast<double>(x), static_cast<double>(y));
+        const Vector2d to_neighbors_vec = neighbor_center - cell_grid_pos;
+        const double to_neighbors_mag_sq =
             to_neighbors_vec.x * to_neighbors_vec.x + to_neighbors_vec.y * to_neighbors_vec.y;
-        Vector2d to_neighbors = to_neighbors_vec * (1.0 / std::sqrt(to_neighbors_mag_sq));
+        const Vector2d to_neighbors = to_neighbors_vec * (1.0 / std::sqrt(to_neighbors_mag_sq));
 
-        double alignment = to_neighbors.dot(centering_direction);
-
-        spdlog::trace(
-            "Alignment check at ({},{}): to_neighbors=({:.3f},{:.3f}), to_center=({:.3f},{:.3f}), "
-            "alignment={:.3f}",
-            x,
-            y,
-            to_neighbors.x,
-            to_neighbors.y,
-            centering_direction.x,
-            centering_direction.y,
-            alignment);
-
+        const double alignment = to_neighbors.dot(centering_direction);
         if (alignment > 0.0) {
             // Clustering helps centering → apply it (weighted by alignment strength).
             final_force = final_force + clustering_force * alignment;
-            spdlog::trace(
-                "Clustering APPLIED (alignment={:.3f}): boost=({:.4f},{:.4f})",
-                alignment,
-                (clustering_force * alignment).x,
-                (clustering_force * alignment).y);
-        }
-        else {
-            spdlog::trace("Clustering SKIPPED (alignment={:.3f} <= 0)", alignment);
         }
     }
 
-    double total_force_magnitude =
+    const double total_force_magnitude =
         std::sqrt(final_force.x * final_force.x + final_force.y * final_force.y);
+
+    // Calculate resistance magnitude (same as calculateCohesionForce).
+    // Use pre-computed support from cell.
+    double support_factor;
+    if (cell.has_vertical_support) {
+        support_factor = 1.0;
+    }
+    else if (cell.has_any_support) {
+        support_factor = 0.5;
+    }
+    else {
+        support_factor = World::MIN_SUPPORT_FACTOR;
+    }
+
+    const double resistance = props.cohesion * connection_count * cell.fill_ratio * support_factor;
 
     return { final_force,
              total_force_magnitude,
@@ -450,5 +461,6 @@ WorldCohesionCalculator::COMCohesionForce WorldCohesionCalculator::calculateCOMC
              connection_count,
              total_weight,
              cell_mass,
-             (connection_count > 0 || com_offset_sq > 0.000001) };
+             (connection_count > 0 || com_offset_sq > 0.000001),
+             resistance };
 }

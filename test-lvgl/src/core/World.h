@@ -13,7 +13,8 @@ class Timers;
 
 namespace DirtSim {
 class Cell;
-class Vector2d;
+// Vector2d is now a template alias, include instead of forward declare.
+#include "Vector2d.h"
 struct MaterialMove;
 struct WorldData;
 struct PhysicsSettings;
@@ -303,9 +304,9 @@ private:
 
     void applyGravity();
     void applyAirResistance();
-    void applyCohesionForces(const GridOfCells* grid = nullptr);
+    void applyCohesionForces(const GridOfCells& grid);
     void applyPressureForces();
-    void resolveForces(double deltaTime, const GridOfCells* grid = nullptr);
+    void resolveForces(double deltaTime, const GridOfCells& grid);
     void updateTransfers(double deltaTime);
     void processVelocityLimiting(double deltaTime);
     void processMaterialMoves();

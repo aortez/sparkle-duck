@@ -52,11 +52,19 @@ public:
      * @param dy Y offset from center [-1, 1]
      * @return MaterialType at that position
      */
-    MaterialType getMaterial(int dx, int dy) const;
+    inline MaterialType getMaterial(int dx, int dy) const
+    {
+        int bit_pos = (dy + 1) * 3 + (dx + 1);
+        return getMaterialByBitPos(bit_pos);
+    }
 
-    MaterialType getMaterialByBitPos(int bit_pos) const;
+    inline MaterialType getMaterialByBitPos(int bit_pos) const
+    {
+        int shift = bit_pos * BITS_PER_MATERIAL;
+        return static_cast<MaterialType>((data_ >> shift) & 0xF);
+    }
 
-    MaterialType getCenterMaterial() const;
+    inline MaterialType getCenterMaterial() const { return getMaterialByBitPos(4); }
 
     // ========== Named Directional Accessors ==========
 

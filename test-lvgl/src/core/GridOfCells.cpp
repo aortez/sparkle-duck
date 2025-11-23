@@ -15,6 +15,7 @@ GridOfCells::GridOfCells(
       support_bitmap_(width, height),
       empty_neighborhoods_(width * height, 0),
       material_neighborhoods_(width * height, 0),
+      cohesion_resistance_(width * height, 0.0),
       width_(width),
       height_(height)
 {

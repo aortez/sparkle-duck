@@ -173,8 +173,7 @@ add_library(sparkle-duck-core STATIC
     src/core/MaterialType.cpp
     src/core/StateMachineBase.cpp
     src/core/Timers.cpp
-    src/core/Vector2d.cpp
-    src/core/Vector2i.cpp
+    # Vector2d.cpp and Vector2i.cpp removed - now fully inline template in Vector2.h
 
     # Bitmap infrastructure.
     src/core/bitmaps/CellBitmap.cpp
