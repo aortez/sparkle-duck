@@ -464,8 +464,6 @@ void World::advanceTime(double deltaTimeSeconds)
         return;
     }
 
-    // NOTE: Particle generation now handled by Scenario::tick(), called before advanceTime().
-
     // Build grid cache for optimized empty cell and material lookups.
     GridOfCells grid(pImpl->data_.cells, pImpl->data_.width, pImpl->data_.height, pImpl->timers_);
 
@@ -744,8 +742,10 @@ void World::applyCohesionForces(const GridOfCells& grid)
                     continue;
                 }
 
+                // Use cache-optimized version with MaterialNeighborhood.
+                const MaterialNeighborhood mat_n = grid.getMaterialNeighborhood(x, y);
                 WorldAdhesionCalculator::AdhesionForce adhesion =
-                    adhesion_calc.calculateAdhesionForce(*this, x, y);
+                    adhesion_calc.calculateAdhesionForce(*this, x, y, mat_n);
                 Vector2d adhesion_force = adhesion.force_direction * adhesion.force_magnitude
                     * settings.adhesion_strength;
                 cell.addPendingForce(adhesion_force);
