@@ -224,8 +224,8 @@ void WorldFrictionCalculator::applyFrictionForces(
         Vector2d friction_force = friction_direction * friction_force_magnitude;
 
         // Apply to both cells (Newton's 3rd law).
-        Cell& cellA = world.at(contact.cell_A_pos.x, contact.cell_A_pos.y);
-        Cell& cellB = world.at(contact.cell_B_pos.x, contact.cell_B_pos.y);
+        Cell& cellA = world.getData().at(contact.cell_A_pos.x, contact.cell_A_pos.y);
+        Cell& cellB = world.getData().at(contact.cell_B_pos.x, contact.cell_B_pos.y);
 
         cellA.addPendingForce(friction_force);
         cellB.addPendingForce(-friction_force); // Equal and opposite.

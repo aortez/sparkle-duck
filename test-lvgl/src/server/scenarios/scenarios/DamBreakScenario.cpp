@@ -52,7 +52,7 @@ public:
         // Clear world first.
         for (uint32_t y = 0; y < world.getData().height; ++y) {
             for (uint32_t x = 0; x < world.getData().width; ++x) {
-                world.at(x, y) = Cell(); // Reset to empty cell.
+                world.getData().at(x, y) = Cell(); // Reset to empty cell.
             }
         }
 
@@ -106,7 +106,7 @@ public:
                 spdlog::info("DamBreakScenario: Breaking dam at t={:.2f}s", elapsedTime_);
 
                 // Dam is at x=2, break only the bottom cell for realistic flow.
-                world.at(2, 5).clear(); // Bottom cell at (2,5)
+                world.getData().at(2, 5).clear(); // Bottom cell at (2,5)
                 spdlog::info("DamBreakScenario: Dam broken at (2, 5)");
                 damBroken_ = true;
             }

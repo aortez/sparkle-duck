@@ -49,7 +49,7 @@ public:
         // Clear world first.
         for (uint32_t y = 0; y < world.getData().height; ++y) {
             for (uint32_t x = 0; x < world.getData().width; ++x) {
-                world.at(x, y) = Cell(); // Reset to empty cell.
+                world.getData().at(x, y) = Cell(); // Reset to empty cell.
             }
         }
 
@@ -63,7 +63,9 @@ public:
         // Add floor if configured.
         if (config_.puddle_floor) {
             for (uint32_t x = 0; x < world.getData().width; ++x) {
-                world.at(x, world.getData().height - 1).replaceMaterial(MaterialType::WALL, 1.0);
+                world.getData()
+                    .at(x, world.getData().height - 1)
+                    .replaceMaterial(MaterialType::WALL, 1.0);
             }
         }
 

@@ -32,7 +32,7 @@ std::string WorldDiagramGeneratorEmoji::generateEmojiDiagram(const World& world)
         diagram << "┃";
 
         for (uint32_t x = 0; x < width; ++x) {
-            const auto& cell = world.at(x, y);
+            const auto& cell = world.getData().at(x, y);
 
             if (cell.isEmpty()) {
                 diagram << "⬜";
@@ -121,7 +121,7 @@ std::string WorldDiagramGeneratorEmoji::generateMixedDiagram(const World& world)
         diagram << "│";
 
         for (uint32_t x = 0; x < width; ++x) {
-            const auto& cell = world.at(x, y);
+            const auto& cell = world.getData().at(x, y);
 
             if (cell.isEmpty()) {
                 diagram << "   ";

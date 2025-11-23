@@ -34,6 +34,19 @@ struct WorldData {
     // Tree organism data (optional - only present when showing a tree's vision).
     std::optional<TreeSensoryData> tree_vision;
 
+    // Direct cell access methods (inline for performance).
+    inline Cell& at(uint32_t x, uint32_t y)
+    {
+        assert(x < width && y < height);
+        return cells[y * width + x];
+    }
+
+    inline const Cell& at(uint32_t x, uint32_t y) const
+    {
+        assert(x < width && y < height);
+        return cells[y * width + x];
+    }
+
     // Custom zpp_bits serialization (all 10 fields).
     using serialize = zpp::bits::members<10>;
 };

@@ -35,7 +35,7 @@ CommandExecutionResult TreeCommandProcessor::execute(
                     if (neighbor_pos.x >= 0 && neighbor_pos.y >= 0
                         && static_cast<uint32_t>(neighbor_pos.x) < world.getData().width
                         && static_cast<uint32_t>(neighbor_pos.y) < world.getData().height) {
-                        const Cell& neighbor = world.at(neighbor_pos.x, neighbor_pos.y);
+                        const Cell& neighbor = world.getData().at(neighbor_pos.x, neighbor_pos.y);
                         if (neighbor.organism_id == tree.id
                             && (neighbor.material_type == MaterialType::WOOD
                                 || neighbor.material_type == MaterialType::SEED)) {
@@ -50,9 +50,11 @@ CommandExecutionResult TreeCommandProcessor::execute(
                              "WOOD requires cardinal adjacency to WOOD or SEED" };
                 }
 
-                world.at(command.target_pos.x, command.target_pos.y)
+                world.getData()
+                    .at(command.target_pos.x, command.target_pos.y)
                     .replaceMaterial(MaterialType::WOOD, 1.0);
-                world.at(command.target_pos.x, command.target_pos.y).organism_id = tree.id;
+                world.getData().at(command.target_pos.x, command.target_pos.y).organism_id =
+                    tree.id;
 
                 tree.cells.insert(command.target_pos);
                 tree.total_energy -= command.energy_cost;
@@ -90,7 +92,7 @@ CommandExecutionResult TreeCommandProcessor::execute(
                     if (neighbor_pos.x >= 0 && neighbor_pos.y >= 0
                         && static_cast<uint32_t>(neighbor_pos.x) < world.getData().width
                         && static_cast<uint32_t>(neighbor_pos.y) < world.getData().height) {
-                        const Cell& neighbor = world.at(neighbor_pos.x, neighbor_pos.y);
+                        const Cell& neighbor = world.getData().at(neighbor_pos.x, neighbor_pos.y);
                         if (neighbor.organism_id == tree.id
                             && neighbor.material_type == MaterialType::WOOD) {
                             has_wood_neighbor = true;
@@ -104,9 +106,11 @@ CommandExecutionResult TreeCommandProcessor::execute(
                              "LEAF requires cardinal adjacency to WOOD" };
                 }
 
-                world.at(command.target_pos.x, command.target_pos.y)
+                world.getData()
+                    .at(command.target_pos.x, command.target_pos.y)
                     .replaceMaterial(MaterialType::LEAF, 1.0);
-                world.at(command.target_pos.x, command.target_pos.y).organism_id = tree.id;
+                world.getData().at(command.target_pos.x, command.target_pos.y).organism_id =
+                    tree.id;
 
                 tree.cells.insert(command.target_pos);
                 tree.total_energy -= command.energy_cost;
@@ -139,7 +143,7 @@ CommandExecutionResult TreeCommandProcessor::execute(
                     if (neighbor_pos.x >= 0 && neighbor_pos.y >= 0
                         && static_cast<uint32_t>(neighbor_pos.x) < world.getData().width
                         && static_cast<uint32_t>(neighbor_pos.y) < world.getData().height) {
-                        const Cell& neighbor = world.at(neighbor_pos.x, neighbor_pos.y);
+                        const Cell& neighbor = world.getData().at(neighbor_pos.x, neighbor_pos.y);
                         if (neighbor.organism_id == tree.id
                             && (neighbor.material_type == MaterialType::ROOT
                                 || neighbor.material_type == MaterialType::SEED)) {
@@ -154,9 +158,11 @@ CommandExecutionResult TreeCommandProcessor::execute(
                              "ROOT requires cardinal adjacency to SEED or ROOT" };
                 }
 
-                world.at(command.target_pos.x, command.target_pos.y)
+                world.getData()
+                    .at(command.target_pos.x, command.target_pos.y)
                     .replaceMaterial(MaterialType::ROOT, 1.0);
-                world.at(command.target_pos.x, command.target_pos.y).organism_id = tree.id;
+                world.getData().at(command.target_pos.x, command.target_pos.y).organism_id =
+                    tree.id;
 
                 tree.cells.insert(command.target_pos);
                 tree.total_energy -= command.energy_cost;
@@ -202,7 +208,8 @@ CommandExecutionResult TreeCommandProcessor::execute(
                     return { CommandResult::INVALID_TARGET, "Seed position out of bounds" };
                 }
 
-                world.at(command.position.x, command.position.y)
+                world.getData()
+                    .at(command.position.x, command.position.y)
                     .replaceMaterial(MaterialType::SEED, 1.0);
 
                 tree.total_energy -= command.energy_cost;

@@ -100,7 +100,7 @@ TreeSensoryData Tree::gatherSensoryData(const World& world) const
 
     for (uint32_t y = 0; y < world.getData().height; y++) {
         for (uint32_t x = 0; x < world.getData().width; x++) {
-            if (world.at(x, y).organism_id == id) {
+            if (world.getData().at(x, y).organism_id == id) {
                 min_x = std::min(min_x, static_cast<int>(x));
                 min_y = std::min(min_y, static_cast<int>(y));
                 max_x = std::max(max_x, static_cast<int>(x));
@@ -184,7 +184,7 @@ TreeSensoryData Tree::gatherSensoryData(const World& world) const
 
             for (int wy = wy_start; wy < wy_end; wy++) {
                 for (int wx = wx_start; wx < wx_end; wx++) {
-                    const auto& cell = world.at(wx, wy);
+                    const auto& cell = world.getData().at(wx, wy);
                     int mat_idx = static_cast<int>(cell.material_type);
                     if (mat_idx >= 0 && mat_idx < TreeSensoryData::NUM_MATERIALS) {
                         counts[mat_idx]++;

@@ -227,7 +227,7 @@ int main(int argc, char** argv)
         // Follow args library pattern: check presence before get.
         int actualSteps = benchSteps ? args::get(benchSteps) : 120;
         std::string actualScenario = benchScenario ? args::get(benchScenario) : "benchmark";
-        int actualWorldSize = benchWorldSize ? args::get(benchWorldSize) : 0;
+        (void)benchWorldSize; // Unused - world size now determined by scenario.
 
         if (compareCache) {
             // Run twice: with and without cache.
@@ -235,16 +235,11 @@ int main(int argc, char** argv)
 
             spdlog::set_level(spdlog::level::info);
             spdlog::info("Running benchmark WITH cache enabled...");
-            auto results_cached =
-                runner.run(serverPath.string(), actualSteps, actualScenario, actualWorldSize);
+            auto results_cached = runner.run(serverPath.string(), actualSteps, actualScenario);
 
             spdlog::info("Running benchmark WITHOUT cache (--no-grid-cache)...");
             auto results_direct = runner.runWithServerArgs(
-                serverPath.string(),
-                actualSteps,
-                actualScenario,
-                "--no-grid-cache",
-                actualWorldSize);
+                serverPath.string(), actualSteps, actualScenario, "--no-grid-cache");
 
             // Build comparison output.
             nlohmann::json comparison;
@@ -278,8 +273,7 @@ int main(int argc, char** argv)
         else {
             // Single run (default behavior).
             Client::BenchmarkRunner runner;
-            auto results =
-                runner.run(serverPath.string(), actualSteps, actualScenario, actualWorldSize);
+            auto results = runner.run(serverPath.string(), actualSteps, actualScenario);
 
             // Output results as JSON using ReflectSerializer.
             nlohmann::json resultJson = ReflectSerializer::to_json(results);

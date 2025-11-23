@@ -52,7 +52,7 @@ protected:
     void setupColumn(const std::vector<MaterialType>& materials)
     {
         for (size_t y = 0; y < materials.size() && y < world->getData().height; ++y) {
-            Cell& cell = world->at(0, y); // Only one column (x=0).
+            Cell& cell = world->getData().at(0, y); // Only one column (x=0).
             if (materials[y] != MaterialType::AIR) {
                 cell.addMaterial(materials[y], 1.0); // Fill completely.
             }
@@ -112,7 +112,7 @@ TEST_F(BuoyancyTest, PureFluidPressureField)
 
     // Verify: Pressure increases linearly with depth.
     for (uint32_t y = 0; y < 5; ++y) {
-        const Cell& cell = world->at(0, y);
+        const Cell& cell = world->getData().at(0, y);
         double expected_pressure = y * expected_increment;
 
         spdlog::info(
@@ -166,7 +166,7 @@ TEST_F(BuoyancyTest, SolidInFluidColumn)
 
     // Verify: Pressure increases uniformly despite metal cell.
     for (uint32_t y = 0; y < 5; ++y) {
-        const Cell& cell = world->at(0, y);
+        const Cell& cell = world->getData().at(0, y);
         double expected_pressure = y * expected_increment;
 
         spdlog::info(
@@ -202,9 +202,9 @@ TEST_F(BuoyancyTest, PressureForceDirection)
     calculatePressure();
 
     // Get metal cell and neighbors.
-    const Cell& metal = world->at(0, 2);
-    const Cell& above = world->at(0, 1);
-    const Cell& below = world->at(0, 3);
+    const Cell& metal = world->getData().at(0, 2);
+    const Cell& above = world->getData().at(0, 1);
+    const Cell& below = world->getData().at(0, 3);
 
     spdlog::info("  Metal cell y=2: pressure={:.6f}", metal.pressure);
     spdlog::info("  Cell above y=1: pressure={:.6f}", above.pressure);
@@ -336,7 +336,7 @@ TEST_F(BuoyancyTest, WoodDevelopsUpwardVelocity)
                   MaterialType::WATER });
 
     // Get wood cell reference.
-    Cell& wood = world->at(0, 2);
+    Cell& wood = world->getData().at(0, 2);
 
     // Verify initial state: wood at rest.
     EXPECT_TRUE(almostEqual(wood.velocity.y, 0.0, 1e-5)) << "Wood should start with zero velocity";
@@ -362,7 +362,7 @@ TEST_F(BuoyancyTest, WoodDevelopsUpwardVelocity)
         // Find current wood position.
         int current_wood_y = -1;
         for (uint32_t y = 0; y < 5; ++y) {
-            if (world->at(0, y).material_type == MaterialType::WOOD) {
+            if (world->getData().at(0, y).material_type == MaterialType::WOOD) {
                 current_wood_y = y;
                 break;
             }
@@ -370,7 +370,7 @@ TEST_F(BuoyancyTest, WoodDevelopsUpwardVelocity)
 
         // Log state every 50 steps.
         if (i % 50 == 0 && current_wood_y >= 0) {
-            const Cell& wood_cell = world->at(0, current_wood_y);
+            const Cell& wood_cell = world->getData().at(0, current_wood_y);
             spdlog::info(
                 "  Step {}: wood at y={}, vel=({:.4f},{:.4f}), com=({:.4f},{:.4f})",
                 i,
@@ -386,7 +386,7 @@ TEST_F(BuoyancyTest, WoodDevelopsUpwardVelocity)
         // Track position changes.
         int new_wood_y = -1;
         for (uint32_t y = 0; y < 5; ++y) {
-            if (world->at(0, y).material_type == MaterialType::WOOD) {
+            if (world->getData().at(0, y).material_type == MaterialType::WOOD) {
                 new_wood_y = y;
                 break;
             }
@@ -407,7 +407,7 @@ TEST_F(BuoyancyTest, WoodDevelopsUpwardVelocity)
     // Final state.
     spdlog::info("  Final state after {} steps:", steps);
     for (uint32_t y = 0; y < 5; ++y) {
-        const Cell& c = world->at(0, y);
+        const Cell& c = world->getData().at(0, y);
         spdlog::info(
             "    y={}: {} vel=({:.4f},{:.4f})",
             y,
@@ -485,14 +485,14 @@ protected:
         }
 
         // Place test material in middle (y=2).
-        world->at(0, 2).replaceMaterial(material, 1.0);
+        world->getData().at(0, 2).replaceMaterial(material, 1.0);
 
         // Pre-position COM for faster testing.
         if (GetParam().expected_behavior == BuoyancyMaterialParams::ExpectedBehavior::RISE) {
-            world->at(0, 2).setCOM(Vector2d(0.0, -0.7)); // Near top boundary.
+            world->getData().at(0, 2).setCOM(Vector2d(0.0, -0.7)); // Near top boundary.
         }
         else if (GetParam().expected_behavior == BuoyancyMaterialParams::ExpectedBehavior::SINK) {
-            world->at(0, 2).setCOM(Vector2d(0.0, 0.7)); // Near bottom boundary.
+            world->getData().at(0, 2).setCOM(Vector2d(0.0, 0.7)); // Near bottom boundary.
         }
     }
 
@@ -532,7 +532,7 @@ TEST_P(ParameterizedBuoyancyTest, DISABLED_MaterialBuoyancyBehavior)
         // Track position before step.
         int current_y = -1;
         for (int y = 0; y < 5; ++y) {
-            if (world->at(0, y).material_type == params.material) {
+            if (world->getData().at(0, y).material_type == params.material) {
                 current_y = y;
                 break;
             }
@@ -540,7 +540,7 @@ TEST_P(ParameterizedBuoyancyTest, DISABLED_MaterialBuoyancyBehavior)
 
         // Log every 50 steps.
         if (step % 50 == 0 && current_y >= 0) {
-            const Cell& cell = world->at(0, current_y);
+            const Cell& cell = world->getData().at(0, current_y);
             spdlog::info(
                 "  Step {}: {} at y={}, vel=({:.3f},{:.3f}), com=({:.3f},{:.3f})",
                 step,
@@ -558,7 +558,7 @@ TEST_P(ParameterizedBuoyancyTest, DISABLED_MaterialBuoyancyBehavior)
         // Track position after step.
         int new_y = -1;
         for (int y = 0; y < 5; ++y) {
-            if (world->at(0, y).material_type == params.material) {
+            if (world->getData().at(0, y).material_type == params.material) {
                 new_y = y;
                 break;
             }
@@ -666,7 +666,7 @@ TEST_F(BuoyancyTest, MetalDevelopsDownwardVelocity)
                   MaterialType::WATER });
 
     // Get metal cell reference.
-    Cell& metal = world->at(0, 2);
+    Cell& metal = world->getData().at(0, 2);
 
     // Verify initial state: metal at rest.
     EXPECT_TRUE(almostEqual(metal.velocity.y, 0.0, 1e-5))
@@ -743,7 +743,7 @@ TEST_F(BuoyancyTest, WoodCanRiseIn3x3World)
             for (uint32_t y = 0; y < 3; ++y) {
                 std::string row = "    ";
                 for (uint32_t x = 0; x < 3; ++x) {
-                    const Cell& c = world->at(x, y);
+                    const Cell& c = world->getData().at(x, y);
                     char symbol = '?';
                     if (c.material_type == MaterialType::WOOD) {
                         symbol = 'X';
@@ -765,7 +765,7 @@ TEST_F(BuoyancyTest, WoodCanRiseIn3x3World)
                 std::string row = "    ";
                 for (uint32_t x = 0; x < 3; ++x) {
                     char buf[16];
-                    snprintf(buf, sizeof(buf), "[%.2f]", world->at(x, y).pressure);
+                    snprintf(buf, sizeof(buf), "[%.2f]", world->getData().at(x, y).pressure);
                     row += buf;
                 }
                 spdlog::info("{}", row);
@@ -774,7 +774,7 @@ TEST_F(BuoyancyTest, WoodCanRiseIn3x3World)
             // Log wood cell details (find it first).
             for (uint32_t y = 0; y < 3; ++y) {
                 for (uint32_t x = 0; x < 3; ++x) {
-                    const Cell& c = world->at(x, y);
+                    const Cell& c = world->getData().at(x, y);
                     if (c.material_type == MaterialType::WOOD) {
                         // Calculate expected forces.
                         const MaterialProperties& wood_props =
@@ -797,10 +797,10 @@ TEST_F(BuoyancyTest, WoodCanRiseIn3x3World)
                             c.fill_ratio);
                         spdlog::info(
                             "      Neighbors: Up={:.2f}, Down={:.2f}, Left={:.2f}, Right={:.2f}",
-                            world->at(x, y - 1).pressure,
-                            world->at(x, y + 1).pressure,
-                            world->at(x - 1, y).pressure,
-                            world->at(x + 1, y).pressure);
+                            world->getData().at(x, y - 1).pressure,
+                            world->getData().at(x, y + 1).pressure,
+                            world->getData().at(x - 1, y).pressure,
+                            world->getData().at(x + 1, y).pressure);
                         spdlog::info(
                             "      Pressure: {:.4f}, Gradient: ({:.4f},{:.4f})",
                             c.pressure,
@@ -827,7 +827,7 @@ TEST_F(BuoyancyTest, WoodCanRiseIn3x3World)
     for (uint32_t y = 0; y < 3; ++y) {
         std::string row = "    ";
         for (uint32_t x = 0; x < 3; ++x) {
-            const Cell& c = world->at(x, y);
+            const Cell& c = world->getData().at(x, y);
             if (c.material_type == MaterialType::WOOD) {
                 row += "[X]";
             }
@@ -847,7 +847,7 @@ TEST_F(BuoyancyTest, WoodCanRiseIn3x3World)
 
     for (uint32_t y = 0; y < 3; ++y) {
         for (uint32_t x = 0; x < 3; ++x) {
-            const Cell& c = world->at(x, y);
+            const Cell& c = world->getData().at(x, y);
             if (c.material_type == MaterialType::WOOD) {
                 wood_found = true;
                 wood_y = y;
@@ -925,7 +925,7 @@ TEST_F(BuoyancyTest, WaterColumnFalls)
             for (uint32_t y = 0; y < 4; ++y) {
                 std::string row = "    ";
                 for (uint32_t x = 0; x < 2; ++x) {
-                    const Cell& c = world->at(x, y);
+                    const Cell& c = world->getData().at(x, y);
                     if (c.material_type == MaterialType::WATER) {
                         row += "[W]";
                     }
@@ -940,11 +940,11 @@ TEST_F(BuoyancyTest, WaterColumnFalls)
             spdlog::info(
                 "    Cell (0,1) water: vel=({:.4f},{:.4f}), com=({:.4f},{:.4f}), "
                 "pressure={:.4f}",
-                world->at(0, 1).velocity.x,
-                world->at(0, 1).velocity.y,
-                world->at(0, 1).com.x,
-                world->at(0, 1).com.y,
-                world->at(0, 1).pressure);
+                world->getData().at(0, 1).velocity.x,
+                world->getData().at(0, 1).velocity.y,
+                world->getData().at(0, 1).com.x,
+                world->getData().at(0, 1).com.y,
+                world->getData().at(0, 1).pressure);
         }
 
         world->advanceTime(deltaTime);
@@ -955,7 +955,7 @@ TEST_F(BuoyancyTest, WaterColumnFalls)
     for (uint32_t y = 0; y < 4; ++y) {
         std::string row = "    ";
         for (uint32_t x = 0; x < 2; ++x) {
-            const Cell& c = world->at(x, y);
+            const Cell& c = world->getData().at(x, y);
             if (c.material_type == MaterialType::WATER) {
                 row += "[W]";
             }
@@ -970,7 +970,7 @@ TEST_F(BuoyancyTest, WaterColumnFalls)
     int water_count_bottom_half = 0;
     for (uint32_t y = 2; y < 4; ++y) {
         for (uint32_t x = 0; x < 2; ++x) {
-            if (world->at(x, y).material_type == MaterialType::WATER) {
+            if (world->getData().at(x, y).material_type == MaterialType::WATER) {
                 water_count_bottom_half++;
             }
         }
@@ -1034,7 +1034,7 @@ TEST_F(BuoyancyTest, DirtSinksThroughWater)
         // Find current dirt position.
         int current_dirt_y = -1;
         for (uint32_t y = 0; y < 6; ++y) {
-            if (world->at(0, y).material_type == MaterialType::DIRT) {
+            if (world->getData().at(0, y).material_type == MaterialType::DIRT) {
                 current_dirt_y = y;
                 break;
             }
@@ -1042,7 +1042,7 @@ TEST_F(BuoyancyTest, DirtSinksThroughWater)
 
         // Log every 100 steps.
         if (i % 100 == 0 && current_dirt_y >= 0) {
-            const Cell& dirt_cell = world->at(0, current_dirt_y);
+            const Cell& dirt_cell = world->getData().at(0, current_dirt_y);
             spdlog::info(
                 "  Step {}: dirt at y={}, vel=({:.3f},{:.3f}), com=({:.3f},{:.3f}), "
                 "dyn_press={:.2f}",
@@ -1067,7 +1067,7 @@ TEST_F(BuoyancyTest, DirtSinksThroughWater)
         // Track position changes.
         int new_dirt_y = -1;
         for (uint32_t y = 0; y < 6; ++y) {
-            if (world->at(0, y).material_type == MaterialType::DIRT) {
+            if (world->getData().at(0, y).material_type == MaterialType::DIRT) {
                 new_dirt_y = y;
                 break;
             }
@@ -1088,7 +1088,7 @@ TEST_F(BuoyancyTest, DirtSinksThroughWater)
     // Final state.
     spdlog::info("  === Final State (step {}) ===", steps);
     for (uint32_t y = 0; y < 6; ++y) {
-        const Cell& c = world->at(0, y);
+        const Cell& c = world->getData().at(0, y);
         char symbol = (c.material_type == MaterialType::DIRT) ? 'D' : 'W';
         spdlog::info("    [{}] y={}", symbol, y);
     }

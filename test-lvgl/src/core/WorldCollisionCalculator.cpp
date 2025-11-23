@@ -61,10 +61,10 @@ MaterialMove WorldCollisionCalculator::createCollisionAwareMove(
     double excess = wants_to_transfer - move.amount;
     move.pressure_from_excess = 0.0; // Initialize.
 
-    if (excess > MIN_MATTER_THRESHOLD && world.isDynamicPressureEnabled()) {
+    if (excess > MIN_MATTER_THRESHOLD && world.getPhysicsSettings().pressure_dynamic_strength > 0) {
         double blocked_mass = excess * getMaterialDensity(fromCell.material_type);
         double energy = fromCell.velocity.magnitude() * blocked_mass;
-        double dynamic_strength = world.getDynamicPressureStrength();
+        double dynamic_strength = world.getPhysicsSettings().pressure_dynamic_strength;
         double pressure_increase =
             energy * 0.1 * dynamic_strength; // Apply dynamic pressure strength.
 
@@ -342,7 +342,7 @@ void WorldCollisionCalculator::handleTransferMove(
             transfer_deficit);
 
         // Queue blocked transfer for dynamic pressure accumulation.
-        if (world.isDynamicPressureEnabled()) {
+        if (world.getPhysicsSettings().pressure_dynamic_strength > 0) {
             // Calculate energy with proper mass consideration.
             double material_density = getMaterialDensity(move.material);
             double blocked_mass = transfer_deficit * material_density;
@@ -546,11 +546,12 @@ void WorldCollisionCalculator::handleInelasticCollision(
         transfer_deficit);
     spdlog::debug(
         "Dynamic pressure enabled: {}, deficit > threshold: {} (threshold={:.6f})",
-        world.isDynamicPressureEnabled(),
+        world.getPhysicsSettings().pressure_dynamic_strength > 0,
         transfer_deficit > MIN_MATTER_THRESHOLD,
         MIN_MATTER_THRESHOLD);
 
-    if (transfer_deficit > MIN_MATTER_THRESHOLD && world.isDynamicPressureEnabled()) {
+    if (transfer_deficit > MIN_MATTER_THRESHOLD
+        && world.getPhysicsSettings().pressure_dynamic_strength > 0) {
         spdlog::debug(
             "🚫 Inelastic collision blocked transfer: requested={:.3f}, transferred={:.3f}, "
             "deficit={:.3f}",

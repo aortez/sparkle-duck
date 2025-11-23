@@ -73,19 +73,21 @@ void BenchmarkScenario::setup(World& world)
     // Clear world first.
     for (uint32_t y = 0; y < world.getData().height; ++y) {
         for (uint32_t x = 0; x < world.getData().width; ++x) {
-            world.at(x, y) = Cell(); // Reset to empty cell.
+            world.getData().at(x, y) = Cell(); // Reset to empty cell.
         }
     }
 
     // Create boundary walls.
     for (uint32_t x = 0; x < world.getData().width; ++x) {
-        world.at(x, 0).replaceMaterial(MaterialType::WALL, 1.0); // Top wall.
-        world.at(x, world.getData().height - 1)
+        world.getData().at(x, 0).replaceMaterial(MaterialType::WALL, 1.0); // Top wall.
+        world.getData()
+            .at(x, world.getData().height - 1)
             .replaceMaterial(MaterialType::WALL, 1.0); // Bottom wall.
     }
     for (uint32_t y = 0; y < world.getData().height; ++y) {
-        world.at(0, y).replaceMaterial(MaterialType::WALL, 1.0); // Left wall.
-        world.at(world.getData().width - 1, y)
+        world.getData().at(0, y).replaceMaterial(MaterialType::WALL, 1.0); // Left wall.
+        world.getData()
+            .at(world.getData().width - 1, y)
             .replaceMaterial(MaterialType::WALL, 1.0); // Right wall.
     }
 
@@ -93,7 +95,7 @@ void BenchmarkScenario::setup(World& world)
     uint32_t waterStartY = world.getData().height - (world.getData().height / 3);
     for (uint32_t y = waterStartY; y < world.getData().height - 1; ++y) {
         for (uint32_t x = 1; x < world.getData().width - 1; ++x) {
-            world.at(x, y).replaceMaterial(MaterialType::WATER, 1.0);
+            world.getData().at(x, y).replaceMaterial(MaterialType::WATER, 1.0);
         }
     }
     spdlog::info(
@@ -128,8 +130,9 @@ void BenchmarkScenario::setup(World& world)
         uint32_t y = 1 + (std::rand() % (world.getData().height - 2));
 
         // Only add sand to empty cells (don't overwrite water, balls, or walls).
-        if (world.at(x, y).material_type == MaterialType::AIR && world.at(x, y).fill_ratio == 0.0) {
-            world.at(x, y).replaceMaterial(MaterialType::SAND, 1.0);
+        if (world.getData().at(x, y).material_type == MaterialType::AIR
+            && world.getData().at(x, y).fill_ratio == 0.0) {
+            world.getData().at(x, y).replaceMaterial(MaterialType::SAND, 1.0);
             sandAdded++;
         }
     }
@@ -157,7 +160,7 @@ void BenchmarkScenario::addBall(
 
             // If within radius, add material.
             if (distance <= static_cast<double>(radius)) {
-                world.at(x, y).replaceMaterial(material, 1.0);
+                world.getData().at(x, y).replaceMaterial(material, 1.0);
             }
         }
     }

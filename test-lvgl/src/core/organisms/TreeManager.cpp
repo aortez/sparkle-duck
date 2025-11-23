@@ -31,7 +31,7 @@ TreeId TreeManager::plantSeed(World& world, uint32_t x, uint32_t y)
     tree.cells.insert(pos);
     cell_to_tree_[pos] = id;
 
-    world.at(x, y).organism_id = id;
+    world.getData().at(x, y).organism_id = id;
 
     spdlog::info("TreeManager: Planted seed for tree {} at ({}, {})", id, x, y);
 

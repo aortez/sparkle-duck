@@ -76,7 +76,7 @@ protected:
     {
         uint32_t count = 0;
         for (uint32_t y = 0; y < world->getData().height; ++y) {
-            const Cell& cell = world->at(x, y);
+            const Cell& cell = world->getData().at(x, y);
             if (cell.material_type == MaterialType::WATER && cell.fill_ratio > 0.5) {
                 count++;
             }
@@ -93,7 +93,7 @@ protected:
         for (uint32_t y = 0; y < world->getData().height; ++y) {
             std::string row = "  y=" + std::to_string(y) + ": ";
             for (uint32_t x = 0; x < world->getData().width; ++x) {
-                const Cell& cell = world->at(x, y);
+                const Cell& cell = world->getData().at(x, y);
                 if (cell.material_type == MaterialType::WATER) {
                     row += "[W]";
                 }
@@ -153,9 +153,9 @@ TEST_F(WaterEqualizationTest, WaterFlowsThroughOpening)
 
             // Log detailed state of bottom row after it settles.
             if (step >= 100) {
-                const Cell& cell_0_5 = world->at(0, 5);
-                const Cell& cell_1_5 = world->at(1, 5);
-                const Cell& cell_2_5 = world->at(2, 5);
+                const Cell& cell_0_5 = world->getData().at(0, 5);
+                const Cell& cell_1_5 = world->getData().at(1, 5);
+                const Cell& cell_2_5 = world->getData().at(2, 5);
                 spdlog::info(
                     "  Cell(0,5): pressure={:.3f}, gradient=({:.3f},{:.3f})",
                     cell_0_5.pressure,

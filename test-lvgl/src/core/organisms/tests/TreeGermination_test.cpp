@@ -16,7 +16,7 @@ protected:
     {
         for (uint32_t y = 0; y < 7; ++y) {
             for (uint32_t x = 0; x < 7; ++x) {
-                world->at(x, y) = Cell();
+                world->getData().at(x, y) = Cell();
             }
         }
 
@@ -35,7 +35,7 @@ TEST_F(TreeGerminationTest, SeedFallsOntoGround)
     setupGerminationWorld();
     TreeId id = world->getTreeManager().plantSeed(*world, 3, 1);
 
-    EXPECT_EQ(world->at(3, 1).material_type, MaterialType::SEED);
+    EXPECT_EQ(world->getData().at(3, 1).material_type, MaterialType::SEED);
 
     std::cout << "Initial state:\n"
               << WorldDiagramGeneratorEmoji::generateEmojiDiagram(*world) << "\n";
@@ -88,11 +88,11 @@ TEST_F(TreeGerminationTest, SeedBlockedByWall)
 {
     for (uint32_t y = 0; y < 7; ++y) {
         for (uint32_t x = 0; x < 7; ++x) {
-            world->at(x, y).replaceMaterial(MaterialType::WALL, 1.0);
+            world->getData().at(x, y).replaceMaterial(MaterialType::WALL, 1.0);
         }
     }
 
-    world->at(3, 3).replaceMaterial(MaterialType::AIR, 0.0);
+    world->getData().at(3, 3).replaceMaterial(MaterialType::AIR, 0.0);
 
     TreeId id = world->getTreeManager().plantSeed(*world, 3, 3);
     const Tree* tree = world->getTreeManager().getTree(id);
@@ -138,18 +138,18 @@ TEST_F(TreeGerminationTest, RootsStopAtWater)
 
     for (uint32_t y = 0; y < 7; ++y) {
         for (uint32_t x = 0; x < 7; ++x) {
-            world->at(x, y) = Cell();
+            world->getData().at(x, y) = Cell();
         }
     }
 
     for (uint32_t y = 5; y < 7; ++y) {
         for (uint32_t x = 0; x < 7; ++x) {
-            world->at(x, y).replaceMaterial(MaterialType::WATER, 1.0);
+            world->getData().at(x, y).replaceMaterial(MaterialType::WATER, 1.0);
         }
     }
 
     for (uint32_t x = 0; x < 7; ++x) {
-        world->at(x, 4).replaceMaterial(MaterialType::DIRT, 1.0);
+        world->getData().at(x, 4).replaceMaterial(MaterialType::DIRT, 1.0);
     }
 
     std::cout << "Initial water test setup:\n"
@@ -172,8 +172,8 @@ TEST_F(TreeGerminationTest, RootsStopAtWater)
     int water_count = 0;
     for (uint32_t y = 0; y < 7; ++y) {
         for (uint32_t x = 0; x < 7; ++x) {
-            if (world->at(x, y).material_type == MaterialType::ROOT) root_count++;
-            if (world->at(x, y).material_type == MaterialType::WATER) water_count++;
+            if (world->getData().at(x, y).material_type == MaterialType::ROOT) root_count++;
+            if (world->getData().at(x, y).material_type == MaterialType::WATER) water_count++;
         }
     }
 

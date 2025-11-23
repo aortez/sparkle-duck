@@ -120,19 +120,21 @@ void SandboxScenario::setup(World& world)
     // Clear world first.
     for (uint32_t y = 0; y < world.getData().height; ++y) {
         for (uint32_t x = 0; x < world.getData().width; ++x) {
-            world.at(x, y) = Cell(); // Reset to empty cell.
+            world.getData().at(x, y) = Cell(); // Reset to empty cell.
         }
     }
 
     // Create boundary walls.
     for (uint32_t x = 0; x < world.getData().width; ++x) {
-        world.at(x, 0).replaceMaterial(MaterialType::WALL, 1.0); // Top wall.
-        world.at(x, world.getData().height - 1)
+        world.getData().at(x, 0).replaceMaterial(MaterialType::WALL, 1.0); // Top wall.
+        world.getData()
+            .at(x, world.getData().height - 1)
             .replaceMaterial(MaterialType::WALL, 1.0); // Bottom wall.
     }
     for (uint32_t y = 0; y < world.getData().height; ++y) {
-        world.at(0, y).replaceMaterial(MaterialType::WALL, 1.0); // Left wall.
-        world.at(world.getData().width - 1, y)
+        world.getData().at(0, y).replaceMaterial(MaterialType::WALL, 1.0); // Left wall.
+        world.getData()
+            .at(world.getData().width - 1, y)
             .replaceMaterial(MaterialType::WALL, 1.0); // Right wall.
     }
 
@@ -222,7 +224,7 @@ void SandboxScenario::addWaterColumn(World& world)
     // Add water column on left side.
     for (uint32_t y = 0; y < columnHeight && y < world.getData().height; ++y) {
         for (uint32_t x = 1; x <= columnWidth && x < world.getData().width; ++x) {
-            world.at(x, y).addWater(1.0);
+            world.getData().at(x, y).addWater(1.0);
         }
     }
     spdlog::info("Added water column ({} wide × {} tall) on left side", columnWidth, columnHeight);
@@ -237,7 +239,7 @@ void SandboxScenario::clearWaterColumn(World& world)
     // Clear water from the water column area.
     for (uint32_t y = 0; y < columnHeight && y < world.getData().height; ++y) {
         for (uint32_t x = 1; x <= columnWidth && x < world.getData().width; ++x) {
-            Cell& cell = world.at(x, y);
+            Cell& cell = world.getData().at(x, y);
             if (cell.material_type == MaterialType::WATER) {
                 cell.replaceMaterial(MaterialType::AIR, 0.0);
             }
@@ -253,7 +255,7 @@ void SandboxScenario::addDirtQuadrant(World& world)
     uint32_t startY = world.getData().height / 2;
     for (uint32_t y = startY; y < world.getData().height - 1; ++y) {
         for (uint32_t x = startX; x < world.getData().width - 1; ++x) {
-            world.at(x, y).addDirt(1.0);
+            world.getData().at(x, y).addDirt(1.0);
         }
     }
     spdlog::info(
@@ -267,7 +269,7 @@ void SandboxScenario::clearDirtQuadrant(World& world)
     uint32_t startY = world.getData().height / 2;
     for (uint32_t y = startY; y < world.getData().height - 1; ++y) {
         for (uint32_t x = startX; x < world.getData().width - 1; ++x) {
-            Cell& cell = world.at(x, y);
+            Cell& cell = world.getData().at(x, y);
             if (cell.material_type == MaterialType::DIRT) {
                 cell.replaceMaterial(MaterialType::AIR, 0.0);
             }
@@ -285,7 +287,7 @@ void SandboxScenario::refillWaterColumn(World& world)
     // Refill any empty or water cells in the water column area.
     for (uint32_t y = 0; y < columnHeight && y < world.getData().height; ++y) {
         for (uint32_t x = 1; x <= columnWidth && x < world.getData().width; ++x) {
-            Cell& cell = world.at(x, y);
+            Cell& cell = world.getData().at(x, y);
             // Only refill if cell is air or water, and not already full.
             if ((cell.material_type == MaterialType::AIR
                  || cell.material_type == MaterialType::WATER)
@@ -394,7 +396,7 @@ void SandboxScenario::spawnWaterDrop(
 
             // If within radius, add water with specified fill amount.
             if (distance <= radius) {
-                world.at(x, y).addWater(fillAmount);
+                world.getData().at(x, y).addWater(fillAmount);
             }
         }
     }
@@ -407,7 +409,7 @@ void SandboxScenario::throwDirtBalls(World& world)
     int32_t centerYSigned = static_cast<int32_t>(world.getData().height) / 2 - 2;
     if (rightX < world.getData().width && centerYSigned >= 0) {
         uint32_t centerY = static_cast<uint32_t>(centerYSigned);
-        Cell& cell = world.at(rightX, centerY);
+        Cell& cell = world.getData().at(rightX, centerY);
         cell.addDirtWithVelocity(1.0, Vector2d{ -10, -10 });
     }
 }

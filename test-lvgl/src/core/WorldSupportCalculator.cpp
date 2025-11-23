@@ -332,8 +332,8 @@ void WorldSupportCalculator::computeSupportMapBottomUp(World& world) const
 
                 if (!empty_n.centerHasMaterial()) {
                     support.clear(x, y);
-                    world.at(x, y).has_vertical_support = false;
-                    world.at(x, y).has_any_support = false;
+                    world.getData().at(x, y).has_vertical_support = false;
+                    world.getData().at(x, y).has_any_support = false;
                     continue;
                 }
 
@@ -341,15 +341,15 @@ void WorldSupportCalculator::computeSupportMapBottomUp(World& world) const
 
                 if (mat_n.getCenterMaterial() == MaterialType::WALL) {
                     support.set(x, y);
-                    world.at(x, y).has_vertical_support = true;
-                    world.at(x, y).has_any_support = true;
+                    world.getData().at(x, y).has_vertical_support = true;
+                    world.getData().at(x, y).has_any_support = true;
                     continue;
                 }
 
                 if (y == static_cast<int>(world.getData().height) - 1) {
                     support.set(x, y);
-                    world.at(x, y).has_vertical_support = true;
-                    world.at(x, y).has_any_support = true;
+                    world.getData().at(x, y).has_vertical_support = true;
+                    world.getData().at(x, y).has_any_support = true;
                     continue;
                 }
 
@@ -361,8 +361,8 @@ void WorldSupportCalculator::computeSupportMapBottomUp(World& world) const
                 }
 
                 // Set support fields - both bitmap and cell fields.
-                world.at(x, y).has_vertical_support = has_vertical;
-                world.at(x, y).has_any_support = has_vertical || has_horizontal;
+                world.getData().at(x, y).has_vertical_support = has_vertical;
+                world.getData().at(x, y).has_any_support = has_vertical || has_horizontal;
                 if (has_vertical || has_horizontal) {
                     support.set(x, y);
                 }
@@ -378,7 +378,7 @@ void WorldSupportCalculator::computeSupportMapBottomUp(World& world) const
         // Start from bottom row (ground) and work upward.
         for (int y = world.getData().height - 1; y >= 0; y--) {
             for (uint32_t x = 0; x < world.getData().width; x++) {
-                Cell& cell = world.at(x, y);
+                Cell& cell = world.getData().at(x, y);
 
                 // Check emptiness directly.
                 if (cell.isEmpty()) {
@@ -402,7 +402,7 @@ void WorldSupportCalculator::computeSupportMapBottomUp(World& world) const
                 }
 
                 // Check vertical support: cell below must be non-empty AND supported.
-                const Cell& below = world.at(x, y + 1);
+                const Cell& below = world.getData().at(x, y + 1);
                 bool has_vertical = !below.isEmpty() && below.has_any_support;
 
                 // Check horizontal support if no vertical.

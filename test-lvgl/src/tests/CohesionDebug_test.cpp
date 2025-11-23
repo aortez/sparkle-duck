@@ -30,8 +30,8 @@ TEST_F(CohesionDebugTest, OneByThreeColumn)
 
     // Fill all cells with dirt.
     for (uint32_t y = 0; y < 3; y++) {
-        world->at(0, y).replaceMaterial(MaterialType::DIRT, 1.0);
-        world->at(0, y).setCOM(0.0, 0.0); // Start centered.
+        world->getData().at(0, y).replaceMaterial(MaterialType::DIRT, 1.0);
+        world->getData().at(0, y).setCOM(0.0, 0.0); // Start centered.
     }
 
     // Calculate cohesion for each cell.
@@ -71,8 +71,8 @@ TEST_F(CohesionDebugTest, ThreeByThreeGrid)
     // Fill all cells with dirt.
     for (uint32_t y = 0; y < 3; y++) {
         for (uint32_t x = 0; x < 3; x++) {
-            world->at(x, y).replaceMaterial(MaterialType::DIRT, 1.0);
-            world->at(x, y).setCOM(0.0, 0.0); // Start centered.
+            world->getData().at(x, y).replaceMaterial(MaterialType::DIRT, 1.0);
+            world->getData().at(x, y).setCOM(0.0, 0.0); // Start centered.
         }
     }
 
@@ -115,13 +115,13 @@ TEST_F(CohesionDebugTest, OffsetCOMs)
     // Fill all cells with dirt.
     for (uint32_t y = 0; y < 3; y++) {
         for (uint32_t x = 0; x < 3; x++) {
-            world->at(x, y).replaceMaterial(MaterialType::DIRT, 1.0);
-            world->at(x, y).setCOM(0.0, 0.0);
+            world->getData().at(x, y).replaceMaterial(MaterialType::DIRT, 1.0);
+            world->getData().at(x, y).setCOM(0.0, 0.0);
         }
     }
 
     // Offset center cell's COM toward the right edge.
-    world->at(1, 1).setCOM(0.8, 0.0);
+    world->getData().at(1, 1).setCOM(0.8, 0.0);
 
     WorldCohesionCalculator calc;
     auto result = calc.calculateCOMCohesionForce(*world, 1, 1, 1);
@@ -147,14 +147,14 @@ TEST_F(CohesionDebugTest, DirectionalCorrection)
     world->getPhysicsSettings().cohesion_strength = 150.0;
 
     // Setup: Left-Center-Right dirt cells.
-    world->at(0, 0).replaceMaterial(MaterialType::DIRT, 1.0);
-    world->at(1, 0).replaceMaterial(MaterialType::DIRT, 1.0);
-    world->at(2, 0).replaceMaterial(MaterialType::DIRT, 1.0);
+    world->getData().at(0, 0).replaceMaterial(MaterialType::DIRT, 1.0);
+    world->getData().at(1, 0).replaceMaterial(MaterialType::DIRT, 1.0);
+    world->getData().at(2, 0).replaceMaterial(MaterialType::DIRT, 1.0);
 
     // All COMs centered initially.
-    world->at(0, 0).setCOM(0.0, 0.0);
-    world->at(1, 0).setCOM(0.0, 0.0);
-    world->at(2, 0).setCOM(0.0, 0.0);
+    world->getData().at(0, 0).setCOM(0.0, 0.0);
+    world->getData().at(1, 0).setCOM(0.0, 0.0);
+    world->getData().at(2, 0).setCOM(0.0, 0.0);
 
     // Calculate cohesion without velocity (baseline).
     WorldCohesionCalculator calc;
@@ -166,7 +166,7 @@ TEST_F(CohesionDebugTest, DirectionalCorrection)
         baseline.force_direction.y);
 
     // Now give center cell velocity toward the right.
-    world->at(1, 0).velocity = Vector2d(1.0, 0.0);
+    world->getData().at(1, 0).velocity = Vector2d(1.0, 0.0);
 
     // Recalculate (same result - calculator doesn't see velocity).
     auto with_velocity = calc.calculateCOMCohesionForce(*world, 1, 0, 1);
@@ -194,16 +194,17 @@ TEST_F(CohesionDebugTest, AlignmentGating)
     spdlog::set_level(spdlog::level::trace);             // Enable trace logging.
 
     // All dirt cells.
-    world->at(0, 0).replaceMaterial(MaterialType::DIRT, 1.0);
-    world->at(1, 0).replaceMaterial(MaterialType::DIRT, 1.0);
-    world->at(2, 0).replaceMaterial(MaterialType::DIRT, 1.0);
+    world->getData().at(0, 0).replaceMaterial(MaterialType::DIRT, 1.0);
+    world->getData().at(1, 0).replaceMaterial(MaterialType::DIRT, 1.0);
+    world->getData().at(2, 0).replaceMaterial(MaterialType::DIRT, 1.0);
 
     // Test Case A: COM offset TOWARD neighbors (should skip clustering).
     spdlog::info("--- Case A: COM offset toward neighbors (clustering opposes centering) ---");
 
-    world->at(0, 0).setCOM(0.0, 0.0); // Left neighbor centered.
-    world->at(1, 0).setCOM(0.6, 0.0); // Center cell COM shifted RIGHT.
-    world->at(2, 0).setCOM(0.8, 0.0); // Right neighbor COM also shifted RIGHT (creates pull RIGHT).
+    world->getData().at(0, 0).setCOM(0.0, 0.0); // Left neighbor centered.
+    world->getData().at(1, 0).setCOM(0.6, 0.0); // Center cell COM shifted RIGHT.
+    world->getData().at(2, 0).setCOM(
+        0.8, 0.0); // Right neighbor COM also shifted RIGHT (creates pull RIGHT).
 
     WorldCohesionCalculator calc;
     auto case_a = calc.calculateCOMCohesionForce(*world, 1, 0, 1);
@@ -220,9 +221,10 @@ TEST_F(CohesionDebugTest, AlignmentGating)
     spdlog::info("--- Case B: COM offset away from neighbors (clustering helps centering) ---");
 
     // Only RIGHT neighbor exists (left cell is AIR).
-    world->at(0, 0).replaceMaterial(MaterialType::AIR, 0.0); // No left neighbor.
-    world->at(1, 0).setCOM(-0.6, 0.0); // Center cell COM shifted LEFT (away from right neighbor).
-    world->at(2, 0).setCOM(0.0, 0.0);  // Right neighbor centered.
+    world->getData().at(0, 0).replaceMaterial(MaterialType::AIR, 0.0); // No left neighbor.
+    world->getData().at(1, 0).setCOM(
+        -0.6, 0.0); // Center cell COM shifted LEFT (away from right neighbor).
+    world->getData().at(2, 0).setCOM(0.0, 0.0); // Right neighbor centered.
 
     auto case_b = calc.calculateCOMCohesionForce(*world, 1, 0, 1);
 

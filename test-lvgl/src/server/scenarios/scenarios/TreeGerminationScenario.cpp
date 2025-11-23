@@ -42,7 +42,7 @@ public:
 
         for (uint32_t y = 0; y < world.getData().height; ++y) {
             for (uint32_t x = 0; x < world.getData().width; ++x) {
-                world.at(x, y) = Cell();
+                world.getData().at(x, y) = Cell();
             }
         }
 

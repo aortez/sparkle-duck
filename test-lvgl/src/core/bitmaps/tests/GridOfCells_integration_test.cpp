@@ -146,7 +146,7 @@ TEST(GridOfCellsTest, EmptyCellBitmapMatchesCellState)
     for (uint32_t y = 0; y < 20; ++y) {
         for (uint32_t x = 0; x < 20; ++x) {
             bool bitmap_says_empty = grid.emptyCells().isSet(x, y);
-            bool cell_is_empty = world.at(x, y).isEmpty();
+            bool cell_is_empty = world.getData().at(x, y).isEmpty();
 
             if (bitmap_says_empty != cell_is_empty) {
                 ++mismatches;

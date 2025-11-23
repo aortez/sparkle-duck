@@ -48,7 +48,7 @@ void SimRunning::onEnter(StateMachine& dsm)
             // Clear world before applying scenario.
             for (uint32_t y = 0; y < world->getData().height; ++y) {
                 for (uint32_t x = 0; x < world->getData().width; ++x) {
-                    world->at(x, y) = Cell(); // Reset to empty cell.
+                    world->getData().at(x, y) = Cell(); // Reset to empty cell.
                 }
             }
 
@@ -274,7 +274,7 @@ State::Any SimRunning::onEvent(const Api::CellGet::Cwc& cwc, StateMachine& /*dsm
     }
 
     // Get cell.
-    const Cell& cell = world->at(cwc.command.x, cwc.command.y);
+    const Cell& cell = world->getData().at(cwc.command.x, cwc.command.y);
 
     cwc.sendResponse(Response::okay({ cell }));
     return std::move(*this);
@@ -691,7 +691,7 @@ State::Any SimRunning::onEvent(const Api::SimRun::Cwc& cwc, StateMachine& dsm)
         // Clear world before applying new scenario.
         for (uint32_t y = 0; y < world->getData().height; ++y) {
             for (uint32_t x = 0; x < world->getData().width; ++x) {
-                world->at(x, y) = Cell(); // Reset to empty cell.
+                world->getData().at(x, y) = Cell(); // Reset to empty cell.
             }
         }
         spdlog::info("SimRunning: World cleared for new scenario '{}'", cwc.command.scenario_id);
@@ -855,7 +855,7 @@ State::Any SimRunning::onEvent(const SetDynamicStrengthCommand& cmd, StateMachin
 {
     // Update world directly (source of truth).
     if (world) {
-        world->setDynamicPressureStrength(cmd.strength);
+        world->getPhysicsSettings().pressure_dynamic_strength = cmd.strength;
         spdlog::info("SimRunning: Set dynamic strength to {:.1f}", cmd.strength);
     }
     return std::move(*this);
@@ -929,7 +929,7 @@ State::Any SimRunning::onEvent(
     const SetHydrostaticPressureStrengthCommand& cmd, StateMachine& /*dsm*/)
 {
     if (world) {
-        world->setHydrostaticPressureStrength(cmd.strength);
+        world->getPhysicsSettings().pressure_hydrostatic_strength = cmd.strength;
         spdlog::info("SimRunning: Set hydrostatic pressure strength to {}", cmd.strength);
     }
     return std::move(*this);
@@ -1062,7 +1062,7 @@ State::Any SimRunning::onEvent(const ToggleWaterColumnCommand& /*cmd*/, StateMac
                 spdlog::info("SimRunning: Adding water column (5 wide × 20 tall) at runtime");
                 for (uint32_t y = 0; y < 20 && y < worldB->getData().height; ++y) {
                     for (uint32_t x = 1; x <= 5 && x < worldB->getData().width; ++x) {
-                        Cell& cell = worldB->at(x, y);
+                        Cell& cell = worldB->getData().at(x, y);
                         // Only add water to non-wall cells.
                         if (!cell.isWall()) {
                             cell.material_type = MaterialType::WATER;
@@ -1078,7 +1078,7 @@ State::Any SimRunning::onEvent(const ToggleWaterColumnCommand& /*cmd*/, StateMac
                 spdlog::info("SimRunning: Removing water from water column area at runtime");
                 for (uint32_t y = 0; y < 20 && y < worldB->getData().height; ++y) {
                     for (uint32_t x = 1; x <= 5 && x < worldB->getData().width; ++x) {
-                        Cell& cell = worldB->at(x, y);
+                        Cell& cell = worldB->getData().at(x, y);
                         // Only clear water cells, leave walls and other materials.
                         if (cell.material_type == MaterialType::WATER && !cell.isWall()) {
                             cell.material_type = MaterialType::AIR;
@@ -1136,7 +1136,7 @@ State::Any SimRunning::onEvent(const ToggleQuadrantCommand& /*cmd*/, StateMachin
                     worldB->getData().height - startY);
                 for (uint32_t y = startY; y < worldB->getData().height; ++y) {
                     for (uint32_t x = startX; x < worldB->getData().width; ++x) {
-                        Cell& cell = worldB->at(x, y);
+                        Cell& cell = worldB->getData().at(x, y);
                         // Only add dirt to non-wall cells.
                         if (!cell.isWall()) {
                             cell.material_type = MaterialType::DIRT;
@@ -1152,7 +1152,7 @@ State::Any SimRunning::onEvent(const ToggleQuadrantCommand& /*cmd*/, StateMachin
                 spdlog::info("SimRunning: Removing dirt from lower right quadrant at runtime");
                 for (uint32_t y = startY; y < worldB->getData().height; ++y) {
                     for (uint32_t x = startX; x < worldB->getData().width; ++x) {
-                        Cell& cell = worldB->at(x, y);
+                        Cell& cell = worldB->getData().at(x, y);
                         // Only clear dirt cells, leave walls and other materials.
                         if (cell.material_type == MaterialType::DIRT && !cell.isWall()) {
                             cell.material_type = MaterialType::AIR;

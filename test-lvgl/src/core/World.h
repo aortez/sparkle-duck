@@ -62,15 +62,6 @@ public:
     void applyPhysicsSettings(const PhysicsSettings& settings);
 
     // =================================================================
-    // GRID ACCESS
-    // =================================================================
-
-    Cell& at(uint32_t x, uint32_t y);
-    const Cell& at(uint32_t x, uint32_t y) const;
-    Cell& at(const Vector2i& pos);
-    const Cell& at(const Vector2i& pos) const;
-
-    // =================================================================
     // SIMULATION CONTROL
     // =================================================================
 
@@ -90,27 +81,13 @@ public:
     // PHYSICS PARAMETERS
     // =================================================================
 
-    Vector2d getGravityVector() const;
     void setDirtFragmentationFactor(double factor);
 
     // =================================================================
     // PRESSURE SYSTEM
     // =================================================================
 
-    // =================================================================
-    // DUAL PRESSURE SYSTEM
-    // =================================================================
-    // Use physicsSettings.pressure_*_enabled/strength directly instead of setters.
-
-    bool isHydrostaticPressureEnabled() const;
-    bool isDynamicPressureEnabled() const;
-    bool isPressureDiffusionEnabled() const;
-
-    void setHydrostaticPressureStrength(double strength);
-    double getHydrostaticPressureStrength() const;
-
-    void setDynamicPressureStrength(double strength);
-    double getDynamicPressureStrength() const;
+    // Use getPhysicsSettings() to access pressure settings directly.
 
     // Calculator access methods.
     WorldPressureCalculator& getPressureCalculator();
@@ -181,7 +158,6 @@ public:
     uint32_t getCOMCohesionRange() const;
 
     // Motion state multiplier calculation (for viscosity and other systems).
-    double getMotionStateMultiplier(MotionState state, double sensitivity) const;
 
     // AIR RESISTANCE CONTROL
     void setAirResistanceEnabled(bool enabled);
@@ -340,8 +316,6 @@ private:
     Vector2i pixelToCell(int pixelX, int pixelY) const;
     bool isValidCell(int x, int y) const;
     bool isValidCell(const Vector2i& pos) const;
-    size_t coordToIndex(uint32_t x, uint32_t y) const;
-    size_t coordToIndex(const Vector2i& pos) const;
 };
 
 /**
