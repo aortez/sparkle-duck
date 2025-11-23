@@ -46,6 +46,14 @@ FetchContent_MakeAvailable(msgpack)
 # Find Boost for msgpack variant support.
 find_package(Boost REQUIRED)
 
+# Find OpenMP for parallel physics calculations.
+find_package(OpenMP)
+if(OpenMP_CXX_FOUND)
+    message(STATUS "OpenMP found: ${OpenMP_CXX_VERSION}")
+else()
+    message(STATUS "OpenMP not found - physics will run sequentially")
+endif()
+
 # Add zpp_bits for high-performance binary serialization.
 FetchContent_Declare(
     zpp_bits
@@ -259,6 +267,11 @@ add_library(sparkle-duck-server-lib STATIC
 target_include_directories(sparkle-duck-server-lib PUBLIC ${CMAKE_SOURCE_DIR}/src ${zpp_bits_SOURCE_DIR})
 target_link_libraries(sparkle-duck-server-lib PUBLIC sparkle-duck-core datachannel-static)
 target_compile_options(sparkle-duck-server-lib PRIVATE -Wall -Wextra -Werror)
+
+# Link OpenMP for parallel physics calculations (cohesion, adhesion loops).
+if(OpenMP_CXX_FOUND)
+    target_link_libraries(sparkle-duck-server-lib PUBLIC OpenMP::OpenMP_CXX)
+endif()
 
 # UI library - UI components and client logic.
 add_library(sparkle-duck-ui-lib STATIC

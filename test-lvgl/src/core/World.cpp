@@ -687,6 +687,12 @@ void World::applyCohesionForces(const GridOfCells& grid)
 
     {
         ScopeTimer cohesionTimer(timers, "cohesion_calculation");
+
+        // Parallelize when cache is enabled (use sequential for reference path).
+#ifdef _OPENMP
+#pragma omp parallel for collapse(2) \
+    schedule(static) if (GridOfCells::USE_CACHE && data.height * data.width >= 2500)
+#endif
         for (uint32_t y = 0; y < data.height; ++y) {
             for (uint32_t x = 0; x < data.width; ++x) {
                 Cell& cell = data.at(x, y);
@@ -725,6 +731,12 @@ void World::applyCohesionForces(const GridOfCells& grid)
     // Adhesion force accumulation (only if enabled).
     if (settings.adhesion_strength > 0.0) {
         ScopeTimer adhesionTimer(timers, "adhesion_calculation");
+
+        // Parallelize when cache is enabled (use sequential for reference path).
+#ifdef _OPENMP
+#pragma omp parallel for collapse(2) \
+    schedule(static) if (GridOfCells::USE_CACHE && data.height * data.width >= 2500)
+#endif
         for (uint32_t y = 0; y < data.height; ++y) {
             for (uint32_t x = 0; x < data.width; ++x) {
                 Cell& cell = data.at(x, y);
