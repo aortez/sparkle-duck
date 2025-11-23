@@ -122,7 +122,7 @@ Automated performance testing with server auto-launch:
   "timer_stats": {
     "cohesion_calculation": {"avg_ms": 0.09, "total_ms": 10.8, "calls": 120},
     "adhesion_calculation": {"avg_ms": 0.03, "total_ms": 3.6, "calls": 120},
-    "resolve_forces_total": {"avg_ms": 0.28, "total_ms": 33.6, "calls": 120}
+    "resolve_forces": {"avg_ms": 0.28, "total_ms": 33.6, "calls": 120}
   }
 }
 ```

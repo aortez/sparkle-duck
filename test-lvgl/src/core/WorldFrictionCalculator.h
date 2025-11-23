@@ -62,6 +62,12 @@ public:
 
 private:
     /**
+     * @brief Detect contact interfaces and apply friction forces inline.
+     * @param world World providing access to grid and cells.
+     */
+    void detectAndApplyFrictionForces(World& world);
+
+    /**
      * @brief Detect all contact interfaces in the world.
      * @param world World providing access to grid and cells.
      * @return Vector of contact interfaces with calculated properties.

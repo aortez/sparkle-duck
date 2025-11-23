@@ -46,6 +46,23 @@ make -C build -j12
 
 ### Running
 ```bash
+# Run both client and server
+./build/bin/cli run-all
+
+# CLI integration test (quick, verifies ui, server, and cli).
+./build/bin/cli integration_test
+
+# Clean up all sparkle-duck processes
+./build/bin/cli cleanup
+
+# Run benchmark and output results to file.
+./build/bin/cli benchmark > benchmarks.json
+
+# Sending commands to server and ui (syntax: cli [command] [address] [params])
+./build/bin/cli state_get ws://localhost:8080
+./build/bin/cli sim_run ws://localhost:8080 '{"timestep": 0.016, "max_steps": 1}'
+./build/bin/cli diagram_get ws://localhost:8080
+
 # Run headless DSSM server (Dirt Sim State Machine)
 ./build/bin/sparkle-duck-server -p 8080 -s 1000
 
@@ -64,25 +81,10 @@ make -C build -j12
 ./build/bin/sparkle-duck-ui -b x11            # X11 backend
 ./build/bin/sparkle-duck-ui -W 1200 -H 1200   # Custom window size
 ./build/bin/sparkle-duck-ui -s 100            # Auto-exit after 100 steps
-
-# CLI client for sending commands (syntax: cli [command] [address] [params])
-./build/bin/cli state_get ws://localhost:8080
-./build/bin/cli sim_run ws://localhost:8080 '{"timestep": 0.016, "max_steps": 1}'
-./build/bin/cli diagram_get ws://localhost:8080
-
-# Run both client and server
-./build/bin/cli run-all
-
-# CLI integration test (quick, verifies ui, server, and cli).
-./build/bin/cli integration_test
-
-# Clean up all sparkle-duck processes
-./build/bin/cli cleanup
 ```
 
-# For complete CLI documentation, see:
-# src/cli/README.md
-```
+### CLI documentation
+src/cli/README.md
 
 ### Testing
 ```bash

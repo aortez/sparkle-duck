@@ -38,8 +38,7 @@ MaterialMove WorldCollisionCalculator::createCollisionAwareMove(
     const Vector2i& fromPos,
     const Vector2i& toPos,
     const Vector2i& direction,
-    double /* deltaTime. */,
-    const WorldCohesionCalculator::COMCohesionForce& com_cohesion) const
+    double /* deltaTime */) const
 {
     MaterialMove move;
 
@@ -92,10 +91,6 @@ MaterialMove WorldCollisionCalculator::createCollisionAwareMove(
     move.material_mass = calculateMaterialMass(fromCell);
     move.target_mass = calculateMaterialMass(toCell);
     move.collision_energy = calculateCollisionEnergy(move, fromCell, toCell);
-
-    // Add COM cohesion force data.
-    move.com_cohesion_magnitude = com_cohesion.force_magnitude;
-    move.com_cohesion_direction = com_cohesion.force_direction;
 
     // Determine collision type based on materials and energy.
     move.collision_type =

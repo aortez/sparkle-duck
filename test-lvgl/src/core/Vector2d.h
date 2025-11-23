@@ -14,6 +14,7 @@ struct Vector2d {
     Vector2d times(double scalar) const;
     double mag() const;
     double magnitude() const { return mag(); }
+    double magnitudeSquared() const { return x * x + y * y; }
     double length() const { return mag(); }
     double dot(const Vector2d& other) const;
     Vector2d normalize() const;

@@ -27,13 +27,13 @@ enum class CollisionType {
  * It supports both simple transfers and complex collision interactions.
  */
 struct MaterialMove {
-    // Basic transfer data
-    int fromX, fromY;         // Source cell coordinates
-    int toX, toY;             // Target cell coordinates
+    // Basic transfer data (optimized layout for packing)
     double amount;            // Amount of material to transfer
-    MaterialType material;    // Type of material being transferred
     Vector2d momentum;        // Velocity/momentum of the moving material
     Vector2d boundary_normal; // Direction of boundary crossing for physics
+    int fromX, fromY;         // Source cell coordinates
+    int toX, toY;             // Target cell coordinates
+    MaterialType material;    // Type of material being transferred
 
     // Collision-specific data
     CollisionType collision_type = CollisionType::TRANSFER_ONLY;
@@ -41,10 +41,6 @@ struct MaterialMove {
     double restitution_coefficient = 0.0; // Material-specific bounce factor
     double material_mass = 0.0;           // Mass of moving material
     double target_mass = 0.0;             // Mass of target material (if any)
-
-    // COM cohesion force data
-    double com_cohesion_magnitude = 0.0;         // Strength of COM cohesion force
-    Vector2d com_cohesion_direction{ 0.0, 0.0 }; // Direction of COM cohesion force
 
     // Pressure from excess material that can't transfer
     double pressure_from_excess = 0.0; // Pressure to add to target cell

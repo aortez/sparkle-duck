@@ -76,8 +76,7 @@ public:
         const Vector2i& fromPos,
         const Vector2i& toPos,
         const Vector2i& direction,
-        double deltaTime,
-        const WorldCohesionCalculator::COMCohesionForce& com_cohesion) const;
+        double deltaTime) const;
 
     /**
      * @brief Determine collision type based on materials and energy.

@@ -485,10 +485,7 @@ void World::advanceTime(double deltaTimeSeconds)
 
     // Accumulate and apply all forces based on resistance.
     // This now includes pressure forces from the current frame.
-    {
-        ScopeTimer resolveTimer(pImpl->timers_, "resolve_forces_total");
-        resolveForces(scaledDeltaTime, &grid);
-    }
+    resolveForces(scaledDeltaTime, &grid);
 
     {
         ScopeTimer velocityTimer(pImpl->timers_, "velocity_limiting");
@@ -501,10 +498,7 @@ void World::advanceTime(double deltaTimeSeconds)
     }
 
     // Process queued material moves - this detects NEW blocked transfers.
-    {
-        ScopeTimer movesTimer(pImpl->timers_, "process_moves_total");
-        processMaterialMoves();
-    }
+    processMaterialMoves();
 
     // Process any blocked transfers that were queued during processMaterialMoves.
     // This generates dynamic pressure from collisions.
@@ -647,11 +641,8 @@ double World::getTotalMass() const
 void World::applyGravity()
 {
     // Cache pImpl members as local references.
-    Timers& timers = pImpl->timers_;
     std::vector<Cell>& cells = pImpl->data_.cells;
     double gravity = pImpl->physicsSettings_.gravity;
-
-    ScopeTimer timer(timers, "apply_gravity");
 
     for (auto& cell : cells) {
         if (!cell.isEmpty() && !cell.isWall()) {
@@ -673,10 +664,7 @@ void World::applyAirResistance()
     }
 
     // Cache pImpl members as local references.
-    Timers& timers = pImpl->timers_;
     WorldData& data = pImpl->data_;
-
-    ScopeTimer timer(timers, "apply_air_resistance");
 
     WorldAirResistanceCalculator air_resistance_calculator{};
 
@@ -704,8 +692,6 @@ void World::applyCohesionForces(const GridOfCells* grid)
     if (settings.cohesion_strength <= 0.0) {
         return;
     }
-
-    ScopeTimer timer(timers, "apply_cohesion_forces");
 
     // Create calculators once outside the loop.
     WorldCohesionCalculator cohesion_calc{};
@@ -768,7 +754,6 @@ void World::applyPressureForces()
 {
     // Cache pImpl members as local references.
     PhysicsSettings& settings = pImpl->physicsSettings_;
-    Timers& timers = pImpl->timers_;
     WorldData& data = pImpl->data_;
     WorldPressureCalculator& pressure_calc = pImpl->pressure_calculator_;
 
@@ -776,8 +761,6 @@ void World::applyPressureForces()
         && settings.pressure_dynamic_strength <= 0.0) {
         return;
     }
-
-    ScopeTimer timer(timers, "apply_pressure_forces");
 
     // Apply pressure forces through the pending force system.
     for (uint32_t y = 0; y < data.height; ++y) {
@@ -992,7 +975,17 @@ std::vector<MaterialMove> World::computeMaterialMoves(double deltaTime)
     WorldCollisionCalculator& collision_calc = pImpl->collision_calculator_;
     WorldData& data = pImpl->data_;
 
+    // Pre-allocate moves vector based on previous frame's count.
+    static size_t last_move_count = 0;
     std::vector<MaterialMove> moves;
+    moves.reserve(last_move_count + last_move_count / 10); // +10% buffer
+
+    // Counters for move generation analysis.
+    size_t num_cells_with_velocity = 0;
+    size_t num_boundary_crossings = 0;
+    size_t num_moves_generated = 0;
+    size_t num_transfers_generated = 0;
+    size_t num_collisions_generated = 0;
 
     for (uint32_t y = 0; y < data.height; ++y) {
         for (uint32_t x = 0; x < data.width; ++x) {
@@ -1001,10 +994,6 @@ std::vector<MaterialMove> World::computeMaterialMoves(double deltaTime)
             if (cell.isEmpty() || cell.isWall()) {
                 continue;
             }
-
-            WorldCohesionCalculator::COMCohesionForce com_cohesion = {
-                { 0.0, 0.0 }, 0.0, { 0.0, 0.0 }, 0, 0.0, 0.0, false
-            };
 
             // Debug: Check if cell has any velocity or interesting COM.
             Vector2d current_velocity = cell.velocity;
@@ -1029,6 +1018,9 @@ std::vector<MaterialMove> World::computeMaterialMoves(double deltaTime)
             BoundaryCrossings crossed_boundaries = collision_calc.getAllBoundaryCrossings(newCOM);
 
             if (!crossed_boundaries.empty()) {
+                num_cells_with_velocity++;
+                num_boundary_crossings += crossed_boundaries.count;
+
                 spdlog::debug(
                     "Boundary crossings detected for {} at ({},{}) with COM ({:.2f},{:.2f}) -> {} "
                     "crossings",
@@ -1047,7 +1039,7 @@ std::vector<MaterialMove> World::computeMaterialMoves(double deltaTime)
                 Vector2i targetPos = Vector2i(x, y) + direction;
 
                 if (isValidCell(targetPos)) {
-                    // Create enhanced MaterialMove with collision physics and COM cohesion data.
+                    // Create enhanced MaterialMove with collision physics data.
                     MaterialMove move = collision_calc.createCollisionAwareMove(
                         *this,
                         cell,
@@ -1055,8 +1047,15 @@ std::vector<MaterialMove> World::computeMaterialMoves(double deltaTime)
                         Vector2i(x, y),
                         targetPos,
                         direction,
-                        deltaTime,
-                        com_cohesion);
+                        deltaTime);
+
+                    num_moves_generated++;
+                    if (move.collision_type == CollisionType::TRANSFER_ONLY) {
+                        num_transfers_generated++;
+                    }
+                    else {
+                        num_collisions_generated++;
+                    }
 
                     // Debug logging for collision detection.
                     if (move.collision_type != CollisionType::TRANSFER_ONLY) {
@@ -1124,6 +1123,19 @@ std::vector<MaterialMove> World::computeMaterialMoves(double deltaTime)
         }
     }
 
+    // Log move generation statistics.
+    spdlog::info(
+        "computeMaterialMoves: {} cells moving, {} boundary crossings, {} moves generated ({} "
+        "transfers, {} collisions)",
+        num_cells_with_velocity,
+        num_boundary_crossings,
+        num_moves_generated,
+        num_transfers_generated,
+        num_collisions_generated);
+
+    // Update last move count for next frame's pre-allocation.
+    last_move_count = moves.size();
+
     return moves;
 }
 
@@ -1139,8 +1151,20 @@ void World::processMaterialMoves()
 
     ScopeTimer timer(timers, "process_moves");
 
+    // Counters for analysis.
+    size_t num_moves = pending_moves.size();
+    size_t num_swaps = 0;
+    size_t num_swaps_from_transfers = 0;
+    size_t num_swaps_from_collisions = 0;
+    size_t num_transfers = 0;
+    size_t num_elastic = 0;
+    size_t num_inelastic = 0;
+
     // Shuffle moves to handle conflicts randomly.
-    std::shuffle(pending_moves.begin(), pending_moves.end(), *rng_);
+    {
+        ScopeTimer shuffleTimer(timers, "process_moves_shuffle");
+        std::shuffle(pending_moves.begin(), pending_moves.end(), *rng_);
+    }
 
     for (const auto& move : pending_moves) {
         Cell& fromCell = data.at(move.fromX, move.fromY);
@@ -1173,8 +1197,17 @@ void World::processMaterialMoves()
         // Check if materials should swap instead of colliding (if enabled).
         if (settings.swap_enabled) {
             Vector2i direction(move.toX - move.fromX, move.toY - move.fromY);
-            if (collision_calc.shouldSwapMaterials(
-                    *this, move.fromX, move.fromY, fromCell, toCell, direction, move)) {
+            bool should_swap = collision_calc.shouldSwapMaterials(
+                *this, move.fromX, move.fromY, fromCell, toCell, direction, move);
+
+            if (should_swap) {
+                num_swaps++;
+                if (move.collision_type == CollisionType::TRANSFER_ONLY) {
+                    num_swaps_from_transfers++;
+                }
+                else {
+                    num_swaps_from_collisions++;
+                }
                 TreeId from_organism = fromCell.organism_id;
                 TreeId to_organism = toCell.organism_id;
 
@@ -1218,12 +1251,15 @@ void World::processMaterialMoves()
 
         switch (move.collision_type) {
             case CollisionType::TRANSFER_ONLY:
+                num_transfers++;
                 collision_calc.handleTransferMove(*this, fromCell, toCell, move);
                 break;
             case CollisionType::ELASTIC_REFLECTION:
+                num_elastic++;
                 collision_calc.handleElasticCollision(fromCell, toCell, move);
                 break;
             case CollisionType::INELASTIC_COLLISION:
+                num_inelastic++;
                 collision_calc.handleInelasticCollision(*this, fromCell, toCell, move);
                 break;
             case CollisionType::FRAGMENTATION:
@@ -1241,6 +1277,19 @@ void World::processMaterialMoves()
                 move.fromX, move.fromY, move.toX, move.toY, organism_id, move.amount);
         }
     }
+
+    // Log move statistics.
+    spdlog::info(
+        "processMaterialMoves: {} total moves, {} swaps ({:.1f}% - {} from transfers, {} from "
+        "collisions), {} transfers, {} elastic, {} inelastic",
+        num_moves,
+        num_swaps,
+        num_moves > 0 ? (100.0 * num_swaps / num_moves) : 0.0,
+        num_swaps_from_transfers,
+        num_swaps_from_collisions,
+        num_transfers,
+        num_elastic,
+        num_inelastic);
 
     pImpl->pending_moves_.clear();
 
