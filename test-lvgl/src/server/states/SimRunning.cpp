@@ -1,5 +1,6 @@
 #include "State.h"
 #include "core/Cell.h"
+#include "core/Timers.h"
 #include "core/World.h" // Must be before State.h for complete type.
 #include "core/WorldEventGenerator.h"
 #include "core/WorldFrictionCalculator.h"

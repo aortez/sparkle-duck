@@ -1,21 +1,29 @@
 #pragma once
 
-#include "Event.h"
-#include "EventProcessor.h"
+#include "core/Pimpl.h"
 #include "core/StateMachineBase.h"
 #include "core/StateMachineInterface.h"
-#include "core/Timers.h"
-#include "scenarios/ScenarioRegistry.h"
 #include "states/State.h"
+
 #include <functional>
 #include <memory>
-#include <mutex>
 
+// Forward declarations (global namespace).
+class Timers;
+class ScenarioRegistry;
+
+// Forward declarations (DirtSim namespace).
 namespace DirtSim {
-
-struct WorldData; // Forward declaration.
+struct WorldData;
 
 namespace Server {
+
+class Event;
+class EventProcessor;
+class WebSocketServer;
+struct QuitApplicationCommand;
+struct GetFPSCommand;
+struct GetSimStatsCommand;
 
 class StateMachine : public StateMachineBase, public StateMachineInterface<Event> {
 public:
@@ -27,68 +35,34 @@ public:
 
     /**
      * @brief Handle an event by dispatching to current state.
-     * Called by EventProcessor.
      */
     void handleEvent(const Event& event);
 
-    std::string getCurrentStateName() const override
-    {
-        return State::getCurrentStateName(fsmState);
-    }
+    std::string getCurrentStateName() const override;
     void processEvents();
 
-    EventProcessor eventProcessor;
+    // Accessor methods for Pimpl members.
+    EventProcessor& getEventProcessor();
+    const EventProcessor& getEventProcessor() const;
+
+    class WebSocketServer* getWebSocketServer();
+    void setWebSocketServer(class WebSocketServer* server);
+
+    void updateCachedWorldData(const WorldData& data);
+    std::shared_ptr<WorldData> getCachedWorldData() const;
+
+    ScenarioRegistry& getScenarioRegistry();
+    const ScenarioRegistry& getScenarioRegistry() const;
+
+    Timers& getTimers();
+    const Timers& getTimers() const;
 
     uint32_t defaultWidth = 28;
     uint32_t defaultHeight = 28;
 
-    // WebSocket server (public so states can access for broadcasting).
-    class WebSocketServer* wsServer_ = nullptr;
-
-    /**
-     * @brief Get WebSocket server for broadcasting frame notifications.
-     * @return Pointer to WebSocket server.
-     */
-    class WebSocketServer* getWebSocketServer() { return wsServer_; }
-
-    /**
-     * @brief Set WebSocket server (called from main).
-     * @param server Pointer to WebSocket server.
-     */
-    void setWebSocketServer(class WebSocketServer* server) { wsServer_ = server; }
-
-    // Cached WorldData for fast state_get responses (shared between physics and WebSocket threads).
-    std::shared_ptr<WorldData> cachedWorldData_;
-    mutable std::mutex cachedWorldDataMutex_;
-
-    /**
-     * @brief Update cached WorldData (called by SimRunning after physics step).
-     * @param data New WorldData to cache.
-     */
-    void updateCachedWorldData(const WorldData& data);
-
-    /**
-     * @brief Get cached WorldData (thread-safe, called by state_get handler).
-     * @return Shared pointer to cached WorldData (may be null if no data yet).
-     */
-    std::shared_ptr<WorldData> getCachedWorldData() const;
-
-    /**
-     * @brief Get scenario registry for accessing scenarios.
-     * @return Reference to scenario registry.
-     */
-    ScenarioRegistry& getScenarioRegistry() { return scenarioRegistry_; }
-
-    /**
-     * @brief Get performance timers for instrumentation.
-     * @return Reference to timers.
-     */
-    Timers& getTimers() { return timers_; }
-
 private:
-    ScenarioRegistry scenarioRegistry_; // Owned scenario registry.
-    Timers timers_;                     // Performance instrumentation timers.
-    State::Any fsmState{ State::Startup{} };
+    struct Impl;
+    Pimpl<Impl> pImpl;
 
     /**
      * @brief Transition to a new state.

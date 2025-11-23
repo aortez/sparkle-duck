@@ -1,6 +1,8 @@
 #include "State.h"
+#include "core/Timers.h"
 #include "core/World.h"
 #include "server/StateMachine.h"
+#include "server/scenarios/ScenarioRegistry.h"
 #include <spdlog/spdlog.h>
 
 namespace DirtSim {
