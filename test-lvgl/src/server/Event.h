@@ -370,6 +370,32 @@ struct SpawnDirtBallCommand {
 };
 
 /**
+ * @brief Change selected material type.
+ */
+struct SelectMaterialCommand {
+    MaterialType material;
+    static constexpr const char* name() { return "SelectMaterialCommand"; }
+};
+
+// =================================================================
+// STATE TRANSITION EVENTS
+// =================================================================
+
+/**
+ * @brief Transition to configuration state.
+ */
+struct OpenConfigCommand {
+    static constexpr const char* name() { return "OpenConfigCommand"; }
+};
+
+/**
+ * @brief Initialization complete.
+ */
+struct InitCompleteEvent {
+    static constexpr const char* name() { return "InitCompleteEvent"; }
+};
+
+/**
  * @brief Forward-declarable Event wrapper class.
  *
  * Wraps the variant to enable forward declaration in headers,

@@ -17,8 +17,8 @@ struct SimRunning;
 struct SimPaused;
 struct Shutdown;
 
-// State variant type.
-using Any = std::variant<Startup, Idle, SimRunning, SimPaused, Shutdown>;
+// Forward declaration of wrapper (definition in State.h after state includes).
+class Any;
 
 } // namespace State
 } // namespace Server

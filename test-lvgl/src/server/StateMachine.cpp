@@ -124,8 +124,8 @@ void StateMachine::mainLoopRun()
         auto eventProcessEnd = std::chrono::steady_clock::now();
 
         // Tick the simulation if in SimRunning state.
-        if (std::holds_alternative<State::SimRunning>(pImpl->fsmState_)) {
-            auto& simRunning = std::get<State::SimRunning>(pImpl->fsmState_);
+        if (std::holds_alternative<State::SimRunning>(pImpl->fsmState_.getVariant())) {
+            auto& simRunning = std::get<State::SimRunning>(pImpl->fsmState_.getVariant());
 
             // Record frame start time for frame limiting.
             auto frameStart = std::chrono::steady_clock::now();
@@ -223,7 +223,7 @@ void StateMachine::handleEvent(const Event& event)
 
                     if constexpr (requires { state.onEvent(evt, *this); }) {
                         auto newState = state.onEvent(evt, *this);
-                        if (!std::holds_alternative<StateType>(newState)) {
+                        if (!std::holds_alternative<StateType>(newState.getVariant())) {
                             transitionTo(std::move(newState));
                         }
                         else {
@@ -250,7 +250,7 @@ void StateMachine::handleEvent(const Event& event)
                         }
                     }
                 },
-                pImpl->fsmState_);
+                pImpl->fsmState_.getVariant());
         },
         event.getVariant());
 }
@@ -260,7 +260,7 @@ void StateMachine::transitionTo(State::Any newState)
     std::string oldStateName = getCurrentStateName();
 
     // Call onExit for current state.
-    std::visit([this](auto& state) { callOnExit(state); }, pImpl->fsmState_);
+    std::visit([this](auto& state) { callOnExit(state); }, pImpl->fsmState_.getVariant());
 
     // Perform transition.
     pImpl->fsmState_ = std::move(newState);
@@ -269,7 +269,7 @@ void StateMachine::transitionTo(State::Any newState)
     spdlog::info("STATE_TRANSITION: {} -> {}", oldStateName, newStateName);
 
     // Call onEnter for new state.
-    std::visit([this](auto& state) { callOnEnter(state); }, pImpl->fsmState_);
+    std::visit([this](auto& state) { callOnEnter(state); }, pImpl->fsmState_.getVariant());
 }
 
 // Global event handlers.
@@ -291,7 +291,7 @@ State::Any StateMachine::onEvent(const GetFPSCommand& /*cmd.*/)
             using T = std::decay_t<decltype(state)>;
             return T{};
         },
-        pImpl->fsmState_);
+        pImpl->fsmState_.getVariant());
 }
 
 State::Any StateMachine::onEvent(const GetSimStatsCommand& /*cmd.*/)
@@ -304,7 +304,7 @@ State::Any StateMachine::onEvent(const GetSimStatsCommand& /*cmd.*/)
             using T = std::decay_t<decltype(state)>;
             return T{};
         },
-        pImpl->fsmState_);
+        pImpl->fsmState_.getVariant());
 }
 
 } // namespace Server

@@ -48,11 +48,11 @@ TEST_F(StateIdleTest, SimRunCreatesWorldAndTransitionsToSimRunning)
     State::Any newState = idleState.onEvent(cwc, *stateMachine);
 
     // Verify: State transitioned to SimRunning.
-    ASSERT_TRUE(std::holds_alternative<SimRunning>(newState))
+    ASSERT_TRUE(std::holds_alternative<SimRunning>(newState.getVariant()))
         << "Idle + SimRun should transition to SimRunning";
 
     // Verify: SimRunning has valid World.
-    SimRunning& simRunning = std::get<SimRunning>(newState);
+    SimRunning& simRunning = std::get<SimRunning>(newState.getVariant());
     ASSERT_NE(simRunning.world, nullptr) << "SimRunning should have a World";
     EXPECT_EQ(simRunning.world->getData().width, stateMachine->defaultWidth);
     EXPECT_EQ(simRunning.world->getData().height, stateMachine->defaultHeight);
@@ -94,7 +94,7 @@ TEST_F(StateIdleTest, ExitCommandTransitionsToShutdown)
     State::Any newState = idleState.onEvent(cwc, *stateMachine);
 
     // Verify: State transitioned to Shutdown.
-    ASSERT_TRUE(std::holds_alternative<Shutdown>(newState))
+    ASSERT_TRUE(std::holds_alternative<Shutdown>(newState.getVariant()))
         << "Idle + Exit should transition to Shutdown";
 
     // Verify: Response callback was invoked.
