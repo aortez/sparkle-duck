@@ -491,13 +491,6 @@ const MaterialProperties& Cell::material() const
     return getMaterialProperties(material_type);
 }
 
-void Cell::clearAccumulatedForces()
-{
-    accumulated_viscous_force = {};
-    accumulated_adhesion_force = {};
-    accumulated_com_cohesion_force = {};
-}
-
 void Cell::addPendingForce(const Vector2d& force)
 {
     pending_force = pending_force + force;

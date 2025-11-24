@@ -965,10 +965,9 @@ void World::resolveForces(double deltaTime, const GridOfCells& grid)
         }
     }
 
-    // Copy debug info from GridOfCells to Cell for persistence after grid is destroyed.
-    // TODO: Remove this once all code migrates to accessing debug info directly from GridOfCells.
+    // Sync debug info from GridOfCells to Cell for external access after grid is destroyed.
     {
-        ScopeTimer copyTimer(timers, "resolve_forces_copy_debug");
+        ScopeTimer copyTimer(timers, "resolve_forces_sync_debug");
         for (uint32_t y = 0; y < data.height; ++y) {
             for (uint32_t x = 0; x < data.width; ++x) {
                 const CellDebug& debug = grid.debugAt(x, y);

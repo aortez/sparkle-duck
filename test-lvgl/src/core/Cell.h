@@ -49,18 +49,16 @@ struct Cell {
 
     Vector2d pressure_gradient = {};
 
-    // Force accumulation for visualization - MOVED to GridOfCells::CellDebug.
-    // Kept here temporarily for backward compatibility during migration.
-    Vector2d accumulated_viscous_force = {};      // TODO: Remove, use grid.debugAt().
-    Vector2d accumulated_adhesion_force = {};     // TODO: Remove, use grid.debugAt().
-    Vector2d accumulated_com_cohesion_force = {}; // TODO: Remove, use grid.debugAt().
-    Vector2d accumulated_friction_force = {};     // TODO: Remove, use grid.debugAt().
-
     // Physics force accumulation.
     Vector2d pending_force = {};
 
-    // Cached physics values for visualization - MOVED to GridOfCells::CellDebug.
-    double cached_friction_coefficient = 1.0; // TODO: Remove, use grid.debugAt().
+    // Debug info (read-only copies from GridOfCells::CellDebug for external access).
+    // Source of truth is grid.debugAt() - these are synced at end of physics step.
+    Vector2d accumulated_viscous_force = {};
+    Vector2d accumulated_adhesion_force = {};
+    Vector2d accumulated_com_cohesion_force = {};
+    Vector2d accumulated_friction_force = {};
+    double cached_friction_coefficient = 1.0;
 
     // Computed structural support (updated each frame).
     bool has_any_support = false;
@@ -75,12 +73,6 @@ struct Cell {
 
     // Helper with invariant: clamps fill ratio and auto-converts to AIR.
     void setFillRatio(double ratio);
-
-    // =================================================================
-    // FORCE ACCUMULATION (for visualization)
-    // =================================================================
-
-    void clearAccumulatedForces();
 
     // =================================================================
     // PHYSICS FORCE ACCUMULATION
