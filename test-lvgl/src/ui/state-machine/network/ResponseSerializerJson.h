@@ -41,7 +41,7 @@ public:
         }
         else {
             // Error response.
-            j = nlohmann::json{ { "success", false }, { "error", response.error().message } };
+            j = nlohmann::json{ { "success", false }, { "error", response.errorValue().message } };
         }
 
         return j.dump();

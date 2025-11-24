@@ -139,9 +139,9 @@ void WebSocketServer::onMessage(std::shared_ptr<rtc::WebSocket> ws, const std::s
     // Deserialize JSON → Command.
     auto cmdResult = deserializer_.deserialize(message);
     if (cmdResult.isError()) {
-        spdlog::error("Command deserialization failed: {}", cmdResult.error().message);
+        spdlog::error("Command deserialization failed: {}", cmdResult.errorValue().message);
         // Send error response back immediately.
-        std::string errorJson = R"({"error": ")" + cmdResult.error().message + R"("})";
+        std::string errorJson = R"({"error": ")" + cmdResult.errorValue().message + R"("})";
         ws->send(errorJson);
         return;
     }

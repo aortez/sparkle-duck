@@ -187,7 +187,7 @@ lv_obj_t* LVGLBuilder::SliderBuilder::buildOrLog()
 {
     auto result = build();
     if (result.isError()) {
-        spdlog::error("SliderBuilder::buildOrLog failed: {}", result.error());
+        spdlog::error("SliderBuilder::buildOrLog failed: {}", result.errorValue());
         return nullptr;
     }
     return result.value();
@@ -447,7 +447,7 @@ lv_obj_t* LVGLBuilder::ButtonBuilder::buildOrLog()
 {
     auto result = build();
     if (result.isError()) {
-        spdlog::error("ButtonBuilder::buildOrLog failed: {}", result.error());
+        spdlog::error("ButtonBuilder::buildOrLog failed: {}", result.errorValue());
         return nullptr;
     }
     return result.value();
@@ -639,7 +639,7 @@ lv_obj_t* LVGLBuilder::DropdownBuilder::buildOrLog()
 {
     auto result = build();
     if (result.isError()) {
-        spdlog::error("DropdownBuilder::buildOrLog failed: {}", result.error());
+        spdlog::error("DropdownBuilder::buildOrLog failed: {}", result.errorValue());
         return nullptr;
     }
     return result.value();
@@ -682,7 +682,7 @@ lv_obj_t* LVGLBuilder::LabeledSwitchBuilder::buildOrLog()
 {
     auto result = build();
     if (result.isError()) {
-        spdlog::error("LabeledSwitchBuilder::buildOrLog failed: {}", result.error());
+        spdlog::error("LabeledSwitchBuilder::buildOrLog failed: {}", result.errorValue());
         return nullptr;
     }
     return result.value();
@@ -1050,7 +1050,7 @@ lv_obj_t* LVGLBuilder::ToggleSliderBuilder::buildOrLog()
 {
     auto result = createToggleSlider();
     if (result.isError()) {
-        spdlog::error("ToggleSliderBuilder: {}", result.error());
+        spdlog::error("ToggleSliderBuilder: {}", result.errorValue());
         return nullptr;
     }
     return result.value();
@@ -1148,7 +1148,7 @@ lv_obj_t* LVGLBuilder::CollapsiblePanelBuilder::buildOrLog()
 {
     auto result = build();
     if (result.isError()) {
-        spdlog::error("CollapsiblePanelBuilder: {}", result.error());
+        spdlog::error("CollapsiblePanelBuilder: {}", result.errorValue());
         return nullptr;
     }
     return result.value();

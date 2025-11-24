@@ -19,9 +19,16 @@ namespace DirtSim {
  * Stored separately from Cell to keep core physics data compact.
  */
 struct CellDebug {
-    double damping_factor = 1.0;      // Effective damping applied to velocity.
-    Vector2d friction_force = {};     // Accumulated friction forces this frame.
-    double cohesion_resistance = 0.0; // Cohesion resistance threshold.
+    // Force accumulation for visualization.
+    Vector2d accumulated_viscous_force = {};
+    Vector2d accumulated_adhesion_force = {};
+    Vector2d accumulated_com_cohesion_force = {};
+    Vector2d accumulated_friction_force = {};
+
+    // Physics debug values.
+    double damping_factor = 1.0;              // Effective damping applied to velocity.
+    double cohesion_resistance = 0.0;         // Cohesion resistance threshold.
+    double cached_friction_coefficient = 1.0; // Friction coefficient used this frame.
 };
 
 /**

@@ -432,9 +432,9 @@ Material displacement multipliers (future):
 4. Reproduction: SEED production if surplus energy
 
 ### Directional Preferences
-- LEAF: Grows toward light
-- ROOT: Grows toward nutrients
-- WOOD: Grows upward and outward
+- LEAF: Grows toward light and away from wood
+- ROOT: Grows toward dirt and away from wood
+- WOOD: Grows upward and away from other wood
 
 ## Implementation Plan
 
@@ -525,7 +525,7 @@ Next steps for Phase 2 completion:
 - Input layer: ~1806 neurons
   - 15×15×8 = 1800 for material histograms
   - 6 for internal state (energy, water, counts, scale_factor)
-- Hidden layers: 32-64 neurons (1-2 layers)
+- Hidden layers: 32-64 neurons (1-2 layers) - is this big enough?
 - Output layer: 676 neurons
   - 15×15×3 = 675 for grow commands (WOOD/LEAF/ROOT at each position)
   - 1 for WAIT command
@@ -561,10 +561,10 @@ Uses Ollama for high-level strategic decision making (see design_docs/ai-integra
 - Compare fitness across different architectures
 - Export successful strategies for analysis
 
-## Integration with WorldB
+## Integration with World
 
 ```cpp
-class WorldB {
+class World {
     std::unique_ptr<TreeManager> tree_manager_;
 
     // In constructor:

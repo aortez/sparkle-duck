@@ -714,7 +714,9 @@ void World::applyCohesionForces(const GridOfCells& grid)
 
                     cell.addPendingForce(com_cohesion_force);
                 }
-                cell.accumulated_com_cohesion_force = com_cohesion_force;
+                // Store for visualization in GridOfCells debug info.
+                const_cast<GridOfCells&>(grid).debugAt(x, y).accumulated_com_cohesion_force =
+                    com_cohesion_force;
             }
         }
     }
@@ -743,7 +745,9 @@ void World::applyCohesionForces(const GridOfCells& grid)
                 Vector2d adhesion_force = adhesion.force_direction * adhesion.force_magnitude
                     * settings.adhesion_strength;
                 cell.addPendingForce(adhesion_force);
-                cell.accumulated_adhesion_force = adhesion_force;
+                // Store for visualization in GridOfCells debug info.
+                const_cast<GridOfCells&>(grid).debugAt(x, y).accumulated_adhesion_force =
+                    adhesion_force;
             }
         }
     }
@@ -888,8 +892,9 @@ void World::resolveForces(double deltaTime, const GridOfCells& grid)
                     viscosity_calc.calculateViscousForce(*this, x, y, visc_strength, &grid);
                 cell.addPendingForce(viscous_result.force);
 
-                // Store for visualization.
-                cell.accumulated_viscous_force = viscous_result.force;
+                // Store for visualization in GridOfCells debug info.
+                const_cast<GridOfCells&>(grid).debugAt(x, y).accumulated_viscous_force =
+                    viscous_result.force;
             }
         }
     }
@@ -961,11 +966,18 @@ void World::resolveForces(double deltaTime, const GridOfCells& grid)
     }
 
     // Copy debug info from GridOfCells to Cell for persistence after grid is destroyed.
+    // TODO: Remove this once all code migrates to accessing debug info directly from GridOfCells.
     {
         ScopeTimer copyTimer(timers, "resolve_forces_copy_debug");
         for (uint32_t y = 0; y < data.height; ++y) {
             for (uint32_t x = 0; x < data.width; ++x) {
-                data.at(x, y).accumulated_friction_force = grid.debugAt(x, y).friction_force;
+                const CellDebug& debug = grid.debugAt(x, y);
+                Cell& cell = data.at(x, y);
+                cell.accumulated_viscous_force = debug.accumulated_viscous_force;
+                cell.accumulated_adhesion_force = debug.accumulated_adhesion_force;
+                cell.accumulated_com_cohesion_force = debug.accumulated_com_cohesion_force;
+                cell.accumulated_friction_force = debug.accumulated_friction_force;
+                cell.cached_friction_coefficient = debug.cached_friction_coefficient;
             }
         }
     }

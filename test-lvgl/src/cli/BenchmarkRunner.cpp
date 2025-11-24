@@ -20,11 +20,7 @@ BenchmarkRunner::~BenchmarkRunner()
 {}
 
 BenchmarkResults BenchmarkRunner::run(
-    const std::string& serverPath,
-    uint32_t steps,
-    const std::string& scenario,
-    int worldSize,
-    bool captureWorldState)
+    const std::string& serverPath, uint32_t steps, const std::string& scenario, int worldSize)
 {
     BenchmarkResults results;
     results.scenario = scenario;
@@ -219,27 +215,6 @@ BenchmarkResults BenchmarkRunner::run(
         spdlog::error("BenchmarkRunner: Failed to parse timer_stats: {}", e.what());
     }
 
-    // Optionally capture final world state for correctness verification.
-    if (captureWorldState) {
-        spdlog::info("BenchmarkRunner: Capturing final world state for verification");
-        nlohmann::json stateGetCmd = { { "command", "state_get" } };
-        std::string stateResponse = client_.sendAndReceive(stateGetCmd.dump(), 30000);
-
-        try {
-            nlohmann::json stateJson = nlohmann::json::parse(stateResponse);
-            if (stateJson.contains("value")) {
-                results.final_world_state = stateJson["value"];
-                spdlog::info("BenchmarkRunner: Captured world state successfully");
-            }
-            else {
-                spdlog::warn("BenchmarkRunner: state_get response missing 'value' field");
-            }
-        }
-        catch (const std::exception& e) {
-            spdlog::error("BenchmarkRunner: Failed to parse state_get: {}", e.what());
-        }
-    }
-
     // Send exit command to cleanly shut down server.
     spdlog::info("BenchmarkRunner: Sending exit command to server");
     nlohmann::json exitCmd = { { "command", "Exit" } };
@@ -267,8 +242,7 @@ BenchmarkResults BenchmarkRunner::runWithServerArgs(
     uint32_t steps,
     const std::string& scenario,
     const std::string& serverArgs,
-    int worldSize,
-    bool captureWorldState)
+    int worldSize)
 {
     BenchmarkResults results;
     results.scenario = scenario;
@@ -415,27 +389,6 @@ BenchmarkResults BenchmarkRunner::runWithServerArgs(
     }
     catch (const std::exception& e) {
         spdlog::error("BenchmarkRunner: Failed to parse timer_stats: {}", e.what());
-    }
-
-    // Optionally capture final world state for correctness verification.
-    if (captureWorldState) {
-        spdlog::info("BenchmarkRunner: Capturing final world state for verification");
-        nlohmann::json stateGetCmd = { { "command", "state_get" } };
-        std::string stateResponse = client_.sendAndReceive(stateGetCmd.dump(), 30000);
-
-        try {
-            nlohmann::json stateJson = nlohmann::json::parse(stateResponse);
-            if (stateJson.contains("value")) {
-                results.final_world_state = stateJson["value"];
-                spdlog::info("BenchmarkRunner: Captured world state successfully");
-            }
-            else {
-                spdlog::warn("BenchmarkRunner: state_get response missing 'value' field");
-            }
-        }
-        catch (const std::exception& e) {
-            spdlog::error("BenchmarkRunner: Failed to parse state_get: {}", e.what());
-        }
     }
 
     // Send exit and disconnect.

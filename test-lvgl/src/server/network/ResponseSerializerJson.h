@@ -43,7 +43,7 @@ public:
         // Check if response is error or value.
         if (response.isError()) {
             // Error response: {"error": "message"}.
-            doc["error"] = response.error().message;
+            doc["error"] = response.errorValue().message;
         }
         else {
             const auto& value = response.value();

@@ -484,7 +484,7 @@ TEST_F(StateSimRunningTest, SeedAdd_RejectsInvalidCoordinates)
     Api::SeedAdd::Cwc cwc(cmd, [&](Api::SeedAdd::Response&& response) {
         callbackInvoked = true;
         EXPECT_TRUE(response.isError()) << "SeedAdd should fail for negative x";
-        EXPECT_EQ(response.error().message, "Invalid coordinates");
+        EXPECT_EQ(response.errorValue().message, "Invalid coordinates");
     });
 
     State::Any newState = simRunning.onEvent(cwc, *stateMachine);
@@ -503,7 +503,7 @@ TEST_F(StateSimRunningTest, SeedAdd_RejectsInvalidCoordinates)
     Api::SeedAdd::Cwc cwc2(cmd2, [&](Api::SeedAdd::Response&& response) {
         callbackInvoked = true;
         EXPECT_TRUE(response.isError()) << "SeedAdd should fail for out-of-bounds x";
-        EXPECT_EQ(response.error().message, "Invalid coordinates");
+        EXPECT_EQ(response.errorValue().message, "Invalid coordinates");
     });
 
     newState = simRunning.onEvent(cwc2, *stateMachine);

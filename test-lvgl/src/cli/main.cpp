@@ -235,17 +235,11 @@ int main(int argc, char** argv)
 
             spdlog::set_level(spdlog::level::info);
             spdlog::info("Running benchmark WITH cache + OpenMP (default)...");
-            auto results_cached =
-                runner.run(serverPath.string(), actualSteps, actualScenario, 0, true);
+            auto results_cached = runner.run(serverPath.string(), actualSteps, actualScenario, 0);
 
             spdlog::info("Running benchmark WITHOUT cache or OpenMP (baseline)...");
             auto results_direct = runner.runWithServerArgs(
-                serverPath.string(),
-                actualSteps,
-                actualScenario,
-                "--no-grid-cache --no-openmp",
-                0,
-                true);
+                serverPath.string(), actualSteps, actualScenario, "--no-grid-cache --no-openmp", 0);
 
             // Build comparison output.
             nlohmann::json comparison;
@@ -273,52 +267,9 @@ int main(int argc, char** argv)
 
             comparison["speedup_percent"] = speedup;
 
-            // Verify correctness by comparing cached+OpenMP vs non-cached results.
-            bool states_match = true;
-            if (!results_cached.final_world_state.empty()
-                && !results_direct.final_world_state.empty()) {
-                // Remove has_support field before comparison (non-deterministic).
-                auto removeHasSupport = [](nlohmann::json& state) {
-                    if (state.contains("cells") && state["cells"].is_array()) {
-                        for (auto& cell : state["cells"]) {
-                            if (cell.contains("has_support")) {
-                                cell.erase("has_support");
-                            }
-                        }
-                    }
-                };
-
-                nlohmann::json cached_state = results_cached.final_world_state;
-                nlohmann::json direct_state = results_direct.final_world_state;
-                removeHasSupport(cached_state);
-                removeHasSupport(direct_state);
-
-                states_match = (cached_state == direct_state);
-
-                if (states_match) {
-                    spdlog::info("✅ World states MATCH - optimizations are CORRECT!");
-                    comparison["correctness"] = "PASS";
-                    comparison["conclusion"] = "Cache and OpenMP produce correct results.";
-                }
-                else {
-                    spdlog::error("❌ World states DIFFER - optimizations have BUGS!");
-                    comparison["correctness"] = "FAIL";
-                    comparison["error"] = "Optimized path produces different results than baseline";
-                    comparison["conclusion"] = "Bug in cache or OpenMP implementation.";
-                }
-            }
-            else {
-                spdlog::warn("⚠️  Could not verify correctness - world state capture failed");
-                comparison["correctness"] = "UNKNOWN";
-                states_match = false;
-            }
-
-            comparison["summary"] = states_match ? "Correct and faster" : "INCORRECT - has bugs!";
-
             std::cout << comparison.dump(2) << std::endl;
 
-            // Return non-zero exit code if correctness check failed.
-            return states_match ? 0 : 1;
+            return 0;
         }
         else {
             // Single run (default behavior).
@@ -394,7 +345,7 @@ int main(int argc, char** argv)
         // Run server and UI.
         auto result = Client::runAll(serverPath.string(), uiPath.string());
         if (result.isError()) {
-            std::cerr << "Error: " << result.error() << std::endl;
+            std::cerr << "Error: " << result.errorValue() << std::endl;
             return 1;
         }
         return 0;

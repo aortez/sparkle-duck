@@ -21,7 +21,7 @@ void WorldFrictionCalculator::calculateAndApplyFrictionForces(World& world, doub
     // Clear friction forces from previous frame.
     for (uint32_t y = 0; y < grid_.getHeight(); ++y) {
         for (uint32_t x = 0; x < grid_.getWidth(); ++x) {
-            grid_.debugAt(x, y).friction_force = Vector2d{};
+            grid_.debugAt(x, y).accumulated_friction_force = Vector2d{};
         }
     }
 
@@ -113,22 +113,24 @@ void WorldFrictionCalculator::detectAndApplyFrictionForces(World& world)
                         calculateFrictionCoefficient(tangential_speed, propsA, propsB);
 
                     // Calculate and apply friction force immediately.
-                    double friction_force_magnitude =
+                    double accumulated_friction_force_magnitude =
                         friction_coefficient * normal_force * friction_strength_;
 
                     Vector2d friction_direction = tangential_velocity.normalize() * -1.0;
-                    Vector2d friction_force = friction_direction * friction_force_magnitude;
+                    Vector2d accumulated_friction_force =
+                        friction_direction * accumulated_friction_force_magnitude;
 
                     // Apply to both cells (Newton's 3rd law) - use cached data reference.
                     Cell& cellA_mut = data.at(x, y);
                     Cell& cellB_mut = data.at(nx, ny);
 
-                    cellA_mut.addPendingForce(friction_force);
-                    cellB_mut.addPendingForce(-friction_force);
+                    cellA_mut.addPendingForce(accumulated_friction_force);
+                    cellB_mut.addPendingForce(-accumulated_friction_force);
 
                     // Accumulate friction force for debug visualization.
-                    grid_.debugAt(x, y).friction_force += friction_force;
-                    grid_.debugAt(nx, ny).friction_force += (-friction_force);
+                    grid_.debugAt(x, y).accumulated_friction_force += accumulated_friction_force;
+                    grid_.debugAt(nx, ny).accumulated_friction_force +=
+                        (-accumulated_friction_force);
 
                     spdlog::trace(
                         "Friction force: ({},{}) <-> ({},{}): normal_force={:.4f}, mu={:.3f}, "
@@ -140,8 +142,8 @@ void WorldFrictionCalculator::detectAndApplyFrictionForces(World& world)
                         normal_force,
                         friction_coefficient,
                         tangential_speed,
-                        friction_force.x,
-                        friction_force.y);
+                        accumulated_friction_force.x,
+                        accumulated_friction_force.y);
                 }
             }
         }
@@ -343,25 +345,27 @@ void WorldFrictionCalculator::applyFrictionForces(
 {
     for (const ContactInterface& contact : contacts) {
         // Calculate friction force magnitude.
-        double friction_force_magnitude =
+        double accumulated_friction_force_magnitude =
             contact.friction_coefficient * contact.normal_force * friction_strength_;
 
         // Direction: opposite to tangential relative velocity.
         Vector2d friction_direction = contact.tangential_velocity.normalize() * -1.0;
 
-        Vector2d friction_force = friction_direction * friction_force_magnitude;
+        Vector2d accumulated_friction_force =
+            friction_direction * accumulated_friction_force_magnitude;
 
         // Apply to both cells (Newton's 3rd law).
         Cell& cellA = world.getData().at(contact.cell_A_pos.x, contact.cell_A_pos.y);
         Cell& cellB = world.getData().at(contact.cell_B_pos.x, contact.cell_B_pos.y);
 
-        cellA.addPendingForce(friction_force);
-        cellB.addPendingForce(-friction_force); // Equal and opposite.
+        cellA.addPendingForce(accumulated_friction_force);
+        cellB.addPendingForce(-accumulated_friction_force); // Equal and opposite.
 
         // Accumulate friction force for debug visualization.
-        grid_.debugAt(contact.cell_A_pos.x, contact.cell_A_pos.y).friction_force += friction_force;
-        grid_.debugAt(contact.cell_B_pos.x, contact.cell_B_pos.y).friction_force +=
-            (-friction_force);
+        grid_.debugAt(contact.cell_A_pos.x, contact.cell_A_pos.y).accumulated_friction_force +=
+            accumulated_friction_force;
+        grid_.debugAt(contact.cell_B_pos.x, contact.cell_B_pos.y).accumulated_friction_force +=
+            (-accumulated_friction_force);
 
         spdlog::trace(
             "Friction force: ({},{}) <-> ({},{}): normal_force={:.4f}, mu={:.3f}, "
@@ -373,7 +377,7 @@ void WorldFrictionCalculator::applyFrictionForces(
             contact.normal_force,
             contact.friction_coefficient,
             contact.tangential_velocity.magnitude(),
-            friction_force.x,
-            friction_force.y);
+            accumulated_friction_force.x,
+            accumulated_friction_force.y);
     }
 }
