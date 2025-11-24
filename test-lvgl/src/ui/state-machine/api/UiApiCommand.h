@@ -6,6 +6,7 @@
 #include "MouseMove.h"
 #include "MouseUp.h"
 #include "PixelRendererToggle.h"
+#include "RenderModeSelect.h"
 #include "Screenshot.h"
 #include "SimPause.h"
 #include "SimRun.h"
@@ -25,6 +26,7 @@ using UiApiCommand = std::variant<
     UiApi::MouseMove::Command,
     UiApi::MouseUp::Command,
     UiApi::PixelRendererToggle::Command,
+    UiApi::RenderModeSelect::Command,
     UiApi::Screenshot::Command,
     UiApi::SimPause::Command,
     UiApi::SimRun::Command,

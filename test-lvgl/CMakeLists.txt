@@ -291,6 +291,8 @@ add_library(sparkle-duck-ui-lib STATIC
     src/ui/state-machine/api/MouseDown.cpp
     src/ui/state-machine/api/MouseMove.cpp
     src/ui/state-machine/api/MouseUp.cpp
+    src/ui/state-machine/api/PixelRendererToggle.cpp
+    src/ui/state-machine/api/RenderModeSelect.cpp
     src/ui/state-machine/api/Screenshot.cpp
     src/ui/state-machine/api/SimPause.cpp
     src/ui/state-machine/api/SimRun.cpp
@@ -308,6 +310,7 @@ add_library(sparkle-duck-ui-lib STATIC
     src/ui/rendering/CellRenderer.cpp
     src/ui/rendering/JuliaFractal.cpp
     src/ui/rendering/NeuralGridRenderer.cpp
+    src/ui/rendering/RenderMode.cpp
     src/ui/controls/ControlPanel.cpp
     src/ui/controls/CoreControls.cpp
     src/ui/controls/PhysicsControls.cpp

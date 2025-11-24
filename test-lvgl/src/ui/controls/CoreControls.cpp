@@ -14,7 +14,8 @@
 namespace DirtSim {
 namespace Ui {
 
-CoreControls::CoreControls(lv_obj_t* container, WebSocketClient* wsClient, EventSink& eventSink)
+CoreControls::CoreControls(
+    lv_obj_t* container, WebSocketClient* wsClient, EventSink& eventSink, RenderMode initialMode)
     : container_(container), wsClient_(wsClient), eventSink_(eventSink)
 {
     // Quit button.
@@ -53,12 +54,27 @@ CoreControls::CoreControls(lv_obj_t* container, WebSocketClient* wsClient, Event
                        .callback(onDebugToggled, this)
                        .buildOrLog();
 
-    // Pixel Renderer toggle.
-    pixelRendererSwitch_ = LVGLBuilder::labeledSwitch(container_)
-                               .label("Pixel Renderer")
-                               .initialState(true)
-                               .callback(onPixelRendererToggled, this)
-                               .buildOrLog();
+    // Render Mode dropdown (styled like labeledSwitch).
+    lv_obj_t* renderModeContainer = lv_obj_create(container_);
+    lv_obj_set_size(renderModeContainer, LV_PCT(90), LV_SIZE_CONTENT);
+    lv_obj_set_flex_flow(renderModeContainer, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(
+        renderModeContainer, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_pad_all(renderModeContainer, 5, 0);
+    lv_obj_set_style_pad_column(renderModeContainer, 8, 0);
+    lv_obj_set_style_bg_color(renderModeContainer, lv_color_hex(0x0000FF), 0); // Blue background.
+    lv_obj_set_style_bg_opa(renderModeContainer, LV_OPA_COVER, 0);
+    lv_obj_set_style_radius(renderModeContainer, 5, 0); // Rounded corners.
+
+    lv_obj_t* renderModeLabel = lv_label_create(renderModeContainer);
+    lv_label_set_text(renderModeLabel, "Render Mode:");
+    lv_obj_set_style_text_color(renderModeLabel, lv_color_hex(0xFFFFFF), 0);
+
+    renderModeDropdown_ = lv_dropdown_create(renderModeContainer);
+    lv_dropdown_set_options(
+        renderModeDropdown_, "Adaptive\nSharp\nSmooth\nPixel Perfect\nLVGL Debug");
+    lv_dropdown_set_selected(renderModeDropdown_, 0); // Default to Adaptive.
+    lv_obj_add_event_cb(renderModeDropdown_, onRenderModeChanged, LV_EVENT_VALUE_CHANGED, this);
 
     // World Size toggle slider.
     auto worldSizeBuilder = LVGLBuilder::toggleSlider(container_)
@@ -103,6 +119,9 @@ CoreControls::CoreControls(lv_obj_t* container, WebSocketClient* wsClient, Event
         }
     }
 
+    // Set initial render mode in dropdown.
+    setRenderMode(initialMode);
+
     spdlog::info("CoreControls: Initialized");
 }
 
@@ -125,6 +144,34 @@ void CoreControls::updateStats(double serverFPS, double uiFPS)
         snprintf(buf, sizeof(buf), "UI: %.1f FPS", uiFPS);
         lv_label_set_text(statsLabelUI_, buf);
     }
+}
+
+void CoreControls::setRenderMode(RenderMode mode)
+{
+    if (!renderModeDropdown_) return;
+
+    // Map RenderMode to dropdown index.
+    // Order: "Adaptive\nSharp\nSmooth\nPixel Perfect\nLVGL Debug".
+    uint16_t index = 0;
+    switch (mode) {
+        case RenderMode::ADAPTIVE:
+            index = 0;
+            break;
+        case RenderMode::SHARP:
+            index = 1;
+            break;
+        case RenderMode::SMOOTH:
+            index = 2;
+            break;
+        case RenderMode::PIXEL_PERFECT:
+            index = 3;
+            break;
+        case RenderMode::LVGL_DEBUG:
+            index = 4;
+            break;
+    }
+
+    lv_dropdown_set_selected(renderModeDropdown_, index);
 }
 
 void CoreControls::onQuitClicked(lv_event_t* e)
@@ -168,18 +215,45 @@ void CoreControls::onDebugToggled(lv_event_t* e)
     self->eventSink_.queueEvent(cwc);
 }
 
-void CoreControls::onPixelRendererToggled(lv_event_t* e)
+void CoreControls::onRenderModeChanged(lv_event_t* e)
 {
     CoreControls* self = static_cast<CoreControls*>(lv_event_get_user_data(e));
     if (!self) return;
-    lv_obj_t* switch_obj = static_cast<lv_obj_t*>(lv_event_get_target(e));
-    bool enabled = lv_obj_has_state(switch_obj, LV_STATE_CHECKED);
 
-    spdlog::info("CoreControls: Pixel renderer toggled to {}", enabled ? "ON" : "OFF");
+    lv_obj_t* dropdown = static_cast<lv_obj_t*>(lv_event_get_target(e));
+    if (!dropdown) return;
 
-    // Queue UI-local pixel renderer toggle event.
-    UiApi::PixelRendererToggle::Cwc cwc;
-    cwc.command.enabled = enabled;
+    uint16_t selected = lv_dropdown_get_selected(dropdown);
+
+    // Map dropdown index to RenderMode.
+    // Order matches dropdown options: "Adaptive\nSharp\nSmooth\nPixel Perfect\nLVGL Debug".
+    RenderMode mode;
+    switch (selected) {
+        case 0:
+            mode = RenderMode::ADAPTIVE;
+            break;
+        case 1:
+            mode = RenderMode::SHARP;
+            break;
+        case 2:
+            mode = RenderMode::SMOOTH;
+            break;
+        case 3:
+            mode = RenderMode::PIXEL_PERFECT;
+            break;
+        case 4:
+            mode = RenderMode::LVGL_DEBUG;
+            break;
+        default:
+            mode = RenderMode::ADAPTIVE;
+            break;
+    }
+
+    spdlog::info("CoreControls: Render mode changed to {}", renderModeToString(mode));
+
+    // Queue UI-local render mode select event.
+    UiApi::RenderModeSelect::Cwc cwc;
+    cwc.command.mode = mode;
     cwc.callback = [](auto&&) {}; // No response needed.
     self->eventSink_.queueEvent(cwc);
 }

@@ -16,20 +16,55 @@ constexpr bool ENABLE_DITHERING = false;
 // Compile-time toggle for bilinear filtering (smooths cell boundaries).
 constexpr bool ENABLE_BILINEAR_FILTER = false;
 
-// Minimum pixels per cell when using transform scaling.
-// Lower values = smaller buffer, more GPU scaling, potentially blurrier.
-// Higher values = larger buffer, less GPU scaling, sharper but more memory/CPU.
-constexpr uint32_t MIN_PIXELS_PER_CELL = 5;
+// Mode-specific pixels per cell for optimal quality.
+constexpr uint32_t MIN_PIXELS_PER_CELL_SHARP = 8;  // Less GPU scaling = sharper.
+constexpr uint32_t MIN_PIXELS_PER_CELL_SMOOTH = 3; // More GPU scaling + bilinear filter.
+constexpr uint32_t MIN_PIXELS_PER_CELL_DEBUG = 12; // ≥10px required for debug features.
 
-// Minimum pixels per cell for LVGL debug mode.
-// Debug features (COM, velocity, pressure) require ≥10px cells to be visible.
-constexpr uint32_t MIN_PIXELS_PER_CELL_DEBUG = 12;
+// Default for initialization and adaptive mode.
+constexpr uint32_t MIN_PIXELS_PER_CELL = MIN_PIXELS_PER_CELL_SHARP;
 
 // 4x4 Bayer matrix for ordered dithering (values 0-15).
 // Used to create stable, pattern-based transparency instead of alpha blending.
 constexpr int BAYER_MATRIX_4X4[4][4] = {
     { 0, 8, 2, 10 }, { 12, 4, 14, 6 }, { 3, 11, 1, 9 }, { 15, 7, 13, 5 }
 };
+
+// Get optimal pixel size for a given render mode.
+// For PIXEL_PERFECT, returns 0 (special case - calculated dynamically).
+static uint32_t getPixelsPerCellForMode(RenderMode mode)
+{
+    switch (mode) {
+        case RenderMode::SHARP:
+            return MIN_PIXELS_PER_CELL_SHARP;
+        case RenderMode::SMOOTH:
+            return MIN_PIXELS_PER_CELL_SMOOTH;
+        case RenderMode::PIXEL_PERFECT:
+            return 0; // Special: Calculate integer scale dynamically.
+        case RenderMode::LVGL_DEBUG:
+            return MIN_PIXELS_PER_CELL_DEBUG;
+        case RenderMode::ADAPTIVE:
+            return MIN_PIXELS_PER_CELL; // Will be resolved later based on cell size.
+        default:
+            return MIN_PIXELS_PER_CELL_SHARP;
+    }
+}
+
+// Calculate integer-only pixels per cell that fits in container.
+// Returns largest integer where (worldSize × pixels) fits in container.
+static uint32_t calculateIntegerPixelsPerCell(
+    uint32_t worldWidth, uint32_t worldHeight, int32_t containerWidth, int32_t containerHeight)
+{
+    // Calculate max integer scale for each dimension.
+    uint32_t maxScaleX = (containerWidth > 0) ? containerWidth / worldWidth : 1;
+    uint32_t maxScaleY = (containerHeight > 0) ? containerHeight / worldHeight : 1;
+
+    // Use smaller scale to fit both dimensions.
+    uint32_t scale = std::min(maxScaleX, maxScaleY);
+
+    // Ensure minimum of 2px per cell.
+    return std::max(2u, scale);
+}
 
 // Apply bilinear smoothing filter to blend adjacent pixels.
 // This creates anti-aliasing at cell boundaries.
@@ -65,8 +100,7 @@ static void applyBilinearFilter(uint32_t* pixels, uint32_t width, uint32_t heigh
             uint32_t g = (((p00 >> 8) & 0xFF) + ((p10 >> 8) & 0xFF) + ((p01 >> 8) & 0xFF)
                           + ((p11 >> 8) & 0xFF))
                 / 4;
-            uint32_t b =
-                ((p00 & 0xFF) + (p10 & 0xFF) + (p01 & 0xFF) + (p11 & 0xFF)) / 4;
+            uint32_t b = ((p00 & 0xFF) + (p10 & 0xFF) + (p01 & 0xFF) + (p11 & 0xFF)) / 4;
 
             filtered[idx] = (a << 24) | (r << 16) | (g << 8) | b;
         }
@@ -160,7 +194,14 @@ void CellRenderer::calculateScaling(uint32_t worldWidth, uint32_t worldHeight)
 
 void CellRenderer::initialize(lv_obj_t* parent, uint32_t worldWidth, uint32_t worldHeight)
 {
-    spdlog::info("CellRenderer: Initializing canvas with transform scaling");
+    initializeWithPixelSize(parent, worldWidth, worldHeight, MIN_PIXELS_PER_CELL);
+}
+
+void CellRenderer::initializeWithPixelSize(
+    lv_obj_t* parent, uint32_t worldWidth, uint32_t worldHeight, uint32_t pixelsPerCell)
+{
+    spdlog::info(
+        "CellRenderer: Initializing canvas with transform scaling ({}px/cell)", pixelsPerCell);
 
     // Validate input parameters.
     if (!parent) {
@@ -196,14 +237,14 @@ void CellRenderer::initialize(lv_obj_t* parent, uint32_t worldWidth, uint32_t wo
         containerHeight = 600;
     }
 
-    // NEW APPROACH: Render at world dimensions × MIN_PIXELS_PER_CELL.
+    // Render at world dimensions × pixelsPerCell.
     // This gives us a native resolution canvas that we'll scale to fit the container.
-    canvasWidth_ = worldWidth * MIN_PIXELS_PER_CELL;
-    canvasHeight_ = worldHeight * MIN_PIXELS_PER_CELL;
+    canvasWidth_ = worldWidth * pixelsPerCell;
+    canvasHeight_ = worldHeight * pixelsPerCell;
 
-    // Each cell gets exactly MIN_PIXELS_PER_CELL pixels.
-    scaledCellWidth_ = MIN_PIXELS_PER_CELL;
-    scaledCellHeight_ = MIN_PIXELS_PER_CELL;
+    // Each cell gets exactly pixelsPerCell pixels.
+    scaledCellWidth_ = pixelsPerCell;
+    scaledCellHeight_ = pixelsPerCell;
 
     // Create single fixed-size canvas
     worldCanvas_ = lv_canvas_create(parent);
@@ -261,7 +302,7 @@ void CellRenderer::initialize(lv_obj_t* parent, uint32_t worldWidth, uint32_t wo
         canvasHeight_,
         worldWidth,
         worldHeight,
-        MIN_PIXELS_PER_CELL,
+        pixelsPerCell,
         scale);
 }
 
@@ -306,6 +347,24 @@ void CellRenderer::renderWorldData(
         effectiveMode = (scaledCellWidth_ < 4) ? RenderMode::SMOOTH : RenderMode::SHARP;
     }
 
+    // Check if mode changed and requires different pixel size.
+    uint32_t requiredPixelSize = getPixelsPerCellForMode(effectiveMode);
+
+    // PIXEL_PERFECT always requires reinitialization (dynamic sizing).
+    bool needsReinitialization = (effectiveMode != currentMode_)
+        && (effectiveMode == RenderMode::PIXEL_PERFECT || currentMode_ == RenderMode::PIXEL_PERFECT
+            || scaledCellWidth_ != requiredPixelSize);
+
+    if (worldCanvas_ && needsReinitialization) {
+        spdlog::info(
+            "CellRenderer: Mode changed from {} to {}, reinitializing",
+            renderModeToString(currentMode_),
+            renderModeToString(effectiveMode));
+        cleanup();
+    }
+
+    currentMode_ = effectiveMode;
+
     // Determine rendering path based on mode.
     bool usePixelRenderer = (effectiveMode != RenderMode::LVGL_DEBUG);
     bool useBilinearFilter = (effectiveMode == RenderMode::SMOOTH);
@@ -330,9 +389,20 @@ void CellRenderer::renderWorldData(
         cleanup();
     }
 
-    // Initialize canvas on first call or after resize.
+    // Initialize canvas on first call or after resize/mode change.
     if (!worldCanvas_) {
-        initialize(parent, worldData.width, worldData.height);
+        // Use mode-specific pixel size for optimal quality.
+        uint32_t pixelsPerCell = getPixelsPerCellForMode(effectiveMode);
+
+        // PIXEL_PERFECT mode calculates integer scale dynamically.
+        if (effectiveMode == RenderMode::PIXEL_PERFECT) {
+            pixelsPerCell = calculateIntegerPixelsPerCell(
+                worldData.width, worldData.height, currentContainerWidth, currentContainerHeight);
+            spdlog::info(
+                "CellRenderer: PIXEL_PERFECT mode - using {}× integer scale", pixelsPerCell);
+        }
+
+        initializeWithPixelSize(parent, worldData.width, worldData.height, pixelsPerCell);
         if (!worldCanvas_) {
             return; // Failed to initialize.
         }

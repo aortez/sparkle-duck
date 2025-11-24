@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/WorldData.h"
+#include "ui/rendering/RenderMode.h"
 #include <memory>
 
 // Forward declarations.
@@ -43,7 +44,17 @@ public:
     /**
      * @brief Render world state.
      */
-    void render(const WorldData& data, bool debugDraw, bool usePixelRenderer = false);
+    void render(const WorldData& data, bool debugDraw);
+
+    /**
+     * @brief Set render mode and update UI dropdown.
+     */
+    void setRenderMode(RenderMode mode);
+
+    /**
+     * @brief Get current render mode.
+     */
+    RenderMode getRenderMode() const { return renderMode_; }
 
     /**
      * @brief Render neural grid (tree vision).
@@ -58,6 +69,7 @@ public:
 
 private:
     UiComponentManager* uiManager_;
+    RenderMode renderMode_ = RenderMode::ADAPTIVE; // Persists across scenario changes.
     WebSocketClient* wsClient_;
     EventSink& eventSink_;
 

@@ -62,11 +62,25 @@ State::Any SimRunning::onEvent(const UiApi::PixelRendererToggle::Cwc& cwc, State
 {
     using Response = UiApi::PixelRendererToggle::Response;
 
-    pixelRendererEnabled = cwc.command.enabled;
-    spdlog::info(
-        "SimRunning: Pixel renderer mode {}", pixelRendererEnabled ? "enabled" : "disabled");
+    // DEPRECATED: Convert old boolean API to new RenderMode for backward compatibility.
+    RenderMode mode = cwc.command.enabled ? RenderMode::SHARP : RenderMode::LVGL_DEBUG;
+    if (playground_) {
+        playground_->setRenderMode(mode);
+    }
 
-    cwc.sendResponse(Response::okay(UiApi::PixelRendererToggle::Okay{ pixelRendererEnabled }));
+    cwc.sendResponse(Response::okay(UiApi::PixelRendererToggle::Okay{ cwc.command.enabled }));
+    return std::move(*this);
+}
+
+State::Any SimRunning::onEvent(const UiApi::RenderModeSelect::Cwc& cwc, StateMachine& /*sm*/)
+{
+    using Response = UiApi::RenderModeSelect::Response;
+
+    if (playground_) {
+        playground_->setRenderMode(cwc.command.mode);
+    }
+
+    cwc.sendResponse(Response::okay(UiApi::RenderModeSelect::Okay{ cwc.command.mode }));
     return std::move(*this);
 }
 
@@ -268,7 +282,7 @@ State::Any SimRunning::onEvent(const UiUpdateEvent& evt, StateMachine& sm)
 
         // Render world.
         sm.getTimers().startTimer("render_world");
-        playground_->render(*worldData, debugDrawEnabled, pixelRendererEnabled);
+        playground_->render(*worldData, debugDrawEnabled);
         sm.getTimers().stopTimer("render_world");
 
         // Render neural grid (tree vision).

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "RenderMode.h"
 #include "core/Cell.h"
 #include "core/WorldData.h"
 #include "lvgl/lvgl.h"
@@ -20,7 +21,7 @@ public:
         const WorldData& worldData,
         lv_obj_t* parent,
         bool debugDraw,
-        bool usePixelRenderer = false);
+        RenderMode mode = RenderMode::ADAPTIVE);
     void cleanup();
 
 private:
@@ -41,13 +42,18 @@ private:
     int32_t lastContainerWidth_ = 0;
     int32_t lastContainerHeight_ = 0;
 
-    // Scaled cell dimensions for fitting the drawing area
+    // Scaled cell dimensions for fitting the drawing area.
     uint32_t scaledCellWidth_ = Cell::WIDTH;
     uint32_t scaledCellHeight_ = Cell::HEIGHT;
     double scaleX_ = 1.0;
     double scaleY_ = 1.0;
 
+    // Track current render mode to detect changes requiring reinitialization.
+    RenderMode currentMode_ = RenderMode::ADAPTIVE;
+
     void calculateScaling(uint32_t worldWidth, uint32_t worldHeight);
+    void initializeWithPixelSize(
+        lv_obj_t* parent, uint32_t worldWidth, uint32_t worldHeight, uint32_t pixelsPerCell);
 
     // Direct rendering to single canvas at scaled resolution (optimized)
     void renderCellDirectOptimized(
