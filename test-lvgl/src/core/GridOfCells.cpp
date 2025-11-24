@@ -18,7 +18,7 @@ GridOfCells::GridOfCells(std::vector<Cell>& cells, uint32_t width, uint32_t heig
       support_bitmap_(width, height),
       empty_neighborhoods_(width * height, 0),
       material_neighborhoods_(width * height, 0),
-      cohesion_resistance_(width * height, 0.0),
+      debug_info_(width * height),
       width_(width),
       height_(height)
 {

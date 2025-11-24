@@ -150,10 +150,6 @@ public:
     void setFrictionStrength(double strength);
     double getFrictionStrength() const;
 
-    // Friction calculator access.
-    WorldFrictionCalculator& getFrictionCalculator();
-    const WorldFrictionCalculator& getFrictionCalculator() const;
-
     void setCOMCohesionRange(uint32_t range);
     uint32_t getCOMCohesionRange() const;
 

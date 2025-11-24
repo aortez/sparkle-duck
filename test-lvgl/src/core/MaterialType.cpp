@@ -36,7 +36,7 @@ static std::array<MaterialProperties, 10> MATERIAL_PROPERTIES = {
         .cohesion = 0.5,
         .adhesion = 0.2,
         .air_resistance = 0.1,
-        .hydrostatic_weight = 0.3,
+        .hydrostatic_weight = 0.25,
         .dynamic_weight = 1.0,
         .pressure_diffusion = 0.3,
         .viscosity = 0.5,
@@ -176,22 +176,22 @@ static std::array<MaterialProperties, 10> MATERIAL_PROPERTIES = {
         .is_rigid = false },
 
       // ========== WOOD ==========
-      { .density = 0.8,
+      { .density = 0.3,
         .elasticity = 0.6,
         .cohesion = 0.7,
         .adhesion = 0.3,
-        .air_resistance = 0.4,
+        .air_resistance = 0.2,
         .hydrostatic_weight = 1.0,
         .dynamic_weight = 0.5,
         .pressure_diffusion = 0.15,
-        .viscosity = 0.9,
+        .viscosity = 0.3,
         .motion_sensitivity = 0.2,
         .static_friction_coefficient = 1.3,
         .kinetic_friction_coefficient = 0.9,
         .stick_velocity = 0.02,
         .friction_transition_width = 0.03,
         .is_fluid = false,
-        .is_rigid = true } }
+        .is_rigid = true } } // Rigid, but can be displaced when unsupported (floating).
 };
 
 // Material name lookup table.

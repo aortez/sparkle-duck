@@ -14,6 +14,17 @@ class Timers;
 namespace DirtSim {
 
 /**
+ * CellDebug: Debug information for visualization/analysis.
+ *
+ * Stored separately from Cell to keep core physics data compact.
+ */
+struct CellDebug {
+    double damping_factor = 1.0;      // Effective damping applied to velocity.
+    Vector2d friction_force = {};     // Accumulated friction forces this frame.
+    double cohesion_resistance = 0.0; // Cohesion resistance threshold.
+};
+
+/**
  * GridOfCells: Computed cache layer for World physics optimization.
  *
  * Design:
@@ -46,7 +57,7 @@ private:
     CellBitmap support_bitmap_;
     std::vector<uint64_t> empty_neighborhoods_;
     std::vector<uint64_t> material_neighborhoods_;
-    std::vector<double> cohesion_resistance_;
+    std::vector<CellDebug> debug_info_; // Debug information (damping, friction, etc.).
     uint32_t width_;
     uint32_t height_;
 
@@ -74,21 +85,25 @@ public:
         return MaterialNeighborhood{ material_neighborhoods_[y * width_ + x] };
     }
 
-    // Cohesion resistance cache (computed during applyCohesionForces, used in resolveForces).
+    // Debug info access.
+    CellDebug& debugAt(uint32_t x, uint32_t y) { return debug_info_[y * width_ + x]; }
+
+    const CellDebug& debugAt(uint32_t x, uint32_t y) const { return debug_info_[y * width_ + x]; }
+
+    // Legacy cohesion resistance access (for compatibility).
     void setCohesionResistance(uint32_t x, uint32_t y, double resistance)
     {
-        cohesion_resistance_[y * width_ + x] = resistance;
+        debug_info_[y * width_ + x].cohesion_resistance = resistance;
     }
 
     double getCohesionResistance(uint32_t x, uint32_t y) const
     {
-        return cohesion_resistance_[y * width_ + x];
+        return debug_info_[y * width_ + x].cohesion_resistance;
     }
 
-    // Direct cell access (use grid instead of world for cell lookups).
-    Cell& at(uint32_t x, uint32_t y) { return cells_[y * width_ + x]; }
+    inline Cell& at(uint32_t x, uint32_t y) { return cells_[y * width_ + x]; }
 
-    const Cell& at(uint32_t x, uint32_t y) const { return cells_[y * width_ + x]; }
+    inline const Cell& at(uint32_t x, uint32_t y) const { return cells_[y * width_ + x]; }
 
     std::vector<Cell>& getCells() { return cells_; }
 

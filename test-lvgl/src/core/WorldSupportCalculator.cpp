@@ -351,7 +351,12 @@ void WorldSupportCalculator::computeSupportMapBottomUp(World& world) const
                     continue;
                 }
 
-                const bool has_vertical = empty_n.southHasMaterial() && support.isSet(x, y + 1);
+                // Fluids (WATER, AIR) don't provide vertical support.
+                const MaterialType below_material = mat_n.getMaterial(0, 1); // South = (0, +1)
+                const bool below_is_fluid =
+                    (below_material == MaterialType::WATER || below_material == MaterialType::AIR);
+                const bool has_vertical =
+                    empty_n.southHasMaterial() && support.isSet(x, y + 1) && !below_is_fluid;
 
                 bool has_horizontal = false;
                 if (!has_vertical) {
@@ -399,9 +404,13 @@ void WorldSupportCalculator::computeSupportMapBottomUp(World& world) const
                     continue;
                 }
 
-                // Check vertical support: cell below must be non-empty AND supported.
+                // Check vertical support: cell below must be non-empty, supported, AND not a fluid.
+                // Fluids (WATER, AIR) don't provide vertical support.
                 const Cell& below = grid_.at(x, y + 1);
-                bool has_vertical = !below.isEmpty() && below.has_any_support;
+                const bool below_is_fluid =
+                    (below.material_type == MaterialType::WATER
+                     || below.material_type == MaterialType::AIR);
+                bool has_vertical = !below.isEmpty() && below.has_any_support && !below_is_fluid;
 
                 // Check horizontal support if no vertical.
                 bool has_horizontal = false;

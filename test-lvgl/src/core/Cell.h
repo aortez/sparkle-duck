@@ -50,9 +50,10 @@ struct Cell {
     Vector2d pressure_gradient = {};
 
     // Force accumulation for visualization.
-    Vector2d accumulated_viscous_force = {};      // Viscous force from momentum diffusion.
-    Vector2d accumulated_adhesion_force = {};     // Adhesion force (different materials).
-    Vector2d accumulated_com_cohesion_force = {}; // COM cohesion force (same material).
+    Vector2d accumulated_viscous_force = {};
+    Vector2d accumulated_adhesion_force = {};
+    Vector2d accumulated_com_cohesion_force = {};
+    Vector2d accumulated_friction_force = {}; // Friction force from contact interfaces.
 
     // Physics force accumulation.
     Vector2d pending_force = {};

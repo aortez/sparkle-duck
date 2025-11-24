@@ -771,11 +771,13 @@ bool WorldCollisionCalculator::shouldSwapMaterials(
         return false;
     }
 
-    // Check if target is rigid - rigid materials cannot be displaced.
+    // Check if target is rigid AND supported.
+    // Unsupported rigid materials (floating in water) can be displaced by buoyancy.
+    // Supported rigid materials (resting on ground) cannot be displaced.
     const MaterialProperties& to_props = getMaterialProperties(toCell.material_type);
-    if (to_props.is_rigid) {
+    if (to_props.is_rigid && toCell.has_any_support) {
         LoggingChannels::swap()->debug(
-            "Swap denied: cannot displace rigid material {}",
+            "Swap denied: cannot displace supported rigid material {}",
             getMaterialName(toCell.material_type));
         return false;
     }

@@ -1,4 +1,5 @@
 #include "World.h"
+
 #include "Cell.h"
 #include "GridOfCells.h"
 #include "PhysicsSettings.h"
@@ -43,11 +44,11 @@ struct World::Impl {
     PhysicsSettings physicsSettings_;
 
     // Calculators (previously public).
-    // WorldSupportCalculator removed - now constructed locally with GridOfCells reference.
+    // WorldSupportCalculator, WorldFrictionCalculator removed - now constructed locally with
+    // GridOfCells reference.
     WorldPressureCalculator pressure_calculator_;
     WorldCollisionCalculator collision_calculator_;
     WorldAdhesionCalculator adhesion_calculator_;
-    WorldFrictionCalculator friction_calculator_;
     WorldViscosityCalculator viscosity_calculator_;
 
     // Material transfer queue (internal simulation state).
@@ -157,16 +158,6 @@ WorldViscosityCalculator& World::getViscosityCalculator()
 const WorldViscosityCalculator& World::getViscosityCalculator() const
 {
     return pImpl->viscosity_calculator_;
-}
-
-WorldFrictionCalculator& World::getFrictionCalculator()
-{
-    return pImpl->friction_calculator_;
-}
-
-const WorldFrictionCalculator& World::getFrictionCalculator() const
-{
-    return pImpl->friction_calculator_;
 }
 
 Timers& World::getTimers()
@@ -867,7 +858,11 @@ void World::resolveForces(double deltaTime, const GridOfCells& grid)
     // Apply contact-based friction forces.
     {
         ScopeTimer frictionTimer(timers, "resolve_forces_apply_friction");
-        pImpl->friction_calculator_.calculateAndApplyFrictionForces(*this, deltaTime);
+        // Construct friction calculator with grid reference (like WorldSupportCalculator pattern).
+        // Cast away const for debug writes (safe - doesn't affect physics state).
+        WorldFrictionCalculator friction_calc{ const_cast<GridOfCells&>(grid) };
+        friction_calc.setFrictionStrength(settings.friction_strength);
+        friction_calc.calculateAndApplyFrictionForces(*this, deltaTime);
     }
 
     // Apply viscous forces (momentum diffusion between same-material neighbors).
@@ -961,6 +956,16 @@ void World::resolveForces(double deltaTime, const GridOfCells& grid)
                         cell.velocity.x,
                         cell.velocity.y);
                 }
+            }
+        }
+    }
+
+    // Copy debug info from GridOfCells to Cell for persistence after grid is destroyed.
+    {
+        ScopeTimer copyTimer(timers, "resolve_forces_copy_debug");
+        for (uint32_t y = 0; y < data.height; ++y) {
+            for (uint32_t x = 0; x < data.width; ++x) {
+                data.at(x, y).accumulated_friction_force = grid.debugAt(x, y).friction_force;
             }
         }
     }
@@ -1145,7 +1150,7 @@ std::vector<MaterialMove> World::computeMaterialMoves(double deltaTime)
     }
 
     // Log move generation statistics.
-    spdlog::info(
+    spdlog::debug(
         "computeMaterialMoves: {} cells moving, {} boundary crossings, {} moves generated ({} "
         "transfers, {} collisions)",
         num_cells_with_velocity,
@@ -1300,7 +1305,7 @@ void World::processMaterialMoves()
     }
 
     // Log move statistics.
-    spdlog::info(
+    spdlog::debug(
         "processMaterialMoves: {} total moves, {} swaps ({:.1f}% - {} from transfers, {} from "
         "collisions), {} transfers, {} elastic, {} inelastic",
         num_moves,

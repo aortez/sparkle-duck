@@ -900,7 +900,7 @@ State::Any SimRunning::onEvent(const SetPressureScaleWorldBCommand& cmd, StateMa
 State::Any SimRunning::onEvent(const SetContactFrictionStrengthCommand& cmd, StateMachine& /*dsm*/)
 {
     if (auto* worldPtr = dynamic_cast<World*>(world.get())) {
-        worldPtr->getFrictionCalculator().setFrictionStrength(cmd.strength);
+        worldPtr->getPhysicsSettings().friction_strength = cmd.strength;
         spdlog::info("SimRunning: Set contact friction strength to {}", cmd.strength);
     }
     return std::move(*this);

@@ -9,10 +9,20 @@
 
 using namespace DirtSim;
 
+WorldFrictionCalculator::WorldFrictionCalculator(GridOfCells& grid) : grid_(grid)
+{}
+
 void WorldFrictionCalculator::calculateAndApplyFrictionForces(World& world, double /* deltaTime */)
 {
     if (friction_strength_ <= 0.0) {
         return;
+    }
+
+    // Clear friction forces from previous frame.
+    for (uint32_t y = 0; y < grid_.getHeight(); ++y) {
+        for (uint32_t x = 0; x < grid_.getWidth(); ++x) {
+            grid_.debugAt(x, y).friction_force = Vector2d{};
+        }
     }
 
     if (GridOfCells::USE_CACHE) {
@@ -115,6 +125,10 @@ void WorldFrictionCalculator::detectAndApplyFrictionForces(World& world)
 
                     cellA_mut.addPendingForce(friction_force);
                     cellB_mut.addPendingForce(-friction_force);
+
+                    // Accumulate friction force for debug visualization.
+                    grid_.debugAt(x, y).friction_force += friction_force;
+                    grid_.debugAt(nx, ny).friction_force += (-friction_force);
 
                     spdlog::trace(
                         "Friction force: ({},{}) <-> ({},{}): normal_force={:.4f}, mu={:.3f}, "
@@ -343,6 +357,11 @@ void WorldFrictionCalculator::applyFrictionForces(
 
         cellA.addPendingForce(friction_force);
         cellB.addPendingForce(-friction_force); // Equal and opposite.
+
+        // Accumulate friction force for debug visualization.
+        grid_.debugAt(contact.cell_A_pos.x, contact.cell_A_pos.y).friction_force += friction_force;
+        grid_.debugAt(contact.cell_B_pos.x, contact.cell_B_pos.y).friction_force +=
+            (-friction_force);
 
         spdlog::trace(
             "Friction force: ({},{}) <-> ({},{}): normal_force={:.4f}, mu={:.3f}, "

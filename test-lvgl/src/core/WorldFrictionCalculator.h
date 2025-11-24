@@ -11,6 +11,7 @@ namespace DirtSim {
 
 class Cell;
 class World;
+class GridOfCells;
 
 /**
  * @brief Calculates contact-based friction forces for World physics.
@@ -24,8 +25,8 @@ class World;
  */
 class WorldFrictionCalculator : public WorldCalculatorBase {
 public:
-    // Default constructor - calculator is stateless.
-    WorldFrictionCalculator() = default;
+    // Constructor requires GridOfCells reference for debug info storage.
+    explicit WorldFrictionCalculator(GridOfCells& grid);
 
     /**
      * @brief Data structure representing a contact interface between two cells.
@@ -119,6 +120,8 @@ private:
      * @param contacts Vector of contact interfaces with calculated properties.
      */
     void applyFrictionForces(World& world, const std::vector<ContactInterface>& contacts);
+
+    GridOfCells& grid_; // Reference to grid for debug info storage.
 
     // Configuration parameters.
     double friction_strength_ = 1.0;
