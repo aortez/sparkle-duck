@@ -14,6 +14,7 @@ bool GridOfCells::USE_OPENMP = true;
 GridOfCells::GridOfCells(std::vector<Cell>& cells, uint32_t width, uint32_t height, Timers& timers)
     : cells_(cells),
       empty_cells_(width, height),
+      wall_cells_(width, height),
       support_bitmap_(width, height),
       empty_neighborhoods_(width * height, 0),
       material_neighborhoods_(width * height, 0),
@@ -24,8 +25,8 @@ GridOfCells::GridOfCells(std::vector<Cell>& cells, uint32_t width, uint32_t heig
     spdlog::debug("GridOfCells: Constructing cache ({}x{})", width, height);
 
     {
-        ScopeTimer timer(timers, "grid_cache_empty_map");
-        buildEmptyCellMap();
+        ScopeTimer timer(timers, "grid_cache_populate_maps");
+        populateMaps();
     }
 
     {
@@ -41,15 +42,50 @@ GridOfCells::GridOfCells(std::vector<Cell>& cells, uint32_t width, uint32_t heig
     spdlog::debug("GridOfCells: Construction complete");
 }
 
+void GridOfCells::populateMaps()
+{
+    // Single pass over all cells to build all bitmaps.
+    for (uint32_t y = 0; y < height_; ++y) {
+        for (uint32_t x = 0; x < width_; ++x) {
+            const Cell& cell = cells_[y * width_ + x];
+
+            // Build empty cell bitmap.
+            if (cell.isEmpty()) {
+                empty_cells_.set(x, y);
+            }
+
+            // Build wall cell bitmap.
+            if (cell.isWall()) {
+                wall_cells_.set(x, y);
+            }
+        }
+    }
+}
+
 void GridOfCells::buildEmptyCellMap()
 {
-    // Scan all cells and mark empty ones in bitmap.
+    // Legacy method - kept for compatibility.
+    // Consider removing if not called directly.
     for (uint32_t y = 0; y < height_; ++y) {
         for (uint32_t x = 0; x < width_; ++x) {
             const Cell& cell = cells_[y * width_ + x];
 
             if (cell.isEmpty()) {
                 empty_cells_.set(x, y);
+            }
+        }
+    }
+}
+
+void GridOfCells::buildWallCellMap()
+{
+    // Scan all cells and mark walls in bitmap.
+    for (uint32_t y = 0; y < height_; ++y) {
+        for (uint32_t x = 0; x < width_; ++x) {
+            const Cell& cell = cells_[y * width_ + x];
+
+            if (cell.isWall()) {
+                wall_cells_.set(x, y);
             }
         }
     }

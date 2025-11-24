@@ -36,28 +36,31 @@ public:
     static bool USE_CACHE;
 
     // Runtime toggle: Controls whether OpenMP parallelization is enabled.
-    // Set to false to test sequential execution, true for parallel (default).
+    // Set to false to test sequential execution, true for parallel.
     static bool USE_OPENMP;
 
 private:
     std::vector<Cell>& cells_;
     CellBitmap empty_cells_;
+    CellBitmap wall_cells_;
     CellBitmap support_bitmap_;
     std::vector<uint64_t> empty_neighborhoods_;
     std::vector<uint64_t> material_neighborhoods_;
-    std::vector<double> cohesion_resistance_; // Frame-scoped cohesion resistance cache.
+    std::vector<double> cohesion_resistance_;
     uint32_t width_;
     uint32_t height_;
 
+    void populateMaps();
     void buildEmptyCellMap();
+    void buildWallCellMap();
     void precomputeEmptyNeighborhoods();
     void precomputeMaterialNeighborhoods();
 
 public:
-    // Constructor: Reference cells and compute bitmaps (no copy).
     GridOfCells(std::vector<Cell>& cells, uint32_t width, uint32_t height, Timers& timers);
 
     const CellBitmap& emptyCells() const { return empty_cells_; }
+    const CellBitmap& wallCells() const { return wall_cells_; }
     const CellBitmap& supportBitmap() const { return support_bitmap_; }
     CellBitmap& supportBitmap() { return support_bitmap_; }
 
