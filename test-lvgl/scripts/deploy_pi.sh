@@ -102,8 +102,6 @@ rsync -avz --delete \
     --exclude='*.bin' \
     --exclude='*.dat' \
     --exclude='*.db' \
-    --exclude='*.log' \
-    --exclude='*.tmp' \
     --exclude='*.lock' \
     --exclude='*.pid' \
     --exclude='*.core' \
