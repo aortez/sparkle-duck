@@ -2,8 +2,9 @@
 #include "core/MaterialType.h"
 #include <algorithm>
 #include <cassert>
-#include <cmath> // for std::round
-#include <new>   // for std::bad_alloc
+#include <cmath>   // for std::round
+#include <cstring> // for std::memcpy
+#include <new>     // for std::bad_alloc
 #include <spdlog/spdlog.h>
 
 namespace DirtSim {
@@ -12,11 +13,68 @@ namespace Ui {
 // Compile-time toggle for dithering in pixel renderer.
 constexpr bool ENABLE_DITHERING = false;
 
+// Compile-time toggle for bilinear filtering (smooths cell boundaries).
+constexpr bool ENABLE_BILINEAR_FILTER = false;
+
+// Minimum pixels per cell when using transform scaling.
+// Lower values = smaller buffer, more GPU scaling, potentially blurrier.
+// Higher values = larger buffer, less GPU scaling, sharper but more memory/CPU.
+constexpr uint32_t MIN_PIXELS_PER_CELL = 5;
+
+// Minimum pixels per cell for LVGL debug mode.
+// Debug features (COM, velocity, pressure) require ≥10px cells to be visible.
+constexpr uint32_t MIN_PIXELS_PER_CELL_DEBUG = 12;
+
 // 4x4 Bayer matrix for ordered dithering (values 0-15).
 // Used to create stable, pattern-based transparency instead of alpha blending.
 constexpr int BAYER_MATRIX_4X4[4][4] = {
     { 0, 8, 2, 10 }, { 12, 4, 14, 6 }, { 3, 11, 1, 9 }, { 15, 7, 13, 5 }
 };
+
+// Apply bilinear smoothing filter to blend adjacent pixels.
+// This creates anti-aliasing at cell boundaries.
+static void applyBilinearFilter(uint32_t* pixels, uint32_t width, uint32_t height)
+{
+    if (width < 2 || height < 2) return;
+
+    // Create temporary buffer for filtered output.
+    std::vector<uint32_t> filtered(width * height);
+
+    // Apply 2x2 box filter to smooth transitions.
+    for (uint32_t y = 0; y < height; ++y) {
+        for (uint32_t x = 0; x < width; ++x) {
+            uint32_t idx = y * width + x;
+
+            // Sample neighborhood (with boundary clamping).
+            uint32_t x0 = x;
+            uint32_t x1 = std::min(x + 1, width - 1);
+            uint32_t y0 = y;
+            uint32_t y1 = std::min(y + 1, height - 1);
+
+            // Get four samples.
+            uint32_t p00 = pixels[y0 * width + x0];
+            uint32_t p10 = pixels[y0 * width + x1];
+            uint32_t p01 = pixels[y1 * width + x0];
+            uint32_t p11 = pixels[y1 * width + x1];
+
+            // Extract and average ARGB channels.
+            uint32_t a = ((p00 >> 24) + (p10 >> 24) + (p01 >> 24) + (p11 >> 24)) / 4;
+            uint32_t r = (((p00 >> 16) & 0xFF) + ((p10 >> 16) & 0xFF) + ((p01 >> 16) & 0xFF)
+                          + ((p11 >> 16) & 0xFF))
+                / 4;
+            uint32_t g = (((p00 >> 8) & 0xFF) + ((p10 >> 8) & 0xFF) + ((p01 >> 8) & 0xFF)
+                          + ((p11 >> 8) & 0xFF))
+                / 4;
+            uint32_t b =
+                ((p00 & 0xFF) + (p10 & 0xFF) + (p01 & 0xFF) + (p11 & 0xFF)) / 4;
+
+            filtered[idx] = (a << 24) | (r << 16) | (g << 8) | b;
+        }
+    }
+
+    // Copy filtered result back to original buffer.
+    std::memcpy(pixels, filtered.data(), width * height * sizeof(uint32_t));
+}
 
 static lv_color_t getMaterialColor(MaterialType type)
 {
@@ -102,15 +160,15 @@ void CellRenderer::calculateScaling(uint32_t worldWidth, uint32_t worldHeight)
 
 void CellRenderer::initialize(lv_obj_t* parent, uint32_t worldWidth, uint32_t worldHeight)
 {
-    spdlog::info("CellRenderer: Initializing fixed-size canvas for UI container");
+    spdlog::info("CellRenderer: Initializing canvas with transform scaling");
 
-    // Validate input parameters
+    // Validate input parameters.
     if (!parent) {
         spdlog::error("CellRenderer: Invalid parent for initialization");
         return;
     }
 
-    // Only initialize once - canvas stays fixed size
+    // Only initialize once - canvas stays fixed size.
     if (worldCanvas_) {
         spdlog::debug("CellRenderer: Canvas already initialized, skipping");
         return;
@@ -120,7 +178,7 @@ void CellRenderer::initialize(lv_obj_t* parent, uint32_t worldWidth, uint32_t wo
     width_ = worldWidth;
     height_ = worldHeight;
 
-    // Get container size - this is our canvas size (fixed).
+    // Get container size for transform scaling calculations.
     int32_t containerWidth = lv_obj_get_width(parent);
     int32_t containerHeight = lv_obj_get_height(parent);
 
@@ -128,7 +186,7 @@ void CellRenderer::initialize(lv_obj_t* parent, uint32_t worldWidth, uint32_t wo
     lastContainerWidth_ = containerWidth;
     lastContainerHeight_ = containerHeight;
 
-    // Sanity check container dimensions
+    // Sanity check container dimensions.
     if (containerWidth <= 0 || containerHeight <= 0) {
         spdlog::warn(
             "CellRenderer: Invalid container dimensions {}x{}, using defaults",
@@ -138,17 +196,14 @@ void CellRenderer::initialize(lv_obj_t* parent, uint32_t worldWidth, uint32_t wo
         containerHeight = 600;
     }
 
-    // Use 90% of container size for the canvas
-    canvasWidth_ = static_cast<uint32_t>(containerWidth * 0.9);
-    canvasHeight_ = static_cast<uint32_t>(containerHeight * 0.9);
+    // NEW APPROACH: Render at world dimensions × MIN_PIXELS_PER_CELL.
+    // This gives us a native resolution canvas that we'll scale to fit the container.
+    canvasWidth_ = worldWidth * MIN_PIXELS_PER_CELL;
+    canvasHeight_ = worldHeight * MIN_PIXELS_PER_CELL;
 
-    // Center the canvas in the container
-    int32_t offsetX = (containerWidth - canvasWidth_) / 2;
-    int32_t offsetY = (containerHeight - canvasHeight_) / 2;
-
-    // Ensure offsets are non-negative
-    if (offsetX < 0) offsetX = 0;
-    if (offsetY < 0) offsetY = 0;
+    // Each cell gets exactly MIN_PIXELS_PER_CELL pixels.
+    scaledCellWidth_ = MIN_PIXELS_PER_CELL;
+    scaledCellHeight_ = MIN_PIXELS_PER_CELL;
 
     // Create single fixed-size canvas
     worldCanvas_ = lv_canvas_create(parent);
@@ -180,20 +235,34 @@ void CellRenderer::initialize(lv_obj_t* parent, uint32_t worldWidth, uint32_t wo
         return;
     }
 
-    // Set canvas buffer (this never changes)
+    // Set canvas buffer (this never changes).
     lv_canvas_set_buffer(
         worldCanvas_, canvasBuffer_.data(), canvasWidth_, canvasHeight_, LV_COLOR_FORMAT_ARGB8888);
 
-    // Position canvas
-    lv_obj_set_pos(worldCanvas_, offsetX, offsetY);
+    // Position canvas at top-left of container.
+    lv_obj_set_pos(worldCanvas_, 0, 0);
 
-    // Now calculate scaling for the world size
-    calculateScaling(worldWidth, worldHeight);
+    // Apply LVGL transform scaling to fit canvas to container.
+    // LVGL uses fixed-point scaling where 256 = 1.0×.
+    // Calculate scale to fit world in container while preserving aspect ratio.
+    double scaleX = (double)containerWidth / canvasWidth_;
+    double scaleY = (double)containerHeight / canvasHeight_;
+    double scale = std::min(scaleX, scaleY); // Preserve aspect ratio.
+
+    int lvglScaleX = (int)(scale * 256);
+    int lvglScaleY = (int)(scale * 256);
+
+    lv_obj_set_style_transform_scale_x(worldCanvas_, lvglScaleX, 0);
+    lv_obj_set_style_transform_scale_y(worldCanvas_, lvglScaleY, 0);
 
     spdlog::info(
-        "CellRenderer: Initialized fixed canvas {}x{} pixels (will scale world dynamically)",
+        "CellRenderer: Initialized canvas {}x{} pixels ({}x{} cells at {}px/cell), scaling {:.2f}×",
         canvasWidth_,
-        canvasHeight_);
+        canvasHeight_,
+        worldWidth,
+        worldHeight,
+        MIN_PIXELS_PER_CELL,
+        scale);
 }
 
 void CellRenderer::resize(lv_obj_t* parent, uint32_t worldWidth, uint32_t worldHeight)
@@ -205,30 +274,20 @@ void CellRenderer::resize(lv_obj_t* parent, uint32_t worldWidth, uint32_t worldH
         worldWidth,
         worldHeight);
 
-    // Only update if dimensions actually changed
+    // Only update if dimensions actually changed.
     if (width_ == worldWidth && height_ == worldHeight && parent_ == parent) {
         spdlog::debug("CellRenderer: No size change, skipping");
         return;
     }
 
-    // Update world dimensions
-    width_ = worldWidth;
-    height_ = worldHeight;
-    parent_ = parent;
-
-    // Recalculate scaling for new world size (canvas size stays the same)
-    calculateScaling(worldWidth, worldHeight);
-
-    spdlog::info(
-        "CellRenderer: Updated to {}x{} cells at {}x{} pixels each",
-        worldWidth,
-        worldHeight,
-        scaledCellWidth_,
-        scaledCellHeight_);
+    // World size change requires canvas reallocation with transform scaling.
+    // Clean up and reinitialize.
+    cleanup();
+    initialize(parent, worldWidth, worldHeight);
 }
 
 void CellRenderer::renderWorldData(
-    const WorldData& worldData, lv_obj_t* parent, bool debugDraw, bool usePixelRenderer)
+    const WorldData& worldData, lv_obj_t* parent, bool debugDraw, RenderMode mode)
 {
     // Validate input.
     if (!parent || worldData.width == 0 || worldData.height == 0) {
@@ -239,6 +298,17 @@ void CellRenderer::renderWorldData(
             worldData.height);
         return;
     }
+
+    // Resolve adaptive mode to concrete mode based on cell size.
+    RenderMode effectiveMode = mode;
+    if (mode == RenderMode::ADAPTIVE) {
+        // Choose SMOOTH for small cells (<4px), SHARP for larger cells.
+        effectiveMode = (scaledCellWidth_ < 4) ? RenderMode::SMOOTH : RenderMode::SHARP;
+    }
+
+    // Determine rendering path based on mode.
+    bool usePixelRenderer = (effectiveMode != RenderMode::LVGL_DEBUG);
+    bool useBilinearFilter = (effectiveMode == RenderMode::SMOOTH);
 
     // Check if container has been resized (detect layout changes).
     int32_t currentContainerWidth = lv_obj_get_width(parent);
@@ -283,37 +353,9 @@ void CellRenderer::renderWorldData(
     // Clear buffer
     std::fill(canvasBuffer_.begin(), canvasBuffer_.end(), 0);
 
-    // Log the first render after a resize for debugging
-    static uint32_t lastWidth = 0;
-    static uint32_t lastHeight = 0;
-    if (lastWidth != worldData.width || lastHeight != worldData.height) {
-        spdlog::info(
-            "CellRenderer: First render at {}x{} world, {}x{} canvas, {}x{} cell size",
-            worldData.width,
-            worldData.height,
-            canvasWidth_,
-            canvasHeight_,
-            scaledCellWidth_,
-            scaledCellHeight_);
-        int32_t totalW = worldData.width * scaledCellWidth_;
-        int32_t totalH = worldData.height * scaledCellHeight_;
-        spdlog::info(
-            "CellRenderer: Total world rendering size {}x{}, fits in canvas? W:{} H:{}",
-            totalW,
-            totalH,
-            static_cast<uint32_t>(totalW) <= canvasWidth_,
-            static_cast<uint32_t>(totalH) <= canvasHeight_);
-        lastWidth = worldData.width;
-        lastHeight = worldData.height;
-    }
-
-    // Calculate world centering offset once for entire frame
-    int32_t totalWorldWidth = worldData.width * scaledCellWidth_;
-    int32_t totalWorldHeight = worldData.height * scaledCellHeight_;
-    int32_t renderOffsetX = (canvasWidth_ - totalWorldWidth) / 2;
-    int32_t renderOffsetY = (canvasHeight_ - totalWorldHeight) / 2;
-    if (renderOffsetX < 0) renderOffsetX = 0;
-    if (renderOffsetY < 0) renderOffsetY = 0;
+    // With transform scaling, world fills canvas exactly - no offset needed.
+    int32_t renderOffsetX = 0;
+    int32_t renderOffsetY = 0;
 
     if (usePixelRenderer) {
         // FAST PATH: Direct pixel rendering with alpha blending
@@ -453,7 +495,12 @@ void CellRenderer::renderWorldData(
             }
         }
 
-        // Invalidate canvas to trigger display update
+        // Apply bilinear smoothing filter if mode requires it.
+        if (useBilinearFilter) {
+            applyBilinearFilter(pixels, canvasWidth_, canvasHeight_);
+        }
+
+        // Invalidate canvas to trigger display update.
         lv_obj_invalidate(worldCanvas_);
     }
     else {
