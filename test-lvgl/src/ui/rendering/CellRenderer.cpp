@@ -2,7 +2,8 @@
 #include "core/MaterialType.h"
 #include <algorithm>
 #include <cassert>
-#include <new> // for std::bad_alloc
+#include <cmath> // for std::round
+#include <new>   // for std::bad_alloc
 #include <spdlog/spdlog.h>
 
 namespace DirtSim {
@@ -74,8 +75,18 @@ void CellRenderer::calculateScaling(uint32_t worldWidth, uint32_t worldHeight)
     // Ensure minimum cell size of 2x2 pixels
     pixelsPerCell = std::max(2.0, pixelsPerCell);
 
-    scaledCellWidth_ = static_cast<uint32_t>(pixelsPerCell);
-    scaledCellHeight_ = static_cast<uint32_t>(pixelsPerCell);
+    // Round to nearest integer to maximize canvas usage.
+    uint32_t candidateCellSize = static_cast<uint32_t>(std::round(pixelsPerCell));
+
+    // Ensure the total rendering size fits within canvas bounds.
+    // If rounding up would exceed canvas, use floor instead.
+    if (candidateCellSize * worldWidth > canvasWidth_
+        || candidateCellSize * worldHeight > canvasHeight_) {
+        candidateCellSize = static_cast<uint32_t>(std::floor(pixelsPerCell));
+    }
+
+    scaledCellWidth_ = candidateCellSize;
+    scaledCellHeight_ = candidateCellSize;
 
     // Calculate the scale factor relative to base Cell::WIDTH
     scaleX_ = pixelsPerCell / Cell::WIDTH;

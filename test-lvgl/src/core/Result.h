@@ -1,60 +1,71 @@
 #ifndef RESULT_H
 #define RESULT_H
 
-#include <cassert>
+#include <expected>
 #include <utility>
 
+/**
+ * Result<T, E>: Thin wrapper around C++23 std::expected.
+ *
+ * Provides compatibility with existing codebase while using the standard
+ * library's optimized implementation. std::expected properly handles
+ * uninitialized member warnings that our custom Result class triggered.
+ *
+ * Uses composition instead of inheritance to avoid name collisions between
+ * static factory methods and instance accessors.
+ */
 template <typename successT, typename failureT>
 class Result {
+private:
+    std::expected<successT, failureT> inner_;
+
 public:
-    // Default constructor: creates an error state with a default-constructed failureT
-    Result() : has_value_(false), error_(failureT()) {}
+    // Default constructor: creates an error state with default-constructed failureT.
+    Result() : inner_(std::unexpected(failureT())) {}
 
-    // Constructor for success state with a provided value
-    Result(successT value) : has_value_(true), value_(std::move(value)) {}
+    // Constructors that forward to std::expected.
+    Result(successT value) : inner_(std::move(value)) {}
+    Result(failureT err) : inner_(std::unexpected(std::move(err))) {}
+    Result(std::unexpected<failureT> err) : inner_(std::move(err)) {}
+    Result(std::expected<successT, failureT> exp) : inner_(std::move(exp)) {}
 
-    // Constructor for error state with a provided error
-    Result(failureT error) : has_value_(false), error_(std::move(error)) {}
-
-    // Static factory method to create a success result with default-constructed value
+    // Static factory method to create a success result with default-constructed value.
     static Result<successT, failureT> okay() { return Result<successT, failureT>(successT()); }
 
-    // Static factory method to create a success result with a specific value
+    // Static factory method to create a success result with a specific value.
+    // Suppress false positive -Wmaybe-uninitialized with GCC + -O3 + variants.
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
     static Result<successT, failureT> okay(successT value)
     {
         return Result<successT, failureT>(std::move(value));
     }
+#pragma GCC diagnostic pop
 
-    // Static factory method to create an error result with a specific error
-    static Result<successT, failureT> error(failureT error)
+    // Static factory method to create an error result with default-constructed error.
+    static Result<successT, failureT> error()
     {
-        return Result<successT, failureT>(std::move(error));
+        return Result<successT, failureT>(std::unexpected(failureT()));
     }
 
-    // Returns true if the result contains a value (success)
-    bool isValue() const { return has_value_; }
-
-    // Returns true if the result contains an error (failure)
-    bool isError() const { return !has_value_; }
-
-    // Access the success value (asserts if not in success state)
-    successT value() const
+    // Static factory method to create an error result with a specific error.
+    static Result<successT, failureT> error(failureT err)
     {
-        assert(has_value_);
-        return value_;
+        return Result<successT, failureT>(std::unexpected(std::move(err)));
     }
 
-    // Access the error value (asserts if not in error state)
-    failureT error() const
-    {
-        assert(!has_value_);
-        return error_;
-    }
+    // Compatibility accessors.
+    bool isValue() const { return inner_.has_value(); }
+    bool isError() const { return !inner_.has_value(); }
 
-private:
-    bool has_value_;
-    successT value_;
-    failureT error_;
+    // Value accessor (forward to inner_).
+    successT value() const& { return inner_.value(); }
+    successT value() && { return std::move(inner_).value(); }
+
+    // Error accessor - renamed to errorValue() to avoid collision with static error() factory.
+    const failureT& errorValue() const& { return inner_.error(); }
+    failureT& errorValue() & { return inner_.error(); }
+    failureT errorValue() && { return std::move(inner_).error(); }
 };
 
 #endif // RESULT_H
