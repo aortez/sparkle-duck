@@ -589,12 +589,13 @@ void CellRenderer::renderWorldData(
                     break;
                 }
                 const Cell& cell = worldData.cells[idx];
+                const CellDebug& debug = worldData.debug_info[idx];
 
                 // Calculate cell position with pre-computed offset
                 int32_t cellX = renderOffsetX + x * scaledCellWidth_;
                 int32_t cellY = renderOffsetY + y * scaledCellHeight_;
 
-                renderCellDirectOptimized(cell, layer, cellX, cellY, debugDraw, false);
+                renderCellDirectOptimized(cell, debug, layer, cellX, cellY, debugDraw, false);
             }
         }
 
@@ -629,6 +630,7 @@ void CellRenderer::cleanup()
 
 void CellRenderer::renderCellDirectOptimized(
     const Cell& cell,
+    const CellDebug& debug,
     lv_layer_t& layer,
     int32_t cellX,
     int32_t cellY,
@@ -853,12 +855,12 @@ void CellRenderer::renderCellDirectOptimized(
             }
 
             // Adhesion force vector (orange line from center).
-            if (scaledCellWidth_ >= 10 && cell.accumulated_adhesion_force.magnitude() > 0.01) {
+            if (scaledCellWidth_ >= 10 && debug.accumulated_adhesion_force.magnitude() > 0.01) {
                 const double ADHESION_SCALE = 10.0 * scaleX_;
                 int end_x = com_pixel_x
-                    + static_cast<int>(cell.accumulated_adhesion_force.x * ADHESION_SCALE);
+                    + static_cast<int>(debug.accumulated_adhesion_force.x * ADHESION_SCALE);
                 int end_y = com_pixel_y
-                    + static_cast<int>(cell.accumulated_adhesion_force.y * ADHESION_SCALE);
+                    + static_cast<int>(debug.accumulated_adhesion_force.y * ADHESION_SCALE);
 
                 lv_draw_line_dsc_t adhesion_dsc;
                 lv_draw_line_dsc_init(&adhesion_dsc);
@@ -872,7 +874,7 @@ void CellRenderer::renderCellDirectOptimized(
             }
 
             // COM cohesion force vector (purple line from cell center).
-            if (scaledCellWidth_ >= 10 && cell.accumulated_com_cohesion_force.magnitude() > 0.01) {
+            if (scaledCellWidth_ >= 10 && debug.accumulated_com_cohesion_force.magnitude() > 0.01) {
                 const double COHESION_SCALE = 1.0 * scaleX_;
 
                 // Draw from cell center (not COM).
@@ -880,9 +882,9 @@ void CellRenderer::renderCellDirectOptimized(
                 int cell_center_y = cellY + scaledCellHeight_ / 2;
 
                 int end_x = cell_center_x
-                    + static_cast<int>(cell.accumulated_com_cohesion_force.x * COHESION_SCALE);
+                    + static_cast<int>(debug.accumulated_com_cohesion_force.x * COHESION_SCALE);
                 int end_y = cell_center_y
-                    + static_cast<int>(cell.accumulated_com_cohesion_force.y * COHESION_SCALE);
+                    + static_cast<int>(debug.accumulated_com_cohesion_force.y * COHESION_SCALE);
 
                 lv_draw_line_dsc_t cohesion_dsc;
                 lv_draw_line_dsc_init(&cohesion_dsc);
@@ -896,7 +898,7 @@ void CellRenderer::renderCellDirectOptimized(
             }
 
             // Viscous force vector (cyan line from cell center).
-            if (scaledCellWidth_ >= 10 && cell.accumulated_viscous_force.magnitude() > 0.01) {
+            if (scaledCellWidth_ >= 10 && debug.accumulated_viscous_force.magnitude() > 0.01) {
                 const double VISCOUS_SCALE = 5.0 * scaleX_;
 
                 // Draw from cell center.
@@ -904,9 +906,9 @@ void CellRenderer::renderCellDirectOptimized(
                 int cell_center_y = cellY + scaledCellHeight_ / 2;
 
                 int end_x = cell_center_x
-                    + static_cast<int>(cell.accumulated_viscous_force.x * VISCOUS_SCALE);
+                    + static_cast<int>(debug.accumulated_viscous_force.x * VISCOUS_SCALE);
                 int end_y = cell_center_y
-                    + static_cast<int>(cell.accumulated_viscous_force.y * VISCOUS_SCALE);
+                    + static_cast<int>(debug.accumulated_viscous_force.y * VISCOUS_SCALE);
 
                 lv_draw_line_dsc_t viscous_dsc;
                 lv_draw_line_dsc_init(&viscous_dsc);

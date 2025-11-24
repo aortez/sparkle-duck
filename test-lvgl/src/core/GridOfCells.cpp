@@ -11,34 +11,22 @@ bool GridOfCells::USE_CACHE = true;
 // Runtime toggle for OpenMP parallelization (default: enabled).
 bool GridOfCells::USE_OPENMP = true;
 
-GridOfCells::GridOfCells(std::vector<Cell>& cells, uint32_t width, uint32_t height, Timers& timers)
+GridOfCells::GridOfCells(
+    std::vector<Cell>& cells, std::vector<CellDebug>& debug_info, uint32_t width, uint32_t height)
     : cells_(cells),
+      debug_info_(debug_info),
       empty_cells_(width, height),
       wall_cells_(width, height),
       support_bitmap_(width, height),
       empty_neighborhoods_(width * height, 0),
       material_neighborhoods_(width * height, 0),
-      debug_info_(width * height),
       width_(width),
       height_(height)
 {
     spdlog::debug("GridOfCells: Constructing cache ({}x{})", width, height);
-
-    {
-        ScopeTimer timer(timers, "grid_cache_populate_maps");
-        populateMaps();
-    }
-
-    {
-        ScopeTimer timer(timers, "grid_cache_empty_neighborhoods");
-        precomputeEmptyNeighborhoods();
-    }
-
-    {
-        ScopeTimer timer(timers, "grid_cache_material_neighborhoods");
-        precomputeMaterialNeighborhoods();
-    }
-
+    populateMaps();
+    precomputeEmptyNeighborhoods();
+    precomputeMaterialNeighborhoods();
     spdlog::debug("GridOfCells: Construction complete");
 }
 

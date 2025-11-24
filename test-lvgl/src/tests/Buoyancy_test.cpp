@@ -1,4 +1,5 @@
 #include "core/Cell.h"
+#include "core/GridOfCells.h"
 #include "core/MaterialType.h"
 #include "core/PhysicsSettings.h"
 #include "core/World.h"
@@ -551,6 +552,7 @@ TEST_P(ParameterizedBuoyancyTest, MaterialBuoyancyBehavior)
         // Log every 50 steps.
         if (step % 50 == 0 && current_y >= 0) {
             const Cell& cell = world->getData().at(0, current_y);
+            const CellDebug& debug = world->getGrid().debugAt(0, current_y);
             spdlog::info(
                 "  Step {}: {} at y={}, vel=({:.3f},{:.3f}), com=({:.3f},{:.3f}), fill={:.3f}",
                 step,
@@ -571,21 +573,21 @@ TEST_P(ParameterizedBuoyancyTest, MaterialBuoyancyBehavior)
             spdlog::info(
                 "    Forces: viscous=({:.3f},{:.3f}), adhesion=({:.3f},{:.3f}), "
                 "cohesion=({:.3f},{:.3f}), friction=({:.3f},{:.3f}), pending=({:.3f},{:.3f})",
-                cell.accumulated_viscous_force.x,
-                cell.accumulated_viscous_force.y,
-                cell.accumulated_adhesion_force.x,
-                cell.accumulated_adhesion_force.y,
-                cell.accumulated_com_cohesion_force.x,
-                cell.accumulated_com_cohesion_force.y,
-                cell.accumulated_friction_force.x,
-                cell.accumulated_friction_force.y,
+                debug.accumulated_viscous_force.x,
+                debug.accumulated_viscous_force.y,
+                debug.accumulated_adhesion_force.x,
+                debug.accumulated_adhesion_force.y,
+                debug.accumulated_com_cohesion_force.x,
+                debug.accumulated_com_cohesion_force.y,
+                debug.accumulated_friction_force.x,
+                debug.accumulated_friction_force.y,
                 cell.pending_force.x,
                 cell.pending_force.y);
             spdlog::info(
                 "    Support: any={}, vertical={}, friction_coeff={:.3f}",
                 cell.has_any_support,
                 cell.has_vertical_support,
-                cell.cached_friction_coefficient);
+                debug.cached_friction_coefficient);
         }
 
         Vector2d vel_before =

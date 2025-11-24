@@ -58,6 +58,7 @@ private:
     // Direct rendering to single canvas at scaled resolution (optimized)
     void renderCellDirectOptimized(
         const Cell& cell,
+        const CellDebug& debug,
         lv_layer_t& layer,
         int32_t cellX,
         int32_t cellY,

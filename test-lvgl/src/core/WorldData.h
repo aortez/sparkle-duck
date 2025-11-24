@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Cell.h"
+#include "CellDebug.h"
 #include "ReflectSerializer.h"
 #include "ScenarioConfig.h"
 #include "organisms/TreeSensoryData.h"
@@ -15,6 +16,7 @@
 namespace DirtSim {
 
 struct WorldData {
+    // ===== Fields 1-10: Binary serialized (zpp_bits) =====
     // Grid dimensions and cells (1D storage for performance).
     uint32_t width = 0;
     uint32_t height = 0;
@@ -35,6 +37,9 @@ struct WorldData {
     // Tree organism data (optional - only present when showing a tree's vision).
     std::optional<TreeSensoryData> tree_vision;
 
+    // ===== Field 11+: NOT binary serialized (runtime/debug only) =====
+    std::vector<CellDebug> debug_info; // Debug/viz info: debug_info[y * width + x]
+
     // Direct cell access methods (inline for performance).
     inline Cell& at(uint32_t x, uint32_t y)
     {
@@ -48,8 +53,22 @@ struct WorldData {
         return cells[y * width + x];
     }
 
-    // Custom zpp_bits serialization (all 10 fields).
-    using serialize = zpp::bits::members<10>;
+    // Custom zpp_bits serialization (excludes debug_info - field 11).
+    constexpr static auto serialize(auto& archive, auto& self)
+    {
+        return archive(
+            self.width,
+            self.height,
+            self.cells,
+            self.timestep,
+            self.removed_mass,
+            self.fps_server,
+            self.add_particles_enabled,
+            self.scenario_id,
+            self.scenario_config,
+            self.tree_vision);
+        // debug_info intentionally excluded from binary serialization.
+    }
 };
 
 /**
@@ -88,6 +107,10 @@ inline void to_json(nlohmann::json& j, const WorldData& data)
 inline void from_json(const nlohmann::json& j, WorldData& data)
 {
     data = ReflectSerializer::from_json<WorldData>(j);
+    // Ensure debug_info is sized correctly after deserialization.
+    if (data.debug_info.size() != data.width * data.height) {
+        data.debug_info.resize(data.width * data.height);
+    }
 }
 
 } // namespace DirtSim

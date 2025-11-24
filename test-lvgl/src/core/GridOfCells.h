@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Cell.h"
+#include "CellDebug.h"
 #include "Vector2d.h"
 #include "bitmaps/CellBitmap.h"
 #include "bitmaps/EmptyNeighborhood.h"
@@ -8,28 +9,7 @@
 
 #include <vector>
 
-// Forward declaration (Timers is in global namespace).
-class Timers;
-
 namespace DirtSim {
-
-/**
- * CellDebug: Debug information for visualization/analysis.
- *
- * Stored separately from Cell to keep core physics data compact.
- */
-struct CellDebug {
-    // Force accumulation for visualization.
-    Vector2d accumulated_viscous_force = {};
-    Vector2d accumulated_adhesion_force = {};
-    Vector2d accumulated_com_cohesion_force = {};
-    Vector2d accumulated_friction_force = {};
-
-    // Physics debug values.
-    double damping_factor = 1.0;              // Effective damping applied to velocity.
-    double cohesion_resistance = 0.0;         // Cohesion resistance threshold.
-    double cached_friction_coefficient = 1.0; // Friction coefficient used this frame.
-};
 
 /**
  * GridOfCells: Computed cache layer for World physics optimization.
@@ -58,13 +38,13 @@ public:
     static bool USE_OPENMP;
 
 private:
-    std::vector<Cell>& cells_;
+    std::vector<Cell>& cells_;           // Reference to WorldData's cells.
+    std::vector<CellDebug>& debug_info_; // Reference to WorldData's debug info.
     CellBitmap empty_cells_;
     CellBitmap wall_cells_;
     CellBitmap support_bitmap_;
     std::vector<uint64_t> empty_neighborhoods_;
     std::vector<uint64_t> material_neighborhoods_;
-    std::vector<CellDebug> debug_info_; // Debug information (damping, friction, etc.).
     uint32_t width_;
     uint32_t height_;
 
@@ -75,27 +55,34 @@ private:
     void precomputeMaterialNeighborhoods();
 
 public:
-    GridOfCells(std::vector<Cell>& cells, uint32_t width, uint32_t height, Timers& timers);
+    GridOfCells(
+        std::vector<Cell>& cells,
+        std::vector<CellDebug>& debug_info,
+        uint32_t width,
+        uint32_t height);
 
-    const CellBitmap& emptyCells() const { return empty_cells_; }
-    const CellBitmap& wallCells() const { return wall_cells_; }
-    const CellBitmap& supportBitmap() const { return support_bitmap_; }
-    CellBitmap& supportBitmap() { return support_bitmap_; }
+    inline const CellBitmap& emptyCells() const { return empty_cells_; }
+    inline const CellBitmap& wallCells() const { return wall_cells_; }
+    inline const CellBitmap& supportBitmap() const { return support_bitmap_; }
+    inline CellBitmap& supportBitmap() { return support_bitmap_; }
 
-    EmptyNeighborhood getEmptyNeighborhood(uint32_t x, uint32_t y) const
+    inline EmptyNeighborhood getEmptyNeighborhood(uint32_t x, uint32_t y) const
     {
         return EmptyNeighborhood{ Neighborhood3x3{ empty_neighborhoods_[y * width_ + x] } };
     }
 
-    MaterialNeighborhood getMaterialNeighborhood(uint32_t x, uint32_t y) const
+    inline MaterialNeighborhood getMaterialNeighborhood(uint32_t x, uint32_t y) const
     {
         return MaterialNeighborhood{ material_neighborhoods_[y * width_ + x] };
     }
 
     // Debug info access.
-    CellDebug& debugAt(uint32_t x, uint32_t y) { return debug_info_[y * width_ + x]; }
+    inline CellDebug& debugAt(uint32_t x, uint32_t y) { return debug_info_[y * width_ + x]; }
 
-    const CellDebug& debugAt(uint32_t x, uint32_t y) const { return debug_info_[y * width_ + x]; }
+    inline const CellDebug& debugAt(uint32_t x, uint32_t y) const
+    {
+        return debug_info_[y * width_ + x];
+    }
 
     // Legacy cohesion resistance access (for compatibility).
     void setCohesionResistance(uint32_t x, uint32_t y, double resistance)
@@ -112,15 +99,15 @@ public:
 
     inline const Cell& at(uint32_t x, uint32_t y) const { return cells_[y * width_ + x]; }
 
-    std::vector<Cell>& getCells() { return cells_; }
+    inline std::vector<Cell>& getCells() { return cells_; }
 
-    const std::vector<Cell>& getCells() const { return cells_; }
+    inline const std::vector<Cell>& getCells() const { return cells_; }
 
     // Grid dimensions.
-    uint32_t getWidth() const { return width_; }
-    uint32_t getHeight() const { return height_; }
-    uint32_t getBlocksX() const { return empty_cells_.getBlocksX(); }
-    uint32_t getBlocksY() const { return empty_cells_.getBlocksY(); }
+    inline uint32_t getWidth() const { return width_; }
+    inline uint32_t getHeight() const { return height_; }
+    inline uint32_t getBlocksX() const { return empty_cells_.getBlocksX(); }
+    inline uint32_t getBlocksY() const { return empty_cells_.getBlocksY(); }
 };
 
 } // namespace DirtSim

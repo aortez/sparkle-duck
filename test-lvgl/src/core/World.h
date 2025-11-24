@@ -250,6 +250,10 @@ public:
     WorldData& getData();
     const WorldData& getData() const;
 
+    // Grid cache for debug info access.
+    GridOfCells& getGrid();
+    const GridOfCells& getGrid() const;
+
     // Physics settings - public accessors for Pimpl-stored settings.
     PhysicsSettings& getPhysicsSettings();
     const PhysicsSettings& getPhysicsSettings() const;

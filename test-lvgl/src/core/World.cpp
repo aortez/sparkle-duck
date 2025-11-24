@@ -43,6 +43,9 @@ struct World::Impl {
     // Physics settings (previously public).
     PhysicsSettings physicsSettings_;
 
+    // Persistent grid cache (initialized after data_ in constructor).
+    std::optional<GridOfCells> grid_;
+
     // Calculators (previously public).
     // WorldSupportCalculator, WorldFrictionCalculator removed - now constructed locally with
     // GridOfCells reference.
@@ -97,6 +100,7 @@ World::World(uint32_t width, uint32_t height)
 
     // Initialize cell grid.
     pImpl->data_.cells.resize(pImpl->data_.width * pImpl->data_.height);
+    pImpl->data_.debug_info.resize(pImpl->data_.width * pImpl->data_.height);
 
     // Initialize with air.
     for (auto& cell : pImpl->data_.cells) {
@@ -107,6 +111,10 @@ World::World(uint32_t width, uint32_t height)
     if (areWallsEnabled()) {
         setupBoundaryWalls();
     }
+
+    // Initialize persistent GridOfCells for debug info and caching.
+    pImpl->grid_.emplace(
+        pImpl->data_.cells, pImpl->data_.debug_info, pImpl->data_.width, pImpl->data_.height);
 
     spdlog::info("World initialization complete");
 }
@@ -183,6 +191,16 @@ WorldData& World::getData()
 const WorldData& World::getData() const
 {
     return pImpl->data_;
+}
+
+GridOfCells& World::getGrid()
+{
+    return *pImpl->grid_;
+}
+
+const GridOfCells& World::getGrid() const
+{
+    return *pImpl->grid_;
 }
 
 PhysicsSettings& World::getPhysicsSettings()
@@ -445,8 +463,13 @@ void World::advanceTime(double deltaTimeSeconds)
         return;
     }
 
-    // Build grid cache for optimized empty cell and material lookups.
-    GridOfCells grid(pImpl->data_.cells, pImpl->data_.width, pImpl->data_.height, pImpl->timers_);
+    // Rebuild grid cache for current frame (maps may have changed from previous step).
+    {
+        ScopeTimer timer(pImpl->timers_, "grid_cache_rebuild");
+        pImpl->grid_.emplace(
+            pImpl->data_.cells, pImpl->data_.debug_info, pImpl->data_.width, pImpl->data_.height);
+    }
+    GridOfCells& grid = *pImpl->grid_;
 
     // Pre-compute support map for all cells (bottom-up pass).
     {
@@ -961,22 +984,6 @@ void World::resolveForces(double deltaTime, const GridOfCells& grid)
                         cell.velocity.x,
                         cell.velocity.y);
                 }
-            }
-        }
-    }
-
-    // Sync debug info from GridOfCells to Cell for external access after grid is destroyed.
-    {
-        ScopeTimer copyTimer(timers, "resolve_forces_sync_debug");
-        for (uint32_t y = 0; y < data.height; ++y) {
-            for (uint32_t x = 0; x < data.width; ++x) {
-                const CellDebug& debug = grid.debugAt(x, y);
-                Cell& cell = data.at(x, y);
-                cell.accumulated_viscous_force = debug.accumulated_viscous_force;
-                cell.accumulated_adhesion_force = debug.accumulated_adhesion_force;
-                cell.accumulated_com_cohesion_force = debug.accumulated_com_cohesion_force;
-                cell.accumulated_friction_force = debug.accumulated_friction_force;
-                cell.cached_friction_coefficient = debug.cached_friction_coefficient;
             }
         }
     }
