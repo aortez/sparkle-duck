@@ -35,6 +35,10 @@ public:
     // Set to false to benchmark overhead, true for optimized path.
     static bool USE_CACHE;
 
+    // Runtime toggle: Controls whether OpenMP parallelization is enabled.
+    // Set to false to test sequential execution, true for parallel (default).
+    static bool USE_OPENMP;
+
 private:
     std::vector<Cell>& cells_;
     CellBitmap empty_cells_;

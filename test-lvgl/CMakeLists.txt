@@ -386,6 +386,7 @@ add_executable(sparkle-duck-tests
     src/server/tests/StateIdle_test.cpp
     src/server/tests/StateSimRunning_test.cpp
     src/tests/Buoyancy_test.cpp
+    src/tests/CacheCorrectness_test.cpp
     src/tests/Pimpl_test.cpp
     src/tests/ResultTest.cpp
     src/tests/TimersTest.cpp

@@ -58,6 +58,11 @@ int main(int argc, char** argv)
         "no-grid-cache",
         "Disable GridOfCells bitmap cache (for benchmarking)",
         { "no-grid-cache" });
+    args::Flag openmpDisabled(
+        parser,
+        "no-openmp",
+        "Disable OpenMP parallelization (for testing/debugging)",
+        { "no-openmp" });
 
     try {
         parser.ParseCLI(argc, argv);
@@ -78,6 +83,10 @@ int main(int argc, char** argv)
     // Configure GridOfCells cache (default: enabled).
     GridOfCells::USE_CACHE = !gridCacheDisabled;
     spdlog::info("GridOfCells cache: {}", GridOfCells::USE_CACHE ? "ENABLED" : "DISABLED");
+
+    // Configure OpenMP parallelization (default: enabled).
+    GridOfCells::USE_OPENMP = !openmpDisabled;
+    spdlog::info("OpenMP parallelization: {}", GridOfCells::USE_OPENMP ? "ENABLED" : "DISABLED");
 
     // Initialize logging from config file (supports .local override).
     std::string configPath = logConfig ? args::get(logConfig) : "logging-config.json";

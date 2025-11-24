@@ -66,6 +66,8 @@ WorldViscosityCalculator::ViscousForce WorldViscosityCalculator::calculateViscou
     double viscosity_strength,
     const GridOfCells* grid) const
 {
+    (void)grid; // Unused: now using cell.has_any_support instead of grid->supportBitmap().
+
     // Cache data reference to avoid repeated pImpl dereferences.
     const WorldData& data = world.getData();
     const Cell& cell = data.at(x, y);
@@ -94,23 +96,36 @@ WorldViscosityCalculator::ViscousForce WorldViscosityCalculator::calculateViscou
     // Velocity difference drives viscous force.
     Vector2d velocity_difference = avg_neighbor_velocity - cell.velocity;
 
-    bool has_solid_support = false;
-    if (GridOfCells::USE_CACHE && grid) {
-        if (grid->supportBitmap().isSet(x, y) && y < data.height - 1) {
-            const Cell& below = data.at(x, y + 1);
-            if (!below.isEmpty()) {
-                const MaterialProperties& below_props = getMaterialProperties(below.material_type);
-                has_solid_support = !below_props.is_fluid;
-            }
+    // Check for solid support.
+    // Assert that support bitmap matches cell field (debug/verify consistency).
+    if (grid && GridOfCells::USE_CACHE) {
+        bool bitmap_support = grid->supportBitmap().isSet(x, y);
+        bool cell_support = cell.has_any_support;
+
+        if (bitmap_support != cell_support) {
+            spdlog::error(
+                "SUPPORT MISMATCH at [{},{}]: bitmap={}, cell.has_any_support={}",
+                x,
+                y,
+                bitmap_support,
+                cell_support);
+            spdlog::error(
+                "  Cell: material={}, fill={:.2f}, has_vertical={}, has_any={}",
+                static_cast<int>(cell.material_type),
+                cell.fill_ratio,
+                cell.has_vertical_support,
+                cell.has_any_support);
+            // Abort to catch this immediately during testing.
+            std::abort();
         }
     }
-    else {
-        if (cell.has_any_support && y < data.height - 1) {
-            const Cell& below = data.at(x, y + 1);
-            if (!below.isEmpty()) {
-                const MaterialProperties& below_props = getMaterialProperties(below.material_type);
-                has_solid_support = !below_props.is_fluid;
-            }
+
+    bool has_solid_support = false;
+    if (cell.has_any_support && y < data.height - 1) {
+        const Cell& below = data.at(x, y + 1);
+        if (!below.isEmpty()) {
+            const MaterialProperties& below_props = getMaterialProperties(below.material_type);
+            has_solid_support = !below_props.is_fluid;
         }
     }
     double support_factor = has_solid_support ? 1.0 : 0.0;

@@ -35,17 +35,32 @@ if [ "$SKIP_TESTS" != "1" ]; then
     echo "Running tests..."
     cd "$REPO_ROOT/test-lvgl" || exit 1
 
-    # Run tests quietly, only show summary.
+    # Run unit tests quietly, only show summary.
     TEST_OUTPUT=$(make test 2>&1)
     if echo "$TEST_OUTPUT" | tail -10 | grep -q "\[  FAILED  \]"; then
         echo ""
-        echo "❌ Tests failed! Commit blocked."
+        echo "❌ Unit tests failed! Commit blocked."
         echo "To see details: make test"
         echo "To skip tests: SKIP_TESTS=1 git commit"
         exit 1
     fi
 
-    echo "✅ All tests passed."
+    echo "✅ Unit tests passed."
+
+    # Run CLI integration test (quick smoke test of server + UI).
+    echo "Running integration test..."
+    if ! ./build/bin/cli integration_test >/dev/null 2>&1; then
+        echo ""
+        echo "❌ Integration test failed! Commit blocked."
+        echo "To see details: ./build/bin/cli integration_test"
+        echo "To skip tests: SKIP_TESTS=1 git commit"
+        exit 1
+    fi
+
+    echo "✅ Integration test passed."
+
+    # Note: Cache correctness is verified by CacheCorrectnessTest in unit tests above.
+    # No need for separate CLI benchmark test in pre-commit hook.
 fi
 
 exit 0

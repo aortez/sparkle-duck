@@ -33,6 +33,7 @@ struct BenchmarkResults {
     double server_network_send_avg_ms = 0.0;
 
     nlohmann::json timer_stats;
+    nlohmann::json final_world_state; // Optional: captured via state_get if requested.
 };
 
 /**
@@ -50,14 +51,16 @@ public:
         const std::string& serverPath,
         uint32_t steps,
         const std::string& scenario = "benchmark",
-        int worldSize = 0);
+        int worldSize = 0,
+        bool captureWorldState = false);
 
     BenchmarkResults runWithServerArgs(
         const std::string& serverPath,
         uint32_t steps,
         const std::string& scenario,
         const std::string& serverArgs,
-        int worldSize = 0);
+        int worldSize = 0,
+        bool captureWorldState = false);
 
 private:
     SubprocessManager subprocessManager_;

@@ -8,6 +8,9 @@ namespace DirtSim {
 // Runtime toggle for cache usage (default: enabled).
 bool GridOfCells::USE_CACHE = true;
 
+// Runtime toggle for OpenMP parallelization (default: enabled).
+bool GridOfCells::USE_OPENMP = true;
+
 GridOfCells::GridOfCells(std::vector<Cell>& cells, uint32_t width, uint32_t height, Timers& timers)
     : cells_(cells),
       empty_cells_(width, height),

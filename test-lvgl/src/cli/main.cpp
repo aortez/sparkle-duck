@@ -230,16 +230,22 @@ int main(int argc, char** argv)
         (void)benchWorldSize; // Unused - world size now determined by scenario.
 
         if (compareCache) {
-            // Run twice: with and without cache.
+            // Compare full system (cache + OpenMP) vs baseline.
             Client::BenchmarkRunner runner;
 
             spdlog::set_level(spdlog::level::info);
-            spdlog::info("Running benchmark WITH cache enabled...");
-            auto results_cached = runner.run(serverPath.string(), actualSteps, actualScenario);
+            spdlog::info("Running benchmark WITH cache + OpenMP (default)...");
+            auto results_cached =
+                runner.run(serverPath.string(), actualSteps, actualScenario, 0, true);
 
-            spdlog::info("Running benchmark WITHOUT cache (--no-grid-cache)...");
+            spdlog::info("Running benchmark WITHOUT cache or OpenMP (baseline)...");
             auto results_direct = runner.runWithServerArgs(
-                serverPath.string(), actualSteps, actualScenario, "--no-grid-cache");
+                serverPath.string(),
+                actualSteps,
+                actualScenario,
+                "--no-grid-cache --no-openmp",
+                0,
+                true);
 
             // Build comparison output.
             nlohmann::json comparison;
@@ -257,8 +263,8 @@ int main(int argc, char** argv)
                 direct_json["timer_stats"] = sortTimerStats(results_direct.timer_stats);
             }
 
-            comparison["with_cache"] = cached_json;
-            comparison["without_cache"] = direct_json;
+            comparison["with_cache_and_openmp"] = cached_json;
+            comparison["without_cache_or_openmp_baseline"] = direct_json;
 
             // Calculate speedup.
             double cached_fps = results_cached.server_fps;
@@ -266,9 +272,53 @@ int main(int argc, char** argv)
             double speedup = (cached_fps / direct_fps - 1.0) * 100.0;
 
             comparison["speedup_percent"] = speedup;
-            comparison["summary"] = speedup > 0 ? "Cache is faster" : "Cache is slower";
+
+            // Verify correctness by comparing cached+OpenMP vs non-cached results.
+            bool states_match = true;
+            if (!results_cached.final_world_state.empty()
+                && !results_direct.final_world_state.empty()) {
+                // Remove has_support field before comparison (non-deterministic).
+                auto removeHasSupport = [](nlohmann::json& state) {
+                    if (state.contains("cells") && state["cells"].is_array()) {
+                        for (auto& cell : state["cells"]) {
+                            if (cell.contains("has_support")) {
+                                cell.erase("has_support");
+                            }
+                        }
+                    }
+                };
+
+                nlohmann::json cached_state = results_cached.final_world_state;
+                nlohmann::json direct_state = results_direct.final_world_state;
+                removeHasSupport(cached_state);
+                removeHasSupport(direct_state);
+
+                states_match = (cached_state == direct_state);
+
+                if (states_match) {
+                    spdlog::info("✅ World states MATCH - optimizations are CORRECT!");
+                    comparison["correctness"] = "PASS";
+                    comparison["conclusion"] = "Cache and OpenMP produce correct results.";
+                }
+                else {
+                    spdlog::error("❌ World states DIFFER - optimizations have BUGS!");
+                    comparison["correctness"] = "FAIL";
+                    comparison["error"] = "Optimized path produces different results than baseline";
+                    comparison["conclusion"] = "Bug in cache or OpenMP implementation.";
+                }
+            }
+            else {
+                spdlog::warn("⚠️  Could not verify correctness - world state capture failed");
+                comparison["correctness"] = "UNKNOWN";
+                states_match = false;
+            }
+
+            comparison["summary"] = states_match ? "Correct and faster" : "INCORRECT - has bugs!";
 
             std::cout << comparison.dump(2) << std::endl;
+
+            // Return non-zero exit code if correctness check failed.
+            return states_match ? 0 : 1;
         }
         else {
             // Single run (default behavior).

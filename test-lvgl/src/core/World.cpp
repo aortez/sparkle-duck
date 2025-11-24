@@ -688,10 +688,10 @@ void World::applyCohesionForces(const GridOfCells& grid)
     {
         ScopeTimer cohesionTimer(timers, "cohesion_calculation");
 
-        // Parallelize when cache is enabled (use sequential for reference path).
+        // Parallelize when both cache and OpenMP are enabled.
 #ifdef _OPENMP
-#pragma omp parallel for collapse(2) \
-    schedule(static) if (GridOfCells::USE_CACHE && data.height * data.width >= 2500)
+#pragma omp parallel for collapse(2) schedule(static) if ( \
+        GridOfCells::USE_CACHE && GridOfCells::USE_OPENMP && data.height * data.width >= 2500)
 #endif
         for (uint32_t y = 0; y < data.height; ++y) {
             for (uint32_t x = 0; x < data.width; ++x) {
@@ -732,10 +732,10 @@ void World::applyCohesionForces(const GridOfCells& grid)
     if (settings.adhesion_strength > 0.0) {
         ScopeTimer adhesionTimer(timers, "adhesion_calculation");
 
-        // Parallelize when cache is enabled (use sequential for reference path).
+        // Parallelize when both cache and OpenMP are enabled.
 #ifdef _OPENMP
-#pragma omp parallel for collapse(2) \
-    schedule(static) if (GridOfCells::USE_CACHE && data.height * data.width >= 2500)
+#pragma omp parallel for collapse(2) schedule(static) if ( \
+        GridOfCells::USE_CACHE && GridOfCells::USE_OPENMP && data.height * data.width >= 2500)
 #endif
         for (uint32_t y = 0; y < data.height; ++y) {
             for (uint32_t x = 0; x < data.width; ++x) {
@@ -771,6 +771,11 @@ void World::applyPressureForces()
     }
 
     // Apply pressure forces through the pending force system.
+    // Parallelize when both cache and OpenMP are enabled.
+#ifdef _OPENMP
+#pragma omp parallel for collapse(2) schedule(static) if ( \
+        GridOfCells::USE_CACHE && GridOfCells::USE_OPENMP && data.height * data.width >= 2500)
+#endif
     for (uint32_t y = 0; y < data.height; ++y) {
         for (uint32_t x = 0; x < data.width; ++x) {
             Cell& cell = data.at(x, y);
@@ -869,6 +874,12 @@ void World::resolveForces(double deltaTime, const GridOfCells& grid)
     if (settings.viscosity_strength > 0.0) {
         ScopeTimer viscosityTimer(timers, "apply_viscous_forces");
         double visc_strength = settings.viscosity_strength; // Cache once for entire loop.
+
+        // Parallelize when cache is enabled (use sequential for reference path).
+#ifdef _OPENMP
+#pragma omp parallel for collapse(2) \
+    schedule(static) if (GridOfCells::USE_CACHE && data.height * data.width >= 2500)
+#endif
         for (uint32_t y = 0; y < data.height; ++y) {
             for (uint32_t x = 0; x < data.width; ++x) {
                 Cell& cell = data.at(x, y);
@@ -891,58 +902,113 @@ void World::resolveForces(double deltaTime, const GridOfCells& grid)
     // Now resolve all accumulated forces directly (no damping).
     {
         ScopeTimer resolutionLoopTimer(timers, "resolve_forces_resolution_loop");
-        for (uint32_t y = 0; y < data.height; ++y) {
-            for (uint32_t x = 0; x < data.width; ++x) {
-                Cell& cell = data.at(x, y);
 
-                if (cell.isEmpty() || cell.isWall()) {
-                    continue;
+        // Use block-skipping when cache is enabled to avoid processing empty regions.
+        if (GridOfCells::USE_CACHE) {
+            const CellBitmap& empty_bitmap = grid.emptyCells();
+            const uint32_t blocks_x = empty_bitmap.getBlocksX();
+            const uint32_t blocks_y = empty_bitmap.getBlocksY();
+
+            for (uint32_t block_y = 0; block_y < blocks_y; ++block_y) {
+                for (uint32_t block_x = 0; block_x < blocks_x; ++block_x) {
+                    // Skip entire 8×8 block if all cells are empty.
+                    if (empty_bitmap.isBlockAllSet(block_x, block_y)) {
+                        continue;
+                    }
+
+                    // Process cells in this block.
+                    const uint32_t y_start = block_y * 8;
+                    const uint32_t y_end = std::min(y_start + 8, data.height);
+                    const uint32_t x_start = block_x * 8;
+                    const uint32_t x_end = std::min(x_start + 8, data.width);
+
+                    for (uint32_t y = y_start; y < y_end; ++y) {
+                        for (uint32_t x = x_start; x < x_end; ++x) {
+                            Cell& cell = data.at(x, y);
+
+                            if (cell.isEmpty() || cell.isWall()) {
+                                continue;
+                            }
+
+                            // Get the total pending force (includes gravity, pressure, cohesion,
+                            // adhesion, friction, viscosity, etc).
+                            Vector2d net_force = cell.pending_force;
+
+                            // Check cohesion resistance threshold.
+                            double net_force_magnitude = net_force.magnitude();
+
+                            // Use cached cohesion strength (computed during applyCohesionForces).
+                            double cohesion_strength = grid.getCohesionResistance(x, y);
+                            double cohesion_resistance_force =
+                                cohesion_strength * settings.cohesion_resistance_factor;
+
+                            if (cohesion_resistance_force > 0.01
+                                && net_force_magnitude < cohesion_resistance_force) {
+                                spdlog::debug(
+                                    "Force blocked: {} at ({},{}) held by cohesion (force: {:.3f} "
+                                    "< "
+                                    "resistance: "
+                                    "{:.3f})",
+                                    getMaterialName(cell.material_type),
+                                    x,
+                                    y,
+                                    net_force_magnitude,
+                                    cohesion_resistance_force);
+                                continue;
+                            }
+
+                            // Apply forces directly to velocity (no damping factor!).
+                            Vector2d velocity_change = net_force * deltaTime;
+                            cell.velocity += velocity_change;
+
+                            // Debug logging.
+                            if (net_force.magnitude() > 0.001) {
+                                spdlog::debug(
+                                    "Cell ({},{}) {} - Force: ({:.3f},{:.3f}), vel_change: "
+                                    "({:.3f},{:.3f}), "
+                                    "new_vel: ({:.3f},{:.3f})",
+                                    x,
+                                    y,
+                                    getMaterialName(cell.material_type),
+                                    net_force.x,
+                                    net_force.y,
+                                    velocity_change.x,
+                                    velocity_change.y,
+                                    cell.velocity.x,
+                                    cell.velocity.y);
+                            }
+                        }
+                    }
                 }
+            }
+        }
+        else {
+            // Fallback: sequential iteration when cache is disabled.
+            for (uint32_t y = 0; y < data.height; ++y) {
+                for (uint32_t x = 0; x < data.width; ++x) {
+                    Cell& cell = data.at(x, y);
 
-                // Get the total pending force (includes gravity, pressure, cohesion, adhesion,
-                // friction, viscosity).
-                Vector2d net_force = cell.pending_force;
+                    if (cell.isEmpty() || cell.isWall()) {
+                        continue;
+                    }
 
-                // Check cohesion resistance threshold.
-                double net_force_magnitude = net_force.magnitude();
+                    // Get the total pending force.
+                    Vector2d net_force = cell.pending_force;
 
-                // Use cached cohesion strength (computed during applyCohesionForces).
-                double cohesion_strength = grid.getCohesionResistance(x, y);
-                double cohesion_resistance_force =
-                    cohesion_strength * settings.cohesion_resistance_factor;
+                    // Check cohesion resistance threshold.
+                    double net_force_magnitude = net_force.magnitude();
+                    double cohesion_strength = grid.getCohesionResistance(x, y);
+                    double cohesion_resistance_force =
+                        cohesion_strength * settings.cohesion_resistance_factor;
 
-                if (cohesion_resistance_force > 0.01
-                    && net_force_magnitude < cohesion_resistance_force) {
-                    spdlog::debug(
-                        "Force blocked: {} at ({},{}) held by cohesion (force: {:.3f} < "
-                        "resistance: "
-                        "{:.3f})",
-                        getMaterialName(cell.material_type),
-                        x,
-                        y,
-                        net_force_magnitude,
-                        cohesion_resistance_force);
-                    continue;
-                }
+                    if (cohesion_resistance_force > 0.01
+                        && net_force_magnitude < cohesion_resistance_force) {
+                        continue;
+                    }
 
-                // Apply forces directly to velocity (no damping factor!).
-                Vector2d velocity_change = net_force * deltaTime;
-                cell.velocity += velocity_change;
-
-                // Debug logging.
-                if (net_force.magnitude() > 0.001) {
-                    spdlog::debug(
-                        "Cell ({},{}) {} - Force: ({:.3f},{:.3f}), vel_change: ({:.3f},{:.3f}), "
-                        "new_vel: ({:.3f},{:.3f})",
-                        x,
-                        y,
-                        getMaterialName(cell.material_type),
-                        net_force.x,
-                        net_force.y,
-                        velocity_change.x,
-                        velocity_change.y,
-                        cell.velocity.x,
-                        cell.velocity.y);
+                    // Apply forces directly to velocity.
+                    Vector2d velocity_change = net_force * deltaTime;
+                    cell.velocity += velocity_change;
                 }
             }
         }
