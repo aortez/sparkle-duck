@@ -24,64 +24,73 @@ Install pre-commit hooks to automatically format code and run tests:
 
 ### Building
 ```bash
-# Build debug version (don't build release unless asked)
+# Build debug version (outputs to build-debug/).
 make debug
 
-# Make the unit tests
+# Build optimized release version (outputs to build-release/).
+make release
+
+# Make the unit tests.
 make build-tests
 
-# Format source code
+# Format source code.
 make format
 
-# Clean build artifacts
+# Clean build artifacts (removes both build-debug/ and build-release/).
 make clean
 
-# Show all available targets
+# Show all available targets.
 make help
 
-# Manual CMake build (if needed)
-cmake -B build -S .
-make -C build -j12
+# Manual CMake build (if needed).
+cmake -B build-debug -S . -DCMAKE_BUILD_TYPE=Debug
+make -C build-debug -j12
+
+# Note: Debug and release builds use separate directories to avoid conflicts.
+# - build-debug/  - Debug builds (-O0 -g)
+# - build-release/ - Release builds (-O3 optimizations)
 ```
 
 ### Running
 ```bash
-# Run both client and server
-./build/bin/cli run-all
+# Run both client and server (debug build).
+./build-debug/bin/cli run-all
+
+# Run with optimized release build for performance testing.
+./build-release/bin/cli run-all
 
 # CLI integration test (quick, verifies ui, server, and cli).
-./build/bin/cli integration_test
+./build-debug/bin/cli integration_test
 
-# Clean up all sparkle-duck processes
-./build/bin/cli cleanup
+# Clean up all sparkle-duck processes.
+./build-debug/bin/cli cleanup
 
-# Run benchmark and output results to file.
-# Human readable output is on stderr.
-./build/bin/cli benchmark > benchmark.json && cat benchmark.json | jq .server_fps
+# Run benchmark and output results to file (use release build for accurate performance!).
+./build-release/bin/cli benchmark > benchmark.json && cat benchmark.json | jq .server_fps
 
-# Sending commands to server and ui (syntax: cli [command] [address] [params])
-./build/bin/cli state_get ws://localhost:8080
-./build/bin/cli sim_run ws://localhost:8080 '{"timestep": 0.016, "max_steps": 1}'
-./build/bin/cli diagram_get ws://localhost:8080
+# Sending commands to server and ui (syntax: cli [command] [address] [params]).
+./build-debug/bin/cli state_get ws://localhost:8080
+./build-debug/bin/cli sim_run ws://localhost:8080 '{"timestep": 0.016, "max_steps": 1}'
+./build-debug/bin/cli diagram_get ws://localhost:8080
 
-# Run headless DSSM server (Dirt Sim State Machine)
-./build/bin/sparkle-duck-server -p 8080 -s 1000
+# Run headless DSSM server (Dirt Sim State Machine).
+./build-debug/bin/sparkle-duck-server -p 8080 -s 1000
 
-# Run UI client (auto-connects to server)
-./build/bin/sparkle-duck-ui -b wayland --connect localhost:8080
+# Run UI client (auto-connects to server).
+./build-debug/bin/sparkle-duck-ui -b wayland --connect localhost:8080
 
-# Run server and UI together (two terminals)
+# Run server and UI together (two terminals).
 # Terminal 1:
-./build/bin/sparkle-duck-server -p 8080
+./build-debug/bin/sparkle-duck-server -p 8080
 
 # Terminal 2:
-./build/bin/sparkle-duck-ui -b wayland --connect localhost:8080
+./build-debug/bin/sparkle-duck-ui -b wayland --connect localhost:8080
 
-# UI options
-./build/bin/sparkle-duck-ui -b wayland        # Wayland backend
-./build/bin/sparkle-duck-ui -b x11            # X11 backend
-./build/bin/sparkle-duck-ui -W 1200 -H 1200   # Custom window size
-./build/bin/sparkle-duck-ui -s 100            # Auto-exit after 100 steps
+# UI options.
+./build-debug/bin/sparkle-duck-ui -b wayland        # Wayland backend
+./build-debug/bin/sparkle-duck-ui -b x11            # X11 backend
+./build-debug/bin/sparkle-duck-ui -W 1200 -H 1200   # Custom window size
+./build-debug/bin/sparkle-duck-ui -s 100            # Auto-exit after 100 steps
 ```
 
 ### CLI documentation
@@ -89,21 +98,21 @@ src/cli/README.md
 
 ### Testing
 ```bash
-# Run all unit tests
+# Run all unit tests (uses debug build).
 make test
 
-# Run tests with filters using ARGS
+# Run tests with filters using ARGS.
 make test ARGS='--gtest_filter=State*'
 
-# Run state machine tests directly
-./build/bin/sparkle-duck-tests --gtest_filter="StateIdle*"
-./build/bin/sparkle-duck-tests --gtest_filter="StateSimRunning*"
+# Run state machine tests directly.
+./build-debug/bin/sparkle-duck-tests --gtest_filter="StateIdle*"
+./build-debug/bin/sparkle-duck-tests --gtest_filter="StateSimRunning*"
 
-# List all available tests
-./build/bin/sparkle-duck-tests --gtest_list_tests
+# List all available tests.
+./build-debug/bin/sparkle-duck-tests --gtest_list_tests
 
-# Run specific test
-./build/bin/sparkle-duck-tests --gtest_filter="StateSimRunningTest.AdvanceSimulation_StepsPhysicsAndDirtFalls"
+# Run specific test.
+./build-debug/bin/sparkle-duck-tests --gtest_filter="StateSimRunningTest.AdvanceSimulation_StepsPhysicsAndDirtFalls"
 ```
 
 ### Debugging and Logging

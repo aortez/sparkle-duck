@@ -14,9 +14,9 @@ if pgrep -f "sparkle-duck-ui" > /dev/null; then
     exit 1
 fi
 
-# Build debug version.
-echo "Building debug version..."
-if ! make debug; then
+# Build release version.
+echo "Building release version..."
+if ! make release; then
     echo "Build failed!"
     exit 1
 fi
@@ -25,4 +25,4 @@ echo "Build succeeded!"
 echo ""
 
 # Run CLI with run-all command (launches server + UI, handles cleanup).
-./build/bin/cli run-all
+./build-release/bin/cli run-all
