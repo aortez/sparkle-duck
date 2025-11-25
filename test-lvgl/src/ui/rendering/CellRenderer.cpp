@@ -595,6 +595,23 @@ void CellRenderer::renderWorldData(
                         // Yellow pixel for COM (same as LVGL debug draw).
                         pixels[comPixelIdx] = 0xFFFFFF00; // ARGB: full alpha, yellow.
                     }
+
+                    // Pressure gradient vector (cyan line from COM).
+                    if (cell.pressure_gradient.magnitude() > 0.001) {
+                        int end_x =
+                            com_pixel_x + static_cast<int>(cell.pressure_gradient.x * scaleX_);
+                        int end_y =
+                            com_pixel_y + static_cast<int>(cell.pressure_gradient.y * scaleX_);
+                        drawLineBresenham(
+                            pixels,
+                            canvasWidth_,
+                            canvasHeight_,
+                            com_pixel_x,
+                            com_pixel_y,
+                            end_x,
+                            end_y,
+                            0xFF00FFFF); // Cyan.
+                    }
                 }
             }
         }
@@ -629,7 +646,7 @@ void CellRenderer::renderWorldData(
                 int32_t cellX = renderOffsetX + x * scaledCellWidth_;
                 int32_t cellY = renderOffsetY + y * scaledCellHeight_;
 
-                renderCellDirectOptimized(cell, debug, layer, cellX, cellY, debugDraw, false);
+                renderCellLVGL(cell, debug, layer, cellX, cellY, debugDraw);
             }
         }
 
@@ -662,101 +679,19 @@ void CellRenderer::cleanup()
     lastContainerHeight_ = 0;
 }
 
-void CellRenderer::renderCellDirectOptimized(
+void CellRenderer::renderCellLVGL(
     const Cell& cell,
     const CellDebug& debug,
     lv_layer_t& layer,
     int32_t cellX,
     int32_t cellY,
-    bool debugDraw,
-    bool usePixelRenderer)
+    bool debugDraw)
 {
-    // Bounds check - skip cells outside canvas
+    // Bounds check - skip cells outside canvas.
     if (cellX < 0 || cellY < 0 || cellX + scaledCellWidth_ > canvasWidth_
         || cellY + scaledCellHeight_ > canvasHeight_) {
-        return; // Silently skip out-of-bounds cells
-    }
-
-    // Branch between pixel renderer (fast) and LVGL renderer (slow but full-featured)
-    if (usePixelRenderer) {
-        // FAST PATH: Direct pixel buffer writes with alpha blending
-        uint32_t* pixels = reinterpret_cast<uint32_t*>(canvasBuffer_.data());
-
-        // Determine cell color
-        uint32_t cellColor = 0xFF000000; // ARGB black with full alpha
-
-        if (!cell.isEmpty() && cell.material_type != MaterialType::AIR) {
-            lv_color_t matColor = getMaterialColor(cell.material_type);
-            uint8_t alpha = static_cast<uint8_t>(cell.fill_ratio * 255.0 * 0.7);
-
-            // Convert to ARGB32
-            cellColor =
-                (alpha << 24) | (matColor.red << 16) | (matColor.green << 8) | matColor.blue;
-        }
-
-        // Extract alpha channel for blending
-        uint8_t alpha = (cellColor >> 24) & 0xFF;
-
-        // Fill cell rectangle with alpha blending
-        for (uint32_t py = 0; py < scaledCellHeight_; py++) {
-            uint32_t rowStart = (cellY + py) * canvasWidth_ + cellX;
-            for (uint32_t px = 0; px < scaledCellWidth_; px++) {
-                uint32_t pixelIdx = rowStart + px;
-
-                // Alpha blending: blend source with destination
-                if (alpha == 0) {
-                    // Fully transparent - skip (keep background)
-                    continue;
-                }
-                else if (alpha == 255) {
-                    // Fully opaque - direct write (optimization)
-                    pixels[pixelIdx] = cellColor;
-                }
-                else {
-                    // Partial transparency - blend
-                    uint32_t dstColor = pixels[pixelIdx];
-                    uint8_t invAlpha = 255 - alpha;
-
-                    // Extract source channels
-                    uint8_t srcR = (cellColor >> 16) & 0xFF;
-                    uint8_t srcG = (cellColor >> 8) & 0xFF;
-                    uint8_t srcB = cellColor & 0xFF;
-
-                    // Extract destination channels
-                    uint8_t dstR = (dstColor >> 16) & 0xFF;
-                    uint8_t dstG = (dstColor >> 8) & 0xFF;
-                    uint8_t dstB = dstColor & 0xFF;
-
-                    // Blend: result = (src * alpha + dst * (1 - alpha)) / 255
-                    uint8_t r = (srcR * alpha + dstR * invAlpha) / 255;
-                    uint8_t g = (srcG * alpha + dstG * invAlpha) / 255;
-                    uint8_t b = (srcB * alpha + dstB * invAlpha) / 255;
-
-                    // Write blended pixel (with full alpha)
-                    pixels[pixelIdx] = 0xFF000000 | (r << 16) | (g << 8) | b;
-                }
-            }
-        }
-
-        // Debug visualization: pressure gradient vector (cyan line from COM).
-        if (debugDraw && cell.pressure_gradient.magnitude() > 0.001) {
-            // Calculate COM pixel position within cell.
-            int com_x = cellX + static_cast<int>((cell.com.x + 1.0) * (scaledCellWidth_ - 1) / 2.0);
-            int com_y =
-                cellY + static_cast<int>((cell.com.y + 1.0) * (scaledCellHeight_ - 1) / 2.0);
-
-            // Scale gradient to pixel space.
-            int end_x = com_x + static_cast<int>(cell.pressure_gradient.x * scaleX_);
-            int end_y = com_y + static_cast<int>(cell.pressure_gradient.y * scaleX_);
-
-            // Draw cyan line (0xFF00FFFF = ARGB cyan).
-            drawLineBresenham(
-                pixels, canvasWidth_, canvasHeight_, com_x, com_y, end_x, end_y, 0xFF00FFFF);
-        }
         return;
     }
-
-    // SLOW PATH: LVGL drawing (for comparison / debugging)
 
     // Black background for all cells
     lv_draw_rect_dsc_t bg_rect_dsc;

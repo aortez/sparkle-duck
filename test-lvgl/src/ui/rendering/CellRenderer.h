@@ -55,15 +55,14 @@ private:
     void initializeWithPixelSize(
         lv_obj_t* parent, uint32_t worldWidth, uint32_t worldHeight, uint32_t pixelsPerCell);
 
-    // Direct rendering to single canvas at scaled resolution (optimized)
-    void renderCellDirectOptimized(
+    // LVGL-based cell rendering (used for LVGL_DEBUG mode).
+    void renderCellLVGL(
         const Cell& cell,
         const CellDebug& debug,
         lv_layer_t& layer,
         int32_t cellX,
         int32_t cellY,
-        bool debugDraw,
-        bool usePixelRenderer);
+        bool debugDraw);
 };
 
 // Bresenham's line algorithm for fast pixel-based line drawing.
