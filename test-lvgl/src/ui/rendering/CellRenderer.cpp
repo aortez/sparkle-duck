@@ -598,7 +598,7 @@ void CellRenderer::renderWorldData(
 
                     // Pressure gradient vector (cyan line from COM).
                     if (cell.pressure_gradient.magnitude() > 0.001) {
-                        const double GRADIENT_SCALE = 1000.0 * scaleX_;
+                        const double GRADIENT_SCALE = scaleX_;
                         const int end_x = com_pixel_x
                             + static_cast<int>(cell.pressure_gradient.x * GRADIENT_SCALE);
                         const int end_y = com_pixel_y

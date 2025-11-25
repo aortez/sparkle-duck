@@ -223,17 +223,6 @@ Vector2d WorldPressureCalculator::calculatePressureGradient(
     const Cell& center = data.at(x, y);
     double center_pressure = center.pressure;
 
-    // Skip if no significant pressure.
-    if (center_pressure < MIN_PRESSURE_THRESHOLD) {
-        spdlog::trace(
-            "Pressure gradient at ({},{}) - center pressure {:.6f} below threshold {:.6f}",
-            x,
-            y,
-            center_pressure,
-            MIN_PRESSURE_THRESHOLD);
-        return Vector2d{ 0, 0 };
-    }
-
     Vector2d gradient(0, 0);
 
     // Calculate HORIZONTAL gradient (∂P/∂x) using left and right neighbors.
@@ -285,8 +274,8 @@ Vector2d WorldPressureCalculator::calculatePressureGradient(
         // Up neighbor.
         if (y > 0) {
             const Cell& up = data.at(x, y - 1);
-            if (!up.isWall() && !up.isEmpty()) {
-                p_up = up.pressure;
+            if (!up.isWall()) {
+                p_up = up.pressure; // Use actual pressure (0 for empty cells).
                 has_up = true;
             }
         }
@@ -294,8 +283,8 @@ Vector2d WorldPressureCalculator::calculatePressureGradient(
         // Down neighbor.
         if (y < data.height - 1) {
             const Cell& down = data.at(x, y + 1);
-            if (!down.isWall() && !down.isEmpty()) {
-                p_down = down.pressure;
+            if (!down.isWall()) {
+                p_down = down.pressure; // Use actual pressure (0 for empty cells).
                 has_down = true;
             }
         }
@@ -672,10 +661,10 @@ void WorldPressureCalculator::applyPressureDiffusion(World& world, double deltaT
                             neighbor_pressure = current_pressure;
                             neighbor_diffusion = diffusion_rate;
                         }
-                        // Empty cells act as pressure sinks.
+                        // Empty cells are no-flux boundaries (pressure stays in fluid).
                         else if (neighbor.isEmpty()) {
-                            neighbor_pressure = 0.0;
-                            neighbor_diffusion = 1.0;
+                            neighbor_pressure = current_pressure;
+                            neighbor_diffusion = diffusion_rate;
                         }
                         // Normal material cells.
                         else {
@@ -729,10 +718,10 @@ void WorldPressureCalculator::applyPressureDiffusion(World& world, double deltaT
                             neighbor_pressure = current_pressure;
                             neighbor_diffusion = diffusion_rate;
                         }
-                        // Empty cells act as pressure sinks.
+                        // Empty cells are no-flux boundaries (pressure stays in fluid).
                         else if (neighbor.isEmpty()) {
-                            neighbor_pressure = 0.0;
-                            neighbor_diffusion = 1.0;
+                            neighbor_pressure = current_pressure;
+                            neighbor_diffusion = diffusion_rate;
                         }
                         // Normal material cells.
                         else {
@@ -760,8 +749,10 @@ void WorldPressureCalculator::applyPressureDiffusion(World& world, double deltaT
 
             // Limit maximum pressure change per timestep to prevent explosions.
             // This ensures CFL stability for explicit diffusion scheme.
-            // Symmetric 50% limit prevents both runaway growth and oscillations.
-            double max_change = current_pressure * 0.5;
+            // Use 50% of current pressure OR a minimum value, whichever is larger.
+            // The minimum allows zero-pressure cells to receive pressure from neighbors.
+            constexpr double MIN_PRESSURE_CHANGE = 0.5;
+            double max_change = std::max(current_pressure * 0.5, MIN_PRESSURE_CHANGE);
             if (std::abs(pressure_change) > max_change) {
                 pressure_change = std::copysign(max_change, pressure_change);
             }

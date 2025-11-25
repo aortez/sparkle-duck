@@ -56,20 +56,7 @@ public:
             }
         }
 
-        // Configure physics for hydrostatic pressure demonstration.
-        world.getPhysicsSettings().gravity = 9.81;
-        world.getPhysicsSettings().pressure_dynamic_enabled = false;
-        world.getPhysicsSettings().pressure_dynamic_strength = 0.0;
-        world.getPhysicsSettings().pressure_hydrostatic_enabled = true;
-        world.getPhysicsSettings().pressure_hydrostatic_strength = 0.3;
-        world.getPhysicsSettings().pressure_diffusion_strength = 1.0;
-        world.getPhysicsSettings().pressure_scale = 1.0;
-
-        world.setWallsEnabled(false);
-        world.setLeftThrowEnabled(false);
-        world.setRightThrowEnabled(false);
-        world.setLowerRightQuadrantEnabled(false);
-
+        // Setup world geometry only - preserve user's physics settings.
         // 3x6 world with water on left, wall separator in middle, air on right.
         // Left column (x=0): fill with water.
         for (uint32_t y = 0; y < 6; y++) {

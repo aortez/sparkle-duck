@@ -1,7 +1,9 @@
 #include "core/Cell.h"
 #include "core/LoggingChannels.h"
 #include "core/MaterialType.h"
+#include "core/PhysicsSettings.h"
 #include "core/World.h"
+#include "core/WorldData.h"
 
 #include <gtest/gtest.h>
 #include <spdlog/spdlog.h>
@@ -28,12 +30,14 @@ protected:
         world = std::make_unique<World>(3, 6);
 
         // Configure physics for hydrostatic pressure demonstration.
+        // NOTE: Dynamic pressure must be enabled for pressure to build up from blocked transfers.
+        // Diffusion spreads pressure out, so disabling it keeps pressure concentrated.
         world->getPhysicsSettings().gravity = 9.81;
-        world->getPhysicsSettings().pressure_dynamic_enabled = false;
-        world->getPhysicsSettings().pressure_dynamic_strength = 0.0;
+        world->getPhysicsSettings().pressure_dynamic_enabled = true;
+        world->getPhysicsSettings().pressure_dynamic_strength = 1.0;
         world->getPhysicsSettings().pressure_hydrostatic_enabled = true;
         world->getPhysicsSettings().pressure_hydrostatic_strength = 0.3;
-        world->getPhysicsSettings().pressure_diffusion_strength = 1.0;
+        world->getPhysicsSettings().pressure_diffusion_strength = 5.0;
         world->getPhysicsSettings().pressure_scale = 1.0;
         world->getPhysicsSettings().swap_enabled = true;
 

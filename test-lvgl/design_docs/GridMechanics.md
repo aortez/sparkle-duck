@@ -453,11 +453,12 @@ Dynamic Pressure methods:
   ```
 
   **Key Behaviors**:
-  - Empty cells act as pressure sinks (pressure = 0)
+  - Empty cells are no-flux boundaries (pressure stays in fluid, doesn't leak into air)
   - Walls block pressure diffusion completely
   - Different materials create natural pressure gradients
   - Diffusion rate affects how quickly pressure equalizes
   - Works with unified pressure system (hydrostatic + dynamic)
+  - Minimum pressure change (0.5) allows zero-pressure cells to receive pressure via diffusion
 
 ### Pressure Wave Reflection
 
@@ -565,6 +566,16 @@ This approach models how fluid pressure naturally redistributes when encounterin
 - Normalizes final gradient by total number of directions (not just open ones)
 - Prevents excessive forces by distributing blocked pressure evenly
 - Works with both hydrostatic and dynamic pressure components
+
+### Pressure Gradient Improvements
+
+Recent fixes enable proper pressure-driven flow:
+
+1. **No early bailout** - Gradients calculated even for zero-pressure cells, allowing high-pressure neighbors to push into low-pressure regions
+2. **Vertical gradient includes empty cells** - Empty cells above fluid create downward gradient (pressure 0 vs fluid pressure), enabling upward forces
+3. **Combined with no-flux diffusion** - Pressure stays in fluid while gradient creates force toward empty space
+
+This enables U-tube equalization and other pressure-driven vertical flow.
 
 ## Force Combination Logic
 
