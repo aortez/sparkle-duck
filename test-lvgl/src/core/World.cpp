@@ -804,6 +804,13 @@ void World::applyPressureForces()
                 continue;
             }
 
+            // Rigid materials don't flow from pressure - they transmit stress instead.
+            // Only fluids and granular materials respond to pressure gradients.
+            const MaterialProperties& props = getMaterialProperties(cell.material_type);
+            if (props.is_rigid) {
+                continue;
+            }
+
             // Get total pressure for this cell.
             double total_pressure = cell.pressure;
             if (total_pressure < MIN_MATTER_THRESHOLD) {
@@ -818,7 +825,6 @@ void World::applyPressureForces()
             // Only apply force if system is out of equilibrium.
             if (gradient.magnitude() > 0.001) {
                 // Get material-specific hydrostatic weight to scale pressure response.
-                const MaterialProperties& props = getMaterialProperties(cell.material_type);
                 double hydrostatic_weight = props.hydrostatic_weight;
 
                 Vector2d pressure_force = gradient * settings.pressure_scale * hydrostatic_weight;

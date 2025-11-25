@@ -355,6 +355,16 @@ For arbitrary gravity direction, slices are perpendicular to gravity vector.
 
 // Pseudo-code for solid pressure if (material == DIRT || material == SAND) { // Granular - acts somewhat fluid-like under high pressure apply_hydrostatic_pressure(); if (pressure > friction_threshold) { allow_flow(); } } else if (material == WOOD || material == METAL) { // Rigid - only compress, don't flow apply_compression_only(); }
 
+### Rigid Material Pressure Response
+
+Materials marked as `is_rigid=true` (METAL, WOOD, WALL, SEED) do not respond to pressure gradients at all. This models the physical reality that solids transmit stress rather than flowing in response to pressure:
+
+- **Fluids** (WATER, AIR): Fully respond to pressure gradients, flowing from high to low pressure.
+- **Granular materials** (DIRT, SAND): Partially respond to pressure (scaled by `hydrostatic_weight`).
+- **Rigid materials** (METAL, WOOD, WALL, SEED): Skip pressure force application entirely.
+
+This separation allows viscosity to be used for its proper purpose (flow rate resistance) rather than as a hack to make solids behave solid-like.
+
 Dynamic Pressure methods:
 
   1. Virtual Gravity Transfers (Static Pressure Buildup)

@@ -238,7 +238,10 @@ TEST_F(BuoyancyTest, PressureForceDirection)
 /**
  * @brief Test 1.4: Net Force Calculation.
  *
- * Validates that net force (gravity + pressure) correctly determines sink/float behavior.
+ * Validates net force calculation for different material types.
+ * Note: Rigid materials (METAL, WOOD) have hydrostatic_weight=0 because they don't respond
+ * to pressure gradients directly. Buoyancy for rigid materials happens through water
+ * displacement (swaps), not direct pressure forces. See WoodDevelopsUpwardVelocity test.
  */
 TEST_F(BuoyancyTest, NetForceCalculation)
 {
@@ -276,11 +279,13 @@ TEST_F(BuoyancyTest, NetForceCalculation)
         spdlog::info("    Pressure force: ({:.3f}, {:.3f})", pressure_force.x, pressure_force.y);
         spdlog::info("    Net force: ({:.3f}, {:.3f})", net_force.x, net_force.y);
 
-        // Verify: Net force is downward (metal sinks).
-        EXPECT_GT(net_force.y, 0.0) << "Metal should have net downward force (sink)";
+        // Verify: Metal is rigid, so it gets zero pressure force.
+        EXPECT_NEAR(pressure_force.y, 0.0, 0.001) << "Rigid materials get zero pressure force";
+        // Net force is just gravity (downward).
+        EXPECT_GT(net_force.y, 0.0) << "Metal should have net downward force (gravity only)";
     }
 
-    // Test Case B: Wood should float (density 0.8 < water 1.0).
+    // Test Case B: Wood - also rigid, gets zero direct pressure force.
     {
         spdlog::info("  Test Case B: Wood in water");
 
@@ -318,8 +323,13 @@ TEST_F(BuoyancyTest, NetForceCalculation)
         spdlog::info("    Pressure force: ({:.3f}, {:.3f})", pressure_force.x, pressure_force.y);
         spdlog::info("    Net force: ({:.3f}, {:.3f})", net_force.x, net_force.y);
 
-        // Verify: Net force is upward (wood floats).
-        EXPECT_LT(net_force.y, 0.0) << "Wood should have net upward force (float)";
+        // Verify: Wood is rigid, so it gets zero direct pressure force.
+        // Buoyancy for wood happens through water displacement (swaps), not direct forces.
+        // See WoodDevelopsUpwardVelocity test for actual floating behavior.
+        EXPECT_NEAR(pressure_force.y, 0.0, 0.001) << "Rigid materials get zero pressure force";
+        // Net force is just gravity (small due to low wood density).
+        EXPECT_GT(net_force.y, 0.0)
+            << "Wood has net downward force (gravity only, no direct pressure)";
     }
 }
 
