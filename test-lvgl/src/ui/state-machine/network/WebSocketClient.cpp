@@ -93,6 +93,10 @@ bool WebSocketClient::connect(const std::string& url)
                     // Unpack cells based on format.
                     size_t numCells = renderMsg.width * renderMsg.height;
                     worldData.cells.resize(numCells);
+                    // Ensure debug_info is sized to match cells (default-initialized).
+                    // This prevents crashes when debug draw is enabled but CellDebug
+                    // data isn't transmitted over the network.
+                    worldData.debug_info.resize(numCells);
 
                     if (renderMsg.format == RenderFormat::BASIC) {
                         // Unpack BasicCell format.
