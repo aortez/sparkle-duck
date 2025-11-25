@@ -66,5 +66,17 @@ private:
         bool usePixelRenderer);
 };
 
+// Bresenham's line algorithm for fast pixel-based line drawing.
+// Exposed for unit testing. Uses only integer math for maximum performance.
+void drawLineBresenham(
+    uint32_t* pixels,
+    uint32_t canvasWidth,
+    uint32_t canvasHeight,
+    int x0,
+    int y0,
+    int x1,
+    int y1,
+    uint32_t color);
+
 } // namespace Ui
 } // namespace DirtSim

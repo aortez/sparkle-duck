@@ -13,9 +13,6 @@ namespace Ui {
 // Compile-time toggle for dithering in pixel renderer.
 constexpr bool ENABLE_DITHERING = false;
 
-// Compile-time toggle for bilinear filtering (smooths cell boundaries).
-constexpr bool ENABLE_BILINEAR_FILTER = false;
-
 // Mode-specific pixels per cell for optimal quality.
 constexpr uint32_t MIN_PIXELS_PER_CELL_SHARP = 8;  // Less GPU scaling = sharper.
 constexpr uint32_t MIN_PIXELS_PER_CELL_SMOOTH = 3; // More GPU scaling + bilinear filter.
@@ -29,6 +26,43 @@ constexpr uint32_t MIN_PIXELS_PER_CELL = MIN_PIXELS_PER_CELL_SHARP;
 constexpr int BAYER_MATRIX_4X4[4][4] = {
     { 0, 8, 2, 10 }, { 12, 4, 14, 6 }, { 3, 11, 1, 9 }, { 15, 7, 13, 5 }
 };
+
+// Bresenham's line algorithm for fast pixel-based line drawing.
+// Uses only integer math for maximum performance.
+void drawLineBresenham(
+    uint32_t* pixels,
+    uint32_t canvasWidth,
+    uint32_t canvasHeight,
+    int x0,
+    int y0,
+    int x1,
+    int y1,
+    uint32_t color)
+{
+    int dx = std::abs(x1 - x0);
+    int dy = std::abs(y1 - y0);
+    int sx = (x0 < x1) ? 1 : -1;
+    int sy = (y0 < y1) ? 1 : -1;
+    int err = dx - dy;
+
+    while (true) {
+        // Bounds check and plot pixel.
+        if (x0 >= 0 && x0 < static_cast<int>(canvasWidth) && y0 >= 0
+            && y0 < static_cast<int>(canvasHeight)) {
+            pixels[y0 * canvasWidth + x0] = color;
+        }
+        if (x0 == x1 && y0 == y1) break;
+        int e2 = 2 * err;
+        if (e2 > -dy) {
+            err -= dy;
+            x0 += sx;
+        }
+        if (e2 < dx) {
+            err += dx;
+            y0 += sy;
+        }
+    }
+}
 
 // Get optimal pixel size for a given render mode.
 // For PIXEL_PERFECT, returns 0 (special case - calculated dynamically).
@@ -704,7 +738,21 @@ void CellRenderer::renderCellDirectOptimized(
             }
         }
 
-        // TODO: Add pixel-based debug rendering if needed
+        // Debug visualization: pressure gradient vector (cyan line from COM).
+        if (debugDraw && cell.pressure_gradient.magnitude() > 0.001) {
+            // Calculate COM pixel position within cell.
+            int com_x = cellX + static_cast<int>((cell.com.x + 1.0) * (scaledCellWidth_ - 1) / 2.0);
+            int com_y =
+                cellY + static_cast<int>((cell.com.y + 1.0) * (scaledCellHeight_ - 1) / 2.0);
+
+            // Scale gradient to pixel space.
+            int end_x = com_x + static_cast<int>(cell.pressure_gradient.x * scaleX_);
+            int end_y = com_y + static_cast<int>(cell.pressure_gradient.y * scaleX_);
+
+            // Draw cyan line (0xFF00FFFF = ARGB cyan).
+            drawLineBresenham(
+                pixels, canvasWidth_, canvasHeight_, com_x, com_y, end_x, end_y, 0xFF00FFFF);
+        }
         return;
     }
 

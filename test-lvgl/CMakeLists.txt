@@ -388,6 +388,7 @@ target_compile_options(cli PRIVATE -Wall -Wextra -Werror)
 add_executable(sparkle-duck-tests
     src/server/tests/StateIdle_test.cpp
     src/server/tests/StateSimRunning_test.cpp
+    src/tests/BresenhamLine_test.cpp
     src/tests/Buoyancy_test.cpp
     src/tests/CacheCorrectness_test.cpp
     src/tests/Pimpl_test.cpp
@@ -395,6 +396,7 @@ add_executable(sparkle-duck-tests
     src/tests/TimersTest.cpp
     src/tests/Vector2d_test.cpp
     src/tests/Vector2i_test.cpp
+    src/tests/WaterEqualization_test.cpp
 
     # Bitmap tests.
     src/core/bitmaps/tests/CellBitmap_test.cpp
@@ -410,6 +412,7 @@ add_executable(sparkle-duck-tests
 target_link_libraries(sparkle-duck-tests
     PRIVATE
     sparkle-duck-server-lib
+    sparkle-duck-ui-lib
     GTest::gtest_main
     GTest::gmock_main
     m
