@@ -784,63 +784,131 @@ bool WorldCollisionCalculator::shouldSwapMaterials(
 
     // Check swap requirements based on direction.
     if (direction.y == 0) {
-        // Horizontal swap: fluids swap easily, non-fluids need more force.
+        // Horizontal swap: momentum-based displacement.
+        // FROM cell needs enough momentum to push TO cell out of the way.
 
         const MaterialProperties& from_props = getMaterialProperties(fromCell.material_type);
 
-        // Calculate displacement ability.
-        // Fluid's ability to flow (inverse of viscosity).
-        double flowability = 1.0 / (from_props.viscosity + 0.01); // +0.01 to avoid div by zero.
+        // FROM: momentum in direction of movement (mass × velocity).
+        double from_mass = from_props.density * fromCell.fill_ratio;
+        double from_velocity = std::abs(fromCell.velocity.x);
+        double from_momentum = from_mass * from_velocity;
 
-        // Non-fluids have much higher resistance to horizontal movement.
-        // This allows granular materials to swap but makes it harder.
-        if (!from_props.is_fluid) {
-            flowability *= world.getPhysicsSettings().horizontal_non_fluid_penalty;
+        // Fluids pushing solids sideways is harder - they flow around instead.
+        if (from_props.is_fluid && !to_props.is_fluid) {
+            from_momentum *= 0.25;
         }
 
-        // Target's resistance to displacement (density * viscosity).
-        // Dense, viscous materials resist displacement more.
-        double target_resistance = to_props.density * to_props.viscosity;
+        // TO: resistance to being displaced.
+        double to_mass = to_props.density * toCell.fill_ratio;
 
-        // Non-fluid targets also have higher resistance to being displaced.
-        if (!to_props.is_fluid) {
-            target_resistance *= world.getPhysicsSettings().horizontal_non_fluid_target_resistance;
-        }
+        // Cohesion makes materials stick together (dirt > sand).
+        double cohesion_resistance = 1.0 + to_props.cohesion;
 
-        // Add velocity boost - moving materials displace easier.
-        double velocity_boost = 1.0 + std::abs(fromCell.velocity.x) * 0.5;
-        double effective_flowability = flowability * velocity_boost;
+        // Supported materials are much harder to displace.
+        double support_factor = toCell.has_any_support ? 5.0 : 1.0;
 
-        // Natural flow condition: material flows if it can overcome target resistance.
-        const bool swap_ok = effective_flowability
-            > (target_resistance * world.getPhysicsSettings().horizontal_flow_resistance_factor);
+        // Fluids are easier to displace than solids.
+        double fluid_factor = 1; // to_props.is_fluid ? 0.2 : 1.0;
+
+        double to_resistance = to_mass * cohesion_resistance * support_factor * fluid_factor;
+
+        // Swap if momentum overcomes resistance.
+        const double threshold = world.getPhysicsSettings().horizontal_flow_resistance_factor;
+        const bool swap_ok = from_momentum > to_resistance * threshold;
 
         if (!swap_ok) {
             return false;
         }
-        // Swap approved - will log details at completion if swap actually executes.
+        // Log horizontal swap approval details.
+        if (toCell.material_type != MaterialType::AIR) {
+            LoggingChannels::swap()->warn(
+                "Horizontal swap OK: {} -> {} at ({},{}) -> ({},{}) | momentum: {:.3f} (mass: "
+                "{:.3f}, "
+                "vel: {:.3f}) | resistance: {:.3f} (mass: {:.3f}, cohesion: {:.3f}, support: "
+                "{:.1f}, "
+                "fluid: {:.1f}) | threshold: {:.3f}",
+                getMaterialName(fromCell.material_type),
+                getMaterialName(toCell.material_type),
+                fromX,
+                fromY,
+                fromX + direction.x,
+                fromY + direction.y,
+                from_momentum,
+                from_mass,
+                from_velocity,
+                to_resistance,
+                to_mass,
+                to_props.cohesion,
+                support_factor,
+                fluid_factor,
+                to_resistance * threshold);
+        }
     }
     else {
-        // Vertical swap: density-based with resistance scaling for non-fluids.
+        // Vertical swap: momentum-based with buoyancy assist.
+        // Density must support the swap direction AND momentum must overcome resistance.
         const MaterialProperties& from_props = getMaterialProperties(fromCell.material_type);
 
-        // Check density-based buoyancy.
+        // Check density-based buoyancy direction.
         const double from_density = from_props.density;
         const double to_density = to_props.density;
-        const bool swap_ok = densitySupportsSwap(fromCell, toCell, direction);
+        const bool density_ok = densitySupportsSwap(fromCell, toCell, direction);
 
-        LoggingChannels::swap()->debug(
-            "Vertical swap check: {} <-> {} | from_dens: {:.2f} to_dens: {:.2f} dir.y: {} | "
-            "swap_ok: {}",
-            getMaterialName(fromCell.material_type),
-            getMaterialName(toCell.material_type),
-            from_density,
-            to_density,
-            direction.y,
-            swap_ok);
+        if (!density_ok) {
+            return false;
+        }
+
+        // FROM: momentum in direction of movement.
+        double from_mass = from_props.density * fromCell.fill_ratio;
+        double from_velocity = std::abs(fromCell.velocity.y);
+        double from_momentum = from_mass * from_velocity;
+
+        // Buoyancy adds "free" momentum based on density difference.
+        // Larger density differences create stronger buoyancy forces.
+        double density_diff = std::abs(from_density - to_density);
+        double buoyancy_boost = density_diff * world.getPhysicsSettings().buoyancy_energy_scale;
+        double effective_momentum = from_momentum + buoyancy_boost;
+
+        // TO: resistance to being displaced.
+        // For vertical swaps, no fluid_factor - must move the mass regardless of fluidity.
+        double to_mass = to_props.density * toCell.fill_ratio;
+        double cohesion_resistance = 1.0 + to_props.cohesion;
+        double support_factor = toCell.has_any_support ? 5.0 : 1.0;
+        double to_resistance = to_mass * cohesion_resistance * support_factor;
+
+        // Swap if effective momentum overcomes resistance.
+        const double threshold = world.getPhysicsSettings().horizontal_flow_resistance_factor;
+        const bool swap_ok = effective_momentum > to_resistance * threshold;
 
         if (!swap_ok) {
             return false;
+        }
+        // Log vertical swap approval details.
+        if (toCell.material_type != MaterialType::AIR) {
+            LoggingChannels::swap()->warn(
+                "Vertical swap OK: {} -> {} at ({},{}) -> ({},{}) | momentum: {:.3f} (mass: "
+                "{:.3f}, "
+                "vel: {:.3f}, buoyancy: {:.3f}) | resistance: {:.3f} (mass: {:.3f}, cohesion: "
+                "{:.3f}, "
+                "support: {:.1f}) | threshold: {:.3f} | dir.y: {} ({})",
+                getMaterialName(fromCell.material_type),
+                getMaterialName(toCell.material_type),
+                fromX,
+                fromY,
+                fromX + direction.x,
+                fromY + direction.y,
+                effective_momentum,
+                from_mass,
+                from_velocity,
+                buoyancy_boost,
+                to_resistance,
+                to_mass,
+                to_props.cohesion,
+                support_factor,
+                to_resistance * threshold,
+                direction.y,
+                direction.y > 0 ? "DOWN" : "UP");
         }
     }
 
