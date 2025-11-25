@@ -596,6 +596,7 @@ void World::resizeGrid(uint32_t newWidth, uint32_t newHeight)
     pImpl->data_.width = newWidth;
     pImpl->data_.height = newHeight;
     pImpl->data_.cells = std::move(interpolatedCells);
+    pImpl->data_.debug_info.resize(newWidth * newHeight);
 
     onPostResize();
 
