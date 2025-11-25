@@ -598,10 +598,11 @@ void CellRenderer::renderWorldData(
 
                     // Pressure gradient vector (cyan line from COM).
                     if (cell.pressure_gradient.magnitude() > 0.001) {
-                        int end_x =
-                            com_pixel_x + static_cast<int>(cell.pressure_gradient.x * scaleX_);
-                        int end_y =
-                            com_pixel_y + static_cast<int>(cell.pressure_gradient.y * scaleX_);
+                        const double GRADIENT_SCALE = 1000.0 * scaleX_;
+                        const int end_x = com_pixel_x
+                            + static_cast<int>(cell.pressure_gradient.x * GRADIENT_SCALE);
+                        const int end_y = com_pixel_y
+                            + static_cast<int>(cell.pressure_gradient.y * GRADIENT_SCALE);
                         drawLineBresenham(
                             pixels,
                             canvasWidth_,
@@ -820,7 +821,7 @@ void CellRenderer::renderCellLVGL(
 
             // Pressure gradient vector (cyan line from center).
             if (scaledCellWidth_ >= 12 && cell.pressure_gradient.magnitude() > 0.001) {
-                const double GRADIENT_SCALE = scaleX_;
+                const double GRADIENT_SCALE = 10 * scaleX_;
                 int end_x =
                     com_pixel_x + static_cast<int>(cell.pressure_gradient.x * GRADIENT_SCALE);
                 int end_y =

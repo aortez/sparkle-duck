@@ -128,6 +128,7 @@ bool WebSocketClient::connect(const std::string& url)
                             worldData.cells[i].dynamic_component = unpacked.pressure_dynamic;
                             worldData.cells[i].pressure =
                                 unpacked.pressure_hydro + unpacked.pressure_dynamic;
+                            worldData.cells[i].pressure_gradient = unpacked.pressure_gradient;
                         }
                     }
 

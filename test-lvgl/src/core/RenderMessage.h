@@ -2,6 +2,7 @@
 
 #include "ReflectSerializer.h"
 #include "ScenarioConfig.h"
+#include "Vector2.h"
 #include "organisms/TreeSensoryData.h"
 #include <cstdint>
 #include <nlohmann/json.hpp>
@@ -37,7 +38,7 @@ struct BasicCell {
 };
 
 /**
- * @brief Debug cell data for physics visualization (16 bytes).
+ * @brief Debug cell data for physics visualization (24 bytes).
  *
  * Includes material, fill ratio, and quantized physics data for debug overlays.
  * All floating-point values are converted to fixed-point integers.
@@ -55,7 +56,9 @@ struct DebugCell {
     uint16_t pressure_hydro;   // Hydrostatic pressure: [0, 1000] → [0, 65535].
     uint16_t pressure_dynamic; // Dynamic pressure: [0, 1000] → [0, 65535].
 
-    using serialize = zpp::bits::members<10>;
+    Vector2<float> pressure_gradient; // Pressure gradient vector.
+
+    using serialize = zpp::bits::members<11>;
 };
 
 /**

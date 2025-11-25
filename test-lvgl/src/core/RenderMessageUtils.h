@@ -68,6 +68,10 @@ inline DebugCell packDebugCell(const Cell& cell)
     result.pressure_dynamic =
         static_cast<uint16_t>(std::clamp(cell.dynamic_component * pressure_scale, 0.0, 65535.0));
 
+    // Pressure gradient: stored as float directly.
+    result.pressure_gradient.x = static_cast<float>(cell.pressure_gradient.x);
+    result.pressure_gradient.y = static_cast<float>(cell.pressure_gradient.y);
+
     return result;
 }
 
@@ -194,6 +198,7 @@ struct UnpackedDebugCell {
     Vector2d velocity;
     double pressure_hydro;
     double pressure_dynamic;
+    Vector2d pressure_gradient;
 };
 
 inline UnpackedDebugCell unpackDebugCell(const DebugCell& src)
@@ -216,6 +221,10 @@ inline UnpackedDebugCell unpackDebugCell(const DebugCell& src)
     constexpr double pressure_scale = 1000.0 / 65535.0;
     result.pressure_hydro = src.pressure_hydro * pressure_scale;
     result.pressure_dynamic = src.pressure_dynamic * pressure_scale;
+
+    // Pressure gradient: stored as float, convert to double.
+    result.pressure_gradient.x = static_cast<double>(src.pressure_gradient.x);
+    result.pressure_gradient.y = static_cast<double>(src.pressure_gradient.y);
 
     return result;
 }
