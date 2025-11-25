@@ -15,7 +15,7 @@ struct PhysicsSettings {
     double adhesion_strength = 5.0;
     bool adhesion_enabled = true;
     double air_resistance = 0.1;
-    double buoyancy_energy_scale = 5.0;
+    double buoyancy_energy_scale = 1.0;
     double cohesion_resistance_factor = 5.0;
     double cohesion_strength = 10.0;
     bool cohesion_enabled = true;
@@ -26,7 +26,7 @@ struct PhysicsSettings {
     double gravity = 9.81;
     double horizontal_flow_resistance_factor = 0.5;
     double horizontal_non_fluid_penalty = 0.1;
-    double horizontal_non_fluid_target_resistance = 2.0;
+    double horizontal_non_fluid_target_resistance = 5.0;
     double non_fluid_energy_multiplier = 4.0;
     double pressure_dynamic_strength = 1.0;
     bool pressure_dynamic_enabled = true;
