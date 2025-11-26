@@ -115,19 +115,48 @@ bool WorldSupportCalculator::hasHorizontalSupport(
     const MaterialType center_mat = mat_n.getCenterMaterial();
     const MaterialProperties& cell_props = getMaterialProperties(center_mat);
 
+    // Cell must be rigid to provide/receive horizontal support.
+    if (!cell_props.is_rigid) {
+        spdlog::trace(
+            "hasHorizontalSupport({},{}) = false (center {} is not rigid)",
+            x,
+            y,
+            getMaterialName(center_mat));
+        return false;
+    }
+
     for (int bit_pos = 0; bit_pos < 9; ++bit_pos) {
         if (!(neighbor_mask & (1 << bit_pos))) continue;
 
         const MaterialType neighbor_mat = mat_n.getMaterialByBitPos(bit_pos);
         const MaterialProperties& neighbor_props = getMaterialProperties(neighbor_mat);
 
-        if (neighbor_props.density > RIGID_DENSITY_THRESHOLD) {
+        // Neighbor must be rigid to provide support.
+        if (!neighbor_props.is_rigid) {
+            continue;
+        }
+
+        // Same material: use cohesion for structural bonding.
+        if (neighbor_mat == center_mat) {
+            if (cell_props.cohesion > COHESION_SUPPORT_THRESHOLD) {
+                spdlog::debug(
+                    "hasHorizontalSupport({},{}) = true (rigid same-material {} neighbor with "
+                    "cohesion {:.3f})",
+                    x,
+                    y,
+                    getMaterialName(neighbor_mat),
+                    cell_props.cohesion);
+                return true;
+            }
+        }
+        // Different materials: use adhesion for cross-material bonding.
+        else {
             const double mutual_adhesion = std::sqrt(cell_props.adhesion * neighbor_props.adhesion);
 
-            if (mutual_adhesion > STRONG_ADHESION_THRESHOLD) {
+            if (mutual_adhesion > ADHESION_SUPPORT_THRESHOLD) {
                 spdlog::debug(
-                    "hasHorizontalSupport({},{}) = true (rigid {} neighbor with adhesion "
-                    "{:.3f})",
+                    "hasHorizontalSupport({},{}) = true (rigid different-material {} neighbor with "
+                    "adhesion {:.3f})",
                     x,
                     y,
                     getMaterialName(neighbor_mat),
@@ -138,7 +167,9 @@ bool WorldSupportCalculator::hasHorizontalSupport(
     }
 
     spdlog::trace(
-        "hasHorizontalSupport({},{}) = false (no rigid neighbors with strong adhesion)", x, y);
+        "hasHorizontalSupport({},{}) = false (no rigid neighbors with strong cohesion/adhesion)",
+        x,
+        y);
     return false;
 }
 
@@ -164,6 +195,16 @@ bool WorldSupportCalculator::hasHorizontalSupport(const World& world, uint32_t x
 
         const MaterialProperties& cell_props = getMaterialProperties(cell.material_type);
 
+        // Cell must be rigid to provide/receive horizontal support.
+        if (!cell_props.is_rigid) {
+            spdlog::trace(
+                "hasHorizontalSupport({},{}) = false (center {} is not rigid)",
+                x,
+                y,
+                getMaterialName(cell.material_type));
+            return false;
+        }
+
         // Check immediate neighbors only (no BFS for horizontal support).
         for (int dx = -1; dx <= 1; dx++) {
             for (int dy = -1; dy <= 1; dy++) {
@@ -180,28 +221,48 @@ bool WorldSupportCalculator::hasHorizontalSupport(const World& world, uint32_t x
                 const MaterialProperties& neighbor_props =
                     getMaterialProperties(neighbor.material_type);
 
-                // Check for rigid support: high-density neighbor with strong adhesion.
-                if (neighbor_props.density > RIGID_DENSITY_THRESHOLD) {
-                    // Calculate mutual adhesion between materials.
+                // Neighbor must be rigid to provide support.
+                if (!neighbor_props.is_rigid) {
+                    continue;
+                }
+
+                // Same material: use cohesion for structural bonding.
+                if (neighbor.material_type == cell.material_type) {
+                    if (cell_props.cohesion > COHESION_SUPPORT_THRESHOLD) {
+                        spdlog::debug(
+                            "hasHorizontalSupport({},{}) = true (rigid same-material {} neighbor "
+                            "with cohesion {:.3f})",
+                            x,
+                            y,
+                            getMaterialName(neighbor.material_type),
+                            cell_props.cohesion);
+                        return true;
+                    }
+                }
+                // Different materials: use adhesion for cross-material bonding.
+                else {
                     double mutual_adhesion =
                         std::sqrt(cell_props.adhesion * neighbor_props.adhesion);
 
-                    if (mutual_adhesion > STRONG_ADHESION_THRESHOLD) {
+                    if (mutual_adhesion > ADHESION_SUPPORT_THRESHOLD) {
                         spdlog::debug(
-                            "hasHorizontalSupport({},{}) = true (rigid {} neighbor with adhesion "
-                            "{:.3f})",
+                            "hasHorizontalSupport({},{}) = true (rigid different-material {} "
+                            "neighbor with adhesion {:.3f})",
                             x,
                             y,
                             getMaterialName(neighbor.material_type),
                             mutual_adhesion);
-                        return true; // Early exit - found support!
+                        return true;
                     }
                 }
             }
         }
 
         spdlog::trace(
-            "hasHorizontalSupport({},{}) = false (no rigid neighbors with strong adhesion)", x, y);
+            "hasHorizontalSupport({},{}) = false (no rigid neighbors with strong "
+            "cohesion/adhesion)",
+            x,
+            y);
         return false;
     }
 }

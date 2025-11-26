@@ -32,6 +32,17 @@ public:
 
     void notifyTransfers(const std::vector<OrganismTransfer>& transfers);
 
+    /**
+     * Compute realistic organism support for all trees.
+     *
+     * Trees are supported if connected to anchor points (ground, seed).
+     * Uses flood-fill to mark reachable cells as supported.
+     * Disconnected branches will lose support and fall.
+     *
+     * Should be called after main support calculation.
+     */
+    void computeOrganismSupport(World& world);
+
 private:
     std::unordered_map<TreeId, Tree> trees_;
     std::unordered_map<Vector2i, TreeId> cell_to_tree_;

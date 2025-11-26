@@ -478,6 +478,12 @@ void World::advanceTime(double deltaTimeSeconds)
         support_calc.computeSupportMapBottomUp(*this);
     }
 
+    // Compute organism-specific support (root-based anchoring).
+    if (tree_manager_) {
+        ScopeTimer organismTimer(pImpl->timers_, "organism_support");
+        tree_manager_->computeOrganismSupport(*this);
+    }
+
     // Calculate hydrostatic pressure based on current material positions.
     // This must happen before force resolution so buoyancy forces are immediate.
     if (pImpl->physicsSettings_.pressure_hydrostatic_strength > 0.0) {

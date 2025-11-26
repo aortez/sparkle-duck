@@ -35,10 +35,12 @@ public:
 
     // Support-specific constants.
     static constexpr uint32_t MAX_VERTICAL_SUPPORT_DISTANCE =
-        5;                                                   // Max distance for vertical support.
-    static constexpr double RIGID_DENSITY_THRESHOLD = 5.0;   // Density threshold for rigid support.
-    static constexpr double STRONG_ADHESION_THRESHOLD = 0.5; // Min adhesion for horizontal support.
-    static constexpr uint32_t MAX_SUPPORT_DISTANCE = 10;     // Max distance for any support search.
+        5; // Max distance for vertical support.
+    static constexpr double COHESION_SUPPORT_THRESHOLD =
+        0.5; // Min cohesion for same-material horizontal support.
+    static constexpr double ADHESION_SUPPORT_THRESHOLD =
+        0.5; // Min adhesion for different-material horizontal support.
+    static constexpr uint32_t MAX_SUPPORT_DISTANCE = 10; // Max distance for any support search.
 
     /**
      * @brief Check if cell has vertical structural support.
