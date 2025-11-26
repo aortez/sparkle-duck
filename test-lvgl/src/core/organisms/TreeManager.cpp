@@ -13,9 +13,6 @@
 
 namespace DirtSim {
 
-// Tree-specific logger for focused debugging.
-static auto tree_log = LoggingChannels::tree();
-
 void TreeManager::update(World& world, double deltaTime)
 {
     for (auto& [id, tree] : trees_) {
@@ -41,7 +38,7 @@ TreeId TreeManager::plantSeed(World& world, uint32_t x, uint32_t y)
 
     world.getData().at(x, y).organism_id = id;
 
-    tree_log->info("TreeManager: Planted seed for tree {} at ({}, {})", id, x, y);
+    LoggingChannels::tree()->info("TreeManager: Planted seed for tree {} at ({}, {})", id, x, y);
 
     trees_.emplace(id, std::move(tree));
 
@@ -52,7 +49,7 @@ void TreeManager::removeTree(TreeId id)
 {
     auto it = trees_.find(id);
     if (it == trees_.end()) {
-        tree_log->warn("TreeManager: Attempted to remove non-existent tree {}", id);
+        LoggingChannels::tree()->warn("TreeManager: Attempted to remove non-existent tree {}", id);
         return;
     }
 
@@ -64,7 +61,7 @@ void TreeManager::removeTree(TreeId id)
     // Remove tree.
     trees_.erase(it);
 
-    tree_log->info("TreeManager: Removed tree {}", id);
+    LoggingChannels::tree()->info("TreeManager: Removed tree {}", id);
 }
 
 Tree* TreeManager::getTree(TreeId id)
@@ -98,7 +95,8 @@ void TreeManager::notifyTransfers(const std::vector<OrganismTransfer>& transfers
     for (const auto& [tree_id, tree_transfers] : transfers_by_tree) {
         auto tree_it = trees_.find(tree_id);
         if (tree_it == trees_.end()) {
-            tree_log->warn("TreeManager: Received transfers for non-existent tree {}", tree_id);
+            LoggingChannels::tree()->warn(
+                "TreeManager: Received transfers for non-existent tree {}", tree_id);
             continue;
         }
 
@@ -112,7 +110,7 @@ void TreeManager::notifyTransfers(const std::vector<OrganismTransfer>& transfers
             // If the seed cell is moving, update seed_position to track it.
             if (transfer->from_pos == tree.seed_position) {
                 tree.seed_position = transfer->to_pos;
-                tree_log->debug(
+                LoggingChannels::tree()->debug(
                     "TreeManager: Tree {} seed moved from ({}, {}) to ({}, {})",
                     tree_id,
                     transfer->from_pos.x,
@@ -125,7 +123,7 @@ void TreeManager::notifyTransfers(const std::vector<OrganismTransfer>& transfers
             // The cleanup will happen in a separate pass or when cell becomes fully empty.
         }
 
-        tree_log->trace(
+        LoggingChannels::tree()->trace(
             "TreeManager: Processed {} transfers for tree {} (now {} cells tracked)",
             tree_transfers.size(),
             tree_id,
@@ -230,7 +228,7 @@ void TreeManager::computeOrganismSupport(World& world)
                 }
             }
 
-            tree_log->debug(
+            LoggingChannels::tree()->debug(
                 "TreeManager: Tree {} fully supported (budget={:.2f} >= mass={:.2f}, roots={})",
                 tree_id,
                 support_budget,
@@ -241,7 +239,7 @@ void TreeManager::computeOrganismSupport(World& world)
             // Insufficient support - only grant organism support up to budget.
             double mass_to_support = support_budget; // How much we CAN support.
 
-            tree_log->warn(
+            LoggingChannels::tree()->warn(
                 "TreeManager: Tree {} INSUFFICIENT support (budget={:.2f} < mass={:.2f})",
                 tree_id,
                 support_budget,
@@ -278,7 +276,7 @@ void TreeManager::computeOrganismSupport(World& world)
                 }
                 mass_supported += cell_mass;
 
-                tree_log->debug(
+                LoggingChannels::tree()->debug(
                     "TreeManager: Tree {} granting support to {} at ({}, {}) - mass={:.2f}",
                     tree_id,
                     getMaterialName(cell.material_type),
@@ -287,7 +285,7 @@ void TreeManager::computeOrganismSupport(World& world)
                     cell_mass);
             }
 
-            tree_log->info(
+            LoggingChannels::tree()->info(
                 "TreeManager: Tree {} partial support - {:.2f}/{:.2f} mass supported by roots",
                 tree_id,
                 mass_supported,
