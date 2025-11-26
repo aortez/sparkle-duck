@@ -46,6 +46,7 @@ void LoggingChannels::initialize(
     createLogger("network", sharedSinks_, spdlog::level::info);
     createLogger("state", sharedSinks_, spdlog::level::debug);
     createLogger("scenario", sharedSinks_, spdlog::level::info);
+    createLogger("tree", sharedSinks_, spdlog::level::info);
 
     // Keep the default logger for general use.
     auto default_logger =
@@ -447,6 +448,7 @@ void LoggingChannels::applyConfig(const nlohmann::json& config)
     createLogger("state", sharedSinks_, spdlog::level::trace);
     createLogger("support", sharedSinks_, spdlog::level::trace);
     createLogger("swap", sharedSinks_, spdlog::level::trace);
+    createLogger("tree", sharedSinks_, spdlog::level::trace);
     createLogger("ui", sharedSinks_, spdlog::level::trace);
     createLogger("viscosity", sharedSinks_, spdlog::level::trace);
 
