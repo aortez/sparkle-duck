@@ -75,7 +75,7 @@ static std::array<MaterialProperties, 10> MATERIAL_PROPERTIES = {
         .hydrostatic_weight = 0.0, // Rigid materials don't respond to pressure.
         .dynamic_weight = 0.5,
         .pressure_diffusion = 0.1,
-        .viscosity = 0.95,
+        .viscosity = 1,
         .motion_sensitivity = 0.1,
         .static_friction_coefficient = 1.5,
         .kinetic_friction_coefficient = 1.0,
@@ -181,7 +181,7 @@ static std::array<MaterialProperties, 10> MATERIAL_PROPERTIES = {
         .cohesion = 0.7,
         .adhesion = 0.3,
         .air_resistance = 0.2,
-        .hydrostatic_weight = 0.0, // Rigid materials don't respond to pressure.
+        .hydrostatic_weight = 0.0,
         .dynamic_weight = 0.5,
         .pressure_diffusion = 0.15,
         .viscosity = 0.3,
@@ -191,7 +191,7 @@ static std::array<MaterialProperties, 10> MATERIAL_PROPERTIES = {
         .stick_velocity = 0.02,
         .friction_transition_width = 0.03,
         .is_fluid = false,
-        .is_rigid = true } } // Rigid, but can be displaced when unsupported (floating).
+        .is_rigid = true } }
 };
 
 // Material name lookup table.

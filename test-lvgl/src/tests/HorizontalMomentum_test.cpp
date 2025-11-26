@@ -26,8 +26,8 @@ protected:
         // Enable swap logging at debug level to see all swap decisions.
         LoggingChannels::swap()->set_level(spdlog::level::debug);
 
-        // Create 5x5 world for horizontal motion test (walls make usable area 3x3).
-        world = std::make_unique<World>(5, 5);
+        // Create 7x5 world for horizontal motion test (walls make usable area 5x3).
+        world = std::make_unique<World>(7, 5);
 
         world->setWallsEnabled(true); // Need walls to contain the test.
         world->setLeftThrowEnabled(false);
@@ -93,12 +93,12 @@ protected:
 TEST_F(HorizontalMomentumTest, DirtMaintainsHorizontalVelocity)
 {
     spdlog::info("Starting HorizontalMomentumTest::DirtMaintainsHorizontalVelocity");
-    spdlog::info("  World: 3x3 (with walls = 5x5 total)");
+    spdlog::info("  World: 5x3 (with walls = 7x5 total)");
     spdlog::info("  Air resistance: DISABLED");
     spdlog::info("  Gravity: DISABLED");
 
-    // Place dirt in center position (x=2, y=2 in 5x5 grid), away from walls.
-    // Walls are at x=0, x=4, y=0, y=4.
+    // Place dirt near left side (x=2, y=2 in 7x5 grid), away from walls.
+    // Walls are at x=0, x=6, y=0, y=4.
     const uint32_t startX = 2;
     const uint32_t startY = 2;
 
@@ -177,8 +177,8 @@ TEST_F(HorizontalMomentumTest, DirtMaintainsHorizontalVelocity)
 
         ASSERT_TRUE(found) << "Dirt disappeared at step " << step;
 
-        // Check if dirt reached the right wall (x=3, since wall is at x=4).
-        if (dirtX >= 3) {
+        // Check if dirt reached the right wall (x=5, since wall is at x=6).
+        if (dirtX >= 5) {
             spdlog::info("  Dirt reached right side at step {}", step);
             break;
         }

@@ -10,18 +10,19 @@ using namespace DirtSim;
 
 class TreeGerminationTest : public ::testing::Test {
 protected:
-    void SetUp() override { world = std::make_unique<World>(7, 7); }
+    void SetUp() override { world = std::make_unique<World>(9, 9); }
 
     void setupGerminationWorld()
     {
-        for (uint32_t y = 0; y < 7; ++y) {
-            for (uint32_t x = 0; x < 7; ++x) {
+        for (uint32_t y = 0; y < 9; ++y) {
+            for (uint32_t x = 0; x < 9; ++x) {
                 world->getData().at(x, y) = Cell();
             }
         }
 
-        for (uint32_t y = 4; y < 7; ++y) {
-            for (uint32_t x = 0; x < 7; ++x) {
+        // Dirt at bottom 3 rows (same relative height as before).
+        for (uint32_t y = 6; y < 9; ++y) {
+            for (uint32_t x = 0; x < 9; ++x) {
                 world->addMaterialAtCell(x, y, MaterialType::DIRT, 1.0);
             }
         }
@@ -33,9 +34,9 @@ protected:
 TEST_F(TreeGerminationTest, SeedFallsOntoGround)
 {
     setupGerminationWorld();
-    TreeId id = world->getTreeManager().plantSeed(*world, 3, 1);
+    TreeId id = world->getTreeManager().plantSeed(*world, 4, 1);
 
-    EXPECT_EQ(world->getData().at(3, 1).material_type, MaterialType::SEED);
+    EXPECT_EQ(world->getData().at(4, 1).material_type, MaterialType::SEED);
 
     std::cout << "Initial state:\n"
               << WorldDiagramGeneratorEmoji::generateEmojiDiagram(*world) << "\n";
@@ -59,7 +60,7 @@ TEST_F(TreeGerminationTest, SeedFallsOntoGround)
 TEST_F(TreeGerminationTest, SeedGerminates)
 {
     setupGerminationWorld();
-    TreeId id = world->getTreeManager().plantSeed(*world, 3, 3);
+    TreeId id = world->getTreeManager().plantSeed(*world, 4, 4);
 
     const Tree* tree = world->getTreeManager().getTree(id);
     EXPECT_EQ(tree->stage, GrowthStage::SEED);
@@ -86,15 +87,15 @@ TEST_F(TreeGerminationTest, SeedGerminates)
 
 TEST_F(TreeGerminationTest, SeedBlockedByWall)
 {
-    for (uint32_t y = 0; y < 7; ++y) {
-        for (uint32_t x = 0; x < 7; ++x) {
+    for (uint32_t y = 0; y < 9; ++y) {
+        for (uint32_t x = 0; x < 9; ++x) {
             world->getData().at(x, y).replaceMaterial(MaterialType::WALL, 1.0);
         }
     }
 
-    world->getData().at(3, 3).replaceMaterial(MaterialType::AIR, 0.0);
+    world->getData().at(4, 4).replaceMaterial(MaterialType::AIR, 0.0);
 
-    TreeId id = world->getTreeManager().plantSeed(*world, 3, 3);
+    TreeId id = world->getTreeManager().plantSeed(*world, 4, 4);
     const Tree* tree = world->getTreeManager().getTree(id);
 
     for (int i = 0; i < 1000; i++) {
@@ -107,55 +108,125 @@ TEST_F(TreeGerminationTest, SeedBlockedByWall)
 TEST_F(TreeGerminationTest, SaplingGrowsBalanced)
 {
     setupGerminationWorld();
-    TreeId id = world->getTreeManager().plantSeed(*world, 3, 3);
+    TreeId id = world->getTreeManager().plantSeed(*world, 4, 4);
     const Tree* tree = world->getTreeManager().getTree(id);
 
-    std::cout << "Initial state:\n"
+    std::cout << "Initial state (Seed at: " << tree->seed_position.x << ", "
+              << tree->seed_position.y << "):\n"
               << WorldDiagramGeneratorEmoji::generateEmojiDiagram(*world) << "\n";
+
+    Vector2i last_seed_pos = tree->seed_position;
+    std::string last_diagram = WorldDiagramGeneratorEmoji::generateEmojiDiagram(*world);
 
     for (int i = 0; i < 2000; i++) {
         world->advanceTime(0.016);
 
+        // Track seed movement.
+        Vector2i current_seed_pos = tree->seed_position;
+        if (current_seed_pos.x != last_seed_pos.x || current_seed_pos.y != last_seed_pos.y) {
+            std::cout << "\n⚠️  SEED MOVED at frame " << i << " (t=" << tree->age_seconds << "s)\n";
+            std::cout << "FROM: (" << last_seed_pos.x << ", " << last_seed_pos.y << ")\n";
+            std::cout << "TO:   (" << current_seed_pos.x << ", " << current_seed_pos.y << ")\n\n";
+            std::cout << "BEFORE (frame " << (i - 1) << "):\n" << last_diagram << "\n";
+            std::cout << "AFTER (frame " << i << "):\n"
+                      << WorldDiagramGeneratorEmoji::generateEmojiDiagram(*world) << "\n";
+
+            last_seed_pos = current_seed_pos;
+        }
+
+        // Save diagram for next iteration.
+        last_diagram = WorldDiagramGeneratorEmoji::generateEmojiDiagram(*world);
+
         // Print every 50 frames for detailed view.
         if (i % 50 == 0 && i > 0) {
             std::cout << "After " << (i * 0.016) << "s (Energy: " << tree->total_energy
-                      << ", Cells: " << tree->cells.size() << "):\n"
+                      << ", Cells: " << tree->cells.size() << ", Seed: " << tree->seed_position.x
+                      << ", " << tree->seed_position.y << "):\n"
                       << WorldDiagramGeneratorEmoji::generateEmojiDiagram(*world) << "\n";
         }
     }
 
     std::cout << "Final state (Energy: " << tree->total_energy << ", Cells: " << tree->cells.size()
-              << "):\n"
+              << ", Seed at: (" << tree->seed_position.x << ", " << tree->seed_position.y << ")):\n"
               << WorldDiagramGeneratorEmoji::generateEmojiDiagram(*world) << "\n";
 
     EXPECT_EQ(tree->stage, GrowthStage::SAPLING);
     EXPECT_GT(tree->cells.size(), 3);
+
+    // Verify spatial balance: count materials left vs right of seed.
+    int seed_x = tree->seed_position.x;
+    std::cout << "\nSeed final position: (" << tree->seed_position.x << ", "
+              << tree->seed_position.y << ")\n";
+
+    int wood_left = 0, wood_right = 0;
+    int leaf_left = 0, leaf_right = 0;
+
+    for (uint32_t y = 0; y < 7; ++y) {
+        for (uint32_t x = 0; x < 7; ++x) {
+            const Cell& cell = world->getData().at(x, y);
+            if (cell.organism_id != tree->id) continue;
+
+            if (cell.material_type == MaterialType::WOOD) {
+                if (static_cast<int>(x) < seed_x)
+                    wood_left++;
+                else if (static_cast<int>(x) > seed_x)
+                    wood_right++;
+            }
+            else if (cell.material_type == MaterialType::LEAF) {
+                if (static_cast<int>(x) < seed_x)
+                    leaf_left++;
+                else if (static_cast<int>(x) > seed_x)
+                    leaf_right++;
+            }
+        }
+    }
+
+    std::cout << "\nSpatial Balance Check:\n";
+    std::cout << "  WOOD: left=" << wood_left << ", right=" << wood_right << "\n";
+    std::cout << "  LEAF: left=" << leaf_left << ", right=" << leaf_right << "\n";
+
+    // Verify growth is balanced (accept 2:3 ratio as balanced for small trees).
+    if (wood_left > 0 && wood_right > 0) {
+        double wood_ratio = static_cast<double>(std::min(wood_left, wood_right))
+            / static_cast<double>(std::max(wood_left, wood_right));
+        std::cout << "  WOOD balance ratio: " << wood_ratio << " (should be >= 0.5)\n";
+        EXPECT_GE(wood_ratio, 0.5) << "WOOD growth should be reasonably balanced (1:2 or better)";
+    }
+
+    if (leaf_left > 0 && leaf_right > 0) {
+        double leaf_ratio = static_cast<double>(std::min(leaf_left, leaf_right))
+            / static_cast<double>(std::max(leaf_left, leaf_right));
+        std::cout << "  LEAF balance ratio: " << leaf_ratio << " (should be >= 0.5)\n";
+        EXPECT_GE(leaf_ratio, 0.5) << "LEAF growth should be reasonably balanced (1:2 or better)";
+    }
 }
 
 TEST_F(TreeGerminationTest, RootsStopAtWater)
 {
     world->getPhysicsSettings().swap_enabled = false;
 
-    for (uint32_t y = 0; y < 7; ++y) {
-        for (uint32_t x = 0; x < 7; ++x) {
+    for (uint32_t y = 0; y < 9; ++y) {
+        for (uint32_t x = 0; x < 9; ++x) {
             world->getData().at(x, y) = Cell();
         }
     }
 
-    for (uint32_t y = 5; y < 7; ++y) {
-        for (uint32_t x = 0; x < 7; ++x) {
+    // Water at bottom 2 rows.
+    for (uint32_t y = 7; y < 9; ++y) {
+        for (uint32_t x = 0; x < 9; ++x) {
             world->getData().at(x, y).replaceMaterial(MaterialType::WATER, 1.0);
         }
     }
 
-    for (uint32_t x = 0; x < 7; ++x) {
-        world->getData().at(x, 4).replaceMaterial(MaterialType::DIRT, 1.0);
+    // Dirt layer above water.
+    for (uint32_t x = 0; x < 9; ++x) {
+        world->getData().at(x, 6).replaceMaterial(MaterialType::DIRT, 1.0);
     }
 
     std::cout << "Initial water test setup:\n"
               << WorldDiagramGeneratorEmoji::generateEmojiDiagram(*world) << "\n";
 
-    world->getTreeManager().plantSeed(*world, 3, 3);
+    world->getTreeManager().plantSeed(*world, 4, 4);
 
     for (int i = 0; i < 2000; i++) {
         world->advanceTime(0.016);
@@ -170,8 +241,8 @@ TEST_F(TreeGerminationTest, RootsStopAtWater)
 
     int root_count = 0;
     int water_count = 0;
-    for (uint32_t y = 0; y < 7; ++y) {
-        for (uint32_t x = 0; x < 7; ++x) {
+    for (uint32_t y = 0; y < 9; ++y) {
+        for (uint32_t x = 0; x < 9; ++x) {
             if (world->getData().at(x, y).material_type == MaterialType::ROOT) root_count++;
             if (world->getData().at(x, y).material_type == MaterialType::WATER) water_count++;
         }
@@ -184,31 +255,32 @@ TEST_F(TreeGerminationTest, RootsStopAtWater)
 TEST_F(TreeGerminationTest, TreeStopsGrowingWhenOutOfEnergy)
 {
     setupGerminationWorld();
-    TreeId id = world->getTreeManager().plantSeed(*world, 3, 3);
+    TreeId id = world->getTreeManager().plantSeed(*world, 4, 4);
     Tree* tree = world->getTreeManager().getTree(id);
 
-    const double initial_energy = 20.0;
+    const double initial_energy = 25.0;
     tree->total_energy = initial_energy;
 
     for (int i = 0; i < 3000; i++) {
         world->advanceTime(0.016);
     }
 
-    // With 20.0 energy:
+    // With 25.0 energy and trunk/branch growth model:
     // - SEED (starting cell, no cost)
-    // - ROOT (12.0) → 8.0 remaining
-    // - Can't afford WOOD (10.0) or more ROOT (12.0)
-    // Expected: 2 cells (SEED + ROOT), 8.0 energy remaining.
+    // - ROOT (12.0) → 13.0 remaining
+    // - WOOD from germination (10.0) → 3.0 remaining
+    // - Can't afford another WOOD (10.0) or ROOT (12.0)
+    // Expected: 3 cells (SEED + ROOT + WOOD), 3.0 energy remaining.
 
-    EXPECT_EQ(tree->cells.size(), 2) << "Tree should have SEED + ROOT (20.0 energy buys 1 ROOT)";
-    EXPECT_DOUBLE_EQ(tree->total_energy, 8.0)
-        << "Should have 8.0 energy remaining after growing 1 ROOT";
+    EXPECT_EQ(tree->cells.size(), 3) << "Tree should have SEED + ROOT + WOOD (25.0 energy limit)";
+    EXPECT_DOUBLE_EQ(tree->total_energy, 3.0)
+        << "Should have 3.0 energy remaining after germination";
 }
 
 TEST_F(TreeGerminationTest, WoodCellsStayStationary)
 {
     setupGerminationWorld();
-    TreeId id = world->getTreeManager().plantSeed(*world, 3, 3);
+    TreeId id = world->getTreeManager().plantSeed(*world, 4, 4);
     const Tree* tree = world->getTreeManager().getTree(id);
 
     std::cout << "Initial state:\n"
@@ -225,8 +297,8 @@ TEST_F(TreeGerminationTest, WoodCellsStayStationary)
 
         // Track all WOOD cells.
         wood_positions.clear();
-        for (uint32_t y = 0; y < 7; ++y) {
-            for (uint32_t x = 0; x < 7; ++x) {
+        for (uint32_t y = 0; y < 9; ++y) {
+            for (uint32_t x = 0; x < 9; ++x) {
                 const Cell& cell = world->getData().at(x, y);
                 if (cell.material_type == MaterialType::WOOD && cell.organism_id == tree->id) {
                     wood_positions.push_back(Vector2i{ static_cast<int>(x), static_cast<int>(y) });
@@ -284,7 +356,7 @@ TEST_F(TreeGerminationTest, WoodCellsStayStationary)
 TEST_F(TreeGerminationTest, DebugWoodFalling)
 {
     setupGerminationWorld();
-    TreeId id = world->getTreeManager().plantSeed(*world, 3, 3);
+    TreeId id = world->getTreeManager().plantSeed(*world, 4, 4);
     const Tree* tree = world->getTreeManager().getTree(id);
 
     std::cout << "=== DEEP DEBUG: Wood Cell Physics ===\n\n";
@@ -301,8 +373,8 @@ TEST_F(TreeGerminationTest, DebugWoodFalling)
         frame++;
 
         wood_positions.clear();
-        for (uint32_t y = 0; y < 7; ++y) {
-            for (uint32_t x = 0; x < 7; ++x) {
+        for (uint32_t y = 0; y < 9; ++y) {
+            for (uint32_t x = 0; x < 9; ++x) {
                 const Cell& cell = world->getData().at(x, y);
                 if (cell.material_type == MaterialType::WOOD && cell.organism_id == tree->id) {
                     wood_positions.push_back(Vector2i{ static_cast<int>(x), static_cast<int>(y) });
@@ -328,7 +400,11 @@ TEST_F(TreeGerminationTest, DebugWoodFalling)
 
     std::cout << "\n=== Detailed Tracking ===\n";
     std::cout << "WOOD[0] (first/center): (" << wood0_pos.x << ", " << wood0_pos.y << ")\n";
-    std::cout << "WOOD[1] (second/left):  (" << wood1_pos.x << ", " << wood1_pos.y << ")\n\n";
+    std::cout << "WOOD[1] (second/left):  (" << wood1_pos.x << ", " << wood1_pos.y << ")\n";
+    std::cout << "Initial Seed position: (" << tree->seed_position.x << ", "
+              << tree->seed_position.y << ")\n\n";
+
+    Vector2i last_seed_pos = tree->seed_position;
 
     for (int i = 0; i < 50; i++) {
         world->advanceTime(0.016);
@@ -338,9 +414,20 @@ TEST_F(TreeGerminationTest, DebugWoodFalling)
         const Cell& wood0 = world->getData().at(wood0_pos.x, wood0_pos.y);
         const Cell& wood1 = world->getData().at(wood1_pos.x, wood1_pos.y);
 
+        // Check for seed movement.
+        Vector2i current_seed_pos = tree->seed_position;
+        bool seed_moved =
+            (current_seed_pos.x != last_seed_pos.x) || (current_seed_pos.y != last_seed_pos.y);
+
         // Print every 5 frames.
         if (i % 5 == 0) {
             std::cout << "\n━━━ Frame " << frame << " (t=" << tree->age_seconds << "s) ━━━\n";
+            if (seed_moved) {
+                std::cout << "⚠️  SEED MOVED: (" << last_seed_pos.x << ", " << last_seed_pos.y
+                          << ") → (" << current_seed_pos.x << ", " << current_seed_pos.y << ")\n";
+            }
+            std::cout << "Seed position: (" << tree->seed_position.x << ", "
+                      << tree->seed_position.y << ")\n";
             std::cout << WorldDiagramGeneratorEmoji::generateEmojiDiagram(*world) << "\n";
 
             // WOOD[0] details.
@@ -376,6 +463,19 @@ TEST_F(TreeGerminationTest, DebugWoodFalling)
                       << wood1.pending_force.y << ")\n";
             std::cout << "  has_any_support: " << wood1.has_any_support << "\n";
             std::cout << "  has_vertical_support: " << wood1.has_vertical_support << "\n";
+
+            // Show SEED details if it moved.
+            if (seed_moved) {
+                const Cell& seed_cell = world->getData().at(current_seed_pos.x, current_seed_pos.y);
+                std::cout << "SEED at (" << current_seed_pos.x << ", " << current_seed_pos.y
+                          << "):\n";
+                std::cout << "  com: (" << seed_cell.com.x << ", " << seed_cell.com.y << ")\n";
+                std::cout << "  velocity: (" << seed_cell.velocity.x << ", " << seed_cell.velocity.y
+                          << ")\n";
+                std::cout << "  has_any_support: " << seed_cell.has_any_support << "\n";
+                std::cout << "  has_vertical_support: " << seed_cell.has_vertical_support << "\n";
+                last_seed_pos = current_seed_pos;
+            }
 
             // Check if WOOD[1] moved.
             bool wood1_still_there =

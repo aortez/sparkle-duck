@@ -208,7 +208,7 @@ public:
     static constexpr double COM_COHESION_MIN_DISTANCE = 0.1; // Prevent division by near-zero
     static constexpr double COM_COHESION_MAX_FORCE = 5.0;    // Cap maximum force magnitude
     static constexpr double STRONG_ADHESION_THRESHOLD =
-        0.5; // Minimum adhesion needed for horizontal support
+        0.7; // Minimum adhesion needed for horizontal support
 
     // =================================================================
     // FORCE CALCULATION METHODS

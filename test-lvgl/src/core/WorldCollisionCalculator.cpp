@@ -1043,11 +1043,8 @@ void WorldCollisionCalculator::swapCounterMovingMaterials(
     const double swap_cost = 0.5 * target_mass * 1.0;
 
     // Calculate remaining energy after swap.
-    // Swaps are inelastic - materials lose significant energy during position exchange.
-    const double SWAP_ENERGY_RETENTION =
-        0.5; // Retain 50% of energy (lose 50% to turbulence/friction).
-    const double remaining_energy =
-        std::max(0.0, (move.collision_energy - swap_cost) * SWAP_ENERGY_RETENTION);
+    // Energy is only lost proportional to work done (swap_cost).
+    const double remaining_energy = std::max(0.0, move.collision_energy - swap_cost);
 
     // Get mass of moving material (fromCell -> toCell).
     const double moving_mass = fromCell.getEffectiveDensity();

@@ -409,7 +409,7 @@ Can be found here:
 - Performance testing and optimization
 
 Awesome Ideas to do soon:
-- Swapping behavior - vertical only or also horizontal???
+- Swapping behavior - don't swap down if there is an opening to the side, instead displace!!!
 - WorldEventGenerator methods should be moved into the Scenarios.
 - FIX: After resetting, the tree visualization is still showing, it should Only
 be active if a tree is around.
