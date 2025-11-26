@@ -122,7 +122,7 @@ TreeCommand RuleBasedBrain::decide(const TreeSensoryData& sensory)
         metrics.branch_cells.size());
 
     // Priority 1: Ensure roots support canopy (above_ground <= 2 × below_ground).
-    if (metrics.above_ground_mass > 2.0 * metrics.below_ground_mass) {
+    if (metrics.above_ground_mass > 1.0 * metrics.below_ground_mass) {
         Vector2i pos = findGrowthPosition(sensory, MaterialType::ROOT);
         if (checkGrowthSuitability(sensory, pos, MaterialType::ROOT)
             == GrowthSuitability::SUITABLE) {
@@ -131,6 +131,12 @@ TreeCommand RuleBasedBrain::decide(const TreeSensoryData& sensory)
                 metrics.above_ground_mass,
                 metrics.below_ground_mass);
             return GrowRootCommand{ .target_pos = pos, .execution_time_seconds = 2.0 };
+        }
+        else {
+            spdlog::warn(
+                "RuleBasedBrain: Cannot find root location! (above={:.2f} > 2×below={:.2f})",
+                metrics.above_ground_mass,
+                metrics.below_ground_mass);
         }
     }
 
