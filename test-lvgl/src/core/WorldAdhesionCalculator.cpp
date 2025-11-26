@@ -32,8 +32,13 @@ WorldAdhesionCalculator::AdhesionForce WorldAdhesionCalculator::calculateAdhesio
             if (isValidCell(world, nx, ny)) {
                 const Cell& neighbor = getCellAt(world, nx, ny);
 
-                if (neighbor.material_type != cell.material_type
-                    && neighbor.fill_ratio > MIN_MATTER_THRESHOLD) {
+                // Skip same material and AIR neighbors (AIR has adhesion=0.0).
+                if (neighbor.material_type == cell.material_type
+                    || neighbor.material_type == MaterialType::AIR) {
+                    continue;
+                }
+
+                if (neighbor.fill_ratio > MIN_MATTER_THRESHOLD) {
 
                     // Calculate mutual adhesion (geometric mean)
                     const MaterialProperties& neighbor_props =

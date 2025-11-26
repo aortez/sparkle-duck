@@ -17,7 +17,8 @@ WorldCohesionCalculator::CohesionForce WorldCohesionCalculator::calculateCohesio
     const World& world, uint32_t x, uint32_t y) const
 {
     const Cell& cell = getCellAt(world, x, y);
-    if (cell.isEmpty()) {
+    // Skip AIR cells - they have zero cohesion and don't participate in clustering.
+    if (cell.material_type == MaterialType::AIR) {
         return { 0.0, 0 };
     }
 
@@ -138,7 +139,8 @@ WorldCohesionCalculator::COMCohesionForce WorldCohesionCalculator::calculateCOMC
 
     // Fallback to direct cell access.
     const Cell& cell = getCellAt(world, x, y);
-    if (cell.isEmpty()) {
+    // Skip AIR cells - they have zero cohesion and don't participate in clustering.
+    if (cell.material_type == MaterialType::AIR) {
         return { { 0.0, 0.0 }, 0.0, { 0.0, 0.0 }, 0, 0.0, 0.0, false, 0.0 };
     }
 
@@ -219,7 +221,7 @@ WorldCohesionCalculator::COMCohesionForce WorldCohesionCalculator::calculateCOMC
     }
 
     // ===================================================================
-    // FORCE 2: Centering (pull COM toward cell center for stability)
+    // FORCE 2: Centering (scaled by neighbor connectivity)
     // ===================================================================
 
     Vector2d centering_force(0.0, 0.0);
@@ -227,11 +229,18 @@ WorldCohesionCalculator::COMCohesionForce WorldCohesionCalculator::calculateCOMC
     double com_offset_sq = com.x * com.x + com.y * com.y;
     double com_offset = 0.0;
 
-    if (com_offset_sq > 0.000001) {
+    // Only apply centering when particle has same-material neighbors.
+    // Isolated particles should move freely without artificial COM drag.
+    if (connection_count > 0 && com_offset_sq > 0.000001) {
         com_offset = std::sqrt(com_offset_sq);
         centering_direction = com * (-1.0 / com_offset);
 
-        double centering_magnitude = props.cohesion * com_offset * cell.fill_ratio;
+        // Scale by neighbor connectivity - more neighbors = stronger centering.
+        double max_connections = (2 * range + 1) * (2 * range + 1) - 1;
+        double connection_factor = static_cast<double>(connection_count) / max_connections;
+
+        double centering_magnitude =
+            props.cohesion * com_offset * cell.fill_ratio * connection_factor;
 
         centering_force = centering_direction * centering_magnitude * CENTERING_WEIGHT;
     }
@@ -323,7 +332,8 @@ WorldCohesionCalculator::COMCohesionForce WorldCohesionCalculator::calculateCOMC
     const MaterialNeighborhood& mat_n) const
 {
     const Cell& cell = getCellAt(world, x, y);
-    if (cell.isEmpty()) {
+    // Skip AIR cells - they have zero cohesion and don't participate in clustering.
+    if (cell.material_type == MaterialType::AIR) {
         return { { 0.0, 0.0 }, 0.0, { 0.0, 0.0 }, 0, 0.0, 0.0, false, 0.0 };
     }
 
@@ -402,7 +412,7 @@ WorldCohesionCalculator::COMCohesionForce WorldCohesionCalculator::calculateCOMC
     }
 
     // ===================================================================
-    // FORCE 2: Centering (same as non-cached version)
+    // FORCE 2: Centering (scaled by neighbor connectivity)
     // ===================================================================
 
     Vector2d centering_force(0.0, 0.0);
@@ -410,11 +420,19 @@ WorldCohesionCalculator::COMCohesionForce WorldCohesionCalculator::calculateCOMC
     double com_offset_sq = com.x * com.x + com.y * com.y;
     double com_offset = 0.0;
 
-    if (com_offset_sq > 0.000001) {
+    // Only apply centering when particle has same-material neighbors.
+    // Isolated particles should move freely without artificial COM drag.
+    if (connection_count > 0 && com_offset_sq > 0.000001) {
         com_offset = std::sqrt(com_offset_sq);
         centering_direction = com * (-1.0 / com_offset);
 
-        double centering_magnitude = props.cohesion * com_offset * cell.fill_ratio;
+        // Scale by neighbor connectivity - more neighbors = stronger centering.
+        int range = static_cast<int>(com_cohesion_range);
+        double max_connections = (2 * range + 1) * (2 * range + 1) - 1;
+        double connection_factor = static_cast<double>(connection_count) / max_connections;
+
+        double centering_magnitude =
+            props.cohesion * com_offset * cell.fill_ratio * connection_factor;
         centering_force = centering_direction * centering_magnitude * CENTERING_WEIGHT;
     }
 

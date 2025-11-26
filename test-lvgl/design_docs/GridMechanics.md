@@ -7,7 +7,9 @@ World is composed of a grid of square cells.
 Each cell is from [0,1] full.
 
 ### Matter
-It is filled with matter, of one of the following types: dirt, water, wood, sand, metal, air, leaf, wall, and nothing.
+It is filled with matter, of one of the following types: dirt, water, wood, sand, metal, air, leaf, wall, root, and seed.
+
+**AIR is a real material**: Cells are always full of some material. "Empty" cells contain AIR with fill_ratio=1.0. AIR has extremely low density (0.001) and zero cohesion/adhesion, making it easily displaced by other materials through the swap system. This enables realistic displacement physics, air bubbles, and buoyancy effects.
 
 The matter is modeled by a single particle within each cell.
 This is the cell's COM, or Center of Mass. The COM ranges from [-1, 1] in x and y.
@@ -280,8 +282,17 @@ This creates realistic behavior where compressed materials flow more easily than
 Cohesion now refers only to attractive forces between same-material particles.
 
 ### COM Force
-COM (Center-of-Mass) Cohesion - Attractive Forces.
-- Purpose: Pulls particles toward the weighted center of connected neighbors.
+COM (Center-of-Mass) Cohesion - Attractive Forces with two components:
+
+1. **Clustering Force**: Pulls particles toward the weighted center of same-material neighbors.
+   - Only active when same-material neighbors exist.
+   - Strength scales with neighbor count and mass.
+
+2. **Centering Force**: Pulls COM back toward cell center (0,0) for stability.
+   - **Scaled by neighbor connectivity**: Isolated particles (zero same-material neighbors) have zero centering force, allowing free movement through space.
+   - Particles with neighbors experience centering proportional to connection count.
+   - Prevents artificial drag on projectiles moving through AIR.
+
 - Method: Applies attractive forces directly to particle velocities.
 - Range: Configurable neighbor detection range (typically 2 cells).
 - Applied in: applyCohesionForces() - modifies velocity vectors each timestep.
@@ -291,8 +302,10 @@ COM (Center-of-Mass) Cohesion - Attractive Forces.
 Adhesion: Attractive forces between different material types (unlike cohesion which works on same materials)
 Purpose: Simulates how different materials stick to each other (e.g., water adhering to dirt, materials sticking to walls)
 
+**AIR handling**: AIR neighbors are explicitly skipped in adhesion calculations since AIR has zero adhesion. This prevents unnecessary force computations for particles moving through AIR.
+
 Each material has an adhesion value (0.0-1.0):
-AIR:   0.0  (no adhesion)
+AIR:   0.0  (no adhesion - always skipped)
 DIRT:  0.2  (moderate adhesion)
 WATER: 0.5  (high adhesion - sticks to surfaces)
 WOOD:  0.3  (moderate adhesion)

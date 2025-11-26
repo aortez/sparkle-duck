@@ -214,10 +214,11 @@ double WorldCollisionCalculator::calculateCollisionEnergy(
         velocity_in_direction);
 
     // If target cell has material, include reduced mass for collision.
+    // Exception: AIR is so light it doesn't affect collision energy.
     double targetMass = calculateMaterialMass(toCell);
     double effective_mass = movingMass;
 
-    if (targetMass > 0.0) {
+    if (targetMass > 0.0 && toCell.material_type != MaterialType::AIR) {
         // Reduced mass formula: μ = (m1 × m2) / (m1 + m2)
         effective_mass = (movingMass * targetMass) / (movingMass + targetMass);
     }
@@ -822,27 +823,27 @@ bool WorldCollisionCalculator::shouldSwapMaterials(
         }
         // Log horizontal swap approval details.
         if (toCell.material_type != MaterialType::AIR) {
-            LoggingChannels::swap()->warn(
-                "Horizontal swap OK: {} -> {} at ({},{}) -> ({},{}) | momentum: {:.3f} (mass: "
-                "{:.3f}, "
-                "vel: {:.3f}) | resistance: {:.3f} (mass: {:.3f}, cohesion: {:.3f}, support: "
-                "{:.1f}, "
-                "fluid: {:.1f}) | threshold: {:.3f}",
-                getMaterialName(fromCell.material_type),
-                getMaterialName(toCell.material_type),
-                fromX,
-                fromY,
-                fromX + direction.x,
-                fromY + direction.y,
-                from_momentum,
-                from_mass,
-                from_velocity,
-                to_resistance,
-                to_mass,
-                to_props.cohesion,
-                support_factor,
-                fluid_factor,
-                to_resistance * threshold);
+            // LoggingChannels::swap()->warn(
+            //     "Horizontal swap OK: {} -> {} at ({},{}) -> ({},{}) | momentum: {:.3f} (mass: "
+            //     "{:.3f}, "
+            //     "vel: {:.3f}) | resistance: {:.3f} (mass: {:.3f}, cohesion: {:.3f}, support: "
+            //     "{:.1f}, "
+            //     "fluid: {:.1f}) | threshold: {:.3f}",
+            //     getMaterialName(fromCell.material_type),
+            //     getMaterialName(toCell.material_type),
+            //     fromX,
+            //     fromY,
+            //     fromX + direction.x,
+            //     fromY + direction.y,
+            //     from_momentum,
+            //     from_mass,
+            //     from_velocity,
+            //     to_resistance,
+            //     to_mass,
+            //     to_props.cohesion,
+            //     support_factor,
+            //     fluid_factor,
+            //     to_resistance * threshold);
         }
     }
     else {
@@ -886,29 +887,29 @@ bool WorldCollisionCalculator::shouldSwapMaterials(
         }
         // Log vertical swap approval details.
         if (toCell.material_type != MaterialType::AIR) {
-            LoggingChannels::swap()->warn(
-                "Vertical swap OK: {} -> {} at ({},{}) -> ({},{}) | momentum: {:.3f} (mass: "
-                "{:.3f}, "
-                "vel: {:.3f}, buoyancy: {:.3f}) | resistance: {:.3f} (mass: {:.3f}, cohesion: "
-                "{:.3f}, "
-                "support: {:.1f}) | threshold: {:.3f} | dir.y: {} ({})",
-                getMaterialName(fromCell.material_type),
-                getMaterialName(toCell.material_type),
-                fromX,
-                fromY,
-                fromX + direction.x,
-                fromY + direction.y,
-                effective_momentum,
-                from_mass,
-                from_velocity,
-                buoyancy_boost,
-                to_resistance,
-                to_mass,
-                to_props.cohesion,
-                support_factor,
-                to_resistance * threshold,
-                direction.y,
-                direction.y > 0 ? "DOWN" : "UP");
+            // LoggingChannels::swap()->warn(
+            //     "Vertical swap OK: {} -> {} at ({},{}) -> ({},{}) | momentum: {:.3f} (mass: "
+            //     "{:.3f}, "
+            //     "vel: {:.3f}, buoyancy: {:.3f}) | resistance: {:.3f} (mass: {:.3f}, cohesion: "
+            //     "{:.3f}, "
+            //     "support: {:.1f}) | threshold: {:.3f} | dir.y: {} ({})",
+            //     getMaterialName(fromCell.material_type),
+            //     getMaterialName(toCell.material_type),
+            //     fromX,
+            //     fromY,
+            //     fromX + direction.x,
+            //     fromY + direction.y,
+            //     effective_momentum,
+            //     from_mass,
+            //     from_velocity,
+            //     buoyancy_boost,
+            //     to_resistance,
+            //     to_mass,
+            //     to_props.cohesion,
+            //     support_factor,
+            //     to_resistance * threshold,
+            //     direction.y,
+            //     direction.y > 0 ? "DOWN" : "UP");
         }
     }
 

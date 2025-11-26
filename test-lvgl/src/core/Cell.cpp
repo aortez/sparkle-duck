@@ -15,14 +15,14 @@ void Cell::setFillRatio(double ratio)
 {
     fill_ratio = std::clamp(ratio, 0.0, 1.0);
 
-    // If fill ratio becomes effectively zero, convert to air.
+    // If fill ratio becomes effectively zero, convert to AIR (a real material).
     if (fill_ratio < MIN_FILL_THRESHOLD) {
         material_type = MaterialType::AIR;
-        fill_ratio = 0.0;
+        fill_ratio = 1.0; // AIR fills the space.
         velocity = Vector2d{ 0.0, 0.0 };
         com = Vector2d{ 0.0, 0.0 };
 
-        // Clear all pressure values when cell becomes empty.
+        // Clear pressure values when converting to air.
         pressure = 0.0;
         hydrostatic_component = 0.0;
         dynamic_component = 0.0;
@@ -55,8 +55,8 @@ double Cell::addMaterial(MaterialType type, double amount)
         return 0.0;
     }
 
-    // If we're empty, accept any material type.
-    if (isEmpty()) {
+    // AIR is displaceable - adding material to AIR-filled space replaces the air.
+    if (material_type == MaterialType::AIR) {
         material_type = type;
         const double added = std::min(amount, 1.0);
         fill_ratio = added;
@@ -220,7 +220,7 @@ void Cell::replaceMaterial(MaterialType type, double fill_ratio)
 void Cell::clear()
 {
     material_type = MaterialType::AIR;
-    fill_ratio = 0.0;
+    fill_ratio = 1.0; // AIR is a real material that fills space.
     velocity = Vector2d{ 0.0, 0.0 };
     com = Vector2d{ 0.0, 0.0 };
 
@@ -553,6 +553,10 @@ void Cell::clearPressure()
 
 double Cell::getCapacity() const
 {
+    // AIR is fully displaceable via swaps - report full capacity.
+    if (material_type == MaterialType::AIR) {
+        return 1.0;
+    }
     return 1.0 - fill_ratio;
 }
 

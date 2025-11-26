@@ -383,8 +383,8 @@ void WorldSupportCalculator::computeSupportMapBottomUp(World& world) const
             for (uint32_t x = 0; x < grid_.getWidth(); x++) {
                 Cell& cell = grid_.at(x, y);
 
-                // Check emptiness directly.
-                if (cell.isEmpty()) {
+                // Skip AIR cells - they don't participate in structural support.
+                if (cell.material_type == MaterialType::AIR) {
                     cell.has_any_support = false;
                     cell.has_vertical_support = false;
                     continue;

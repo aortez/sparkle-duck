@@ -37,7 +37,7 @@ struct Cell {
     // =================================================================
 
     MaterialType material_type = MaterialType::AIR;
-    double fill_ratio = 0.0;
+    double fill_ratio = 1.0; // AIR is a real material - cells start full of air.
     Vector2d com = {};
     Vector2d velocity = {};
     uint32_t organism_id = 0; // Tree organism ownership (0 = no organism).

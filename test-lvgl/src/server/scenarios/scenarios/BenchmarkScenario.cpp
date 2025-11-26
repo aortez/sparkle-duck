@@ -129,9 +129,8 @@ void BenchmarkScenario::setup(World& world)
         uint32_t x = 1 + (std::rand() % (world.getData().width - 2));
         uint32_t y = 1 + (std::rand() % (world.getData().height - 2));
 
-        // Only add sand to empty cells (don't overwrite water, balls, or walls).
-        if (world.getData().at(x, y).material_type == MaterialType::AIR
-            && world.getData().at(x, y).fill_ratio == 0.0) {
+        // Only add sand to AIR cells (don't overwrite water, balls, or walls).
+        if (world.getData().at(x, y).material_type == MaterialType::AIR) {
             world.getData().at(x, y).replaceMaterial(MaterialType::SAND, 1.0);
             sandAdded++;
         }

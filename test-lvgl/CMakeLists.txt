@@ -397,6 +397,7 @@ add_executable(sparkle-duck-tests
     src/tests/TimersTest.cpp
     src/tests/Vector2d_test.cpp
     src/tests/Vector2i_test.cpp
+    src/tests/HorizontalMomentum_test.cpp
     src/tests/WaterEqualization_test.cpp
 
     # Bitmap tests.
