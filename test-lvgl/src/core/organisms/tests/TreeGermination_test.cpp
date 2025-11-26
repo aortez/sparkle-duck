@@ -3,6 +3,7 @@
 #include "core/WorldData.h"
 #include "core/WorldDiagramGeneratorEmoji.h"
 #include "core/organisms/TreeManager.h"
+#include "server/scenarios/ScenarioRegistry.h"
 #include <gtest/gtest.h>
 #include <spdlog/spdlog.h>
 
@@ -10,30 +11,30 @@ using namespace DirtSim;
 
 class TreeGerminationTest : public ::testing::Test {
 protected:
-    void SetUp() override { world = std::make_unique<World>(9, 9); }
-
-    void setupGerminationWorld()
+    void SetUp() override
     {
-        for (uint32_t y = 0; y < 9; ++y) {
-            for (uint32_t x = 0; x < 9; ++x) {
-                world->getData().at(x, y) = Cell();
-            }
-        }
-
-        // Dirt at bottom 3 rows (same relative height as before).
-        for (uint32_t y = 6; y < 9; ++y) {
-            for (uint32_t x = 0; x < 9; ++x) {
-                world->addMaterialAtCell(x, y, MaterialType::DIRT, 1.0);
-            }
-        }
+        world = std::make_unique<World>(9, 9);
+        ScenarioRegistry registry = ScenarioRegistry::createDefault();
+        scenario = registry.createScenario("tree_germination");
     }
 
     std::unique_ptr<World> world;
+    std::unique_ptr<Scenario> scenario;
 };
 
 TEST_F(TreeGerminationTest, SeedFallsOntoGround)
 {
-    setupGerminationWorld();
+    // Custom setup for this test: seed at (4,1) to test falling.
+    for (uint32_t y = 0; y < 9; ++y) {
+        for (uint32_t x = 0; x < 9; ++x) {
+            world->getData().at(x, y) = Cell();
+        }
+    }
+    for (uint32_t y = 6; y < 9; ++y) {
+        for (uint32_t x = 0; x < 9; ++x) {
+            world->addMaterialAtCell(x, y, MaterialType::DIRT, 1.0);
+        }
+    }
     TreeId id = world->getTreeManager().plantSeed(*world, 4, 1);
 
     EXPECT_EQ(world->getData().at(4, 1).material_type, MaterialType::SEED);
@@ -59,9 +60,9 @@ TEST_F(TreeGerminationTest, SeedFallsOntoGround)
 
 TEST_F(TreeGerminationTest, SeedGerminates)
 {
-    setupGerminationWorld();
-    TreeId id = world->getTreeManager().plantSeed(*world, 4, 4);
+    scenario->setup(*world);
 
+    TreeId id = 1;
     const Tree* tree = world->getTreeManager().getTree(id);
     EXPECT_EQ(tree->stage, GrowthStage::SEED);
 
@@ -107,8 +108,9 @@ TEST_F(TreeGerminationTest, SeedBlockedByWall)
 
 TEST_F(TreeGerminationTest, SaplingGrowsBalanced)
 {
-    setupGerminationWorld();
-    TreeId id = world->getTreeManager().plantSeed(*world, 4, 4);
+    scenario->setup(*world);
+
+    TreeId id = 1;
     const Tree* tree = world->getTreeManager().getTree(id);
 
     std::cout << "Initial state (Seed at: " << tree->seed_position.x << ", "
@@ -254,8 +256,9 @@ TEST_F(TreeGerminationTest, RootsStopAtWater)
 
 TEST_F(TreeGerminationTest, TreeStopsGrowingWhenOutOfEnergy)
 {
-    setupGerminationWorld();
-    TreeId id = world->getTreeManager().plantSeed(*world, 4, 4);
+    scenario->setup(*world);
+
+    TreeId id = 1;
     Tree* tree = world->getTreeManager().getTree(id);
 
     const double initial_energy = 25.0;
@@ -279,8 +282,9 @@ TEST_F(TreeGerminationTest, TreeStopsGrowingWhenOutOfEnergy)
 
 TEST_F(TreeGerminationTest, WoodCellsStayStationary)
 {
-    setupGerminationWorld();
-    TreeId id = world->getTreeManager().plantSeed(*world, 4, 4);
+    scenario->setup(*world);
+
+    TreeId id = 1;
     const Tree* tree = world->getTreeManager().getTree(id);
 
     std::cout << "Initial state:\n"
@@ -355,8 +359,9 @@ TEST_F(TreeGerminationTest, WoodCellsStayStationary)
 
 TEST_F(TreeGerminationTest, DebugWoodFalling)
 {
-    setupGerminationWorld();
-    TreeId id = world->getTreeManager().plantSeed(*world, 4, 4);
+    scenario->setup(*world);
+
+    TreeId id = 1;
     const Tree* tree = world->getTreeManager().getTree(id);
 
     std::cout << "=== DEEP DEBUG: Wood Cell Physics ===\n\n";
