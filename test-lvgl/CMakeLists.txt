@@ -384,14 +384,13 @@ target_include_directories(cli PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DI
 # Enable warnings and treat them as errors for CLI executable.
 target_compile_options(cli PRIVATE -Wall -Wextra -Werror)
 
-# Test executable.
+# Test executable (fast unit tests).
 add_executable(sparkle-duck-tests
     src/server/tests/StateIdle_test.cpp
     src/server/tests/StateSimRunning_test.cpp
     src/tests/BresenhamLine_test.cpp
     src/tests/Buoyancy_test.cpp
     src/tests/CacheCorrectness_test.cpp
-    src/tests/DiagonalWaterLeveling_test.cpp
     src/tests/Pimpl_test.cpp
     src/tests/ResultTest.cpp
     src/tests/TimersTest.cpp
@@ -421,11 +420,26 @@ target_link_libraries(sparkle-duck-tests
     pthread
 )
 target_include_directories(sparkle-duck-tests PRIVATE ${CMAKE_SOURCE_DIR}/src ${PKG_CONFIG_INC} ${zpp_bits_SOURCE_DIR})
-
-# Enable warnings and treat them as errors for test executable.
 target_compile_options(sparkle-duck-tests PRIVATE -Wall -Wextra -Werror)
 
-# Enable testing
+# Slow test executable (integration/stress tests that take a long time).
+add_executable(sparkle-duck-tests-slow
+    src/tests/DiagonalWaterLeveling_test.cpp
+)
+target_link_libraries(sparkle-duck-tests-slow
+    PRIVATE
+    sparkle-duck-server-lib
+    sparkle-duck-ui-lib
+    GTest::gtest_main
+    GTest::gmock_main
+    m
+    pthread
+)
+target_include_directories(sparkle-duck-tests-slow PRIVATE ${CMAKE_SOURCE_DIR}/src ${PKG_CONFIG_INC} ${zpp_bits_SOURCE_DIR})
+target_compile_options(sparkle-duck-tests-slow PRIVATE -Wall -Wextra -Werror)
+
+# Enable testing.
 enable_testing()
 add_test(NAME sparkle-duck-tests COMMAND sparkle-duck-tests)
+add_test(NAME sparkle-duck-tests-slow COMMAND sparkle-duck-tests-slow)
 

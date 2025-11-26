@@ -9,8 +9,6 @@ Each cell is from [0,1] full.
 ### Matter
 It is filled with matter, of one of the following types: dirt, water, wood, sand, metal, air, leaf, wall, root, and seed.
 
-**AIR is a real material**: Cells are always full of some material. "Empty" cells contain AIR with fill_ratio=1.0. AIR has extremely low density (0.001) and zero cohesion/adhesion, making it easily displaced by other materials through the swap system. This enables realistic displacement physics, air bubbles, and buoyancy effects.
-
 The matter is modeled by a single particle within each cell.
 This is the cell's COM, or Center of Mass. The COM ranges from [-1, 1] in x and y.
 

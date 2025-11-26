@@ -12,11 +12,12 @@ BIN_DIR := bin
 # Number of parallel jobs (use all available cores).
 JOBS := $(shell nproc 2>/dev/null || echo 4)
 
-# Test binary name.
+# Test binary names.
 TEST_BINARY := sparkle-duck-tests
+TEST_SLOW_BINARY := sparkle-duck-tests-slow
 MAIN_BINARY := sparkle-duck
 
-.PHONY: all clean debug release asan build-tests test test-all visual-tests run run-asan test-asan format help
+.PHONY: all clean debug release asan build-tests build-tests-slow test test-slow test-all visual-tests run run-asan test-asan format help
 
 all: release
 
@@ -47,15 +48,22 @@ asan:
 build-tests: debug
 	@echo "Test binary built successfully: $(BUILD_DEBUG_DIR)/$(BIN_DIR)/$(TEST_BINARY)"
 
+build-tests-slow: debug
+	@echo "Slow test binary built successfully: $(BUILD_DEBUG_DIR)/$(BIN_DIR)/$(TEST_SLOW_BINARY)"
+
 test: build-tests
 	@echo "Running tests..."
 	@./$(BUILD_DEBUG_DIR)/$(BIN_DIR)/$(TEST_BINARY) $(ARGS)
+
+test-slow: build-tests-slow
+	@echo "Running slow tests..."
+	@./$(BUILD_DEBUG_DIR)/$(BIN_DIR)/$(TEST_SLOW_BINARY) $(ARGS)
 
 test-asan: asan
 	@echo "Running tests with AddressSanitizer..."
 	@ASAN_OPTIONS=detect_leaks=1:halt_on_error=0:print_stats=1 ./$(BUILD_DEBUG_DIR)/$(BIN_DIR)/$(TEST_BINARY) $(ARGS)
 
-test-all: test visual-tests
+test-all: test test-slow visual-tests
 
 visual-tests:
 	@echo "Running visual tests..."
@@ -101,9 +109,11 @@ help:
 	@echo "  debug        - Build debug version with symbols and LOG_DEBUG"
 	@echo "  asan         - Build debug version with AddressSanitizer enabled"
 	@echo "  build-tests  - Build test binary without running tests"
-	@echo "  test         - Build debug and run unit tests"
+	@echo "  build-tests-slow - Build slow test binary"
+	@echo "  test         - Build debug and run unit tests (fast)"
+	@echo "  test-slow    - Run slow integration/stress tests"
 	@echo "  test-asan    - Build and run tests with AddressSanitizer"
-	@echo "  test-all     - Run all tests (unit + visual)"
+	@echo "  test-all     - Run all tests (unit + slow + visual)"
 	@echo "  visual-tests - Run tests with visual output enabled"
 	@echo "  run          - Run the main sparkle-duck executable"
 	@echo "  run-asan     - Run with AddressSanitizer to detect memory errors"

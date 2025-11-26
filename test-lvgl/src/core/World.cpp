@@ -102,9 +102,9 @@ World::World(uint32_t width, uint32_t height)
     pImpl->data_.cells.resize(pImpl->data_.width * pImpl->data_.height);
     pImpl->data_.debug_info.resize(pImpl->data_.width * pImpl->data_.height);
 
-    // Initialize with air (AIR is a real material that fills space).
+    // Initialize with empty air.
     for (auto& cell : pImpl->data_.cells) {
-        cell = Cell{ MaterialType::AIR, 1.0 };
+        cell = Cell{ MaterialType::AIR, 0.0 };
     }
 
     // Set up boundary walls if enabled.

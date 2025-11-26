@@ -214,11 +214,10 @@ double WorldCollisionCalculator::calculateCollisionEnergy(
         velocity_in_direction);
 
     // If target cell has material, include reduced mass for collision.
-    // Exception: AIR is so light it doesn't affect collision energy.
     double targetMass = calculateMaterialMass(toCell);
     double effective_mass = movingMass;
 
-    if (targetMass > 0.0 && toCell.material_type != MaterialType::AIR) {
+    if (targetMass > 0.0) {
         // Reduced mass formula: μ = (m1 × m2) / (m1 + m2)
         effective_mass = (movingMass * targetMass) / (movingMass + targetMass);
     }

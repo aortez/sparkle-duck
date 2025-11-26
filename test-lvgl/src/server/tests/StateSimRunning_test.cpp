@@ -145,7 +145,7 @@ TEST_F(StateSimRunningTest, AdvanceSimulation_StepsPhysicsAndDirtFalls)
     EXPECT_EQ(startCell.material_type, MaterialType::DIRT)
         << "Should have dirt at starting position";
     EXPECT_GT(startCell.fill_ratio, 0.9) << "Dirt should be nearly full";
-    EXPECT_EQ(cellBelow.material_type, MaterialType::AIR) << "Cell below should be air initially";
+    EXPECT_LT(cellBelow.fill_ratio, 0.1) << "Cell below should be empty initially";
 
     // Execute: Advance simulation up to 200 frames, checking for dirt movement.
     bool dirtFell = false;
@@ -431,9 +431,10 @@ TEST_F(StateSimRunningTest, SeedAdd_PlacesSeedAtCoordinates)
     const uint32_t testX = 14;
     const uint32_t testY = 14;
 
-    // Verify: Cell is initially air (AIR is a real material with fill_ratio = 1.0).
+    // Verify: Cell is initially empty (AIR).
     const Cell& cellBefore = simRunning.world->getData().at(testX, testY);
-    EXPECT_EQ(cellBefore.material_type, MaterialType::AIR) << "Cell should be air initially";
+    EXPECT_EQ(cellBefore.material_type, MaterialType::AIR) << "Cell should be empty initially";
+    EXPECT_LT(cellBefore.fill_ratio, 0.1) << "Cell should have minimal fill initially";
 
     // Execute: Send SeedAdd command.
     bool callbackInvoked = false;
