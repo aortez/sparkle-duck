@@ -187,14 +187,20 @@ TEST_F(TreeGerminationTest, TreeStopsGrowingWhenOutOfEnergy)
     TreeId id = world->getTreeManager().plantSeed(*world, 3, 3);
     Tree* tree = world->getTreeManager().getTree(id);
 
-    tree->total_energy = 20.0;
+    const double initial_energy = 20.0;
+    tree->total_energy = initial_energy;
 
     for (int i = 0; i < 3000; i++) {
         world->advanceTime(0.016);
     }
 
-    EXPECT_LE(tree->total_energy, 10.0);
-    int initial_cells = 3;
-    EXPECT_GT(tree->cells.size(), initial_cells);
-    EXPECT_LT(tree->cells.size(), 10);
+    // With 20.0 energy:
+    // - SEED (starting cell, no cost)
+    // - ROOT (12.0) → 8.0 remaining
+    // - Can't afford WOOD (10.0) or more ROOT (12.0)
+    // Expected: 2 cells (SEED + ROOT), 8.0 energy remaining.
+
+    EXPECT_EQ(tree->cells.size(), 2) << "Tree should have SEED + ROOT (20.0 energy buys 1 ROOT)";
+    EXPECT_DOUBLE_EQ(tree->total_energy, 8.0)
+        << "Should have 8.0 energy remaining after growing 1 ROOT";
 }

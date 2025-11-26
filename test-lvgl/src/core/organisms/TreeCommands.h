@@ -5,34 +5,31 @@
 
 namespace DirtSim {
 
+// Energy costs are determined by TreeCommandProcessor, not by command callers.
+
 struct GrowWoodCommand {
     Vector2i target_pos;
     double execution_time_seconds = 3.0;
-    double energy_cost = 10.0;
 };
 
 struct GrowLeafCommand {
     Vector2i target_pos;
     double execution_time_seconds = 0.5;
-    double energy_cost = 8.0;
 };
 
 struct GrowRootCommand {
     Vector2i target_pos;
     double execution_time_seconds = 2.0;
-    double energy_cost = 12.0;
 };
 
 struct ReinforceCellCommand {
     Vector2i position;
     double execution_time_seconds = 0.5;
-    double energy_cost = 5.0;
 };
 
 struct ProduceSeedCommand {
     Vector2i position;
     double execution_time_seconds = 2.0;
-    double energy_cost = 50.0;
 };
 
 struct WaitCommand {

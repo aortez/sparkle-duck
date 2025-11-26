@@ -57,8 +57,7 @@ TreeCommand RuleBasedBrain::decide(const TreeSensoryData& sensory)
                     root_target_pos_.y);
 
                 return GrowRootCommand{ .target_pos = root_target_pos_,
-                                        .execution_time_seconds = 2.0,
-                                        .energy_cost = 0.0 };
+                                        .execution_time_seconds = 2.0 };
             }
             else {
                 spdlog::warn(
@@ -86,9 +85,7 @@ TreeCommand RuleBasedBrain::decide(const TreeSensoryData& sensory)
                     wood_pos.x,
                     wood_pos.y);
 
-                return GrowWoodCommand{ .target_pos = wood_pos,
-                                        .execution_time_seconds = 3.0,
-                                        .energy_cost = 0.0 };
+                return GrowWoodCommand{ .target_pos = wood_pos, .execution_time_seconds = 3.0 };
             }
             else {
                 spdlog::warn(
@@ -115,9 +112,7 @@ TreeCommand RuleBasedBrain::decide(const TreeSensoryData& sensory)
         Vector2i pos = findGrowthPosition(sensory, MaterialType::ROOT);
         if (checkGrowthSuitability(sensory, pos, MaterialType::ROOT)
             == GrowthSuitability::SUITABLE) {
-            return GrowRootCommand{ .target_pos = pos,
-                                    .execution_time_seconds = 2.0,
-                                    .energy_cost = 12.0 };
+            return GrowRootCommand{ .target_pos = pos, .execution_time_seconds = 2.0 };
         }
     }
 
@@ -125,9 +120,7 @@ TreeCommand RuleBasedBrain::decide(const TreeSensoryData& sensory)
         Vector2i pos = findGrowthPosition(sensory, MaterialType::WOOD);
         if (checkGrowthSuitability(sensory, pos, MaterialType::WOOD)
             == GrowthSuitability::SUITABLE) {
-            return GrowWoodCommand{ .target_pos = pos,
-                                    .execution_time_seconds = 3.0,
-                                    .energy_cost = 10.0 };
+            return GrowWoodCommand{ .target_pos = pos, .execution_time_seconds = 3.0 };
         }
     }
 
@@ -135,17 +128,13 @@ TreeCommand RuleBasedBrain::decide(const TreeSensoryData& sensory)
         Vector2i pos = findGrowthPosition(sensory, MaterialType::LEAF);
         if (checkGrowthSuitability(sensory, pos, MaterialType::LEAF)
             == GrowthSuitability::SUITABLE) {
-            return GrowLeafCommand{ .target_pos = pos,
-                                    .execution_time_seconds = 0.5,
-                                    .energy_cost = 8.0 };
+            return GrowLeafCommand{ .target_pos = pos, .execution_time_seconds = 0.5 };
         }
     }
 
     Vector2i pos = findGrowthPosition(sensory, MaterialType::WOOD);
     if (checkGrowthSuitability(sensory, pos, MaterialType::WOOD) == GrowthSuitability::SUITABLE) {
-        return GrowWoodCommand{ .target_pos = pos,
-                                .execution_time_seconds = 3.0,
-                                .energy_cost = 10.0 };
+        return GrowWoodCommand{ .target_pos = pos, .execution_time_seconds = 3.0 };
     }
 
     return WaitCommand{ .duration_seconds = 2.0 };

@@ -8,6 +8,13 @@
 
 namespace DirtSim {
 
+// Energy costs for tree growth commands.
+constexpr double ENERGY_COST_WOOD = 10.0;
+constexpr double ENERGY_COST_LEAF = 8.0;
+constexpr double ENERGY_COST_ROOT = 12.0;
+constexpr double ENERGY_COST_REINFORCE = 5.0;
+constexpr double ENERGY_COST_PRODUCE_SEED = 50.0;
+
 CommandExecutionResult TreeCommandProcessor::execute(
     Tree& tree, World& world, const TreeCommand& cmd)
 {
@@ -16,7 +23,7 @@ CommandExecutionResult TreeCommandProcessor::execute(
             using T = std::decay_t<decltype(command)>;
 
             if constexpr (std::is_same_v<T, GrowWoodCommand>) {
-                if (tree.total_energy < command.energy_cost) {
+                if (tree.total_energy < ENERGY_COST_WOOD) {
                     return { CommandResult::INSUFFICIENT_ENERGY,
                              "Not enough energy for WOOD growth" };
                 }
@@ -57,7 +64,7 @@ CommandExecutionResult TreeCommandProcessor::execute(
                     tree.id;
 
                 tree.cells.insert(command.target_pos);
-                tree.total_energy -= command.energy_cost;
+                tree.total_energy -= ENERGY_COST_WOOD;
 
                 spdlog::info(
                     "Tree {}: Grew WOOD at ({}, {})",
@@ -73,7 +80,7 @@ CommandExecutionResult TreeCommandProcessor::execute(
                 return { CommandResult::SUCCESS, "WOOD growth successful" };
             }
             else if constexpr (std::is_same_v<T, GrowLeafCommand>) {
-                if (tree.total_energy < command.energy_cost) {
+                if (tree.total_energy < ENERGY_COST_LEAF) {
                     return { CommandResult::INSUFFICIENT_ENERGY,
                              "Not enough energy for LEAF growth" };
                 }
@@ -113,7 +120,7 @@ CommandExecutionResult TreeCommandProcessor::execute(
                     tree.id;
 
                 tree.cells.insert(command.target_pos);
-                tree.total_energy -= command.energy_cost;
+                tree.total_energy -= ENERGY_COST_LEAF;
 
                 spdlog::info(
                     "Tree {}: Grew LEAF at ({}, {})",
@@ -124,7 +131,7 @@ CommandExecutionResult TreeCommandProcessor::execute(
                 return { CommandResult::SUCCESS, "LEAF growth successful" };
             }
             else if constexpr (std::is_same_v<T, GrowRootCommand>) {
-                if (tree.total_energy < command.energy_cost) {
+                if (tree.total_energy < ENERGY_COST_ROOT) {
                     return { CommandResult::INSUFFICIENT_ENERGY,
                              "Not enough energy for ROOT growth" };
                 }
@@ -165,7 +172,7 @@ CommandExecutionResult TreeCommandProcessor::execute(
                     tree.id;
 
                 tree.cells.insert(command.target_pos);
-                tree.total_energy -= command.energy_cost;
+                tree.total_energy -= ENERGY_COST_ROOT;
 
                 spdlog::info(
                     "Tree {}: Grew ROOT at ({}, {})",
@@ -181,12 +188,12 @@ CommandExecutionResult TreeCommandProcessor::execute(
                 return { CommandResult::SUCCESS, "ROOT growth successful" };
             }
             else if constexpr (std::is_same_v<T, ReinforceCellCommand>) {
-                if (tree.total_energy < command.energy_cost) {
+                if (tree.total_energy < ENERGY_COST_REINFORCE) {
                     return { CommandResult::INSUFFICIENT_ENERGY,
                              "Not enough energy for cell reinforcement" };
                 }
 
-                tree.total_energy -= command.energy_cost;
+                tree.total_energy -= ENERGY_COST_REINFORCE;
 
                 spdlog::info(
                     "Tree {}: Reinforced cell at ({}, {}) [not yet implemented]",
@@ -197,7 +204,7 @@ CommandExecutionResult TreeCommandProcessor::execute(
                 return { CommandResult::SUCCESS, "Cell reinforcement successful" };
             }
             else if constexpr (std::is_same_v<T, ProduceSeedCommand>) {
-                if (tree.total_energy < command.energy_cost) {
+                if (tree.total_energy < ENERGY_COST_PRODUCE_SEED) {
                     return { CommandResult::INSUFFICIENT_ENERGY,
                              "Not enough energy for seed production" };
                 }
@@ -212,7 +219,7 @@ CommandExecutionResult TreeCommandProcessor::execute(
                     .at(command.position.x, command.position.y)
                     .replaceMaterial(MaterialType::SEED, 1.0);
 
-                tree.total_energy -= command.energy_cost;
+                tree.total_energy -= ENERGY_COST_PRODUCE_SEED;
 
                 spdlog::info(
                     "Tree {}: Produced SEED at ({}, {})",
