@@ -153,6 +153,7 @@ void TreeManager::computeOrganismSupport(World& world)
 
             root_count++;
             double root_anchoring = 0.0;
+            int dirt_neighbors = 0;
 
             // Check all 8 neighbors for non-tree material to grip.
             for (int dy = -1; dy <= 1; dy++) {
@@ -176,16 +177,46 @@ void TreeManager::computeOrganismSupport(World& world)
                         double neighbor_mass = neighbor.fill_ratio * neighbor_props.density;
 
                         // Use neighbor's adhesion (how well material sticks to roots).
-                        root_anchoring += neighbor_mass * neighbor_props.adhesion;
+                        double contribution = neighbor_mass * neighbor_props.adhesion;
+                        root_anchoring += contribution;
+
+                        if (neighbor.material_type == MaterialType::DIRT) {
+                            dirt_neighbors++;
+                        }
+
+                        LoggingChannels::tree()->info(
+                            "  ROOT({},{}) neighbor({},{}) {} mass={:.2f} adhesion={:.2f} "
+                            "contrib={:.2f}",
+                            pos.x,
+                            pos.y,
+                            nx,
+                            ny,
+                            getMaterialName(neighbor.material_type),
+                            neighbor_mass,
+                            neighbor_props.adhesion,
+                            contribution);
                     }
                 }
             }
+
+            LoggingChannels::tree()->info(
+                "ROOT at ({},{}) has {} dirt neighbors, anchoring={:.2f}",
+                pos.x,
+                pos.y,
+                dirt_neighbors,
+                root_anchoring);
 
             support_budget += root_anchoring;
         }
 
         // Divide by 2 as specified.
         support_budget /= 2.0;
+
+        LoggingChannels::tree()->info(
+            "Tree {} support calculation: {} roots, total_budget={:.2f}",
+            tree_id,
+            root_count,
+            support_budget);
 
         // Step 2: Calculate upper structure mass (everything except ROOTs).
         std::vector<Vector2i> upper_cells;

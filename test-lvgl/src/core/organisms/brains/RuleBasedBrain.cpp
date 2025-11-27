@@ -123,45 +123,55 @@ TreeCommand RuleBasedBrain::decide(const TreeSensoryData& sensory)
 
     // Priority 1: Ensure roots support canopy (above_ground <= 2 × below_ground).
     if (metrics.above_ground_mass > 1.0 * metrics.below_ground_mass) {
+        spdlog::info(
+            "RuleBasedBrain: [Priority 1] NEED ROOTS: above={:.2f} > 1.0×below={:.2f}",
+            metrics.above_ground_mass,
+            metrics.below_ground_mass);
         Vector2i pos = findGrowthPosition(sensory, MaterialType::ROOT);
         if (checkGrowthSuitability(sensory, pos, MaterialType::ROOT)
             == GrowthSuitability::SUITABLE) {
-            spdlog::info(
-                "RuleBasedBrain: Growing ROOT for support (above={:.2f} > 2×below={:.2f})",
-                metrics.above_ground_mass,
-                metrics.below_ground_mass);
+            spdlog::info("RuleBasedBrain: Growing ROOT for support at ({},{})", pos.x, pos.y);
             return GrowRootCommand{ .target_pos = pos, .execution_time_seconds = 2.0 };
         }
         else {
-            spdlog::warn(
-                "RuleBasedBrain: Cannot find root location! (above={:.2f} > 2×below={:.2f})",
-                metrics.above_ground_mass,
-                metrics.below_ground_mass);
+            spdlog::warn("RuleBasedBrain: Cannot find suitable root location!");
         }
+    }
+    else {
+        spdlog::info(
+            "RuleBasedBrain: [Priority 1] SKIP roots: above={:.2f} <= 1.0×below={:.2f} (ratio OK)",
+            metrics.above_ground_mass,
+            metrics.below_ground_mass);
     }
 
     // Priority 2: Build minimum trunk height before branching.
     if (metrics.trunk_height < 2) {
+        spdlog::info(
+            "RuleBasedBrain: [Priority 2] NEED trunk: height={} < 2", metrics.trunk_height);
         Vector2i pos = findTrunkGrowthPosition(sensory, metrics);
         if (checkGrowthSuitability(sensory, pos, MaterialType::WOOD)
             == GrowthSuitability::SUITABLE) {
-            spdlog::info("RuleBasedBrain: Growing TRUNK upward (height={})", metrics.trunk_height);
+            spdlog::info("RuleBasedBrain: Growing TRUNK upward at ({},{})", pos.x, pos.y);
             return GrowWoodCommand{ .target_pos = pos, .execution_time_seconds = 3.0 };
         }
     }
+    else {
+        spdlog::info(
+            "RuleBasedBrain: [Priority 2] SKIP trunk: height={} >= 2", metrics.trunk_height);
+    }
 
     // Priority 3: Balance left/right growth with branches.
-    spdlog::info(
-        "RuleBasedBrain: trunk_height={}, left={:.2f}, right={:.2f}",
-        metrics.trunk_height,
-        metrics.left_mass,
-        metrics.right_mass);
-
     if (shouldStartBranch(metrics)) {
         double imbalance_ratio = metrics.left_mass > 0 && metrics.right_mass > 0
             ? std::min(metrics.left_mass, metrics.right_mass)
                 / std::max(metrics.left_mass, metrics.right_mass)
             : 0.0;
+
+        spdlog::info(
+            "RuleBasedBrain: [Priority 3] left={:.2f}, right={:.2f}, imbalance={:.2f}",
+            metrics.left_mass,
+            metrics.right_mass,
+            imbalance_ratio);
 
         // Force branch growth if imbalanced OR alternating with trunk.
         if (imbalance_ratio < 0.8 || metrics.trunk_height % 2 == 0) {
@@ -169,14 +179,20 @@ TreeCommand RuleBasedBrain::decide(const TreeSensoryData& sensory)
             if (checkGrowthSuitability(sensory, pos, MaterialType::WOOD)
                 == GrowthSuitability::SUITABLE) {
                 spdlog::info(
-                    "RuleBasedBrain: Growing BRANCH (left_mass={:.2f}, right_mass={:.2f}, "
-                    "imbalance={:.2f})",
-                    metrics.left_mass,
-                    metrics.right_mass,
-                    imbalance_ratio);
+                    "RuleBasedBrain: Growing BRANCH at ({},{}) - balancing sides", pos.x, pos.y);
                 return GrowWoodCommand{ .target_pos = pos, .execution_time_seconds = 3.0 };
             }
         }
+        else {
+            spdlog::info(
+                "RuleBasedBrain: [Priority 3] SKIP branch: balance OK (imbalance={:.2f} >= 0.8)",
+                imbalance_ratio);
+        }
+    }
+    else {
+        spdlog::info(
+            "RuleBasedBrain: [Priority 3] SKIP branch: trunk too short (height={})",
+            metrics.trunk_height);
     }
 
     // Priority 4: Grow leaves at branch tips.
@@ -425,15 +441,17 @@ TreeMetrics RuleBasedBrain::analyzeTreeStructure(const TreeSensoryData& sensory)
                 metrics.right_mass += cell_mass;
 
             // Above/below ground (relative to seed y).
-            if (world_pos.y < seed.y)
+            if (world_pos.y < seed.y) {
                 metrics.above_ground_mass += cell_mass;
-            else if (world_pos.y > seed.y)
+            }
+            else if (world_pos.y > seed.y) {
                 metrics.below_ground_mass += cell_mass;
+            }
 
             // Identify trunk cells (vertical WOOD directly above seed).
             if (hist[wood_idx] > 0.5 && world_pos.x == seed.x && world_pos.y < seed.y) {
                 metrics.trunk_cells.push_back(world_pos);
-                spdlog::debug("Found trunk cell at ({}, {})", world_pos.x, world_pos.y);
+                spdlog::info("Found trunk cell at ({}, {})", world_pos.x, world_pos.y);
             }
 
             // Identify branch cells (lateral WOOD, not on trunk).

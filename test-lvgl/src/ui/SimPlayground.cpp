@@ -111,6 +111,7 @@ void SimPlayground::updateFromWorldData(const WorldData& data, double uiFPS)
         && std::holds_alternative<SandboxConfig>(data.scenario_config)) {
         const SandboxConfig& config = std::get<SandboxConfig>(data.scenario_config);
         sandboxControls_->updateFromConfig(config);
+        sandboxControls_->updateWorldDimensions(data.width, data.height);
     }
 }
 

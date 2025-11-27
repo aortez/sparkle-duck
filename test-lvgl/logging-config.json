@@ -47,7 +47,7 @@
     "state": "debug",
     "support": "info",
     "swap": "warn",
-    "tree": "info",
+    "tree": "debug",
     "ui": "info",
     "viscosity": "info"
   },

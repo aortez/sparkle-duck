@@ -14,7 +14,7 @@ struct TreeSensoryData {
     static constexpr int NUM_MATERIALS = 10;
 
     std::array<std::array<std::array<double, NUM_MATERIALS>, GRID_SIZE>, GRID_SIZE>
-        material_histograms;
+        material_histograms = {}; // Initialize to zeros.
 
     int actual_width = 0;
     int actual_height = 0;

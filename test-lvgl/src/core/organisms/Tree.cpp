@@ -134,15 +134,26 @@ TreeSensoryData Tree::gatherSensoryData(const World& world) const
         int offset_x = seed_position.x - half_window;
         int offset_y = seed_position.y - half_window;
 
-        // Clamp to world bounds.
-        offset_x = std::max(
-            0,
-            std::min(
-                static_cast<int>(world.getData().width) - TreeSensoryData::GRID_SIZE, offset_x));
-        offset_y = std::max(
-            0,
-            std::min(
-                static_cast<int>(world.getData().height) - TreeSensoryData::GRID_SIZE, offset_y));
+        // Clamp to world bounds (allow negative offsets for small worlds).
+        // For worlds >= 15×15: clamp to keep window inside world.
+        // For worlds < 15×15: allow negative offset to center seed in neural grid.
+        if (static_cast<int>(world.getData().width) >= TreeSensoryData::GRID_SIZE) {
+            offset_x = std::max(
+                0,
+                std::min(
+                    static_cast<int>(world.getData().width) - TreeSensoryData::GRID_SIZE,
+                    offset_x));
+        }
+        // else: leave offset_x as calculated (may be negative)
+
+        if (static_cast<int>(world.getData().height) >= TreeSensoryData::GRID_SIZE) {
+            offset_y = std::max(
+                0,
+                std::min(
+                    static_cast<int>(world.getData().height) - TreeSensoryData::GRID_SIZE,
+                    offset_y));
+        }
+        // else: leave offset_y as calculated (may be negative)
 
         data.world_offset = Vector2i{ offset_x, offset_y };
     }
@@ -170,6 +181,13 @@ TreeSensoryData Tree::gatherSensoryData(const World& world) const
             int wy_start = data.world_offset.y + static_cast<int>(ny * data.scale_factor);
             int wx_end = data.world_offset.x + static_cast<int>((nx + 1) * data.scale_factor);
             int wy_end = data.world_offset.y + static_cast<int>((ny + 1) * data.scale_factor);
+
+            // Check if region is completely out of bounds (skip sampling to get empty histogram).
+            if (wx_end <= 0 || wx_start >= static_cast<int>(world.getData().width) || wy_end <= 0
+                || wy_start >= static_cast<int>(world.getData().height)) {
+                // Completely OOB - leave histogram as zeros (will render as AIR/black).
+                continue;
+            }
 
             // Clamp to world bounds.
             wx_start = std::max(0, std::min(static_cast<int>(world.getData().width) - 1, wx_start));

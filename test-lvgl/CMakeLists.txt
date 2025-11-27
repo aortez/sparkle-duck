@@ -409,6 +409,7 @@ add_executable(sparkle-duck-tests
     # Organism tests.
     src/core/organisms/tests/TreeGermination_test.cpp
     src/core/organisms/tests/TreeManager_test.cpp
+    src/core/organisms/tests/TreeSensory_test.cpp
 )
 target_link_libraries(sparkle-duck-tests
     PRIVATE
