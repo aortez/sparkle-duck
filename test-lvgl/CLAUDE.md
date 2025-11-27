@@ -294,6 +294,56 @@ ReflectSerializer uses qlibs/reflect for compile-time introspection. It works au
 ### Display Backends
 Supports SDL, Wayland, X11, and Linux FBDEV backends. Primary development is Linux-focused with Wayland backend as default.
 
+### Deployment to Raspberry Pi
+
+The project includes deployment scripts for developing on a workstation and deploying to a Pi.
+
+**Remote deploy (from dev machine):**
+```bash
+./deploy-to-pi.sh              # Sync, build, restart service
+./deploy-to-pi.sh --no-build   # Sync and restart only
+./deploy-to-pi.sh --dry-run    # Preview what would happen
+```
+
+**Local deploy (on Pi itself via SSH):**
+```bash
+./deploy-local.sh              # Build and restart service
+./deploy-local.sh --no-build   # Restart only
+```
+
+**Setup:** See `src/scripts/deploy/README.md` for SSH key setup and configuration.
+
+### systemd Service (Pi)
+
+The app runs as a user service on the Pi, auto-starting on boot:
+```bash
+systemctl --user status sparkle-duck    # Check status
+systemctl --user restart sparkle-duck   # Restart
+systemctl --user stop sparkle-duck      # Stop
+journalctl --user -u sparkle-duck -f    # Follow logs
+```
+
+Service file: `~/.config/systemd/user/sparkle-duck.service`
+
+### Remote CLI Control
+
+The app exposes two WebSocket endpoints:
+- **Port 8080** (Server): Physics simulation control, world state queries
+- **Port 7070** (UI): UI state machine control, display settings
+
+**Important:** To start a simulation remotely, send commands to the **UI** (port 7070), not the server:
+```bash
+# Start simulation (UI coordinates with server)
+./build-debug/bin/cli sim_run ws://dirtsim.local:7070 '{"scenario_id": "sandbox"}'
+
+# Query world state (server)
+./build-debug/bin/cli diagram_get ws://dirtsim.local:8080
+./build-debug/bin/cli state_get ws://dirtsim.local:8080
+
+# Get UI status
+./build-debug/bin/cli status_get ws://dirtsim.local:7070
+```
+
 ## Logging
 
 ### Log Outputs
@@ -330,7 +380,10 @@ Can be found here:
 ## Project Directory Structure
 
   test-lvgl/
+  ├── deploy-to-pi.sh                        # Remote deployment script
+  ├── deploy-local.sh                        # Local deployment script
   ├── src/                                   # Source code
+  │   ├── scripts/deploy/                    # Deployment tooling (Node.js)
   │   ├── core/                              # Shared physics and utilities
   │   │   ├── World.{cpp,h}                  # Grid-based physics simulation
   │   │   ├── Cell.{cpp,h}                   # Pure-material cell implementation
