@@ -13,6 +13,7 @@ class EmptyNeighborhood;
 class GridOfCells;
 class MaterialNeighborhood;
 class World;
+class GridOfCells;
 
 /**
  * @brief Calculates structural support for World physics
@@ -29,18 +30,17 @@ class World;
  */
 class WorldSupportCalculator : public WorldCalculatorBase {
 public:
-    // Constructor takes GridOfCells reference for optimized bitmap lookups.
-    explicit WorldSupportCalculator(const GridOfCells& grid);
-
-    // Default constructor - creates calculator without grid (grid can be set later).
-    WorldSupportCalculator();
+    // Constructor requires GridOfCells reference for bitmap and cell access.
+    explicit WorldSupportCalculator(GridOfCells& grid);
 
     // Support-specific constants.
     static constexpr uint32_t MAX_VERTICAL_SUPPORT_DISTANCE =
-        5;                                                   // Max distance for vertical support.
-    static constexpr double RIGID_DENSITY_THRESHOLD = 5.0;   // Density threshold for rigid support.
-    static constexpr double STRONG_ADHESION_THRESHOLD = 0.5; // Min adhesion for horizontal support.
-    static constexpr uint32_t MAX_SUPPORT_DISTANCE = 10;     // Max distance for any support search.
+        5; // Max distance for vertical support.
+    static constexpr double COHESION_SUPPORT_THRESHOLD =
+        0.5; // Min cohesion for same-material horizontal support.
+    static constexpr double ADHESION_SUPPORT_THRESHOLD =
+        0.5; // Min adhesion for different-material horizontal support.
+    static constexpr uint32_t MAX_SUPPORT_DISTANCE = 10; // Max distance for any support search.
 
     /**
      * @brief Check if cell has vertical structural support.
@@ -80,12 +80,11 @@ public:
      * Determines overall structural support by checking both vertical and horizontal
      * support systems. Used for determining material stability.
      *
-     * @param world World providing access to grid and cells.
      * @param x Cell X coordinate.
      * @param y Cell Y coordinate.
      * @return true if cell has any form of structural support.
      */
-    bool hasStructuralSupport(const World& world, uint32_t x, uint32_t y) const;
+    bool hasStructuralSupport(uint32_t x, uint32_t y) const;
 
     /**
      * @brief Compute support map for entire grid using bottom-up scan.
@@ -114,7 +113,7 @@ public:
     double calculateDistanceToSupport(const World& world, uint32_t x, uint32_t y) const;
 
 private:
-    const GridOfCells* grid_; // Optional reference to grid cache for bitmap optimizations.
+    GridOfCells& grid_; // Required reference to grid for bitmap and cell access.
 };
 
 } // namespace DirtSim

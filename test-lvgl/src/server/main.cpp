@@ -1,10 +1,12 @@
 #include "StateMachine.h"
 #include "core/GridOfCells.h"
 #include "core/LoggingChannels.h"
+#include "core/Timers.h"
 #include "network/WebSocketServer.h"
 #include <args.hxx>
 #include <csignal>
 #include <memory>
+#include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
 
 using namespace DirtSim;
@@ -22,6 +24,11 @@ void signalHandler(int signum)
 
 int main(int argc, char** argv)
 {
+    // Configure default logger to stderr BEFORE any logging.
+    // This ensures early log messages don't pollute stdout (important for benchmark mode).
+    auto stderr_logger = spdlog::stderr_color_mt("server");
+    spdlog::set_default_logger(stderr_logger);
+
     // Parse command line arguments.
     args::ArgumentParser parser(
         "Sparkle Duck WebSocket Server", "Remote simulation control via WebSocket.");
@@ -51,6 +58,11 @@ int main(int argc, char** argv)
         "no-grid-cache",
         "Disable GridOfCells bitmap cache (for benchmarking)",
         { "no-grid-cache" });
+    args::Flag openmpDisabled(
+        parser,
+        "no-openmp",
+        "Disable OpenMP parallelization (for testing/debugging)",
+        { "no-openmp" });
 
     try {
         parser.ParseCLI(argc, argv);
@@ -71,6 +83,10 @@ int main(int argc, char** argv)
     // Configure GridOfCells cache (default: enabled).
     GridOfCells::USE_CACHE = !gridCacheDisabled;
     spdlog::info("GridOfCells cache: {}", GridOfCells::USE_CACHE ? "ENABLED" : "DISABLED");
+
+    // Configure OpenMP parallelization (default: enabled).
+    GridOfCells::USE_OPENMP = !openmpDisabled;
+    spdlog::info("OpenMP parallelization: {}", GridOfCells::USE_OPENMP ? "ENABLED" : "DISABLED");
 
     // Initialize logging from config file (supports .local override).
     std::string configPath = logConfig ? args::get(logConfig) : "logging-config.json";

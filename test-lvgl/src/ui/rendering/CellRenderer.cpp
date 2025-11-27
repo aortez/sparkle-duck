@@ -2,11 +2,147 @@
 #include "core/MaterialType.h"
 #include <algorithm>
 #include <cassert>
-#include <new> // for std::bad_alloc
+#include <cmath>   // for std::round
+#include <cstring> // for std::memcpy
+#include <new>     // for std::bad_alloc
 #include <spdlog/spdlog.h>
 
 namespace DirtSim {
 namespace Ui {
+
+// Compile-time toggle for dithering in pixel renderer.
+constexpr bool ENABLE_DITHERING = false;
+
+// Mode-specific pixels per cell for optimal quality.
+constexpr uint32_t MIN_PIXELS_PER_CELL_SHARP = 8;  // Less GPU scaling = sharper.
+constexpr uint32_t MIN_PIXELS_PER_CELL_SMOOTH = 3; // More GPU scaling + bilinear filter.
+constexpr uint32_t MIN_PIXELS_PER_CELL_DEBUG = 12; // ≥10px required for debug features.
+
+// Default for initialization and adaptive mode.
+constexpr uint32_t MIN_PIXELS_PER_CELL = MIN_PIXELS_PER_CELL_SHARP;
+
+// 4x4 Bayer matrix for ordered dithering (values 0-15).
+// Used to create stable, pattern-based transparency instead of alpha blending.
+constexpr int BAYER_MATRIX_4X4[4][4] = {
+    { 0, 8, 2, 10 }, { 12, 4, 14, 6 }, { 3, 11, 1, 9 }, { 15, 7, 13, 5 }
+};
+
+// Bresenham's line algorithm for fast pixel-based line drawing.
+// Uses only integer math for maximum performance.
+void drawLineBresenham(
+    uint32_t* pixels,
+    uint32_t canvasWidth,
+    uint32_t canvasHeight,
+    int x0,
+    int y0,
+    int x1,
+    int y1,
+    uint32_t color)
+{
+    int dx = std::abs(x1 - x0);
+    int dy = std::abs(y1 - y0);
+    int sx = (x0 < x1) ? 1 : -1;
+    int sy = (y0 < y1) ? 1 : -1;
+    int err = dx - dy;
+
+    while (true) {
+        // Bounds check and plot pixel.
+        if (x0 >= 0 && x0 < static_cast<int>(canvasWidth) && y0 >= 0
+            && y0 < static_cast<int>(canvasHeight)) {
+            pixels[y0 * canvasWidth + x0] = color;
+        }
+        if (x0 == x1 && y0 == y1) break;
+        int e2 = 2 * err;
+        if (e2 > -dy) {
+            err -= dy;
+            x0 += sx;
+        }
+        if (e2 < dx) {
+            err += dx;
+            y0 += sy;
+        }
+    }
+}
+
+// Get optimal pixel size for a given render mode.
+// For PIXEL_PERFECT, returns 0 (special case - calculated dynamically).
+static uint32_t getPixelsPerCellForMode(RenderMode mode)
+{
+    switch (mode) {
+        case RenderMode::SHARP:
+            return MIN_PIXELS_PER_CELL_SHARP;
+        case RenderMode::SMOOTH:
+            return MIN_PIXELS_PER_CELL_SMOOTH;
+        case RenderMode::PIXEL_PERFECT:
+            return 0; // Special: Calculate integer scale dynamically.
+        case RenderMode::LVGL_DEBUG:
+            return MIN_PIXELS_PER_CELL_DEBUG;
+        case RenderMode::ADAPTIVE:
+            return MIN_PIXELS_PER_CELL; // Will be resolved later based on cell size.
+        default:
+            return MIN_PIXELS_PER_CELL_SHARP;
+    }
+}
+
+// Calculate integer-only pixels per cell that fits in container.
+// Returns largest integer where (worldSize × pixels) fits in container.
+static uint32_t calculateIntegerPixelsPerCell(
+    uint32_t worldWidth, uint32_t worldHeight, int32_t containerWidth, int32_t containerHeight)
+{
+    // Calculate max integer scale for each dimension.
+    uint32_t maxScaleX = (containerWidth > 0) ? containerWidth / worldWidth : 1;
+    uint32_t maxScaleY = (containerHeight > 0) ? containerHeight / worldHeight : 1;
+
+    // Use smaller scale to fit both dimensions.
+    uint32_t scale = std::min(maxScaleX, maxScaleY);
+
+    // Ensure minimum of 2px per cell.
+    return std::max(2u, scale);
+}
+
+// Apply bilinear smoothing filter to blend adjacent pixels.
+// This creates anti-aliasing at cell boundaries.
+static void applyBilinearFilter(uint32_t* pixels, uint32_t width, uint32_t height)
+{
+    if (width < 2 || height < 2) return;
+
+    // Create temporary buffer for filtered output.
+    std::vector<uint32_t> filtered(width * height);
+
+    // Apply 2x2 box filter to smooth transitions.
+    for (uint32_t y = 0; y < height; ++y) {
+        for (uint32_t x = 0; x < width; ++x) {
+            uint32_t idx = y * width + x;
+
+            // Sample neighborhood (with boundary clamping).
+            uint32_t x0 = x;
+            uint32_t x1 = std::min(x + 1, width - 1);
+            uint32_t y0 = y;
+            uint32_t y1 = std::min(y + 1, height - 1);
+
+            // Get four samples.
+            uint32_t p00 = pixels[y0 * width + x0];
+            uint32_t p10 = pixels[y0 * width + x1];
+            uint32_t p01 = pixels[y1 * width + x0];
+            uint32_t p11 = pixels[y1 * width + x1];
+
+            // Extract and average ARGB channels.
+            uint32_t a = ((p00 >> 24) + (p10 >> 24) + (p01 >> 24) + (p11 >> 24)) / 4;
+            uint32_t r = (((p00 >> 16) & 0xFF) + ((p10 >> 16) & 0xFF) + ((p01 >> 16) & 0xFF)
+                          + ((p11 >> 16) & 0xFF))
+                / 4;
+            uint32_t g = (((p00 >> 8) & 0xFF) + ((p10 >> 8) & 0xFF) + ((p01 >> 8) & 0xFF)
+                          + ((p11 >> 8) & 0xFF))
+                / 4;
+            uint32_t b = ((p00 & 0xFF) + (p10 & 0xFF) + (p01 & 0xFF) + (p11 & 0xFF)) / 4;
+
+            filtered[idx] = (a << 24) | (r << 16) | (g << 8) | b;
+        }
+    }
+
+    // Copy filtered result back to original buffer.
+    std::memcpy(pixels, filtered.data(), width * height * sizeof(uint32_t));
+}
 
 static lv_color_t getMaterialColor(MaterialType type)
 {
@@ -19,6 +155,8 @@ static lv_color_t getMaterialColor(MaterialType type)
             return lv_color_hex(0x00FF32); // Bright lime green.
         case MaterialType::METAL:
             return lv_color_hex(0xC0C0C0); // Silver.
+        case MaterialType::ROOT:
+            return lv_color_hex(0xDEB887); // Burlywood.
         case MaterialType::SAND:
             return lv_color_hex(0xFFB347); // Sandy orange.
         case MaterialType::SEED:
@@ -28,7 +166,7 @@ static lv_color_t getMaterialColor(MaterialType type)
         case MaterialType::WATER:
             return lv_color_hex(0x00BFFF); // Deep sky blue.
         case MaterialType::WOOD:
-            return lv_color_hex(0xDEB887); // Burlywood.
+            return lv_color_hex(0x654321); // Dark brown.
         default:
             return lv_color_hex(0xFF00FF); // Magenta for unknown.
     }
@@ -63,8 +201,18 @@ void CellRenderer::calculateScaling(uint32_t worldWidth, uint32_t worldHeight)
     // Ensure minimum cell size of 2x2 pixels
     pixelsPerCell = std::max(2.0, pixelsPerCell);
 
-    scaledCellWidth_ = static_cast<uint32_t>(pixelsPerCell);
-    scaledCellHeight_ = static_cast<uint32_t>(pixelsPerCell);
+    // Round to nearest integer to maximize canvas usage.
+    uint32_t candidateCellSize = static_cast<uint32_t>(std::round(pixelsPerCell));
+
+    // Ensure the total rendering size fits within canvas bounds.
+    // If rounding up would exceed canvas, use floor instead.
+    if (candidateCellSize * worldWidth > canvasWidth_
+        || candidateCellSize * worldHeight > canvasHeight_) {
+        candidateCellSize = static_cast<uint32_t>(std::floor(pixelsPerCell));
+    }
+
+    scaledCellWidth_ = candidateCellSize;
+    scaledCellHeight_ = candidateCellSize;
 
     // Calculate the scale factor relative to base Cell::WIDTH
     scaleX_ = pixelsPerCell / Cell::WIDTH;
@@ -80,15 +228,22 @@ void CellRenderer::calculateScaling(uint32_t worldWidth, uint32_t worldHeight)
 
 void CellRenderer::initialize(lv_obj_t* parent, uint32_t worldWidth, uint32_t worldHeight)
 {
-    spdlog::info("CellRenderer: Initializing fixed-size canvas for UI container");
+    initializeWithPixelSize(parent, worldWidth, worldHeight, MIN_PIXELS_PER_CELL);
+}
 
-    // Validate input parameters
+void CellRenderer::initializeWithPixelSize(
+    lv_obj_t* parent, uint32_t worldWidth, uint32_t worldHeight, uint32_t pixelsPerCell)
+{
+    spdlog::info(
+        "CellRenderer: Initializing canvas with transform scaling ({}px/cell)", pixelsPerCell);
+
+    // Validate input parameters.
     if (!parent) {
         spdlog::error("CellRenderer: Invalid parent for initialization");
         return;
     }
 
-    // Only initialize once - canvas stays fixed size
+    // Only initialize once - canvas stays fixed size.
     if (worldCanvas_) {
         spdlog::debug("CellRenderer: Canvas already initialized, skipping");
         return;
@@ -98,7 +253,7 @@ void CellRenderer::initialize(lv_obj_t* parent, uint32_t worldWidth, uint32_t wo
     width_ = worldWidth;
     height_ = worldHeight;
 
-    // Get container size - this is our canvas size (fixed).
+    // Get container size for transform scaling calculations.
     int32_t containerWidth = lv_obj_get_width(parent);
     int32_t containerHeight = lv_obj_get_height(parent);
 
@@ -106,7 +261,7 @@ void CellRenderer::initialize(lv_obj_t* parent, uint32_t worldWidth, uint32_t wo
     lastContainerWidth_ = containerWidth;
     lastContainerHeight_ = containerHeight;
 
-    // Sanity check container dimensions
+    // Sanity check container dimensions.
     if (containerWidth <= 0 || containerHeight <= 0) {
         spdlog::warn(
             "CellRenderer: Invalid container dimensions {}x{}, using defaults",
@@ -116,17 +271,14 @@ void CellRenderer::initialize(lv_obj_t* parent, uint32_t worldWidth, uint32_t wo
         containerHeight = 600;
     }
 
-    // Use 90% of container size for the canvas
-    canvasWidth_ = static_cast<uint32_t>(containerWidth * 0.9);
-    canvasHeight_ = static_cast<uint32_t>(containerHeight * 0.9);
+    // Render at world dimensions × pixelsPerCell.
+    // This gives us a native resolution canvas that we'll scale to fit the container.
+    canvasWidth_ = worldWidth * pixelsPerCell;
+    canvasHeight_ = worldHeight * pixelsPerCell;
 
-    // Center the canvas in the container
-    int32_t offsetX = (containerWidth - canvasWidth_) / 2;
-    int32_t offsetY = (containerHeight - canvasHeight_) / 2;
-
-    // Ensure offsets are non-negative
-    if (offsetX < 0) offsetX = 0;
-    if (offsetY < 0) offsetY = 0;
+    // Each cell gets exactly pixelsPerCell pixels.
+    scaledCellWidth_ = pixelsPerCell;
+    scaledCellHeight_ = pixelsPerCell;
 
     // Create single fixed-size canvas
     worldCanvas_ = lv_canvas_create(parent);
@@ -158,20 +310,34 @@ void CellRenderer::initialize(lv_obj_t* parent, uint32_t worldWidth, uint32_t wo
         return;
     }
 
-    // Set canvas buffer (this never changes)
+    // Set canvas buffer (this never changes).
     lv_canvas_set_buffer(
         worldCanvas_, canvasBuffer_.data(), canvasWidth_, canvasHeight_, LV_COLOR_FORMAT_ARGB8888);
 
-    // Position canvas
-    lv_obj_set_pos(worldCanvas_, offsetX, offsetY);
+    // Position canvas at top-left of container.
+    lv_obj_set_pos(worldCanvas_, 0, 0);
 
-    // Now calculate scaling for the world size
-    calculateScaling(worldWidth, worldHeight);
+    // Apply LVGL transform scaling to fit canvas to container.
+    // LVGL uses fixed-point scaling where 256 = 1.0×.
+    // Calculate scale to fit world in container while preserving aspect ratio.
+    double scaleX = (double)containerWidth / canvasWidth_;
+    double scaleY = (double)containerHeight / canvasHeight_;
+    double scale = std::min(scaleX, scaleY); // Preserve aspect ratio.
+
+    int lvglScaleX = (int)(scale * 256);
+    int lvglScaleY = (int)(scale * 256);
+
+    lv_obj_set_style_transform_scale_x(worldCanvas_, lvglScaleX, 0);
+    lv_obj_set_style_transform_scale_y(worldCanvas_, lvglScaleY, 0);
 
     spdlog::info(
-        "CellRenderer: Initialized fixed canvas {}x{} pixels (will scale world dynamically)",
+        "CellRenderer: Initialized canvas {}x{} pixels ({}x{} cells at {}px/cell), scaling {:.2f}×",
         canvasWidth_,
-        canvasHeight_);
+        canvasHeight_,
+        worldWidth,
+        worldHeight,
+        pixelsPerCell,
+        scale);
 }
 
 void CellRenderer::resize(lv_obj_t* parent, uint32_t worldWidth, uint32_t worldHeight)
@@ -183,30 +349,20 @@ void CellRenderer::resize(lv_obj_t* parent, uint32_t worldWidth, uint32_t worldH
         worldWidth,
         worldHeight);
 
-    // Only update if dimensions actually changed
+    // Only update if dimensions actually changed.
     if (width_ == worldWidth && height_ == worldHeight && parent_ == parent) {
         spdlog::debug("CellRenderer: No size change, skipping");
         return;
     }
 
-    // Update world dimensions
-    width_ = worldWidth;
-    height_ = worldHeight;
-    parent_ = parent;
-
-    // Recalculate scaling for new world size (canvas size stays the same)
-    calculateScaling(worldWidth, worldHeight);
-
-    spdlog::info(
-        "CellRenderer: Updated to {}x{} cells at {}x{} pixels each",
-        worldWidth,
-        worldHeight,
-        scaledCellWidth_,
-        scaledCellHeight_);
+    // World size change requires canvas reallocation with transform scaling.
+    // Clean up and reinitialize.
+    cleanup();
+    initialize(parent, worldWidth, worldHeight);
 }
 
 void CellRenderer::renderWorldData(
-    const WorldData& worldData, lv_obj_t* parent, bool debugDraw, bool usePixelRenderer)
+    const WorldData& worldData, lv_obj_t* parent, bool debugDraw, RenderMode mode)
 {
     // Validate input.
     if (!parent || worldData.width == 0 || worldData.height == 0) {
@@ -217,6 +373,35 @@ void CellRenderer::renderWorldData(
             worldData.height);
         return;
     }
+
+    // Resolve adaptive mode to concrete mode based on cell size.
+    RenderMode effectiveMode = mode;
+    if (mode == RenderMode::ADAPTIVE) {
+        // Choose SMOOTH for small cells (<4px), SHARP for larger cells.
+        effectiveMode = (scaledCellWidth_ < 4) ? RenderMode::SMOOTH : RenderMode::SHARP;
+    }
+
+    // Check if mode changed and requires different pixel size.
+    uint32_t requiredPixelSize = getPixelsPerCellForMode(effectiveMode);
+
+    // PIXEL_PERFECT always requires reinitialization (dynamic sizing).
+    bool needsReinitialization = (effectiveMode != currentMode_)
+        && (effectiveMode == RenderMode::PIXEL_PERFECT || currentMode_ == RenderMode::PIXEL_PERFECT
+            || scaledCellWidth_ != requiredPixelSize);
+
+    if (worldCanvas_ && needsReinitialization) {
+        spdlog::info(
+            "CellRenderer: Mode changed from {} to {}, reinitializing",
+            renderModeToString(currentMode_),
+            renderModeToString(effectiveMode));
+        cleanup();
+    }
+
+    currentMode_ = effectiveMode;
+
+    // Determine rendering path based on mode.
+    bool usePixelRenderer = (effectiveMode != RenderMode::LVGL_DEBUG);
+    bool useBilinearFilter = (effectiveMode == RenderMode::SMOOTH);
 
     // Check if container has been resized (detect layout changes).
     int32_t currentContainerWidth = lv_obj_get_width(parent);
@@ -238,9 +423,20 @@ void CellRenderer::renderWorldData(
         cleanup();
     }
 
-    // Initialize canvas on first call or after resize.
+    // Initialize canvas on first call or after resize/mode change.
     if (!worldCanvas_) {
-        initialize(parent, worldData.width, worldData.height);
+        // Use mode-specific pixel size for optimal quality.
+        uint32_t pixelsPerCell = getPixelsPerCellForMode(effectiveMode);
+
+        // PIXEL_PERFECT mode calculates integer scale dynamically.
+        if (effectiveMode == RenderMode::PIXEL_PERFECT) {
+            pixelsPerCell = calculateIntegerPixelsPerCell(
+                worldData.width, worldData.height, currentContainerWidth, currentContainerHeight);
+            spdlog::info(
+                "CellRenderer: PIXEL_PERFECT mode - using {}× integer scale", pixelsPerCell);
+        }
+
+        initializeWithPixelSize(parent, worldData.width, worldData.height, pixelsPerCell);
         if (!worldCanvas_) {
             return; // Failed to initialize.
         }
@@ -261,37 +457,9 @@ void CellRenderer::renderWorldData(
     // Clear buffer
     std::fill(canvasBuffer_.begin(), canvasBuffer_.end(), 0);
 
-    // Log the first render after a resize for debugging
-    static uint32_t lastWidth = 0;
-    static uint32_t lastHeight = 0;
-    if (lastWidth != worldData.width || lastHeight != worldData.height) {
-        spdlog::info(
-            "CellRenderer: First render at {}x{} world, {}x{} canvas, {}x{} cell size",
-            worldData.width,
-            worldData.height,
-            canvasWidth_,
-            canvasHeight_,
-            scaledCellWidth_,
-            scaledCellHeight_);
-        int32_t totalW = worldData.width * scaledCellWidth_;
-        int32_t totalH = worldData.height * scaledCellHeight_;
-        spdlog::info(
-            "CellRenderer: Total world rendering size {}x{}, fits in canvas? W:{} H:{}",
-            totalW,
-            totalH,
-            static_cast<uint32_t>(totalW) <= canvasWidth_,
-            static_cast<uint32_t>(totalH) <= canvasHeight_);
-        lastWidth = worldData.width;
-        lastHeight = worldData.height;
-    }
-
-    // Calculate world centering offset once for entire frame
-    int32_t totalWorldWidth = worldData.width * scaledCellWidth_;
-    int32_t totalWorldHeight = worldData.height * scaledCellHeight_;
-    int32_t renderOffsetX = (canvasWidth_ - totalWorldWidth) / 2;
-    int32_t renderOffsetY = (canvasHeight_ - totalWorldHeight) / 2;
-    if (renderOffsetX < 0) renderOffsetX = 0;
-    if (renderOffsetY < 0) renderOffsetY = 0;
+    // With transform scaling, world fills canvas exactly - no offset needed.
+    int32_t renderOffsetX = 0;
+    int32_t renderOffsetY = 0;
 
     if (usePixelRenderer) {
         // FAST PATH: Direct pixel rendering with alpha blending
@@ -312,65 +480,149 @@ void CellRenderer::renderWorldData(
                     continue;
                 }
 
-                // Determine cell color
-                uint32_t cellColor = 0xFF000000; // ARGB black
+                // Prepare border color and interior color.
+                uint32_t borderColor = 0xFF000000;   // ARGB black with full alpha.
+                uint32_t interiorColor = 0xFF000000; // ARGB black with full alpha.
 
                 if (!cell.isEmpty() && cell.material_type != MaterialType::AIR) {
                     lv_color_t matColor = getMaterialColor(cell.material_type);
-                    uint8_t alpha = static_cast<uint8_t>(cell.fill_ratio * 255.0 * 0.7);
+                    // Border opacity varies by debug mode.
+                    // Debug mode: full opacity (pronounced border).
+                    // Normal mode: 0.85 opacity (subtle/faint border).
+                    double borderOpacityFactor = debugDraw ? 1.0 : 0.85;
+                    uint8_t borderAlpha =
+                        static_cast<uint8_t>(cell.fill_ratio * 255.0 * borderOpacityFactor);
+                    // Interior always at 0.7 opacity (darker).
+                    uint8_t interiorAlpha = static_cast<uint8_t>(cell.fill_ratio * 255.0 * 0.7);
 
-                    // Convert to ARGB32
-                    cellColor = (alpha << 24) | (matColor.red << 16) | (matColor.green << 8)
+                    borderColor = (borderAlpha << 24) | (matColor.red << 16) | (matColor.green << 8)
                         | matColor.blue;
+                    interiorColor = (interiorAlpha << 24) | (matColor.red << 16)
+                        | (matColor.green << 8) | matColor.blue;
                 }
 
-                // Extract alpha for blending
-                uint8_t alpha = (cellColor >> 24) & 0xFF;
-
-                // Fill cell rectangle with alpha blending
+                // Fill cell rectangle with border and interior.
                 for (uint32_t py = 0; py < scaledCellHeight_; py++) {
                     uint32_t rowStart = (cellY + py) * canvasWidth_ + cellX;
                     for (uint32_t px = 0; px < scaledCellWidth_; px++) {
                         uint32_t pixelIdx = rowStart + px;
 
-                        // Alpha blending: blend source with destination
-                        if (alpha == 0) {
-                            // Fully transparent - skip (keep background)
-                            continue;
-                        }
-                        else if (alpha == 255) {
-                            // Fully opaque - direct write (optimization)
-                            pixels[pixelIdx] = cellColor;
+                        // Determine if this pixel is on the border.
+                        bool isBorder =
+                            (px == 0 || px == scaledCellWidth_ - 1 || py == 0
+                             || py == scaledCellHeight_ - 1);
+
+                        // Select color based on position (border vs interior).
+                        uint32_t pixelColor = isBorder ? borderColor : interiorColor;
+                        uint8_t alpha = (pixelColor >> 24) & 0xFF;
+
+                        if constexpr (ENABLE_DITHERING) {
+                            // Dithered rendering: use Bayer matrix to decide pixel on/off.
+                            if (alpha == 0) {
+                                // Fully transparent - skip.
+                                continue;
+                            }
+                            else if (alpha == 255) {
+                                // Fully opaque - direct write.
+                                pixels[pixelIdx] = pixelColor;
+                            }
+                            else {
+                                // Partial transparency - use dithering.
+                                // Get Bayer threshold for this pixel position.
+                                int bayerX = (cellX + px) % 4;
+                                int bayerY = (cellY + py) % 4;
+                                int bayerThreshold = BAYER_MATRIX_4X4[bayerY][bayerX];
+
+                                // Compare alpha to threshold (scaled 0-255 to 0-15).
+                                // If alpha > threshold, draw pixel at full opacity.
+                                if ((alpha * 16 / 256) > bayerThreshold) {
+                                    // Draw pixel with full material color (no alpha).
+                                    pixels[pixelIdx] = 0xFF000000 | (pixelColor & 0x00FFFFFF);
+                                }
+                                // Otherwise skip pixel (leave background).
+                            }
                         }
                         else {
-                            // Partial transparency - blend
-                            uint32_t dstColor = pixels[pixelIdx];
-                            uint8_t invAlpha = 255 - alpha;
+                            // Alpha blending: blend source with destination
+                            if (alpha == 0) {
+                                // Fully transparent - skip (keep background)
+                                continue;
+                            }
+                            else if (alpha == 255) {
+                                // Fully opaque - direct write (optimization)
+                                pixels[pixelIdx] = pixelColor;
+                            }
+                            else {
+                                // Partial transparency - blend
+                                uint32_t dstColor = pixels[pixelIdx];
+                                uint8_t invAlpha = 255 - alpha;
 
-                            // Extract source channels
-                            uint8_t srcR = (cellColor >> 16) & 0xFF;
-                            uint8_t srcG = (cellColor >> 8) & 0xFF;
-                            uint8_t srcB = cellColor & 0xFF;
+                                // Extract source channels
+                                uint8_t srcR = (pixelColor >> 16) & 0xFF;
+                                uint8_t srcG = (pixelColor >> 8) & 0xFF;
+                                uint8_t srcB = pixelColor & 0xFF;
 
-                            // Extract destination channels
-                            uint8_t dstR = (dstColor >> 16) & 0xFF;
-                            uint8_t dstG = (dstColor >> 8) & 0xFF;
-                            uint8_t dstB = dstColor & 0xFF;
+                                // Extract destination channels
+                                uint8_t dstR = (dstColor >> 16) & 0xFF;
+                                uint8_t dstG = (dstColor >> 8) & 0xFF;
+                                uint8_t dstB = dstColor & 0xFF;
 
-                            // Blend: result = (src * alpha + dst * (1 - alpha)) / 255
-                            uint8_t r = (srcR * alpha + dstR * invAlpha) / 255;
-                            uint8_t g = (srcG * alpha + dstG * invAlpha) / 255;
-                            uint8_t b = (srcB * alpha + dstB * invAlpha) / 255;
+                                // Blend: result = (src * alpha + dst * (1 - alpha)) / 255
+                                uint8_t r = (srcR * alpha + dstR * invAlpha) / 255;
+                                uint8_t g = (srcG * alpha + dstG * invAlpha) / 255;
+                                uint8_t b = (srcB * alpha + dstB * invAlpha) / 255;
 
-                            // Write blended pixel (with full alpha)
-                            pixels[pixelIdx] = 0xFF000000 | (r << 16) | (g << 8) | b;
+                                // Write blended pixel (with full alpha)
+                                pixels[pixelIdx] = 0xFF000000 | (r << 16) | (g << 8) | b;
+                            }
                         }
+                    }
+                }
+
+                // Debug draw: COM indicator (single pixel)
+                if (debugDraw && !cell.isEmpty() && cell.material_type != MaterialType::AIR) {
+                    // Calculate COM position in pixel coordinates.
+                    // COM ranges from [-1, 1] where -1 is top/left and +1 is bottom/right.
+                    int com_pixel_x =
+                        cellX + static_cast<int>((cell.com.x + 1.0) * (scaledCellWidth_ - 1) / 2.0);
+                    int com_pixel_y = cellY
+                        + static_cast<int>((cell.com.y + 1.0) * (scaledCellHeight_ - 1) / 2.0);
+
+                    // Bounds check.
+                    if (com_pixel_x >= 0 && com_pixel_x < static_cast<int>(canvasWidth_)
+                        && com_pixel_y >= 0 && com_pixel_y < static_cast<int>(canvasHeight_)) {
+                        uint32_t comPixelIdx = com_pixel_y * canvasWidth_ + com_pixel_x;
+                        // Yellow pixel for COM (same as LVGL debug draw).
+                        pixels[comPixelIdx] = 0xFFFFFF00; // ARGB: full alpha, yellow.
+                    }
+
+                    // Pressure gradient vector (cyan line from COM).
+                    if (cell.pressure_gradient.magnitude() > 0.001) {
+                        const double GRADIENT_SCALE = scaleX_;
+                        const int end_x = com_pixel_x
+                            + static_cast<int>(cell.pressure_gradient.x * GRADIENT_SCALE);
+                        const int end_y = com_pixel_y
+                            + static_cast<int>(cell.pressure_gradient.y * GRADIENT_SCALE);
+                        drawLineBresenham(
+                            pixels,
+                            canvasWidth_,
+                            canvasHeight_,
+                            com_pixel_x,
+                            com_pixel_y,
+                            end_x,
+                            end_y,
+                            0xFF00FFFF); // Cyan.
                     }
                 }
             }
         }
 
-        // Invalidate canvas to trigger display update
+        // Apply bilinear smoothing filter if mode requires it.
+        if (useBilinearFilter) {
+            applyBilinearFilter(pixels, canvasWidth_, canvasHeight_);
+        }
+
+        // Invalidate canvas to trigger display update.
         lv_obj_invalidate(worldCanvas_);
     }
     else {
@@ -389,12 +641,13 @@ void CellRenderer::renderWorldData(
                     break;
                 }
                 const Cell& cell = worldData.cells[idx];
+                const CellDebug& debug = worldData.debug_info[idx];
 
                 // Calculate cell position with pre-computed offset
                 int32_t cellX = renderOffsetX + x * scaledCellWidth_;
                 int32_t cellY = renderOffsetY + y * scaledCellHeight_;
 
-                renderCellDirectOptimized(cell, layer, cellX, cellY, debugDraw, false);
+                renderCellLVGL(cell, debug, layer, cellX, cellY, debugDraw);
             }
         }
 
@@ -427,86 +680,19 @@ void CellRenderer::cleanup()
     lastContainerHeight_ = 0;
 }
 
-void CellRenderer::renderCellDirectOptimized(
+void CellRenderer::renderCellLVGL(
     const Cell& cell,
+    const CellDebug& debug,
     lv_layer_t& layer,
     int32_t cellX,
     int32_t cellY,
-    bool debugDraw,
-    bool usePixelRenderer)
+    bool debugDraw)
 {
-    // Bounds check - skip cells outside canvas
+    // Bounds check - skip cells outside canvas.
     if (cellX < 0 || cellY < 0 || cellX + scaledCellWidth_ > canvasWidth_
         || cellY + scaledCellHeight_ > canvasHeight_) {
-        return; // Silently skip out-of-bounds cells
-    }
-
-    // Branch between pixel renderer (fast) and LVGL renderer (slow but full-featured)
-    if (usePixelRenderer) {
-        // FAST PATH: Direct pixel buffer writes with alpha blending
-        uint32_t* pixels = reinterpret_cast<uint32_t*>(canvasBuffer_.data());
-
-        // Determine cell color
-        uint32_t cellColor = 0xFF000000; // ARGB black with full alpha
-
-        if (!cell.isEmpty() && cell.material_type != MaterialType::AIR) {
-            lv_color_t matColor = getMaterialColor(cell.material_type);
-            uint8_t alpha = static_cast<uint8_t>(cell.fill_ratio * 255.0 * 0.7);
-
-            // Convert to ARGB32
-            cellColor =
-                (alpha << 24) | (matColor.red << 16) | (matColor.green << 8) | matColor.blue;
-        }
-
-        // Extract alpha channel for blending
-        uint8_t alpha = (cellColor >> 24) & 0xFF;
-
-        // Fill cell rectangle with alpha blending
-        for (uint32_t py = 0; py < scaledCellHeight_; py++) {
-            uint32_t rowStart = (cellY + py) * canvasWidth_ + cellX;
-            for (uint32_t px = 0; px < scaledCellWidth_; px++) {
-                uint32_t pixelIdx = rowStart + px;
-
-                // Alpha blending: blend source with destination
-                if (alpha == 0) {
-                    // Fully transparent - skip (keep background)
-                    continue;
-                }
-                else if (alpha == 255) {
-                    // Fully opaque - direct write (optimization)
-                    pixels[pixelIdx] = cellColor;
-                }
-                else {
-                    // Partial transparency - blend
-                    uint32_t dstColor = pixels[pixelIdx];
-                    uint8_t invAlpha = 255 - alpha;
-
-                    // Extract source channels
-                    uint8_t srcR = (cellColor >> 16) & 0xFF;
-                    uint8_t srcG = (cellColor >> 8) & 0xFF;
-                    uint8_t srcB = cellColor & 0xFF;
-
-                    // Extract destination channels
-                    uint8_t dstR = (dstColor >> 16) & 0xFF;
-                    uint8_t dstG = (dstColor >> 8) & 0xFF;
-                    uint8_t dstB = dstColor & 0xFF;
-
-                    // Blend: result = (src * alpha + dst * (1 - alpha)) / 255
-                    uint8_t r = (srcR * alpha + dstR * invAlpha) / 255;
-                    uint8_t g = (srcG * alpha + dstG * invAlpha) / 255;
-                    uint8_t b = (srcB * alpha + dstB * invAlpha) / 255;
-
-                    // Write blended pixel (with full alpha)
-                    pixels[pixelIdx] = 0xFF000000 | (r << 16) | (g << 8) | b;
-                }
-            }
-        }
-
-        // TODO: Add pixel-based debug rendering if needed
         return;
     }
-
-    // SLOW PATH: LVGL drawing (for comparison / debugging)
 
     // Black background for all cells
     lv_draw_rect_dsc_t bg_rect_dsc;
@@ -635,7 +821,7 @@ void CellRenderer::renderCellDirectOptimized(
 
             // Pressure gradient vector (cyan line from center).
             if (scaledCellWidth_ >= 12 && cell.pressure_gradient.magnitude() > 0.001) {
-                const double GRADIENT_SCALE = scaleX_;
+                const double GRADIENT_SCALE = 10 * scaleX_;
                 int end_x =
                     com_pixel_x + static_cast<int>(cell.pressure_gradient.x * GRADIENT_SCALE);
                 int end_y =
@@ -653,12 +839,12 @@ void CellRenderer::renderCellDirectOptimized(
             }
 
             // Adhesion force vector (orange line from center).
-            if (scaledCellWidth_ >= 10 && cell.accumulated_adhesion_force.magnitude() > 0.01) {
+            if (scaledCellWidth_ >= 10 && debug.accumulated_adhesion_force.magnitude() > 0.01) {
                 const double ADHESION_SCALE = 10.0 * scaleX_;
                 int end_x = com_pixel_x
-                    + static_cast<int>(cell.accumulated_adhesion_force.x * ADHESION_SCALE);
+                    + static_cast<int>(debug.accumulated_adhesion_force.x * ADHESION_SCALE);
                 int end_y = com_pixel_y
-                    + static_cast<int>(cell.accumulated_adhesion_force.y * ADHESION_SCALE);
+                    + static_cast<int>(debug.accumulated_adhesion_force.y * ADHESION_SCALE);
 
                 lv_draw_line_dsc_t adhesion_dsc;
                 lv_draw_line_dsc_init(&adhesion_dsc);
@@ -672,7 +858,7 @@ void CellRenderer::renderCellDirectOptimized(
             }
 
             // COM cohesion force vector (purple line from cell center).
-            if (scaledCellWidth_ >= 10 && cell.accumulated_com_cohesion_force.magnitude() > 0.01) {
+            if (scaledCellWidth_ >= 10 && debug.accumulated_com_cohesion_force.magnitude() > 0.01) {
                 const double COHESION_SCALE = 1.0 * scaleX_;
 
                 // Draw from cell center (not COM).
@@ -680,9 +866,9 @@ void CellRenderer::renderCellDirectOptimized(
                 int cell_center_y = cellY + scaledCellHeight_ / 2;
 
                 int end_x = cell_center_x
-                    + static_cast<int>(cell.accumulated_com_cohesion_force.x * COHESION_SCALE);
+                    + static_cast<int>(debug.accumulated_com_cohesion_force.x * COHESION_SCALE);
                 int end_y = cell_center_y
-                    + static_cast<int>(cell.accumulated_com_cohesion_force.y * COHESION_SCALE);
+                    + static_cast<int>(debug.accumulated_com_cohesion_force.y * COHESION_SCALE);
 
                 lv_draw_line_dsc_t cohesion_dsc;
                 lv_draw_line_dsc_init(&cohesion_dsc);
@@ -696,7 +882,7 @@ void CellRenderer::renderCellDirectOptimized(
             }
 
             // Viscous force vector (cyan line from cell center).
-            if (scaledCellWidth_ >= 10 && cell.accumulated_viscous_force.magnitude() > 0.01) {
+            if (scaledCellWidth_ >= 10 && debug.accumulated_viscous_force.magnitude() > 0.01) {
                 const double VISCOUS_SCALE = 5.0 * scaleX_;
 
                 // Draw from cell center.
@@ -704,9 +890,9 @@ void CellRenderer::renderCellDirectOptimized(
                 int cell_center_y = cellY + scaledCellHeight_ / 2;
 
                 int end_x = cell_center_x
-                    + static_cast<int>(cell.accumulated_viscous_force.x * VISCOUS_SCALE);
+                    + static_cast<int>(debug.accumulated_viscous_force.x * VISCOUS_SCALE);
                 int end_y = cell_center_y
-                    + static_cast<int>(cell.accumulated_viscous_force.y * VISCOUS_SCALE);
+                    + static_cast<int>(debug.accumulated_viscous_force.y * VISCOUS_SCALE);
 
                 lv_draw_line_dsc_t viscous_dsc;
                 lv_draw_line_dsc_init(&viscous_dsc);

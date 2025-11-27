@@ -166,6 +166,13 @@ void SandboxControls::updateFromConfig(const SandboxConfig& config)
     initializing_ = false;
 }
 
+void SandboxControls::updateWorldDimensions(uint32_t width, uint32_t height)
+{
+    worldWidth_ = width;
+    worldHeight_ = height;
+    spdlog::debug("SandboxControls: Updated world dimensions to {}×{}", width, height);
+}
+
 SandboxConfig SandboxControls::getCurrentConfig() const
 {
     SandboxConfig config;

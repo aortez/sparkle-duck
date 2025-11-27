@@ -16,85 +16,103 @@ Read design_docs/coding_convention.md for coding guidelines.
 Use git as needed but never push.
 Don't use git -C, instead just make sure you're in the right directory beforehand.
 
+#### Git Hooks
+Install pre-commit hooks to automatically format code and run tests:
+```bash
+./hooks/install-hooks.sh
+```
+
 ### Building
 ```bash
-# Build debug version (don't build release unless asked)
+# Build debug version (outputs to build-debug/).
 make debug
 
-# Make the unit tests
+# Build optimized release version (outputs to build-release/).
+make release
+
+# Make the unit tests.
 make build-tests
 
-# Format source code
+# Format source code.
 make format
 
-# Clean build artifacts
+# Clean build artifacts (removes both build-debug/ and build-release/).
 make clean
 
-# Show all available targets
+# Show all available targets.
 make help
 
-# Manual CMake build (if needed)
-cmake -B build -S .
-make -C build -j12
+# Manual CMake build (if needed).
+cmake -B build-debug -S . -DCMAKE_BUILD_TYPE=Debug
+make -C build-debug -j12
+
+# Note: Debug and release builds use separate directories to avoid conflicts.
+# - build-debug/  - Debug builds (-O0 -g)
+# - build-release/ - Release builds (-O3 optimizations)
 ```
 
 ### Running
 ```bash
-# Run headless DSSM server (Dirt Sim State Machine)
-./build/bin/sparkle-duck-server -p 8080 -s 1000
+# Run both client and server (debug build).
+./build-debug/bin/cli run-all
 
-# Run UI client (auto-connects to server)
-./build/bin/sparkle-duck-ui -b wayland --connect localhost:8080
-
-# Run server and UI together (two terminals)
-# Terminal 1:
-./build/bin/sparkle-duck-server -p 8080
-
-# Terminal 2:
-./build/bin/sparkle-duck-ui -b wayland --connect localhost:8080
-
-# UI options
-./build/bin/sparkle-duck-ui -b wayland        # Wayland backend
-./build/bin/sparkle-duck-ui -b x11            # X11 backend
-./build/bin/sparkle-duck-ui -W 1200 -H 1200   # Custom window size
-./build/bin/sparkle-duck-ui -s 100            # Auto-exit after 100 steps
-
-# CLI client for sending commands
-./build/bin/cli ws://localhost:8080 state_get
-./build/bin/cli ws://localhost:8080 sim_run '{"timestep": 0.016, "max_steps": 1}'
-./build/bin/cli ws://localhost:8080 diagram_get
-
-# Run both client and server
-./build/bin/cli run-all
+# Run with optimized release build for performance testing.
+./build-release/bin/cli run-all
 
 # CLI integration test (quick, verifies ui, server, and cli).
-./build/bin/cli integration_test
+./build-debug/bin/cli integration_test
 
-# Clean up all sparkle-duck processes
-./build/bin/cli cleanup
+# Clean up all sparkle-duck processes.
+./build-debug/bin/cli cleanup
+
+# Run benchmark and output results to file (use release build for accurate performance!).
+./build-release/bin/cli benchmark > benchmark.json && cat benchmark.json | jq .server_fps
+
+# Sending commands to server and ui (syntax: cli [command] [address] [params]).
+./build-debug/bin/cli state_get ws://localhost:8080
+./build-debug/bin/cli sim_run ws://localhost:8080 '{"timestep": 0.016, "max_steps": 1}'
+./build-debug/bin/cli diagram_get ws://localhost:8080
+
+# Run headless DSSM server (Dirt Sim State Machine).
+./build-debug/bin/sparkle-duck-server -p 8080 -s 1000
+
+# Run UI client (auto-connects to server).
+./build-debug/bin/sparkle-duck-ui -b wayland --connect localhost:8080
+
+# Run server and UI together (two terminals).
+# Terminal 1:
+./build-debug/bin/sparkle-duck-server -p 8080
+
+# Terminal 2:
+./build-debug/bin/sparkle-duck-ui -b wayland --connect localhost:8080
+
+# UI options.
+./build-debug/bin/sparkle-duck-ui -b wayland        # Wayland backend
+./build-debug/bin/sparkle-duck-ui -b x11            # X11 backend
+./build-debug/bin/sparkle-duck-ui -W 1200 -H 1200   # Custom window size
+./build-debug/bin/sparkle-duck-ui -s 100            # Auto-exit after 100 steps
 ```
 
-# For complete CLI documentation, see:
-# src/cli/README.md
-```
+### CLI documentation
+src/cli/README.md
 
 ### Testing
 ```bash
-# Run all unit tests
+# Run all unit tests (uses debug build).
 make test
 
-# Run tests with filters using ARGS
+# Run tests with filters using ARGS.
 make test ARGS='--gtest_filter=State*'
 
-# Run state machine tests directly
-./build/bin/sparkle-duck-tests --gtest_filter="StateIdle*"
-./build/bin/sparkle-duck-tests --gtest_filter="StateSimRunning*"
+# Run state machine tests directly.
+./build-debug/bin/sparkle-duck-tests --gtest_filter="StateIdle*"
+./build-debug/bin/sparkle-duck-tests --gtest_filter="StateSimRunning*"
 
-# List all available tests
-./build/bin/sparkle-duck-tests --gtest_list_tests
+# List all available tests.
+./build-debug/bin/sparkle-duck-tests --gtest_list_tests
 
-# Run specific test
-./build/bin/sparkle-duck-tests --gtest_filter="StateSimRunningTest.AdvanceSimulation_StepsPhysicsAndDirtFalls"
+# Run specific test.
+./build-debug/bin/sparkle-duck-tests --gtest_filter="StateSimRunningTest.AdvanceSimulation_StepsPhysicsAndDirtFalls"
 ```
 
 ### Debugging and Logging
@@ -163,7 +181,7 @@ coredumpctl gdb <PID> < /tmp/gdb_commands.txt > crash_analysis.txt 2>&1
 
 The project is organized into three component libraries:
 
-- **sparkle-duck-core**: Shared types for serialization (MaterialType, Vector2d/i, Cell, WorldData, ScenarioConfig)
+- **sparkle-duck-core**: Shared types for serialization (MaterialType, Vector2d/i, Cell, WorldData, ScenarioConfig, RenderMessage)
 - **sparkle-duck-server**: Physics engine (World + calculators), server logic, scenarios, server API commands
 - **sparkle-duck-ui**: UI components (controls, rendering, LVGL builders), UI state machine, UI API commands
 
@@ -363,46 +381,63 @@ Can be found here:
 
 ## Development Status
 
-### Current Focus: Tree Organisms (Phase 1 Complete, Phase 2 Next)
+### Current Focus: Tree Organisms (Phase 2 Complete, Phase 3 Next)
 
-**Completed:**
-- ✅ Neural grid visualization (side-by-side UI with 15×15 tree vision)
-- ✅ Efficient organism tracking (transfer-based updates)
-- ✅ Basic germination (SEED → WOOD → ROOT)
+**Phase 2 Completed:**
+- ✅ ROOT material type (grips soil, can bend)
+- ✅ Continuous time system (real deltaTime, all timing in seconds)
+- ✅ Contact-based germination (observe dirt 2s → ROOT 2s → WOOD 3s)
+- ✅ SEED stays permanent as tree core
+- ✅ TreeCommandProcessor (validates energy, adjacency, bounds)
+- ✅ Adjacency validation (respects WALL/METAL/WATER boundaries)
+- ✅ Balanced growth (maintains ROOT/WOOD/LEAF ratios based on water access)
+- ✅ Water-seeking behavior (roots adjust target ratios when water found)
+- ✅ LEAF restrictions (air-only, grows from WOOD, cardinal directions)
+- ✅ Swap physics integration (organism tracking works with material swaps)
+- ✅ UI displays (energy level, current thought)
+- ✅ Test coverage (6 passing tests with emoji visualization)
+
+**Known Limitations:**
+- Growth only from seed position (trees grow as blobs, not realistic branching)
+- No energy regeneration (trees deplete and stop)
+- No MATURE stage transition
 
 **Next Steps:**
-- Examine germination in detail, right now it's crazy. Update implementation and tests.
-- Phase 2: Advanced growth patterns (SAPLING/MATURE stages)
-- Phase 3: Resource systems (light, water, nutrients, photosynthesis)
+- Fix growth topology (extend from tree edges for realistic branching)
+- Add basic energy regeneration (LEAFs produce energy over time)
+- Phase 3: Resource systems (light ray-casting, photosynthesis, water/nutrient absorption)
 - Performance testing and optimization
 
 Awesome Ideas to do soon:
-- Swapping behavior - vertical only or also horizontal???
+- Swapping behavior - don't swap down if there is an opening to the side, instead displace!!!
 - WorldEventGenerator methods should be moved into the Scenarios.
 - FIX: After resetting, the tree visualization is still showing, it should Only
 be active if a tree is around.
 - Add label to tree's view saying which layer it is from.
 - Consider making air into a gaseous type, rather than the current "empty" behavior.
-It could affect how other things move/displace in interesting/subtle ways.
+It could affect how other things move/displace in interesting/subtle ways.  The sim speed might drop some.
 - Audit GridMechanics for correctness/relevance.  It might be getting out of date.
 - Refactor PhysicsControls to normalize/DRY up the patterns? (and prevent bugs/share enhancements)
 - Implement fragmentation on high energy impacts (see WorldCollisionCalculator).
 - Improve some of the scenarios - like the dam break and water equalization ones.
 - Fractal world generator?  Or Start from fractal?
 - mass as a gravity source!  allan.pizza but in a grid!!!
-- quad-tree or similar optimization applied to the grid?
-- Cohesion seems to reach from C N N+1 and not just from C to N - cells get stuck in space sometimes because of this, what's going on?
+- quad-tree or quantization or other spatial optimization applied to the grid?
 - cli send/receive any command/response automatically.
 - Review CLI and CAUDE README/md files for accuracy and gross omitition  Test things
 to see if they work.
 - refactor World to use Pimple pattern.  Use elsewhere too?
 - bit grid cache for has_support instead of storing it in each cell.
 - debug and release builds in different directories, then performance testing with release builds.
+- Add light tracing and illumination! (from top down)
+- Per-cell neighborhood cache: 64-bit bitmap in each Cell for instant neighbor queries (see design_docs/optimization-ideas.md Section 10).
 
 ### Client/Server Architecture (DSSM + UI Client)
 - ✅ Headless server with WebSocket API
 - ✅ UI client with controls and rendering
+- ✅ Optimized RenderMessage format (BASIC: 2 bytes/cell, DEBUG: 16 bytes/cell)
 - ✅ Binary serialization (zpp_bits)
+- ✅ Per-client format selection with render_format_set API
 
 See design_docs/plant.md and design_docs/ai-integration-ideas.md for details.
 

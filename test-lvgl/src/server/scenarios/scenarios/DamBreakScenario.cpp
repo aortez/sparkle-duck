@@ -1,6 +1,8 @@
 #include "core/Cell.h"
 #include "core/MaterialType.h"
+#include "core/PhysicsSettings.h"
 #include "core/World.h"
+#include "core/WorldData.h"
 #include "server/scenarios/Scenario.h"
 #include "server/scenarios/ScenarioRegistry.h"
 #include "spdlog/spdlog.h"
@@ -48,9 +50,9 @@ public:
         spdlog::info("DamBreakScenario::setup - initializing world");
 
         // Clear world first.
-        for (uint32_t y = 0; y < world.data.height; ++y) {
-            for (uint32_t x = 0; x < world.data.width; ++x) {
-                world.at(x, y) = Cell(); // Reset to empty cell.
+        for (uint32_t y = 0; y < world.getData().height; ++y) {
+            for (uint32_t x = 0; x < world.getData().width; ++x) {
+                world.getData().at(x, y) = Cell(); // Reset to empty cell.
             }
         }
 
@@ -59,13 +61,13 @@ public:
         elapsedTime_ = 0.0;
 
         // Configure physics for dynamic pressure.
-        world.physicsSettings.gravity = 9.81;
-        world.physicsSettings.pressure_dynamic_enabled = true;
-        world.physicsSettings.pressure_dynamic_strength = 1.0;
-        world.physicsSettings.pressure_hydrostatic_enabled = false;
-        world.physicsSettings.pressure_hydrostatic_strength = 0.0;
-        world.physicsSettings.pressure_diffusion_strength = 1.0;
-        world.physicsSettings.pressure_scale = 1.0;
+        world.getPhysicsSettings().gravity = 9.81;
+        world.getPhysicsSettings().pressure_dynamic_enabled = true;
+        world.getPhysicsSettings().pressure_dynamic_strength = 1.0;
+        world.getPhysicsSettings().pressure_hydrostatic_enabled = false;
+        world.getPhysicsSettings().pressure_hydrostatic_strength = 0.0;
+        world.getPhysicsSettings().pressure_diffusion_strength = 1.0;
+        world.getPhysicsSettings().pressure_scale = 1.0;
 
         // Disable extra features for clean demo.
         world.setWallsEnabled(false);
@@ -104,7 +106,7 @@ public:
                 spdlog::info("DamBreakScenario: Breaking dam at t={:.2f}s", elapsedTime_);
 
                 // Dam is at x=2, break only the bottom cell for realistic flow.
-                world.at(2, 5).clear(); // Bottom cell at (2,5)
+                world.getData().at(2, 5).clear(); // Bottom cell at (2,5)
                 spdlog::info("DamBreakScenario: Dam broken at (2, 5)");
                 damBroken_ = true;
             }

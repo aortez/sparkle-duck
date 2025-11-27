@@ -100,6 +100,27 @@ void StateMachine::handleEvent(const Event& event)
 {
     spdlog::debug("Ui::StateMachine: Handling event: {}", getEventName(event));
 
+    // Handle StatusGet universally (works in all states).
+    if (std::holds_alternative<UiApi::StatusGet::Cwc>(event)) {
+        spdlog::debug("Ui::StateMachine: Processing StatusGet command");
+        auto& cwc = std::get<UiApi::StatusGet::Cwc>(event);
+
+        UiApi::StatusGet::Okay status{
+            .state = getCurrentStateName(),
+            .connected_to_server = wsClient_ && wsClient_->isConnected(),
+            .server_url = "", // TODO: Store and return actual server URL.
+            .display_width =
+                display ? static_cast<uint32_t>(lv_display_get_horizontal_resolution(display)) : 0U,
+            .display_height =
+                display ? static_cast<uint32_t>(lv_display_get_vertical_resolution(display)) : 0U,
+            .fps = 0.0 // TODO: Track and return actual FPS.
+        };
+
+        spdlog::debug("Ui::StateMachine: Sending StatusGet response (state={})", status.state);
+        cwc.sendResponse(UiApi::StatusGet::Response::okay(std::move(status)));
+        return;
+    }
+
     std::visit(
         [this](auto&& evt) {
             std::visit(

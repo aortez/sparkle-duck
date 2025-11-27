@@ -21,6 +21,8 @@
 test-lvgl/_deps
 build/
 test-lvgl/build/
+test-lvgl/build-debug/
+test-lvgl/build-release/
 test-lvgl/wl_protocols/
 yocto/rpi-build/
 zephyrproject/modules/

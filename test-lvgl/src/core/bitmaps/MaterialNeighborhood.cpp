@@ -2,23 +2,6 @@
 
 namespace DirtSim {
 
-MaterialType MaterialNeighborhood::getMaterial(int dx, int dy) const
-{
-    int bit_pos = (dy + 1) * 3 + (dx + 1);
-    return getMaterialByBitPos(bit_pos);
-}
-
-MaterialType MaterialNeighborhood::getMaterialByBitPos(int bit_pos) const
-{
-    int shift = bit_pos * BITS_PER_MATERIAL;
-    return static_cast<MaterialType>((data_ >> shift) & 0xF);
-}
-
-MaterialType MaterialNeighborhood::getCenterMaterial() const
-{
-    return getMaterialByBitPos(4);
-}
-
 MaterialType MaterialNeighborhood::north() const
 {
     return getMaterial(0, -1);

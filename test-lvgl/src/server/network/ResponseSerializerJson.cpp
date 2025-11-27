@@ -16,7 +16,7 @@ std::string ResponseSerializerJson::serialize(const ApiResponse& response)
             // Check if response is error or value.
             if (resp.isError()) {
                 // Error response: {"error": "message"}.
-                rapidjson::Value errorVal(resp.error().message.c_str(), allocator);
+                rapidjson::Value errorVal(resp.errorValue().message.c_str(), allocator);
                 doc.AddMember("error", errorVal, allocator);
             }
             else {

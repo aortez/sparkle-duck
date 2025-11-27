@@ -1,6 +1,8 @@
 #include "WebSocketServer.h"
 #include "core/MsgPackAdapter.h"
 #include "core/ReflectSerializer.h"
+#include "core/RenderMessageUtils.h"
+#include "core/Timers.h"
 #include "server/StateMachine.h"
 #include <cstring>
 #include <spdlog/spdlog.h>
@@ -52,6 +54,9 @@ void WebSocketServer::onClientConnected(std::shared_ptr<rtc::WebSocket> ws)
     // Add to connected clients list.
     connectedClients_.push_back(ws);
 
+    // Initialize render format to BASIC (default).
+    clientRenderFormats_[ws] = RenderFormat::BASIC;
+
     // Set up message handler for this client.
     ws->onMessage([this, ws](std::variant<rtc::binary, rtc::string> data) {
         if (std::holds_alternative<rtc::string>(data)) {
@@ -70,6 +75,8 @@ void WebSocketServer::onClientConnected(std::shared_ptr<rtc::WebSocket> ws)
         connectedClients_.erase(
             std::remove(connectedClients_.begin(), connectedClients_.end(), ws),
             connectedClients_.end());
+        // Remove render format tracking.
+        clientRenderFormats_.erase(ws);
     });
 
     // Set up error handler.
@@ -132,9 +139,9 @@ void WebSocketServer::onMessage(std::shared_ptr<rtc::WebSocket> ws, const std::s
     // Deserialize JSON → Command.
     auto cmdResult = deserializer_.deserialize(message);
     if (cmdResult.isError()) {
-        spdlog::error("Command deserialization failed: {}", cmdResult.error().message);
+        spdlog::error("Command deserialization failed: {}", cmdResult.errorValue().message);
         // Send error response back immediately.
-        std::string errorJson = R"({"error": ")" + cmdResult.error().message + R"("})";
+        std::string errorJson = R"({"error": ")" + cmdResult.errorValue().message + R"("})";
         ws->send(errorJson);
         return;
     }
@@ -147,6 +154,12 @@ void WebSocketServer::onMessage(std::shared_ptr<rtc::WebSocket> ws, const std::s
 
     if (std::holds_alternative<Api::StatusGet::Command>(cmdResult.value())) {
         handleStatusGetImmediate(ws, correlationId);
+        return;
+    }
+
+    if (std::holds_alternative<Api::RenderFormatSet::Command>(cmdResult.value())) {
+        handleRenderFormatSetImmediate(
+            ws, std::get<Api::RenderFormatSet::Command>(cmdResult.value()), correlationId);
         return;
     }
 
@@ -184,6 +197,7 @@ REGISTER_API_NAMESPACE(GravitySet)
 REGISTER_API_NAMESPACE(PerfStatsGet)
 REGISTER_API_NAMESPACE(PhysicsSettingsGet)
 REGISTER_API_NAMESPACE(PhysicsSettingsSet)
+REGISTER_API_NAMESPACE(RenderFormatSet)
 REGISTER_API_NAMESPACE(Reset)
 REGISTER_API_NAMESPACE(ScenarioConfigSet)
 REGISTER_API_NAMESPACE(SeedAdd)
@@ -465,6 +479,95 @@ void WebSocketServer::handleStatusGetImmediate(
 
     spdlog::info("StatusGet: Sending response ({} bytes)", jsonResponse.size());
     ws->send(jsonResponse);
+}
+
+void WebSocketServer::handleRenderFormatSetImmediate(
+    std::shared_ptr<rtc::WebSocket> ws,
+    const Api::RenderFormatSet::Command& cmd,
+    std::optional<uint64_t> correlationId)
+{
+    spdlog::info(
+        "RenderFormatSet: Setting format to {}",
+        cmd.format == RenderFormat::BASIC ? "BASIC" : "DEBUG");
+
+    // Set the render format for this client.
+    setClientRenderFormat(ws, cmd.format);
+
+    // Create success response.
+    Api::RenderFormatSet::Okay okay;
+    okay.active_format = cmd.format;
+    okay.message = std::string("Render format set to ")
+        + (cmd.format == RenderFormat::BASIC ? "BASIC" : "DEBUG");
+
+    Api::RenderFormatSet::Response response = Api::RenderFormatSet::Response::okay(std::move(okay));
+
+    // Serialize to JSON.
+    nlohmann::json responseJson;
+    responseJson["value"] = okay.toJson();
+
+    // Inject correlation ID if present.
+    if (correlationId.has_value()) {
+        responseJson["id"] = correlationId.value();
+    }
+
+    std::string jsonResponse = responseJson.dump();
+
+    spdlog::info("RenderFormatSet: Sending response ({} bytes)", jsonResponse.size());
+    ws->send(jsonResponse);
+}
+
+void WebSocketServer::broadcastRenderMessage(const WorldData& data)
+{
+    spdlog::trace(
+        "WebSocketServer: Broadcasting RenderMessage to {} clients", connectedClients_.size());
+
+    // Pack and send to each client with their requested format.
+    for (auto& ws : connectedClients_) {
+        if (ws && ws->isOpen()) {
+            try {
+                // Get client's render format (defaults to BASIC).
+                RenderFormat format = getClientRenderFormat(ws);
+
+                // Pack WorldData into RenderMessage with client's format.
+                RenderMessage msg = RenderMessageUtils::packRenderMessage(data, format);
+
+                // Serialize to binary using zpp_bits.
+                std::vector<std::byte> msgData;
+                zpp::bits::out out(msgData);
+                out(msg).or_throw();
+
+                // Send binary message.
+                rtc::binary binaryMsg(msgData.begin(), msgData.end());
+                ws->send(binaryMsg);
+
+                spdlog::trace(
+                    "WebSocketServer: Sent RenderMessage ({} bytes, format={}) to client",
+                    msgData.size(),
+                    static_cast<int>(format));
+            }
+            catch (const std::exception& e) {
+                spdlog::error(
+                    "WebSocketServer: RenderMessage broadcast failed for client: {}", e.what());
+            }
+        }
+    }
+}
+
+void WebSocketServer::setClientRenderFormat(std::shared_ptr<rtc::WebSocket> ws, RenderFormat format)
+{
+    clientRenderFormats_[ws] = format;
+    spdlog::info(
+        "WebSocketServer: Client render format set to {}",
+        format == RenderFormat::BASIC ? "BASIC" : "DEBUG");
+}
+
+RenderFormat WebSocketServer::getClientRenderFormat(std::shared_ptr<rtc::WebSocket> ws) const
+{
+    auto it = clientRenderFormats_.find(ws);
+    if (it != clientRenderFormats_.end()) {
+        return it->second;
+    }
+    return RenderFormat::BASIC; // Default.
 }
 
 } // namespace Server

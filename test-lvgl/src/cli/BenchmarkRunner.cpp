@@ -20,7 +20,7 @@ BenchmarkRunner::~BenchmarkRunner()
 {}
 
 BenchmarkResults BenchmarkRunner::run(
-    const std::string& serverPath, uint32_t steps, const std::string& scenario)
+    const std::string& serverPath, uint32_t steps, const std::string& scenario, int worldSize)
 {
     BenchmarkResults results;
     results.scenario = scenario;
@@ -65,6 +65,28 @@ BenchmarkResults BenchmarkRunner::run(
     }
 
     spdlog::info("BenchmarkRunner: Started simulation ({} steps, scenario: {})", steps, scenario);
+
+    // Resize world if size specified (must be done after sim_run, when in SimRunning state).
+    if (worldSize > 0) {
+        spdlog::info("BenchmarkRunner: Resizing world to {}x{}", worldSize, worldSize);
+        nlohmann::json resizeCmd = { { "command", "world_resize" },
+                                     { "width", worldSize },
+                                     { "height", worldSize } };
+        std::string resizeResponse = client_.sendAndReceive(resizeCmd.dump(), 5000);
+        try {
+            nlohmann::json json = nlohmann::json::parse(resizeResponse);
+            if (json.contains("error")) {
+                spdlog::error(
+                    "BenchmarkRunner: World resize failed: {}", json["error"].get<std::string>());
+                return results;
+            }
+            spdlog::info("BenchmarkRunner: World resized successfully");
+        }
+        catch (const std::exception& e) {
+            spdlog::error("BenchmarkRunner: Failed to parse resize response: {}", e.what());
+            return results;
+        }
+    }
 
     // Poll state_get until simulation completes.
     int timeoutSec = (steps * 50) / 1000 + 10;
@@ -206,9 +228,8 @@ BenchmarkResults BenchmarkRunner::run(
         spdlog::debug("BenchmarkRunner: Exit response: {}", e.what());
     }
 
-    // Log client timing stats.
-    spdlog::info("BenchmarkRunner: Client timer stats:");
-    client_.getTimers().dumpTimerStats();
+    // Note: Client timer stats are not dumped to avoid polluting stdout.
+    // Benchmark results already include server timer stats in JSON format.
 
     // Disconnect and cleanup.
     client_.disconnect();
@@ -220,7 +241,8 @@ BenchmarkResults BenchmarkRunner::runWithServerArgs(
     const std::string& serverPath,
     uint32_t steps,
     const std::string& scenario,
-    const std::string& serverArgs)
+    const std::string& serverArgs,
+    int worldSize)
 {
     BenchmarkResults results;
     results.scenario = scenario;
@@ -264,6 +286,28 @@ BenchmarkResults BenchmarkRunner::runWithServerArgs(
     catch (const std::exception& e) {
         spdlog::error("BenchmarkRunner: Failed to parse SimRun response: {}", e.what());
         return results;
+    }
+
+    // Resize world if size specified (must be done after sim_run, when in SimRunning state).
+    if (worldSize > 0) {
+        spdlog::info("BenchmarkRunner: Resizing world to {}x{}", worldSize, worldSize);
+        nlohmann::json resizeCmd = { { "command", "world_resize" },
+                                     { "width", worldSize },
+                                     { "height", worldSize } };
+        std::string resizeResponse = client_.sendAndReceive(resizeCmd.dump(), 5000);
+        try {
+            nlohmann::json json = nlohmann::json::parse(resizeResponse);
+            if (json.contains("error")) {
+                spdlog::error(
+                    "BenchmarkRunner: World resize failed: {}", json["error"].get<std::string>());
+                return results;
+            }
+            spdlog::info("BenchmarkRunner: World resized successfully");
+        }
+        catch (const std::exception& e) {
+            spdlog::error("BenchmarkRunner: Failed to parse resize response: {}", e.what());
+            return results;
+        }
     }
 
     // Wait for completion (inline polling loop).

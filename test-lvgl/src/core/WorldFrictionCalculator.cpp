@@ -1,10 +1,16 @@
 #include "WorldFrictionCalculator.h"
 #include "Cell.h"
+#include "GridOfCells.h"
+#include "PhysicsSettings.h"
 #include "World.h"
+#include "WorldData.h"
 #include "spdlog/spdlog.h"
 #include <cmath>
 
 using namespace DirtSim;
+
+WorldFrictionCalculator::WorldFrictionCalculator(GridOfCells& grid) : grid_(grid)
+{}
 
 void WorldFrictionCalculator::calculateAndApplyFrictionForces(World& world, double /* deltaTime */)
 {
@@ -12,11 +18,136 @@ void WorldFrictionCalculator::calculateAndApplyFrictionForces(World& world, doub
         return;
     }
 
-    // Detect all contact interfaces and calculate their properties.
-    std::vector<ContactInterface> contacts = detectContactInterfaces(world);
+    // Clear friction forces from previous frame.
+    for (uint32_t y = 0; y < grid_.getHeight(); ++y) {
+        for (uint32_t x = 0; x < grid_.getWidth(); ++x) {
+            grid_.debugAt(x, y).accumulated_friction_force = Vector2d{};
+        }
+    }
 
-    // Apply friction forces to cells.
-    applyFrictionForces(world, contacts);
+    if (GridOfCells::USE_CACHE) {
+        // Optimized: Detect and apply friction forces inline.
+        detectAndApplyFrictionForces(world);
+    }
+    else {
+        // Original: Build vector of contacts then apply.
+        std::vector<ContactInterface> contacts = detectContactInterfaces(world);
+        applyFrictionForces(world, contacts);
+    }
+}
+
+void WorldFrictionCalculator::detectAndApplyFrictionForces(World& world)
+{
+    // Cache data reference to avoid Pimpl indirection in inner loop.
+    WorldData& data = world.getData();
+    const uint32_t width = data.width;
+    const uint32_t height = data.height;
+
+    // Iterate over all cells.
+    for (uint32_t y = 0; y < height; ++y) {
+        for (uint32_t x = 0; x < width; ++x) {
+            Cell& cellA = data.at(x, y);
+
+            // Skip empty cells and walls.
+            if (cellA.isEmpty() || cellA.isWall()) {
+                continue;
+            }
+
+            // Check only cardinal (non-diagonal) neighbors for friction.
+            for (int dx = -1; dx <= 1; dx++) {
+                for (int dy = -1; dy <= 1; dy++) {
+                    if (dx == 0 && dy == 0) continue;
+
+                    // Skip diagonal neighbors - only cardinal contacts.
+                    bool is_diagonal = (dx != 0 && dy != 0);
+                    if (is_diagonal) continue;
+
+                    int nx = static_cast<int>(x) + dx;
+                    int ny = static_cast<int>(y) + dy;
+
+                    // Only process each pair once (avoid double-counting).
+                    if (nx < static_cast<int>(x)) continue;
+                    if (nx == static_cast<int>(x) && ny <= static_cast<int>(y)) continue;
+
+                    if (!isValidCell(world, nx, ny)) continue;
+
+                    const Cell& cellB = data.at(nx, ny);
+
+                    // Skip if neighbor is empty or wall.
+                    if (cellB.isEmpty() || cellB.isWall()) {
+                        continue;
+                    }
+
+                    // Calculate interface normal (from A to B).
+                    Vector2d interface_normal =
+                        Vector2d{ static_cast<double>(dx), static_cast<double>(dy) };
+                    interface_normal = interface_normal.normalize();
+
+                    // Calculate normal force.
+                    const double normal_force = calculateNormalForce(
+                        world, cellA, cellB, Vector2i(x, y), Vector2i(nx, ny), interface_normal);
+
+                    // Skip if normal force is too small.
+                    if (normal_force < MIN_NORMAL_FORCE) {
+                        continue;
+                    }
+
+                    // Calculate relative velocity.
+                    const Vector2d relative_velocity = cellA.velocity - cellB.velocity;
+
+                    // Calculate tangential velocity.
+                    const Vector2d tangential_velocity =
+                        calculateTangentialVelocity(relative_velocity, interface_normal);
+
+                    const double tangential_speed = tangential_velocity.magnitude();
+
+                    // Skip if tangential velocity is negligible.
+                    if (tangential_speed < MIN_TANGENTIAL_SPEED) {
+                        continue;
+                    }
+
+                    // Calculate friction coefficient.
+                    const MaterialProperties& propsA = getMaterialProperties(cellA.material_type);
+                    const MaterialProperties& propsB = getMaterialProperties(cellB.material_type);
+                    double friction_coefficient =
+                        calculateFrictionCoefficient(tangential_speed, propsA, propsB);
+
+                    // Calculate and apply friction force immediately.
+                    double accumulated_friction_force_magnitude =
+                        friction_coefficient * normal_force * friction_strength_;
+
+                    Vector2d friction_direction = tangential_velocity.normalize() * -1.0;
+                    Vector2d accumulated_friction_force =
+                        friction_direction * accumulated_friction_force_magnitude;
+
+                    // Apply to both cells (Newton's 3rd law) - use cached data reference.
+                    Cell& cellA_mut = data.at(x, y);
+                    Cell& cellB_mut = data.at(nx, ny);
+
+                    cellA_mut.addPendingForce(accumulated_friction_force);
+                    cellB_mut.addPendingForce(-accumulated_friction_force);
+
+                    // Accumulate friction force for debug visualization.
+                    grid_.debugAt(x, y).accumulated_friction_force += accumulated_friction_force;
+                    grid_.debugAt(nx, ny).accumulated_friction_force +=
+                        (-accumulated_friction_force);
+
+                    spdlog::trace(
+                        "Friction force: ({},{}) <-> ({},{}): normal_force={:.4f}, mu={:.3f}, "
+                        "tangential_speed={:.4f}, force=({:.4f},{:.4f})",
+                        x,
+                        y,
+                        nx,
+                        ny,
+                        normal_force,
+                        friction_coefficient,
+                        tangential_speed,
+                        accumulated_friction_force.x,
+                        accumulated_friction_force.y);
+                }
+            }
+        }
+    }
 }
 
 std::vector<WorldFrictionCalculator::ContactInterface> WorldFrictionCalculator::
@@ -24,8 +155,8 @@ std::vector<WorldFrictionCalculator::ContactInterface> WorldFrictionCalculator::
 {
     std::vector<ContactInterface> contacts;
 
-    const uint32_t width = world.data.width;
-    const uint32_t height = world.data.height;
+    const uint32_t width = world.getData().width;
+    const uint32_t height = world.getData().height;
 
     // Iterate over all cells.
     for (uint32_t y = 0; y < height; ++y) {
@@ -37,6 +168,8 @@ std::vector<WorldFrictionCalculator::ContactInterface> WorldFrictionCalculator::
                 continue;
             }
 
+            const MaterialProperties& propsA = getMaterialProperties(cellA.material_type);
+
             // Check only cardinal (non-diagonal) neighbors for friction.
             // Diagonal contacts don't make physical sense in a grid system.
             for (int dx = -1; dx <= 1; dx++) {
@@ -44,11 +177,11 @@ std::vector<WorldFrictionCalculator::ContactInterface> WorldFrictionCalculator::
                     if (dx == 0 && dy == 0) continue;
 
                     // Skip diagonal neighbors - only cardinal contacts.
-                    bool is_diagonal = (dx != 0 && dy != 0);
+                    const bool is_diagonal = (dx != 0 && dy != 0);
                     if (is_diagonal) continue;
 
-                    int nx = static_cast<int>(x) + dx;
-                    int ny = static_cast<int>(y) + dy;
+                    const int nx = static_cast<int>(x) + dx;
+                    const int ny = static_cast<int>(y) + dy;
 
                     // Only process each pair once (avoid double-counting).
                     // Process only if neighbor is to the right or below.
@@ -106,7 +239,6 @@ std::vector<WorldFrictionCalculator::ContactInterface> WorldFrictionCalculator::
                     }
 
                     // Calculate friction coefficient.
-                    const MaterialProperties& propsA = getMaterialProperties(cellA.material_type);
                     const MaterialProperties& propsB = getMaterialProperties(cellB.material_type);
                     contact.friction_coefficient =
                         calculateFrictionCoefficient(tangential_speed, propsA, propsB);
@@ -144,7 +276,7 @@ double WorldFrictionCalculator::calculateNormalForce(
 
     // Source 2: Weight for vertical contacts.
     // If B is below A (interface normal points downward), weight of A creates normal force.
-    double gravity_magnitude = world.physicsSettings.gravity;
+    double gravity_magnitude = world.getPhysicsSettings().gravity;
 
     if (interface_normal.y > 0.5) { // B is below A (normal points down).
         double massA = cellA.getMass();
@@ -213,20 +345,27 @@ void WorldFrictionCalculator::applyFrictionForces(
 {
     for (const ContactInterface& contact : contacts) {
         // Calculate friction force magnitude.
-        double friction_force_magnitude =
+        double accumulated_friction_force_magnitude =
             contact.friction_coefficient * contact.normal_force * friction_strength_;
 
         // Direction: opposite to tangential relative velocity.
         Vector2d friction_direction = contact.tangential_velocity.normalize() * -1.0;
 
-        Vector2d friction_force = friction_direction * friction_force_magnitude;
+        Vector2d accumulated_friction_force =
+            friction_direction * accumulated_friction_force_magnitude;
 
         // Apply to both cells (Newton's 3rd law).
-        Cell& cellA = world.at(contact.cell_A_pos.x, contact.cell_A_pos.y);
-        Cell& cellB = world.at(contact.cell_B_pos.x, contact.cell_B_pos.y);
+        Cell& cellA = world.getData().at(contact.cell_A_pos.x, contact.cell_A_pos.y);
+        Cell& cellB = world.getData().at(contact.cell_B_pos.x, contact.cell_B_pos.y);
 
-        cellA.addPendingForce(friction_force);
-        cellB.addPendingForce(-friction_force); // Equal and opposite.
+        cellA.addPendingForce(accumulated_friction_force);
+        cellB.addPendingForce(-accumulated_friction_force); // Equal and opposite.
+
+        // Accumulate friction force for debug visualization.
+        grid_.debugAt(contact.cell_A_pos.x, contact.cell_A_pos.y).accumulated_friction_force +=
+            accumulated_friction_force;
+        grid_.debugAt(contact.cell_B_pos.x, contact.cell_B_pos.y).accumulated_friction_force +=
+            (-accumulated_friction_force);
 
         spdlog::trace(
             "Friction force: ({},{}) <-> ({},{}): normal_force={:.4f}, mu={:.3f}, "
@@ -238,7 +377,7 @@ void WorldFrictionCalculator::applyFrictionForces(
             contact.normal_force,
             contact.friction_coefficient,
             contact.tangential_velocity.magnitude(),
-            friction_force.x,
-            friction_force.y);
+            accumulated_friction_force.x,
+            accumulated_friction_force.y);
     }
 }

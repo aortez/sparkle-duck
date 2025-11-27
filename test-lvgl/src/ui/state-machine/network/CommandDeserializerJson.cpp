@@ -4,9 +4,11 @@
 #include "ui/state-machine/api/MouseDown.h"
 #include "ui/state-machine/api/MouseMove.h"
 #include "ui/state-machine/api/MouseUp.h"
+#include "ui/state-machine/api/RenderModeSelect.h"
 #include "ui/state-machine/api/Screenshot.h"
 #include "ui/state-machine/api/SimPause.h"
 #include "ui/state-machine/api/SimRun.h"
+#include "ui/state-machine/api/StatusGet.h"
 #include <cctype>
 #include <spdlog/spdlog.h>
 
@@ -76,6 +78,10 @@ Result<UiApiCommand, ApiError> CommandDeserializerJson::deserialize(const std::s
         else if (commandName == "mouse_up") {
             return Result<UiApiCommand, ApiError>::okay(UiApi::MouseUp::Command::fromJson(cmd));
         }
+        else if (commandName == "render_mode_select") {
+            return Result<UiApiCommand, ApiError>::okay(
+                UiApi::RenderModeSelect::Command::fromJson(cmd));
+        }
         else if (commandName == "screenshot") {
             return Result<UiApiCommand, ApiError>::okay(UiApi::Screenshot::Command::fromJson(cmd));
         }
@@ -84,6 +90,9 @@ Result<UiApiCommand, ApiError> CommandDeserializerJson::deserialize(const std::s
         }
         else if (commandName == "sim_run") {
             return Result<UiApiCommand, ApiError>::okay(UiApi::SimRun::Command::fromJson(cmd));
+        }
+        else if (commandName == "status_get") {
+            return Result<UiApiCommand, ApiError>::okay(UiApi::StatusGet::Command::fromJson(cmd));
         }
         else {
             return Result<UiApiCommand, ApiError>::error(

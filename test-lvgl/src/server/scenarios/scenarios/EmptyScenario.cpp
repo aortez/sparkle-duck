@@ -1,5 +1,7 @@
 #include "core/Cell.h"
+#include "core/PhysicsSettings.h"
 #include "core/World.h"
+#include "core/WorldData.h"
 #include "server/scenarios/Scenario.h"
 #include "server/scenarios/ScenarioRegistry.h"
 #include "spdlog/spdlog.h"
@@ -39,9 +41,9 @@ public:
         spdlog::info("EmptyScenario::setup - clearing world");
 
         // Clear world to empty state.
-        for (uint32_t y = 0; y < world.data.height; ++y) {
-            for (uint32_t x = 0; x < world.data.width; ++x) {
-                world.at(x, y) = Cell(); // Reset to empty cell.
+        for (uint32_t y = 0; y < world.getData().height; ++y) {
+            for (uint32_t x = 0; x < world.getData().width; ++x) {
+                world.getData().at(x, y) = Cell(); // Reset to empty cell.
             }
         }
 

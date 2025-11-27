@@ -6,6 +6,7 @@
 #include "server/states/Idle.h"
 #include "server/states/Shutdown.h"
 #include "server/states/SimRunning.h"
+#include "server/states/State.h"
 #include <gtest/gtest.h>
 #include <spdlog/spdlog.h>
 
@@ -39,7 +40,7 @@ protected:
         Api::SimRun::Cwc cwc(cmd, [](auto&&) {});
         State::Any state = idleState.onEvent(cwc, *stateMachine);
 
-        SimRunning simRunning = std::move(std::get<SimRunning>(state));
+        SimRunning simRunning = std::move(std::get<SimRunning>(state.getVariant()));
 
         // Call onEnter to initialize scenario.
         simRunning.onEnter(*stateMachine);
@@ -63,7 +64,7 @@ protected:
         Api::ScenarioConfigSet::Cwc cwc(cmd, [](auto&&) {});
 
         State::Any newState = simRunning.onEvent(cwc, *stateMachine);
-        simRunning = std::move(std::get<SimRunning>(newState));
+        simRunning = std::move(std::get<SimRunning>(newState.getVariant()));
     }
 
     std::unique_ptr<StateMachine> stateMachine;
@@ -79,22 +80,23 @@ TEST_F(StateSimRunningTest, OnEnter_AppliesDefaultScenario)
     Api::SimRun::Command cmd{ 0.016, 100 }; // Defaults to scenario_id = "sandbox".
     Api::SimRun::Cwc cwc(cmd, [](auto&&) {});
     State::Any state = idleState.onEvent(cwc, *stateMachine);
-    SimRunning simRunning = std::move(std::get<SimRunning>(state));
+    SimRunning simRunning = std::move(std::get<SimRunning>(state.getVariant()));
 
     // Verify: World exists and scenario already applied by Idle.
     ASSERT_NE(simRunning.world, nullptr);
-    EXPECT_EQ(simRunning.world->data.scenario_id, "sandbox") << "Scenario applied by Idle";
+    EXPECT_EQ(simRunning.world->getData().scenario_id, "sandbox") << "Scenario applied by Idle";
 
     // Execute: Call onEnter (should not change scenario since it's already set).
     simRunning.onEnter(*stateMachine);
 
     // Verify: Sandbox scenario is still applied.
-    EXPECT_EQ(simRunning.world->data.scenario_id, "sandbox") << "Scenario should remain sandbox";
+    EXPECT_EQ(simRunning.world->getData().scenario_id, "sandbox")
+        << "Scenario should remain sandbox";
 
     // Verify: Walls exist (basic scenario setup check).
-    const Cell& topLeft = simRunning.world->at(0, 0);
-    const Cell& bottomRight =
-        simRunning.world->at(simRunning.world->data.width - 1, simRunning.world->data.height - 1);
+    const Cell& topLeft = simRunning.world->getData().at(0, 0);
+    const Cell& bottomRight = simRunning.world->getData().at(
+        simRunning.world->getData().width - 1, simRunning.world->getData().height - 1);
     EXPECT_EQ(topLeft.material_type, MaterialType::WALL) << "Walls should be created";
     EXPECT_EQ(bottomRight.material_type, MaterialType::WALL) << "Walls should be created";
 }
@@ -115,18 +117,18 @@ TEST_F(StateSimRunningTest, AdvanceSimulation_StepsPhysicsAndDirtFalls)
     // Debug: Check world state before adding dirt.
     spdlog::info(
         "TEST: World dimensions: {}x{}",
-        simRunning.world->data.width,
-        simRunning.world->data.height);
-    spdlog::info("TEST: Gravity: {}", simRunning.world->physicsSettings.gravity);
+        simRunning.world->getData().width,
+        simRunning.world->getData().height);
+    spdlog::info("TEST: Gravity: {}", simRunning.world->getPhysicsSettings().gravity);
     spdlog::info("TEST: Total mass before adding dirt: {}", simRunning.world->getTotalMass());
 
-    simRunning.world->at(testX, testY).addDirt(1.0);
+    simRunning.world->getData().at(testX, testY).addDirt(1.0);
 
     spdlog::info("TEST: Total mass after adding dirt: {}", simRunning.world->getTotalMass());
 
     // Verify initial state.
-    const Cell& startCell = simRunning.world->at(testX, testY);
-    const Cell& cellBelow = simRunning.world->at(testX, testY + 1);
+    const Cell& startCell = simRunning.world->getData().at(testX, testY);
+    const Cell& cellBelow = simRunning.world->getData().at(testX, testY + 1);
     spdlog::info(
         "TEST: Start cell ({},{}) material={}, fill={}",
         testX,
@@ -152,8 +154,8 @@ TEST_F(StateSimRunningTest, AdvanceSimulation_StepsPhysicsAndDirtFalls)
 
         // Debug: Log first few steps.
         if (i < 5 || i % 20 == 0) {
-            const Cell& current = simRunning.world->at(testX, testY);
-            const Cell& below = simRunning.world->at(testX, testY + 1);
+            const Cell& current = simRunning.world->getData().at(testX, testY);
+            const Cell& below = simRunning.world->getData().at(testX, testY + 1);
             spdlog::info(
                 "TEST: Step {} - Cell({},{}) mat={} fill={:.2f} COM=({:.3f},{:.3f}) "
                 "vel=({:.3f},{:.3f})",
@@ -176,7 +178,7 @@ TEST_F(StateSimRunningTest, AdvanceSimulation_StepsPhysicsAndDirtFalls)
         }
 
         // Check if dirt has moved to cell below.
-        const Cell& cellBelow = simRunning.world->at(testX, testY + 1);
+        const Cell& cellBelow = simRunning.world->getData().at(testX, testY + 1);
         if (cellBelow.material_type == MaterialType::DIRT && cellBelow.fill_ratio > 0.1) {
             dirtFell = true;
             spdlog::info("Dirt fell after {} steps", i + 1);
@@ -186,7 +188,7 @@ TEST_F(StateSimRunningTest, AdvanceSimulation_StepsPhysicsAndDirtFalls)
 
     // Verify: Dirt fell to the cell below within 200 frames.
     ASSERT_TRUE(dirtFell) << "Dirt should fall to next cell within 200 frames";
-    const Cell& finalCellBelow = simRunning.world->at(testX, testY + 1);
+    const Cell& finalCellBelow = simRunning.world->getData().at(testX, testY + 1);
     EXPECT_EQ(finalCellBelow.material_type, MaterialType::DIRT) << "Cell below should have dirt";
     EXPECT_GT(finalCellBelow.fill_ratio, 0.1) << "Cell below should have dirt";
     EXPECT_GT(simRunning.stepCount, 0u) << "Step count should have increased";
@@ -214,7 +216,7 @@ TEST_F(StateSimRunningTest, StateGet_ReturnsWorldData)
     State::Any newState = simRunning.onEvent(cwc, *stateMachine);
 
     // Verify: Stays in SimRunning.
-    ASSERT_TRUE(std::holds_alternative<SimRunning>(newState));
+    ASSERT_TRUE(std::holds_alternative<SimRunning>(newState.getVariant()));
 
     // Verify: Callback was invoked with success.
     ASSERT_TRUE(callbackInvoked) << "StateGet callback should be invoked";
@@ -238,7 +240,7 @@ TEST_F(StateSimRunningTest, ScenarioConfigSet_TogglesWaterColumn)
 
     // Verify: Water column initially exists (check a few cells).
     // Water column height = world.height / 3 = 28 / 3 = 9, so check y=5 (middle of column).
-    const Cell& waterCell = simRunning.world->at(3, 5);
+    const Cell& waterCell = simRunning.world->getData().at(3, 5);
     EXPECT_EQ(waterCell.material_type, MaterialType::WATER)
         << "Water column should exist initially";
     EXPECT_GT(waterCell.fill_ratio, 0.5) << "Water column cells should be filled";
@@ -259,13 +261,13 @@ TEST_F(StateSimRunningTest, ScenarioConfigSet_TogglesWaterColumn)
     });
 
     State::Any stateAfterOff = simRunning.onEvent(cwcOff, *stateMachine);
-    simRunning = std::move(std::get<SimRunning>(stateAfterOff));
+    simRunning = std::move(std::get<SimRunning>(stateAfterOff.getVariant()));
 
     // Verify: Water column removed.
     ASSERT_TRUE(callbackInvoked) << "Callback should be invoked";
     for (uint32_t y = 0; y < 20; ++y) {
         for (uint32_t x = 1; x <= 5; ++x) {
-            const Cell& cell = simRunning.world->at(x, y);
+            const Cell& cell = simRunning.world->getData().at(x, y);
             EXPECT_TRUE(cell.material_type != MaterialType::WATER || cell.fill_ratio < 0.1)
                 << "Water column cells should be cleared at (" << x << "," << y << ")";
         }
@@ -284,11 +286,11 @@ TEST_F(StateSimRunningTest, ScenarioConfigSet_TogglesWaterColumn)
     });
 
     State::Any stateAfterOn = simRunning.onEvent(cwcOn, *stateMachine);
-    simRunning = std::move(std::get<SimRunning>(stateAfterOn));
+    simRunning = std::move(std::get<SimRunning>(stateAfterOn.getVariant()));
 
     // Verify: Water column restored.
     ASSERT_TRUE(callbackInvoked);
-    const Cell& restoredWaterCell = simRunning.world->at(3, 5);
+    const Cell& restoredWaterCell = simRunning.world->getData().at(3, 5);
     EXPECT_EQ(restoredWaterCell.material_type, MaterialType::WATER)
         << "Water column should be restored";
     EXPECT_GT(restoredWaterCell.fill_ratio, 0.9) << "Water should be nearly full";
@@ -303,9 +305,9 @@ TEST_F(StateSimRunningTest, ScenarioConfigSet_TogglesDirtQuadrant)
     SimRunning simRunning = createSimRunningWithWorld();
 
     // Verify: Dirt quadrant initially exists (check a cell in lower-right).
-    uint32_t quadX = simRunning.world->data.width - 5;
-    uint32_t quadY = simRunning.world->data.height - 5;
-    const Cell& quadCell = simRunning.world->at(quadX, quadY);
+    uint32_t quadX = simRunning.world->getData().width - 5;
+    uint32_t quadY = simRunning.world->getData().height - 5;
+    const Cell& quadCell = simRunning.world->getData().at(quadX, quadY);
     EXPECT_EQ(quadCell.material_type, MaterialType::DIRT) << "Quadrant should exist initially";
     EXPECT_GT(quadCell.fill_ratio, 0.5) << "Quadrant cells should be filled";
 
@@ -325,11 +327,11 @@ TEST_F(StateSimRunningTest, ScenarioConfigSet_TogglesDirtQuadrant)
     });
 
     State::Any stateAfterOff = simRunning.onEvent(cwcOff, *stateMachine);
-    simRunning = std::move(std::get<SimRunning>(stateAfterOff));
+    simRunning = std::move(std::get<SimRunning>(stateAfterOff.getVariant()));
 
     // Verify: Quadrant removed.
     ASSERT_TRUE(callbackInvoked);
-    const Cell& clearedCell = simRunning.world->at(quadX, quadY);
+    const Cell& clearedCell = simRunning.world->getData().at(quadX, quadY);
     EXPECT_TRUE(clearedCell.material_type != MaterialType::DIRT || clearedCell.fill_ratio < 0.1)
         << "Quadrant should be cleared";
 
@@ -346,11 +348,11 @@ TEST_F(StateSimRunningTest, ScenarioConfigSet_TogglesDirtQuadrant)
     });
 
     State::Any stateAfterOn = simRunning.onEvent(cwcOn, *stateMachine);
-    simRunning = std::move(std::get<SimRunning>(stateAfterOn));
+    simRunning = std::move(std::get<SimRunning>(stateAfterOn.getVariant()));
 
     // Verify: Quadrant restored.
     ASSERT_TRUE(callbackInvoked);
-    const Cell& restoredCell = simRunning.world->at(quadX, quadY);
+    const Cell& restoredCell = simRunning.world->getData().at(quadX, quadY);
     EXPECT_EQ(restoredCell.material_type, MaterialType::DIRT) << "Quadrant should be restored";
     EXPECT_GT(restoredCell.fill_ratio, 0.9) << "Quadrant cells should be filled";
 }
@@ -375,7 +377,8 @@ TEST_F(StateSimRunningTest, Exit_TransitionsToShutdown)
     State::Any newState = simRunning.onEvent(cwc, *stateMachine);
 
     // Verify: Transitioned to Shutdown.
-    ASSERT_TRUE(std::holds_alternative<Shutdown>(newState)) << "Exit should transition to Shutdown";
+    ASSERT_TRUE(std::holds_alternative<Shutdown>(newState.getVariant()))
+        << "Exit should transition to Shutdown";
     ASSERT_TRUE(callbackInvoked) << "Exit callback should be invoked";
 }
 
@@ -404,14 +407,15 @@ TEST_F(StateSimRunningTest, SimRun_UpdatesRunParameters)
     });
 
     State::Any newState = simRunning.onEvent(cwc, *stateMachine);
-    simRunning = std::move(std::get<SimRunning>(newState));
+    simRunning = std::move(std::get<SimRunning>(newState.getVariant()));
 
     // Verify: Parameters updated but world preserved.
     ASSERT_TRUE(callbackInvoked);
     EXPECT_EQ(simRunning.targetSteps, 50u) << "Target steps should be updated";
     EXPECT_DOUBLE_EQ(simRunning.stepDurationMs, 32.0) << "Step duration should be updated";
     EXPECT_EQ(simRunning.stepCount, 5u) << "Step count should be preserved (world not recreated)";
-    EXPECT_TRUE(std::holds_alternative<SimRunning>(newState)) << "Should stay in SimRunning";
+    EXPECT_TRUE(std::holds_alternative<SimRunning>(newState.getVariant()))
+        << "Should stay in SimRunning";
 }
 
 /**
@@ -428,7 +432,7 @@ TEST_F(StateSimRunningTest, SeedAdd_PlacesSeedAtCoordinates)
     const uint32_t testY = 14;
 
     // Verify: Cell is initially empty (AIR).
-    const Cell& cellBefore = simRunning.world->at(testX, testY);
+    const Cell& cellBefore = simRunning.world->getData().at(testX, testY);
     EXPECT_EQ(cellBefore.material_type, MaterialType::AIR) << "Cell should be empty initially";
     EXPECT_LT(cellBefore.fill_ratio, 0.1) << "Cell should have minimal fill initially";
 
@@ -445,14 +449,14 @@ TEST_F(StateSimRunningTest, SeedAdd_PlacesSeedAtCoordinates)
     State::Any newState = simRunning.onEvent(cwc, *stateMachine);
 
     // Verify: Stays in SimRunning.
-    ASSERT_TRUE(std::holds_alternative<SimRunning>(newState));
-    simRunning = std::move(std::get<SimRunning>(newState));
+    ASSERT_TRUE(std::holds_alternative<SimRunning>(newState.getVariant()));
+    simRunning = std::move(std::get<SimRunning>(newState.getVariant()));
 
     // Verify: Callback was invoked.
     ASSERT_TRUE(callbackInvoked) << "SeedAdd callback should be invoked";
 
     // Verify: Cell now contains SEED material.
-    const Cell& cellAfter = simRunning.world->at(testX, testY);
+    const Cell& cellAfter = simRunning.world->getData().at(testX, testY);
     EXPECT_EQ(cellAfter.material_type, MaterialType::SEED) << "Cell should contain SEED material";
     EXPECT_GT(cellAfter.fill_ratio, 0.9) << "Cell should be nearly full with SEED";
 
@@ -480,30 +484,32 @@ TEST_F(StateSimRunningTest, SeedAdd_RejectsInvalidCoordinates)
     Api::SeedAdd::Cwc cwc(cmd, [&](Api::SeedAdd::Response&& response) {
         callbackInvoked = true;
         EXPECT_TRUE(response.isError()) << "SeedAdd should fail for negative x";
-        EXPECT_EQ(response.error().message, "Invalid coordinates");
+        EXPECT_EQ(response.errorValue().message, "Invalid coordinates");
     });
 
     State::Any newState = simRunning.onEvent(cwc, *stateMachine);
     ASSERT_TRUE(callbackInvoked) << "Callback should be invoked for invalid coordinates";
-    ASSERT_TRUE(std::holds_alternative<SimRunning>(newState)) << "Should stay in SimRunning";
+    ASSERT_TRUE(std::holds_alternative<SimRunning>(newState.getVariant()))
+        << "Should stay in SimRunning";
 
     // Move to updated state.
-    simRunning = std::move(std::get<SimRunning>(newState));
+    simRunning = std::move(std::get<SimRunning>(newState.getVariant()));
 
     // Test coordinates beyond world bounds.
     callbackInvoked = false;
     Api::SeedAdd::Command cmd2;
-    cmd2.x = simRunning.world->data.width + 10;
+    cmd2.x = simRunning.world->getData().width + 10;
     cmd2.y = 10;
     Api::SeedAdd::Cwc cwc2(cmd2, [&](Api::SeedAdd::Response&& response) {
         callbackInvoked = true;
         EXPECT_TRUE(response.isError()) << "SeedAdd should fail for out-of-bounds x";
-        EXPECT_EQ(response.error().message, "Invalid coordinates");
+        EXPECT_EQ(response.errorValue().message, "Invalid coordinates");
     });
 
     newState = simRunning.onEvent(cwc2, *stateMachine);
     ASSERT_TRUE(callbackInvoked) << "Callback should be invoked for out-of-bounds coordinates";
-    ASSERT_TRUE(std::holds_alternative<SimRunning>(newState)) << "Should stay in SimRunning";
+    ASSERT_TRUE(std::holds_alternative<SimRunning>(newState.getVariant()))
+        << "Should stay in SimRunning";
 }
 
 /**
@@ -515,8 +521,8 @@ TEST_F(StateSimRunningTest, WorldResize_ResizesWorldGrid)
     SimRunning simRunning = createSimRunningWithWorld();
 
     // Get initial world size.
-    const uint32_t initialWidth = simRunning.world->data.width;
-    const uint32_t initialHeight = simRunning.world->data.height;
+    const uint32_t initialWidth = simRunning.world->getData().width;
+    const uint32_t initialHeight = simRunning.world->getData().height;
 
     EXPECT_GT(initialWidth, 0) << "Initial width should be positive";
     EXPECT_GT(initialHeight, 0) << "Initial height should be positive";
@@ -534,13 +540,14 @@ TEST_F(StateSimRunningTest, WorldResize_ResizesWorldGrid)
     State::Any newState = simRunning.onEvent(cwc, *stateMachine);
 
     // Verify: Still in SimRunning.
-    ASSERT_TRUE(std::holds_alternative<SimRunning>(newState)) << "Should stay in SimRunning";
-    simRunning = std::move(std::get<SimRunning>(newState));
+    ASSERT_TRUE(std::holds_alternative<SimRunning>(newState.getVariant()))
+        << "Should stay in SimRunning";
+    simRunning = std::move(std::get<SimRunning>(newState.getVariant()));
 
     // Verify: World resized correctly.
     ASSERT_TRUE(callbackInvoked) << "Callback should be invoked";
-    EXPECT_EQ(simRunning.world->data.width, 50) << "World width should be resized to 50";
-    EXPECT_EQ(simRunning.world->data.height, 50) << "World height should be resized to 50";
+    EXPECT_EQ(simRunning.world->getData().width, 50) << "World width should be resized to 50";
+    EXPECT_EQ(simRunning.world->getData().height, 50) << "World height should be resized to 50";
 
     // Execute: Resize world to smaller size (10x10).
     callbackInvoked = false;
@@ -555,12 +562,13 @@ TEST_F(StateSimRunningTest, WorldResize_ResizesWorldGrid)
     newState = simRunning.onEvent(cwc2, *stateMachine);
 
     // Verify: Still in SimRunning with smaller world.
-    ASSERT_TRUE(std::holds_alternative<SimRunning>(newState)) << "Should stay in SimRunning";
-    simRunning = std::move(std::get<SimRunning>(newState));
+    ASSERT_TRUE(std::holds_alternative<SimRunning>(newState.getVariant()))
+        << "Should stay in SimRunning";
+    simRunning = std::move(std::get<SimRunning>(newState.getVariant()));
 
     ASSERT_TRUE(callbackInvoked) << "Callback should be invoked for resize";
-    EXPECT_EQ(simRunning.world->data.width, 10) << "World width should be resized to 10";
-    EXPECT_EQ(simRunning.world->data.height, 10) << "World height should be resized to 10";
+    EXPECT_EQ(simRunning.world->getData().width, 10) << "World width should be resized to 10";
+    EXPECT_EQ(simRunning.world->getData().height, 10) << "World height should be resized to 10";
 
     // Execute: Resize world to larger size (100x100).
     callbackInvoked = false;
@@ -575,10 +583,11 @@ TEST_F(StateSimRunningTest, WorldResize_ResizesWorldGrid)
     newState = simRunning.onEvent(cwc3, *stateMachine);
 
     // Verify: Still in SimRunning with larger world.
-    ASSERT_TRUE(std::holds_alternative<SimRunning>(newState)) << "Should stay in SimRunning";
-    simRunning = std::move(std::get<SimRunning>(newState));
+    ASSERT_TRUE(std::holds_alternative<SimRunning>(newState.getVariant()))
+        << "Should stay in SimRunning";
+    simRunning = std::move(std::get<SimRunning>(newState.getVariant()));
 
     ASSERT_TRUE(callbackInvoked) << "Callback should be invoked for resize";
-    EXPECT_EQ(simRunning.world->data.width, 100) << "World width should be resized to 100";
-    EXPECT_EQ(simRunning.world->data.height, 100) << "World height should be resized to 100";
+    EXPECT_EQ(simRunning.world->getData().width, 100) << "World width should be resized to 100";
+    EXPECT_EQ(simRunning.world->getData().height, 100) << "World height should be resized to 100";
 }

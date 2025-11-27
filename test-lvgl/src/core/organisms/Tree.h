@@ -1,14 +1,19 @@
 #pragma once
 
 #include "TreeBrain.h"
-#include "TreeTypes.h"
+#include "TreeCommands.h"
+#include "TreeSensoryData.h"
+#include <cstdint>
 #include <memory>
 #include <optional>
 #include <unordered_set>
 
 namespace DirtSim {
 
-// Forward declaration to avoid circular dependency.
+using TreeId = uint32_t;
+
+constexpr TreeId INVALID_TREE_ID = 0;
+
 class World;
 
 /**
@@ -36,27 +41,17 @@ public:
     Tree(const Tree&) = delete;
     Tree& operator=(const Tree&) = delete;
 
-    /**
-     * Update tree state for one timestep.
-     *
-     * Executes current command, asks brain for next action if idle,
-     * and updates resource tracking.
-     *
-     * @param world World reference for command execution.
-     * @param deltaTime Time elapsed (unused, trees use discrete timesteps).
-     */
     void update(World& world, double deltaTime);
 
-    // Public members - simple data, no complex invariants to maintain.
     TreeId id;
-    Vector2i seed_position; // Original seed position (center for vision).
-    uint32_t age = 0;
+    Vector2i seed_position;
+    double age_seconds = 0.0;
     GrowthStage stage = GrowthStage::SEED;
-    std::unordered_set<Vector2i> cells;         // Cell positions owned by this tree.
-    double total_energy = 0.0;                  // Aggregated from world cells.
-    double total_water = 0.0;                   // Aggregated from world cells.
-    std::optional<TreeCommand> current_command; // Command being executed.
-    uint32_t steps_remaining = 0;               // Timesteps until command completes.
+    std::unordered_set<Vector2i> cells;
+    double total_energy = 0.0;
+    double total_water = 0.0;
+    std::optional<TreeCommand> current_command;
+    double time_remaining_seconds = 0.0;
 
     /**
      * Gather scale-invariant sensory data for brain input and UI visualization.
@@ -66,19 +61,8 @@ public:
 private:
     std::unique_ptr<TreeBrain> brain_;
 
-    /**
-     * Execute the current command (called when steps_remaining reaches 0).
-     */
     void executeCommand(World& world);
-
-    /**
-     * Ask brain for next action and enqueue it.
-     */
     void decideNextAction(const World& world);
-
-    /**
-     * Update aggregated resources from world cells.
-     */
     void updateResources(const World& world);
 };
 

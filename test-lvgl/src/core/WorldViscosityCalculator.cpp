@@ -1,14 +1,16 @@
 #include "WorldViscosityCalculator.h"
 #include "Cell.h"
 #include "GridOfCells.h"
+#include "PhysicsSettings.h"
 #include "World.h"
+#include "WorldData.h"
 #include <cmath>
 #include <spdlog/spdlog.h>
 
 namespace DirtSim {
 
 Vector2d WorldViscosityCalculator::calculateNeighborVelocityAverage(
-    const World& world, uint32_t x, uint32_t y, MaterialType centerMaterial) const
+    const WorldData& data, uint32_t x, uint32_t y, MaterialType centerMaterial) const
 {
     Vector2d velocity_sum{ 0.0, 0.0 };
     double weight_sum = 0.0;
@@ -24,12 +26,12 @@ Vector2d WorldViscosityCalculator::calculateNeighborVelocityAverage(
             int ny = static_cast<int>(y) + dy;
 
             // Bounds check.
-            if (nx < 0 || ny < 0 || nx >= static_cast<int>(world.data.width)
-                || ny >= static_cast<int>(world.data.height)) {
+            if (nx < 0 || ny < 0 || nx >= static_cast<int>(data.width)
+                || ny >= static_cast<int>(data.height)) {
                 continue;
             }
 
-            const Cell& neighbor = world.at(static_cast<uint32_t>(nx), static_cast<uint32_t>(ny));
+            const Cell& neighbor = data.at(static_cast<uint32_t>(nx), static_cast<uint32_t>(ny));
 
             // Only couple with same-material neighbors.
             if (neighbor.material_type != centerMaterial || neighbor.isEmpty()) {
@@ -58,9 +60,17 @@ Vector2d WorldViscosityCalculator::calculateNeighborVelocityAverage(
 }
 
 WorldViscosityCalculator::ViscousForce WorldViscosityCalculator::calculateViscousForce(
-    const World& world, uint32_t x, uint32_t y, const GridOfCells* grid) const
+    const World& world,
+    uint32_t x,
+    uint32_t y,
+    double viscosity_strength,
+    const GridOfCells* grid) const
 {
-    const Cell& cell = world.at(x, y);
+    (void)grid; // Unused: now using cell.has_any_support instead of grid->supportBitmap().
+
+    // Cache data reference to avoid repeated pImpl dereferences.
+    const WorldData& data = world.getData();
+    const Cell& cell = data.at(x, y);
 
     // Skip empty cells and walls.
     if (cell.isEmpty() || cell.isWall()) {
@@ -81,27 +91,41 @@ WorldViscosityCalculator::ViscousForce WorldViscosityCalculator::calculateViscou
 
     // Calculate weighted average velocity of same-material neighbors.
     Vector2d avg_neighbor_velocity =
-        calculateNeighborVelocityAverage(world, x, y, cell.material_type);
+        calculateNeighborVelocityAverage(data, x, y, cell.material_type);
 
     // Velocity difference drives viscous force.
     Vector2d velocity_difference = avg_neighbor_velocity - cell.velocity;
 
-    bool has_solid_support = false;
-    if (GridOfCells::USE_CACHE && grid) {
-        if (grid->supportBitmap().isSet(x, y) && y < world.data.height - 1) {
-            const Cell& below = world.at(x, y + 1);
-            if (!below.isEmpty()) {
-                const MaterialProperties& below_props = getMaterialProperties(below.material_type);
-                has_solid_support = !below_props.is_fluid;
-            }
+    // Check for solid support.
+    // Assert that support bitmap matches cell field (debug/verify consistency).
+    if (grid && GridOfCells::USE_CACHE) {
+        bool bitmap_support = grid->supportBitmap().isSet(x, y);
+        bool cell_support = cell.has_any_support;
+
+        if (bitmap_support != cell_support) {
+            spdlog::error(
+                "SUPPORT MISMATCH at [{},{}]: bitmap={}, cell.has_any_support={}",
+                x,
+                y,
+                bitmap_support,
+                cell_support);
+            spdlog::error(
+                "  Cell: material={}, fill={:.2f}, has_vertical={}, has_any={}",
+                static_cast<int>(cell.material_type),
+                cell.fill_ratio,
+                cell.has_vertical_support,
+                cell.has_any_support);
+            // Abort to catch this immediately during testing.
+            std::abort();
         }
-    } else {
-        if (cell.has_support && y < world.data.height - 1) {
-            const Cell& below = world.at(x, y + 1);
-            if (!below.isEmpty()) {
-                const MaterialProperties& below_props = getMaterialProperties(below.material_type);
-                has_solid_support = !below_props.is_fluid;
-            }
+    }
+
+    bool has_solid_support = false;
+    if (cell.has_any_support && y < data.height - 1) {
+        const Cell& below = data.at(x, y + 1);
+        if (!below.isEmpty()) {
+            const MaterialProperties& below_props = getMaterialProperties(below.material_type);
+            has_solid_support = !below_props.is_fluid;
         }
     }
     double support_factor = has_solid_support ? 1.0 : 0.0;
@@ -111,9 +135,23 @@ WorldViscosityCalculator::ViscousForce WorldViscosityCalculator::calculateViscou
     World::MotionState motion_state =
         support_factor > 0.5 ? World::MotionState::STATIC : World::MotionState::FALLING;
 
-    // Calculate motion state multiplier.
-    double motion_multiplier =
-        world.getMotionStateMultiplier(motion_state, props.motion_sensitivity);
+    // Calculate motion state multiplier (inlined to avoid World method call).
+    double base_multiplier = 1.0;
+    switch (motion_state) {
+        case World::MotionState::STATIC:
+            base_multiplier = 1.0;
+            break;
+        case World::MotionState::FALLING:
+            base_multiplier = 0.3;
+            break;
+        case World::MotionState::TURBULENT:
+            base_multiplier = 0.1;
+            break;
+        case World::MotionState::SLIDING:
+            base_multiplier = 0.5;
+            break;
+    }
+    double motion_multiplier = 1.0 - props.motion_sensitivity * (1.0 - base_multiplier);
 
     // Calculate effective viscosity with motion state and support modulation.
     // Support increases coupling strength (more contact = more shear).
@@ -121,8 +159,8 @@ WorldViscosityCalculator::ViscousForce WorldViscosityCalculator::calculateViscou
 
     // Viscous force tries to eliminate velocity differences.
     // Scale by viscosity strength (UI control) and fill ratio.
-    Vector2d viscous_force = velocity_difference * effective_viscosity
-        * world.physicsSettings.viscosity_strength * cell.fill_ratio;
+    Vector2d viscous_force =
+        velocity_difference * effective_viscosity * viscosity_strength * cell.fill_ratio;
 
     // Debug info.
     double neighbor_avg_speed = avg_neighbor_velocity.magnitude();

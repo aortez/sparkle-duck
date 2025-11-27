@@ -175,7 +175,7 @@ void UiComponentManager::createSimulationLayout()
     // panel).
     simTopRow_ = lv_obj_create(simulationScreen);
     lv_obj_set_width(simTopRow_, LV_PCT(100));
-    lv_obj_set_flex_grow(simTopRow_, 1); // Grow to fill vertical space.
+    lv_obj_set_flex_grow(simTopRow_, 65); // Gets 65% of vertical space.
     lv_obj_set_flex_flow(simTopRow_, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(
         simTopRow_, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
@@ -236,14 +236,16 @@ void UiComponentManager::createSimulationLayout()
 
     // Bottom panel: physics controls (3-column horizontal layout).
     simBottomPanel_ = lv_obj_create(simulationScreen);
-    lv_obj_set_size(simBottomPanel_, LV_PCT(100), 500);
+    lv_obj_set_width(simBottomPanel_, LV_PCT(100));
+    lv_obj_set_flex_grow(simBottomPanel_, 30); // Gets 35% of vertical space.
     lv_obj_set_flex_flow(simBottomPanel_, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(
         simBottomPanel_, LV_FLEX_ALIGN_SPACE_EVENLY, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
     lv_obj_set_style_pad_all(simBottomPanel_, 5, 0);
     lv_obj_set_style_pad_gap(simBottomPanel_, 10, 0);
     lv_obj_set_style_bg_color(simBottomPanel_, lv_color_hex(0x404040), 0); // Darker gray.
-    lv_obj_set_scroll_dir(simBottomPanel_, LV_DIR_HOR);
+    lv_obj_set_scroll_dir(simBottomPanel_, LV_DIR_ALL); // Scroll both directions if needed.
+    lv_obj_set_scrollbar_mode(simBottomPanel_, LV_SCROLLBAR_MODE_AUTO);
 
     // Physics controls area (the bottom panel itself, for now - could subdivide into 3 columns).
     simPhysicsControlsArea_ = simBottomPanel_;

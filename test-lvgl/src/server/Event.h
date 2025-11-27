@@ -8,6 +8,7 @@
 #include "api/PerfStatsGet.h"
 #include "api/PhysicsSettingsGet.h"
 #include "api/PhysicsSettingsSet.h"
+#include "api/RenderFormatSet.h"
 #include "api/Reset.h"
 #include "api/ScenarioConfigSet.h"
 #include "api/SeedAdd.h"
@@ -248,30 +249,6 @@ struct SetPressureScaleWorldBCommand {
     static constexpr const char* name() { return "SetPressureScaleWorldBCommand"; }
 };
 
-// OBSOLETE: Individual strength commands replaced by PhysicsSettingsSet API.
-// Use Api::PhysicsSettingsSet to control physics parameters in a unified way.
-/*
-struct SetCohesionForceStrengthCommand {
-    double strength;
-    static constexpr const char* name() { return "SetCohesionForceStrengthCommand"; }
-};
-
-struct SetAdhesionStrengthCommand {
-    double strength;
-    static constexpr const char* name() { return "SetAdhesionStrengthCommand"; }
-};
-
-struct SetViscosityStrengthCommand {
-    double strength;
-    static constexpr const char* name() { return "SetViscosityStrengthCommand"; }
-};
-
-struct SetFrictionStrengthCommand {
-    double strength;
-    static constexpr const char* name() { return "SetFrictionStrengthCommand"; }
-};
-*/
-
 /**
  * @brief Set contact friction strength factor (surface-to-surface friction).
  */
@@ -295,10 +272,6 @@ struct SetAirResistanceCommand {
     double strength;
     static constexpr const char* name() { return "SetAirResistanceCommand"; }
 };
-
-// OBSOLETE: Toggle commands replaced by PhysicsSettingsSet API.
-// Pressure settings now controlled via unified PhysicsSettings.
-// Use physicsSettings.pressure_*_enabled and pressure_*_strength directly.
 
 /**
  * @brief Set hydrostatic pressure strength.
@@ -342,60 +315,36 @@ struct ToggleTimeHistoryCommand {
 // MATERIAL & WORLD CONTROLS
 // =================================================================
 
-/**
- * @brief Set cell size for display/interaction.
- */
 struct SetCellSizeCommand {
     double size;
     static constexpr const char* name() { return "SetCellSizeCommand"; }
 };
 
-/**
- * @brief Set fragmentation factor for material breaking.
- */
 struct SetFragmentationCommand {
     double factor;
     static constexpr const char* name() { return "SetFragmentationCommand"; }
 };
 
-/**
- * @brief Toggle wall boundaries on/off.
- */
 struct ToggleWallsCommand {
     static constexpr const char* name() { return "ToggleWallsCommand"; }
 };
 
-/**
- * @brief Toggle water column on left side.
- */
 struct ToggleWaterColumnCommand {
     static constexpr const char* name() { return "ToggleWaterColumnCommand"; }
 };
 
-/**
- * @brief Toggle left throw mode.
- */
 struct ToggleLeftThrowCommand {
     static constexpr const char* name() { return "ToggleLeftThrowCommand"; }
 };
 
-/**
- * @brief Toggle right throw mode.
- */
 struct ToggleRightThrowCommand {
     static constexpr const char* name() { return "ToggleRightThrowCommand"; }
 };
 
-/**
- * @brief Toggle quadrant selection mode.
- */
 struct ToggleQuadrantCommand {
     static constexpr const char* name() { return "ToggleQuadrantCommand"; }
 };
 
-/**
- * @brief Toggle frame rate limiting.
- */
 struct ToggleFrameLimitCommand {
     static constexpr const char* name() { return "ToggleFrameLimitCommand"; }
 };
@@ -404,37 +353,21 @@ struct ToggleFrameLimitCommand {
 // UI CONTROL EVENTS
 // =================================================================
 
-/**
- * @brief Capture screenshot.
- */
 struct CaptureScreenshotCommand {
     static constexpr const char* name() { return "CaptureScreenshotCommand"; }
 };
 
-/**
- * @brief Exit application.
- */
 struct QuitApplicationCommand {
     static constexpr const char* name() { return "QuitApplicationCommand"; }
 };
 
-/**
- * @brief Print ASCII diagram of world state.
- */
 struct PrintAsciiDiagramCommand {
     static constexpr const char* name() { return "PrintAsciiDiagramCommand"; }
 };
 
-/**
- * @brief Spawn a 5x5 dirt ball at the top center of the world.
- */
 struct SpawnDirtBallCommand {
     static constexpr const char* name() { return "SpawnDirtBallCommand"; }
 };
-
-// =================================================================
-// MATERIAL SELECTION (From MaterialPicker)
-// =================================================================
 
 /**
  * @brief Change selected material type.
@@ -462,103 +395,117 @@ struct InitCompleteEvent {
     static constexpr const char* name() { return "InitCompleteEvent"; }
 };
 
-// =================================================================
-// EVENT VARIANT
-// =================================================================
-
 /**
- * @brief Variant containing all server event types.
+ * @brief Forward-declarable Event wrapper class.
+ *
+ * Wraps the variant to enable forward declaration in headers,
+ * reducing compilation dependencies.
  */
-using Event = std::variant<
-    // Immediate events
-    GetFPSCommand,
-    GetSimStatsCommand,
-    PauseCommand,
-    ResumeCommand,
+class Event {
+public:
+    using Variant = std::variant<
+        // Immediate events.
+        GetFPSCommand,
+        GetSimStatsCommand,
+        PauseCommand,
+        ResumeCommand,
 
-    // Simulation control
-    StartSimulationCommand,
-    ApplyScenarioCommand,
-    ResetSimulationCommand,
-    ResizeWorldCommand,
-    SaveWorldCommand,
-    LoadWorldCommand,
-    StepBackwardCommand,
-    StepForwardCommand,
-    ToggleTimeReversalCommand,
-    SetTimestepCommand,
+        // Simulation control.
+        StartSimulationCommand,
+        ApplyScenarioCommand,
+        ResetSimulationCommand,
+        ResizeWorldCommand,
+        SaveWorldCommand,
+        LoadWorldCommand,
+        StepBackwardCommand,
+        StepForwardCommand,
+        ToggleTimeReversalCommand,
+        SetTimestepCommand,
 
-    // Mouse events
-    MouseDownEvent,
-    MouseMoveEvent,
-    MouseUpEvent,
+        // Mouse events.
+        MouseDownEvent,
+        MouseMoveEvent,
+        MouseUpEvent,
 
-    // Physics parameters
-    SetGravityCommand,
-    SetElasticityCommand,
-    SetTimescaleCommand,
-    SetDynamicStrengthCommand,
-    SetPressureScaleCommand,
-    SetPressureScaleWorldBCommand,
-    // Obsolete: SetCohesionForceStrengthCommand, SetAdhesionStrengthCommand,
-    // SetViscosityStrengthCommand, SetFrictionStrengthCommand - use PhysicsSettingsSet.
-    SetContactFrictionStrengthCommand,
-    SetCOMCohesionRangeCommand,
-    SetAirResistanceCommand,
-    // Obsolete: ToggleHydrostaticPressureCommand, ToggleDynamicPressureCommand,
-    // TogglePressureDiffusionCommand - use PhysicsSettingsSet.
-    SetHydrostaticPressureStrengthCommand,
-    SetDynamicPressureStrengthCommand,
-    SetRainRateCommand,
-    ToggleCohesionForceCommand,
-    ToggleTimeHistoryCommand,
+        // Physics parameters.
+        SetGravityCommand,
+        SetElasticityCommand,
+        SetTimescaleCommand,
+        SetDynamicStrengthCommand,
+        SetPressureScaleCommand,
+        SetPressureScaleWorldBCommand,
+        SetContactFrictionStrengthCommand,
+        SetCOMCohesionRangeCommand,
+        SetAirResistanceCommand,
+        SetHydrostaticPressureStrengthCommand,
+        SetDynamicPressureStrengthCommand,
+        SetRainRateCommand,
+        ToggleCohesionForceCommand,
+        ToggleTimeHistoryCommand,
 
-    // Material & world controls
-    SetCellSizeCommand,
-    SetFragmentationCommand,
-    ToggleWallsCommand,
-    ToggleWaterColumnCommand,
-    ToggleLeftThrowCommand,
-    ToggleRightThrowCommand,
-    ToggleQuadrantCommand,
-    ToggleFrameLimitCommand,
+        // Material & world controls.
+        SetCellSizeCommand,
+        SetFragmentationCommand,
+        ToggleWallsCommand,
+        ToggleWaterColumnCommand,
+        ToggleLeftThrowCommand,
+        ToggleRightThrowCommand,
+        ToggleQuadrantCommand,
+        ToggleFrameLimitCommand,
 
-    // UI control
-    CaptureScreenshotCommand,
-    QuitApplicationCommand,
-    PrintAsciiDiagramCommand,
-    SpawnDirtBallCommand,
-    SelectMaterialCommand,
+        // UI control.
+        CaptureScreenshotCommand,
+        QuitApplicationCommand,
+        PrintAsciiDiagramCommand,
+        SpawnDirtBallCommand,
+        SelectMaterialCommand,
 
-    // API commands (network/remote control).
-    DirtSim::Api::CellGet::Cwc,
-    DirtSim::Api::CellSet::Cwc,
-    DirtSim::Api::DiagramGet::Cwc,
-    DirtSim::Api::Exit::Cwc,
-    DirtSim::Api::GravitySet::Cwc,
-    DirtSim::Api::PerfStatsGet::Cwc,
-    DirtSim::Api::PhysicsSettingsGet::Cwc,
-    DirtSim::Api::PhysicsSettingsSet::Cwc,
-    DirtSim::Api::Reset::Cwc,
-    DirtSim::Api::ScenarioConfigSet::Cwc,
-    DirtSim::Api::SeedAdd::Cwc,
-    DirtSim::Api::SimRun::Cwc,
-    DirtSim::Api::SpawnDirtBall::Cwc,
-    DirtSim::Api::StateGet::Cwc,
-    DirtSim::Api::StatusGet::Cwc,
-    DirtSim::Api::TimerStatsGet::Cwc,
-    DirtSim::Api::WorldResize::Cwc,
+        // API commands (network/remote control).
+        DirtSim::Api::CellGet::Cwc,
+        DirtSim::Api::CellSet::Cwc,
+        DirtSim::Api::DiagramGet::Cwc,
+        DirtSim::Api::Exit::Cwc,
+        DirtSim::Api::GravitySet::Cwc,
+        DirtSim::Api::PerfStatsGet::Cwc,
+        DirtSim::Api::PhysicsSettingsGet::Cwc,
+        DirtSim::Api::PhysicsSettingsSet::Cwc,
+        DirtSim::Api::RenderFormatSet::Cwc,
+        DirtSim::Api::Reset::Cwc,
+        DirtSim::Api::ScenarioConfigSet::Cwc,
+        DirtSim::Api::SeedAdd::Cwc,
+        DirtSim::Api::SimRun::Cwc,
+        DirtSim::Api::SpawnDirtBall::Cwc,
+        DirtSim::Api::StateGet::Cwc,
+        DirtSim::Api::StatusGet::Cwc,
+        DirtSim::Api::TimerStatsGet::Cwc,
+        DirtSim::Api::WorldResize::Cwc,
 
-    // State transitions
-    OpenConfigCommand,
-    InitCompleteEvent>;
+        // State transitions.
+        OpenConfigCommand,
+        InitCompleteEvent>;
+
+    // Constructor from any event type.
+    template <typename T>
+    Event(T&& event) : variant_(std::forward<T>(event))
+    {}
+
+    // Default constructor.
+    Event() = default;
+
+    // Accessor for the underlying variant.
+    Variant& getVariant() { return variant_; }
+    const Variant& getVariant() const { return variant_; }
+
+private:
+    Variant variant_;
+};
 
 /**
- * @brief Helper to get event name from variant.
+ * @brief Helper to get event name from Event wrapper.
  */
 inline std::string getEventName(const Event& event)
 {
-    return std::visit([](auto&& e) { return std::string(e.name()); }, event);
+    return std::visit([](auto&& e) { return std::string(e.name()); }, event.getVariant());
 }
 
 } // namespace Server

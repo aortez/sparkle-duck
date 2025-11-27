@@ -1,7 +1,9 @@
 #include "WorldDiagramGeneratorEmoji.h"
 #include "Cell.h"
 #include "MaterialType.h"
+#include "PhysicsSettings.h"
 #include "World.h"
+#include "WorldData.h"
 
 #include <cmath>
 #include <sstream>
@@ -12,8 +14,8 @@ std::string WorldDiagramGeneratorEmoji::generateEmojiDiagram(const World& world)
 {
     std::ostringstream diagram;
 
-    uint32_t width = world.data.width;
-    uint32_t height = world.data.height;
+    uint32_t width = world.getData().width;
+    uint32_t height = world.getData().height;
 
     // Top border with sparkles!
     diagram << "✨";
@@ -30,7 +32,7 @@ std::string WorldDiagramGeneratorEmoji::generateEmojiDiagram(const World& world)
         diagram << "┃";
 
         for (uint32_t x = 0; x < width; ++x) {
-            const auto& cell = world.at(x, y);
+            const auto& cell = world.getData().at(x, y);
 
             if (cell.isEmpty()) {
                 diagram << "⬜";
@@ -58,8 +60,14 @@ std::string WorldDiagramGeneratorEmoji::generateEmojiDiagram(const World& world)
                         case MaterialType::METAL:
                             diagram << "🔩";
                             break;
+                        case MaterialType::ROOT:
+                            diagram << "🌿";
+                            break;
                         case MaterialType::LEAF:
                             diagram << "🍃";
+                            break;
+                        case MaterialType::SEED:
+                            diagram << "🌰";
                             break;
                         case MaterialType::WALL:
                             diagram << "🧱";
@@ -96,8 +104,8 @@ std::string WorldDiagramGeneratorEmoji::generateMixedDiagram(const World& world)
 {
     std::ostringstream diagram;
 
-    uint32_t width = world.data.width;
-    uint32_t height = world.data.height;
+    uint32_t width = world.getData().width;
+    uint32_t height = world.getData().height;
 
     // Top border.
     diagram << "🦆✨ Sparkle Duck World ✨🦆\n";
@@ -113,7 +121,7 @@ std::string WorldDiagramGeneratorEmoji::generateMixedDiagram(const World& world)
         diagram << "│";
 
         for (uint32_t x = 0; x < width; ++x) {
-            const auto& cell = world.at(x, y);
+            const auto& cell = world.getData().at(x, y);
 
             if (cell.isEmpty()) {
                 diagram << "   ";
@@ -144,8 +152,14 @@ std::string WorldDiagramGeneratorEmoji::generateMixedDiagram(const World& world)
                         case MaterialType::METAL:
                             diagram << "🔩";
                             break;
+                        case MaterialType::ROOT:
+                            diagram << "🌿";
+                            break;
                         case MaterialType::LEAF:
                             diagram << "🍃";
+                            break;
+                        case MaterialType::SEED:
+                            diagram << "🌰";
                             break;
                         case MaterialType::WALL:
                             diagram << "🧱";

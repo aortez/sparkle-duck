@@ -1,5 +1,6 @@
 #include "BenchmarkRunner.h"
 #include "CleanupRunner.h"
+#include "CommandRegistry.h"
 #include "IntegrationTest.h"
 #include "RunAllRunner.h"
 #include "WebSocketClient.h"
@@ -14,59 +15,99 @@
 
 using namespace DirtSim;
 
-// Command registry for help text and validation.
-struct CommandInfo {
+// Helper function to sort timer_stats by total_ms in descending order.
+// Returns an array of objects (to preserve sort order) instead of a JSON object.
+nlohmann::json sortTimerStats(const nlohmann::json& timer_stats)
+{
+    if (timer_stats.empty()) {
+        return nlohmann::json::array();
+    }
+
+    // Convert to vector of pairs for sorting.
+    std::vector<std::pair<std::string, nlohmann::json>> timer_pairs;
+    for (auto it = timer_stats.begin(); it != timer_stats.end(); ++it) {
+        timer_pairs.push_back({ it.key(), it.value() });
+    }
+
+    // Sort by total_ms descending.
+    std::sort(timer_pairs.begin(), timer_pairs.end(), [](const auto& a, const auto& b) {
+        double a_total = a.second.value("total_ms", 0.0);
+        double b_total = b.second.value("total_ms", 0.0);
+        return a_total > b_total;
+    });
+
+    // Build as array of objects with "name" field to preserve order.
+    nlohmann::json sorted_timers = nlohmann::json::array();
+    for (const auto& pair : timer_pairs) {
+        nlohmann::json entry = pair.second;
+        entry["name"] = pair.first;
+        sorted_timers.push_back(entry);
+    }
+
+    return sorted_timers;
+}
+
+// CLI-specific commands (not server/UI API commands).
+struct CliCommandInfo {
     std::string name;
     std::string description;
-    std::string example_params;
 };
 
-static const std::vector<CommandInfo> AVAILABLE_COMMANDS = {
-    { "benchmark", "Run performance benchmark (launches server)", "" },
-    { "cleanup", "Clean up rogue sparkle-duck processes", "" },
-    { "integration_test", "Run integration test (launches server + UI)", "" },
-    { "run-all", "Launch server + UI and monitor (exits when UI closes)", "" },
-    { "cell_get", "Get cell state at coordinates", R"({"x": 10, "y": 20})" },
-    { "cell_set",
-      "Place material at coordinates",
-      R"({"x": 50, "y": 50, "material": "WATER", "fill": 1.0})" },
-    { "diagram_get", "Get emoji visualization of world", "" },
-    { "exit", "Shutdown server", "" },
-    { "gravity_set", "Set gravity value", R"({"gravity": 15.0})" },
-    { "perf_stats_get", "Get server performance statistics", "" },
-    { "physics_settings_get", "Get current physics settings", "" },
-    { "physics_settings_set",
-      "Set physics parameters",
-      R"({"settings": {"timescale": 1.5, "gravity": 0.8}})" },
-    { "reset", "Reset simulation to initial state", "" },
-    { "scenario_config_set",
-      "Update scenario configuration",
-      R"({"config": {"type": "sandbox", "quadrant_enabled": true, "water_column_enabled": true, "right_throw_enabled": true, "top_drop_enabled": true, "rain_rate": 0.0}})" },
-    { "sim_run", "Start autonomous simulation", R"({"timestep": 0.016, "max_steps": 100})" },
-    { "state_get", "Get complete world state as JSON", "" },
-    { "timer_stats_get", "Get detailed physics timing breakdown", "" },
+static const std::vector<CliCommandInfo> CLI_COMMANDS = {
+    { "benchmark", "Run performance benchmark (launches server)" },
+    { "cleanup", "Clean up rogue sparkle-duck processes" },
+    { "integration_test", "Run integration test (launches server + UI)" },
+    { "run-all", "Launch server + UI and monitor (exits when UI closes)" },
 };
 
 std::string getCommandListHelp()
 {
-    std::string help = "Available commands:\n";
-    for (const auto& cmd : AVAILABLE_COMMANDS) {
+    std::string help = "Available commands:\n\n";
+
+    // CLI-specific commands.
+    help += "CLI Commands:\n";
+    for (const auto& cmd : CLI_COMMANDS) {
         help += "  " + cmd.name + " - " + cmd.description + "\n";
     }
+
+    // Auto-generated server API commands.
+    help += "\nServer API Commands (ws://localhost:8080):\n";
+    for (const auto& cmdName : Client::SERVER_COMMAND_NAMES) {
+        help += "  " + std::string(cmdName) + "\n";
+    }
+
+    // Auto-generated UI API commands.
+    help += "\nUI API Commands (ws://localhost:7070):\n";
+    for (const auto& cmdName : Client::UI_COMMAND_NAMES) {
+        help += "  " + std::string(cmdName) + "\n";
+    }
+
     return help;
 }
 
 std::string getExamplesHelp()
 {
-    std::string examples = "Examples:\n";
-    for (const auto& cmd : AVAILABLE_COMMANDS) {
-        if (!cmd.example_params.empty()) {
-            examples += "  cli ws://localhost:8080 " + cmd.name + " '" + cmd.example_params + "'\n";
-        }
-        else {
-            examples += "  cli ws://localhost:8080 " + cmd.name + "\n";
-        }
+    std::string examples = "Examples:\n\n";
+
+    // CLI-specific examples.
+    examples += "CLI Commands:\n";
+    for (const auto& cmd : CLI_COMMANDS) {
+        examples += "  cli " + cmd.name + "\n";
     }
+
+    // Server API examples (show a few common ones).
+    examples += "\nServer API Examples:\n";
+    examples += "  cli ws://localhost:8080 state_get\n";
+    examples += "  cli ws://localhost:8080 sim_run '{\"timestep\": 0.016, \"max_steps\": 100}'\n";
+    examples += "  cli ws://localhost:8080 cell_set '{\"x\": 50, \"y\": 50, \"material\": "
+                "\"WATER\", \"fill\": 1.0}'\n";
+    examples += "  cli ws://localhost:8080 diagram_get\n";
+
+    // UI API examples.
+    examples += "\nUI API Examples:\n";
+    examples += "  cli ws://localhost:7070 draw_debug_toggle '{\"enabled\": true}'\n";
+    examples += "  cli ws://localhost:7070 screenshot\n";
+
     return examples;
 }
 
@@ -118,6 +159,11 @@ int main(int argc, char** argv)
         "Benchmark: scenario name (default: benchmark)",
         { "scenario" },
         "benchmark");
+    args::ValueFlag<int> benchWorldSize(
+        parser,
+        "size",
+        "Benchmark: world grid size (default: scenario default)",
+        { "world-size", "size" });
     args::Flag compareCache(
         parser,
         "compare-cache",
@@ -181,25 +227,38 @@ int main(int argc, char** argv)
         // Follow args library pattern: check presence before get.
         int actualSteps = benchSteps ? args::get(benchSteps) : 120;
         std::string actualScenario = benchScenario ? args::get(benchScenario) : "benchmark";
+        (void)benchWorldSize; // Unused - world size now determined by scenario.
 
         if (compareCache) {
-            // Run twice: with and without cache.
+            // Compare full system (cache + OpenMP) vs baseline.
             Client::BenchmarkRunner runner;
 
             spdlog::set_level(spdlog::level::info);
-            spdlog::info("Running benchmark WITH cache enabled...");
-            auto results_cached = runner.run(serverPath.string(), actualSteps, actualScenario);
+            spdlog::info("Running benchmark WITH cache + OpenMP (default)...");
+            auto results_cached = runner.run(serverPath.string(), actualSteps, actualScenario, 0);
 
-            spdlog::info("Running benchmark WITHOUT cache (--no-grid-cache)...");
+            spdlog::info("Running benchmark WITHOUT cache or OpenMP (baseline)...");
             auto results_direct = runner.runWithServerArgs(
-                serverPath.string(), actualSteps, actualScenario, "--no-grid-cache");
+                serverPath.string(), actualSteps, actualScenario, "--no-grid-cache --no-openmp", 0);
 
             // Build comparison output.
             nlohmann::json comparison;
             comparison["scenario"] = actualScenario;
             comparison["steps"] = actualSteps;
-            comparison["with_cache"] = ReflectSerializer::to_json(results_cached);
-            comparison["without_cache"] = ReflectSerializer::to_json(results_direct);
+
+            // Serialize results and sort timer_stats.
+            nlohmann::json cached_json = ReflectSerializer::to_json(results_cached);
+            if (!results_cached.timer_stats.empty()) {
+                cached_json["timer_stats"] = sortTimerStats(results_cached.timer_stats);
+            }
+
+            nlohmann::json direct_json = ReflectSerializer::to_json(results_direct);
+            if (!results_direct.timer_stats.empty()) {
+                direct_json["timer_stats"] = sortTimerStats(results_direct.timer_stats);
+            }
+
+            comparison["with_cache_and_openmp"] = cached_json;
+            comparison["without_cache_or_openmp_baseline"] = direct_json;
 
             // Calculate speedup.
             double cached_fps = results_cached.server_fps;
@@ -207,9 +266,10 @@ int main(int argc, char** argv)
             double speedup = (cached_fps / direct_fps - 1.0) * 100.0;
 
             comparison["speedup_percent"] = speedup;
-            comparison["summary"] = speedup > 0 ? "Cache is faster" : "Cache is slower";
 
             std::cout << comparison.dump(2) << std::endl;
+
+            return 0;
         }
         else {
             // Single run (default behavior).
@@ -219,9 +279,9 @@ int main(int argc, char** argv)
             // Output results as JSON using ReflectSerializer.
             nlohmann::json resultJson = ReflectSerializer::to_json(results);
 
-            // Add timer_stats (already in JSON format).
+            // Add timer_stats (already in JSON format), sorted by total_ms descending.
             if (!results.timer_stats.empty()) {
-                resultJson["timer_stats"] = results.timer_stats;
+                resultJson["timer_stats"] = sortTimerStats(results.timer_stats);
             }
 
             std::cout << resultJson.dump(2) << std::endl;
@@ -285,7 +345,7 @@ int main(int argc, char** argv)
         // Run server and UI.
         auto result = Client::runAll(serverPath.string(), uiPath.string());
         if (result.isError()) {
-            std::cerr << "Error: " << result.error() << std::endl;
+            std::cerr << "Error: " << result.errorValue() << std::endl;
             return 1;
         }
         return 0;

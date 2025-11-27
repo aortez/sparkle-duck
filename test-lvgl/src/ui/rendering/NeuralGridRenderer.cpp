@@ -91,6 +91,24 @@ void NeuralGridRenderer::renderSensoryData(const TreeSensoryData& sensory, lv_ob
     }
 
     lv_canvas_finish_layer(gridCanvas_, &layer);
+
+    if (!thoughtLabel_) {
+        thoughtLabel_ = lv_label_create(parent);
+        lv_obj_set_style_text_color(thoughtLabel_, lv_color_hex(0xFFFFFF), 0);
+        lv_obj_align(thoughtLabel_, LV_ALIGN_BOTTOM_MID, 0, -10);
+    }
+
+    if (!energyLabel_) {
+        energyLabel_ = lv_label_create(parent);
+        lv_obj_set_style_text_color(energyLabel_, lv_color_hex(0xFFD700), 0);
+        lv_obj_align(energyLabel_, LV_ALIGN_TOP_MID, 0, 10);
+    }
+
+    lv_label_set_text(thoughtLabel_, sensory.current_thought.c_str());
+
+    char energy_text[64];
+    snprintf(energy_text, sizeof(energy_text), "Energy: %.1f", sensory.total_energy);
+    lv_label_set_text(energyLabel_, energy_text);
 }
 
 void NeuralGridRenderer::renderEmpty(lv_obj_t* parent)
@@ -132,6 +150,16 @@ void NeuralGridRenderer::cleanup()
     if (gridCanvas_) {
         lv_obj_del(gridCanvas_);
         gridCanvas_ = nullptr;
+    }
+
+    if (thoughtLabel_) {
+        lv_obj_del(thoughtLabel_);
+        thoughtLabel_ = nullptr;
+    }
+
+    if (energyLabel_) {
+        lv_obj_del(energyLabel_);
+        energyLabel_ = nullptr;
     }
 
     canvasBuffer_.clear();

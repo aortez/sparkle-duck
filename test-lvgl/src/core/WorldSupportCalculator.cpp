@@ -2,8 +2,10 @@
 #include "Cell.h"
 #include "GridOfCells.h"
 #include "MaterialType.h"
+#include "PhysicsSettings.h"
 #include "Vector2i.h"
 #include "World.h"
+#include "WorldData.h"
 #include "spdlog/spdlog.h"
 #include <algorithm>
 #include <array>
@@ -13,37 +15,34 @@
 
 using namespace DirtSim;
 
-WorldSupportCalculator::WorldSupportCalculator(const GridOfCells& grid) : grid_(&grid)
-{}
-
-WorldSupportCalculator::WorldSupportCalculator() : grid_(nullptr)
+WorldSupportCalculator::WorldSupportCalculator(GridOfCells& grid) : grid_(grid)
 {}
 
 bool WorldSupportCalculator::hasVerticalSupport(const World& world, uint32_t x, uint32_t y) const
 {
-    if (!isValidCell(world, static_cast<int>(x), static_cast<int>(y))) {
+    if (x >= grid_.getWidth() || y >= grid_.getHeight()) {
         spdlog::trace("hasVerticalSupport({},{}) = false (invalid cell)", x, y);
         return false;
     }
 
-    const Cell& cell = getCellAt(world, x, y);
+    const Cell& cell = grid_.at(x, y);
     if (cell.isEmpty()) {
         spdlog::trace("hasVerticalSupport({},{}) = false (empty cell)", x, y);
         return false;
     }
 
     // Check if already at ground level.
-    if (y == world.data.height - 1) {
+    if (y == grid_.getHeight() - 1) {
         spdlog::trace("hasVerticalSupport({},{}) = true (at ground level)", x, y);
         return true;
     }
 
-    // Check cells directly below for continuous material (no gaps allowed)
+    // Check cells directly below for continuous material (no gaps allowed).
     for (uint32_t dy = 1; dy <= MAX_VERTICAL_SUPPORT_DISTANCE; dy++) {
         uint32_t support_y = y + dy;
 
         // If we reach beyond the world boundary, no material support available.
-        if (support_y >= world.data.height) {
+        if (support_y >= grid_.getHeight()) {
             spdlog::info(
                 "hasVerticalSupport({},{}) = false (reached world boundary at distance {}, no "
                 "material below)",
@@ -53,7 +52,7 @@ bool WorldSupportCalculator::hasVerticalSupport(const World& world, uint32_t x, 
             break;
         }
 
-        const Cell& below = getCellAt(world, x, support_y);
+        const Cell& below = grid_.at(x, support_y);
         if (!below.isEmpty()) {
             // RECURSIVE SUPPORT CHECK: Supporting block must itself be supported.
             bool supporting_block_supported = hasVerticalSupport(world, x, support_y);
@@ -79,7 +78,7 @@ bool WorldSupportCalculator::hasVerticalSupport(const World& world, uint32_t x, 
             }
         }
         else {
-            // CRITICAL FIX: Stop at first empty cell - no support through gaps.
+            // Stop at first empty cell - no support through gaps.
             spdlog::trace(
                 "hasVerticalSupport({},{}) = false (empty cell at distance {}, no continuous "
                 "support)",
@@ -116,20 +115,48 @@ bool WorldSupportCalculator::hasHorizontalSupport(
     const MaterialType center_mat = mat_n.getCenterMaterial();
     const MaterialProperties& cell_props = getMaterialProperties(center_mat);
 
+    // Cell must be rigid to provide/receive horizontal support.
+    if (!cell_props.is_rigid) {
+        spdlog::trace(
+            "hasHorizontalSupport({},{}) = false (center {} is not rigid)",
+            x,
+            y,
+            getMaterialName(center_mat));
+        return false;
+    }
+
     for (int bit_pos = 0; bit_pos < 9; ++bit_pos) {
         if (!(neighbor_mask & (1 << bit_pos))) continue;
 
         const MaterialType neighbor_mat = mat_n.getMaterialByBitPos(bit_pos);
         const MaterialProperties& neighbor_props = getMaterialProperties(neighbor_mat);
 
-        if (neighbor_props.density > RIGID_DENSITY_THRESHOLD) {
-            const double mutual_adhesion =
-                std::sqrt(cell_props.adhesion * neighbor_props.adhesion);
+        // Neighbor must be rigid to provide support.
+        if (!neighbor_props.is_rigid) {
+            continue;
+        }
 
-            if (mutual_adhesion > STRONG_ADHESION_THRESHOLD) {
+        // Same material: use cohesion for structural bonding.
+        if (neighbor_mat == center_mat) {
+            if (cell_props.cohesion > COHESION_SUPPORT_THRESHOLD) {
                 spdlog::debug(
-                    "hasHorizontalSupport({},{}) = true (rigid {} neighbor with adhesion "
-                    "{:.3f})",
+                    "hasHorizontalSupport({},{}) = true (rigid same-material {} neighbor with "
+                    "cohesion {:.3f})",
+                    x,
+                    y,
+                    getMaterialName(neighbor_mat),
+                    cell_props.cohesion);
+                return true;
+            }
+        }
+        // Different materials: use adhesion for cross-material bonding.
+        else {
+            const double mutual_adhesion = std::sqrt(cell_props.adhesion * neighbor_props.adhesion);
+
+            if (mutual_adhesion > ADHESION_SUPPORT_THRESHOLD) {
+                spdlog::debug(
+                    "hasHorizontalSupport({},{}) = true (rigid different-material {} neighbor with "
+                    "adhesion {:.3f})",
                     x,
                     y,
                     getMaterialName(neighbor_mat),
@@ -140,15 +167,17 @@ bool WorldSupportCalculator::hasHorizontalSupport(
     }
 
     spdlog::trace(
-        "hasHorizontalSupport({},{}) = false (no rigid neighbors with strong adhesion)", x, y);
+        "hasHorizontalSupport({},{}) = false (no rigid neighbors with strong cohesion/adhesion)",
+        x,
+        y);
     return false;
 }
 
 bool WorldSupportCalculator::hasHorizontalSupport(const World& world, uint32_t x, uint32_t y) const
 {
-    if (GridOfCells::USE_CACHE && grid_) {
-        const EmptyNeighborhood empty_n = grid_->getEmptyNeighborhood(x, y);
-        const MaterialNeighborhood mat_n = grid_->getMaterialNeighborhood(x, y);
+    if (GridOfCells::USE_CACHE) {
+        const EmptyNeighborhood empty_n = grid_.getEmptyNeighborhood(x, y);
+        const MaterialNeighborhood mat_n = grid_.getMaterialNeighborhood(x, y);
         return hasHorizontalSupport(x, y, empty_n, mat_n);
     }
     else {
@@ -166,6 +195,16 @@ bool WorldSupportCalculator::hasHorizontalSupport(const World& world, uint32_t x
 
         const MaterialProperties& cell_props = getMaterialProperties(cell.material_type);
 
+        // Cell must be rigid to provide/receive horizontal support.
+        if (!cell_props.is_rigid) {
+            spdlog::trace(
+                "hasHorizontalSupport({},{}) = false (center {} is not rigid)",
+                x,
+                y,
+                getMaterialName(cell.material_type));
+            return false;
+        }
+
         // Check immediate neighbors only (no BFS for horizontal support).
         for (int dx = -1; dx <= 1; dx++) {
             for (int dy = -1; dy <= 1; dy++) {
@@ -182,35 +221,55 @@ bool WorldSupportCalculator::hasHorizontalSupport(const World& world, uint32_t x
                 const MaterialProperties& neighbor_props =
                     getMaterialProperties(neighbor.material_type);
 
-                // Check for rigid support: high-density neighbor with strong adhesion.
-                if (neighbor_props.density > RIGID_DENSITY_THRESHOLD) {
-                    // Calculate mutual adhesion between materials.
+                // Neighbor must be rigid to provide support.
+                if (!neighbor_props.is_rigid) {
+                    continue;
+                }
+
+                // Same material: use cohesion for structural bonding.
+                if (neighbor.material_type == cell.material_type) {
+                    if (cell_props.cohesion > COHESION_SUPPORT_THRESHOLD) {
+                        spdlog::debug(
+                            "hasHorizontalSupport({},{}) = true (rigid same-material {} neighbor "
+                            "with cohesion {:.3f})",
+                            x,
+                            y,
+                            getMaterialName(neighbor.material_type),
+                            cell_props.cohesion);
+                        return true;
+                    }
+                }
+                // Different materials: use adhesion for cross-material bonding.
+                else {
                     double mutual_adhesion =
                         std::sqrt(cell_props.adhesion * neighbor_props.adhesion);
 
-                    if (mutual_adhesion > STRONG_ADHESION_THRESHOLD) {
+                    if (mutual_adhesion > ADHESION_SUPPORT_THRESHOLD) {
                         spdlog::debug(
-                            "hasHorizontalSupport({},{}) = true (rigid {} neighbor with adhesion "
-                            "{:.3f})",
+                            "hasHorizontalSupport({},{}) = true (rigid different-material {} "
+                            "neighbor with adhesion {:.3f})",
                             x,
                             y,
                             getMaterialName(neighbor.material_type),
                             mutual_adhesion);
-                        return true;  // Early exit - found support!
+                        return true;
                     }
                 }
             }
         }
 
         spdlog::trace(
-            "hasHorizontalSupport({},{}) = false (no rigid neighbors with strong adhesion)", x, y);
+            "hasHorizontalSupport({},{}) = false (no rigid neighbors with strong "
+            "cohesion/adhesion)",
+            x,
+            y);
         return false;
     }
 }
 
-bool WorldSupportCalculator::hasStructuralSupport(const World& world, uint32_t x, uint32_t y) const
+bool WorldSupportCalculator::hasStructuralSupport(uint32_t x, uint32_t y) const
 {
-    const Cell& cell = getCellAt(world, x, y);
+    const Cell& cell = grid_.at(x, y);
 
     // Empty cells provide no support.
     if (cell.isEmpty()) {
@@ -225,7 +284,7 @@ bool WorldSupportCalculator::hasStructuralSupport(const World& world, uint32_t x
     }
 
     // 2. Bottom edge of world (ground) provides support.
-    if (y == world.data.height - 1) {
+    if (y == grid_.getHeight() - 1) {
         return true;
     }
 
@@ -261,12 +320,13 @@ bool WorldSupportCalculator::hasStructuralSupport(const World& world, uint32_t x
                 int nx = pos.x + dx;
                 int ny = pos.y + dy;
 
-                if (!isValidCell(world, nx, ny) || visited.count({ nx, ny })) {
+                if (nx < 0 || ny < 0 || nx >= static_cast<int>(grid_.getWidth())
+                    || ny >= static_cast<int>(grid_.getHeight()) || visited.count({ nx, ny })) {
                     continue;
                 }
 
                 visited.insert({ nx, ny });
-                const Cell& neighbor = getCellAt(world, nx, ny);
+                const Cell& neighbor = grid_.at(nx, ny);
 
                 // Skip empty cells.
                 if (neighbor.isEmpty()) {
@@ -285,7 +345,7 @@ bool WorldSupportCalculator::hasStructuralSupport(const World& world, uint32_t x
                     // Fluids adjacent to walls are NOT structurally supported.
                 }
                 // Ground level provides support to all materials.
-                else if (ny == static_cast<int>(world.data.height) - 1) {
+                else if (ny == static_cast<int>(grid_.getHeight()) - 1) {
                     return true;
                 }
 
@@ -322,40 +382,55 @@ bool WorldSupportCalculator::hasStructuralSupport(const World& world, uint32_t x
 
 void WorldSupportCalculator::computeSupportMapBottomUp(World& world) const
 {
-    if (GridOfCells::USE_CACHE && grid_) {
-        CellBitmap& support = const_cast<GridOfCells*>(grid_)->supportBitmap();
+    if (GridOfCells::USE_CACHE) {
+        CellBitmap& support = grid_.supportBitmap();
 
-        for (int y = world.data.height - 1; y >= 0; y--) {
-            for (uint32_t x = 0; x < world.data.width; x++) {
-                const EmptyNeighborhood empty_n = grid_->getEmptyNeighborhood(x, y);
+        for (int y = grid_.getHeight() - 1; y >= 0; y--) {
+            for (uint32_t x = 0; x < grid_.getWidth(); x++) {
+                const EmptyNeighborhood empty_n = grid_.getEmptyNeighborhood(x, y);
 
                 if (!empty_n.centerHasMaterial()) {
                     support.clear(x, y);
+                    grid_.at(x, y).has_vertical_support = false;
+                    grid_.at(x, y).has_any_support = false;
                     continue;
                 }
 
-                const MaterialNeighborhood mat_n = grid_->getMaterialNeighborhood(x, y);
+                const MaterialNeighborhood mat_n = grid_.getMaterialNeighborhood(x, y);
 
                 if (mat_n.getCenterMaterial() == MaterialType::WALL) {
                     support.set(x, y);
+                    grid_.at(x, y).has_vertical_support = true;
+                    grid_.at(x, y).has_any_support = true;
                     continue;
                 }
 
-                if (y == static_cast<int>(world.data.height) - 1) {
+                if (y == static_cast<int>(grid_.getHeight()) - 1) {
                     support.set(x, y);
+                    grid_.at(x, y).has_vertical_support = true;
+                    grid_.at(x, y).has_any_support = true;
                     continue;
                 }
 
-                const bool has_vertical = empty_n.southHasMaterial() && support.isSet(x, y + 1);
+                // Fluids (WATER, AIR) don't provide vertical support.
+                const MaterialType below_material = mat_n.getMaterial(0, 1); // South = (0, +1)
+                const bool below_is_fluid =
+                    (below_material == MaterialType::WATER || below_material == MaterialType::AIR);
+                const bool has_vertical =
+                    empty_n.southHasMaterial() && support.isSet(x, y + 1) && !below_is_fluid;
 
                 bool has_horizontal = false;
                 if (!has_vertical) {
                     has_horizontal = hasHorizontalSupport(x, y, empty_n, mat_n);
                 }
 
+                // Set support fields - both bitmap and cell fields.
+                grid_.at(x, y).has_vertical_support = has_vertical;
+                grid_.at(x, y).has_any_support = has_vertical || has_horizontal;
                 if (has_vertical || has_horizontal) {
                     support.set(x, y);
-                } else {
+                }
+                else {
                     support.clear(x, y);
                 }
             }
@@ -365,31 +440,38 @@ void WorldSupportCalculator::computeSupportMapBottomUp(World& world) const
         // ========== DIRECT PATH: Traditional cell access ==========
         // Bottom-up pass: compute support for entire grid in one sweep.
         // Start from bottom row (ground) and work upward.
-        for (int y = world.data.height - 1; y >= 0; y--) {
-            for (uint32_t x = 0; x < world.data.width; x++) {
-                Cell& cell = world.at(x, y);
+        for (int y = grid_.getHeight() - 1; y >= 0; y--) {
+            for (uint32_t x = 0; x < grid_.getWidth(); x++) {
+                Cell& cell = grid_.at(x, y);
 
-                // Check emptiness directly.
-                if (cell.isEmpty()) {
-                    cell.has_support = false;
+                // Skip AIR cells - they don't participate in structural support.
+                if (cell.material_type == MaterialType::AIR) {
+                    cell.has_any_support = false;
+                    cell.has_vertical_support = false;
                     continue;
                 }
 
                 // WALL material is always structurally supported.
                 if (cell.material_type == MaterialType::WALL) {
-                    cell.has_support = true;
+                    cell.has_any_support = true;
+                    cell.has_vertical_support = true;
                     continue;
                 }
 
                 // Bottom edge of world (ground) provides support.
-                if (y == static_cast<int>(world.data.height) - 1) {
-                    cell.has_support = true;
+                if (y == static_cast<int>(grid_.getHeight()) - 1) {
+                    cell.has_any_support = true;
+                    cell.has_vertical_support = true;
                     continue;
                 }
 
-                // Check vertical support: cell below must be non-empty AND supported.
-                const Cell& below = world.at(x, y + 1);
-                bool has_vertical = !below.isEmpty() && below.has_support;
+                // Check vertical support: cell below must be non-empty, supported, AND not a fluid.
+                // Fluids (WATER, AIR) don't provide vertical support.
+                const Cell& below = grid_.at(x, y + 1);
+                const bool below_is_fluid =
+                    (below.material_type == MaterialType::WATER
+                     || below.material_type == MaterialType::AIR);
+                bool has_vertical = !below.isEmpty() && below.has_any_support && !below_is_fluid;
 
                 // Check horizontal support if no vertical.
                 bool has_horizontal = false;
@@ -397,7 +479,9 @@ void WorldSupportCalculator::computeSupportMapBottomUp(World& world) const
                     has_horizontal = hasHorizontalSupport(world, x, y);
                 }
 
-                cell.has_support = has_vertical || has_horizontal;
+                // Set support fields.
+                cell.has_vertical_support = has_vertical;
+                cell.has_any_support = has_vertical || has_horizontal;
             }
         }
     }
@@ -418,7 +502,7 @@ double WorldSupportCalculator::calculateDistanceToSupport(
 
     // Use simpler 2D array for distance tracking (avoid Vector2i comparisons)
     std::vector<std::vector<int>> distances(
-        world.data.width, std::vector<int>(world.data.height, -1));
+        world.getData().width, std::vector<int>(world.getData().height, -1));
     std::queue<std::pair<uint32_t, uint32_t>> queue;
 
     queue.push({ x, y });
@@ -437,7 +521,7 @@ double WorldSupportCalculator::calculateDistanceToSupport(
         uint32_t cy = current.second;
 
         // Check if current position has structural support.
-        if (hasStructuralSupport(world, cx, cy)) {
+        if (hasStructuralSupport(cx, cy)) {
             int distance = distances[cx][cy];
             spdlog::trace("Support found for material at ({},{}) - distance: {}", x, y, distance);
             return static_cast<double>(distance);
@@ -453,8 +537,8 @@ double WorldSupportCalculator::calculateDistanceToSupport(
             int nx = static_cast<int>(cx) + dir.first;
             int ny = static_cast<int>(cy) + dir.second;
 
-            if (nx >= 0 && ny >= 0 && nx < static_cast<int>(world.data.width)
-                && ny < static_cast<int>(world.data.height)
+            if (nx >= 0 && ny >= 0 && nx < static_cast<int>(world.getData().width)
+                && ny < static_cast<int>(world.getData().height)
                 && distances[nx][ny] == -1) { // Not visited.
 
                 const Cell& nextCell = getCellAt(world, nx, ny);
@@ -466,7 +550,7 @@ double WorldSupportCalculator::calculateDistanceToSupport(
                     && nextCell.fill_ratio > MIN_MATTER_THRESHOLD) {
                     canConnect = true; // Same material connection.
                 }
-                else if (!nextCell.isEmpty() && hasStructuralSupport(world, nx, ny)) {
+                else if (!nextCell.isEmpty() && hasStructuralSupport(nx, ny)) {
                     canConnect = true; // Structural support connection (metal, walls, etc.)
                 }
 

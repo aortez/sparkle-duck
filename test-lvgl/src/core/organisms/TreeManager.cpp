@@ -1,47 +1,45 @@
 #include "TreeManager.h"
 #include "brains/RuleBasedBrain.h"
+#include "core/Cell.h"
+#include "core/GridOfCells.h"
+#include "core/LoggingChannels.h"
 #include "core/MaterialType.h"
 #include "core/World.h"
-#include <spdlog/spdlog.h>
+#include "core/WorldData.h"
+#include <algorithm>
+#include <queue>
+#include <random>
+#include <unordered_set>
 
 namespace DirtSim {
 
 void TreeManager::update(World& world, double deltaTime)
 {
-    // Update all trees.
     for (auto& [id, tree] : trees_) {
         tree.update(world, deltaTime);
     }
-
-    // TODO: Phase 3 - Update light map and process photosynthesis.
 }
 
 TreeId TreeManager::plantSeed(World& world, uint32_t x, uint32_t y)
 {
-    // Allocate new tree ID.
     TreeId id = next_tree_id_++;
 
-    // Create tree with rule-based brain.
     auto brain = std::make_unique<RuleBasedBrain>();
     Tree tree(id, std::move(brain));
 
-    // Set seed position (center for neural grid).
     Vector2i pos{ static_cast<int>(x), static_cast<int>(y) };
     tree.seed_position = pos;
+    tree.total_energy = 500.0; // Boosted for testing growth patterns.
 
-    // Place SEED material at position.
     world.addMaterialAtCell(x, y, MaterialType::SEED, 1.0);
 
-    // Register seed cell with tree.
     tree.cells.insert(pos);
     cell_to_tree_[pos] = id;
 
-    // Mark cell as owned by this tree.
-    world.at(x, y).organism_id = id;
+    world.getData().at(x, y).organism_id = id;
 
-    spdlog::info("TreeManager: Planted seed for tree {} at ({}, {})", id, x, y);
+    LoggingChannels::tree()->info("TreeManager: Planted seed for tree {} at ({}, {})", id, x, y);
 
-    // Store tree.
     trees_.emplace(id, std::move(tree));
 
     return id;
@@ -51,7 +49,7 @@ void TreeManager::removeTree(TreeId id)
 {
     auto it = trees_.find(id);
     if (it == trees_.end()) {
-        spdlog::warn("TreeManager: Attempted to remove non-existent tree {}", id);
+        LoggingChannels::tree()->warn("TreeManager: Attempted to remove non-existent tree {}", id);
         return;
     }
 
@@ -63,7 +61,7 @@ void TreeManager::removeTree(TreeId id)
     // Remove tree.
     trees_.erase(it);
 
-    spdlog::info("TreeManager: Removed tree {}", id);
+    LoggingChannels::tree()->info("TreeManager: Removed tree {}", id);
 }
 
 Tree* TreeManager::getTree(TreeId id)
@@ -97,7 +95,8 @@ void TreeManager::notifyTransfers(const std::vector<OrganismTransfer>& transfers
     for (const auto& [tree_id, tree_transfers] : transfers_by_tree) {
         auto tree_it = trees_.find(tree_id);
         if (tree_it == trees_.end()) {
-            spdlog::warn("TreeManager: Received transfers for non-existent tree {}", tree_id);
+            LoggingChannels::tree()->warn(
+                "TreeManager: Received transfers for non-existent tree {}", tree_id);
             continue;
         }
 
@@ -111,7 +110,7 @@ void TreeManager::notifyTransfers(const std::vector<OrganismTransfer>& transfers
             // If the seed cell is moving, update seed_position to track it.
             if (transfer->from_pos == tree.seed_position) {
                 tree.seed_position = transfer->to_pos;
-                spdlog::debug(
+                LoggingChannels::tree()->debug(
                     "TreeManager: Tree {} seed moved from ({}, {}) to ({}, {})",
                     tree_id,
                     transfer->from_pos.x,
@@ -124,11 +123,205 @@ void TreeManager::notifyTransfers(const std::vector<OrganismTransfer>& transfers
             // The cleanup will happen in a separate pass or when cell becomes fully empty.
         }
 
-        spdlog::trace(
+        LoggingChannels::tree()->trace(
             "TreeManager: Processed {} transfers for tree {} (now {} cells tracked)",
             tree_transfers.size(),
             tree_id,
             tree.cells.size());
+    }
+}
+
+void TreeManager::computeOrganismSupport(World& world)
+{
+    WorldData& data = world.getData();
+    GridOfCells& grid = world.getGrid();
+
+    for (auto& [tree_id, tree] : trees_) {
+        // Step 1: Calculate root anchoring budget.
+        double support_budget = 0.0;
+        int root_count = 0;
+
+        for (const auto& pos : tree.cells) {
+            if (static_cast<uint32_t>(pos.x) >= data.width
+                || static_cast<uint32_t>(pos.y) >= data.height)
+                continue;
+
+            const Cell& cell = data.at(pos.x, pos.y);
+            if (cell.organism_id != tree_id || cell.material_type != MaterialType::ROOT) {
+                continue;
+            }
+
+            root_count++;
+            double root_anchoring = 0.0;
+            int dirt_neighbors = 0;
+
+            // Check all 8 neighbors for non-tree material to grip.
+            for (int dy = -1; dy <= 1; dy++) {
+                for (int dx = -1; dx <= 1; dx++) {
+                    if (dx == 0 && dy == 0) continue;
+
+                    int nx = pos.x + dx;
+                    int ny = pos.y + dy;
+
+                    if (nx < 0 || ny < 0 || nx >= static_cast<int>(data.width)
+                        || ny >= static_cast<int>(data.height)) {
+                        continue;
+                    }
+
+                    const Cell& neighbor = data.at(nx, ny);
+
+                    // Only count non-tree cells (dirt, sand, etc. that roots grip).
+                    if (neighbor.organism_id != tree_id && !neighbor.isEmpty()) {
+                        const MaterialProperties& neighbor_props =
+                            getMaterialProperties(neighbor.material_type);
+                        double neighbor_mass = neighbor.fill_ratio * neighbor_props.density;
+
+                        // Use neighbor's adhesion (how well material sticks to roots).
+                        double contribution = neighbor_mass * neighbor_props.adhesion;
+                        root_anchoring += contribution;
+
+                        if (neighbor.material_type == MaterialType::DIRT) {
+                            dirt_neighbors++;
+                        }
+
+                        LoggingChannels::tree()->info(
+                            "  ROOT({},{}) neighbor({},{}) {} mass={:.2f} adhesion={:.2f} "
+                            "contrib={:.2f}",
+                            pos.x,
+                            pos.y,
+                            nx,
+                            ny,
+                            getMaterialName(neighbor.material_type),
+                            neighbor_mass,
+                            neighbor_props.adhesion,
+                            contribution);
+                    }
+                }
+            }
+
+            LoggingChannels::tree()->info(
+                "ROOT at ({},{}) has {} dirt neighbors, anchoring={:.2f}",
+                pos.x,
+                pos.y,
+                dirt_neighbors,
+                root_anchoring);
+
+            support_budget += root_anchoring;
+        }
+
+        // Divide by 2 as specified.
+        support_budget /= 2.0;
+
+        LoggingChannels::tree()->info(
+            "Tree {} support calculation: {} roots, total_budget={:.2f}",
+            tree_id,
+            root_count,
+            support_budget);
+
+        // Step 2: Calculate upper structure mass (everything except ROOTs).
+        std::vector<Vector2i> upper_cells;
+        double upper_mass = 0.0;
+
+        for (const auto& pos : tree.cells) {
+            if (static_cast<uint32_t>(pos.x) >= data.width
+                || static_cast<uint32_t>(pos.y) >= data.height)
+                continue;
+
+            const Cell& cell = data.at(pos.x, pos.y);
+            if (cell.organism_id != tree_id) continue;
+
+            // Skip ROOT cells - they provide support, don't consume it.
+            if (cell.material_type == MaterialType::ROOT) continue;
+
+            upper_cells.push_back(pos);
+            const MaterialProperties& props = getMaterialProperties(cell.material_type);
+            double cell_mass = cell.fill_ratio * props.density;
+            upper_mass += cell_mass;
+        }
+
+        // Step 3: Distribute support.
+        // NOTE: Organism support only GRANTS additional support to cells that lack it.
+        // We never remove support that cells already have from main physics (ground, cohesion).
+
+        if (support_budget >= upper_mass) {
+            // Roots can support entire tree - grant organism support to all unsupported cells.
+            for (const auto& pos : tree.cells) {
+                if (static_cast<uint32_t>(pos.x) >= data.width
+                    || static_cast<uint32_t>(pos.y) >= data.height)
+                    continue;
+                Cell& cell = data.at(pos.x, pos.y);
+                if (cell.organism_id == tree_id && !cell.has_any_support) {
+                    // Grant organism support (update both cell flag and bitmap).
+                    cell.has_any_support = true;
+                    if (GridOfCells::USE_CACHE) {
+                        grid.supportBitmap().set(pos.x, pos.y);
+                    }
+                }
+            }
+
+            LoggingChannels::tree()->debug(
+                "TreeManager: Tree {} fully supported (budget={:.2f} >= mass={:.2f}, roots={})",
+                tree_id,
+                support_budget,
+                upper_mass,
+                root_count);
+        }
+        else {
+            // Insufficient support - only grant organism support up to budget.
+            double mass_to_support = support_budget; // How much we CAN support.
+
+            LoggingChannels::tree()->warn(
+                "TreeManager: Tree {} INSUFFICIENT support (budget={:.2f} < mass={:.2f})",
+                tree_id,
+                support_budget,
+                upper_mass);
+
+            // Grant organism support to random unsupported cells up to our budget.
+            double mass_supported = 0.0;
+
+            // Only consider cells that DON'T already have support.
+            std::vector<Vector2i> unsupported_cells;
+            for (const auto& pos : upper_cells) {
+                Cell& cell = data.at(pos.x, pos.y);
+                if (!cell.has_any_support) {
+                    unsupported_cells.push_back(pos);
+                }
+            }
+
+            // Shuffle for random selection.
+            std::random_device rd;
+            std::mt19937 rng(rd());
+            std::shuffle(unsupported_cells.begin(), unsupported_cells.end(), rng);
+
+            for (const auto& pos : unsupported_cells) {
+                if (mass_supported >= mass_to_support) break;
+
+                Cell& cell = data.at(pos.x, pos.y);
+                const MaterialProperties& props = getMaterialProperties(cell.material_type);
+                double cell_mass = cell.fill_ratio * props.density;
+
+                // Grant organism support to this cell (update both cell flag and bitmap).
+                cell.has_any_support = true;
+                if (GridOfCells::USE_CACHE) {
+                    grid.supportBitmap().set(pos.x, pos.y);
+                }
+                mass_supported += cell_mass;
+
+                LoggingChannels::tree()->debug(
+                    "TreeManager: Tree {} granting support to {} at ({}, {}) - mass={:.2f}",
+                    tree_id,
+                    getMaterialName(cell.material_type),
+                    pos.x,
+                    pos.y,
+                    cell_mass);
+            }
+
+            LoggingChannels::tree()->info(
+                "TreeManager: Tree {} partial support - {:.2f}/{:.2f} mass supported by roots",
+                tree_id,
+                mass_supported,
+                upper_mass);
+        }
     }
 }
 

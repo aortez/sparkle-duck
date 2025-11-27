@@ -8,10 +8,15 @@ namespace DirtSim {
 // Runtime toggle for cache usage (default: enabled).
 bool GridOfCells::USE_CACHE = true;
 
+// Runtime toggle for OpenMP parallelization (default: enabled).
+bool GridOfCells::USE_OPENMP = true;
+
 GridOfCells::GridOfCells(
-    const std::vector<Cell>& source_cells, uint32_t width, uint32_t height, Timers& timers)
-    : cells_(source_cells),
+    std::vector<Cell>& cells, std::vector<CellDebug>& debug_info, uint32_t width, uint32_t height)
+    : cells_(cells),
+      debug_info_(debug_info),
       empty_cells_(width, height),
+      wall_cells_(width, height),
       support_bitmap_(width, height),
       empty_neighborhoods_(width * height, 0),
       material_neighborhoods_(width * height, 0),
@@ -19,34 +24,56 @@ GridOfCells::GridOfCells(
       height_(height)
 {
     spdlog::debug("GridOfCells: Constructing cache ({}x{})", width, height);
-
-    {
-        ScopeTimer timer(timers, "grid_cache_empty_map");
-        buildEmptyCellMap();
-    }
-
-    {
-        ScopeTimer timer(timers, "grid_cache_empty_neighborhoods");
-        precomputeEmptyNeighborhoods();
-    }
-
-    {
-        ScopeTimer timer(timers, "grid_cache_material_neighborhoods");
-        precomputeMaterialNeighborhoods();
-    }
-
+    populateMaps();
+    precomputeEmptyNeighborhoods();
+    precomputeMaterialNeighborhoods();
     spdlog::debug("GridOfCells: Construction complete");
+}
+
+void GridOfCells::populateMaps()
+{
+    // Single pass over all cells to build all bitmaps.
+    for (uint32_t y = 0; y < height_; ++y) {
+        for (uint32_t x = 0; x < width_; ++x) {
+            const Cell& cell = cells_[y * width_ + x];
+
+            // Build empty cell bitmap.
+            if (cell.isEmpty()) {
+                empty_cells_.set(x, y);
+            }
+
+            // Build wall cell bitmap.
+            if (cell.isWall()) {
+                wall_cells_.set(x, y);
+            }
+        }
+    }
 }
 
 void GridOfCells::buildEmptyCellMap()
 {
-    // Scan all cells and mark empty ones in bitmap.
+    // Legacy method - kept for compatibility.
+    // Consider removing if not called directly.
     for (uint32_t y = 0; y < height_; ++y) {
         for (uint32_t x = 0; x < width_; ++x) {
             const Cell& cell = cells_[y * width_ + x];
 
             if (cell.isEmpty()) {
                 empty_cells_.set(x, y);
+            }
+        }
+    }
+}
+
+void GridOfCells::buildWallCellMap()
+{
+    // Scan all cells and mark walls in bitmap.
+    for (uint32_t y = 0; y < height_; ++y) {
+        for (uint32_t x = 0; x < width_; ++x) {
+            const Cell& cell = cells_[y * width_ + x];
+
+            if (cell.isWall()) {
+                wall_cells_.set(x, y);
             }
         }
     }
@@ -65,23 +92,26 @@ void GridOfCells::precomputeEmptyNeighborhoods()
 
 void GridOfCells::precomputeMaterialNeighborhoods()
 {
+    // Precompute 3×3 material neighborhood for every cell.
     for (uint32_t y = 0; y < height_; ++y) {
         for (uint32_t x = 0; x < width_; ++x) {
             uint64_t packed = 0;
 
+            // Pack 9 material types (4 bits each) into uint64_t.
             for (int dy = -1; dy <= 1; ++dy) {
                 for (int dx = -1; dx <= 1; ++dx) {
-                    int bit_group = (dy + 1) * 3 + (dx + 1);
+                    int bit_group = (dy + 1) * 3 + (dx + 1); // 0-8
                     int nx = static_cast<int>(x) + dx;
                     int ny = static_cast<int>(y) + dy;
 
-                    MaterialType mat = MaterialType::AIR;
+                    MaterialType mat = MaterialType::AIR; // Default for OOB.
                     if (nx >= 0 && nx < static_cast<int>(width_) && ny >= 0
                         && ny < static_cast<int>(height_)) {
                         const Cell& cell = cells_[ny * width_ + nx];
                         mat = cell.material_type;
                     }
 
+                    // Pack material type (4 bits) into position.
                     uint64_t mat_bits = static_cast<uint64_t>(mat) & 0xF;
                     packed |= (mat_bits << (bit_group * 4));
                 }

@@ -6,9 +6,11 @@
 #include "api/MouseMove.h"
 #include "api/MouseUp.h"
 #include "api/PixelRendererToggle.h"
+#include "api/RenderModeSelect.h"
 #include "api/Screenshot.h"
 #include "api/SimPause.h"
 #include "api/SimRun.h"
+#include "api/StatusGet.h"
 #include "core/PhysicsSettings.h"
 #include "core/api/UiUpdateEvent.h"
 #include <concepts>
@@ -128,9 +130,11 @@ using Event = std::variant<
     DirtSim::UiApi::MouseMove::Cwc,
     DirtSim::UiApi::MouseUp::Cwc,
     DirtSim::UiApi::PixelRendererToggle::Cwc,
+    DirtSim::UiApi::RenderModeSelect::Cwc,
     DirtSim::UiApi::Screenshot::Cwc,
     DirtSim::UiApi::SimPause::Cwc,
-    DirtSim::UiApi::SimRun::Cwc>;
+    DirtSim::UiApi::SimRun::Cwc,
+    DirtSim::UiApi::StatusGet::Cwc>;
 
 /**
  * @brief Helper to get event name from variant.

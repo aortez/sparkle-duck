@@ -20,7 +20,8 @@ SimPlayground::SimPlayground(
 {
     // Create core controls in left panel.
     lv_obj_t* coreContainer = uiManager_->getCoreControlsContainer();
-    coreControls_ = std::make_unique<CoreControls>(coreContainer, wsClient_, eventSink_);
+    coreControls_ =
+        std::make_unique<CoreControls>(coreContainer, wsClient_, eventSink_, renderMode_);
 
     // Create physics controls in bottom panel.
     lv_obj_t* physicsContainer = uiManager_->getPhysicsControlsContainer();
@@ -110,15 +111,28 @@ void SimPlayground::updateFromWorldData(const WorldData& data, double uiFPS)
         && std::holds_alternative<SandboxConfig>(data.scenario_config)) {
         const SandboxConfig& config = std::get<SandboxConfig>(data.scenario_config);
         sandboxControls_->updateFromConfig(config);
+        sandboxControls_->updateWorldDimensions(data.width, data.height);
     }
 }
 
-void SimPlayground::render(const WorldData& data, bool debugDraw, bool usePixelRenderer)
+void SimPlayground::render(const WorldData& data, bool debugDraw)
 {
     lv_obj_t* worldContainer = uiManager_->getWorldDisplayArea();
 
     // Render world state (CellRenderer handles initialization/resize internally).
-    renderer_->renderWorldData(data, worldContainer, debugDraw, usePixelRenderer);
+    renderer_->renderWorldData(data, worldContainer, debugDraw, renderMode_);
+}
+
+void SimPlayground::setRenderMode(RenderMode mode)
+{
+    renderMode_ = mode;
+
+    // Sync dropdown to match.
+    if (coreControls_) {
+        coreControls_->setRenderMode(mode);
+    }
+
+    spdlog::info("SimPlayground: Render mode set to {}", renderModeToString(mode));
 }
 
 void SimPlayground::renderNeuralGrid(const WorldData& data)

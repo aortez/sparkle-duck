@@ -15,14 +15,14 @@ void Cell::setFillRatio(double ratio)
 {
     fill_ratio = std::clamp(ratio, 0.0, 1.0);
 
-    // If fill ratio becomes effectively zero, convert to air.
+    // If fill ratio becomes effectively zero, convert to empty AIR.
     if (fill_ratio < MIN_FILL_THRESHOLD) {
         material_type = MaterialType::AIR;
         fill_ratio = 0.0;
         velocity = Vector2d{ 0.0, 0.0 };
         com = Vector2d{ 0.0, 0.0 };
 
-        // Clear all pressure values when cell becomes empty.
+        // Clear pressure values when converting to air.
         pressure = 0.0;
         hydrostatic_component = 0.0;
         dynamic_component = 0.0;
@@ -55,7 +55,7 @@ double Cell::addMaterial(MaterialType type, double amount)
         return 0.0;
     }
 
-    // If we're empty, accept any material type.
+    // Empty cells accept any material type.
     if (isEmpty()) {
         material_type = type;
         const double added = std::min(amount, 1.0);
@@ -72,9 +72,6 @@ double Cell::addMaterial(MaterialType type, double amount)
     const double capacity = getCapacity();
     const double added = std::min(amount, capacity);
     fill_ratio += added;
-
-    if (added > 0.0) {
-    }
 
     return added;
 }
@@ -336,13 +333,16 @@ Vector2d Cell::calculateTrajectoryLanding(
     Vector2d target_com = boundary_crossing_point;
 
     // Wrap coordinates across boundary.
+    // Use 0.99 instead of 1.0 to avoid immediate re-crossing on next frame.
+    constexpr double BOUNDARY_EPSILON = 0.99;
     if (std::abs(boundary_normal.x) > 0.5) {
         // Material crossed left/right - wrap X coordinate.
-        target_com.x = (boundary_normal.x > 0) ? -1.0 : 1.0;
+        target_com.x = (boundary_normal.x > 0) ? -BOUNDARY_EPSILON : BOUNDARY_EPSILON;
     }
     if (std::abs(boundary_normal.y) > 0.5) {
         // Material crossed top/bottom - wrap Y coordinate.
-        target_com.y = (boundary_normal.y > 0) ? -1.0 : 1.0;
+        // DOWN (y > 0): appear at top edge (-0.99), UP (y < 0): appear at bottom edge (0.99).
+        target_com.y = (boundary_normal.y > 0) ? -BOUNDARY_EPSILON : BOUNDARY_EPSILON;
     }
 
     // Clamp to valid COM bounds.
@@ -486,13 +486,6 @@ std::string Cell::toAsciiCharacter() const
 const MaterialProperties& Cell::material() const
 {
     return getMaterialProperties(material_type);
-}
-
-void Cell::clearAccumulatedForces()
-{
-    accumulated_viscous_force = {};
-    accumulated_adhesion_force = {};
-    accumulated_com_cohesion_force = {};
 }
 
 void Cell::addPendingForce(const Vector2d& force)

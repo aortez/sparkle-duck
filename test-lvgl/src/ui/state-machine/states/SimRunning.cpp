@@ -1,4 +1,5 @@
 #include "State.h"
+#include "server/api/RenderFormatSet.h"
 #include "ui/SimPlayground.h"
 #include "ui/UiComponentManager.h"
 #include "ui/controls/PhysicsControls.h"
@@ -37,12 +38,21 @@ State::Any SimRunning::onEvent(const ServerDisconnectedEvent& evt, StateMachine&
     return Disconnected{};
 }
 
-State::Any SimRunning::onEvent(const UiApi::DrawDebugToggle::Cwc& cwc, StateMachine& /*sm*/)
+State::Any SimRunning::onEvent(const UiApi::DrawDebugToggle::Cwc& cwc, StateMachine& sm)
 {
     using Response = UiApi::DrawDebugToggle::Response;
 
     debugDrawEnabled = cwc.command.enabled;
     spdlog::info("SimRunning: Debug draw mode {}", debugDrawEnabled ? "enabled" : "disabled");
+
+    // Auto-switch render format based on debug mode.
+    if (sm.getWebSocketClient()) {
+        Api::RenderFormatSet::Command cmd;
+        cmd.format = debugDrawEnabled ? RenderFormat::DEBUG : RenderFormat::BASIC;
+        sm.getWebSocketClient()->sendCommand(cmd);
+        spdlog::info(
+            "SimRunning: Sent render_format_set to {}", debugDrawEnabled ? "DEBUG" : "BASIC");
+    }
 
     cwc.sendResponse(Response::okay(UiApi::DrawDebugToggle::Okay{ debugDrawEnabled }));
     return std::move(*this);
@@ -52,11 +62,25 @@ State::Any SimRunning::onEvent(const UiApi::PixelRendererToggle::Cwc& cwc, State
 {
     using Response = UiApi::PixelRendererToggle::Response;
 
-    pixelRendererEnabled = cwc.command.enabled;
-    spdlog::info(
-        "SimRunning: Pixel renderer mode {}", pixelRendererEnabled ? "enabled" : "disabled");
+    // DEPRECATED: Convert old boolean API to new RenderMode for backward compatibility.
+    RenderMode mode = cwc.command.enabled ? RenderMode::SHARP : RenderMode::LVGL_DEBUG;
+    if (playground_) {
+        playground_->setRenderMode(mode);
+    }
 
-    cwc.sendResponse(Response::okay(UiApi::PixelRendererToggle::Okay{ pixelRendererEnabled }));
+    cwc.sendResponse(Response::okay(UiApi::PixelRendererToggle::Okay{ cwc.command.enabled }));
+    return std::move(*this);
+}
+
+State::Any SimRunning::onEvent(const UiApi::RenderModeSelect::Cwc& cwc, StateMachine& /*sm*/)
+{
+    using Response = UiApi::RenderModeSelect::Response;
+
+    if (playground_) {
+        playground_->setRenderMode(cwc.command.mode);
+    }
+
+    cwc.sendResponse(Response::okay(UiApi::RenderModeSelect::Okay{ cwc.command.mode }));
     return std::move(*this);
 }
 
@@ -174,7 +198,7 @@ State::Any SimRunning::onEvent(const UiUpdateEvent& evt, StateMachine& sm)
 
     updateCount++;
     // Log performance stats every once in a while.
-    if (updateCount % 10000 == 0) {
+    if (updateCount % 100 == 0) {
         auto& timers = sm.getTimers();
 
         // Get current stats
@@ -258,7 +282,7 @@ State::Any SimRunning::onEvent(const UiUpdateEvent& evt, StateMachine& sm)
 
         // Render world.
         sm.getTimers().startTimer("render_world");
-        playground_->render(*worldData, debugDrawEnabled, pixelRendererEnabled);
+        playground_->render(*worldData, debugDrawEnabled);
         sm.getTimers().stopTimer("render_world");
 
         // Render neural grid (tree vision).

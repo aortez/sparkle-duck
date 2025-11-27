@@ -46,6 +46,14 @@ FetchContent_MakeAvailable(msgpack)
 # Find Boost for msgpack variant support.
 find_package(Boost REQUIRED)
 
+# Find OpenMP for parallel physics calculations.
+find_package(OpenMP)
+if(OpenMP_CXX_FOUND)
+    message(STATUS "OpenMP found: ${OpenMP_CXX_VERSION}")
+else()
+    message(STATUS "OpenMP not found - physics will run sequentially")
+endif()
+
 # Add zpp_bits for high-performance binary serialization.
 FetchContent_Declare(
     zpp_bits
@@ -173,8 +181,7 @@ add_library(sparkle-duck-core STATIC
     src/core/MaterialType.cpp
     src/core/StateMachineBase.cpp
     src/core/Timers.cpp
-    src/core/Vector2d.cpp
-    src/core/Vector2i.cpp
+    # Vector2d.cpp and Vector2i.cpp removed - now fully inline template in Vector2.h
 
     # Bitmap infrastructure.
     src/core/bitmaps/CellBitmap.cpp
@@ -208,6 +215,7 @@ add_library(sparkle-duck-server-lib STATIC
     src/server/api/PerfStatsGet.cpp
     src/server/api/PhysicsSettingsGet.cpp
     src/server/api/PhysicsSettingsSet.cpp
+    src/server/api/RenderFormatSet.cpp
     src/server/api/Reset.cpp
     src/server/api/ScenarioConfigSet.cpp
     src/server/api/SeedAdd.cpp
@@ -251,12 +259,19 @@ add_library(sparkle-duck-server-lib STATIC
 
     # Organism system.
     src/core/organisms/Tree.cpp
+    src/core/organisms/TreeCommandProcessor.cpp
     src/core/organisms/TreeManager.cpp
+    src/core/organisms/TreeSensoryData.cpp
     src/core/organisms/brains/RuleBasedBrain.cpp
 )
 target_include_directories(sparkle-duck-server-lib PUBLIC ${CMAKE_SOURCE_DIR}/src ${zpp_bits_SOURCE_DIR})
 target_link_libraries(sparkle-duck-server-lib PUBLIC sparkle-duck-core datachannel-static)
 target_compile_options(sparkle-duck-server-lib PRIVATE -Wall -Wextra -Werror)
+
+# Link OpenMP for parallel physics calculations (cohesion, adhesion loops).
+if(OpenMP_CXX_FOUND)
+    target_link_libraries(sparkle-duck-server-lib PUBLIC OpenMP::OpenMP_CXX)
+endif()
 
 # UI library - UI components and client logic.
 add_library(sparkle-duck-ui-lib STATIC
@@ -276,9 +291,12 @@ add_library(sparkle-duck-ui-lib STATIC
     src/ui/state-machine/api/MouseDown.cpp
     src/ui/state-machine/api/MouseMove.cpp
     src/ui/state-machine/api/MouseUp.cpp
+    src/ui/state-machine/api/PixelRendererToggle.cpp
+    src/ui/state-machine/api/RenderModeSelect.cpp
     src/ui/state-machine/api/Screenshot.cpp
     src/ui/state-machine/api/SimPause.cpp
     src/ui/state-machine/api/SimRun.cpp
+    src/ui/state-machine/api/StatusGet.cpp
 
     # UI network.
     src/ui/state-machine/network/CommandDeserializerJson.cpp
@@ -292,6 +310,7 @@ add_library(sparkle-duck-ui-lib STATIC
     src/ui/rendering/CellRenderer.cpp
     src/ui/rendering/JuliaFractal.cpp
     src/ui/rendering/NeuralGridRenderer.cpp
+    src/ui/rendering/RenderMode.cpp
     src/ui/controls/ControlPanel.cpp
     src/ui/controls/CoreControls.cpp
     src/ui/controls/PhysicsControls.cpp
@@ -365,15 +384,20 @@ target_include_directories(cli PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DI
 # Enable warnings and treat them as errors for CLI executable.
 target_compile_options(cli PRIVATE -Wall -Wextra -Werror)
 
-# Test executable.
+# Test executable (fast unit tests).
 add_executable(sparkle-duck-tests
     src/server/tests/StateIdle_test.cpp
     src/server/tests/StateSimRunning_test.cpp
+    src/tests/BresenhamLine_test.cpp
     src/tests/Buoyancy_test.cpp
+    src/tests/CacheCorrectness_test.cpp
+    src/tests/Pimpl_test.cpp
     src/tests/ResultTest.cpp
     src/tests/TimersTest.cpp
     src/tests/Vector2d_test.cpp
     src/tests/Vector2i_test.cpp
+    src/tests/HorizontalMomentum_test.cpp
+    src/tests/WaterEqualization_test.cpp
 
     # Bitmap tests.
     src/core/bitmaps/tests/CellBitmap_test.cpp
@@ -381,21 +405,42 @@ add_executable(sparkle-duck-tests
     src/core/bitmaps/tests/GridOfCells_integration_test.cpp
     src/core/bitmaps/tests/MaterialNeighborhood_test.cpp
     src/core/bitmaps/tests/Neighborhood3x3_test.cpp
+
+    # Organism tests.
+    src/core/organisms/tests/TreeGermination_test.cpp
+    src/core/organisms/tests/TreeManager_test.cpp
+    src/core/organisms/tests/TreeSensory_test.cpp
 )
 target_link_libraries(sparkle-duck-tests
     PRIVATE
     sparkle-duck-server-lib
+    sparkle-duck-ui-lib
     GTest::gtest_main
     GTest::gmock_main
     m
     pthread
 )
 target_include_directories(sparkle-duck-tests PRIVATE ${CMAKE_SOURCE_DIR}/src ${PKG_CONFIG_INC} ${zpp_bits_SOURCE_DIR})
-
-# Enable warnings and treat them as errors for test executable.
 target_compile_options(sparkle-duck-tests PRIVATE -Wall -Wextra -Werror)
 
-# Enable testing
+# Slow test executable (integration/stress tests that take a long time).
+add_executable(sparkle-duck-tests-slow
+    src/tests/DiagonalWaterLeveling_test.cpp
+)
+target_link_libraries(sparkle-duck-tests-slow
+    PRIVATE
+    sparkle-duck-server-lib
+    sparkle-duck-ui-lib
+    GTest::gtest_main
+    GTest::gmock_main
+    m
+    pthread
+)
+target_include_directories(sparkle-duck-tests-slow PRIVATE ${CMAKE_SOURCE_DIR}/src ${PKG_CONFIG_INC} ${zpp_bits_SOURCE_DIR})
+target_compile_options(sparkle-duck-tests-slow PRIVATE -Wall -Wextra -Werror)
+
+# Enable testing.
 enable_testing()
 add_test(NAME sparkle-duck-tests COMMAND sparkle-duck-tests)
+add_test(NAME sparkle-duck-tests-slow COMMAND sparkle-duck-tests-slow)
 

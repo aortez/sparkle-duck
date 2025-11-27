@@ -14,18 +14,18 @@
     },
     "file": {
       "enabled": true,
-      "level": "debug",
+      "level": "info",
       "path": "sparkle-duck.log",
       "truncate": true,
       "max_size_mb": 100,
       "max_files": 3
     },
     "specialized": {
-      "swap_trace": {
+      "swap_debug": {
         "enabled": false,
         "channel_filter": ["swap"],
-        "path": "swap-trace.log",
-        "level": "trace"
+        "path": "swap-debug.log",
+        "level": "debug"
       },
       "physics_deep": {
         "enabled": false,
@@ -47,6 +47,7 @@
     "state": "debug",
     "support": "info",
     "swap": "warn",
+    "tree": "debug",
     "ui": "info",
     "viscosity": "info"
   },

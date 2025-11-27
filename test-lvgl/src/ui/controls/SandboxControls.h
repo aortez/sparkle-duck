@@ -24,6 +24,11 @@ public:
      */
     void updateFromConfig(const SandboxConfig& config);
 
+    /**
+     * @brief Update world dimensions for accurate seed placement.
+     */
+    void updateWorldDimensions(uint32_t width, uint32_t height);
+
 private:
     lv_obj_t* container_;
     WebSocketClient* wsClient_;

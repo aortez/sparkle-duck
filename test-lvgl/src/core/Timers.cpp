@@ -134,10 +134,10 @@ void Timers::dumpTimerStats() const
 
     // List of physics subsystem timers to dump.
     const std::vector<std::string> physicsTimers = {
-        "resolve_forces_total", "compute_support_map",  "support_calculation",
+        "resolve_forces",       "compute_support_map",  "support_calculation",
         "apply_gravity",        "apply_air_resistance", "apply_cohesion_forces",
         "cohesion_calculation", "adhesion_calculation", "apply_pressure_forces",
-        "velocity_limiting",    "update_transfers",     "process_moves_total",
+        "velocity_limiting",    "update_transfers",     "process_moves",
         "hydrostatic_pressure", "dynamic_pressure",     "pressure_diffusion",
         "pressure_decay"
     };

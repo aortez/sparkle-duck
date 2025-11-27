@@ -1,7 +1,9 @@
 #include "State.h"
 #include "core/Cell.h"
+#include "core/Timers.h"
 #include "core/World.h" // Must be before State.h for complete type.
 #include "core/WorldEventGenerator.h"
+#include "core/WorldFrictionCalculator.h"
 #include "core/organisms/TreeManager.h"
 #include "server/StateMachine.h"
 #include "server/network/WebSocketServer.h"
@@ -28,12 +30,12 @@ void SimRunning::onEnter(StateMachine& dsm)
     else {
         spdlog::info(
             "SimRunning: Resuming with existing World {}x{}",
-            world->data.width,
-            world->data.height);
+            world->getData().width,
+            world->getData().height);
     }
 
     // Apply default "sandbox" scenario if no scenario is set.
-    if (world && world->data.scenario_id == "empty") {
+    if (world && world->getData().scenario_id == "empty") {
         spdlog::info("SimRunning: Applying default 'sandbox' scenario");
 
         auto& registry = dsm.getScenarioRegistry();
@@ -41,13 +43,13 @@ void SimRunning::onEnter(StateMachine& dsm)
 
         if (scenario) {
             // Populate WorldData with scenario metadata and config.
-            world->data.scenario_id = "sandbox";
-            world->data.scenario_config = scenario->getConfig();
+            world->getData().scenario_id = "sandbox";
+            world->getData().scenario_config = scenario->getConfig();
 
             // Clear world before applying scenario.
-            for (uint32_t y = 0; y < world->data.height; ++y) {
-                for (uint32_t x = 0; x < world->data.width; ++x) {
-                    world->at(x, y) = Cell(); // Reset to empty cell.
+            for (uint32_t y = 0; y < world->getData().height; ++y) {
+                for (uint32_t x = 0; x < world->getData().width; ++x) {
+                    world->getData().at(x, y) = Cell(); // Reset to empty cell.
                 }
             }
 
@@ -88,7 +90,7 @@ void SimRunning::tick(StateMachine& dsm)
 
         // Sync scenario's config to WorldData (scenario is source of truth).
         // This ensures auto-changes (like water column auto-disable) propagate to UI.
-        world->data.scenario_config = scenario->getConfig();
+        world->getData().scenario_config = scenario->getConfig();
     }
 
     // Advance physics by fixed timestep.
@@ -102,12 +104,12 @@ void SimRunning::tick(StateMachine& dsm)
     const auto frameElapsed =
         std::chrono::duration_cast<std::chrono::microseconds>(now - lastFrameTime).count();
     if (frameElapsed > 0) {
-        actualFPS = 1000000.0 / frameElapsed; // Microseconds to FPS.
-        world->data.fps_server = actualFPS;   // Update WorldData for UI.
+        actualFPS = 1000000.0 / frameElapsed;    // Microseconds to FPS.
+        world->getData().fps_server = actualFPS; // Update WorldData for UI.
         lastFrameTime = now;
 
         // Log FPS and performance stats intermittently.
-        if (stepCount == 100 || stepCount % 1000 == 0) {
+        if (stepCount == 100 || stepCount % 500 == 0) {
             spdlog::info("SimRunning: Actual FPS: {:.1f} (step {})", actualFPS, stepCount);
 
             // Log performance timing stats.
@@ -157,24 +159,24 @@ void SimRunning::tick(StateMachine& dsm)
     if (!trees.empty()) {
         // For now, show the first tree's vision (simple selection).
         const auto& firstTree = trees.begin()->second;
-        world->data.tree_vision = firstTree.gatherSensoryData(*world);
+        world->getData().tree_vision = firstTree.gatherSensoryData(*world);
 
         if (stepCount % 100 == 0) {
             spdlog::info(
-                "SimRunning: Tree vision active (tree_id={}, age={}, stage={})",
+                "SimRunning: Tree vision active (tree_id={}, age_seconds={}, stage={})",
                 firstTree.id,
-                firstTree.age,
+                firstTree.age_seconds,
                 static_cast<int>(firstTree.stage));
         }
     }
     else {
         // No trees - clear tree vision.
-        world->data.tree_vision.reset();
+        world->getData().tree_vision.reset();
     }
 
     // Update StateMachine's cached WorldData after all physics steps complete.
     dsm.getTimers().startTimer("cache_update");
-    dsm.updateCachedWorldData(world->data);
+    dsm.updateCachedWorldData(world->getData());
     dsm.getTimers().stopTimer("cache_update");
 
     spdlog::debug("SimRunning: Advanced simulation, total step {})", stepCount);
@@ -184,53 +186,31 @@ void SimRunning::tick(StateMachine& dsm)
     if (dsm.getWebSocketServer()) {
         auto& timers = dsm.getTimers();
 
-        // Pack WorldData to binary.
-        auto serializeStart = std::chrono::steady_clock::now();
-        timers.startTimer("serialize_worlddata");
-        std::vector<std::byte> data;
-        zpp::bits::out out(data);
-        out(world->data).or_throw();
-        timers.stopTimer("serialize_worlddata");
-        auto serializeEnd = std::chrono::steady_clock::now();
-        auto serializeMs =
-            std::chrono::duration_cast<std::chrono::milliseconds>(serializeEnd - serializeStart)
+        // Broadcast RenderMessage to all clients (per-client format).
+        auto broadcastStart = std::chrono::steady_clock::now();
+        timers.startTimer("broadcast_render_message");
+        dsm.getWebSocketServer()->broadcastRenderMessage(world->getData());
+        timers.stopTimer("broadcast_render_message");
+        auto broadcastEnd = std::chrono::steady_clock::now();
+        auto broadcastMs =
+            std::chrono::duration_cast<std::chrono::milliseconds>(broadcastEnd - broadcastStart)
                 .count();
-
-        // Broadcast binary WorldData to all clients.
-        rtc::binary binaryMsg(data.begin(), data.end());
 
         static int sendCount = 0;
-        static double totalSerializeMs = 0.0;
+        static double totalBroadcastMs = 0.0;
         sendCount++;
-        totalSerializeMs += serializeMs;
+        totalBroadcastMs += broadcastMs;
         if (sendCount % 1000 == 0) {
             spdlog::info(
-                "Server: Serialization avg {:.1f}ms over {} frames (latest: {}ms, {} bytes, {} "
+                "Server: RenderMessage broadcast avg {:.1f}ms over {} frames (latest: {}ms, {} "
                 "cells)",
-                totalSerializeMs / sendCount,
+                totalBroadcastMs / sendCount,
                 sendCount,
-                serializeMs,
-                data.size(),
-                world->data.cells.size());
+                broadcastMs,
+                world->getData().cells.size());
         }
 
-        auto networkStart = std::chrono::steady_clock::now();
-        timers.startTimer("network_send");
-        dsm.getWebSocketServer()->broadcastBinary(binaryMsg);
-        timers.stopTimer("network_send");
-        auto networkEnd = std::chrono::steady_clock::now();
-        auto networkUs =
-            std::chrono::duration_cast<std::chrono::microseconds>(networkEnd - networkStart)
-                .count();
-
-        if (networkUs > 10000) {
-            spdlog::info(
-                "SimRunning: Network send took {:.1f}ms for {} bytes",
-                networkUs / 1000.0,
-                data.size());
-        }
-
-        // Track FPS.
+        // Track FPS for frame send rate.
         auto now = std::chrono::steady_clock::now();
         if (lastFrameSendTime.time_since_epoch().count() > 0) {
             auto sendElapsed =
@@ -238,16 +218,10 @@ void SimRunning::tick(StateMachine& dsm)
                     .count();
             if (sendElapsed > 0) {
                 frameSendFPS = 1000000.0 / sendElapsed;
-                world->data.fps_server = frameSendFPS; // Update WorldData for UI display.
+                world->getData().fps_server = frameSendFPS; // Update WorldData for UI display.
             }
         }
         lastFrameSendTime = now;
-
-        spdlog::debug(
-            "SimRunning: Sent frame to UI ({} bytes, network {:.2f}ms, send FPS: {:.1f})",
-            data.size(),
-            networkUs / 1000.0,
-            frameSendFPS);
     }
 }
 
@@ -267,8 +241,8 @@ State::Any SimRunning::onEvent(const ApplyScenarioCommand& cmd, StateMachine& ds
 
     if (world) {
         // Populate WorldData with scenario metadata and config.
-        world->data.scenario_id = cmd.scenarioName;
-        world->data.scenario_config = scenario->getConfig();
+        world->getData().scenario_id = cmd.scenarioName;
+        world->getData().scenario_config = scenario->getConfig();
 
         spdlog::info("SimRunning: Scenario '{}' applied to WorldData", cmd.scenarioName);
     }
@@ -294,14 +268,14 @@ State::Any SimRunning::onEvent(const Api::CellGet::Cwc& cwc, StateMachine& /*dsm
     }
 
     if (cwc.command.x < 0 || cwc.command.y < 0
-        || static_cast<uint32_t>(cwc.command.x) >= world->data.width
-        || static_cast<uint32_t>(cwc.command.y) >= world->data.height) {
+        || static_cast<uint32_t>(cwc.command.x) >= world->getData().width
+        || static_cast<uint32_t>(cwc.command.y) >= world->getData().height) {
         cwc.sendResponse(Response::error(ApiError("Invalid coordinates")));
         return std::move(*this);
     }
 
     // Get cell.
-    const Cell& cell = world->at(cwc.command.x, cwc.command.y);
+    const Cell& cell = world->getData().at(cwc.command.x, cwc.command.y);
 
     cwc.sendResponse(Response::okay({ cell }));
     return std::move(*this);
@@ -334,8 +308,8 @@ State::Any SimRunning::onEvent(const Api::CellSet::Cwc& cwc, StateMachine& /*dsm
 
     // Validate coordinates.
     if (cwc.command.x < 0 || cwc.command.y < 0
-        || static_cast<uint32_t>(cwc.command.x) >= world->data.width
-        || static_cast<uint32_t>(cwc.command.y) >= world->data.height) {
+        || static_cast<uint32_t>(cwc.command.x) >= world->getData().width
+        || static_cast<uint32_t>(cwc.command.y) >= world->getData().height) {
         cwc.sendResponse(Response::error(ApiError("Invalid coordinates")));
         return std::move(*this);
     }
@@ -362,7 +336,7 @@ State::Any SimRunning::onEvent(const Api::GravitySet::Cwc& cwc, StateMachine& /*
         return std::move(*this);
     }
 
-    world->physicsSettings.gravity = cwc.command.gravity;
+    world->getPhysicsSettings().gravity = cwc.command.gravity;
     spdlog::info("SimRunning: API set gravity to {}", cwc.command.gravity);
 
     cwc.sendResponse(Response::okay(std::monostate{}));
@@ -421,11 +395,11 @@ State::Any SimRunning::onEvent(const Api::TimerStatsGet::Cwc& cwc, StateMachine&
     Api::TimerStatsGet::Okay stats;
 
     if (world) {
-        auto timerNames = world->timers_.getAllTimerNames();
+        auto timerNames = world->getTimers().getAllTimerNames();
         for (const auto& name : timerNames) {
             Api::TimerStatsGet::TimerEntry entry;
-            entry.total_ms = world->timers_.getAccumulatedTime(name);
-            entry.calls = world->timers_.getCallCount(name);
+            entry.total_ms = world->getTimers().getAccumulatedTime(name);
+            entry.calls = world->getTimers().getCallCount(name);
             entry.avg_ms = entry.calls > 0 ? entry.total_ms / entry.calls : 0.0;
             stats.timers[name] = entry;
         }
@@ -449,9 +423,9 @@ State::Any SimRunning::onEvent(const Api::StatusGet::Cwc& cwc, StateMachine& /*d
     // Return lightweight status (no cell data).
     Api::StatusGet::Okay status;
     status.timestep = stepCount;
-    status.scenario_id = world->data.scenario_id;
-    status.width = world->data.width;
-    status.height = world->data.height;
+    status.scenario_id = world->getData().scenario_id;
+    status.width = world->getData().width;
+    status.height = world->getData().height;
 
     spdlog::debug(
         "SimRunning: API status_get (step {}, {}x{})",
@@ -502,9 +476,9 @@ State::Any SimRunning::onEvent(const Api::ScenarioConfigSet::Cwc& cwc, StateMach
     scenario->setConfig(cwc.command.config, *world);
 
     // Sync to WorldData (will be sent to UI on next frame).
-    world->data.scenario_config = scenario->getConfig();
+    world->getData().scenario_config = scenario->getConfig();
 
-    spdlog::info("SimRunning: Scenario config updated for '{}'", world->data.scenario_id);
+    spdlog::info("SimRunning: Scenario config updated for '{}'", world->getData().scenario_id);
 
     cwc.sendResponse(Response::okay({ true }));
     return std::move(*this);
@@ -538,8 +512,8 @@ State::Any SimRunning::onEvent(const Api::SeedAdd::Cwc& cwc, StateMachine& /*dsm
 
     // Validate coordinates.
     if (cwc.command.x < 0 || cwc.command.y < 0
-        || static_cast<uint32_t>(cwc.command.x) >= world->data.width
-        || static_cast<uint32_t>(cwc.command.y) >= world->data.height) {
+        || static_cast<uint32_t>(cwc.command.x) >= world->getData().width
+        || static_cast<uint32_t>(cwc.command.y) >= world->getData().height) {
         cwc.sendResponse(Response::error(ApiError("Invalid coordinates")));
         return std::move(*this);
     }
@@ -563,7 +537,7 @@ State::Any SimRunning::onEvent(const Api::SpawnDirtBall::Cwc& cwc, StateMachine&
     }
 
     // Spawn a dirt ball at top center.
-    uint32_t centerX = world->data.width / 2;
+    uint32_t centerX = world->getData().width / 2;
     uint32_t topY = 2; // Start at row 2 to avoid the very top edge.
 
     spdlog::info("SpawnDirtBall: Spawning dirt ball at ({}, {})", centerX, topY);
@@ -589,7 +563,7 @@ State::Any SimRunning::onEvent(const Api::PhysicsSettingsGet::Cwc& cwc, StateMac
     spdlog::info("PhysicsSettingsGet: Sending current physics settings");
 
     Api::PhysicsSettingsGet::Okay okay;
-    okay.settings = world->physicsSettings;
+    okay.settings = world->getPhysicsSettings();
 
     cwc.sendResponse(Response::okay(std::move(okay)));
     return std::move(*this);
@@ -607,7 +581,7 @@ State::Any SimRunning::onEvent(const Api::PhysicsSettingsSet::Cwc& cwc, StateMac
     spdlog::info("PhysicsSettingsSet: Applying new physics settings");
 
     // Update world's physics settings.
-    world->physicsSettings = cwc.command.settings;
+    world->getPhysicsSettings() = cwc.command.settings;
 
     // TODO: Apply settings to World calculators (timescale, gravity, etc.).
     // For now, just store them - actual application will be added next.
@@ -638,7 +612,7 @@ State::Any SimRunning::onEvent(const Api::StateGet::Cwc& cwc, StateMachine& dsm)
     else {
         // Fallback: cache not ready yet, copy from world.
         Api::StateGet::Okay responseData;
-        responseData.worldData = world->data;
+        responseData.worldData = world->getData();
         cwc.sendResponse(Response::okay(std::move(responseData)));
     }
 
@@ -666,10 +640,10 @@ State::Any SimRunning::onEvent(const Api::SimRun::Cwc& cwc, StateMachine& dsm)
     }
 
     // Check if scenario has changed - if so, reload the world.
-    if (cwc.command.scenario_id != world->data.scenario_id) {
+    if (cwc.command.scenario_id != world->getData().scenario_id) {
         spdlog::info(
             "SimRunning: Switching scenario from '{}' to '{}'",
-            world->data.scenario_id,
+            world->getData().scenario_id,
             cwc.command.scenario_id);
 
         // Create new scenario instance from factory.
@@ -700,11 +674,11 @@ State::Any SimRunning::onEvent(const Api::SimRun::Cwc& cwc, StateMachine& dsm)
         }
 
         // Resize if needed.
-        if (world->data.width != targetWidth || world->data.height != targetHeight) {
+        if (world->getData().width != targetWidth || world->getData().height != targetHeight) {
             spdlog::info(
                 "SimRunning: Resizing world from {}x{} to {}x{} for scenario '{}'",
-                world->data.width,
-                world->data.height,
+                world->getData().width,
+                world->getData().height,
                 targetWidth,
                 targetHeight,
                 cwc.command.scenario_id);
@@ -712,13 +686,13 @@ State::Any SimRunning::onEvent(const Api::SimRun::Cwc& cwc, StateMachine& dsm)
         }
 
         // Update world data.
-        world->data.scenario_id = cwc.command.scenario_id;
-        world->data.scenario_config = scenario->getConfig();
+        world->getData().scenario_id = cwc.command.scenario_id;
+        world->getData().scenario_config = scenario->getConfig();
 
         // Clear world before applying new scenario.
-        for (uint32_t y = 0; y < world->data.height; ++y) {
-            for (uint32_t x = 0; x < world->data.width; ++x) {
-                world->at(x, y) = Cell(); // Reset to empty cell.
+        for (uint32_t y = 0; y < world->getData().height; ++y) {
+            for (uint32_t x = 0; x < world->getData().width; ++x) {
+                world->getData().at(x, y) = Cell(); // Reset to empty cell.
             }
         }
         spdlog::info("SimRunning: World cleared for new scenario '{}'", cwc.command.scenario_id);
@@ -862,7 +836,7 @@ State::Any SimRunning::onEvent(const SetTimescaleCommand& cmd, StateMachine& /*d
 {
     // Update world directly (source of truth).
     if (world) {
-        world->physicsSettings.timescale = cmd.timescale;
+        world->getPhysicsSettings().timescale = cmd.timescale;
         spdlog::info("SimRunning: Set timescale to {}", cmd.timescale);
     }
     return std::move(*this);
@@ -872,7 +846,7 @@ State::Any SimRunning::onEvent(const SetElasticityCommand& cmd, StateMachine& /*
 {
     // Update world directly (source of truth).
     if (world) {
-        world->physicsSettings.elasticity = cmd.elasticity;
+        world->getPhysicsSettings().elasticity = cmd.elasticity;
         spdlog::info("SimRunning: Set elasticity to {}", cmd.elasticity);
     }
     return std::move(*this);
@@ -882,7 +856,7 @@ State::Any SimRunning::onEvent(const SetDynamicStrengthCommand& cmd, StateMachin
 {
     // Update world directly (source of truth).
     if (world) {
-        world->setDynamicPressureStrength(cmd.strength);
+        world->getPhysicsSettings().pressure_dynamic_strength = cmd.strength;
         spdlog::info("SimRunning: Set dynamic strength to {:.1f}", cmd.strength);
     }
     return std::move(*this);
@@ -892,7 +866,7 @@ State::Any SimRunning::onEvent(const SetGravityCommand& cmd, StateMachine& /*dsm
 {
     // Update world directly (source of truth).
     if (world) {
-        world->physicsSettings.gravity = cmd.gravity;
+        world->getPhysicsSettings().gravity = cmd.gravity;
         spdlog::info("SimRunning: Set gravity to {}", cmd.gravity);
     }
     return std::move(*this);
@@ -902,7 +876,7 @@ State::Any SimRunning::onEvent(const SetPressureScaleCommand& cmd, StateMachine&
 {
     // Apply to world.
     if (world) {
-        world->physicsSettings.pressure_scale = cmd.scale;
+        world->getPhysicsSettings().pressure_scale = cmd.scale;
     }
 
     spdlog::debug("SimRunning: Set pressure scale to {}", cmd.scale);
@@ -913,7 +887,7 @@ State::Any SimRunning::onEvent(const SetPressureScaleWorldBCommand& cmd, StateMa
 {
     // Apply to world.
     if (world) {
-        world->physicsSettings.pressure_scale = cmd.scale;
+        world->getPhysicsSettings().pressure_scale = cmd.scale;
     }
 
     spdlog::debug("SimRunning: Set World pressure scale to {}", cmd.scale);
@@ -926,7 +900,7 @@ State::Any SimRunning::onEvent(const SetPressureScaleWorldBCommand& cmd, StateMa
 State::Any SimRunning::onEvent(const SetContactFrictionStrengthCommand& cmd, StateMachine& /*dsm*/)
 {
     if (auto* worldPtr = dynamic_cast<World*>(world.get())) {
-        worldPtr->getFrictionCalculator().setFrictionStrength(cmd.strength);
+        worldPtr->getPhysicsSettings().friction_strength = cmd.strength;
         spdlog::info("SimRunning: Set contact friction strength to {}", cmd.strength);
     }
     return std::move(*this);
@@ -956,7 +930,7 @@ State::Any SimRunning::onEvent(
     const SetHydrostaticPressureStrengthCommand& cmd, StateMachine& /*dsm*/)
 {
     if (world) {
-        world->setHydrostaticPressureStrength(cmd.strength);
+        world->getPhysicsSettings().pressure_hydrostatic_strength = cmd.strength;
         spdlog::info("SimRunning: Set hydrostatic pressure strength to {}", cmd.strength);
     }
     return std::move(*this);
@@ -1038,7 +1012,7 @@ State::Any SimRunning::onEvent(const SpawnDirtBallCommand& /*cmd*/, StateMachine
     // Get the current world and spawn a ball at top center.
     if (world) {
         // Calculate the top center position.
-        uint32_t centerX = world->data.width / 2;
+        uint32_t centerX = world->getData().width / 2;
         uint32_t topY = 2; // Start at row 2 to avoid the very top edge.
 
         // Spawn a ball of the currently selected material.
@@ -1087,9 +1061,9 @@ State::Any SimRunning::onEvent(const ToggleWaterColumnCommand& /*cmd*/, StateMac
             if (newValue) {
                 // Add water column (5 wide × 20 tall) on left side.
                 spdlog::info("SimRunning: Adding water column (5 wide × 20 tall) at runtime");
-                for (uint32_t y = 0; y < 20 && y < worldB->data.height; ++y) {
-                    for (uint32_t x = 1; x <= 5 && x < worldB->data.width; ++x) {
-                        Cell& cell = worldB->at(x, y);
+                for (uint32_t y = 0; y < 20 && y < worldB->getData().height; ++y) {
+                    for (uint32_t x = 1; x <= 5 && x < worldB->getData().width; ++x) {
+                        Cell& cell = worldB->getData().at(x, y);
                         // Only add water to non-wall cells.
                         if (!cell.isWall()) {
                             cell.material_type = MaterialType::WATER;
@@ -1103,9 +1077,9 @@ State::Any SimRunning::onEvent(const ToggleWaterColumnCommand& /*cmd*/, StateMac
             else {
                 // Remove water from column area (only water cells).
                 spdlog::info("SimRunning: Removing water from water column area at runtime");
-                for (uint32_t y = 0; y < 20 && y < worldB->data.height; ++y) {
-                    for (uint32_t x = 1; x <= 5 && x < worldB->data.width; ++x) {
-                        Cell& cell = worldB->at(x, y);
+                for (uint32_t y = 0; y < 20 && y < worldB->getData().height; ++y) {
+                    for (uint32_t x = 1; x <= 5 && x < worldB->getData().width; ++x) {
+                        Cell& cell = worldB->getData().at(x, y);
                         // Only clear water cells, leave walls and other materials.
                         if (cell.material_type == MaterialType::WATER && !cell.isWall()) {
                             cell.material_type = MaterialType::AIR;
@@ -1152,18 +1126,18 @@ State::Any SimRunning::onEvent(const ToggleQuadrantCommand& /*cmd*/, StateMachin
         // For World, manipulate cells directly for immediate feedback.
         DirtSim::World* worldB = dynamic_cast<DirtSim::World*>(world.get());
         if (worldB) {
-            uint32_t startX = worldB->data.width / 2;
-            uint32_t startY = worldB->data.height / 2;
+            uint32_t startX = worldB->getData().width / 2;
+            uint32_t startY = worldB->getData().height / 2;
 
             if (newValue) {
                 // Add dirt quadrant immediately.
                 spdlog::info(
                     "SimRunning: Adding lower right quadrant ({}x{}) at runtime",
-                    worldB->data.width - startX,
-                    worldB->data.height - startY);
-                for (uint32_t y = startY; y < worldB->data.height; ++y) {
-                    for (uint32_t x = startX; x < worldB->data.width; ++x) {
-                        Cell& cell = worldB->at(x, y);
+                    worldB->getData().width - startX,
+                    worldB->getData().height - startY);
+                for (uint32_t y = startY; y < worldB->getData().height; ++y) {
+                    for (uint32_t x = startX; x < worldB->getData().width; ++x) {
+                        Cell& cell = worldB->getData().at(x, y);
                         // Only add dirt to non-wall cells.
                         if (!cell.isWall()) {
                             cell.material_type = MaterialType::DIRT;
@@ -1177,9 +1151,9 @@ State::Any SimRunning::onEvent(const ToggleQuadrantCommand& /*cmd*/, StateMachin
             else {
                 // Remove dirt from quadrant area (only dirt cells).
                 spdlog::info("SimRunning: Removing dirt from lower right quadrant at runtime");
-                for (uint32_t y = startY; y < worldB->data.height; ++y) {
-                    for (uint32_t x = startX; x < worldB->data.width; ++x) {
-                        Cell& cell = worldB->at(x, y);
+                for (uint32_t y = startY; y < worldB->getData().height; ++y) {
+                    for (uint32_t x = startX; x < worldB->getData().width; ++x) {
+                        Cell& cell = worldB->getData().at(x, y);
                         // Only clear dirt cells, leave walls and other materials.
                         if (cell.material_type == MaterialType::DIRT && !cell.isWall()) {
                             cell.material_type = MaterialType::AIR;

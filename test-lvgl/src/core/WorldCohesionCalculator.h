@@ -10,6 +10,7 @@ namespace DirtSim {
 
 class Cell;
 class GridOfCells;
+class MaterialNeighborhood;
 class World;
 class WorldSupportCalculator;
 
@@ -42,9 +43,10 @@ public:
         Vector2d center_of_neighbors; // Average position of connected neighbors.
         uint32_t active_connections;  // Number of neighbors contributing.
         // NEW fields for mass-based calculations:
-        double total_neighbor_mass; // Sum of all neighbor masses.
-        double cell_mass;           // Mass of current cell.
-        bool force_active;          // Whether force should be applied (cutoff check).
+        double total_neighbor_mass;  // Sum of all neighbor masses.
+        double cell_mass;            // Mass of current cell.
+        bool force_active;           // Whether force should be applied (cutoff check).
+        double resistance_magnitude; // Cohesion resistance (for force blocking in resolveForces).
     };
 
     // Cohesion-specific constants.
@@ -56,7 +58,17 @@ public:
         const World& world,
         uint32_t x,
         uint32_t y,
-        uint32_t com_cohesion_range) const;
+        uint32_t com_cohesion_range,
+        const GridOfCells* grid = nullptr) const;
+
+private:
+    // Cache-optimized version using MaterialNeighborhood.
+    COMCohesionForce calculateCOMCohesionForceCached(
+        const World& world,
+        uint32_t x,
+        uint32_t y,
+        uint32_t com_cohesion_range,
+        const MaterialNeighborhood& mat_n) const;
 };
 
 } // namespace DirtSim

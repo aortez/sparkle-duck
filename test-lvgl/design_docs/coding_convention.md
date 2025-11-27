@@ -63,6 +63,7 @@ Implementation:
 - JSON output is in Result<okay,error> format for standardized parsing.
 
 ## Misc
+- designated initializers please
 - Exit early to reduce scope. It makes things easier to understand, due to less nesting and shorter variable lifespans.
 - Use RAII to manage cleanup.
 - Use const for immutable data. Default to const.  Remove it if it needs to be changed.

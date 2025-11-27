@@ -337,3 +337,121 @@ priority_queue<Region, UpdatePriority> update_queue;
 - Use Red-Black Gauss-Seidel for better parallelization
 - Multigrid solver for large grids
 - Compress pressure to 16-bit float for non-critical cells
+
+## 10. Per-Cell Neighborhood Cache
+
+### Concept
+
+Instead of grid-level bitmaps that require extraction, store a 64-bit neighborhood cache **directly in each Cell** for instant access. This is a complementary approach to the grid-level caching in Section 1.
+
+**Grid-level cache** (frame-scoped, rebuilt each frame):
+```cpp
+GridOfCells grid;
+MaterialNeighborhood materials = grid.getMaterialNeighborhood3x3(x, y);
+```
+
+**Per-cell cache** (persistent, updated on changes):
+```cpp
+struct Cell {
+    // ... existing fields ...
+    uint64_t neighborhood_cache;  // Updated when neighborhood changes
+};
+
+// Instant lookup, no extraction
+bool has_support = (cell.neighborhood_cache >> SUPPORT_BIT_OFFSET) & 1;
+```
+
+### Bit Layout: Asymmetric Design (64 bits exactly)
+
+With a 3×3 neighborhood (9 cells), we can pack rich information:
+
+```cpp
+// Center cell (16 bits):
+[4 bits]  Own material type (0-15, supports all 9 types)
+[2 bits]  Support level (0-3)
+[8 bits]  Neighbor presence flags (1 bit per 8 neighbors)
+[2 bits]  unused
+
+// Each of 8 neighbors (6 bits × 8 = 48 bits):
+[1 bit]   Has material (fill_ratio > threshold)
+[1 bit]   Same material as center
+[1 bit]   horizontal support
+[1 bit]   vert support
+[2 bits]  unused
+
+Total: 16 + 48 = 64 bits
+```
+
+### Physical Layout in uint64_t
+
+```
+Bits 0-15:   Center cell data
+Bits 16-21:  North neighbor
+Bits 22-27:  Northeast neighbor
+Bits 28-33:  East neighbor
+Bits 34-39:  Southeast neighbor
+Bits 40-45:  South neighbor
+Bits 46-51:  Southwest neighbor
+Bits 52-57:  West neighbor
+Bits 58-63:  Northwest neighbor
+```
+
+### What This Eliminates
+
+**Current expensive operations that become O(1):**
+
+1. **Support calculation**: Check support bit instead of scanning neighbors
+2. **Cohesion**: Check "same_material" bits (8 neighbors, no cell lookups!)
+3. **Adhesion**: Check "different_material" pattern instantly
+4. **Motion coherence**: Check neighbor motion states
+5. **Material queries**: Center material type without dereferencing properties
+
+### Example Usage
+
+```cpp
+// Extract center material type
+MaterialType mat = static_cast<MaterialType>((cache >> 0) & 0xF);
+
+// Check if any neighbor has same material (cohesion check)
+uint8_t same_material_bits = 0;
+for (int i = 0; i < 8; ++i) {
+    int bit_offset = 16 + (i * 6) + 1;  // Second bit of each neighbor
+    same_material_bits |= ((cache >> bit_offset) & 1) << i;
+}
+bool has_cohesion_neighbor = same_material_bits != 0;
+
+// Count neighbors that can provide support
+int support_count = 0;
+for (int i = 0; i < 8; ++i) {
+    int bit_offset = 16 + (i * 6) + 2;  // Third bit of each neighbor
+    support_count += (cache >> bit_offset) & 1;
+}
+```
+
+### Tradeoffs
+
+- **Memory**: +8 bytes per cell (relatively small, ~4% increase)
+- **Consistency**: Must maintain cache coherence on updates
+- **Complexity**: More bookkeeping code
+
+### Future Extensions
+
+The 3 reserved bits per neighbor could be used for:
+- **Fill ratio bins** (8 levels: 0%, 14%, 28%, ..., 100%)
+- **Pressure level** (8 bins for quick pressure queries)
+- **Velocity magnitude** (8 bins: still, slow, medium, fast, etc.)
+
+### Implementation Notes
+
+- Start with basic bits (has_material, same_material, can_support)
+- Add helper methods: `hasCohesionNeighbors()`, `getSupportCount()`, `getCenterMaterial()`
+- Profile before/after to validate performance gains
+- Consider making cache optional (runtime toggle for A/B testing)
+
+### Relationship to Grid-Level Caches
+
+These approaches complement each other:
+- **Grid-level**: Global queries ("which cells are empty?"), batch operations
+- **Per-cell**: Local queries ("does this cell have support?"), hot-path physics
+
+Use grid-level for broad scans, per-cell for detailed physics calculations.

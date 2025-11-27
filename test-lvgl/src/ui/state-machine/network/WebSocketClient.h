@@ -76,6 +76,12 @@ public:
     bool isConnected() const;
 
     /**
+     * @brief Get the current server URL.
+     * @return Server URL string (empty if not connected).
+     */
+    std::string getServerUrl() const;
+
+    /**
      * @brief Set callback for received messages (legacy JSON messages).
      * @param callback Function called when message received.
      */
@@ -101,6 +107,7 @@ public:
 
 private:
     std::shared_ptr<rtc::WebSocket> ws_;
+    std::string serverUrl_; // Current server URL.
     EventSink* eventSink_ = nullptr;
     MessageCallback messageCallback_;
     ConnectionCallback connectedCallback_;

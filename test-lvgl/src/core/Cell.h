@@ -24,7 +24,7 @@ struct Cell {
     static constexpr double MIN_FILL_THRESHOLD = 0.001; // Minimum matter to consider
     static constexpr double MAX_FILL_THRESHOLD = 0.999; // Maximum fill before "full"
 
-    // COM bounds (matches original World system).
+    // COM bounds.
     static constexpr double COM_MIN = -1.0;
     static constexpr double COM_MAX = 1.0;
 
@@ -49,19 +49,13 @@ struct Cell {
 
     Vector2d pressure_gradient = {};
 
-    // Force accumulation for visualization.
-    Vector2d accumulated_viscous_force = {};      // Viscous force from momentum diffusion.
-    Vector2d accumulated_adhesion_force = {};     // Adhesion force (different materials).
-    Vector2d accumulated_com_cohesion_force = {}; // COM cohesion force (same material).
-
     // Physics force accumulation.
     Vector2d pending_force = {};
 
-    // Cached physics values for visualization.
-    double cached_friction_coefficient = 1.0;
-
-    // Computed structural support (updated via bottom-up scan each frame).
-    bool has_support = false;
+    // Computed structural support (updated each frame).
+    bool has_any_support = false;
+    bool has_vertical_support = false;
+    // TODO - should this be vertical and horizontal support? maybe clearer/less bugs?
 
     // =================================================================
     // MATERIAL PROPERTIES
@@ -71,12 +65,6 @@ struct Cell {
 
     // Helper with invariant: clamps fill ratio and auto-converts to AIR.
     void setFillRatio(double ratio);
-
-    // =================================================================
-    // FORCE ACCUMULATION (for visualization)
-    // =================================================================
-
-    void clearAccumulatedForces();
 
     // =================================================================
     // PHYSICS FORCE ACCUMULATION
@@ -170,15 +158,6 @@ struct Cell {
     Vector2d getTransferDirection() const;
 
     // =================================================================
-
-    // =================================================================
-    // DEBUGGING
-    // =================================================================
-
-    // Debug string representation
-    std::string toString() const;
-
-    // =================================================================
     // CELLINTERFACE IMPLEMENTATION
     // =================================================================
 
@@ -199,6 +178,9 @@ struct Cell {
     // =================================================================
     // JSON SERIALIZATION
     // =================================================================
+
+    // Debug string representation
+    std::string toString() const;
 
     nlohmann::json toJson() const;
     static Cell fromJson(const nlohmann::json& json);

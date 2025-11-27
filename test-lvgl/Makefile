@@ -3,78 +3,91 @@
 # Default target.
 .DEFAULT_GOAL := help
 
-# Build directory.
-BUILD_DIR := build
+# Build directories (separate for debug and release).
+BUILD_DEBUG_DIR := build-debug
+BUILD_RELEASE_DIR := build-release
+BUILD_DIR := build-debug  # Default to debug for backward compatibility.
 BIN_DIR := bin
 
 # Number of parallel jobs (use all available cores).
 JOBS := $(shell nproc 2>/dev/null || echo 4)
 
-# Test binary name.
+# Test binary names.
 TEST_BINARY := sparkle-duck-tests
+TEST_SLOW_BINARY := sparkle-duck-tests-slow
 MAIN_BINARY := sparkle-duck
 
-.PHONY: all clean debug release asan build-tests test test-all visual-tests run run-asan test-asan format help
+.PHONY: all clean debug release asan build-tests build-tests-slow test test-slow test-all visual-tests run run-asan test-asan format help
 
 all: release
 
 release:
 	@echo "Building release version..."
-	@rm -rf $(BUILD_DIR)
-	@cmake -B $(BUILD_DIR) -S . -DCMAKE_BUILD_TYPE=Release
-	@$(MAKE) -C $(BUILD_DIR) -j$(JOBS)
+	@cmake -B $(BUILD_RELEASE_DIR) -S . -DCMAKE_BUILD_TYPE=Release
+	@$(MAKE) -C $(BUILD_RELEASE_DIR) -j$(JOBS)
 	@echo "Running tests to verify build..."
-	@./$(BUILD_DIR)/$(BIN_DIR)/$(TEST_BINARY)
+	@./$(BUILD_RELEASE_DIR)/$(BIN_DIR)/$(TEST_BINARY)
 
 debug:
 	@echo "Building debug version..."
-	@cmake -B $(BUILD_DIR) -S . -DCMAKE_BUILD_TYPE=Debug \
+	@cmake -B $(BUILD_DEBUG_DIR) -S . -DCMAKE_BUILD_TYPE=Debug \
 		-DCMAKE_C_FLAGS="-g -O0 -DLOG_DEBUG" \
 		-DCMAKE_CXX_FLAGS="-g -O0 -DLOG_DEBUG"
-	@$(MAKE) -C $(BUILD_DIR) -j$(JOBS)
+	@$(MAKE) -C $(BUILD_DEBUG_DIR) -j$(JOBS)
 
 asan:
 	@echo "Building debug version with AddressSanitizer..."
-	@cmake -B $(BUILD_DIR) -S . -DCMAKE_BUILD_TYPE=Debug \
+	@cmake -B $(BUILD_DEBUG_DIR) -S . -DCMAKE_BUILD_TYPE=Debug \
 		-DCMAKE_C_FLAGS="-g -O0 -DLOG_DEBUG -fsanitize=address -fno-omit-frame-pointer" \
 		-DCMAKE_CXX_FLAGS="-g -O0 -DLOG_DEBUG -fsanitize=address -fno-omit-frame-pointer" \
 		-DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address" \
 		-DCMAKE_SHARED_LINKER_FLAGS="-fsanitize=address"
-	@$(MAKE) -C $(BUILD_DIR) -j$(JOBS)
+	@$(MAKE) -C $(BUILD_DEBUG_DIR) -j$(JOBS)
 	@echo "ASAN build complete. Use 'make run-asan' or 'make test-asan' to run with AddressSanitizer."
 
 build-tests: debug
-	@echo "Test binary built successfully: $(BUILD_DIR)/$(BIN_DIR)/$(TEST_BINARY)"
+	@echo "Test binary built successfully: $(BUILD_DEBUG_DIR)/$(BIN_DIR)/$(TEST_BINARY)"
+
+build-tests-slow: debug
+	@echo "Slow test binary built successfully: $(BUILD_DEBUG_DIR)/$(BIN_DIR)/$(TEST_SLOW_BINARY)"
 
 test: build-tests
 	@echo "Running tests..."
-	@./$(BUILD_DIR)/$(BIN_DIR)/$(TEST_BINARY) $(ARGS)
+	@./$(BUILD_DEBUG_DIR)/$(BIN_DIR)/$(TEST_BINARY) $(ARGS)
+
+test-slow: build-tests-slow
+	@echo "Running slow tests..."
+	@./$(BUILD_DEBUG_DIR)/$(BIN_DIR)/$(TEST_SLOW_BINARY) $(ARGS)
 
 test-asan: asan
 	@echo "Running tests with AddressSanitizer..."
-	@ASAN_OPTIONS=detect_leaks=1:halt_on_error=0:print_stats=1 ./$(BUILD_DIR)/$(BIN_DIR)/$(TEST_BINARY) $(ARGS)
+	@ASAN_OPTIONS=detect_leaks=1:halt_on_error=0:print_stats=1 ./$(BUILD_DEBUG_DIR)/$(BIN_DIR)/$(TEST_BINARY) $(ARGS)
 
-test-all: test visual-tests
+test-all: test test-slow visual-tests
 
 visual-tests:
 	@echo "Running visual tests..."
-	@if [ ! -f "./$(BUILD_DIR)/$(BIN_DIR)/$(TEST_BINARY)" ]; then \
+	@if [ ! -f "./$(BUILD_DEBUG_DIR)/$(BIN_DIR)/$(TEST_BINARY)" ]; then \
 		echo "Error: Test binary not found. Run 'make debug' first."; \
 		exit 1; \
 	fi
 	@if [ -z "$$DISPLAY" ] && [ -z "$$WAYLAND_DISPLAY" ]; then \
 		echo "Warning: No display detected. Visual tests may not work properly."; \
 	fi
-	@SPARKLE_DUCK_VISUAL_TESTS=1 ./$(BUILD_DIR)/$(BIN_DIR)/$(TEST_BINARY) $(ARGS)
+	@SPARKLE_DUCK_VISUAL_TESTS=1 ./$(BUILD_DEBUG_DIR)/$(BIN_DIR)/$(TEST_BINARY) $(ARGS)
 
 run:
-	@echo "Running sparkle-duck..."
-	@./$(BUILD_DIR)/$(BIN_DIR)/$(MAIN_BINARY) -b wayland $(ARGS)
+	@echo "Running sparkle-duck (debug)..."
+	@./$(BUILD_DEBUG_DIR)/$(BIN_DIR)/$(MAIN_BINARY) -b wayland $(ARGS)
+
+run-release: release
+	@echo "Running sparkle-duck (release)..."
+	@./$(BUILD_RELEASE_DIR)/$(BIN_DIR)/$(MAIN_BINARY) -b wayland $(ARGS)
 
 run-asan: asan
 	@echo "Running sparkle-duck with AddressSanitizer..."
 	@echo "ASAN will report memory errors as they occur."
-	@ASAN_OPTIONS=detect_leaks=1:halt_on_error=0:print_stats=1 ./$(BUILD_DIR)/$(BIN_DIR)/$(MAIN_BINARY) -b wayland $(ARGS)
+	@ASAN_OPTIONS=detect_leaks=1:halt_on_error=0:print_stats=1 ./$(BUILD_DEBUG_DIR)/$(BIN_DIR)/$(MAIN_BINARY) -b wayland $(ARGS)
 
 format:
 	@echo "Formatting source code..."
@@ -82,7 +95,7 @@ format:
 
 clean:
 	@echo "Cleaning build artifacts..."
-	@rm -rf $(BUILD_DIR) $(BIN_DIR) lib
+	@rm -rf $(BUILD_DEBUG_DIR) $(BUILD_RELEASE_DIR) $(BIN_DIR) lib
 	@echo "Note: To clean in-source CMake artifacts, run: make clean-cmake"
 
 clean-cmake:
@@ -96,9 +109,11 @@ help:
 	@echo "  debug        - Build debug version with symbols and LOG_DEBUG"
 	@echo "  asan         - Build debug version with AddressSanitizer enabled"
 	@echo "  build-tests  - Build test binary without running tests"
-	@echo "  test         - Build debug and run unit tests"
+	@echo "  build-tests-slow - Build slow test binary"
+	@echo "  test         - Build debug and run unit tests (fast)"
+	@echo "  test-slow    - Run slow integration/stress tests"
 	@echo "  test-asan    - Build and run tests with AddressSanitizer"
-	@echo "  test-all     - Run all tests (unit + visual)"
+	@echo "  test-all     - Run all tests (unit + slow + visual)"
 	@echo "  visual-tests - Run tests with visual output enabled"
 	@echo "  run          - Run the main sparkle-duck executable"
 	@echo "  run-asan     - Run with AddressSanitizer to detect memory errors"

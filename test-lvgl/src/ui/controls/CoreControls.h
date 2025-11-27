@@ -2,6 +2,7 @@
 
 #include "core/WorldData.h"
 #include "lvgl/lvgl.h"
+#include "ui/rendering/RenderMode.h"
 
 namespace DirtSim {
 namespace Ui {
@@ -17,13 +18,23 @@ class EventSink;
  */
 class CoreControls {
 public:
-    CoreControls(lv_obj_t* container, WebSocketClient* wsClient, EventSink& eventSink);
+    CoreControls(
+        lv_obj_t* container,
+        WebSocketClient* wsClient,
+        EventSink& eventSink,
+        RenderMode initialMode = RenderMode::ADAPTIVE);
     ~CoreControls();
 
     /**
      * @brief Update stats display with FPS values.
      */
     void updateStats(double serverFPS, double uiFPS);
+
+    /**
+     * @brief Set render mode dropdown to match current mode.
+     * Used to sync UI after mode changes or scenario switches.
+     */
+    void setRenderMode(RenderMode mode);
 
 private:
     lv_obj_t* container_;
@@ -36,7 +47,7 @@ private:
     lv_obj_t* statsLabel_ = nullptr;
     lv_obj_t* statsLabelUI_ = nullptr;
     lv_obj_t* debugSwitch_ = nullptr;
-    lv_obj_t* pixelRendererSwitch_ = nullptr;
+    lv_obj_t* renderModeDropdown_ = nullptr;
     lv_obj_t* worldSizeContainer_ = nullptr;
     lv_obj_t* worldSizeSwitch_ = nullptr;
     lv_obj_t* worldSizeSlider_ = nullptr;
@@ -48,7 +59,7 @@ private:
     static void onQuitClicked(lv_event_t* e);
     static void onResetClicked(lv_event_t* e);
     static void onDebugToggled(lv_event_t* e);
-    static void onPixelRendererToggled(lv_event_t* e);
+    static void onRenderModeChanged(lv_event_t* e);
     static void onWorldSizeToggled(lv_event_t* e);
     static void onWorldSizeChanged(lv_event_t* e);
 };

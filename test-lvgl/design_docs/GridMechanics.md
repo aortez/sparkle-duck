@@ -7,7 +7,7 @@ World is composed of a grid of square cells.
 Each cell is from [0,1] full.
 
 ### Matter
-It is filled with matter, of one of the following types: dirt, water, wood, sand, metal, air, leaf, wall, and nothing.
+It is filled with matter, of one of the following types: dirt, water, wood, sand, metal, air, leaf, wall, root, and seed.
 
 The matter is modeled by a single particle within each cell.
 This is the cell's COM, or Center of Mass. The COM ranges from [-1, 1] in x and y.
@@ -280,8 +280,17 @@ This creates realistic behavior where compressed materials flow more easily than
 Cohesion now refers only to attractive forces between same-material particles.
 
 ### COM Force
-COM (Center-of-Mass) Cohesion - Attractive Forces.
-- Purpose: Pulls particles toward the weighted center of connected neighbors.
+COM (Center-of-Mass) Cohesion - Attractive Forces with two components:
+
+1. **Clustering Force**: Pulls particles toward the weighted center of same-material neighbors.
+   - Only active when same-material neighbors exist.
+   - Strength scales with neighbor count and mass.
+
+2. **Centering Force**: Pulls COM back toward cell center (0,0) for stability.
+   - **Scaled by neighbor connectivity**: Isolated particles (zero same-material neighbors) have zero centering force, allowing free movement through space.
+   - Particles with neighbors experience centering proportional to connection count.
+   - Prevents artificial drag on projectiles moving through AIR.
+
 - Method: Applies attractive forces directly to particle velocities.
 - Range: Configurable neighbor detection range (typically 2 cells).
 - Applied in: applyCohesionForces() - modifies velocity vectors each timestep.
@@ -291,8 +300,10 @@ COM (Center-of-Mass) Cohesion - Attractive Forces.
 Adhesion: Attractive forces between different material types (unlike cohesion which works on same materials)
 Purpose: Simulates how different materials stick to each other (e.g., water adhering to dirt, materials sticking to walls)
 
+**AIR handling**: AIR neighbors are explicitly skipped in adhesion calculations since AIR has zero adhesion. This prevents unnecessary force computations for particles moving through AIR.
+
 Each material has an adhesion value (0.0-1.0):
-AIR:   0.0  (no adhesion)
+AIR:   0.0  (no adhesion - always skipped)
 DIRT:  0.2  (moderate adhesion)
 WATER: 0.5  (high adhesion - sticks to surfaces)
 WOOD:  0.3  (moderate adhesion)
@@ -354,6 +365,16 @@ For arbitrary gravity direction, slices are perpendicular to gravity vector.
     Handle Partial Fills // Weight pressure by how full each cell is float effective_density = cell.fill_ratio * material_density[cell.type];
 
 // Pseudo-code for solid pressure if (material == DIRT || material == SAND) { // Granular - acts somewhat fluid-like under high pressure apply_hydrostatic_pressure(); if (pressure > friction_threshold) { allow_flow(); } } else if (material == WOOD || material == METAL) { // Rigid - only compress, don't flow apply_compression_only(); }
+
+### Rigid Material Pressure Response
+
+Materials marked as `is_rigid=true` (METAL, WOOD, WALL, SEED) do not respond to pressure gradients at all. This models the physical reality that solids transmit stress rather than flowing in response to pressure:
+
+- **Fluids** (WATER, AIR): Fully respond to pressure gradients, flowing from high to low pressure.
+- **Granular materials** (DIRT, SAND): Partially respond to pressure (scaled by `hydrostatic_weight`).
+- **Rigid materials** (METAL, WOOD, WALL, SEED): Skip pressure force application entirely.
+
+This separation allows viscosity to be used for its proper purpose (flow rate resistance) rather than as a hack to make solids behave solid-like.
 
 Dynamic Pressure methods:
 
@@ -453,11 +474,12 @@ Dynamic Pressure methods:
   ```
 
   **Key Behaviors**:
-  - Empty cells act as pressure sinks (pressure = 0)
+  - Empty cells are no-flux boundaries (pressure stays in fluid, doesn't leak into air)
   - Walls block pressure diffusion completely
   - Different materials create natural pressure gradients
   - Diffusion rate affects how quickly pressure equalizes
   - Works with unified pressure system (hydrostatic + dynamic)
+  - Minimum pressure change (0.5) allows zero-pressure cells to receive pressure via diffusion
 
 ### Pressure Wave Reflection
 
@@ -565,6 +587,16 @@ This approach models how fluid pressure naturally redistributes when encounterin
 - Normalizes final gradient by total number of directions (not just open ones)
 - Prevents excessive forces by distributing blocked pressure evenly
 - Works with both hydrostatic and dynamic pressure components
+
+### Pressure Gradient Improvements
+
+Recent fixes enable proper pressure-driven flow:
+
+1. **No early bailout** - Gradients calculated even for zero-pressure cells, allowing high-pressure neighbors to push into low-pressure regions
+2. **Vertical gradient includes empty cells** - Empty cells above fluid create downward gradient (pressure 0 vs fluid pressure), enabling upward forces
+3. **Combined with no-flux diffusion** - Pressure stays in fluid while gradient creates force toward empty space
+
+This enables U-tube equalization and other pressure-driven vertical flow.
 
 ## Force Combination Logic
 

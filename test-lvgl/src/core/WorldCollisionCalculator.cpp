@@ -2,8 +2,11 @@
 #include "Cell.h"
 #include "LoggingChannels.h"
 #include "MaterialMove.h"
+#include "MaterialType.h"
+#include "PhysicsSettings.h"
 #include "World.h"
 #include "WorldCohesionCalculator.h"
+#include "WorldData.h"
 #include "WorldPressureCalculator.h"
 #include "spdlog/spdlog.h"
 #include <algorithm>
@@ -15,16 +18,15 @@ using namespace DirtSim;
 // COLLISION DETECTION.
 // =================================================================
 
-std::vector<Vector2i> WorldCollisionCalculator::getAllBoundaryCrossings(
-    const Vector2d& newCOM) const
+BoundaryCrossings WorldCollisionCalculator::getAllBoundaryCrossings(const Vector2d& newCOM) const
 {
-    std::vector<Vector2i> crossings;
+    BoundaryCrossings crossings;
 
-    // Check each boundary independently (aligned with original shouldTransfer logic)
-    if (newCOM.x >= 1.0) crossings.push_back(Vector2i(1, 0));   // Right boundary.
-    if (newCOM.x <= -1.0) crossings.push_back(Vector2i(-1, 0)); // Left boundary.
-    if (newCOM.y >= 1.0) crossings.push_back(Vector2i(0, 1));   // Down boundary.
-    if (newCOM.y <= -1.0) crossings.push_back(Vector2i(0, -1)); // Up boundary.
+    // Check each boundary independently (aligned with original shouldTransfer logic).
+    if (newCOM.x >= 1.0) crossings.add(Vector2i(1, 0));   // Right boundary.
+    if (newCOM.x <= -1.0) crossings.add(Vector2i(-1, 0)); // Left boundary.
+    if (newCOM.y >= 1.0) crossings.add(Vector2i(0, 1));   // Down boundary.
+    if (newCOM.y <= -1.0) crossings.add(Vector2i(0, -1)); // Up boundary.
 
     return crossings;
 }
@@ -36,8 +38,7 @@ MaterialMove WorldCollisionCalculator::createCollisionAwareMove(
     const Vector2i& fromPos,
     const Vector2i& toPos,
     const Vector2i& direction,
-    double /* deltaTime. */,
-    const WorldCohesionCalculator::COMCohesionForce& com_cohesion) const
+    double /* deltaTime */) const
 {
     MaterialMove move;
 
@@ -59,10 +60,10 @@ MaterialMove WorldCollisionCalculator::createCollisionAwareMove(
     double excess = wants_to_transfer - move.amount;
     move.pressure_from_excess = 0.0; // Initialize.
 
-    if (excess > MIN_MATTER_THRESHOLD && world.isDynamicPressureEnabled()) {
+    if (excess > MIN_MATTER_THRESHOLD && world.getPhysicsSettings().pressure_dynamic_strength > 0) {
         double blocked_mass = excess * getMaterialDensity(fromCell.material_type);
         double energy = fromCell.velocity.magnitude() * blocked_mass;
-        double dynamic_strength = world.getDynamicPressureStrength();
+        double dynamic_strength = world.getPhysicsSettings().pressure_dynamic_strength;
         double pressure_increase =
             energy * 0.1 * dynamic_strength; // Apply dynamic pressure strength.
 
@@ -90,10 +91,6 @@ MaterialMove WorldCollisionCalculator::createCollisionAwareMove(
     move.material_mass = calculateMaterialMass(fromCell);
     move.target_mass = calculateMaterialMass(toCell);
     move.collision_energy = calculateCollisionEnergy(move, fromCell, toCell);
-
-    // Add COM cohesion force data.
-    move.com_cohesion_magnitude = com_cohesion.force_magnitude;
-    move.com_cohesion_direction = com_cohesion.force_direction;
 
     // Determine collision type based on materials and energy.
     move.collision_type =
@@ -340,7 +337,7 @@ void WorldCollisionCalculator::handleTransferMove(
             transfer_deficit);
 
         // Queue blocked transfer for dynamic pressure accumulation.
-        if (world.isDynamicPressureEnabled()) {
+        if (world.getPhysicsSettings().pressure_dynamic_strength > 0) {
             // Calculate energy with proper mass consideration.
             double material_density = getMaterialDensity(move.material);
             double blocked_mass = transfer_deficit * material_density;
@@ -544,11 +541,12 @@ void WorldCollisionCalculator::handleInelasticCollision(
         transfer_deficit);
     spdlog::debug(
         "Dynamic pressure enabled: {}, deficit > threshold: {} (threshold={:.6f})",
-        world.isDynamicPressureEnabled(),
+        world.getPhysicsSettings().pressure_dynamic_strength > 0,
         transfer_deficit > MIN_MATTER_THRESHOLD,
         MIN_MATTER_THRESHOLD);
 
-    if (transfer_deficit > MIN_MATTER_THRESHOLD && world.isDynamicPressureEnabled()) {
+    if (transfer_deficit > MIN_MATTER_THRESHOLD
+        && world.getPhysicsSettings().pressure_dynamic_strength > 0) {
         spdlog::debug(
             "🚫 Inelastic collision blocked transfer: requested={:.3f}, transferred={:.3f}, "
             "deficit={:.3f}",
@@ -760,88 +758,274 @@ bool WorldCollisionCalculator::densitySupportsSwap(
 }
 
 bool WorldCollisionCalculator::shouldSwapMaterials(
+    const World& world,
+    uint32_t fromX,
+    uint32_t fromY,
     const Cell& fromCell,
     const Cell& toCell,
     const Vector2i& direction,
     const MaterialMove& move) const
 {
-    // Don't swap same materials.
     if (fromCell.material_type == toCell.material_type) {
         LoggingChannels::swap()->debug("Swap denied: same material type");
         return false;
     }
 
-    // Check swap requirements based on direction.
-    if (direction.y == 0) {
-        // Horizontal swap: require pressure gradient driving in the swap direction.
-        // For swap to be pressure-driven, fromCell must have higher pressure (pushing material
-        // forward).
-        const double pressure_diff = fromCell.pressure - toCell.pressure; // Signed difference.
-
-        // Mass-normalized pressure threshold: heavier materials need more pressure to displace.
-        const double BASE_PRESSURE_THRESHOLD = 2.0; // Tunable base value.
-        const double target_mass = toCell.getEffectiveDensity();
-        const double required_pressure = BASE_PRESSURE_THRESHOLD * target_mass;
-        const bool swap_ok = pressure_diff >= required_pressure;
-
-        LoggingChannels::swap()->info(
-            "Horizontal swap check: {} <-> {} | pressure_diff: {:.3f} required: {:.3f} (mass: "
-            "{:.3f}) | swap_ok: {}",
-            getMaterialName(fromCell.material_type),
-            getMaterialName(toCell.material_type),
-            pressure_diff,
-            required_pressure,
-            target_mass,
-            swap_ok);
-
-        if (!swap_ok) {
-            return false;
-        }
-    }
-    else {
-        // Vertical swap: require density support (buoyancy).
-        const double from_density = getMaterialProperties(fromCell.material_type).density;
-        const double to_density = getMaterialProperties(toCell.material_type).density;
-        const bool swap_ok = densitySupportsSwap(fromCell, toCell, direction);
-
-        LoggingChannels::swap()->info(
-            "Vertical swap check: {} <-> {} | from_dens: {:.2f} to_dens: {:.2f} dir.y: {} | "
-            "swap_ok: {}",
-            getMaterialName(fromCell.material_type),
-            getMaterialName(toCell.material_type),
-            from_density,
-            to_density,
-            direction.y,
-            swap_ok);
-
-        if (!swap_ok) {
-            return false;
-        }
-    }
-
-    // Calculate swap cost: energy to accelerate target cell's contents to 1 cell/second.
-    // Note: getEffectiveDensity() already includes fill_ratio, so don't multiply again.
-    const double target_mass = toCell.getEffectiveDensity();
-    const double SWAP_COST_SCALAR = 1;
-    const double swap_cost =
-        SWAP_COST_SCALAR * 0.5 * target_mass * 1.0; // KE = 0.5 * m * v^2, v = 1.0
-
-    // Energy gate: collision energy must exceed swap cost.
-    const double available_energy = move.collision_energy;
-
-    if (available_energy < swap_cost) {
+    // Check if target is rigid AND supported.
+    // Unsupported rigid materials (floating in water) can be displaced by buoyancy.
+    // Supported rigid materials (resting on ground) cannot be displaced.
+    const MaterialProperties& to_props = getMaterialProperties(toCell.material_type);
+    if (to_props.is_rigid && toCell.has_any_support) {
         LoggingChannels::swap()->debug(
-            "Swap denied: insufficient energy ({:.3f} < {:.3f})", available_energy, swap_cost);
+            "Swap denied: cannot displace supported rigid material {}",
+            getMaterialName(toCell.material_type));
         return false;
     }
 
-    LoggingChannels::swap()->info(
-        "Swap approved: {} -> {} | Energy: {:.3f} >= {:.3f} | Dir: {}",
-        getMaterialName(fromCell.material_type),
-        getMaterialName(toCell.material_type),
-        available_energy,
-        swap_cost,
-        direction.y > 0 ? "DOWN" : "UP");
+    // Check swap requirements based on direction.
+    if (direction.y == 0) {
+        // Horizontal swap: momentum-based displacement.
+        // FROM cell needs enough momentum to push TO cell out of the way.
+
+        const MaterialProperties& from_props = getMaterialProperties(fromCell.material_type);
+
+        // FROM: momentum in direction of movement (mass × velocity).
+        double from_mass = from_props.density * fromCell.fill_ratio;
+        double from_velocity = std::abs(fromCell.velocity.x);
+        double from_momentum = from_mass * from_velocity;
+
+        // Fluids pushing solids sideways is harder - they flow around instead.
+        if (from_props.is_fluid && !to_props.is_fluid) {
+            from_momentum *= 0.25;
+        }
+
+        // TO: resistance to being displaced.
+        double to_mass = to_props.density * toCell.fill_ratio;
+
+        // Cohesion makes materials stick together (dirt > sand).
+        double cohesion_resistance = 1.0 + to_props.cohesion;
+
+        // Supported materials are much harder to displace.
+        double support_factor = toCell.has_any_support ? 5.0 : 1.0;
+
+        // Fluids are easier to displace than solids.
+        double fluid_factor = 1; // to_props.is_fluid ? 0.2 : 1.0;
+
+        double to_resistance = to_mass * cohesion_resistance * support_factor * fluid_factor;
+
+        // Swap if momentum overcomes resistance.
+        const double threshold = world.getPhysicsSettings().horizontal_flow_resistance_factor;
+        const bool swap_ok = from_momentum > to_resistance * threshold;
+
+        if (!swap_ok) {
+            return false;
+        }
+        // Log horizontal swap approval details.
+        if (toCell.material_type != MaterialType::AIR) {
+            // LoggingChannels::swap()->warn(
+            //     "Horizontal swap OK: {} -> {} at ({},{}) -> ({},{}) | momentum: {:.3f} (mass: "
+            //     "{:.3f}, "
+            //     "vel: {:.3f}) | resistance: {:.3f} (mass: {:.3f}, cohesion: {:.3f}, support: "
+            //     "{:.1f}, "
+            //     "fluid: {:.1f}) | threshold: {:.3f}",
+            //     getMaterialName(fromCell.material_type),
+            //     getMaterialName(toCell.material_type),
+            //     fromX,
+            //     fromY,
+            //     fromX + direction.x,
+            //     fromY + direction.y,
+            //     from_momentum,
+            //     from_mass,
+            //     from_velocity,
+            //     to_resistance,
+            //     to_mass,
+            //     to_props.cohesion,
+            //     support_factor,
+            //     fluid_factor,
+            //     to_resistance * threshold);
+        }
+    }
+    else {
+        // Vertical swap: momentum-based with buoyancy assist.
+        // Density must support the swap direction AND momentum must overcome resistance.
+        const MaterialProperties& from_props = getMaterialProperties(fromCell.material_type);
+
+        // Check density-based buoyancy direction.
+        const double from_density = from_props.density;
+        const double to_density = to_props.density;
+        const bool density_ok = densitySupportsSwap(fromCell, toCell, direction);
+
+        if (!density_ok) {
+            return false;
+        }
+
+        // FROM: momentum in direction of movement.
+        double from_mass = from_props.density * fromCell.fill_ratio;
+        double from_velocity = std::abs(fromCell.velocity.y);
+        double from_momentum = from_mass * from_velocity;
+
+        // Buoyancy adds "free" momentum based on density difference.
+        // Larger density differences create stronger buoyancy forces.
+        double density_diff = std::abs(from_density - to_density);
+        double buoyancy_boost = density_diff * world.getPhysicsSettings().buoyancy_energy_scale;
+        double effective_momentum = from_momentum + buoyancy_boost;
+
+        // TO: resistance to being displaced.
+        // For vertical swaps, no fluid_factor - must move the mass regardless of fluidity.
+        double to_mass = to_props.density * toCell.fill_ratio;
+        double cohesion_resistance = 1.0 + to_props.cohesion;
+        double support_factor = toCell.has_any_support ? 5.0 : 1.0;
+        double to_resistance = to_mass * cohesion_resistance * support_factor;
+
+        // Swap if effective momentum overcomes resistance.
+        const double threshold = world.getPhysicsSettings().horizontal_flow_resistance_factor;
+        const bool swap_ok = effective_momentum > to_resistance * threshold;
+
+        if (!swap_ok) {
+            return false;
+        }
+        // Log vertical swap approval details.
+        if (toCell.material_type != MaterialType::AIR) {
+            // LoggingChannels::swap()->warn(
+            //     "Vertical swap OK: {} -> {} at ({},{}) -> ({},{}) | momentum: {:.3f} (mass: "
+            //     "{:.3f}, "
+            //     "vel: {:.3f}, buoyancy: {:.3f}) | resistance: {:.3f} (mass: {:.3f}, cohesion: "
+            //     "{:.3f}, "
+            //     "support: {:.1f}) | threshold: {:.3f} | dir.y: {} ({})",
+            //     getMaterialName(fromCell.material_type),
+            //     getMaterialName(toCell.material_type),
+            //     fromX,
+            //     fromY,
+            //     fromX + direction.x,
+            //     fromY + direction.y,
+            //     effective_momentum,
+            //     from_mass,
+            //     from_velocity,
+            //     buoyancy_boost,
+            //     to_resistance,
+            //     to_mass,
+            //     to_props.cohesion,
+            //     support_factor,
+            //     to_resistance * threshold,
+            //     direction.y,
+            //     direction.y > 0 ? "DOWN" : "UP");
+        }
+    }
+
+    // Check cohesion resistance.
+    double cohesion_strength = calculateCohesionStrength(fromCell, world, fromX, fromY);
+    double bond_breaking_cost =
+        cohesion_strength * world.getPhysicsSettings().cohesion_resistance_factor;
+
+    // Get material properties for fluid checks.
+    const MaterialProperties& from_props = getMaterialProperties(fromCell.material_type);
+
+    // Reduce bond cost for fluid interactions (fluids help separate materials).
+    if (from_props.is_fluid || to_props.is_fluid) {
+        bond_breaking_cost *= world.getPhysicsSettings().fluid_lubrication_factor;
+    }
+
+    if (cohesion_strength > 0.01) {
+        LoggingChannels::swap()->debug(
+            "Cohesion check: {} at ({},{}) | strength: {:.3f}, bond_cost: {:.3f} (fluid_adjusted)",
+            getMaterialName(fromCell.material_type),
+            fromX,
+            fromY,
+            cohesion_strength,
+            bond_breaking_cost);
+    }
+
+    // Calculate swap cost: energy to accelerate target cell's contents to 1 cell/second.
+    const double target_mass = toCell.getEffectiveDensity();
+    const double SWAP_COST_SCALAR = 1;
+    double swap_cost = SWAP_COST_SCALAR * 0.5 * target_mass * 1.0; // KE = 0.5 * m * v^2, v = 1.0
+
+    // Non-fluids require more energy to displace (both source and target).
+    if (!from_props.is_fluid || !to_props.is_fluid) {
+        swap_cost *= world.getPhysicsSettings().non_fluid_energy_multiplier;
+    }
+
+    // Total cost includes base swap cost + bond breaking cost.
+    const double total_cost = swap_cost + bond_breaking_cost;
+    double available_energy = move.collision_energy;
+
+    // Add buoyancy energy for vertical swaps driven by density differences.
+    // Light materials rising or heavy materials sinking get "free" energy from buoyancy.
+    if (direction.y != 0) {
+        const double density_diff = std::abs(from_props.density - to_props.density);
+        const bool is_buoyancy_driven = densitySupportsSwap(fromCell, toCell, direction);
+
+        if (is_buoyancy_driven && density_diff > 0.1) {
+            const double buoyancy_energy =
+                density_diff * world.getPhysicsSettings().buoyancy_energy_scale;
+            available_energy += buoyancy_energy;
+
+            LoggingChannels::swap()->debug(
+                "Buoyancy boost: {} <-> {} | density_diff: {:.3f}, buoyancy_energy: {:.3f}, total: "
+                "{:.3f}",
+                getMaterialName(fromCell.material_type),
+                getMaterialName(toCell.material_type),
+                density_diff,
+                buoyancy_energy,
+                available_energy);
+        }
+    }
+
+    if (available_energy < total_cost) {
+        if (bond_breaking_cost > 0.01) {
+            LoggingChannels::swap()->debug(
+                "Swap denied: insufficient energy to break cohesive bonds ({:.3f} < {:.3f}, "
+                "bond_cost: {:.3f})",
+                available_energy,
+                total_cost,
+                bond_breaking_cost);
+        }
+        else {
+            LoggingChannels::swap()->debug(
+                "Swap denied: insufficient energy ({:.3f} < {:.3f})", available_energy, total_cost);
+        }
+        return false;
+    }
+
+    if (toCell.material_type == MaterialType::AIR) {
+        LoggingChannels::swap()->debug(
+            "Swap approved: {} -> {} at ({},{}) -> ({},{}) | Energy: {:.3f} >= {:.3f} (base: "
+            "{:.3f}, bonds: {:.3f}) | Dir: ({},{}) {}",
+            getMaterialName(fromCell.material_type),
+            getMaterialName(toCell.material_type),
+            fromX,
+            fromY,
+            fromX + direction.x,
+            fromY + direction.y,
+            available_energy,
+            total_cost,
+            swap_cost,
+            bond_breaking_cost,
+            direction.x,
+            direction.y,
+            direction.y > 0 ? "DOWN"
+                            : (direction.y < 0 ? "UP" : (direction.x > 0 ? "RIGHT" : "LEFT")));
+    }
+    else {
+
+        LoggingChannels::swap()->info(
+            "Swap approved: {} -> {} at ({},{}) -> ({},{}) | Energy: {:.3f} >= {:.3f} (base: "
+            "{:.3f}, bonds: {:.3f}) | Dir: ({},{}) {}",
+            getMaterialName(fromCell.material_type),
+            getMaterialName(toCell.material_type),
+            fromX,
+            fromY,
+            fromX + direction.x,
+            fromY + direction.y,
+            available_energy,
+            total_cost,
+            swap_cost,
+            bond_breaking_cost,
+            direction.x,
+            direction.y,
+            direction.y > 0 ? "DOWN"
+                            : (direction.y < 0 ? "UP" : (direction.x > 0 ? "RIGHT" : "LEFT")));
+    }
 
     return true;
 }
@@ -849,12 +1033,9 @@ bool WorldCollisionCalculator::shouldSwapMaterials(
 void WorldCollisionCalculator::swapCounterMovingMaterials(
     Cell& fromCell, Cell& toCell, const Vector2i& direction, const MaterialMove& move)
 {
-    LoggingChannels::swap()->info(
-        "SWAP: {} <-> {} (direction: {},{})",
-        getMaterialName(fromCell.material_type),
-        getMaterialName(toCell.material_type),
-        direction.x,
-        direction.y);
+    // Store material types before swap for logging.
+    const MaterialType from_type = fromCell.material_type;
+    const MaterialType to_type = toCell.material_type;
 
     // Calculate swap cost.
     // Note: getEffectiveDensity() already includes fill_ratio, so don't multiply again.
@@ -862,11 +1043,8 @@ void WorldCollisionCalculator::swapCounterMovingMaterials(
     const double swap_cost = 0.5 * target_mass * 1.0;
 
     // Calculate remaining energy after swap.
-    // Swaps are inelastic - materials lose significant energy during position exchange.
-    const double SWAP_ENERGY_RETENTION =
-        0.5; // Retain 50% of energy (lose 50% to turbulence/friction).
-    const double remaining_energy =
-        std::max(0.0, (move.collision_energy - swap_cost) * SWAP_ENERGY_RETENTION);
+    // Energy is only lost proportional to work done (swap_cost).
+    const double remaining_energy = std::max(0.0, move.collision_energy - swap_cost);
 
     // Get mass of moving material (fromCell -> toCell).
     const double moving_mass = fromCell.getEffectiveDensity();
@@ -906,14 +1084,53 @@ void WorldCollisionCalculator::swapCounterMovingMaterials(
     fromCell.setCOM(Vector2d(0.0, 0.0));
     fromCell.velocity = Vector2d(0.0, 0.0);
 
-    LoggingChannels::swap()->info(
-        "SWAP complete: {} | Energy: {:.3f} - {:.3f} = {:.3f} | Vel: {:.3f} -> {:.3f}",
-        getMaterialName(temp_type),
-        move.collision_energy,
-        swap_cost,
-        remaining_energy,
-        move.momentum.magnitude(),
-        velocity_magnitude_new);
+    // Log with full details, INFO for non-air swaps, DEBUG for air swaps.
+    const bool involves_air = (from_type == MaterialType::AIR || to_type == MaterialType::AIR);
+    const char* direction_str =
+        direction.y > 0 ? "DOWN" : (direction.y < 0 ? "UP" : (direction.x > 0 ? "RIGHT" : "LEFT"));
+
+    if (involves_air) {
+        LoggingChannels::swap()->debug(
+            "SWAP: {} <-> {} at ({},{}) <-> ({},{}) Dir:({},{}) {} | Energy: {:.3f} - {:.3f} = "
+            "{:.3f} | Vel: {:.3f} -> {:.3f} | landing_com: ({:.2f},{:.2f})",
+            getMaterialName(from_type),
+            getMaterialName(to_type),
+            move.fromX,
+            move.fromY,
+            move.toX,
+            move.toY,
+            direction.x,
+            direction.y,
+            direction_str,
+            move.collision_energy,
+            swap_cost,
+            remaining_energy,
+            move.momentum.magnitude(),
+            velocity_magnitude_new,
+            landing_com.x,
+            landing_com.y);
+    }
+    else {
+        LoggingChannels::swap()->info(
+            "SWAP: {} <-> {} at ({},{}) <-> ({},{}) Dir:({},{}) {} | Energy: {:.3f} - {:.3f} = "
+            "{:.3f} | Vel: {:.3f} -> {:.3f} | landing_com: ({:.2f},{:.2f})",
+            getMaterialName(from_type),
+            getMaterialName(to_type),
+            move.fromX,
+            move.fromY,
+            move.toX,
+            move.toY,
+            direction.x,
+            direction.y,
+            direction_str,
+            move.collision_energy,
+            swap_cost,
+            remaining_energy,
+            move.momentum.magnitude(),
+            velocity_magnitude_new,
+            landing_com.x,
+            landing_com.y);
+    }
 }
 
 // =================================================================
@@ -946,4 +1163,19 @@ bool WorldCollisionCalculator::isMaterialRigid(MaterialType material)
         default:
             return false;
     }
+}
+
+double WorldCollisionCalculator::calculateCohesionStrength(
+    const Cell& cell, const World& world, uint32_t x, uint32_t y) const
+{
+    if (cell.isEmpty()) {
+        return 0.0;
+    }
+
+    // Reuse existing cohesion calculation that includes support factor.
+    WorldCohesionCalculator cohesion_calc;
+    const auto cohesion_force = cohesion_calc.calculateCohesionForce(world, x, y);
+
+    // Return the resistance magnitude (includes neighbors, fill ratio, and support factor).
+    return cohesion_force.resistance_magnitude;
 }

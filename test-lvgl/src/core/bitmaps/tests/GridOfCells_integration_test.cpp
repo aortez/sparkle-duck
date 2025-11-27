@@ -1,5 +1,6 @@
 #include "core/GridOfCells.h"
 #include "core/World.h"
+#include "core/WorldData.h"
 
 #include <chrono>
 #include <gtest/gtest.h>
@@ -137,14 +138,18 @@ TEST(GridOfCellsTest, EmptyCellBitmapMatchesCellState)
     world.addMaterialAtCell(15, 15, MaterialType::METAL, 0.8);
 
     // Build grid cache.
-    GridOfCells grid(world.data.cells, world.data.width, world.data.height, world.timers_);
+    GridOfCells grid(
+        world.getData().cells,
+        world.getData().debug_info,
+        world.getData().width,
+        world.getData().height);
 
     // Verify every cell's bitmap state matches actual cell state.
     int mismatches = 0;
     for (uint32_t y = 0; y < 20; ++y) {
         for (uint32_t x = 0; x < 20; ++x) {
             bool bitmap_says_empty = grid.emptyCells().isSet(x, y);
-            bool cell_is_empty = world.at(x, y).isEmpty();
+            bool cell_is_empty = world.getData().at(x, y).isEmpty();
 
             if (bitmap_says_empty != cell_is_empty) {
                 ++mismatches;
@@ -180,7 +185,11 @@ TEST(GridOfCellsTest, CacheConstructionOverhead)
 
     // Measure cache construction time.
     auto start = std::chrono::high_resolution_clock::now();
-    GridOfCells grid(world.data.cells, world.data.width, world.data.height, world.timers_);
+    GridOfCells grid(
+        world.getData().cells,
+        world.getData().debug_info,
+        world.getData().width,
+        world.getData().height);
     auto end = std::chrono::high_resolution_clock::now();
 
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);

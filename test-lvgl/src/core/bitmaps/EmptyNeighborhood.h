@@ -43,7 +43,10 @@ public:
      * @param dy Y offset from center [-1, 1]
      * @return true if neighbor is in-bounds and has fill_ratio == 0
      */
-    bool isEmpty(int dx, int dy) const;
+    inline bool isEmpty(int dx, int dy) const
+    {
+        return data_.isValidAt(dx, dy) && data_.getAt(dx, dy);
+    }
 
     /**
      * Check if neighbor exists and has material (not empty).
@@ -52,7 +55,10 @@ public:
      * @param dy Y offset from center [-1, 1]
      * @return true if neighbor is in-bounds and has fill_ratio > 0
      */
-    bool hasMaterial(int dx, int dy) const;
+    inline bool hasMaterial(int dx, int dy) const
+    {
+        return data_.isValidAt(dx, dy) && !data_.getAt(dx, dy);
+    }
 
     // ========== Optimized Mask Helpers ==========
 

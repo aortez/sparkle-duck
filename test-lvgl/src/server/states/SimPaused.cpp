@@ -1,6 +1,8 @@
 #include "State.h"
+#include "core/Timers.h"
 #include "server/StateMachine.h"
 #include "server/api/TimerStatsGet.h"
+#include "server/scenarios/ScenarioRegistry.h"
 #include <spdlog/spdlog.h>
 
 namespace DirtSim {
@@ -48,7 +50,7 @@ State::Any SimPaused::onEvent(const Api::StateGet::Cwc& cwc, StateMachine& dsm)
     else {
         // Fallback: cache not ready yet, copy from world.
         Api::StateGet::Okay responseData;
-        responseData.worldData = previousState.world->data;
+        responseData.worldData = previousState.world->getData();
         cwc.sendResponse(Response::okay(std::move(responseData)));
     }
     return std::move(*this);

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "RenderMode.h"
 #include "core/Cell.h"
 #include "core/WorldData.h"
 #include "lvgl/lvgl.h"
@@ -20,7 +21,7 @@ public:
         const WorldData& worldData,
         lv_obj_t* parent,
         bool debugDraw,
-        bool usePixelRenderer = false);
+        RenderMode mode = RenderMode::ADAPTIVE);
     void cleanup();
 
 private:
@@ -41,23 +42,40 @@ private:
     int32_t lastContainerWidth_ = 0;
     int32_t lastContainerHeight_ = 0;
 
-    // Scaled cell dimensions for fitting the drawing area
+    // Scaled cell dimensions for fitting the drawing area.
     uint32_t scaledCellWidth_ = Cell::WIDTH;
     uint32_t scaledCellHeight_ = Cell::HEIGHT;
     double scaleX_ = 1.0;
     double scaleY_ = 1.0;
 
-    void calculateScaling(uint32_t worldWidth, uint32_t worldHeight);
+    // Track current render mode to detect changes requiring reinitialization.
+    RenderMode currentMode_ = RenderMode::ADAPTIVE;
 
-    // Direct rendering to single canvas at scaled resolution (optimized)
-    void renderCellDirectOptimized(
+    void calculateScaling(uint32_t worldWidth, uint32_t worldHeight);
+    void initializeWithPixelSize(
+        lv_obj_t* parent, uint32_t worldWidth, uint32_t worldHeight, uint32_t pixelsPerCell);
+
+    // LVGL-based cell rendering (used for LVGL_DEBUG mode).
+    void renderCellLVGL(
         const Cell& cell,
+        const CellDebug& debug,
         lv_layer_t& layer,
         int32_t cellX,
         int32_t cellY,
-        bool debugDraw,
-        bool usePixelRenderer);
+        bool debugDraw);
 };
+
+// Bresenham's line algorithm for fast pixel-based line drawing.
+// Exposed for unit testing. Uses only integer math for maximum performance.
+void drawLineBresenham(
+    uint32_t* pixels,
+    uint32_t canvasWidth,
+    uint32_t canvasHeight,
+    int x0,
+    int y0,
+    int x1,
+    int y1,
+    uint32_t color);
 
 } // namespace Ui
 } // namespace DirtSim

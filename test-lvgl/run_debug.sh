@@ -79,7 +79,7 @@ trap cleanup EXIT INT TERM
 
 # Launch server in background.
 echo "Launching DSSM server on port 8080..."
-./build/bin/sparkle-duck-server $LOG_ARGS -p 8080 &
+./build-debug/bin/sparkle-duck-server $LOG_ARGS -p 8080 &
 SERVER_PID=$!
 
 # Wait a moment for server to start.
@@ -103,4 +103,4 @@ echo "UI:     ws://localhost:7070"
 echo ""
 
 # Run UI in foreground - when it exits, cleanup will run.
-./build/bin/sparkle-duck-ui $LOG_ARGS -b wayland --connect localhost:8080
+./build-debug/bin/sparkle-duck-ui $LOG_ARGS -b wayland --connect localhost:8080

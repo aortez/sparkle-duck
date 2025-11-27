@@ -2,14 +2,35 @@
 
 Command-line client for interacting with Sparkle Duck server and UI via WebSocket.
 
+## Quick Start
+
+**New to the CLI?** Try these commands first:
+
+```bash
+# 1. Launch everything (easiest way to get started)
+./build/bin/cli run-all
+
+# 2. In another terminal, send a command
+./build/bin/cli status_get ws://localhost:8080
+
+# 3. See a visual snapshot
+./build/bin/cli diagram_get ws://localhost:8080
+
+# 4. Clean up when done
+./build/bin/cli cleanup
+```
+
+That's it! Now read below for details...
+
 ## Overview
 
-The CLI provides four modes of operation:
+The CLI provides five modes of operation:
 
 1. **Command Mode**: Send individual commands to server or UI
-2. **Benchmark Mode**: Automated performance testing with metrics collection
-3. **Cleanup Mode**: Find and gracefully shutdown rogue sparkle-duck processes
-4. **Integration Test Mode**: Automated server + UI lifecycle testing
+2. **Run-All Mode**: Launch both server and UI with one command
+3. **Benchmark Mode**: Automated performance testing with metrics collection
+4. **Cleanup Mode**: Find and gracefully shutdown rogue sparkle-duck processes
+5. **Integration Test Mode**: Automated server + UI lifecycle testing
 
 ## Usage
 
@@ -18,26 +39,48 @@ The CLI provides four modes of operation:
 Send commands to the server or UI:
 
 ```bash
+# Syntax: cli [command] [address] [params]
+
 # Basic command (no parameters)
-./build/bin/cli ws://localhost:8080 state_get
+./build/bin/cli state_get ws://localhost:8080
 
 # Command with JSON parameters
-./build/bin/cli ws://localhost:8080 sim_run '{"timestep": 0.016, "max_steps": 10}'
+./build/bin/cli sim_run ws://localhost:8080 '{"timestep": 0.016, "max_steps": 10}'
 
 # Place material
-./build/bin/cli ws://localhost:8080 cell_set '{"x": 50, "y": 50, "material": "WATER", "fill": 1.0}'
+./build/bin/cli cell_set ws://localhost:8080 '{"x": 50, "y": 50, "material": "WATER", "fill": 1.0}'
 
 # Get emoji visualization
-./build/bin/cli ws://localhost:8080 diagram_get
+./build/bin/cli diagram_get ws://localhost:8080
 
 # Control simulation
-./build/bin/cli ws://localhost:8080 sim_run '{"timestep": 0.016, "max_steps": 100}'
-./build/bin/cli ws://localhost:8080 reset
-./build/bin/cli ws://localhost:8080 exit
+./build/bin/cli sim_run ws://localhost:8080 '{"timestep": 0.016, "max_steps": 100}'
+./build/bin/cli reset ws://localhost:8080
+./build/bin/cli exit ws://localhost:8080
 
 # Send commands to UI (port 7070)
-./build/bin/cli ws://localhost:7070 draw_debug_toggle '{"enabled": true}'
+./build/bin/cli draw_debug_toggle ws://localhost:7070 '{"enabled": true}'
 ```
+
+### Run-All Mode
+
+Launch both server and UI with a single command:
+
+```bash
+# Auto-detects display backend and launches both processes
+./build/bin/cli run-all
+```
+
+**What it does**:
+- Auto-detects display backend (Wayland/X11)
+- Launches server on port 8080
+- Launches UI and auto-connects to server
+- Monitors UI process
+- Auto-shuts down server when UI exits
+
+**Use case**: Quickest way to launch everything for interactive testing.
+
+**Note**: Runs in foreground - press Ctrl+C to exit both processes.
 
 ### Benchmark Mode
 
@@ -50,8 +93,11 @@ Automated performance testing with server auto-launch:
 # Different scenario
 ./build/bin/cli benchmark --scenario sandbox --steps 120
 
-# Custom scenario with more steps
-./build/bin/cli benchmark --scenario dam_break --steps 1000
+# Custom world size (default: scenario default)
+./build/bin/cli benchmark --world-size 150 --steps 120
+
+# Full control: scenario, world size, and step count
+./build/bin/cli benchmark --scenario sandbox --world-size 150 --steps 1000
 ```
 
 **Output**: Clean JSON results including:
@@ -63,7 +109,7 @@ Automated performance testing with server auto-launch:
 - Detailed timer statistics (subsystem breakdown: cohesion, adhesion, pressure, etc.)
 
 **Features**:
-- Server runs with logging disabled (`--log-level off`) for clean output
+- Server runs with logging disabled (`--log-config benchmark-logging-config.json`) for clean output
 - Client logs suppressed (use `--verbose` to see debug info)
 - Pure JSON output suitable for piping to `jq` or CI/CD tools
 
@@ -76,7 +122,7 @@ Automated performance testing with server auto-launch:
   "timer_stats": {
     "cohesion_calculation": {"avg_ms": 0.09, "total_ms": 10.8, "calls": 120},
     "adhesion_calculation": {"avg_ms": 0.03, "total_ms": 3.6, "calls": 120},
-    "resolve_forces_total": {"avg_ms": 0.28, "total_ms": 33.6, "calls": 120}
+    "resolve_forces": {"avg_ms": 0.28, "total_ms": 33.6, "calls": 120}
   }
 }
 ```
@@ -110,6 +156,8 @@ Find and gracefully shutdown rogue sparkle-duck processes:
 3. **SIGKILL** - Force kill (last resort)
 
 **All waits exit early** if process dies before timeout.
+
+**Performance**: Typical cleanup time is under 500ms. WebSocket shutdown usually completes in 200-400ms.
 
 **Use cases:**
 - Clean up after crashes during development
@@ -179,6 +227,47 @@ Automated end-to-end testing:
   - `>0` = runs that many steps then transitions to SimPaused
 - `exit` works from any state
 
+## Troubleshooting
+
+### "Failed to connect to ws://localhost:8080"
+
+Server not running? Launch it:
+```bash
+./build/bin/cli run-all
+```
+
+Or check what's running:
+```bash
+pgrep -fa sparkle-duck
+```
+
+### "Port already in use"
+
+Clean up any rogue processes:
+```bash
+./build/bin/cli cleanup
+```
+
+### Cleanup seems slow or hangs
+
+If `run-all` is running in another terminal, it monitors the UI and won't let the server exit until the UI closes. Either:
+- Use Ctrl+C on the `run-all` terminal first
+- Or just use `cleanup` - it will force shutdown with SIGTERM/SIGKILL
+
+### Response timeout errors
+
+Increase timeout for slow operations:
+```bash
+./build/bin/cli --timeout 10000 state_get ws://localhost:8080  # 10 second timeout
+```
+
+### Want to see what's happening?
+
+Use verbose mode to see WebSocket traffic:
+```bash
+./build/bin/cli --verbose status_get ws://localhost:8080
+```
+
 ## Use Cases
 
 ### CI/CD Integration
@@ -195,19 +284,98 @@ Automated end-to-end testing:
 
 ```bash
 #!/bin/bash
-# Launch server
-./build/bin/sparkle-duck-server -p 8080 &
-SERVER_PID=$!
+# Launch server and UI using CLI
+./build/bin/cli run-all &
 
 # Wait for ready
-sleep 2
+sleep 3
 
 # Run commands
-./build/bin/cli ws://localhost:8080 sim_run '{"timestep": 0.016, "max_steps": 100}'
-./build/bin/cli ws://localhost:8080 state_get > world_state.json
-./build/bin/cli ws://localhost:8080 diagram_get
+./build/bin/cli sim_run ws://localhost:8080 '{"timestep": 0.016, "max_steps": 100}'
+./build/bin/cli state_get ws://localhost:8080 > world_state.json
+./build/bin/cli diagram_get ws://localhost:8080
 
-# Cleanup
-./build/bin/cli ws://localhost:8080 exit
-wait $SERVER_PID
+# Cleanup (gracefully shuts down both server and UI)
+./build/bin/cli cleanup
 ```
+
+## Tips & Best Practices
+
+### Use StatusGet for Polling
+
+StatusGet is lightweight (~15ms response time) compared to StateGet (full world data):
+
+```bash
+# Fast status check for polling
+./build/bin/cli status_get ws://localhost:8080 | jq '{timestep: .value.timestep}'
+
+# Full world state (slower, use for detailed inspection)
+./build/bin/cli state_get ws://localhost:8080
+```
+
+### Polling Pattern
+
+Wait for simulation to complete a certain number of steps:
+
+```bash
+./build/bin/cli sim_run ws://localhost:8080 '{"max_steps": 100}'
+
+while true; do
+    STEP=$(./build/bin/cli status_get ws://localhost:8080 | jq '.value.timestep')
+    echo "Current step: $STEP"
+    [ "$STEP" -ge 100 ] && break
+    sleep 0.1
+done
+```
+
+### Debugging with Verbose Mode
+
+```bash
+# See WebSocket traffic and correlation IDs
+./build/bin/cli --verbose status_get ws://localhost:8080
+
+# Shows:
+# - Connection establishment
+# - Correlation ID: 1
+# - JSON request/response
+# - Response routing
+```
+
+### Timing Analysis
+
+```bash
+# Time individual commands
+time ./build/bin/cli status_get ws://localhost:8080
+
+# Timestamp entire workflow
+./workflow_script.sh 2>&1 | ts '[%H:%M:%.S]'
+```
+
+### Always Cleanup
+
+The cleanup command is robust and handles edge cases:
+
+```bash
+# Gracefully shuts down ALL sparkle-duck processes
+./build/bin/cli cleanup
+
+# Shows which method worked:
+# ✓ WebSocket API (most graceful)
+# ✓ SIGTERM (graceful signal)
+# ✓ SIGKILL (force kill)
+```
+
+### Auto-Generated Command List
+
+The CLI automatically discovers all server and UI commands at compile-time.
+Check the help to see what's available:
+
+```bash
+# Always up-to-date with actual server/UI capabilities
+./build/bin/cli --help
+
+# Server API Commands (18 total)
+# UI API Commands (10 total)
+```
+
+When new commands are added to the server or UI, they automatically appear in the CLI help.

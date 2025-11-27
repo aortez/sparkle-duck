@@ -10,7 +10,7 @@ namespace DirtSim {
 
 // Material property database.
 // Each material is defined using designated initializers for easy editing and understanding.
-static std::array<MaterialProperties, 9> MATERIAL_PROPERTIES = {
+static std::array<MaterialProperties, 10> MATERIAL_PROPERTIES = {
     { // ========== AIR ==========
       // Nearly massless, high elasticity, no cohesion/adhesion, very high pressure diffusion.
       { .density = 0.001,
@@ -33,13 +33,13 @@ static std::array<MaterialProperties, 9> MATERIAL_PROPERTIES = {
       // ========== DIRT ==========
       { .density = 1.5,
         .elasticity = 0.2,
-        .cohesion = 0.9,
+        .cohesion = 0.5,
         .adhesion = 0.2,
-        .air_resistance = 0.3,
-        .hydrostatic_weight = 0.5,
+        .air_resistance = 0.1,
+        .hydrostatic_weight = 0.25,
         .dynamic_weight = 1.0,
         .pressure_diffusion = 0.3,
-        .viscosity = 0.3,
+        .viscosity = 0.5,
         .motion_sensitivity = 0.0,
         .static_friction_coefficient = 1.0,
         .kinetic_friction_coefficient = 0.5,
@@ -51,8 +51,8 @@ static std::array<MaterialProperties, 9> MATERIAL_PROPERTIES = {
       // ========== LEAF ==========
       { .density = 0.3,
         .elasticity = 0.4,
-        .cohesion = 0.3,
-        .adhesion = 0.2,
+        .cohesion = 0.7,
+        .adhesion = 0.8,
         .air_resistance = 0.8,
         .hydrostatic_weight = 1.0,
         .dynamic_weight = 0.6,
@@ -72,10 +72,10 @@ static std::array<MaterialProperties, 9> MATERIAL_PROPERTIES = {
         .cohesion = 1.0,
         .adhesion = 0.1,
         .air_resistance = 0.1,
-        .hydrostatic_weight = 1.0,
+        .hydrostatic_weight = 0.0, // Rigid materials don't respond to pressure.
         .dynamic_weight = 0.5,
         .pressure_diffusion = 0.1,
-        .viscosity = 0.95,
+        .viscosity = 1,
         .motion_sensitivity = 0.1,
         .static_friction_coefficient = 1.5,
         .kinetic_friction_coefficient = 1.0,
@@ -83,6 +83,25 @@ static std::array<MaterialProperties, 9> MATERIAL_PROPERTIES = {
         .friction_transition_width = 0.02,
         .is_fluid = false,
         .is_rigid = true },
+
+      // ========== ROOT ==========
+      // Underground tree tissue that grips soil and forms networks.
+      { .density = 1.2,
+        .elasticity = 0.3,
+        .cohesion = 0.8,
+        .adhesion = 0.6,
+        .air_resistance = 0.3,
+        .hydrostatic_weight = 1.0,
+        .dynamic_weight = 0.7,
+        .pressure_diffusion = 0.4,
+        .viscosity = 0.7,
+        .motion_sensitivity = 0.3,
+        .static_friction_coefficient = 1.2,
+        .kinetic_friction_coefficient = 0.8,
+        .stick_velocity = 0.03,
+        .friction_transition_width = 0.05,
+        .is_fluid = false,
+        .is_rigid = false },
 
       // ========== SAND ==========
       { .density = 1.8,
@@ -103,15 +122,15 @@ static std::array<MaterialProperties, 9> MATERIAL_PROPERTIES = {
         .is_rigid = false },
 
       // ========== SEED ==========
-      { .density = 8.0,
+      { .density = 1.5,
         .elasticity = 0.2,
         .cohesion = 0.9,
         .adhesion = 0.3,
         .air_resistance = 0.2,
-        .hydrostatic_weight = 1.0,
+        .hydrostatic_weight = 0.0, // Rigid materials don't respond to pressure.
         .dynamic_weight = 0.5,
         .pressure_diffusion = 0.1,
-        .viscosity = 0.1,
+        .viscosity = 0.8,
         .motion_sensitivity = 0.1,
         .static_friction_coefficient = 1.3,
         .kinetic_friction_coefficient = 0.9,
@@ -126,7 +145,7 @@ static std::array<MaterialProperties, 9> MATERIAL_PROPERTIES = {
         .cohesion = 1.0,
         .adhesion = 0.5,
         .air_resistance = 0.0,
-        .hydrostatic_weight = 1.0,
+        .hydrostatic_weight = 0.0, // Rigid materials don't respond to pressure.
         .dynamic_weight = 0.0,
         .pressure_diffusion = 0.0,
         .viscosity = 1.0,
@@ -147,7 +166,7 @@ static std::array<MaterialProperties, 9> MATERIAL_PROPERTIES = {
         .hydrostatic_weight = 1.0,
         .dynamic_weight = 0.8,
         .pressure_diffusion = 0.9,
-        .viscosity = 0.5,
+        .viscosity = 0.01,
         .motion_sensitivity = 1.0,
         .static_friction_coefficient = 1.0,
         .kinetic_friction_coefficient = 1.0,
@@ -157,15 +176,15 @@ static std::array<MaterialProperties, 9> MATERIAL_PROPERTIES = {
         .is_rigid = false },
 
       // ========== WOOD ==========
-      { .density = 0.8,
+      { .density = 0.3,
         .elasticity = 0.6,
         .cohesion = 0.7,
         .adhesion = 0.3,
-        .air_resistance = 0.4,
-        .hydrostatic_weight = 1.0,
+        .air_resistance = 0.2,
+        .hydrostatic_weight = 0.0,
         .dynamic_weight = 0.5,
         .pressure_diffusion = 0.15,
-        .viscosity = 0.9,
+        .viscosity = 0.3,
         .motion_sensitivity = 0.2,
         .static_friction_coefficient = 1.3,
         .kinetic_friction_coefficient = 0.9,
@@ -176,8 +195,8 @@ static std::array<MaterialProperties, 9> MATERIAL_PROPERTIES = {
 };
 
 // Material name lookup table.
-static const std::array<const char*, 9> MATERIAL_NAMES = {
-    { "AIR", "DIRT", "LEAF", "METAL", "SAND", "SEED", "WALL", "WATER", "WOOD" }
+static const std::array<const char*, 10> MATERIAL_NAMES = {
+    { "AIR", "DIRT", "LEAF", "METAL", "ROOT", "SAND", "SEED", "WALL", "WATER", "WOOD" }
 };
 
 const MaterialProperties& getMaterialProperties(MaterialType type)

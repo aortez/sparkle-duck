@@ -322,6 +322,70 @@ public:
         Result<lv_obj_t*, std::string> createToggleSlider();
     };
 
+    /**
+     * @brief CollapsiblePanelBuilder - Creates a collapsible panel with header and content area.
+     *
+     * Layout: [▼ Title]
+     *         [Content Area]
+     *
+     * Clicking the header toggles the content visibility with smooth animation.
+     */
+    class CollapsiblePanelBuilder {
+    public:
+        explicit CollapsiblePanelBuilder(lv_obj_t* parent);
+
+        // Configuration.
+        CollapsiblePanelBuilder& title(const char* text);
+        CollapsiblePanelBuilder& size(int width, int height = LV_SIZE_CONTENT);
+        CollapsiblePanelBuilder& size(const Size& sz);
+        CollapsiblePanelBuilder& initiallyExpanded(bool expanded);
+        CollapsiblePanelBuilder& backgroundColor(uint32_t color);
+        CollapsiblePanelBuilder& headerColor(uint32_t color);
+        CollapsiblePanelBuilder& onToggle(lv_event_cb_t cb, void* user_data = nullptr);
+
+        // Build the collapsible panel (returns the container).
+        Result<lv_obj_t*, std::string> build();
+
+        // Build with automatic error logging (returns container or nullptr).
+        lv_obj_t* buildOrLog();
+
+        // Access to created objects.
+        lv_obj_t* getContainer() const { return container_; }
+        lv_obj_t* getHeader() const { return header_; }
+        lv_obj_t* getContent() const { return content_; }
+        lv_obj_t* getTitleLabel() const { return title_label_; }
+        lv_obj_t* getIndicator() const { return indicator_; }
+
+        // Check if currently expanded.
+        bool isExpanded() const { return is_expanded_; }
+
+    private:
+        lv_obj_t* parent_;
+        lv_obj_t* container_;
+        lv_obj_t* header_;
+        lv_obj_t* content_;
+        lv_obj_t* title_label_;
+        lv_obj_t* indicator_;
+
+        std::string title_text_ = "Panel";
+        Size size_;
+        bool is_expanded_ = true;
+        uint32_t bg_color_ = 0x303030;
+        uint32_t header_color_ = 0x404040;
+        lv_event_cb_t toggle_callback_ = nullptr;
+        void* user_data_ = nullptr;
+
+        Result<lv_obj_t*, std::string> createCollapsiblePanel();
+        static void onHeaderClick(lv_event_t* e);
+
+        // Store state for the collapse/expand animation.
+        struct PanelState {
+            lv_obj_t* content;
+            lv_obj_t* indicator;
+            bool is_expanded;
+        };
+    };
+
     // Static factory methods for fluent interface.
     static SliderBuilder slider(lv_obj_t* parent);
     static ButtonBuilder button(lv_obj_t* parent);
@@ -329,6 +393,7 @@ public:
     static DropdownBuilder dropdown(lv_obj_t* parent);
     static LabeledSwitchBuilder labeledSwitch(lv_obj_t* parent);
     static ToggleSliderBuilder toggleSlider(lv_obj_t* parent);
+    static CollapsiblePanelBuilder collapsiblePanel(lv_obj_t* parent);
 
     // Common value transform functions for sliders.
     struct Transforms {

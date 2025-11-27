@@ -74,6 +74,7 @@ public:
     static std::shared_ptr<spdlog::logger> network() { return get("network"); }
     static std::shared_ptr<spdlog::logger> state() { return get("state"); }
     static std::shared_ptr<spdlog::logger> scenario() { return get("scenario"); }
+    static std::shared_ptr<spdlog::logger> tree() { return get("tree"); }
 
 private:
     /**

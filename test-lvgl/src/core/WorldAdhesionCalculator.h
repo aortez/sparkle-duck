@@ -4,6 +4,7 @@
 #include "MaterialType.h"
 #include "Vector2d.h"
 #include "WorldCalculatorBase.h"
+#include "bitmaps/MaterialNeighborhood.h"
 
 namespace DirtSim {
 
@@ -32,6 +33,10 @@ public:
 
     // Main calculation method.
     AdhesionForce calculateAdhesionForce(const World& world, uint32_t x, uint32_t y) const;
+
+    // Cache-optimized version using MaterialNeighborhood.
+    AdhesionForce calculateAdhesionForce(
+        const World& world, uint32_t x, uint32_t y, const MaterialNeighborhood& mat_n) const;
 
     // Adhesion parameters - NOTE: Now uses World.physicsSettings, these are legacy wrappers.
     // These methods are kept for backward compatibility but delegate to World.physicsSettings.
