@@ -82,6 +82,43 @@ systemctl --user daemon-reload
 systemctl --user enable sparkle-duck.service
 ```
 
+### 6. labwc Autostart (for proper boot sequencing)
+
+The systemd service may start before the Wayland compositor is ready. To fix this, create a labwc autostart script that restarts the service once the compositor is up:
+
+```bash
+mkdir -p ~/.config/labwc
+cat << 'EOF' > ~/.config/labwc/autostart
+# Start Sparkle Duck after compositor is ready
+systemctl --user restart sparkle-duck.service
+EOF
+chmod +x ~/.config/labwc/autostart
+```
+
+### 7. HyperPixel Touch Calibration (if using rotated display)
+
+If your HyperPixel display is rotated, touch input won't match by default. Create a udev rule to fix it:
+
+**For 90° CCW rotation (rotated left):**
+```bash
+sudo tee /etc/udev/rules.d/99-hyperpixel-touch.rules << 'EOF'
+# HyperPixel touch rotation (90 degrees CCW / left to match display)
+ATTRS{name}=="Goodix Capacitive TouchScreen", ENV{LIBINPUT_CALIBRATION_MATRIX}="0 -1 1 1 0 0"
+EOF
+sudo udevadm control --reload-rules && sudo udevadm trigger
+```
+
+**For 90° CW rotation (rotated right):**
+```bash
+sudo tee /etc/udev/rules.d/99-hyperpixel-touch.rules << 'EOF'
+# HyperPixel touch rotation (90 degrees CW / right to match display)
+ATTRS{name}=="Goodix Capacitive TouchScreen", ENV{LIBINPUT_CALIBRATION_MATRIX}="0 1 0 -1 0 1"
+EOF
+sudo udevadm control --reload-rules && sudo udevadm trigger
+```
+
+Reboot for changes to take full effect.
+
 ## Usage
 
 ### Remote Deploy (from dev machine)
@@ -174,3 +211,14 @@ systemctl --user restart sparkle-duck
 
 **Build fails on Pi**
 - SSH in and build manually to see errors: `ssh dirtsim` then `cd ... && make debug`
+
+**UI not visible after boot / 100% CPU**
+- Service likely started before Wayland was ready
+- Check logs: `journalctl --user -u sparkle-duck | grep -i wayland`
+- If you see "failed to connect to Wayland server", restart: `systemctl --user restart sparkle-duck`
+- Ensure labwc autostart is set up (see step 6)
+
+**Touch input doesn't match display rotation**
+- See step 7 for HyperPixel touch calibration
+- Check current rotation: `wlr-randr`
+- Verify touch device: `libinput list-devices | grep -A5 -i touch`
