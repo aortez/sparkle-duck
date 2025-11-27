@@ -2,6 +2,7 @@
 #include "core/MaterialType.h"
 #include <algorithm>
 #include <random>
+#include <set>
 #include <spdlog/spdlog.h>
 #include <vector>
 
@@ -83,15 +84,10 @@ TreeCommand RuleBasedBrain::decide(const TreeSensoryData& sensory)
 
             if (suitability == GrowthSuitability::SUITABLE) {
                 has_grown_first_wood_ = true;
-                trunk_base_ =
-                    sensory.seed_position; // Lock trunk position to original seed location.
                 spdlog::info(
-                    "RuleBasedBrain: Growing first WOOD above seed at ({}, {}), trunk_base=({}, "
-                    "{})",
+                    "RuleBasedBrain: Growing first WOOD above seed at ({}, {})",
                     wood_pos.x,
-                    wood_pos.y,
-                    trunk_base_.x,
-                    trunk_base_.y);
+                    wood_pos.y);
 
                 return GrowWoodCommand{ .target_pos = wood_pos, .execution_time_seconds = 3.0 };
             }
@@ -107,116 +103,141 @@ TreeCommand RuleBasedBrain::decide(const TreeSensoryData& sensory)
         return WaitCommand{ .duration_seconds = 2.0 };
     }
 
-    // Analyze tree structure for realistic growth.
+    // Analyze tree structure for realistic growth (re-derived each frame).
     TreeMetrics metrics = analyzeTreeStructure(sensory);
 
-    spdlog::info(
-        "TreeMetrics: above={:.2f}, below={:.2f}, ratio={:.2f}, trunk_height={}, trunk_cells={}, "
-        "branch_cells={}",
+    spdlog::debug(
+        "TreeMetrics: above={:.2f}, below={:.2f}, trunk_height={}, canopy={}x{}, flat={}",
         metrics.above_ground_mass,
         metrics.below_ground_mass,
-        metrics.below_ground_mass > 0 ? metrics.above_ground_mass / metrics.below_ground_mass
-                                      : 999.0,
         metrics.trunk_height,
-        metrics.trunk_cells.size(),
-        metrics.branch_cells.size());
+        metrics.canopy_width,
+        metrics.canopy_height,
+        metrics.isTooFlat());
 
-    // Priority 1: Ensure roots support canopy (above_ground <= 2 × below_ground).
+    // Priority 1: Ensure roots support canopy.
     if (metrics.above_ground_mass > 1.0 * metrics.below_ground_mass) {
-        spdlog::info(
-            "RuleBasedBrain: [Priority 1] NEED ROOTS: above={:.2f} > 1.0×below={:.2f}",
-            metrics.above_ground_mass,
-            metrics.below_ground_mass);
         Vector2i pos = findGrowthPosition(sensory, MaterialType::ROOT);
         if (checkGrowthSuitability(sensory, pos, MaterialType::ROOT)
             == GrowthSuitability::SUITABLE) {
-            spdlog::info("RuleBasedBrain: Growing ROOT for support at ({},{})", pos.x, pos.y);
+            spdlog::debug("RuleBasedBrain: [P1] Growing ROOT for support at ({},{})", pos.x, pos.y);
             return GrowRootCommand{ .target_pos = pos, .execution_time_seconds = 2.0 };
         }
-        else {
-            spdlog::warn("RuleBasedBrain: Cannot find suitable root location!");
-        }
-    }
-    else {
-        spdlog::info(
-            "RuleBasedBrain: [Priority 1] SKIP roots: above={:.2f} <= 1.0×below={:.2f} (ratio OK)",
-            metrics.above_ground_mass,
-            metrics.below_ground_mass);
     }
 
-    // Priority 2: Build minimum trunk height before branching.
-    if (metrics.trunk_height < 2) {
-        spdlog::info(
-            "RuleBasedBrain: [Priority 2] NEED trunk: height={} < 2", metrics.trunk_height);
+    // Priority 2: Grow trunk if tree is too flat or trunk is too short.
+    bool need_trunk = metrics.trunk_height < 3 || metrics.isTooFlat();
+    if (need_trunk) {
         Vector2i pos = findTrunkGrowthPosition(sensory, metrics);
         if (checkGrowthSuitability(sensory, pos, MaterialType::WOOD)
             == GrowthSuitability::SUITABLE) {
-            spdlog::info("RuleBasedBrain: Growing TRUNK upward at ({},{})", pos.x, pos.y);
+            spdlog::debug(
+                "RuleBasedBrain: [P2] Growing TRUNK at ({},{}) (height={}, flat={})",
+                pos.x,
+                pos.y,
+                metrics.trunk_height,
+                metrics.isTooFlat());
             return GrowWoodCommand{ .target_pos = pos, .execution_time_seconds = 3.0 };
         }
     }
-    else {
-        spdlog::info(
-            "RuleBasedBrain: [Priority 2] SKIP trunk: height={} >= 2", metrics.trunk_height);
+
+    // Priority 3: Start new branch tier if spacing allows.
+    // Find highest trunk cell where we can start a new branch (respecting 3-cell spacing).
+    if (metrics.trunk_height >= 3) {
+        for (const auto& trunk_cell : metrics.trunk_cells) {
+            int relative_y = trunk_cell.y - sensory.seed_position.y;
+
+            if (metrics.canFitBranchAt(relative_y)) {
+                // Check target branch length for this tier.
+                int target_length = getBranchTargetLength(relative_y, metrics.trunk_height);
+
+                // Find how long existing branches are at this tier.
+                int current_length = 0;
+                for (const auto& branch : metrics.branch_cells) {
+                    if (branch.y == trunk_cell.y) {
+                        int dist = std::abs(branch.x - sensory.seed_position.x);
+                        current_length = std::max(current_length, dist);
+                    }
+                }
+
+                if (current_length < target_length) {
+                    // Grow toward emptiest side.
+                    bool prefer_left = metrics.left_mass < metrics.right_mass;
+                    Vector2i left = trunk_cell + Vector2i{ -1, 0 };
+                    Vector2i right = trunk_cell + Vector2i{ 1, 0 };
+                    Vector2i pos = prefer_left ? left : right;
+
+                    if (checkGrowthSuitability(sensory, pos, MaterialType::WOOD)
+                        != GrowthSuitability::SUITABLE) {
+                        pos = prefer_left ? right : left; // Try other side.
+                    }
+
+                    if (checkGrowthSuitability(sensory, pos, MaterialType::WOOD)
+                        == GrowthSuitability::SUITABLE) {
+                        spdlog::debug(
+                            "RuleBasedBrain: [P3] Starting BRANCH at ({},{}) tier={}",
+                            pos.x,
+                            pos.y,
+                            relative_y);
+                        return GrowWoodCommand{ .target_pos = pos, .execution_time_seconds = 3.0 };
+                    }
+                }
+            }
+        }
     }
 
-    // Priority 3: Balance left/right growth with branches.
-    if (shouldStartBranch(metrics)) {
-        double imbalance_ratio = metrics.left_mass > 0 && metrics.right_mass > 0
-            ? std::min(metrics.left_mass, metrics.right_mass)
-                / std::max(metrics.left_mass, metrics.right_mass)
-            : 0.0;
+    // Priority 4: Extend existing branches toward emptiest canopy sector.
+    const CanopySector& emptiest = findEmptiestSector(metrics);
+    bool target_left =
+        (&emptiest == &metrics.left_high || &emptiest == &metrics.left_mid
+         || &emptiest == &metrics.left_low);
 
-        spdlog::info(
-            "RuleBasedBrain: [Priority 3] left={:.2f}, right={:.2f}, imbalance={:.2f}",
-            metrics.left_mass,
-            metrics.right_mass,
-            imbalance_ratio);
+    for (const auto& branch : metrics.branch_cells) {
+        int relative_y = branch.y - sensory.seed_position.y;
+        int target_length = getBranchTargetLength(relative_y, metrics.trunk_height);
+        int current_dist = std::abs(branch.x - sensory.seed_position.x);
 
-        // Force branch growth if imbalanced OR alternating with trunk.
-        if (imbalance_ratio < 0.8 || metrics.trunk_height % 2 == 0) {
-            Vector2i pos = findBranchGrowthPosition(sensory, metrics);
+        if (current_dist < target_length) {
+            // Extend in the direction away from trunk.
+            int direction = (branch.x < sensory.seed_position.x) ? -1 : 1;
+
+            // If this branch is on the side we want to fill, prioritize it.
+            bool is_target_side = (direction < 0) == target_left;
+            if (!is_target_side && metrics.branch_cells.size() > 1) {
+                continue; // Skip, check other branches first.
+            }
+
+            Vector2i pos = branch + Vector2i{ direction, 0 };
             if (checkGrowthSuitability(sensory, pos, MaterialType::WOOD)
                 == GrowthSuitability::SUITABLE) {
-                spdlog::info(
-                    "RuleBasedBrain: Growing BRANCH at ({},{}) - balancing sides", pos.x, pos.y);
+                spdlog::debug(
+                    "RuleBasedBrain: [P4] Extending BRANCH at ({},{}) toward {} sector",
+                    pos.x,
+                    pos.y,
+                    target_left ? "left" : "right");
                 return GrowWoodCommand{ .target_pos = pos, .execution_time_seconds = 3.0 };
             }
         }
-        else {
-            spdlog::info(
-                "RuleBasedBrain: [Priority 3] SKIP branch: balance OK (imbalance={:.2f} >= 0.8)",
-                imbalance_ratio);
-        }
-    }
-    else {
-        spdlog::info(
-            "RuleBasedBrain: [Priority 3] SKIP branch: trunk too short (height={})",
-            metrics.trunk_height);
     }
 
-    // Priority 4: Grow leaves at branch tips.
+    // Priority 5: Grow leaves at branch tips.
     TreeComposition comp = analyzeTreeComposition(sensory);
     double total = comp.total_cells > 0 ? comp.total_cells : 1.0;
     double leaf_ratio = comp.leaf_count / total;
 
-    if (leaf_ratio < 0.25) {
+    if (leaf_ratio < 0.25 && metrics.branch_cells.size() > 0) {
         Vector2i pos = findLeafGrowthPositionOnBranches(sensory, metrics);
         if (checkGrowthSuitability(sensory, pos, MaterialType::LEAF)
             == GrowthSuitability::SUITABLE) {
-            spdlog::info("RuleBasedBrain: Growing LEAF at tips");
+            spdlog::debug("RuleBasedBrain: [P5] Growing LEAF at ({},{})", pos.x, pos.y);
             return GrowLeafCommand{ .target_pos = pos, .execution_time_seconds = 0.5 };
         }
     }
 
-    // Priority 5: Continue trunk/branch growth.
+    // Priority 6: Continue trunk growth if nothing else to do.
     Vector2i pos = findTrunkGrowthPosition(sensory, metrics);
     if (checkGrowthSuitability(sensory, pos, MaterialType::WOOD) == GrowthSuitability::SUITABLE) {
-        return GrowWoodCommand{ .target_pos = pos, .execution_time_seconds = 3.0 };
-    }
-
-    pos = findBranchGrowthPosition(sensory, metrics);
-    if (checkGrowthSuitability(sensory, pos, MaterialType::WOOD) == GrowthSuitability::SUITABLE) {
+        spdlog::debug("RuleBasedBrain: [P6] Fallback TRUNK growth at ({},{})", pos.x, pos.y);
         return GrowWoodCommand{ .target_pos = pos, .execution_time_seconds = 3.0 };
     }
 
@@ -419,13 +440,22 @@ TreeMetrics RuleBasedBrain::analyzeTreeStructure(const TreeSensoryData& sensory)
     int root_idx = static_cast<int>(MaterialType::ROOT);
     int seed_idx = static_cast<int>(MaterialType::SEED);
 
+    // Track bounds for canopy dimensions.
+    int min_x = INT32_MAX, max_x = INT32_MIN;
+    int min_y = INT32_MAX, max_y = INT32_MIN;
+    double total_mass = 0.0;
+    double com_x = 0.0, com_y = 0.0;
+
+    // Track unique branch tiers (y-positions where branches exist).
+    std::set<int> branch_tier_set;
+
     // Scan all cells and categorize them.
     for (int y = 0; y < sensory.GRID_SIZE; y++) {
         for (int x = 0; x < sensory.GRID_SIZE; x++) {
             Vector2i world_pos = sensory.world_offset + Vector2i{ x, y };
             const auto& hist = sensory.material_histograms[y][x];
 
-            // Calculate cell mass.
+            // Calculate cell mass (only above-ground tree materials for canopy).
             double wood_mass = (hist[wood_idx] > 0.5) ? 0.3 : 0.0;
             double leaf_mass = (hist[leaf_idx] > 0.5) ? 0.3 : 0.0;
             double root_mass = (hist[root_idx] > 0.5) ? 1.2 : 0.0;
@@ -441,24 +471,78 @@ TreeMetrics RuleBasedBrain::analyzeTreeStructure(const TreeSensoryData& sensory)
                 metrics.right_mass += cell_mass;
 
             // Above/below ground (relative to seed y).
-            if (world_pos.y < seed.y) {
+            int relative_y = world_pos.y - seed.y;
+            if (relative_y < 0) {
                 metrics.above_ground_mass += cell_mass;
+
+                // Track canopy bounds (above-ground only).
+                min_x = std::min(min_x, world_pos.x);
+                max_x = std::max(max_x, world_pos.x);
+                min_y = std::min(min_y, world_pos.y);
+                max_y = std::max(max_y, world_pos.y);
+
+                // Accumulate for center of mass.
+                com_x += world_pos.x * cell_mass;
+                com_y += world_pos.y * cell_mass;
+                total_mass += cell_mass;
             }
-            else if (world_pos.y > seed.y) {
+            else if (relative_y > 0) {
                 metrics.below_ground_mass += cell_mass;
             }
 
             // Identify trunk cells (vertical WOOD directly above seed).
             if (hist[wood_idx] > 0.5 && world_pos.x == seed.x && world_pos.y < seed.y) {
                 metrics.trunk_cells.push_back(world_pos);
-                spdlog::info("Found trunk cell at ({}, {})", world_pos.x, world_pos.y);
             }
 
             // Identify branch cells (lateral WOOD, not on trunk).
             if (hist[wood_idx] > 0.5 && world_pos.x != seed.x && world_pos.y < seed.y) {
                 metrics.branch_cells.push_back(world_pos);
+                branch_tier_set.insert(relative_y); // Track unique branch tiers.
+            }
+
+            // Assign to canopy sectors (above-ground, left/right × high/mid/low).
+            if (relative_y < 0 && (wood_mass > 0.0 || leaf_mass > 0.0)) {
+                bool is_left = world_pos.x < seed.x;
+                bool is_right = world_pos.x > seed.x;
+
+                // Determine height band (relative to trunk height, estimated).
+                // For now, use fixed bands: high=-6+, mid=-3 to -5, low=-1 to -2.
+                CanopySector* sector = nullptr;
+                if (relative_y <= -6) {
+                    sector =
+                        is_left ? &metrics.left_high : (is_right ? &metrics.right_high : nullptr);
+                }
+                else if (relative_y <= -3) {
+                    sector =
+                        is_left ? &metrics.left_mid : (is_right ? &metrics.right_mid : nullptr);
+                }
+                else {
+                    sector =
+                        is_left ? &metrics.left_low : (is_right ? &metrics.right_low : nullptr);
+                }
+
+                if (sector) {
+                    sector->mass += cell_mass;
+                    sector->cell_count++;
+                }
             }
         }
+    }
+
+    // Convert branch tier set to vector.
+    metrics.branch_tiers_relative.assign(branch_tier_set.begin(), branch_tier_set.end());
+
+    // Calculate center of mass (relative to seed).
+    if (total_mass > 0.0) {
+        metrics.center_of_mass.x = (com_x / total_mass) - seed.x;
+        metrics.center_of_mass.y = (com_y / total_mass) - seed.y;
+    }
+
+    // Calculate canopy dimensions.
+    if (min_x <= max_x && min_y <= max_y) {
+        metrics.canopy_width = static_cast<double>(max_x - min_x + 1);
+        metrics.canopy_height = static_cast<double>(seed.y - min_y); // Distance from seed to top.
     }
 
     // Calculate trunk height (continuous vertical WOOD).
@@ -471,34 +555,27 @@ TreeMetrics RuleBasedBrain::analyzeTreeStructure(const TreeSensoryData& sensory)
                 return a.y > b.y; // Higher y first (closer to seed).
             });
 
-        spdlog::info(
-            "Trunk cells found: {} cells, seed at ({}, {})",
-            metrics.trunk_cells.size(),
-            seed.x,
-            seed.y);
-        for (const auto& tc : metrics.trunk_cells) {
-            spdlog::info("  Trunk cell: ({}, {})", tc.x, tc.y);
-        }
-
         // Count continuous cells from seed upward.
         int expected_y = seed.y - 1;
-        spdlog::info("Starting trunk height count from expected_y={}", expected_y);
         for (const auto& trunk_cell : metrics.trunk_cells) {
             if (trunk_cell.y == expected_y) {
                 metrics.trunk_height++;
                 expected_y--;
-                spdlog::info(
-                    "  ✓ Matched! trunk_height now {}, next expected_y={}",
-                    metrics.trunk_height,
-                    expected_y);
             }
             else {
-                spdlog::info(
-                    "  ✗ Gap found: cell at y={}, expected y={}", trunk_cell.y, expected_y);
                 break; // Gap in trunk.
             }
         }
     }
+
+    spdlog::debug(
+        "TreeMetrics: trunk_height={}, canopy={}x{}, COM=({:.1f},{:.1f}), branch_tiers={}",
+        metrics.trunk_height,
+        metrics.canopy_width,
+        metrics.canopy_height,
+        metrics.center_of_mass.x,
+        metrics.center_of_mass.y,
+        metrics.branch_tiers_relative.size());
 
     return metrics;
 }
@@ -661,6 +738,67 @@ Vector2i RuleBasedBrain::findLeafGrowthPositionOnBranches(
     }
 
     return weighted_candidates.back().first;
+}
+
+// TreeMetrics method implementations.
+
+bool TreeMetrics::isTooFlat(double threshold) const
+{
+    if (canopy_height < 1.0) return false; // No canopy yet.
+    return (canopy_width / canopy_height) > threshold;
+}
+
+bool TreeMetrics::canFitBranchAt(int relative_y) const
+{
+    // Seed counts as tier 0, so new branch must be at least 3 cells above.
+    if (relative_y > -3) return false;
+
+    for (int tier : branch_tiers_relative) {
+        if (std::abs(tier - relative_y) < 3) return false;
+    }
+    return true;
+}
+
+const CanopySector& RuleBasedBrain::findEmptiestSector(const TreeMetrics& metrics)
+{
+    // Find sector with least mass to prioritize growth there.
+    const CanopySector* emptiest = &metrics.left_high;
+    double min_mass = metrics.left_high.mass;
+
+    auto check = [&](const CanopySector& sector) {
+        if (sector.mass < min_mass) {
+            min_mass = sector.mass;
+            emptiest = &sector;
+        }
+    };
+
+    check(metrics.left_mid);
+    check(metrics.left_low);
+    check(metrics.right_high);
+    check(metrics.right_mid);
+    check(metrics.right_low);
+
+    return *emptiest;
+}
+
+int RuleBasedBrain::getBranchTargetLength(int branch_relative_y, int trunk_height)
+{
+    // Lower branches (closer to seed) should be longer.
+    // Higher branches (further from seed) should be shorter.
+    // This creates a conifer/Christmas tree shape.
+
+    if (trunk_height <= 0) return 1;
+
+    // branch_relative_y is negative (above seed).
+    // -1 = just above seed (lowest branch), -trunk_height = top.
+    double height_ratio = static_cast<double>(-branch_relative_y) / trunk_height;
+
+    // Base length of 3, tapering to 1 at the top.
+    int max_length = 3;
+    int min_length = 1;
+    int target = max_length - static_cast<int>((max_length - min_length) * height_ratio);
+
+    return std::max(min_length, target);
 }
 
 } // namespace DirtSim

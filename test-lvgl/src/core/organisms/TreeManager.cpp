@@ -29,7 +29,7 @@ TreeId TreeManager::plantSeed(World& world, uint32_t x, uint32_t y)
 
     Vector2i pos{ static_cast<int>(x), static_cast<int>(y) };
     tree.seed_position = pos;
-    tree.total_energy = 500.0; // Boosted for testing growth patterns.
+    tree.total_energy = 150.0; // Starting energy for tree growth.
 
     world.addMaterialAtCell(x, y, MaterialType::SEED, 1.0);
 
