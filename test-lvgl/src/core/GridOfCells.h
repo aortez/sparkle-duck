@@ -9,6 +9,9 @@
 
 #include <vector>
 
+// Forward declaration (Timers is in global namespace).
+class Timers;
+
 namespace DirtSim {
 
 /**
