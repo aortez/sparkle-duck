@@ -8,6 +8,9 @@
 
 namespace DirtSim {
 
+// Each ROOT cell in contact with dirt can support this many above-ground cells.
+static constexpr int CELLS_PER_ROOT = 3;
+
 TreeCommand RuleBasedBrain::decide(const TreeSensoryData& sensory)
 {
     if (sensory.stage == GrowthStage::SEED) {
@@ -105,22 +108,34 @@ TreeCommand RuleBasedBrain::decide(const TreeSensoryData& sensory)
 
     // Analyze tree structure for realistic growth (re-derived each frame).
     TreeMetrics metrics = analyzeTreeStructure(sensory);
+    TreeComposition comp = analyzeTreeComposition(sensory);
+
+    // Above-ground cells: WOOD + LEAF + SEED (the +1 accounts for seed).
+    int above_ground_cells = comp.wood_count + comp.leaf_count + 1;
+    int root_capacity = comp.root_count * CELLS_PER_ROOT;
 
     spdlog::debug(
-        "TreeMetrics: above={:.2f}, below={:.2f}, trunk_height={}, canopy={}x{}, flat={}",
-        metrics.above_ground_mass,
-        metrics.below_ground_mass,
+        "TreeMetrics: above_cells={}, root_capacity={} ({}x{}), trunk_height={}, canopy={}x{}, "
+        "flat={}",
+        above_ground_cells,
+        root_capacity,
+        comp.root_count,
+        CELLS_PER_ROOT,
         metrics.trunk_height,
         metrics.canopy_width,
         metrics.canopy_height,
         metrics.isTooFlat());
 
-    // Priority 1: Ensure roots support canopy.
-    if (metrics.above_ground_mass > 1.0 * metrics.below_ground_mass) {
+    // Priority 1: Ensure roots support canopy (cell count based).
+    if (above_ground_cells > root_capacity) {
         Vector2i pos = findGrowthPosition(sensory, MaterialType::ROOT);
         if (checkGrowthSuitability(sensory, pos, MaterialType::ROOT)
             == GrowthSuitability::SUITABLE) {
-            spdlog::debug("RuleBasedBrain: [P1] Growing ROOT for support at ({},{})", pos.x, pos.y);
+            spdlog::debug(
+                "RuleBasedBrain: [P1] Growing ROOT for support at ({},{}) - need {} more capacity",
+                pos.x,
+                pos.y,
+                above_ground_cells - root_capacity);
             return GrowRootCommand{ .target_pos = pos, .execution_time_seconds = 2.0 };
         }
     }
@@ -221,7 +236,6 @@ TreeCommand RuleBasedBrain::decide(const TreeSensoryData& sensory)
     }
 
     // Priority 5: Grow leaves at branch tips.
-    TreeComposition comp = analyzeTreeComposition(sensory);
     double total = comp.total_cells > 0 ? comp.total_cells : 1.0;
     double leaf_ratio = comp.leaf_count / total;
 

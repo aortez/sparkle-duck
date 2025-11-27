@@ -184,7 +184,7 @@ void TreeManager::computeOrganismSupport(World& world)
                             dirt_neighbors++;
                         }
 
-                        LoggingChannels::tree()->info(
+                        LoggingChannels::tree()->debug(
                             "  ROOT({},{}) neighbor({},{}) {} mass={:.2f} adhesion={:.2f} "
                             "contrib={:.2f}",
                             pos.x,
@@ -199,7 +199,7 @@ void TreeManager::computeOrganismSupport(World& world)
                 }
             }
 
-            LoggingChannels::tree()->info(
+            LoggingChannels::tree()->debug(
                 "ROOT at ({},{}) has {} dirt neighbors, anchoring={:.2f}",
                 pos.x,
                 pos.y,
@@ -209,10 +209,9 @@ void TreeManager::computeOrganismSupport(World& world)
             support_budget += root_anchoring;
         }
 
-        // Divide by 2 as specified.
-        support_budget /= 2.0;
+        support_budget *= 2.0;
 
-        LoggingChannels::tree()->info(
+        LoggingChannels::tree()->debug(
             "Tree {} support calculation: {} roots, total_budget={:.2f}",
             tree_id,
             root_count,
@@ -237,6 +236,52 @@ void TreeManager::computeOrganismSupport(World& world)
             const MaterialProperties& props = getMaterialProperties(cell.material_type);
             double cell_mass = cell.fill_ratio * props.density;
             upper_mass += cell_mass;
+        }
+
+        // Step 2.5: Grant support to LEAF cells adjacent to same-organism WOOD.
+        // LEAFs are supported by physical attachment to branches, not by root budget.
+        for (const auto& pos : tree.cells) {
+            if (static_cast<uint32_t>(pos.x) >= data.width
+                || static_cast<uint32_t>(pos.y) >= data.height)
+                continue;
+
+            Cell& cell = data.at(pos.x, pos.y);
+            if (cell.organism_id != tree_id || cell.material_type != MaterialType::LEAF) continue;
+
+            if (cell.has_any_support) continue; // Already supported.
+
+            // Check cardinal neighbors for same-organism WOOD.
+            static constexpr Vector2i cardinal_dirs[] = {
+                { 0, 1 }, { 0, -1 }, { -1, 0 }, { 1, 0 }
+            };
+            for (const auto& dir : cardinal_dirs) {
+                int nx = pos.x + dir.x;
+                int ny = pos.y + dir.y;
+
+                if (nx < 0 || ny < 0 || nx >= static_cast<int>(data.width)
+                    || ny >= static_cast<int>(data.height))
+                    continue;
+
+                const Cell& neighbor = data.at(nx, ny);
+                if (neighbor.organism_id == tree_id
+                    && neighbor.material_type == MaterialType::WOOD) {
+                    // LEAF is attached to same-organism WOOD - grant full support.
+                    // Use vertical support flag to get full resistance (support_factor=1.0).
+                    cell.has_any_support = true;
+                    cell.has_vertical_support = true;
+                    if (GridOfCells::USE_CACHE) {
+                        grid.supportBitmap().set(pos.x, pos.y);
+                    }
+                    LoggingChannels::tree()->debug(
+                        "TreeManager: LEAF at ({},{}) rigidly supported by adjacent WOOD at "
+                        "({},{})",
+                        pos.x,
+                        pos.y,
+                        nx,
+                        ny);
+                    break;
+                }
+            }
         }
 
         // Step 3: Distribute support.
