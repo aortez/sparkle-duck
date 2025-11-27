@@ -123,15 +123,24 @@ TEST(TreeSensoryTest, MassCalculationNoDuplicates)
     Tree* tree = world->getTreeManager().getTree(tree_id);
     ASSERT_NE(tree, nullptr);
 
-    // Advance physics so seed falls.
-    for (int i = 0; i < 10; i++) {
+    // Advance physics so seed falls to (4,5).
+    // Need ~30 timesteps for SEED to cross cell boundary and transfer to next cell.
+    for (int i = 0; i < 30; i++) {
         world->advanceTime(0.016);
     }
 
     // Manually create a simple tree structure:
-    // - SEED at (4,5) - should not count in above/below (at seed.y)
-    // - ROOT at (4,6) - should count as below_ground (mass 1.2)
-    // - WOOD at (4,4) - should count as above_ground (mass 0.3)
+    // - SEED at (4,5) - should not count in above/below (at seed.y).
+    // - ROOT at (4,6) - should count as below_ground (mass 1.2).
+    // - WOOD at (4,4) - should count as above_ground (mass 0.3).
+
+    // After 30 timesteps, SEED should have fallen from (4,4) to (4,5).
+    // Verify it's there and ensure organism_id is set.
+    ASSERT_EQ(world->getData().at(4, 5).material_type, MaterialType::SEED)
+        << "SEED should have fallen to (4,5)";
+    ASSERT_EQ(world->getData().at(4, 5).organism_id, tree_id) << "SEED should have organism_id set";
+    tree->cells.insert(Vector2i{ 4, 5 });
+    tree->seed_position = Vector2i{ 4, 5 };
 
     // Force grow ROOT at (4,6).
     world->getData().at(4, 6).replaceMaterial(MaterialType::ROOT, 1.0);
@@ -142,9 +151,6 @@ TEST(TreeSensoryTest, MassCalculationNoDuplicates)
     world->getData().at(4, 4).replaceMaterial(MaterialType::WOOD, 1.0);
     world->getData().at(4, 4).organism_id = tree_id;
     tree->cells.insert(Vector2i{ 4, 4 });
-
-    // Update seed position (it fell).
-    tree->seed_position = Vector2i{ 4, 5 };
 
     // Gather sensory data.
     TreeSensoryData sensory = tree->gatherSensoryData(*world);
