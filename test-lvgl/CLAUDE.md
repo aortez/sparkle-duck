@@ -327,9 +327,21 @@ Service file: `~/.config/systemd/user/sparkle-duck.service`
 
 ### Remote CLI Control
 
-The app exposes two WebSocket endpoints:
+The app communicates with two WebSocket endpoints:
 - **Port 8080** (Server): Physics simulation control, world state queries
 - **Port 7070** (UI): UI state machine control, display settings
+
+**Check if service is running:**
+```bash
+./build-debug/bin/cli status_get ws://dirtsim.local:7070
+# Returns: {"state":"StartMenu","connected_to_server":true,"fps":0.0,...}
+```
+
+**Shutdown the remote service:**
+```bash
+./build-debug/bin/cli exit ws://dirtsim.local:7070
+# Returns: {"success":true}
+```
 
 **Important:** To start a simulation remotely, send commands to the **UI** (port 7070), not the server:
 ```bash
@@ -339,9 +351,6 @@ The app exposes two WebSocket endpoints:
 # Query world state (server)
 ./build-debug/bin/cli diagram_get ws://dirtsim.local:8080
 ./build-debug/bin/cli state_get ws://dirtsim.local:8080
-
-# Get UI status
-./build-debug/bin/cli status_get ws://dirtsim.local:7070
 ```
 
 ## Logging
