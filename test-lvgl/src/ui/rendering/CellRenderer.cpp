@@ -18,7 +18,7 @@ constexpr uint32_t MIN_PIXELS_PER_CELL_SHARP = 8;  // Less GPU scaling = sharper
 constexpr uint32_t MIN_PIXELS_PER_CELL_SMOOTH = 3; // More GPU scaling + bilinear filter.
 constexpr uint32_t MIN_PIXELS_PER_CELL_DEBUG = 12; // ≥10px required for debug features.
 
-// Default for initialization and adaptive mode.
+// Default for initialization (SHARP mode is the default).
 constexpr uint32_t MIN_PIXELS_PER_CELL = MIN_PIXELS_PER_CELL_SHARP;
 
 // 4x4 Bayer matrix for ordered dithering (values 0-15).
@@ -579,22 +579,137 @@ void CellRenderer::renderWorldData(
                     }
                 }
 
-                // Debug draw: COM indicator (single pixel)
+                // Debug draw: Pressure visualization (drawn first, under COM/vectors).
                 if (debugDraw && !cell.isEmpty() && cell.material_type != MaterialType::AIR) {
+                    // Pressure visualization (fixed-width borders with variable opacity).
+                    if (scaledCellWidth_ >= 4) {
+                        // Calculate opacity from pressure components.
+                        // Scale pressure values to opacity range [0, 255].
+                        const double PRESSURE_OPACITY_SCALE = 25.0;
+                        int dynamic_opacity = std::min(
+                            static_cast<int>(cell.dynamic_component * PRESSURE_OPACITY_SCALE), 255);
+                        int hydrostatic_opacity = std::min(
+                            static_cast<int>(cell.hydrostatic_component * PRESSURE_OPACITY_SCALE),
+                            255);
+
+                        // Fixed border widths.
+                        const int FIXED_BORDER_WIDTH = std::max(1, static_cast<int>(2 * scaleX_));
+
+                        // Dynamic pressure border (magenta outer).
+                        if (dynamic_opacity > 0) {
+                            uint32_t magenta_color = 0xFF00FF; // RGB: magenta.
+                            uint8_t alpha = static_cast<uint8_t>(
+                                dynamic_opacity * 0.5); // 50% more transparent.
+
+                            // Draw outer border.
+                            for (uint32_t py = 0; py < scaledCellHeight_; py++) {
+                                for (uint32_t px = 0; px < scaledCellWidth_; px++) {
+                                    // Check if pixel is on outer border.
+                                    bool is_outer_border =
+                                        (px < static_cast<uint32_t>(FIXED_BORDER_WIDTH)
+                                         || px >= scaledCellWidth_
+                                                 - static_cast<uint32_t>(FIXED_BORDER_WIDTH)
+                                         || py < static_cast<uint32_t>(FIXED_BORDER_WIDTH)
+                                         || py >= scaledCellHeight_
+                                                 - static_cast<uint32_t>(FIXED_BORDER_WIDTH));
+
+                                    if (is_outer_border) {
+                                        uint32_t pixelIdx =
+                                            (cellY + py) * canvasWidth_ + (cellX + px);
+                                        uint32_t src_color = (alpha << 24) | magenta_color; // ARGB.
+
+                                        // Alpha blend with existing pixel.
+                                        uint32_t dst_color = pixels[pixelIdx];
+                                        uint8_t inv_alpha = 255 - alpha;
+
+                                        uint8_t src_r = (src_color >> 16) & 0xFF;
+                                        uint8_t src_g = (src_color >> 8) & 0xFF;
+                                        uint8_t src_b = src_color & 0xFF;
+
+                                        uint8_t dst_r = (dst_color >> 16) & 0xFF;
+                                        uint8_t dst_g = (dst_color >> 8) & 0xFF;
+                                        uint8_t dst_b = dst_color & 0xFF;
+
+                                        uint8_t r = (src_r * alpha + dst_r * inv_alpha) / 255;
+                                        uint8_t g = (src_g * alpha + dst_g * inv_alpha) / 255;
+                                        uint8_t b = (src_b * alpha + dst_b * inv_alpha) / 255;
+
+                                        pixels[pixelIdx] = 0xFF000000 | (r << 16) | (g << 8) | b;
+                                    }
+                                }
+                            }
+                        }
+
+                        // Hydrostatic pressure border (red inner).
+                        if (hydrostatic_opacity > 0) {
+                            uint32_t red_color = 0xFF0000; // RGB: red.
+                            uint8_t alpha = static_cast<uint8_t>(
+                                hydrostatic_opacity * 0.5); // 50% more transparent.
+
+                            // Draw inner border (inset by FIXED_BORDER_WIDTH).
+                            uint32_t inset = static_cast<uint32_t>(FIXED_BORDER_WIDTH);
+                            for (uint32_t py = inset; py < scaledCellHeight_ - inset; py++) {
+                                for (uint32_t px = inset; px < scaledCellWidth_ - inset; px++) {
+                                    // Check if pixel is on inner border.
+                                    bool is_inner_border =
+                                        (px < inset + static_cast<uint32_t>(FIXED_BORDER_WIDTH)
+                                         || px >= scaledCellWidth_ - inset
+                                                 - static_cast<uint32_t>(FIXED_BORDER_WIDTH)
+                                         || py < inset + static_cast<uint32_t>(FIXED_BORDER_WIDTH)
+                                         || py >= scaledCellHeight_ - inset
+                                                 - static_cast<uint32_t>(FIXED_BORDER_WIDTH));
+
+                                    if (is_inner_border) {
+                                        uint32_t pixelIdx =
+                                            (cellY + py) * canvasWidth_ + (cellX + px);
+                                        uint32_t src_color = (alpha << 24) | red_color; // ARGB.
+
+                                        // Alpha blend with existing pixel.
+                                        uint32_t dst_color = pixels[pixelIdx];
+                                        uint8_t inv_alpha = 255 - alpha;
+
+                                        uint8_t src_r = (src_color >> 16) & 0xFF;
+                                        uint8_t src_g = (src_color >> 8) & 0xFF;
+                                        uint8_t src_b = src_color & 0xFF;
+
+                                        uint8_t dst_r = (dst_color >> 16) & 0xFF;
+                                        uint8_t dst_g = (dst_color >> 8) & 0xFF;
+                                        uint8_t dst_b = dst_color & 0xFF;
+
+                                        uint8_t r = (src_r * alpha + dst_r * inv_alpha) / 255;
+                                        uint8_t g = (src_g * alpha + dst_g * inv_alpha) / 255;
+                                        uint8_t b = (src_b * alpha + dst_b * inv_alpha) / 255;
+
+                                        pixels[pixelIdx] = 0xFF000000 | (r << 16) | (g << 8) | b;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Debug draw: Vectors first, then COM last (so COM is never obscured).
+        if (debugDraw) {
+            // First pass: Draw pressure gradient vectors.
+            for (uint32_t y = 0; y < worldData.height; ++y) {
+                for (uint32_t x = 0; x < worldData.width; ++x) {
+                    uint32_t idx = y * worldData.width + x;
+                    if (idx >= worldData.cells.size()) break;
+
+                    const Cell& cell = worldData.cells[idx];
+                    if (cell.isEmpty() || cell.material_type == MaterialType::AIR) continue;
+
+                    int32_t cellX = x * scaledCellWidth_;
+                    int32_t cellY = y * scaledCellHeight_;
+
                     // Calculate COM position in pixel coordinates.
                     // COM ranges from [-1, 1] where -1 is top/left and +1 is bottom/right.
                     int com_pixel_x =
                         cellX + static_cast<int>((cell.com.x + 1.0) * (scaledCellWidth_ - 1) / 2.0);
                     int com_pixel_y = cellY
                         + static_cast<int>((cell.com.y + 1.0) * (scaledCellHeight_ - 1) / 2.0);
-
-                    // Bounds check.
-                    if (com_pixel_x >= 0 && com_pixel_x < static_cast<int>(canvasWidth_)
-                        && com_pixel_y >= 0 && com_pixel_y < static_cast<int>(canvasHeight_)) {
-                        uint32_t comPixelIdx = com_pixel_y * canvasWidth_ + com_pixel_x;
-                        // Yellow pixel for COM (same as LVGL debug draw).
-                        pixels[comPixelIdx] = 0xFFFFFF00; // ARGB: full alpha, yellow.
-                    }
 
                     // Pressure gradient vector (cyan line from COM).
                     if (cell.pressure_gradient.magnitude() > 0.001) {
@@ -612,6 +727,35 @@ void CellRenderer::renderWorldData(
                             end_x,
                             end_y,
                             0xFF00FFFF); // Cyan.
+                    }
+                }
+            }
+
+            // Second pass: Draw COM indicators (absolute last, never obscured).
+            for (uint32_t y = 0; y < worldData.height; ++y) {
+                for (uint32_t x = 0; x < worldData.width; ++x) {
+                    uint32_t idx = y * worldData.width + x;
+                    if (idx >= worldData.cells.size()) break;
+
+                    const Cell& cell = worldData.cells[idx];
+                    if (cell.isEmpty() || cell.material_type == MaterialType::AIR) continue;
+
+                    int32_t cellX = x * scaledCellWidth_;
+                    int32_t cellY = y * scaledCellHeight_;
+
+                    // Calculate COM position in pixel coordinates.
+                    // COM ranges from [-1, 1] where -1 is top/left and +1 is bottom/right.
+                    int com_pixel_x =
+                        cellX + static_cast<int>((cell.com.x + 1.0) * (scaledCellWidth_ - 1) / 2.0);
+                    int com_pixel_y = cellY
+                        + static_cast<int>((cell.com.y + 1.0) * (scaledCellHeight_ - 1) / 2.0);
+
+                    // Bounds check.
+                    if (com_pixel_x >= 0 && com_pixel_x < static_cast<int>(canvasWidth_)
+                        && com_pixel_y >= 0 && com_pixel_y < static_cast<int>(canvasHeight_)) {
+                        uint32_t comPixelIdx = com_pixel_y * canvasWidth_ + com_pixel_x;
+                        // Yellow pixel for COM (same as LVGL debug draw).
+                        pixels[comPixelIdx] = 0xFFFFFF00; // ARGB: full alpha, yellow.
                     }
                 }
             }

@@ -21,7 +21,7 @@ public:
         const WorldData& worldData,
         lv_obj_t* parent,
         bool debugDraw,
-        RenderMode mode = RenderMode::ADAPTIVE);
+        RenderMode mode = RenderMode::SHARP);
     void cleanup();
 
 private:
@@ -49,7 +49,7 @@ private:
     double scaleY_ = 1.0;
 
     // Track current render mode to detect changes requiring reinitialization.
-    RenderMode currentMode_ = RenderMode::ADAPTIVE;
+    RenderMode currentMode_ = RenderMode::SHARP;
 
     void calculateScaling(uint32_t worldWidth, uint32_t worldHeight);
     void initializeWithPixelSize(
