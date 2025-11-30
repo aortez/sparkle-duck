@@ -40,6 +40,7 @@ private:
     lv_obj_t* container_;
     WebSocketClient* wsClient_;
     EventSink& eventSink_;
+    RenderMode currentRenderMode_; // Track current mode to preserve it.
 
     // Widgets.
     lv_obj_t* quitButton_ = nullptr;

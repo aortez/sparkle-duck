@@ -18,7 +18,10 @@ namespace Ui {
 
 CoreControls::CoreControls(
     lv_obj_t* container, WebSocketClient* wsClient, EventSink& eventSink, RenderMode initialMode)
-    : container_(container), wsClient_(wsClient), eventSink_(eventSink)
+    : container_(container),
+      wsClient_(wsClient),
+      eventSink_(eventSink),
+      currentRenderMode_(initialMode)
 {
     // Quit button.
     quitButton_ = lv_btn_create(container_);
@@ -121,12 +124,12 @@ CoreControls::CoreControls(
         }
     }
 
-    // Scale Factor slider (for SHARP rendering mode sharpness).
+    // Scale Factor slider (affects SHARP, SMOOTH, LVGL_DEBUG, and ADAPTIVE modes).
     scaleFactorSlider_ = LVGLBuilder::slider(container_)
                              .size(LV_PCT(90), 10)
-                             .range(10, 200) // 0.1 to 2.0, scaled by 100
-                             .value(50)      // Default 0.5
-                             .label("Sharp Scale")
+                             .range(1, 200) // 0.01 to 2.0, scaled by 100
+                             .value(50)     // Default 0.5
+                             .label("Render Scale")
                              .valueLabel("%.2f")
                              .valueTransform([](int32_t val) { return val / 100.0; })
                              .callback(onScaleFactorChanged, this)
@@ -161,6 +164,7 @@ void CoreControls::updateStats(double serverFPS, double uiFPS)
 
 void CoreControls::setRenderMode(RenderMode mode)
 {
+    currentRenderMode_ = mode; // Track the current mode.
     if (!renderModeDropdown_) return;
 
     // Map RenderMode to dropdown index.
@@ -263,6 +267,9 @@ void CoreControls::onRenderModeChanged(lv_event_t* e)
     }
 
     spdlog::info("CoreControls: Render mode changed to {}", renderModeToString(mode));
+
+    // Track the current mode.
+    self->currentRenderMode_ = mode;
 
     // Queue UI-local render mode select event.
     UiApi::RenderModeSelect::Cwc cwc;
@@ -374,10 +381,10 @@ void CoreControls::onScaleFactorChanged(lv_event_t* e)
     // Update the global scale factor.
     setSharpScaleFactor(scaleFactor);
 
-    // Trigger renderer reinitializati on by sending RenderModeSelect event.
-    // Use SHARP mode to apply the new scale factor.
+    // Trigger renderer reinitialization by sending RenderModeSelect event.
+    // Preserve the current mode (don't force SHARP).
     UiApi::RenderModeSelect::Cwc cwc;
-    cwc.command.mode = RenderMode::SHARP;
+    cwc.command.mode = self->currentRenderMode_;
     cwc.callback = [](auto&&) {}; // No response needed.
     self->eventSink_.queueEvent(cwc);
 }

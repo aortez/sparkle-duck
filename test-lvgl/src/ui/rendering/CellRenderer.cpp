@@ -13,20 +13,18 @@ namespace Ui {
 // Compile-time toggle for dithering in pixel renderer.
 constexpr bool ENABLE_DITHERING = false;
 
-// Mode-specific scale factors (canvas size relative to container).
+// Mode-specific baseline scale factors (canvas size relative to container).
 // Scale > 1.0 means canvas larger than container (downscaling = sharper).
 // Scale < 1.0 means canvas smaller than container (upscaling = smoother).
+// These baselines are multiplied by the user-adjustable scale factor.
+constexpr double SCALE_BASELINE_SHARP = 1.0;  // 1:1 baseline for sharp mode.
+constexpr double SCALE_BASELINE_SMOOTH = 0.6; // 40% smaller baseline for smooth upscale.
+constexpr double SCALE_BASELINE_DEBUG = 1.3;  // 30% larger baseline for debug features.
+
+// Global user-adjustable scale multiplier (affects all modes except PIXEL_PERFECT).
 // Range: 0.1 (very smooth/blurry) to 2.0 (very sharp).
-constexpr double SCALE_FACTOR_SHARP_DEFAULT = 0.5; // Slightly pixelated, retro look.
-constexpr double SCALE_FACTOR_SMOOTH = 0.6;        // 40% smaller = smooth upscale.
-constexpr double SCALE_FACTOR_PIXEL_PERFECT = 1.0; // Exact fit, integer only.
-constexpr double SCALE_FACTOR_DEBUG = 1.3;         // Same as sharp for debug features.
-
-// Global scale factor for SHARP mode (can be modified at runtime).
-static double g_scaleFactorSharp = SCALE_FACTOR_SHARP_DEFAULT;
-
-// Fallback pixels per cell for SMOOTH mode (still uses fixed size).
-constexpr uint32_t MIN_PIXELS_PER_CELL_SMOOTH = 3;
+// Default: 0.5 (slightly pixelated, retro look).
+static double g_scaleFactorMultiplier = 0.5;
 
 // 4x4 Bayer matrix for ordered dithering (values 0-15).
 // Used to create stable, pattern-based transparency instead of alpha blending.
@@ -127,23 +125,50 @@ static uint32_t getPixelsPerCellForMode(
     switch (mode) {
         case RenderMode::SHARP:
             return calculateOptimalPixelsPerCell(
-                worldWidth, worldHeight, containerWidth, containerHeight, g_scaleFactorSharp);
+                worldWidth,
+                worldHeight,
+                containerWidth,
+                containerHeight,
+                SCALE_BASELINE_SHARP * g_scaleFactorMultiplier);
         case RenderMode::SMOOTH:
-            return MIN_PIXELS_PER_CELL_SMOOTH; // Still uses fixed size.
+            return calculateOptimalPixelsPerCell(
+                worldWidth,
+                worldHeight,
+                containerWidth,
+                containerHeight,
+                SCALE_BASELINE_SMOOTH * g_scaleFactorMultiplier);
         case RenderMode::PIXEL_PERFECT:
             return 0; // Special: Calculate integer scale dynamically.
         case RenderMode::LVGL_DEBUG:
             return calculateOptimalPixelsPerCell(
-                worldWidth, worldHeight, containerWidth, containerHeight, SCALE_FACTOR_DEBUG);
+                worldWidth,
+                worldHeight,
+                containerWidth,
+                containerHeight,
+                SCALE_BASELINE_DEBUG * g_scaleFactorMultiplier);
         case RenderMode::ADAPTIVE: {
             // Choose based on calculated cell size.
             uint32_t sharpSize = calculateOptimalPixelsPerCell(
-                worldWidth, worldHeight, containerWidth, containerHeight, g_scaleFactorSharp);
-            return (sharpSize < 4) ? MIN_PIXELS_PER_CELL_SMOOTH : sharpSize;
+                worldWidth,
+                worldHeight,
+                containerWidth,
+                containerHeight,
+                SCALE_BASELINE_SHARP * g_scaleFactorMultiplier);
+            return (sharpSize < 4) ? calculateOptimalPixelsPerCell(
+                                         worldWidth,
+                                         worldHeight,
+                                         containerWidth,
+                                         containerHeight,
+                                         SCALE_BASELINE_SMOOTH * g_scaleFactorMultiplier)
+                                   : sharpSize;
         }
         default:
             return calculateOptimalPixelsPerCell(
-                worldWidth, worldHeight, containerWidth, containerHeight, g_scaleFactorSharp);
+                worldWidth,
+                worldHeight,
+                containerWidth,
+                containerHeight,
+                SCALE_BASELINE_SHARP * g_scaleFactorMultiplier);
     }
 }
 
@@ -295,7 +320,11 @@ void CellRenderer::initialize(lv_obj_t* parent, uint32_t worldWidth, uint32_t wo
     int32_t containerWidth = lv_obj_get_width(parent);
     int32_t containerHeight = lv_obj_get_height(parent);
     uint32_t pixelsPerCell = calculateOptimalPixelsPerCell(
-        worldWidth, worldHeight, containerWidth, containerHeight, g_scaleFactorSharp);
+        worldWidth,
+        worldHeight,
+        containerWidth,
+        containerHeight,
+        SCALE_BASELINE_SHARP * g_scaleFactorMultiplier);
     initializeWithPixelSize(parent, worldWidth, worldHeight, pixelsPerCell);
 }
 
@@ -1133,12 +1162,12 @@ void CellRenderer::renderCellLVGL(
 
 double getSharpScaleFactor()
 {
-    return g_scaleFactorSharp;
+    return g_scaleFactorMultiplier;
 }
 
 void setSharpScaleFactor(double scaleFactor)
 {
-    g_scaleFactorSharp = std::clamp(scaleFactor, 0.1, 2.0); // Clamp to reasonable range.
+    g_scaleFactorMultiplier = std::clamp(scaleFactor, 0.01, 2.0); // Clamp to reasonable range.
 }
 
 } // namespace Ui
