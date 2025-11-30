@@ -81,6 +81,20 @@ CoreControls::CoreControls(
     lv_dropdown_set_selected(renderModeDropdown_, 0); // Default to Adaptive.
     lv_obj_add_event_cb(renderModeDropdown_, onRenderModeChanged, LV_EVENT_VALUE_CHANGED, this);
 
+    // Scale Factor slider (affects SHARP, SMOOTH, LVGL_DEBUG, and ADAPTIVE modes).
+    // Place right after Render Mode dropdown.
+    scaleFactorSlider_ =
+        LVGLBuilder::slider(container_)
+            .size(LV_PCT(90), 10)
+            .range(1, 200) // 0.01 to 2.0, scaled by 100
+            .value(50)     // Default 0.5
+            .label("Render Scale")
+            .valueLabel("%.2f")
+            .valueTransform([](int32_t val) { return val / 100.0; })
+            .callback(onScaleFactorChanged, this)
+            .events(LV_EVENT_RELEASED) // Only trigger on release, not while dragging.
+            .buildOrLog();
+
     // World Size toggle slider.
     auto worldSizeBuilder = LVGLBuilder::toggleSlider(container_)
                                 .label("World Size")
@@ -123,19 +137,6 @@ CoreControls::CoreControls(
             lv_obj_add_event_cb(worldSizeSlider_, onWorldSizeChanged, LV_EVENT_RELEASED, this);
         }
     }
-
-    // Scale Factor slider (affects SHARP, SMOOTH, LVGL_DEBUG, and ADAPTIVE modes).
-    scaleFactorSlider_ =
-        LVGLBuilder::slider(container_)
-            .size(LV_PCT(90), 10)
-            .range(1, 200) // 0.01 to 2.0, scaled by 100
-            .value(50)     // Default 0.5
-            .label("Render Scale")
-            .valueLabel("%.2f")
-            .valueTransform([](int32_t val) { return val / 100.0; })
-            .callback(onScaleFactorChanged, this)
-            .events(LV_EVENT_RELEASED) // Only trigger on release, not while dragging.
-            .buildOrLog();
 
     // Set initial render mode in dropdown.
     setRenderMode(initialMode);
