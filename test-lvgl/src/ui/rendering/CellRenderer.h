@@ -77,5 +77,11 @@ void drawLineBresenham(
     int y1,
     uint32_t color);
 
+// Get/set the scale factor for SHARP rendering mode.
+// Scale > 1.0 creates larger canvas (downscaling = sharper).
+// Scale < 1.0 creates smaller canvas (upscaling = smoother).
+double getSharpScaleFactor();
+void setSharpScaleFactor(double scaleFactor);
+
 } // namespace Ui
 } // namespace DirtSim

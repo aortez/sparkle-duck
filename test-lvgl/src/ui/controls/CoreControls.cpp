@@ -1,10 +1,12 @@
 #include "CoreControls.h"
 #include "server/api/Reset.h"
 #include "server/api/WorldResize.h"
+#include "ui/rendering/CellRenderer.h"
 #include "ui/state-machine/EventSink.h"
 #include "ui/state-machine/api/DrawDebugToggle.h"
 #include "ui/state-machine/api/Exit.h"
 #include "ui/state-machine/api/PixelRendererToggle.h"
+#include "ui/state-machine/api/RenderModeSelect.h"
 #include "ui/state-machine/network/WebSocketClient.h"
 #include "ui/ui_builders/LVGLBuilder.h"
 #include <lvgl/src/misc/lv_palette.h>
@@ -118,6 +120,17 @@ CoreControls::CoreControls(
             lv_obj_add_event_cb(worldSizeSlider_, onWorldSizeChanged, LV_EVENT_RELEASED, this);
         }
     }
+
+    // Scale Factor slider (for SHARP rendering mode sharpness).
+    scaleFactorSlider_ = LVGLBuilder::slider(container_)
+                             .size(LV_PCT(90), 10)
+                             .range(10, 200) // 0.1 to 2.0, scaled by 100
+                             .value(50)      // Default 0.5
+                             .label("Sharp Scale")
+                             .valueLabel("%.2f")
+                             .valueTransform([](int32_t val) { return val / 100.0; })
+                             .callback(onScaleFactorChanged, this)
+                             .buildOrLog();
 
     // Set initial render mode in dropdown.
     setRenderMode(initialMode);
@@ -340,6 +353,33 @@ void CoreControls::onWorldSizeChanged(lv_event_t* e)
         self->wsClient_->sendCommand(cmd);
         spdlog::info("CoreControls: Resizing world to {}x{}", value, value);
     }
+}
+
+void CoreControls::onScaleFactorChanged(lv_event_t* e)
+{
+    CoreControls* self = static_cast<CoreControls*>(lv_event_get_user_data(e));
+    if (!self) {
+        spdlog::error("CoreControls: onScaleFactorChanged called with null self");
+        return;
+    }
+
+    lv_obj_t* slider = static_cast<lv_obj_t*>(lv_event_get_target(e));
+    int32_t value = lv_slider_get_value(slider);
+
+    // Convert from integer (50-300) to double (0.5-3.0).
+    double scaleFactor = value / 100.0;
+
+    spdlog::info("CoreControls: Scale factor changed to {:.2f}", scaleFactor);
+
+    // Update the global scale factor.
+    setSharpScaleFactor(scaleFactor);
+
+    // Trigger renderer reinitializati on by sending RenderModeSelect event.
+    // Use SHARP mode to apply the new scale factor.
+    UiApi::RenderModeSelect::Cwc cwc;
+    cwc.command.mode = RenderMode::SHARP;
+    cwc.callback = [](auto&&) {}; // No response needed.
+    self->eventSink_.queueEvent(cwc);
 }
 
 } // namespace Ui

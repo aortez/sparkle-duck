@@ -13,13 +13,20 @@ namespace Ui {
 // Compile-time toggle for dithering in pixel renderer.
 constexpr bool ENABLE_DITHERING = false;
 
-// Mode-specific pixels per cell for optimal quality.
-constexpr uint32_t MIN_PIXELS_PER_CELL_SHARP = 8;  // Less GPU scaling = sharper.
-constexpr uint32_t MIN_PIXELS_PER_CELL_SMOOTH = 3; // More GPU scaling + bilinear filter.
-constexpr uint32_t MIN_PIXELS_PER_CELL_DEBUG = 12; // ≥10px required for debug features.
+// Mode-specific scale factors (canvas size relative to container).
+// Scale > 1.0 means canvas larger than container (downscaling = sharper).
+// Scale < 1.0 means canvas smaller than container (upscaling = smoother).
+// Range: 0.1 (very smooth/blurry) to 2.0 (very sharp).
+constexpr double SCALE_FACTOR_SHARP_DEFAULT = 0.5; // Slightly pixelated, retro look.
+constexpr double SCALE_FACTOR_SMOOTH = 0.6;        // 40% smaller = smooth upscale.
+constexpr double SCALE_FACTOR_PIXEL_PERFECT = 1.0; // Exact fit, integer only.
+constexpr double SCALE_FACTOR_DEBUG = 1.3;         // Same as sharp for debug features.
 
-// Default for initialization (SHARP mode is the default).
-constexpr uint32_t MIN_PIXELS_PER_CELL = MIN_PIXELS_PER_CELL_SHARP;
+// Global scale factor for SHARP mode (can be modified at runtime).
+static double g_scaleFactorSharp = SCALE_FACTOR_SHARP_DEFAULT;
+
+// Fallback pixels per cell for SMOOTH mode (still uses fixed size).
+constexpr uint32_t MIN_PIXELS_PER_CELL_SMOOTH = 3;
 
 // 4x4 Bayer matrix for ordered dithering (values 0-15).
 // Used to create stable, pattern-based transparency instead of alpha blending.
@@ -64,23 +71,79 @@ void drawLineBresenham(
     }
 }
 
+// Calculate optimal pixels per cell based on world size, container size, and scale factor.
+// The scale factor determines the ratio of canvas size to container size.
+// Scale > 1.0 creates a larger canvas (downscaling = sharper).
+// Scale < 1.0 creates a smaller canvas (upscaling = smoother).
+static uint32_t calculateOptimalPixelsPerCell(
+    uint32_t worldWidth,
+    uint32_t worldHeight,
+    int32_t containerWidth,
+    int32_t containerHeight,
+    double scaleFactor)
+{
+    if (containerWidth <= 0 || containerHeight <= 0 || worldWidth == 0 || worldHeight == 0) {
+        return 8; // Fallback to reasonable default.
+    }
+
+    // Calculate target canvas size based on scale factor.
+    double targetCanvasWidth = containerWidth * scaleFactor;
+    double targetCanvasHeight = containerHeight * scaleFactor;
+
+    // Calculate pixels per cell to achieve target canvas size.
+    double pixelsPerCellX = targetCanvasWidth / worldWidth;
+    double pixelsPerCellY = targetCanvasHeight / worldHeight;
+
+    // Use smaller dimension to preserve aspect ratio.
+    double pixelsPerCell = std::min(pixelsPerCellX, pixelsPerCellY);
+
+    // Round to integer and clamp to reasonable bounds.
+    uint32_t result = static_cast<uint32_t>(std::round(pixelsPerCell));
+    uint32_t clamped = std::clamp(result, 4u, 32u); // Min 4px, max 32px per cell.
+
+    spdlog::debug(
+        "calculateOptimalPixelsPerCell: {}x{} world, {}x{} container, scale {:.2f} → {:.1f}px/cell "
+        "(clamped to {}px)",
+        worldWidth,
+        worldHeight,
+        containerWidth,
+        containerHeight,
+        scaleFactor,
+        pixelsPerCell,
+        clamped);
+
+    return clamped;
+}
+
 // Get optimal pixel size for a given render mode.
 // For PIXEL_PERFECT, returns 0 (special case - calculated dynamically).
-static uint32_t getPixelsPerCellForMode(RenderMode mode)
+static uint32_t getPixelsPerCellForMode(
+    RenderMode mode,
+    uint32_t worldWidth,
+    uint32_t worldHeight,
+    int32_t containerWidth,
+    int32_t containerHeight)
 {
     switch (mode) {
         case RenderMode::SHARP:
-            return MIN_PIXELS_PER_CELL_SHARP;
+            return calculateOptimalPixelsPerCell(
+                worldWidth, worldHeight, containerWidth, containerHeight, g_scaleFactorSharp);
         case RenderMode::SMOOTH:
-            return MIN_PIXELS_PER_CELL_SMOOTH;
+            return MIN_PIXELS_PER_CELL_SMOOTH; // Still uses fixed size.
         case RenderMode::PIXEL_PERFECT:
             return 0; // Special: Calculate integer scale dynamically.
         case RenderMode::LVGL_DEBUG:
-            return MIN_PIXELS_PER_CELL_DEBUG;
-        case RenderMode::ADAPTIVE:
-            return MIN_PIXELS_PER_CELL; // Will be resolved later based on cell size.
+            return calculateOptimalPixelsPerCell(
+                worldWidth, worldHeight, containerWidth, containerHeight, SCALE_FACTOR_DEBUG);
+        case RenderMode::ADAPTIVE: {
+            // Choose based on calculated cell size.
+            uint32_t sharpSize = calculateOptimalPixelsPerCell(
+                worldWidth, worldHeight, containerWidth, containerHeight, g_scaleFactorSharp);
+            return (sharpSize < 4) ? MIN_PIXELS_PER_CELL_SMOOTH : sharpSize;
+        }
         default:
-            return MIN_PIXELS_PER_CELL_SHARP;
+            return calculateOptimalPixelsPerCell(
+                worldWidth, worldHeight, containerWidth, containerHeight, g_scaleFactorSharp);
     }
 }
 
@@ -228,7 +291,12 @@ void CellRenderer::calculateScaling(uint32_t worldWidth, uint32_t worldHeight)
 
 void CellRenderer::initialize(lv_obj_t* parent, uint32_t worldWidth, uint32_t worldHeight)
 {
-    initializeWithPixelSize(parent, worldWidth, worldHeight, MIN_PIXELS_PER_CELL);
+    // Use default scale factor to calculate initial pixel size.
+    int32_t containerWidth = lv_obj_get_width(parent);
+    int32_t containerHeight = lv_obj_get_height(parent);
+    uint32_t pixelsPerCell = calculateOptimalPixelsPerCell(
+        worldWidth, worldHeight, containerWidth, containerHeight, g_scaleFactorSharp);
+    initializeWithPixelSize(parent, worldWidth, worldHeight, pixelsPerCell);
 }
 
 void CellRenderer::initializeWithPixelSize(
@@ -381,13 +449,23 @@ void CellRenderer::renderWorldData(
         effectiveMode = (scaledCellWidth_ < 4) ? RenderMode::SMOOTH : RenderMode::SHARP;
     }
 
-    // Check if mode changed and requires different pixel size.
-    uint32_t requiredPixelSize = getPixelsPerCellForMode(effectiveMode);
+    // Get container dimensions for calculations.
+    int32_t currentContainerWidth = lv_obj_get_width(parent);
+    int32_t currentContainerHeight = lv_obj_get_height(parent);
 
-    // PIXEL_PERFECT always requires reinitialization (dynamic sizing).
-    bool needsReinitialization = (effectiveMode != currentMode_)
-        && (effectiveMode == RenderMode::PIXEL_PERFECT || currentMode_ == RenderMode::PIXEL_PERFECT
-            || scaledCellWidth_ != requiredPixelSize);
+    // Check if mode changed and requires different pixel size.
+    uint32_t requiredPixelSize = getPixelsPerCellForMode(
+        effectiveMode,
+        worldData.width,
+        worldData.height,
+        currentContainerWidth,
+        currentContainerHeight);
+
+    // Check if reinitialization is needed due to mode change or pixel size change.
+    bool modeChanged = (effectiveMode != currentMode_);
+    bool pixelSizeChanged = (scaledCellWidth_ != requiredPixelSize);
+    bool needsReinitialization =
+        modeChanged || pixelSizeChanged || (effectiveMode == RenderMode::PIXEL_PERFECT);
 
     if (worldCanvas_ && needsReinitialization) {
         spdlog::info(
@@ -402,10 +480,6 @@ void CellRenderer::renderWorldData(
     // Determine rendering path based on mode.
     bool usePixelRenderer = (effectiveMode != RenderMode::LVGL_DEBUG);
     bool useBilinearFilter = (effectiveMode == RenderMode::SMOOTH);
-
-    // Check if container has been resized (detect layout changes).
-    int32_t currentContainerWidth = lv_obj_get_width(parent);
-    int32_t currentContainerHeight = lv_obj_get_height(parent);
 
     // If container size changed significantly, reinitialize canvas.
     const int32_t RESIZE_THRESHOLD = 50; // Avoid jitter from small changes.
@@ -426,7 +500,12 @@ void CellRenderer::renderWorldData(
     // Initialize canvas on first call or after resize/mode change.
     if (!worldCanvas_) {
         // Use mode-specific pixel size for optimal quality.
-        uint32_t pixelsPerCell = getPixelsPerCellForMode(effectiveMode);
+        uint32_t pixelsPerCell = getPixelsPerCellForMode(
+            effectiveMode,
+            worldData.width,
+            worldData.height,
+            currentContainerWidth,
+            currentContainerHeight);
 
         // PIXEL_PERFECT mode calculates integer scale dynamically.
         if (effectiveMode == RenderMode::PIXEL_PERFECT) {
@@ -1050,6 +1129,16 @@ void CellRenderer::renderCellLVGL(
             }
         }
     }
+}
+
+double getSharpScaleFactor()
+{
+    return g_scaleFactorSharp;
+}
+
+void setSharpScaleFactor(double scaleFactor)
+{
+    g_scaleFactorSharp = std::clamp(scaleFactor, 0.1, 2.0); // Clamp to reasonable range.
 }
 
 } // namespace Ui

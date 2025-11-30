@@ -51,6 +51,7 @@ private:
     lv_obj_t* worldSizeContainer_ = nullptr;
     lv_obj_t* worldSizeSwitch_ = nullptr;
     lv_obj_t* worldSizeSlider_ = nullptr;
+    lv_obj_t* scaleFactorSlider_ = nullptr;
 
     // State for throttling world size changes
     int32_t pendingWorldSize_ = 0;
@@ -62,6 +63,7 @@ private:
     static void onRenderModeChanged(lv_event_t* e);
     static void onWorldSizeToggled(lv_event_t* e);
     static void onWorldSizeChanged(lv_event_t* e);
+    static void onScaleFactorChanged(lv_event_t* e);
 };
 
 } // namespace Ui
