@@ -125,15 +125,17 @@ CoreControls::CoreControls(
     }
 
     // Scale Factor slider (affects SHARP, SMOOTH, LVGL_DEBUG, and ADAPTIVE modes).
-    scaleFactorSlider_ = LVGLBuilder::slider(container_)
-                             .size(LV_PCT(90), 10)
-                             .range(1, 200) // 0.01 to 2.0, scaled by 100
-                             .value(50)     // Default 0.5
-                             .label("Render Scale")
-                             .valueLabel("%.2f")
-                             .valueTransform([](int32_t val) { return val / 100.0; })
-                             .callback(onScaleFactorChanged, this)
-                             .buildOrLog();
+    scaleFactorSlider_ =
+        LVGLBuilder::slider(container_)
+            .size(LV_PCT(90), 10)
+            .range(1, 200) // 0.01 to 2.0, scaled by 100
+            .value(50)     // Default 0.5
+            .label("Render Scale")
+            .valueLabel("%.2f")
+            .valueTransform([](int32_t val) { return val / 100.0; })
+            .callback(onScaleFactorChanged, this)
+            .events(LV_EVENT_RELEASED) // Only trigger on release, not while dragging.
+            .buildOrLog();
 
     // Set initial render mode in dropdown.
     setRenderMode(initialMode);
@@ -370,10 +372,16 @@ void CoreControls::onScaleFactorChanged(lv_event_t* e)
         return;
     }
 
+    // Only process RELEASED events to avoid spam while dragging.
+    lv_event_code_t code = lv_event_get_code(e);
+    if (code != LV_EVENT_RELEASED) {
+        return;
+    }
+
     lv_obj_t* slider = static_cast<lv_obj_t*>(lv_event_get_target(e));
     int32_t value = lv_slider_get_value(slider);
 
-    // Convert from integer (50-300) to double (0.5-3.0).
+    // Convert from integer (1-200) to double (0.01-2.0).
     double scaleFactor = value / 100.0;
 
     spdlog::info("CoreControls: Scale factor changed to {:.2f}", scaleFactor);
