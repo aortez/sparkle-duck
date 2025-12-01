@@ -869,6 +869,28 @@ void CellRenderer::renderWorldData(
             }
         }
 
+        // Debug draw: Bone connections (white lines showing organism structure).
+        if (debugDraw && !worldData.bones.empty()) {
+            for (const auto& bone : worldData.bones) {
+                // Calculate cell centers for bone endpoints.
+                int32_t cell_a_x = bone.cell_a.x * scaledCellWidth_ + scaledCellWidth_ / 2;
+                int32_t cell_a_y = bone.cell_a.y * scaledCellHeight_ + scaledCellHeight_ / 2;
+                int32_t cell_b_x = bone.cell_b.x * scaledCellWidth_ + scaledCellWidth_ / 2;
+                int32_t cell_b_y = bone.cell_b.y * scaledCellHeight_ + scaledCellHeight_ / 2;
+
+                // Draw bone as white line.
+                drawLineBresenham(
+                    pixels,
+                    canvasWidth_,
+                    canvasHeight_,
+                    cell_a_x,
+                    cell_a_y,
+                    cell_b_x,
+                    cell_b_y,
+                    0xFFFFFFFF); // White.
+            }
+        }
+
         // Apply bilinear smoothing filter if mode requires it.
         if (useBilinearFilter) {
             applyBilinearFilter(pixels, canvasWidth_, canvasHeight_);

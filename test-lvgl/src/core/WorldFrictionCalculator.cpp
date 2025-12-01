@@ -25,18 +25,57 @@ void WorldFrictionCalculator::calculateAndApplyFrictionForces(World& world, doub
         }
     }
 
+    // STEP 1: Calculate friction forces and accumulate in debug info.
     if (GridOfCells::USE_CACHE) {
-        // Optimized: Detect and apply friction forces inline.
-        detectAndApplyFrictionForces(world);
+        accumulateFrictionForces(world);
     }
     else {
-        // Original: Build vector of contacts then apply.
         std::vector<ContactInterface> contacts = detectContactInterfaces(world);
-        applyFrictionForces(world, contacts);
+        accumulateFrictionFromContacts(world, contacts);
+    }
+
+    // Apply accumulated friction forces to cells with constraint.
+    // Tunable: Allow limited momentum transfer while preventing oscillations.
+    static constexpr double FRICTION_MOMENTUM_TRANSFER_LIMIT = 1;
+
+    WorldData& data = world.getData();
+    for (uint32_t y = 0; y < data.height; ++y) {
+        for (uint32_t x = 0; x < data.width; ++x) {
+            Cell& cell = data.at(x, y);
+            if (cell.isEmpty() || cell.isWall()) {
+                continue;
+            }
+
+            Vector2d friction_force = grid_.debugAt(x, y).accumulated_friction_force;
+
+            // CONSTRAINT: Friction should primarily oppose motion.
+            // Allow limited momentum transfer when friction aids motion.
+            double dot_product = friction_force.dot(cell.velocity);
+            if (dot_product > 0.0) {
+                // Friction aids motion - limit to prevent oscillations.
+                double friction_mag = friction_force.magnitude();
+                double velocity_mag = cell.velocity.magnitude();
+
+                if (velocity_mag > 0.001) {
+                    // Limit aiding friction to small fraction of velocity.
+                    double max_aiding = velocity_mag * FRICTION_MOMENTUM_TRANSFER_LIMIT;
+
+                    if (friction_mag > max_aiding) {
+                        friction_force = friction_force.normalize() * max_aiding;
+                    }
+                }
+                else {
+                    // Near-zero velocity - don't allow friction to create motion.
+                    friction_force = Vector2d(0.0, 0.0);
+                }
+            }
+
+            cell.addPendingForce(friction_force);
+        }
     }
 }
 
-void WorldFrictionCalculator::detectAndApplyFrictionForces(World& world)
+void WorldFrictionCalculator::accumulateFrictionForces(World& world)
 {
     // Cache data reference to avoid Pimpl indirection in inner loop.
     WorldData& data = world.getData();
@@ -120,14 +159,8 @@ void WorldFrictionCalculator::detectAndApplyFrictionForces(World& world)
                     Vector2d accumulated_friction_force =
                         friction_direction * accumulated_friction_force_magnitude;
 
-                    // Apply to both cells (Newton's 3rd law) - use cached data reference.
-                    Cell& cellA_mut = data.at(x, y);
-                    Cell& cellB_mut = data.at(nx, ny);
-
-                    cellA_mut.addPendingForce(accumulated_friction_force);
-                    cellB_mut.addPendingForce(-accumulated_friction_force);
-
-                    // Accumulate friction force for debug visualization.
+                    // STEP 1: Calculate and accumulate friction forces (don't apply yet).
+                    // Store in debug info for later application.
                     grid_.debugAt(x, y).accumulated_friction_force += accumulated_friction_force;
                     grid_.debugAt(nx, ny).accumulated_friction_force +=
                         (-accumulated_friction_force);
@@ -148,6 +181,7 @@ void WorldFrictionCalculator::detectAndApplyFrictionForces(World& world)
             }
         }
     }
+    // Friction forces will be applied in calculateAndApplyFrictionForces STEP 2.
 }
 
 std::vector<WorldFrictionCalculator::ContactInterface> WorldFrictionCalculator::
@@ -340,9 +374,10 @@ Vector2d WorldFrictionCalculator::calculateTangentialVelocity(
     return tangential_velocity;
 }
 
-void WorldFrictionCalculator::applyFrictionForces(
+void WorldFrictionCalculator::accumulateFrictionFromContacts(
     World& world, const std::vector<ContactInterface>& contacts)
 {
+    (void)world;
     for (const ContactInterface& contact : contacts) {
         // Calculate friction force magnitude.
         double accumulated_friction_force_magnitude =
@@ -354,14 +389,7 @@ void WorldFrictionCalculator::applyFrictionForces(
         Vector2d accumulated_friction_force =
             friction_direction * accumulated_friction_force_magnitude;
 
-        // Apply to both cells (Newton's 3rd law).
-        Cell& cellA = world.getData().at(contact.cell_A_pos.x, contact.cell_A_pos.y);
-        Cell& cellB = world.getData().at(contact.cell_B_pos.x, contact.cell_B_pos.y);
-
-        cellA.addPendingForce(accumulated_friction_force);
-        cellB.addPendingForce(-accumulated_friction_force); // Equal and opposite.
-
-        // Accumulate friction force for debug visualization.
+        // STEP 1: Accumulate friction forces (don't apply yet).
         grid_.debugAt(contact.cell_A_pos.x, contact.cell_A_pos.y).accumulated_friction_force +=
             accumulated_friction_force;
         grid_.debugAt(contact.cell_B_pos.x, contact.cell_B_pos.y).accumulated_friction_force +=

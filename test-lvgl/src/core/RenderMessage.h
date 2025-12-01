@@ -79,6 +79,30 @@ struct OrganismData {
 };
 
 /**
+ * @brief Bone connection data for organism structural visualization.
+ *
+ * Represents spring connections between organism cells.
+ * Rendered as lines to show the organism's internal structure.
+ */
+struct BoneData {
+    Vector2i cell_a; // First cell position.
+    Vector2i cell_b; // Second cell position.
+
+    using serialize = zpp::bits::members<2>;
+};
+
+inline void to_json(nlohmann::json& j, const BoneData& bone)
+{
+    j = nlohmann::json{ { "cell_a", bone.cell_a }, { "cell_b", bone.cell_b } };
+}
+
+inline void from_json(const nlohmann::json& j, BoneData& bone)
+{
+    bone.cell_a = j.at("cell_a").get<Vector2i>();
+    bone.cell_b = j.at("cell_b").get<Vector2i>();
+}
+
+/**
  * @brief Render message containing optimized world state.
  *
  * Replaces full WorldData serialization for frame streaming.
@@ -103,10 +127,13 @@ struct RenderMessage {
     // Sparse organism tracking (only cells with organism_id != 0).
     std::vector<OrganismData> organisms;
 
+    // Bone connections for structural visualization.
+    std::vector<BoneData> bones;
+
     // Tree organism data (optional - only present when showing a tree's vision).
     std::optional<TreeSensoryData> tree_vision;
 
-    using serialize = zpp::bits::members<10>;
+    using serialize = zpp::bits::members<11>;
 };
 
 /**

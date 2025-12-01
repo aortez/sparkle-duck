@@ -3,7 +3,9 @@
 #include "Cell.h"
 #include "CellDebug.h"
 #include "ReflectSerializer.h"
+#include "RenderMessage.h"
 #include "ScenarioConfig.h"
+#include "Vector2.h"
 #include "organisms/TreeSensoryData.h"
 
 #include <cstdint>
@@ -39,6 +41,9 @@ struct WorldData {
 
     // ===== Field 11+: NOT binary serialized (runtime/debug only) =====
     std::vector<CellDebug> debug_info; // Debug/viz info: debug_info[y * width + x]
+
+    // Bone connections for organism structural visualization.
+    std::vector<BoneData> bones;
 
     // Direct cell access methods (inline for performance).
     inline Cell& at(uint32_t x, uint32_t y)

@@ -3,6 +3,8 @@
 #include "core/ReflectSerializer.h"
 #include "core/RenderMessageUtils.h"
 #include "core/Timers.h"
+#include "core/World.h"
+#include "core/organisms/TreeManager.h"
 #include "server/StateMachine.h"
 #include <cstring>
 #include <spdlog/spdlog.h>
@@ -516,10 +518,24 @@ void WebSocketServer::handleRenderFormatSetImmediate(
     ws->send(jsonResponse);
 }
 
-void WebSocketServer::broadcastRenderMessage(const WorldData& data)
+void WebSocketServer::broadcastRenderMessage(const World& world)
 {
+    const WorldData& data = world.getData();
+
     spdlog::trace(
         "WebSocketServer: Broadcasting RenderMessage to {} clients", connectedClients_.size());
+
+    // Extract bones from all organisms.
+    std::vector<BoneData> bones;
+    const TreeManager& treeManager = world.getTreeManager();
+    for (const auto& [tree_id, tree] : treeManager.getTrees()) {
+        for (const auto& bone : tree.bones) {
+            BoneData boneData;
+            boneData.cell_a = bone.cell_a;
+            boneData.cell_b = bone.cell_b;
+            bones.push_back(boneData);
+        }
+    }
 
     // Pack and send to each client with their requested format.
     for (auto& ws : connectedClients_) {
@@ -530,6 +546,9 @@ void WebSocketServer::broadcastRenderMessage(const WorldData& data)
 
                 // Pack WorldData into RenderMessage with client's format.
                 RenderMessage msg = RenderMessageUtils::packRenderMessage(data, format);
+
+                // Add extracted bones.
+                msg.bones = bones;
 
                 // Serialize to binary using zpp_bits.
                 std::vector<std::byte> msgData;

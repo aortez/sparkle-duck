@@ -5,9 +5,113 @@
 #include "core/World.h"
 #include "core/WorldData.h"
 #include <algorithm>
+#include <cmath>
 #include <spdlog/spdlog.h>
 
 namespace DirtSim {
+
+double getBoneStiffness(MaterialType a, MaterialType b)
+{
+    // Order-independent lookup via sorting.
+    if (a > b) std::swap(a, b);
+
+    // Core structure - very stiff.
+    if ((a == MaterialType::SEED && b == MaterialType::WOOD)
+        || (a == MaterialType::SEED && b == MaterialType::ROOT)) {
+        return 1.0;
+    }
+
+    // Trunk and branches.
+    if (a == MaterialType::WOOD && b == MaterialType::WOOD) {
+        return 0.8;
+    }
+
+    // Root system - somewhat flexible.
+    if (a == MaterialType::ROOT && b == MaterialType::ROOT) {
+        return 0.5;
+    }
+    if (a == MaterialType::ROOT && b == MaterialType::WOOD) {
+        return 0.6;
+    }
+
+    // Foliage - flexible.
+    if (a == MaterialType::LEAF && b == MaterialType::WOOD) {
+        return 0.2;
+    }
+    if (a == MaterialType::LEAF && b == MaterialType::LEAF) {
+        return 0.1;
+    }
+
+    // Default for any other organism material pairs.
+    return 0.3;
+}
+
+void Tree::createBonesForCell(Vector2i new_cell, MaterialType material, const World& world)
+{
+    const WorldData& data = world.getData();
+    int bones_created = 0;
+
+    spdlog::info(
+        "Tree {}: createBonesForCell for {} at ({},{})",
+        id,
+        getMaterialName(material),
+        new_cell.x,
+        new_cell.y);
+
+    // Check all 8 neighbors for cells belonging to this organism.
+    for (int dy = -1; dy <= 1; dy++) {
+        for (int dx = -1; dx <= 1; dx++) {
+            if (dx == 0 && dy == 0) continue;
+
+            int nx = new_cell.x + dx;
+            int ny = new_cell.y + dy;
+
+            if (nx < 0 || ny < 0 || static_cast<uint32_t>(nx) >= data.width
+                || static_cast<uint32_t>(ny) >= data.height) {
+                continue;
+            }
+
+            const Cell& neighbor = data.at(nx, ny);
+
+            spdlog::info(
+                "  Checking ({},{}) : mat={} org_id={} (my_id={}) fill={:.2f}",
+                nx,
+                ny,
+                getMaterialName(neighbor.material_type),
+                neighbor.organism_id,
+                id,
+                neighbor.fill_ratio);
+
+            if (neighbor.organism_id != id) continue;
+
+            Vector2i neighbor_pos{ nx, ny };
+            double rest_dist = (dx == 0 || dy == 0) ? 1.0 : std::sqrt(2.0);
+            double stiffness = getBoneStiffness(material, neighbor.material_type);
+
+            bones.push_back(Bone{ new_cell, neighbor_pos, rest_dist, stiffness });
+            bones_created++;
+
+            spdlog::info(
+                "Tree {}: Created bone ({},{}) <-> ({},{}) rest={:.2f} stiff={:.2f}",
+                id,
+                new_cell.x,
+                new_cell.y,
+                neighbor_pos.x,
+                neighbor_pos.y,
+                rest_dist,
+                stiffness);
+        }
+    }
+
+    if (bones_created == 0) {
+        spdlog::warn(
+            "Tree {}: NO BONES created for {} at ({},{}) - no adjacent organism cells found!",
+            id,
+            getMaterialName(material),
+            new_cell.x,
+            new_cell.y);
+    }
+}
 
 Tree::Tree(TreeId id, std::unique_ptr<TreeBrain> brain) : id(id), brain_(std::move(brain))
 {}

@@ -198,7 +198,7 @@ State::Any SimRunning::onEvent(const UiUpdateEvent& evt, StateMachine& sm)
 
     updateCount++;
     // Log performance stats every once in a while.
-    if (updateCount % 100 == 0) {
+    if (updateCount % 1000 == 0) {
         auto& timers = sm.getTimers();
 
         // Get current stats

@@ -14,6 +14,9 @@
 #include <vector>
 
 namespace DirtSim {
+
+class World;
+
 namespace Server {
 
 class WebSocketServer {
@@ -50,12 +53,12 @@ public:
     void broadcastBinary(const rtc::binary& data);
 
     /**
-     * @brief Broadcast WorldData as RenderMessage with per-client format.
-     * @param data World data to pack and send.
+     * @brief Broadcast World state as RenderMessage with per-client format.
+     * @param world World instance to extract data and bones from.
      *
      * Each client receives RenderMessage in their requested format (BASIC or DEBUG).
      */
-    void broadcastRenderMessage(const WorldData& data);
+    void broadcastRenderMessage(const World& world);
 
     /**
      * @brief Set render format for a specific client.

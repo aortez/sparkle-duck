@@ -84,6 +84,10 @@ TreeId TreeManager::getTreeAtCell(const Vector2i& pos) const
 
 void TreeManager::notifyTransfers(const std::vector<OrganismTransfer>& transfers)
 {
+    if (!transfers.empty()) {
+        spdlog::info("TreeManager::notifyTransfers called with {} transfers", transfers.size());
+    }
+
     // Batch transfers by tree ID for efficient processing.
     std::unordered_map<TreeId, std::vector<const OrganismTransfer*>> transfers_by_tree;
 
@@ -117,6 +121,38 @@ void TreeManager::notifyTransfers(const std::vector<OrganismTransfer>& transfers
                     transfer->from_pos.y,
                     transfer->to_pos.x,
                     transfer->to_pos.y);
+            }
+
+            // Update bone endpoints when cells move.
+            // Any bone referencing from_pos now needs to reference to_pos.
+            spdlog::info(
+                "TreeManager: Processing transfer ({},{}) -> ({},{}) for tree {} with {} bones",
+                transfer->from_pos.x,
+                transfer->from_pos.y,
+                transfer->to_pos.x,
+                transfer->to_pos.y,
+                tree_id,
+                tree.bones.size());
+
+            for (Bone& bone : tree.bones) {
+                if (bone.cell_a == transfer->from_pos) {
+                    bone.cell_a = transfer->to_pos;
+                    spdlog::info(
+                        "TreeManager: Updated bone cell_a from ({},{}) to ({},{})",
+                        transfer->from_pos.x,
+                        transfer->from_pos.y,
+                        transfer->to_pos.x,
+                        transfer->to_pos.y);
+                }
+                if (bone.cell_b == transfer->from_pos) {
+                    bone.cell_b = transfer->to_pos;
+                    spdlog::info(
+                        "TreeManager: Updated bone cell_b from ({},{}) to ({},{})",
+                        transfer->from_pos.x,
+                        transfer->from_pos.y,
+                        transfer->to_pos.x,
+                        transfer->to_pos.y);
+                }
             }
 
             // Note: We don't remove from_pos yet - source cell might still have material.
@@ -366,6 +402,91 @@ void TreeManager::computeOrganismSupport(World& world)
                 tree_id,
                 mass_supported,
                 upper_mass);
+        }
+    }
+}
+
+void TreeManager::applyBoneForces(World& world, double /*deltaTime*/)
+{
+    WorldData& data = world.getData();
+    GridOfCells& grid = world.getGrid();
+    constexpr double BONE_FORCE_SCALE = 1.0;
+    constexpr double BONE_DAMPING_SCALE = 1.0; // Damping coefficient for velocity.
+
+    // Clear bone force debug info for all organism cells.
+    for (auto& [tree_id, tree] : trees_) {
+        for (const auto& pos : tree.cells) {
+            if (static_cast<uint32_t>(pos.x) < data.width
+                && static_cast<uint32_t>(pos.y) < data.height) {
+                grid.debugAt(pos.x, pos.y).accumulated_bone_force = {};
+            }
+        }
+    }
+
+    for (auto& [tree_id, tree] : trees_) {
+        for (const Bone& bone : tree.bones) {
+            if (static_cast<uint32_t>(bone.cell_a.x) >= data.width
+                || static_cast<uint32_t>(bone.cell_a.y) >= data.height
+                || static_cast<uint32_t>(bone.cell_b.x) >= data.width
+                || static_cast<uint32_t>(bone.cell_b.y) >= data.height) {
+                continue;
+            }
+
+            Cell& cell_a = data.at(bone.cell_a.x, bone.cell_a.y);
+            Cell& cell_b = data.at(bone.cell_b.x, bone.cell_b.y);
+
+            // Skip if either cell no longer belongs to this organism.
+            if (cell_a.organism_id != tree_id || cell_b.organism_id != tree_id) {
+                continue;
+            }
+
+            // World positions including COM offset.
+            Vector2d pos_a = Vector2d(bone.cell_a.x, bone.cell_a.y) + cell_a.com * 0.5;
+            Vector2d pos_b = Vector2d(bone.cell_b.x, bone.cell_b.y) + cell_b.com * 0.5;
+
+            Vector2d delta = pos_b - pos_a;
+            double current_dist = delta.magnitude();
+
+            if (current_dist < 1e-6) continue;
+
+            double error = current_dist - bone.rest_distance;
+            Vector2d direction = delta / current_dist;
+
+            // Spring force: F_spring = stiffness * error * direction.
+            Vector2d spring_force = direction * error * bone.stiffness * BONE_FORCE_SCALE;
+
+            // Damping force: F_damp = -c * relative_velocity_along_bone.
+            // This reduces oscillation by opposing velocity along the bone direction.
+            Vector2d relative_velocity = cell_b.velocity - cell_a.velocity;
+            double velocity_along_bone = relative_velocity.dot(direction);
+            Vector2d damping_force =
+                direction * velocity_along_bone * bone.stiffness * BONE_DAMPING_SCALE;
+
+            // Total force = spring + damping.
+            Vector2d force = spring_force + damping_force;
+
+            cell_a.addPendingForce(force);
+            cell_b.addPendingForce(force * -1.0);
+
+            // Store in debug info.
+            grid.debugAt(bone.cell_a.x, bone.cell_a.y).accumulated_bone_force += force;
+            grid.debugAt(bone.cell_b.x, bone.cell_b.y).accumulated_bone_force += force * -1.0;
+
+            LoggingChannels::tree()->info(
+                "t={} Bone: ({},{}) <-> ({},{}) | dist={:.3f} rest={:.3f} err={:.3f} | "
+                "cell_a gets ({:.2f},{:.2f}), cell_b gets ({:.2f},{:.2f})",
+                data.timestep,
+                bone.cell_a.x,
+                bone.cell_a.y,
+                bone.cell_b.x,
+                bone.cell_b.y,
+                current_dist,
+                bone.rest_distance,
+                error,
+                force.x,
+                force.y,
+                -force.x,
+                -force.y);
         }
     }
 }

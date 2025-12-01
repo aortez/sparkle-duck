@@ -479,10 +479,10 @@ void World::advanceTime(double deltaTimeSeconds)
     }
 
     // Compute organism-specific support (root-based anchoring).
-    if (tree_manager_) {
-        ScopeTimer organismTimer(pImpl->timers_, "organism_support");
-        tree_manager_->computeOrganismSupport(*this);
-    }
+    // if (tree_manager_) {
+    //     ScopeTimer organismTimer(pImpl->timers_, "organism_support");
+    //     tree_manager_->computeOrganismSupport(*this);
+    // }
 
     // Calculate hydrostatic pressure based on current material positions.
     // This must happen before force resolution so buoyancy forces are immediate.
@@ -492,7 +492,6 @@ void World::advanceTime(double deltaTimeSeconds)
     }
 
     // Accumulate and apply all forces based on resistance.
-    // This now includes pressure forces from the current frame.
     resolveForces(scaledDeltaTime, grid);
 
     {
@@ -652,9 +651,11 @@ void World::applyGravity()
 {
     // Cache pImpl members as local references.
     std::vector<Cell>& cells = pImpl->data_.cells;
-    double gravity = pImpl->physicsSettings_.gravity;
+    std::vector<CellDebug>& debug_info = pImpl->data_.debug_info;
+    const double gravity = pImpl->physicsSettings_.gravity;
 
-    for (auto& cell : cells) {
+    for (size_t idx = 0; idx < cells.size(); ++idx) {
+        Cell& cell = cells[idx];
         if (!cell.isEmpty() && !cell.isWall()) {
             // Gravity force is proportional to material density (F = m × g).
             // This enables buoyancy: denser materials sink, lighter materials float.
@@ -663,6 +664,55 @@ void World::applyGravity()
 
             // Accumulate gravity force instead of applying directly.
             cell.addPendingForce(gravityForce);
+
+            // Debug tracking.
+            debug_info[idx].accumulated_gravity_force = gravityForce;
+        }
+    }
+}
+
+void World::applySupportForces()
+{
+    // Cache pImpl members as local references.
+    std::vector<Cell>& cells = pImpl->data_.cells;
+    std::vector<CellDebug>& debug_info = pImpl->data_.debug_info;
+    const double gravity = pImpl->physicsSettings_.gravity;
+    const uint32_t width = pImpl->data_.width;
+    const uint32_t height = pImpl->data_.height;
+
+    for (uint32_t y = 0; y < height; ++y) {
+        for (uint32_t x = 0; x < width; ++x) {
+            const size_t idx = y * width + x;
+            Cell& cell = cells[idx];
+
+            if (cell.isEmpty() || cell.isWall()) {
+                continue;
+            }
+
+            // Only rigid materials with support generate support forces.
+            const MaterialProperties& props = getMaterialProperties(cell.material_type);
+            if (!props.is_rigid || !cell.has_any_support) {
+                continue;
+            }
+
+            // Simple support: cancel gravity for supported rigid structures.
+            // TODO: Later, make this proportional to pressure/load from above.
+            Vector2d gravity_force(0.0, props.density * gravity);
+            Vector2d support_force = gravity_force * -1.0; // Equal and opposite.
+
+            cell.addPendingForce(support_force);
+
+            // Debug tracking.
+            debug_info[idx].accumulated_support_force = support_force;
+
+            spdlog::debug(
+                "Support force at ({},{}): gravity=({:.3f},{:.3f}), support=({:.3f},{:.3f})",
+                x,
+                y,
+                gravity_force.x,
+                gravity_force.y,
+                support_force.x,
+                support_force.y);
         }
     }
 }
@@ -877,6 +927,12 @@ void World::resolveForces(double deltaTime, const GridOfCells& grid)
         applyGravity();
     }
 
+    // Apply support forces (counteract gravity for supported rigid structures).
+    {
+        ScopeTimer supportTimer(timers, "resolve_forces_apply_support");
+        applySupportForces();
+    }
+
     // Apply air resistance forces.
     {
         ScopeTimer airResistanceTimer(timers, "resolve_forces_apply_air_resistance");
@@ -903,6 +959,12 @@ void World::resolveForces(double deltaTime, const GridOfCells& grid)
         WorldFrictionCalculator friction_calc{ const_cast<GridOfCells&>(grid) };
         friction_calc.setFrictionStrength(settings.friction_strength);
         friction_calc.calculateAndApplyFrictionForces(*this, deltaTime);
+    }
+
+    // Apply organism bone forces.
+    if (tree_manager_) {
+        ScopeTimer boneTimer(timers, "resolve_forces_apply_bones");
+        tree_manager_->applyBoneForces(*this, deltaTime);
     }
 
     // Apply viscous forces (momentum diffusion between same-material neighbors).
@@ -953,31 +1015,12 @@ void World::resolveForces(double deltaTime, const GridOfCells& grid)
                 Cell& cell = data.at(x, y);
 
                 // Get the total pending force (includes gravity, pressure, cohesion,
-                // adhesion, friction, viscosity, etc).
+                // adhesion, friction, viscosity, bones, etc).
                 Vector2d net_force = cell.pending_force;
 
-                // Check cohesion resistance threshold.
-                double net_force_magnitude = net_force.magnitude();
-
-                // Use cached cohesion strength (computed during applyCohesionForces).
-                double cohesion_strength = grid.getCohesionResistance(x, y);
-                double cohesion_resistance_force =
-                    cohesion_strength * settings.cohesion_resistance_factor;
-
-                if (cohesion_resistance_force > 0.01
-                    && net_force_magnitude < cohesion_resistance_force) {
-                    spdlog::debug(
-                        "Force blocked: {} at ({},{}) held by cohesion (force: {:.3f} < "
-                        "resistance: {:.3f})",
-                        getMaterialName(cell.material_type),
-                        x,
-                        y,
-                        net_force_magnitude,
-                        cohesion_resistance_force);
-                    continue;
-                }
-
-                // Apply forces directly to velocity (no damping factor!).
+                // Apply forces directly to velocity.
+                // Material stability comes from viscosity, friction, and structural forces (bones),
+                // not from force thresholds.
                 Vector2d velocity_change = net_force * deltaTime;
                 cell.velocity += velocity_change;
 
@@ -1265,25 +1308,33 @@ void World::processMaterialMoves()
                 else {
                     num_swaps_from_collisions++;
                 }
-                TreeId from_organism = fromCell.organism_id;
-                TreeId to_organism = toCell.organism_id;
+
+                // Capture organism ownership BEFORE the swap - after swap the cells exchange
+                // contents, so we need to record who was where before they dance.
+                TreeId from_org_id = fromCell.organism_id;
+                TreeId to_org_id = toCell.organism_id;
+                double from_fill = fromCell.fill_ratio;
+                double to_fill = toCell.fill_ratio;
 
                 collision_calc.swapCounterMovingMaterials(fromCell, toCell, direction, move);
 
-                if (from_organism != INVALID_TREE_ID) {
+                // Notify TreeManager of any organism cell movements.
+                // fromCell's organism moved from (fromX,fromY) to (toX,toY).
+                if (from_org_id != INVALID_TREE_ID) {
                     organism_transfers.push_back(
                         { Vector2i{ static_cast<int>(move.fromX), static_cast<int>(move.fromY) },
                           Vector2i{ static_cast<int>(move.toX), static_cast<int>(move.toY) },
-                          from_organism,
-                          fromCell.fill_ratio });
+                          from_org_id,
+                          from_fill });
                 }
 
-                if (to_organism != INVALID_TREE_ID) {
+                // toCell's organism moved from (toX,toY) to (fromX,fromY).
+                if (to_org_id != INVALID_TREE_ID) {
                     organism_transfers.push_back(
                         { Vector2i{ static_cast<int>(move.toX), static_cast<int>(move.toY) },
                           Vector2i{ static_cast<int>(move.fromX), static_cast<int>(move.fromY) },
-                          to_organism,
-                          toCell.fill_ratio });
+                          to_org_id,
+                          to_fill });
                 }
 
                 continue; // Skip normal collision handling.

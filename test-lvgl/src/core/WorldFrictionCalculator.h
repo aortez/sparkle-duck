@@ -63,10 +63,10 @@ public:
 
 private:
     /**
-     * @brief Detect contact interfaces and apply friction forces inline.
+     * @brief Accumulate friction forces from all contact interfaces (cached path).
      * @param world World providing access to grid and cells.
      */
-    void detectAndApplyFrictionForces(World& world);
+    void accumulateFrictionForces(World& world);
 
     /**
      * @brief Detect all contact interfaces in the world.
@@ -115,11 +115,12 @@ private:
         const Vector2d& relative_velocity, const Vector2d& interface_normal) const;
 
     /**
-     * @brief Apply friction forces to cells based on contact interfaces.
+     * @brief Accumulate friction forces from pre-detected contacts (reference path).
      * @param world World providing access to grid and cells (non-const for modifications).
      * @param contacts Vector of contact interfaces with calculated properties.
      */
-    void applyFrictionForces(World& world, const std::vector<ContactInterface>& contacts);
+    void accumulateFrictionFromContacts(
+        World& world, const std::vector<ContactInterface>& contacts);
 
     GridOfCells& grid_; // Reference to grid for debug info storage.
 

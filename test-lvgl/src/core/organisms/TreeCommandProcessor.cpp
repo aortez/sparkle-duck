@@ -57,13 +57,12 @@ CommandExecutionResult TreeCommandProcessor::execute(
                              "WOOD requires cardinal adjacency to WOOD or SEED" };
                 }
 
-                world.getData()
-                    .at(command.target_pos.x, command.target_pos.y)
-                    .replaceMaterial(MaterialType::WOOD, 1.0);
-                world.getData().at(command.target_pos.x, command.target_pos.y).organism_id =
-                    tree.id;
+                Cell& new_cell = world.getData().at(command.target_pos.x, command.target_pos.y);
+                new_cell.replaceMaterial(MaterialType::WOOD, 1.0);
+                new_cell.organism_id = tree.id;
 
                 tree.cells.insert(command.target_pos);
+                tree.createBonesForCell(command.target_pos, MaterialType::WOOD, world);
                 tree.total_energy -= ENERGY_COST_WOOD;
 
                 spdlog::info(
@@ -120,6 +119,7 @@ CommandExecutionResult TreeCommandProcessor::execute(
                     tree.id;
 
                 tree.cells.insert(command.target_pos);
+                tree.createBonesForCell(command.target_pos, MaterialType::LEAF, world);
                 tree.total_energy -= ENERGY_COST_LEAF;
 
                 spdlog::info(
@@ -172,6 +172,7 @@ CommandExecutionResult TreeCommandProcessor::execute(
                     tree.id;
 
                 tree.cells.insert(command.target_pos);
+                tree.createBonesForCell(command.target_pos, MaterialType::ROOT, world);
                 tree.total_energy -= ENERGY_COST_ROOT;
 
                 spdlog::info(

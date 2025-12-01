@@ -3,16 +3,27 @@
 #include "TreeBrain.h"
 #include "TreeCommands.h"
 #include "TreeSensoryData.h"
+#include "core/MaterialType.h"
 #include <cstdint>
 #include <memory>
 #include <optional>
 #include <unordered_set>
+#include <vector>
 
 namespace DirtSim {
 
 using TreeId = uint32_t;
 
 constexpr TreeId INVALID_TREE_ID = 0;
+
+struct Bone {
+    Vector2i cell_a;
+    Vector2i cell_b;
+    double rest_distance;
+    double stiffness;
+};
+
+double getBoneStiffness(MaterialType a, MaterialType b);
 
 class World;
 
@@ -48,15 +59,18 @@ public:
     double age_seconds = 0.0;
     GrowthStage stage = GrowthStage::SEED;
     std::unordered_set<Vector2i> cells;
+    std::vector<Bone> bones;
     double total_energy = 0.0;
     double total_water = 0.0;
     std::optional<TreeCommand> current_command;
     double time_remaining_seconds = 0.0;
 
-    /**
-     * Gather scale-invariant sensory data for brain input and UI visualization.
-     */
     TreeSensoryData gatherSensoryData(const World& world) const;
+
+    void createBonesForCell(Vector2i new_cell, MaterialType material, const World& world);
+
+    // Replace the brain (for testing with custom brain implementations).
+    void setBrain(std::unique_ptr<TreeBrain> brain) { brain_ = std::move(brain); }
 
 private:
     std::unique_ptr<TreeBrain> brain_;

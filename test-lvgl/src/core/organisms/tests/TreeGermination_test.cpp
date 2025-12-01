@@ -1,11 +1,19 @@
+#include "CellTrackerUtil.h"
+#include "core/GridOfCells.h"
 #include "core/PhysicsSettings.h"
 #include "core/World.h"
 #include "core/WorldData.h"
 #include "core/WorldDiagramGeneratorEmoji.h"
+#include "core/organisms/Tree.h"
+#include "core/organisms/TreeBrain.h"
+#include "core/organisms/TreeCommands.h"
 #include "core/organisms/TreeManager.h"
 #include "server/scenarios/ScenarioRegistry.h"
 #include <gtest/gtest.h>
+#include <iomanip>
 #include <spdlog/spdlog.h>
+#include <unordered_map>
+#include <unordered_set>
 
 using namespace DirtSim;
 
@@ -120,8 +128,26 @@ TEST_F(TreeGerminationTest, SaplingGrowsBalanced)
     Vector2i last_seed_pos = tree->seed_position;
     std::string last_diagram = WorldDiagramGeneratorEmoji::generateEmojiDiagram(*world);
 
+    // Use CellTracker utility for tracking cell physics over time.
+    CellTracker tracker(*world, id, 20);
+
+    // Initialize with seed.
+    tracker.trackCell(tree->seed_position, MaterialType::SEED, 0);
+
     for (int i = 0; i < 2000; i++) {
+        // Snapshot current cells before advancing.
+        std::unordered_set<Vector2i> cells_before = tree->cells;
+
         world->advanceTime(0.016);
+
+        // Record state for all tracked cells.
+        tracker.recordFrame(i);
+
+        // Detect and track new cells.
+        tracker.detectNewCells(cells_before, tree->cells, i);
+
+        // Check for displaced cells.
+        tracker.checkForDisplacements(i);
 
         // Track seed movement.
         Vector2i current_seed_pos = tree->seed_position;
@@ -355,6 +381,240 @@ TEST_F(TreeGerminationTest, WoodCellsStayStationary)
 
     std::cout << "Final state (frame " << frame << "):\n"
               << WorldDiagramGeneratorEmoji::generateEmojiDiagram(*world) << "\n";
+}
+
+// A brain that issues a sequence of GrowWood commands, then waits.
+class ScriptedGrowWoodBrain : public TreeBrain {
+public:
+    ScriptedGrowWoodBrain(std::vector<Vector2i> targets) : targets_(std::move(targets)) {}
+
+    TreeCommand decide(const TreeSensoryData& /*sensory*/) override
+    {
+        if (command_index_ < targets_.size()) {
+            GrowWoodCommand cmd;
+            cmd.target_pos = targets_[command_index_];
+            cmd.execution_time_seconds = 0.1; // Fast for testing.
+            command_index_++;
+            return cmd;
+        }
+        // After all growth commands, just wait forever.
+        WaitCommand wait;
+        wait.duration_seconds = 1000.0;
+        return wait;
+    }
+
+private:
+    std::vector<Vector2i> targets_;
+    size_t command_index_ = 0;
+};
+
+TEST_F(TreeGerminationTest, HorizontalBoneForceBehavior)
+{
+    // Create a minimal 3x3 world with a seed and one WOOD cell to the left.
+    // This isolates bone physics from complex tree growth.
+    world = std::make_unique<World>(3, 3);
+
+    // Clear the world.
+    for (uint32_t y = 0; y < 3; ++y) {
+        for (uint32_t x = 0; x < 3; ++x) {
+            world->getData().at(x, y) = Cell();
+        }
+    }
+
+    // Plant seed at (1, 2) - bottom center.
+    TreeId id = world->getTreeManager().plantSeed(*world, 1, 2);
+    Tree* tree = world->getTreeManager().getTree(id);
+    ASSERT_NE(tree, nullptr);
+
+    // Replace brain with one that grows WOOD to the left at (0, 2).
+    Vector2i seed_pos{ 1, 2 };
+    Vector2i wood_target{ 0, 2 };
+    tree->setBrain(std::make_unique<ScriptedGrowWoodBrain>(std::vector<Vector2i>{ wood_target }));
+
+    // Give tree enough energy to grow one WOOD cell.
+    tree->total_energy = 100.0;
+
+    std::cout << "\n=== Horizontal Bone Force Test ===\n";
+    std::cout << "Setup: 3x3 world, SEED at (1,2), will grow WOOD at (0,2)\n\n";
+    std::cout << "Initial state:\n"
+              << WorldDiagramGeneratorEmoji::generateEmojiDiagram(*world) << "\n";
+
+    // Set up tracker with seed.
+    CellTracker tracker(*world, id);
+    tracker.trackCell(seed_pos, MaterialType::SEED, 0);
+
+    // Run until WOOD appears.
+    int frame = 0;
+    bool wood_grown = false;
+    while (!wood_grown && frame < 100) {
+        std::unordered_set<Vector2i> cells_before = tree->cells;
+
+        world->advanceTime(0.016);
+        frame++;
+
+        tracker.recordFrame(frame);
+        tracker.detectNewCells(cells_before, tree->cells, frame);
+
+        const Cell& wood_cell = world->getData().at(wood_target.x, wood_target.y);
+        if (wood_cell.material_type == MaterialType::WOOD && wood_cell.organism_id == id) {
+            wood_grown = true;
+            std::cout << "WOOD grown at frame " << frame << ":\n"
+                      << WorldDiagramGeneratorEmoji::generateEmojiDiagram(*world) << "\n";
+        }
+    }
+
+    ASSERT_TRUE(wood_grown) << "WOOD should have grown at target position";
+    ASSERT_EQ(tree->bones.size(), 1) << "Should have exactly one bone connecting SEED and WOOD";
+
+    const Bone& bone = tree->bones[0];
+    std::cout << "Bone: (" << bone.cell_a.x << "," << bone.cell_a.y << ") <-> (" << bone.cell_b.x
+              << "," << bone.cell_b.y << ") rest=" << bone.rest_distance
+              << " stiff=" << bone.stiffness << "\n\n";
+
+    // Now track forces over time using the tracker.
+    tracker.printTableHeader();
+
+    for (int i = 0; i < 100; i++) {
+        tracker.printTableRow(frame + i);
+
+        world->advanceTime(0.016);
+
+        tracker.recordFrame(frame + i);
+
+        if (tracker.checkForDisplacements(frame + i)) {
+            FAIL() << "Cell was displaced from its position";
+        }
+    }
+
+    std::cout << "\n=== Final State ===\n";
+    std::cout << WorldDiagramGeneratorEmoji::generateEmojiDiagram(*world) << "\n";
+
+    // Verify cells are still in place.
+    const Cell& final_seed = world->getData().at(seed_pos.x, seed_pos.y);
+    const Cell& final_wood = world->getData().at(wood_target.x, wood_target.y);
+
+    EXPECT_EQ(final_seed.material_type, MaterialType::SEED);
+    EXPECT_EQ(final_seed.organism_id, id);
+    EXPECT_EQ(final_wood.material_type, MaterialType::WOOD);
+    EXPECT_EQ(final_wood.organism_id, id);
+
+    // Verify horizontal bone stability (X components should be near center).
+    // Y component behavior is affected by gravity and will be examined separately.
+    EXPECT_LT(std::abs(final_seed.com.x), 0.5) << "Seed COM X should be stable near center";
+    EXPECT_LT(std::abs(final_wood.com.x), 0.5) << "Wood COM X should be stable near center";
+}
+
+TEST_F(TreeGerminationTest, VerticalBoneForceBehavior)
+{
+    // Create a minimal 3x3 world with a seed and one WOOD cell above it.
+    // This tests bone behavior against gravity.
+    world = std::make_unique<World>(3, 3);
+
+    // Clear the world.
+    for (uint32_t y = 0; y < 3; ++y) {
+        for (uint32_t x = 0; x < 3; ++x) {
+            world->getData().at(x, y) = Cell();
+        }
+    }
+
+    // Plant seed at (1, 2) - bottom center.
+    TreeId id = world->getTreeManager().plantSeed(*world, 1, 2);
+    Tree* tree = world->getTreeManager().getTree(id);
+    ASSERT_NE(tree, nullptr);
+
+    // Replace brain with one that grows WOOD above at (1, 1), then (1, 0).
+    Vector2i seed_pos{ 1, 2 };
+    Vector2i wood1_target{ 1, 1 };
+    Vector2i wood2_target{ 1, 0 };
+    tree->setBrain(std::make_unique<ScriptedGrowWoodBrain>(
+        std::vector<Vector2i>{ wood1_target, wood2_target }));
+
+    // Give tree enough energy to grow two WOOD cells.
+    tree->total_energy = 100.0;
+
+    std::cout << "\n=== Vertical Bone Force Test ===\n";
+    std::cout << "Setup: 3x3 world, SEED at (1,2), will grow WOOD at (1,1) and (1,0) above\n\n";
+    std::cout << "Initial state:\n"
+              << WorldDiagramGeneratorEmoji::generateEmojiDiagram(*world) << "\n";
+
+    // Set up tracker with seed.
+    CellTracker tracker(*world, id);
+    tracker.trackCell(seed_pos, MaterialType::SEED, 0);
+
+    // Run until both WOOD cells appear.
+    int frame = 0;
+    bool wood1_grown = false;
+    bool wood2_grown = false;
+    while ((!wood1_grown || !wood2_grown) && frame < 200) {
+        std::unordered_set<Vector2i> cells_before = tree->cells;
+
+        world->advanceTime(0.016);
+        frame++;
+
+        tracker.recordFrame(frame);
+        tracker.detectNewCells(cells_before, tree->cells, frame);
+
+        const Cell& wood1_cell = world->getData().at(wood1_target.x, wood1_target.y);
+        if (!wood1_grown && wood1_cell.material_type == MaterialType::WOOD
+            && wood1_cell.organism_id == id) {
+            wood1_grown = true;
+            std::cout << "WOOD1 grown at frame " << frame << ":\n"
+                      << WorldDiagramGeneratorEmoji::generateEmojiDiagram(*world) << "\n";
+        }
+
+        const Cell& wood2_cell = world->getData().at(wood2_target.x, wood2_target.y);
+        if (!wood2_grown && wood2_cell.material_type == MaterialType::WOOD
+            && wood2_cell.organism_id == id) {
+            wood2_grown = true;
+            std::cout << "WOOD2 grown at frame " << frame << ":\n"
+                      << WorldDiagramGeneratorEmoji::generateEmojiDiagram(*world) << "\n";
+        }
+    }
+
+    ASSERT_TRUE(wood1_grown) << "WOOD1 should have grown at (1,1)";
+    ASSERT_TRUE(wood2_grown) << "WOOD2 should have grown at (1,0)";
+
+    std::cout << "\nBones created: " << tree->bones.size() << " total\n";
+    for (size_t i = 0; i < tree->bones.size(); i++) {
+        const Bone& b = tree->bones[i];
+        std::cout << "  Bone[" << i << "]: (" << b.cell_a.x << "," << b.cell_a.y << ") <-> ("
+                  << b.cell_b.x << "," << b.cell_b.y << ") rest=" << b.rest_distance
+                  << " stiff=" << b.stiffness << "\n";
+    }
+    std::cout << "\n";
+
+    // Now track forces over time using the tracker.
+    tracker.printTableHeader();
+
+    for (int i = 0; i < 100; i++) {
+        tracker.printTableRow(frame + i);
+
+        world->advanceTime(0.016);
+
+        tracker.recordFrame(frame + i);
+
+        if (tracker.checkForDisplacements(frame + i)) {
+            FAIL() << "Cell was displaced from its position";
+        }
+    }
+
+    std::cout << "\n=== Final State ===\n";
+    std::cout << WorldDiagramGeneratorEmoji::generateEmojiDiagram(*world) << "\n";
+
+    // Verify all cells are still in place.
+    const Cell& final_seed = world->getData().at(seed_pos.x, seed_pos.y);
+    const Cell& final_wood1 = world->getData().at(wood1_target.x, wood1_target.y);
+    const Cell& final_wood2 = world->getData().at(wood2_target.x, wood2_target.y);
+
+    EXPECT_EQ(final_seed.material_type, MaterialType::SEED);
+    EXPECT_EQ(final_seed.organism_id, id);
+    EXPECT_EQ(final_wood1.material_type, MaterialType::WOOD);
+    EXPECT_EQ(final_wood1.organism_id, id);
+    EXPECT_EQ(final_wood2.material_type, MaterialType::WOOD);
+    EXPECT_EQ(final_wood2.organism_id, id);
+
+    // For vertical stack, just verify cells stayed in their grid positions.
+    // COMs may drift to cell boundaries under gravity - that's acceptable.
 }
 
 TEST_F(TreeGerminationTest, DebugWoodFalling)

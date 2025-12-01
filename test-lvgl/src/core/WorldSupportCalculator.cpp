@@ -382,6 +382,7 @@ bool WorldSupportCalculator::hasStructuralSupport(uint32_t x, uint32_t y) const
 
 void WorldSupportCalculator::computeSupportMapBottomUp(World& world) const
 {
+    (void)world;
     if (GridOfCells::USE_CACHE) {
         CellBitmap& support = grid_.supportBitmap();
 
@@ -419,19 +420,198 @@ void WorldSupportCalculator::computeSupportMapBottomUp(World& world) const
                 const bool has_vertical =
                     empty_n.southHasMaterial() && support.isSet(x, y + 1) && !below_is_fluid;
 
-                bool has_horizontal = false;
-                if (!has_vertical) {
-                    has_horizontal = hasHorizontalSupport(x, y, empty_n, mat_n);
-                }
-
-                // Set support fields - both bitmap and cell fields.
+                // Set support fields - horizontal support will be added by propagation passes.
                 grid_.at(x, y).has_vertical_support = has_vertical;
-                grid_.at(x, y).has_any_support = has_vertical || has_horizontal;
-                if (has_vertical || has_horizontal) {
+                grid_.at(x, y).has_any_support = has_vertical;
+                if (has_vertical) {
                     support.set(x, y);
                 }
                 else {
                     support.clear(x, y);
+                }
+            }
+        }
+
+        // ========== HORIZONTAL PROPAGATION PASSES ==========
+        // Propagate support through rigid connections (cantilever beams, etc.).
+        // Two passes ensure support flows in all horizontal directions: O(2n) = O(n).
+
+        // Pass 2: Left-to-right propagation.
+        for (uint32_t y = 0; y < grid_.getHeight(); y++) {
+            for (uint32_t x = 1; x < grid_.getWidth(); x++) {
+                Cell& cell = grid_.at(x, y);
+                if (cell.has_any_support || cell.isEmpty()) {
+                    continue; // Already supported or empty.
+                }
+
+                const MaterialProperties& cell_props = getMaterialProperties(cell.material_type);
+                if (!cell_props.is_rigid) {
+                    continue; // Only rigid materials propagate support.
+                }
+
+                // Check left neighbor.
+                const Cell& left = grid_.at(x - 1, y);
+                if (!left.has_any_support || left.isEmpty()) {
+                    continue;
+                }
+
+                const MaterialProperties& left_props = getMaterialProperties(left.material_type);
+                if (!left_props.is_rigid) {
+                    continue; // Neighbor must also be rigid.
+                }
+
+                // Check bond strength (cohesion for same material, adhesion for different).
+                bool strong_bond = false;
+                if (left.material_type == cell.material_type) {
+                    strong_bond = (cell_props.cohesion > COHESION_SUPPORT_THRESHOLD);
+                }
+                else {
+                    const double mutual_adhesion =
+                        std::sqrt(cell_props.adhesion * left_props.adhesion);
+                    strong_bond = (mutual_adhesion > ADHESION_SUPPORT_THRESHOLD);
+                }
+
+                if (strong_bond) {
+                    // Propagate support from left neighbor.
+                    cell.has_any_support = true;
+                    grid_.supportBitmap().set(x, y);
+                    spdlog::debug(
+                        "Support propagated L->R: ({},{}) {} got support from ({},{}) {}",
+                        x,
+                        y,
+                        getMaterialName(cell.material_type),
+                        x - 1,
+                        y,
+                        getMaterialName(left.material_type));
+                }
+            }
+        }
+
+        // Pass 3: Right-to-left propagation.
+        for (uint32_t y = 0; y < grid_.getHeight(); y++) {
+            for (int x = grid_.getWidth() - 2; x >= 0; x--) {
+                Cell& cell = grid_.at(x, y);
+                if (cell.has_any_support || cell.isEmpty()) {
+                    continue; // Already supported or empty.
+                }
+
+                const MaterialProperties& cell_props = getMaterialProperties(cell.material_type);
+                if (!cell_props.is_rigid) {
+                    continue; // Only rigid materials propagate support.
+                }
+
+                // Check right neighbor.
+                const Cell& right = grid_.at(x + 1, y);
+                if (!right.has_any_support || right.isEmpty()) {
+                    continue;
+                }
+
+                const MaterialProperties& right_props = getMaterialProperties(right.material_type);
+                if (!right_props.is_rigid) {
+                    continue; // Neighbor must also be rigid.
+                }
+
+                // Check bond strength (cohesion for same material, adhesion for different).
+                bool strong_bond = false;
+                if (right.material_type == cell.material_type) {
+                    strong_bond = (cell_props.cohesion > COHESION_SUPPORT_THRESHOLD);
+                }
+                else {
+                    const double mutual_adhesion =
+                        std::sqrt(cell_props.adhesion * right_props.adhesion);
+                    strong_bond = (mutual_adhesion > ADHESION_SUPPORT_THRESHOLD);
+                }
+
+                if (strong_bond) {
+                    // Propagate support from right neighbor.
+                    cell.has_any_support = true;
+                    grid_.supportBitmap().set(x, y);
+                }
+            }
+        }
+
+        // Pass 4: Top-to-bottom propagation.
+        for (uint32_t y = 1; y < grid_.getHeight(); y++) {
+            for (uint32_t x = 0; x < grid_.getWidth(); x++) {
+                Cell& cell = grid_.at(x, y);
+                if (cell.has_any_support || cell.isEmpty()) {
+                    continue; // Already supported or empty.
+                }
+
+                const MaterialProperties& cell_props = getMaterialProperties(cell.material_type);
+                if (!cell_props.is_rigid) {
+                    continue; // Only rigid materials propagate support.
+                }
+
+                // Check up neighbor.
+                const Cell& up = grid_.at(x, y - 1);
+                if (!up.has_any_support || up.isEmpty()) {
+                    continue;
+                }
+
+                const MaterialProperties& up_props = getMaterialProperties(up.material_type);
+                if (!up_props.is_rigid) {
+                    continue; // Neighbor must also be rigid.
+                }
+
+                // Check bond strength.
+                bool strong_bond = false;
+                if (up.material_type == cell.material_type) {
+                    strong_bond = (cell_props.cohesion > COHESION_SUPPORT_THRESHOLD);
+                }
+                else {
+                    const double mutual_adhesion =
+                        std::sqrt(cell_props.adhesion * up_props.adhesion);
+                    strong_bond = (mutual_adhesion > ADHESION_SUPPORT_THRESHOLD);
+                }
+
+                if (strong_bond) {
+                    // Propagate support from up neighbor.
+                    cell.has_any_support = true;
+                    grid_.supportBitmap().set(x, y);
+                }
+            }
+        }
+
+        // Pass 5: Bottom-to-top propagation.
+        for (int y = grid_.getHeight() - 2; y >= 0; y--) {
+            for (uint32_t x = 0; x < grid_.getWidth(); x++) {
+                Cell& cell = grid_.at(x, y);
+                if (cell.has_any_support || cell.isEmpty()) {
+                    continue; // Already supported or empty.
+                }
+
+                const MaterialProperties& cell_props = getMaterialProperties(cell.material_type);
+                if (!cell_props.is_rigid) {
+                    continue; // Only rigid materials propagate support.
+                }
+
+                // Check down neighbor.
+                const Cell& down = grid_.at(x, y + 1);
+                if (!down.has_any_support || down.isEmpty()) {
+                    continue;
+                }
+
+                const MaterialProperties& down_props = getMaterialProperties(down.material_type);
+                if (!down_props.is_rigid) {
+                    continue; // Neighbor must also be rigid.
+                }
+
+                // Check bond strength.
+                bool strong_bond = false;
+                if (down.material_type == cell.material_type) {
+                    strong_bond = (cell_props.cohesion > COHESION_SUPPORT_THRESHOLD);
+                }
+                else {
+                    const double mutual_adhesion =
+                        std::sqrt(cell_props.adhesion * down_props.adhesion);
+                    strong_bond = (mutual_adhesion > ADHESION_SUPPORT_THRESHOLD);
+                }
+
+                if (strong_bond) {
+                    // Propagate support from down neighbor.
+                    cell.has_any_support = true;
+                    grid_.supportBitmap().set(x, y);
                 }
             }
         }
@@ -473,15 +653,181 @@ void WorldSupportCalculator::computeSupportMapBottomUp(World& world) const
                      || below.material_type == MaterialType::AIR);
                 bool has_vertical = !below.isEmpty() && below.has_any_support && !below_is_fluid;
 
-                // Check horizontal support if no vertical.
-                bool has_horizontal = false;
-                if (!has_vertical) {
-                    has_horizontal = hasHorizontalSupport(world, x, y);
+                // Set support fields - horizontal support will be added by propagation passes.
+                cell.has_vertical_support = has_vertical;
+                cell.has_any_support = has_vertical;
+            }
+        }
+
+        // ========== HORIZONTAL PROPAGATION PASSES (DIRECT PATH) ==========
+        // Propagate support through rigid connections (cantilever beams, etc.).
+        // Two passes ensure support flows in all horizontal directions: O(2n) = O(n).
+
+        // Pass 2: Left-to-right propagation.
+        for (uint32_t y = 0; y < grid_.getHeight(); y++) {
+            for (uint32_t x = 1; x < grid_.getWidth(); x++) {
+                Cell& cell = grid_.at(x, y);
+                if (cell.has_any_support || cell.isEmpty()) {
+                    continue; // Already supported or empty.
                 }
 
-                // Set support fields.
-                cell.has_vertical_support = has_vertical;
-                cell.has_any_support = has_vertical || has_horizontal;
+                const MaterialProperties& cell_props = getMaterialProperties(cell.material_type);
+                if (!cell_props.is_rigid) {
+                    continue; // Only rigid materials propagate support.
+                }
+
+                // Check left neighbor.
+                const Cell& left = grid_.at(x - 1, y);
+                if (!left.has_any_support || left.isEmpty()) {
+                    continue;
+                }
+
+                const MaterialProperties& left_props = getMaterialProperties(left.material_type);
+                if (!left_props.is_rigid) {
+                    continue; // Neighbor must also be rigid.
+                }
+
+                // Check bond strength (cohesion for same material, adhesion for different).
+                bool strong_bond = false;
+                if (left.material_type == cell.material_type) {
+                    strong_bond = (cell_props.cohesion > COHESION_SUPPORT_THRESHOLD);
+                }
+                else {
+                    const double mutual_adhesion =
+                        std::sqrt(cell_props.adhesion * left_props.adhesion);
+                    strong_bond = (mutual_adhesion > ADHESION_SUPPORT_THRESHOLD);
+                }
+
+                if (strong_bond) {
+                    // Propagate support from left neighbor.
+                    cell.has_any_support = true;
+                }
+            }
+        }
+
+        // Pass 3: Right-to-left propagation.
+        for (uint32_t y = 0; y < grid_.getHeight(); y++) {
+            for (int x = grid_.getWidth() - 2; x >= 0; x--) {
+                Cell& cell = grid_.at(x, y);
+                if (cell.has_any_support || cell.isEmpty()) {
+                    continue; // Already supported or empty.
+                }
+
+                const MaterialProperties& cell_props = getMaterialProperties(cell.material_type);
+                if (!cell_props.is_rigid) {
+                    continue; // Only rigid materials propagate support.
+                }
+
+                // Check right neighbor.
+                const Cell& right = grid_.at(x + 1, y);
+                if (!right.has_any_support || right.isEmpty()) {
+                    continue;
+                }
+
+                const MaterialProperties& right_props = getMaterialProperties(right.material_type);
+                if (!right_props.is_rigid) {
+                    continue; // Neighbor must also be rigid.
+                }
+
+                // Check bond strength (cohesion for same material, adhesion for different).
+                bool strong_bond = false;
+                if (right.material_type == cell.material_type) {
+                    strong_bond = (cell_props.cohesion > COHESION_SUPPORT_THRESHOLD);
+                }
+                else {
+                    const double mutual_adhesion =
+                        std::sqrt(cell_props.adhesion * right_props.adhesion);
+                    strong_bond = (mutual_adhesion > ADHESION_SUPPORT_THRESHOLD);
+                }
+
+                if (strong_bond) {
+                    // Propagate support from right neighbor.
+                    cell.has_any_support = true;
+                }
+            }
+        }
+
+        // Pass 4: Top-to-bottom propagation.
+        for (uint32_t y = 1; y < grid_.getHeight(); y++) {
+            for (uint32_t x = 0; x < grid_.getWidth(); x++) {
+                Cell& cell = grid_.at(x, y);
+                if (cell.has_any_support || cell.isEmpty()) {
+                    continue; // Already supported or empty.
+                }
+
+                const MaterialProperties& cell_props = getMaterialProperties(cell.material_type);
+                if (!cell_props.is_rigid) {
+                    continue; // Only rigid materials propagate support.
+                }
+
+                // Check up neighbor.
+                const Cell& up = grid_.at(x, y - 1);
+                if (!up.has_any_support || up.isEmpty()) {
+                    continue;
+                }
+
+                const MaterialProperties& up_props = getMaterialProperties(up.material_type);
+                if (!up_props.is_rigid) {
+                    continue; // Neighbor must also be rigid.
+                }
+
+                // Check bond strength.
+                bool strong_bond = false;
+                if (up.material_type == cell.material_type) {
+                    strong_bond = (cell_props.cohesion > COHESION_SUPPORT_THRESHOLD);
+                }
+                else {
+                    const double mutual_adhesion =
+                        std::sqrt(cell_props.adhesion * up_props.adhesion);
+                    strong_bond = (mutual_adhesion > ADHESION_SUPPORT_THRESHOLD);
+                }
+
+                if (strong_bond) {
+                    // Propagate support from up neighbor.
+                    cell.has_any_support = true;
+                }
+            }
+        }
+
+        // Pass 5: Bottom-to-top propagation.
+        for (int y = grid_.getHeight() - 2; y >= 0; y--) {
+            for (uint32_t x = 0; x < grid_.getWidth(); x++) {
+                Cell& cell = grid_.at(x, y);
+                if (cell.has_any_support || cell.isEmpty()) {
+                    continue; // Already supported or empty.
+                }
+
+                const MaterialProperties& cell_props = getMaterialProperties(cell.material_type);
+                if (!cell_props.is_rigid) {
+                    continue; // Only rigid materials propagate support.
+                }
+
+                // Check down neighbor.
+                const Cell& down = grid_.at(x, y + 1);
+                if (!down.has_any_support || down.isEmpty()) {
+                    continue;
+                }
+
+                const MaterialProperties& down_props = getMaterialProperties(down.material_type);
+                if (!down_props.is_rigid) {
+                    continue; // Neighbor must also be rigid.
+                }
+
+                // Check bond strength.
+                bool strong_bond = false;
+                if (down.material_type == cell.material_type) {
+                    strong_bond = (cell_props.cohesion > COHESION_SUPPORT_THRESHOLD);
+                }
+                else {
+                    const double mutual_adhesion =
+                        std::sqrt(cell_props.adhesion * down_props.adhesion);
+                    strong_bond = (mutual_adhesion > ADHESION_SUPPORT_THRESHOLD);
+                }
+
+                if (strong_bond) {
+                    // Propagate support from down neighbor.
+                    cell.has_any_support = true;
+                }
             }
         }
     }

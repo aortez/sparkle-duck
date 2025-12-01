@@ -302,6 +302,7 @@ private:
     // =================================================================
 
     void applyGravity();
+    void applySupportForces();
     void applyAirResistance();
     void applyCohesionForces(const GridOfCells& grid);
     void applyPressureForces();

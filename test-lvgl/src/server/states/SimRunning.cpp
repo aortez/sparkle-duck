@@ -189,7 +189,7 @@ void SimRunning::tick(StateMachine& dsm)
         // Broadcast RenderMessage to all clients (per-client format).
         auto broadcastStart = std::chrono::steady_clock::now();
         timers.startTimer("broadcast_render_message");
-        dsm.getWebSocketServer()->broadcastRenderMessage(world->getData());
+        dsm.getWebSocketServer()->broadcastRenderMessage(*world);
         timers.stopTimer("broadcast_render_message");
         auto broadcastEnd = std::chrono::steady_clock::now();
         auto broadcastMs =

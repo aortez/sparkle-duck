@@ -43,6 +43,8 @@ public:
      */
     void computeOrganismSupport(World& world);
 
+    void applyBoneForces(World& world, double deltaTime);
+
 private:
     std::unordered_map<TreeId, Tree> trees_;
     std::unordered_map<Vector2i, TreeId> cell_to_tree_;

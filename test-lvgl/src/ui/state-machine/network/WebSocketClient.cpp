@@ -89,13 +89,11 @@ bool WebSocketClient::connect(const std::string& url)
                     worldData.scenario_id = renderMsg.scenario_id;
                     worldData.scenario_config = renderMsg.scenario_config;
                     worldData.tree_vision = renderMsg.tree_vision;
+                    worldData.bones = renderMsg.bones;
 
                     // Unpack cells based on format.
                     size_t numCells = renderMsg.width * renderMsg.height;
                     worldData.cells.resize(numCells);
-                    // Ensure debug_info is sized to match cells (default-initialized).
-                    // This prevents crashes when debug draw is enabled but CellDebug
-                    // data isn't transmitted over the network.
                     worldData.debug_info.resize(numCells);
 
                     if (renderMsg.format == RenderFormat::BASIC) {

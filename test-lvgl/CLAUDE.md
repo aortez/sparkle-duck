@@ -460,7 +460,6 @@ Can be found here:
 - ✅ Test coverage (6 passing tests with emoji visualization)
 
 **Known Limitations:**
-- Growth only from seed position (trees grow as blobs, not realistic branching)
 - No energy regeneration (trees deplete and stop)
 - No MATURE stage transition
 
@@ -471,6 +470,7 @@ Can be found here:
 - Performance testing and optimization
 
 Awesome Ideas to do soon:
+- Bones - could we give organisms bones to help old cells together?
 - Swapping behavior - don't swap down if there is an opening to the side, instead displace!!!
 - WorldEventGenerator methods should be moved into the Scenarios.
 - FIX: After resetting, the tree visualization is still showing, it should Only
@@ -486,7 +486,7 @@ It could affect how other things move/displace in interesting/subtle ways.  The 
 - mass as a gravity source!  allan.pizza but in a grid!!!
 - quad-tree or quantization or other spatial optimization applied to the grid?
 - cli send/receive any command/response automatically.
-- Review CLI and CAUDE README/md files for accuracy and gross omitition  Test things
+- Review CLI and CAUDE README/md files for accuracy and gross omission  Test things
 to see if they work.
 - refactor World to use Pimple pattern.  Use elsewhere too?
 - bit grid cache for has_support instead of storing it in each cell.
@@ -494,14 +494,13 @@ to see if they work.
 - Add light tracing and illumination! (from top down)
 - Per-cell neighborhood cache: 64-bit bitmap in each Cell for instant neighbor queries (see design_docs/optimization-ideas.md Section 10).
 
+See design_docs/plant.md and design_docs/ai-integration-ideas.md for details.
+
 ### Client/Server Architecture (DSSM + UI Client)
 - ✅ Headless server with WebSocket API
 - ✅ UI client with controls and rendering
-- ✅ Optimized RenderMessage format (BASIC: 2 bytes/cell, DEBUG: 16 bytes/cell)
 - ✅ Binary serialization (zpp_bits)
 - ✅ Per-client format selection with render_format_set API
-
-See design_docs/plant.md and design_docs/ai-integration-ideas.md for details.
 
 ## Interaction Guidelines
 Let me know if you have any questions!

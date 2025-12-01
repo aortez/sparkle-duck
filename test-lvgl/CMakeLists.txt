@@ -407,6 +407,8 @@ add_executable(sparkle-duck-tests
     src/core/bitmaps/tests/Neighborhood3x3_test.cpp
 
     # Organism tests.
+    src/core/organisms/tests/CantileverSupport_test.cpp
+    src/core/organisms/tests/CellTrackerUtil.cpp
     src/core/organisms/tests/TreeGermination_test.cpp
     src/core/organisms/tests/TreeManager_test.cpp
     src/core/organisms/tests/TreeSensory_test.cpp

@@ -147,6 +147,20 @@ inline std::vector<OrganismData> extractOrganisms(const WorldData& data)
 }
 
 /**
+ * @brief Extract bone data from WorldData.
+ *
+ * Note: Bones are stored in World, not WorldData, so this must be called
+ * from a context that has access to the World instance.
+ */
+inline std::vector<BoneData> extractBones(const WorldData& data)
+{
+    // Bones are stored in Tree objects, not in WorldData directly.
+    // This function signature needs World access - see packRenderMessage overload.
+    (void)data;
+    return {};
+}
+
+/**
  * @brief Pack WorldData into RenderMessage with specified format.
  */
 inline RenderMessage packRenderMessage(const WorldData& data, RenderFormat format)
@@ -171,6 +185,10 @@ inline RenderMessage packRenderMessage(const WorldData& data, RenderFormat forma
 
     // Extract sparse organism data.
     msg.organisms = extractOrganisms(data);
+
+    // Bones are extracted from World in server-side code.
+    // (Empty here - populated by server when World is available).
+    msg.bones = {};
 
     return msg;
 }

@@ -43,12 +43,6 @@ WorldCohesionCalculator::CohesionForce WorldCohesionCalculator::calculateCohesio
                     && neighbor.fill_ratio > MIN_MATTER_THRESHOLD) {
                     connected_neighbors += 1;
                 }
-                // Also count same-organism neighbors (for tree structural connections).
-                else if (
-                    cell.organism_id != 0 && neighbor.organism_id == cell.organism_id
-                    && neighbor.fill_ratio > MIN_MATTER_THRESHOLD) {
-                    connected_neighbors += 1;
-                }
             }
         }
     }
@@ -100,8 +94,8 @@ WorldCohesionCalculator::CohesionForce WorldCohesionCalculator::calculateCohesio
             "Full vertical support for {} at ({},{})", getMaterialName(cell.material_type), x, y);
     }
     else if (has_horizontal) {
-        // Reduced cohesion with horizontal/other support (rigid lateral connections).
-        support_factor = 0.5;
+        // Full cohesion with horizontal support (rigid lateral connections).
+        support_factor = 1.0;
         spdlog::trace(
             "Horizontal support only for {} at ({},{})", getMaterialName(cell.material_type), x, y);
     }
@@ -182,19 +176,9 @@ WorldCohesionCalculator::COMCohesionForce WorldCohesionCalculator::calculateCOMC
             if (isValidCell(world, nx, ny)) {
                 const Cell& neighbor = getCellAt(world, nx, ny);
 
-                // Count same-material or same-organism neighbors.
-                bool is_connected = false;
+                // Count same-material neighbors.
                 if (neighbor.material_type == cell.material_type
                     && neighbor.fill_ratio > MIN_MATTER_THRESHOLD) {
-                    is_connected = true; // Same material.
-                }
-                else if (
-                    cell.organism_id != 0 && neighbor.organism_id == cell.organism_id
-                    && neighbor.fill_ratio > MIN_MATTER_THRESHOLD) {
-                    is_connected = true; // Same organism (tree structural connection).
-                }
-
-                if (is_connected) {
                     Vector2d neighbor_world_pos(
                         static_cast<double>(nx) + neighbor.com.x,
                         static_cast<double>(ny) + neighbor.com.y);
@@ -323,7 +307,7 @@ WorldCohesionCalculator::COMCohesionForce WorldCohesionCalculator::calculateCOMC
         support_factor = 1.0;
     }
     else if (cell.has_any_support) {
-        support_factor = 0.5;
+        support_factor = 1.0;
     }
     else {
         support_factor = World::MIN_SUPPORT_FACTOR;
@@ -389,22 +373,9 @@ WorldCohesionCalculator::COMCohesionForce WorldCohesionCalculator::calculateCOMC
             // Stage 1: Material match check (pure cache - no cell access).
             bool is_same_material = (mat_n.getMaterial(dx, dy) == my_material);
 
-            // For organism cells, also check same-organism neighbors (structural connections).
-            bool is_organism_neighbor = false;
-            if (!is_same_material && cell.organism_id != 0) {
-                // Need to fetch cell to check organism_id.
-                if (nx >= 0 && ny >= 0 && static_cast<uint32_t>(nx) < world.getData().width
-                    && static_cast<uint32_t>(ny) < world.getData().height) {
-                    const Cell& neighbor = getCellAt(world, nx, ny);
-                    is_organism_neighbor =
-                        (neighbor.organism_id == cell.organism_id
-                         && neighbor.fill_ratio > MIN_MATTER_THRESHOLD);
-                }
-            }
+            if (!is_same_material) continue;
 
-            if (!is_same_material && !is_organism_neighbor) continue;
-
-            // At this point: same material OR same organism, guaranteed non-empty.
+            // At this point: same material, guaranteed non-empty.
             // Fetch cell for physics calculations.
             const Cell& neighbor = getCellAt(world, nx, ny);
 
@@ -497,7 +468,7 @@ WorldCohesionCalculator::COMCohesionForce WorldCohesionCalculator::calculateCOMC
         support_factor = 1.0;
     }
     else if (cell.has_any_support) {
-        support_factor = 0.5;
+        support_factor = 1.0;
     }
     else {
         support_factor = World::MIN_SUPPORT_FACTOR;
