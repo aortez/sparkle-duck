@@ -253,6 +253,7 @@ add_library(sparkle-duck-server-lib STATIC
     src/core/WorldInterpolationTool.cpp
     src/core/WorldPressureCalculator.cpp
     src/core/WorldSupportCalculator.cpp
+    src/core/WorldVelocityLimitCalculator.cpp
     src/core/WorldViscosityCalculator.cpp
 
     # Organism system.

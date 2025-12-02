@@ -17,6 +17,7 @@
 #include "WorldInterpolationTool.h"
 #include "WorldPressureCalculator.h"
 #include "WorldSupportCalculator.h"
+#include "WorldVelocityLimitCalculator.h"
 #include "WorldViscosityCalculator.h"
 #include "organisms/TreeManager.h"
 #include "spdlog/spdlog.h"
@@ -69,11 +70,6 @@ struct World::Impl {
     // Destructor.
     ~Impl() { timers_.stopTimer("total_simulation"); }
 };
-
-// Velocities are in Cells/second.
-static constexpr double MAX_VELOCITY_PER_TIMESTEP = 40.0;
-static constexpr double VELOCITY_DAMPING_THRESHOLD_PER_TIMESTEP = 20.0;
-static constexpr double VELOCITY_DAMPING_FACTOR_PER_TIMESTEP = 0.10;
 
 World::World() : World(1, 1)
 {}
@@ -1011,15 +1007,8 @@ void World::resolveForces(double deltaTime, const GridOfCells& grid)
 
 void World::processVelocityLimiting(double deltaTime)
 {
-    for (auto& cell : pImpl->data_.cells) {
-        if (!cell.isEmpty()) {
-            cell.limitVelocity(
-                MAX_VELOCITY_PER_TIMESTEP,
-                VELOCITY_DAMPING_THRESHOLD_PER_TIMESTEP,
-                VELOCITY_DAMPING_FACTOR_PER_TIMESTEP,
-                deltaTime);
-        }
-    }
+    WorldVelocityLimitCalculator calculator;
+    calculator.processAllCells(*this, deltaTime);
 }
 
 void World::updateTransfers(double deltaTime)

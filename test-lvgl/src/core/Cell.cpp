@@ -228,43 +228,6 @@ void Cell::clear()
     pressure_gradient = Vector2d{ 0.0, 0.0 };
 }
 
-void Cell::limitVelocity(
-    double max_velocityper_timestep,
-    double damping_threshold_per_timestep,
-    double damping_factor_per_timestep,
-    double /* deltaTime */)
-{
-    const double speed = velocity.mag();
-
-    // Apply velocity limits directly (parameters are already per-timestep??? how is this
-    // possible?). The parameters define absolute velocity limits per physics timestep.
-
-    // Apply maximum velocity limit.
-    if (speed > max_velocityper_timestep) {
-        velocity = velocity * (max_velocityper_timestep / speed);
-    }
-
-    // Apply damping when above threshold.
-    if (speed > damping_threshold_per_timestep) {
-        Vector2d old_velocity = velocity;
-        velocity = velocity * (1.0 - damping_factor_per_timestep);
-        spdlog::debug(
-            "{} velocity damped: {:.3f} -> {:.3f} (above threshold {:.1f})",
-            getMaterialName(material_type),
-            old_velocity.magnitude(),
-            velocity.magnitude(),
-            damping_threshold_per_timestep);
-    }
-    else if (speed > 0.5) {
-        // Log when close to threshold for debugging.
-        spdlog::debug(
-            "{} velocity {:.3f} below damping threshold {:.1f}",
-            getMaterialName(material_type),
-            speed,
-            damping_threshold_per_timestep);
-    }
-}
-
 void Cell::clampCOM()
 {
     com.x = std::clamp(com.x, COM_MIN, COM_MAX);
