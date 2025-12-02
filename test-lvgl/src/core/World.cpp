@@ -107,10 +107,8 @@ World::World(uint32_t width, uint32_t height)
         cell = Cell{ MaterialType::AIR, 0.0 };
     }
 
-    // Set up boundary walls if enabled.
-    if (areWallsEnabled()) {
-        setupBoundaryWalls();
-    }
+    // Note: Boundary walls are now set up by Scenarios in their setup() method.
+    // Each scenario controls whether it wants walls or not.
 
     // Initialize persistent GridOfCells for debug info and caching.
     pImpl->grid_.emplace(
@@ -388,50 +386,6 @@ double World::getAirResistanceStrength() const
 }
 
 // =================================================================
-// DEBUGGING/UTILITY
-// =================================================================
-
-void World::markUserInput()
-{
-    // No-op for now.
-}
-
-// =================================================================
-// STUB METHODS (unimplemented features)
-// =================================================================
-
-void World::setRainRate(double /* rate */)
-{}
-double World::getRainRate() const
-{
-    return 0.0;
-}
-void World::setWaterColumnEnabled(bool /* enabled */)
-{}
-bool World::isWaterColumnEnabled() const
-{
-    return false;
-}
-void World::setLeftThrowEnabled(bool /* enabled */)
-{}
-bool World::isLeftThrowEnabled() const
-{
-    return false;
-}
-void World::setRightThrowEnabled(bool /* enabled */)
-{}
-bool World::isRightThrowEnabled() const
-{
-    return false;
-}
-void World::setLowerRightQuadrantEnabled(bool /* enabled */)
-{}
-bool World::isLowerRightQuadrantEnabled() const
-{
-    return false;
-}
-
-// =================================================================
 // OTHER METHODS
 // =================================================================
 
@@ -471,14 +425,15 @@ void World::advanceTime(double deltaTimeSeconds)
     }
     GridOfCells& grid = *pImpl->grid_;
 
-    // Pre-compute support map for all cells (bottom-up pass).
-    {
-        ScopeTimer supportMapTimer(pImpl->timers_, "compute_support_map");
-        WorldSupportCalculator support_calc{ grid };
-        support_calc.computeSupportMapBottomUp(*this);
-    }
+    // EXPERIMENT: Support calculation disabled.
+    // Testing if friction + cohesion alone can create stable structures.
+    // {
+    //     ScopeTimer supportMapTimer(pImpl->timers_, "compute_support_map");
+    //     WorldSupportCalculator support_calc{ grid };
+    //     support_calc.computeSupportMapBottomUp(*this);
+    // }
 
-    // Compute organism-specific support (root-based anchoring).
+    // EXPERIMENT: Organism support disabled.
     // if (tree_manager_) {
     //     ScopeTimer organismTimer(pImpl->timers_, "organism_support");
     //     tree_manager_->computeOrganismSupport(*this);
@@ -513,7 +468,7 @@ void World::advanceTime(double deltaTimeSeconds)
         ScopeTimer dynamicTimer(pImpl->timers_, "dynamic_pressure");
         // Generate virtual gravity transfers to create pressure from gravity forces.
         // This allows dynamic pressure to model hydrostatic-like behavior.
-        //        pImpl->pressure_calculator_.generateVirtualGravityTransfers(scaledDeltaTime);
+        pImpl->pressure_calculator_.generateVirtualGravityTransfers(*this, scaledDeltaTime);
 
         pImpl->pressure_calculator_.processBlockedTransfers(
             *this, pImpl->pressure_calculator_.blocked_transfers_);
@@ -610,10 +565,8 @@ void World::resizeGrid(uint32_t newWidth, uint32_t newHeight)
 
 void World::onPostResize()
 {
-    // Rebuild boundary walls if enabled.
-    if (areWallsEnabled()) {
-        setupBoundaryWalls();
-    }
+    // Note: Boundary walls are now managed by Scenarios.
+    // After resize, the scenario's setup() will be called to rebuild walls if needed.
 }
 
 // =================================================================.
@@ -689,16 +642,21 @@ void World::applySupportForces()
                 continue;
             }
 
-            // Only rigid materials with support generate support forces.
+            // Apply support forces to any material with support.
             const MaterialProperties& props = getMaterialProperties(cell.material_type);
-            if (!props.is_rigid || !cell.has_any_support) {
-                continue;
+            if (!cell.has_any_support) {
+                continue; // No support at all.
             }
 
-            // Simple support: cancel gravity for supported rigid structures.
+            // Simple support: cancel gravity for supported structures.
             // TODO: Later, make this proportional to pressure/load from above.
             Vector2d gravity_force(0.0, props.density * gravity);
             Vector2d support_force = gravity_force * -1.0; // Equal and opposite.
+
+            // Partial support for non-rigid materials.
+            if (!props.is_rigid) {
+                support_force = support_force * 0.5;
+            }
 
             cell.addPendingForce(support_force);
 
@@ -1018,10 +976,16 @@ void World::resolveForces(double deltaTime, const GridOfCells& grid)
                 // adhesion, friction, viscosity, bones, etc).
                 Vector2d net_force = cell.pending_force;
 
-                // Apply forces directly to velocity.
-                // Material stability comes from viscosity, friction, and structural forces (bones),
-                // not from force thresholds.
-                Vector2d velocity_change = net_force * deltaTime;
+                // Apply F = ma: acceleration = force / mass.
+                double mass = cell.getMass();
+                Vector2d velocity_change;
+                if (mass > 0.0001) {
+                    velocity_change = net_force * (1.0 / mass) * deltaTime;
+                }
+                else {
+                    // Near-zero mass (empty cells) - no acceleration.
+                    velocity_change = Vector2d(0.0, 0.0);
+                }
                 cell.velocity += velocity_change;
 
                 // Debug logging.
@@ -1486,14 +1450,6 @@ void World::setWallsEnabled(bool enabled)
     }
 }
 
-bool World::areWallsEnabled() const
-{
-    // Check if boundary cells are walls.
-    return pImpl->data_.at(0, 0).isWall();
-}
-
-// Legacy pressure toggle methods removed - use physicsSettings directly.
-
 std::string World::settingsToString() const
 {
     std::stringstream ss;
@@ -1508,12 +1464,7 @@ std::string World::settingsToString() const
     ss << "Elasticity factor: " << pImpl->physicsSettings_.elasticity << "\n";
     ss << "Add particles enabled: " << (pImpl->data_.add_particles_enabled ? "true" : "false")
        << "\n";
-    ss << "Walls enabled: " << (areWallsEnabled() ? "true" : "false") << "\n";
-    ss << "Rain rate: " << getRainRate() /* stub */ << "\n";
-    ss << "Left throw enabled: " << (isLeftThrowEnabled() ? "true" : "false") << "\n";
-    ss << "Right throw enabled: " << (isRightThrowEnabled() ? "true" : "false") << "\n";
-    ss << "Lower right quadrant enabled: " << (isLowerRightQuadrantEnabled() ? "true" : "false")
-       << "\n";
+    // Note: Scenario-specific settings (quadrant, throws, rain) now in Scenario, not World.
     ss << "Cohesion COM force enabled: "
        << (pImpl->physicsSettings_.cohesion_strength > 0.0 ? "true" : "false") << "\n";
     ss << "Cohesion bind force enabled: " << (isCohesionBindForceEnabled() ? "true" : "false")

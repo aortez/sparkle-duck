@@ -69,12 +69,6 @@ public:
         world.getPhysicsSettings().pressure_diffusion_strength = 1.0;
         world.getPhysicsSettings().pressure_scale = 1.0;
 
-        // Disable extra features for clean demo.
-        world.setWallsEnabled(false);
-        world.setLeftThrowEnabled(false);
-        world.setRightThrowEnabled(false);
-        world.setLowerRightQuadrantEnabled(false);
-
         // Create water column on left side - full height.
         for (uint32_t x = 0; x < 2; x++) {
             for (uint32_t y = 0; y < 6; y++) {

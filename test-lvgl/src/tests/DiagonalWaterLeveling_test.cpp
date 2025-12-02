@@ -51,10 +51,8 @@ protected:
         world->getPhysicsSettings().pressure_scale = 1.0;
         world->getPhysicsSettings().swap_enabled = true;
 
-        world->setWallsEnabled(false);
-        world->setLeftThrowEnabled(false);
-        world->setRightThrowEnabled(false);
-        world->setLowerRightQuadrantEnabled(false);
+        // World() now starts clean - no walls, no particles.
+        world->setWallsEnabled(false); // Explicitly disable walls for this test.
     }
 
     /**

@@ -320,6 +320,90 @@ void TreeManager::computeOrganismSupport(World& world)
             }
         }
 
+        // Step 2.7: Grant support to ROOT cells surrounded by dirt (anchored in soil).
+        for (const auto& pos : tree.cells) {
+            if (static_cast<uint32_t>(pos.x) >= data.width
+                || static_cast<uint32_t>(pos.y) >= data.height)
+                continue;
+
+            Cell& cell = data.at(pos.x, pos.y);
+            if (cell.organism_id != tree_id || cell.material_type != MaterialType::ROOT) continue;
+            if (cell.has_any_support) continue; // Already supported.
+
+            // Check for adjacent dirt/sand (roots grip soil).
+            static constexpr Vector2i cardinal_dirs[] = {
+                { 0, 1 }, { 0, -1 }, { -1, 0 }, { 1, 0 }
+            };
+            for (const auto& dir : cardinal_dirs) {
+                int nx = pos.x + dir.x;
+                int ny = pos.y + dir.y;
+
+                if (nx < 0 || ny < 0 || nx >= static_cast<int>(data.width)
+                    || ny >= static_cast<int>(data.height))
+                    continue;
+
+                const Cell& neighbor = data.at(nx, ny);
+                if (neighbor.material_type == MaterialType::DIRT
+                    || neighbor.material_type == MaterialType::SAND) {
+                    // ROOT grips soil - grant support.
+                    cell.has_any_support = true;
+                    if (GridOfCells::USE_CACHE) {
+                        grid.supportBitmap().set(pos.x, pos.y);
+                    }
+                    LoggingChannels::tree()->debug(
+                        "TreeManager: ROOT at ({},{}) anchored by {} at ({},{})",
+                        pos.x,
+                        pos.y,
+                        getMaterialName(neighbor.material_type),
+                        nx,
+                        ny);
+                    break;
+                }
+            }
+        }
+
+        // Step 2.8: Grant support to DIRT adjacent to supported ROOTs (soil reinforcement).
+        for (const auto& pos : tree.cells) {
+            if (static_cast<uint32_t>(pos.x) >= data.width
+                || static_cast<uint32_t>(pos.y) >= data.height)
+                continue;
+
+            const Cell& root_cell = data.at(pos.x, pos.y);
+            if (root_cell.organism_id != tree_id || root_cell.material_type != MaterialType::ROOT)
+                continue;
+            if (!root_cell.has_any_support) continue; // Root not anchored.
+
+            // Grant support to adjacent dirt (root reinforces soil).
+            static constexpr Vector2i cardinal_dirs[] = {
+                { 0, 1 }, { 0, -1 }, { -1, 0 }, { 1, 0 }
+            };
+            for (const auto& dir : cardinal_dirs) {
+                int nx = pos.x + dir.x;
+                int ny = pos.y + dir.y;
+
+                if (nx < 0 || ny < 0 || nx >= static_cast<int>(data.width)
+                    || ny >= static_cast<int>(data.height))
+                    continue;
+
+                Cell& neighbor = data.at(nx, ny);
+                if (neighbor.material_type == MaterialType::DIRT
+                    || neighbor.material_type == MaterialType::SAND) {
+                    // Reinforced by root - grant support.
+                    neighbor.has_any_support = true;
+                    if (GridOfCells::USE_CACHE) {
+                        grid.supportBitmap().set(nx, ny);
+                    }
+                    LoggingChannels::tree()->debug(
+                        "TreeManager: {} at ({},{}) reinforced by ROOT at ({},{})",
+                        getMaterialName(neighbor.material_type),
+                        nx,
+                        ny,
+                        pos.x,
+                        pos.y);
+                }
+            }
+        }
+
         // Step 3: Distribute support.
         // NOTE: Organism support only GRANTS additional support to cells that lack it.
         // We never remove support that cells already have from main physics (ground, cohesion).
@@ -411,7 +495,8 @@ void TreeManager::applyBoneForces(World& world, double /*deltaTime*/)
     WorldData& data = world.getData();
     GridOfCells& grid = world.getGrid();
     constexpr double BONE_FORCE_SCALE = 1.0;
-    constexpr double BONE_DAMPING_SCALE = 1.0; // Damping coefficient for velocity.
+    constexpr double BONE_DAMPING_SCALE = 1.0; // Damping along bone (stretching/compression).
+    constexpr double MAX_BONE_FORCE = 0.5;     // Maximum force per bone to prevent yanking.
 
     // Clear bone force debug info for all organism cells.
     for (auto& [tree_id, tree] : trees_) {
@@ -455,38 +540,54 @@ void TreeManager::applyBoneForces(World& world, double /*deltaTime*/)
             // Spring force: F_spring = stiffness * error * direction.
             Vector2d spring_force = direction * error * bone.stiffness * BONE_FORCE_SCALE;
 
-            // Damping force: F_damp = -c * relative_velocity_along_bone.
-            // This reduces oscillation by opposing velocity along the bone direction.
+            // Damping force: oppose stretching along bone.
             Vector2d relative_velocity = cell_b.velocity - cell_a.velocity;
             double velocity_along_bone = relative_velocity.dot(direction);
-            Vector2d damping_force =
+            Vector2d damping_along =
                 direction * velocity_along_bone * bone.stiffness * BONE_DAMPING_SCALE;
 
-            // Total force = spring + damping.
-            Vector2d force = spring_force + damping_force;
+            // Apply spring + along-bone damping (symmetric - both cells).
+            Vector2d symmetric_force = spring_force + damping_along;
 
-            cell_a.addPendingForce(force);
-            cell_b.addPendingForce(force * -1.0);
+            // Limit maximum bone force to prevent yanking on transfers.
+            double force_mag = symmetric_force.magnitude();
+            if (force_mag > MAX_BONE_FORCE) {
+                symmetric_force = symmetric_force.normalize() * MAX_BONE_FORCE;
+            }
 
-            // Store in debug info.
-            grid.debugAt(bone.cell_a.x, bone.cell_a.y).accumulated_bone_force += force;
-            grid.debugAt(bone.cell_b.x, bone.cell_b.y).accumulated_bone_force += force * -1.0;
+            cell_a.addPendingForce(symmetric_force);
+            cell_b.addPendingForce(symmetric_force * -1.0);
 
-            LoggingChannels::tree()->info(
-                "t={} Bone: ({},{}) <-> ({},{}) | dist={:.3f} rest={:.3f} err={:.3f} | "
-                "cell_a gets ({:.2f},{:.2f}), cell_b gets ({:.2f},{:.2f})",
-                data.timestep,
-                bone.cell_a.x,
-                bone.cell_a.y,
-                bone.cell_b.x,
-                bone.cell_b.y,
-                current_dist,
-                bone.rest_distance,
-                error,
-                force.x,
-                force.y,
-                -force.x,
-                -force.y);
+            // Store symmetric forces in debug info.
+            grid.debugAt(bone.cell_a.x, bone.cell_a.y).accumulated_bone_force += symmetric_force;
+            grid.debugAt(bone.cell_b.x, bone.cell_b.y).accumulated_bone_force +=
+                symmetric_force * -1.0;
+
+            // Hinge-point rotational damping (if configured).
+            if (bone.hinge_end != HingeEnd::NONE && bone.rotational_damping != 0.0) {
+                // Determine which cell is the hinge (pivot) and which rotates.
+                bool a_is_hinge = (bone.hinge_end == HingeEnd::CELL_A);
+                Cell& rotating_cell = a_is_hinge ? cell_b : cell_a;
+                Vector2i rotating_pos = a_is_hinge ? bone.cell_b : bone.cell_a;
+
+                // Radius vector from hinge to rotating cell.
+                Vector2d radius = a_is_hinge ? delta : (delta * -1.0);
+
+                // Tangent direction (perpendicular to radius, for rotation).
+                Vector2d tangent = Vector2d(-radius.y, radius.x).normalize();
+
+                // Tangential velocity (how fast rotating around hinge).
+                double tangential_velocity = rotating_cell.velocity.dot(tangent);
+
+                // Rotational damping opposes tangential motion.
+                Vector2d rot_damping_force =
+                    tangent * (-tangential_velocity) * bone.rotational_damping;
+
+                // Apply to rotating cell only (hinge stays fixed).
+                rotating_cell.addPendingForce(rot_damping_force);
+                grid.debugAt(rotating_pos.x, rotating_pos.y).accumulated_bone_force +=
+                    rot_damping_force;
+            }
         }
     }
 }

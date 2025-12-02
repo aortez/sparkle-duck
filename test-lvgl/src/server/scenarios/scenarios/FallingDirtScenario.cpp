@@ -56,9 +56,6 @@ public:
         // Configure physics.
         world.getPhysicsSettings().gravity = 9.81;
         world.setWallsEnabled(false);
-        world.setLeftThrowEnabled(false);
-        world.setRightThrowEnabled(false);
-        world.setLowerRightQuadrantEnabled(false);
 
         // Add floor.
         for (uint32_t x = 0; x < world.getData().width; ++x) {

@@ -5,7 +5,6 @@
 #include "core/Timers.h"
 #include "core/World.h" // Must be first for complete type in variant.
 #include "core/WorldData.h"
-#include "core/WorldEventGenerator.h"
 #include "scenarios/Scenario.h"
 #include "scenarios/ScenarioRegistry.h"
 #include "states/State.h"

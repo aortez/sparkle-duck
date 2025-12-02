@@ -147,24 +147,26 @@ void CellTracker::printHistory(const Vector2i& pos, int current_frame) const
 
         // Show HORIZONTAL (X) forces - this is where oscillation happens!
         std::cout << "    HORIZONTAL FORCES (X direction):\n";
-        std::cout
-            << "    Frame | COM.x | Vel.x | Coh.x | Visc.x | Fric.x | Sum   | Total.x | Diff\n";
-        std::cout
-            << "    ------|-------|-------|-------|--------|--------|-------|---------|-----\n";
+        std::cout << "    Frame | COM.x | Vel.x | Coh.x | Visc.x | Fric.x | Bone.x | Sum   | "
+                     "Total.x | Diff\n";
+        std::cout << "    "
+                     "------|-------|-------|-------|--------|--------|--------|-------|---------|-"
+                     "----\n";
         for (size_t h = 0; h < history.size(); h++) {
             const auto& fd = history[h];
             int frame_num = current_frame - static_cast<int>(history.size() - h);
-            // Calculate sum of known forces.
+            // Calculate sum of known forces (now including bones!).
             double known_sum = fd.cohesion_force.x + fd.adhesion_force.x + fd.viscous_force.x
-                + fd.friction_force.x + fd.gravity_force.x + fd.support_force.x
+                + fd.friction_force.x + fd.bone_force.x + fd.gravity_force.x + fd.support_force.x
                 + fd.pressure_force.x;
             double diff = fd.pending_force.x - known_sum;
             std::cout << "    " << std::setw(5) << frame_num << " | " << std::setw(5) << std::fixed
                       << std::setprecision(2) << fd.com.x << " | " << std::setw(5) << fd.velocity.x
                       << " | " << std::setw(5) << fd.cohesion_force.x << " | " << std::setw(6)
                       << fd.viscous_force.x << " | " << std::setw(6) << fd.friction_force.x << " | "
-                      << std::setw(5) << known_sum << " | " << std::setw(7) << fd.pending_force.x
-                      << " | " << std::setw(4) << diff << "\n";
+                      << std::setw(6) << fd.bone_force.x << " | " << std::setw(5) << known_sum
+                      << " | " << std::setw(7) << fd.pending_force.x << " | " << std::setw(4)
+                      << diff << "\n";
         }
 
         std::cout << "\n    VERTICAL FORCES (Y direction):\n";

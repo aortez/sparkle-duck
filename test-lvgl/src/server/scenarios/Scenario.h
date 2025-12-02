@@ -1,7 +1,6 @@
 #pragma once
 
 #include "core/ScenarioConfig.h"
-#include "core/WorldEventGenerator.h"
 #include <memory>
 #include <string>
 

@@ -30,9 +30,7 @@ protected:
         world = std::make_unique<World>(7, 5);
 
         world->setWallsEnabled(true); // Need walls to contain the test.
-        world->setLeftThrowEnabled(false);
-        world->setRightThrowEnabled(false);
-        world->setLowerRightQuadrantEnabled(false);
+        // Note: World() now starts clean - no automatic particles or quadrants.
 
         // Disable only drag forces (keep cohesion/adhesion to verify they work correctly).
         world->getPhysicsSettings().air_resistance = 0.0;

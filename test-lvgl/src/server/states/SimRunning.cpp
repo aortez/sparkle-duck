@@ -2,7 +2,6 @@
 #include "core/Cell.h"
 #include "core/Timers.h"
 #include "core/World.h" // Must be before State.h for complete type.
-#include "core/WorldEventGenerator.h"
 #include "core/WorldFrictionCalculator.h"
 #include "core/organisms/TreeManager.h"
 #include "server/StateMachine.h"
@@ -951,9 +950,23 @@ State::Any SimRunning::onEvent(const SetDynamicPressureStrengthCommand& cmd, Sta
 
 State::Any SimRunning::onEvent(const SetRainRateCommand& cmd, StateMachine& /*dsm*/)
 {
-    if (world) {
-        world->setRainRate(cmd.rate);
-        spdlog::info("SimRunning: Set rain rate to {}", cmd.rate);
+    if (world && scenario) {
+        ScenarioConfig config = scenario->getConfig();
+
+        // Update rain_rate in whichever config variant supports it.
+        if (auto* sandboxCfg = std::get_if<SandboxConfig>(&config)) {
+            sandboxCfg->rain_rate = cmd.rate;
+            scenario->setConfig(config, *world);
+            spdlog::info("SimRunning: Set rain rate to {} (SandboxConfig)", cmd.rate);
+        }
+        else if (auto* rainingCfg = std::get_if<RainingConfig>(&config)) {
+            rainingCfg->rain_rate = cmd.rate;
+            scenario->setConfig(config, *world);
+            spdlog::info("SimRunning: Set rain rate to {} (RainingConfig)", cmd.rate);
+        }
+        else {
+            spdlog::warn("SimRunning: Current scenario does not support rain_rate");
+        }
     }
     return std::move(*this);
 }
@@ -1036,137 +1049,66 @@ State::Any SimRunning::onEvent(const SetFragmentationCommand& cmd, StateMachine&
     return std::move(*this);
 }
 
-State::Any SimRunning::onEvent(const ToggleWallsCommand& /*cmd*/, StateMachine& /*dsm*/)
-{
-    // Apply to world.
-    if (world) {
-        // TODO: Need to add toggleWalls method to WorldInterface.
-        // For now, suppress unused warning.
-        (void)world;
-    }
-
-    spdlog::info("SimRunning: Toggle walls");
-    return std::move(*this);
-}
-
 State::Any SimRunning::onEvent(const ToggleWaterColumnCommand& /*cmd*/, StateMachine& /*dsm*/)
 {
-    if (world) {
-        bool newValue = !world->isWaterColumnEnabled();
-        world->setWaterColumnEnabled(newValue);
+    if (world && scenario) {
+        ScenarioConfig config = scenario->getConfig();
 
-        // For World, we can manipulate cells directly.
-        World* worldB = dynamic_cast<World*>(world.get());
-        if (worldB) {
-            if (newValue) {
-                // Add water column (5 wide × 20 tall) on left side.
-                spdlog::info("SimRunning: Adding water column (5 wide × 20 tall) at runtime");
-                for (uint32_t y = 0; y < 20 && y < worldB->getData().height; ++y) {
-                    for (uint32_t x = 1; x <= 5 && x < worldB->getData().width; ++x) {
-                        Cell& cell = worldB->getData().at(x, y);
-                        // Only add water to non-wall cells.
-                        if (!cell.isWall()) {
-                            cell.material_type = MaterialType::WATER;
-                            cell.setFillRatio(1.0);
-                            cell.setCOM(Vector2d{ 0.0, 0.0 });
-                            cell.velocity = Vector2d{ 0.0, 0.0 };
-                        }
-                    }
-                }
-            }
-            else {
-                // Remove water from column area (only water cells).
-                spdlog::info("SimRunning: Removing water from water column area at runtime");
-                for (uint32_t y = 0; y < 20 && y < worldB->getData().height; ++y) {
-                    for (uint32_t x = 1; x <= 5 && x < worldB->getData().width; ++x) {
-                        Cell& cell = worldB->getData().at(x, y);
-                        // Only clear water cells, leave walls and other materials.
-                        if (cell.material_type == MaterialType::WATER && !cell.isWall()) {
-                            cell.material_type = MaterialType::AIR;
-                            cell.setFillRatio(0.0);
-                            cell.setCOM(Vector2d{ 0.0, 0.0 });
-                            cell.velocity = Vector2d{ 0.0, 0.0 };
-                        }
-                    }
-                }
-            }
+        // Toggle water_column_enabled in SandboxConfig.
+        if (auto* sandboxCfg = std::get_if<SandboxConfig>(&config)) {
+            sandboxCfg->water_column_enabled = !sandboxCfg->water_column_enabled;
+            scenario->setConfig(config, *world);
+            spdlog::info(
+                "SimRunning: Water column toggled - now: {}", sandboxCfg->water_column_enabled);
         }
-
-        spdlog::info("SimRunning: Water column toggled - now: {}", newValue);
+        else {
+            spdlog::warn("SimRunning: Current scenario does not support water column toggle");
+        }
     }
     return std::move(*this);
 }
 
 State::Any SimRunning::onEvent(const ToggleLeftThrowCommand& /*cmd*/, StateMachine& /*dsm*/)
 {
-    if (world) {
-        bool newValue = !world->isLeftThrowEnabled();
-        world->setLeftThrowEnabled(newValue);
-        spdlog::info("SimRunning: Toggle left throw - now: {}", newValue);
-    }
+    // Note: Left throw is not currently in SandboxConfig - this command is deprecated.
+    // Use ScenarioConfigSet API to modify scenario configs directly.
+    spdlog::warn("SimRunning: ToggleLeftThrowCommand is deprecated - left throw not in config");
     return std::move(*this);
 }
 
 State::Any SimRunning::onEvent(const ToggleRightThrowCommand& /*cmd*/, StateMachine& /*dsm*/)
 {
-    if (world) {
-        bool newValue = !world->isRightThrowEnabled();
-        world->setRightThrowEnabled(newValue);
-        spdlog::info("SimRunning: Toggle right throw - now: {}", newValue);
+    if (world && scenario) {
+        ScenarioConfig config = scenario->getConfig();
+
+        // Toggle right_throw_enabled in SandboxConfig.
+        if (auto* sandboxCfg = std::get_if<SandboxConfig>(&config)) {
+            sandboxCfg->right_throw_enabled = !sandboxCfg->right_throw_enabled;
+            scenario->setConfig(config, *world);
+            spdlog::info(
+                "SimRunning: Right throw toggled - now: {}", sandboxCfg->right_throw_enabled);
+        }
+        else {
+            spdlog::warn("SimRunning: Current scenario does not support right throw toggle");
+        }
     }
     return std::move(*this);
 }
 
 State::Any SimRunning::onEvent(const ToggleQuadrantCommand& /*cmd*/, StateMachine& /*dsm*/)
 {
-    if (world) {
-        bool newValue = !world->isLowerRightQuadrantEnabled();
-        world->setLowerRightQuadrantEnabled(newValue);
+    if (world && scenario) {
+        ScenarioConfig config = scenario->getConfig();
 
-        // For World, manipulate cells directly for immediate feedback.
-        DirtSim::World* worldB = dynamic_cast<DirtSim::World*>(world.get());
-        if (worldB) {
-            uint32_t startX = worldB->getData().width / 2;
-            uint32_t startY = worldB->getData().height / 2;
-
-            if (newValue) {
-                // Add dirt quadrant immediately.
-                spdlog::info(
-                    "SimRunning: Adding lower right quadrant ({}x{}) at runtime",
-                    worldB->getData().width - startX,
-                    worldB->getData().height - startY);
-                for (uint32_t y = startY; y < worldB->getData().height; ++y) {
-                    for (uint32_t x = startX; x < worldB->getData().width; ++x) {
-                        Cell& cell = worldB->getData().at(x, y);
-                        // Only add dirt to non-wall cells.
-                        if (!cell.isWall()) {
-                            cell.material_type = MaterialType::DIRT;
-                            cell.setFillRatio(1.0);
-                            cell.setCOM(Vector2d{ 0.0, 0.0 });
-                            cell.velocity = Vector2d{ 0.0, 0.0 };
-                        }
-                    }
-                }
-            }
-            else {
-                // Remove dirt from quadrant area (only dirt cells).
-                spdlog::info("SimRunning: Removing dirt from lower right quadrant at runtime");
-                for (uint32_t y = startY; y < worldB->getData().height; ++y) {
-                    for (uint32_t x = startX; x < worldB->getData().width; ++x) {
-                        Cell& cell = worldB->getData().at(x, y);
-                        // Only clear dirt cells, leave walls and other materials.
-                        if (cell.material_type == MaterialType::DIRT && !cell.isWall()) {
-                            cell.material_type = MaterialType::AIR;
-                            cell.setFillRatio(0.0);
-                            cell.setCOM(Vector2d{ 0.0, 0.0 });
-                            cell.velocity = Vector2d{ 0.0, 0.0 };
-                        }
-                    }
-                }
-            }
+        // Toggle quadrant_enabled in SandboxConfig.
+        if (auto* sandboxCfg = std::get_if<SandboxConfig>(&config)) {
+            sandboxCfg->quadrant_enabled = !sandboxCfg->quadrant_enabled;
+            scenario->setConfig(config, *world);
+            spdlog::info("SimRunning: Quadrant toggled - now: {}", sandboxCfg->quadrant_enabled);
         }
-
-        spdlog::info("SimRunning: Toggle quadrant - now: {}", newValue);
+        else {
+            spdlog::warn("SimRunning: Current scenario does not support quadrant toggle");
+        }
     }
     return std::move(*this);
 }

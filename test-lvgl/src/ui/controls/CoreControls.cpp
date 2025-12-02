@@ -87,7 +87,7 @@ CoreControls::CoreControls(
         LVGLBuilder::slider(container_)
             .size(LV_PCT(90), 10)
             .range(1, 200) // 0.01 to 2.0, scaled by 100
-            .value(50)     // Default 0.5
+            .value(40)
             .label("Render Scale")
             .valueLabel("%.2f")
             .valueTransform([](int32_t val) { return val / 100.0; })

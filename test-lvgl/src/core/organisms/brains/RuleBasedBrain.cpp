@@ -236,17 +236,16 @@ TreeCommand RuleBasedBrain::decide(const TreeSensoryData& sensory)
     }
 
     // Priority 5: Grow leaves at branch tips.
-    // TEMPORARILY DISABLED - Testing wood support without leaf interference.
-    // double total = comp.total_cells > 0 ? comp.total_cells : 1.0;
-    // double leaf_ratio = comp.leaf_count / total;
-    // if (leaf_ratio < 0.25 && metrics.branch_cells.size() > 0) {
-    //     Vector2i pos = findLeafGrowthPositionOnBranches(sensory, metrics);
-    //     if (checkGrowthSuitability(sensory, pos, MaterialType::LEAF)
-    //         == GrowthSuitability::SUITABLE) {
-    //         spdlog::debug("RuleBasedBrain: [P5] Growing LEAF at ({},{})", pos.x, pos.y);
-    //         return GrowLeafCommand{ .target_pos = pos, .execution_time_seconds = 0.5 };
-    //     }
-    // }
+    double total = comp.total_cells > 0 ? comp.total_cells : 1.0;
+    double leaf_ratio = comp.leaf_count / total;
+    if (leaf_ratio < 0.25 && metrics.branch_cells.size() > 0) {
+        Vector2i pos = findLeafGrowthPositionOnBranches(sensory, metrics);
+        if (checkGrowthSuitability(sensory, pos, MaterialType::LEAF)
+            == GrowthSuitability::SUITABLE) {
+            spdlog::debug("RuleBasedBrain: [P5] Growing LEAF at ({},{})", pos.x, pos.y);
+            return GrowLeafCommand{ .target_pos = pos, .execution_time_seconds = 0.5 };
+        }
+    }
 
     // Priority 6: Continue trunk growth if nothing else to do.
     Vector2i pos = findTrunkGrowthPosition(sensory, metrics);

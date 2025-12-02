@@ -94,7 +94,6 @@ struct SimRunning {
     Any onEvent(const PrintAsciiDiagramCommand& cmd, StateMachine& dsm);
     Any onEvent(const SpawnDirtBallCommand& cmd, StateMachine& dsm);
     Any onEvent(const SetFragmentationCommand& cmd, StateMachine& dsm);
-    Any onEvent(const ToggleWallsCommand& cmd, StateMachine& dsm);
     Any onEvent(const ToggleWaterColumnCommand& cmd, StateMachine& dsm);
     Any onEvent(const ToggleLeftThrowCommand& cmd, StateMachine& dsm);
     Any onEvent(const ToggleRightThrowCommand& cmd, StateMachine& dsm);

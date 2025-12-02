@@ -34,9 +34,9 @@ double getBoneStiffness(MaterialType a, MaterialType b)
         return 0.6;
     }
 
-    // Foliage - flexible.
+    // Foliage - stiff attachment to wood, flexible between leaves.
     if (a == MaterialType::LEAF && b == MaterialType::WOOD) {
-        return 0.2;
+        return 3.0; // Strong attachment to prevent leaves from falling.
     }
     if (a == MaterialType::LEAF && b == MaterialType::LEAF) {
         return 0.1;
@@ -58,10 +58,13 @@ void Tree::createBonesForCell(Vector2i new_cell, MaterialType material, const Wo
         new_cell.x,
         new_cell.y);
 
-    // Check all 8 neighbors for cells belonging to this organism.
+    // Check cardinal (non-diagonal) neighbors for cells belonging to this organism.
     for (int dy = -1; dy <= 1; dy++) {
         for (int dx = -1; dx <= 1; dx++) {
-            if (dx == 0 && dy == 0) continue;
+            if (dx == 0 && dy == 0) continue; // Skip self.
+
+            // Skip diagonal neighbors - only cardinal directions.
+            if (dx != 0 && dy != 0) continue;
 
             int nx = new_cell.x + dx;
             int ny = new_cell.y + dy;
@@ -88,7 +91,24 @@ void Tree::createBonesForCell(Vector2i new_cell, MaterialType material, const Wo
             double rest_dist = (dx == 0 || dy == 0) ? 1.0 : std::sqrt(2.0);
             double stiffness = getBoneStiffness(material, neighbor.material_type);
 
-            bones.push_back(Bone{ new_cell, neighbor_pos, rest_dist, stiffness });
+            // Determine hinge point and rotational damping.
+            HingeEnd hinge = HingeEnd::NONE;
+            double rot_damping = 0.0;
+
+            // For leaf-wood connections, wood is the hinge (leaves swing around branches).
+            if (material == MaterialType::LEAF && neighbor.material_type == MaterialType::WOOD) {
+                hinge = HingeEnd::CELL_B; // Neighbor (wood) is the pivot.
+                rot_damping = 1.0;        // Passive damping to prevent leaf swinging.
+            }
+            else if (
+                material == MaterialType::WOOD && neighbor.material_type == MaterialType::LEAF) {
+                hinge = HingeEnd::CELL_A; // New cell (wood) is the pivot.
+                rot_damping = 1.0;        // Passive damping to prevent leaf swinging.
+            }
+            // Other bone types remain symmetric springs.
+
+            bones.push_back(
+                Bone{ new_cell, neighbor_pos, rest_dist, stiffness, hinge, rot_damping });
             bones_created++;
 
             spdlog::info(

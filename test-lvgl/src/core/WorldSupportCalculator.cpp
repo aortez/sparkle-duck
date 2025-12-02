@@ -383,6 +383,12 @@ bool WorldSupportCalculator::hasStructuralSupport(uint32_t x, uint32_t y) const
 void WorldSupportCalculator::computeSupportMapBottomUp(World& world) const
 {
     (void)world;
+
+    spdlog::info("WorldSupportCalculator::computeSupportMapBottomUp() called");
+
+    uint32_t support_count = 0;
+    uint32_t vertical_support_count = 0;
+
     if (GridOfCells::USE_CACHE) {
         CellBitmap& support = grid_.supportBitmap();
 
@@ -403,6 +409,8 @@ void WorldSupportCalculator::computeSupportMapBottomUp(World& world) const
                     support.set(x, y);
                     grid_.at(x, y).has_vertical_support = true;
                     grid_.at(x, y).has_any_support = true;
+                    support_count++;
+                    vertical_support_count++;
                     continue;
                 }
 
@@ -410,6 +418,8 @@ void WorldSupportCalculator::computeSupportMapBottomUp(World& world) const
                     support.set(x, y);
                     grid_.at(x, y).has_vertical_support = true;
                     grid_.at(x, y).has_any_support = true;
+                    support_count++;
+                    vertical_support_count++;
                     continue;
                 }
 
@@ -425,6 +435,8 @@ void WorldSupportCalculator::computeSupportMapBottomUp(World& world) const
                 grid_.at(x, y).has_any_support = has_vertical;
                 if (has_vertical) {
                     support.set(x, y);
+                    support_count++;
+                    vertical_support_count++;
                 }
                 else {
                     support.clear(x, y);
@@ -475,6 +487,7 @@ void WorldSupportCalculator::computeSupportMapBottomUp(World& world) const
                     // Propagate support from left neighbor.
                     cell.has_any_support = true;
                     grid_.supportBitmap().set(x, y);
+                    support_count++;
                     spdlog::debug(
                         "Support propagated L->R: ({},{}) {} got support from ({},{}) {}",
                         x,
@@ -526,6 +539,7 @@ void WorldSupportCalculator::computeSupportMapBottomUp(World& world) const
                     // Propagate support from right neighbor.
                     cell.has_any_support = true;
                     grid_.supportBitmap().set(x, y);
+                    support_count++;
                 }
             }
         }
@@ -785,6 +799,7 @@ void WorldSupportCalculator::computeSupportMapBottomUp(World& world) const
                 if (strong_bond) {
                     // Propagate support from up neighbor.
                     cell.has_any_support = true;
+                    support_count++;
                 }
             }
         }
@@ -827,10 +842,38 @@ void WorldSupportCalculator::computeSupportMapBottomUp(World& world) const
                 if (strong_bond) {
                     // Propagate support from down neighbor.
                     cell.has_any_support = true;
+                    support_count++;
                 }
             }
         }
     }
+
+    // Count materials with support for debugging.
+    uint32_t wall_count = 0, dirt_count = 0, other_count = 0;
+    for (uint32_t y = 0; y < grid_.getHeight(); y++) {
+        for (uint32_t x = 0; x < grid_.getWidth(); x++) {
+            const Cell& cell = grid_.at(x, y);
+            if (cell.has_any_support) {
+                if (cell.material_type == MaterialType::WALL)
+                    wall_count++;
+                else if (cell.material_type == MaterialType::DIRT)
+                    dirt_count++;
+                else
+                    other_count++;
+            }
+        }
+    }
+
+    spdlog::info(
+        "WorldSupportCalculator: {} cells with support ({} vertical) out of {}x{} grid - WALL:{} "
+        "DIRT:{} OTHER:{}",
+        support_count,
+        vertical_support_count,
+        grid_.getWidth(),
+        grid_.getHeight(),
+        wall_count,
+        dirt_count,
+        other_count);
 }
 
 double WorldSupportCalculator::calculateDistanceToSupport(

@@ -47,8 +47,8 @@ inline DebugCell packDebugCell(const Cell& cell)
     DebugCell result;
     result.material_type = static_cast<uint8_t>(cell.material_type);
     result.fill_ratio = static_cast<uint8_t>(std::clamp(cell.fill_ratio * 255.0, 0.0, 255.0));
-    result._padding[0] = 0;
-    result._padding[1] = 0;
+    result.has_any_support = cell.has_any_support ? 1 : 0;
+    result.has_vertical_support = cell.has_vertical_support ? 1 : 0;
 
     // COM: [-1.0, 1.0] → [-32767, 32767].
     result.com_x = static_cast<int16_t>(std::clamp(cell.com.x * 32767.0, -32767.0, 32767.0));
@@ -217,6 +217,8 @@ struct UnpackedDebugCell {
     double pressure_hydro;
     double pressure_dynamic;
     Vector2d pressure_gradient;
+    bool has_any_support;
+    bool has_vertical_support;
 };
 
 inline UnpackedDebugCell unpackDebugCell(const DebugCell& src)
@@ -243,6 +245,10 @@ inline UnpackedDebugCell unpackDebugCell(const DebugCell& src)
     // Pressure gradient: stored as float, convert to double.
     result.pressure_gradient.x = static_cast<double>(src.pressure_gradient.x);
     result.pressure_gradient.y = static_cast<double>(src.pressure_gradient.y);
+
+    // Support flags.
+    result.has_any_support = (src.has_any_support != 0);
+    result.has_vertical_support = (src.has_vertical_support != 0);
 
     return result;
 }

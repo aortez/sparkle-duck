@@ -232,7 +232,6 @@ add_library(sparkle-duck-server-lib STATIC
 
     # Scenarios.
     src/server/scenarios/ScenarioRegistry.cpp
-    src/server/scenarios/ScenarioWorldEventGenerator.cpp
     src/server/scenarios/scenarios/BenchmarkScenario.cpp
     src/server/scenarios/scenarios/DamBreakScenario.cpp
     src/server/scenarios/scenarios/EmptyScenario.cpp
@@ -250,7 +249,6 @@ add_library(sparkle-duck-server-lib STATIC
     src/core/WorldCohesionCalculator.cpp
     src/core/WorldCollisionCalculator.cpp
     src/core/WorldDiagramGeneratorEmoji.cpp
-    src/core/WorldEventGenerator.cpp
     src/core/WorldFrictionCalculator.cpp
     src/core/WorldInterpolationTool.cpp
     src/core/WorldPressureCalculator.cpp
@@ -391,6 +389,7 @@ add_executable(sparkle-duck-tests
     src/tests/BresenhamLine_test.cpp
     src/tests/Buoyancy_test.cpp
     src/tests/CacheCorrectness_test.cpp
+    src/tests/Cell_serialization_test.cpp
     src/tests/Pimpl_test.cpp
     src/tests/ResultTest.cpp
     src/tests/TimersTest.cpp

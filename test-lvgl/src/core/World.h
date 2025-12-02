@@ -121,7 +121,6 @@ public:
 
     // World-specific wall setup behavior
     void setWallsEnabled(bool enabled);
-    bool areWallsEnabled() const; // World defaults to true instead of false
 
     // COHESION PHYSICS CONTROL
     void setCohesionBindForceEnabled(bool enabled);
@@ -233,18 +232,7 @@ public:
 
     std::string toAsciiDiagram() const;
 
-    // TODO: These should be part of world event generator.
-    void setRainRate(double rate);
-    double getRainRate() const;
     void spawnMaterialBall(MaterialType material, uint32_t centerX, uint32_t centerY);
-    void setWaterColumnEnabled(bool enabled);
-    bool isWaterColumnEnabled() const;
-    void setLeftThrowEnabled(bool enabled);
-    bool isLeftThrowEnabled() const;
-    void setRightThrowEnabled(bool enabled);
-    bool isRightThrowEnabled() const;
-    void setLowerRightQuadrantEnabled(bool enabled);
-    bool isLowerRightQuadrantEnabled() const;
 
     // World state data - public accessors for Pimpl-stored state.
     WorldData& getData();

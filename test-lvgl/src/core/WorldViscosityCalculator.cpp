@@ -120,42 +120,9 @@ WorldViscosityCalculator::ViscousForce WorldViscosityCalculator::calculateViscou
         }
     }
 
-    bool has_solid_support = false;
-    if (cell.has_any_support && y < data.height - 1) {
-        const Cell& below = data.at(x, y + 1);
-        if (!below.isEmpty()) {
-            const MaterialProperties& below_props = getMaterialProperties(below.material_type);
-            has_solid_support = !below_props.is_fluid;
-        }
-    }
-    double support_factor = has_solid_support ? 1.0 : 0.0;
-
-    // Determine motion state (STATIC when supported, FALLING otherwise).
-    // TODO: Implement full motion state detection (SLIDING, TURBULENT).
-    World::MotionState motion_state =
-        support_factor > 0.5 ? World::MotionState::STATIC : World::MotionState::FALLING;
-
-    // Calculate motion state multiplier (inlined to avoid World method call).
-    double base_multiplier = 1.0;
-    switch (motion_state) {
-        case World::MotionState::STATIC:
-            base_multiplier = 1.0;
-            break;
-        case World::MotionState::FALLING:
-            base_multiplier = 0.3;
-            break;
-        case World::MotionState::TURBULENT:
-            base_multiplier = 0.1;
-            break;
-        case World::MotionState::SLIDING:
-            base_multiplier = 0.5;
-            break;
-    }
-    double motion_multiplier = 1.0 - props.motion_sensitivity * (1.0 - base_multiplier);
-
-    // Calculate effective viscosity with motion state and support modulation.
-    // Support increases coupling strength (more contact = more shear).
-    double effective_viscosity = props.viscosity * motion_multiplier * (1.0 + support_factor);
+    // EXPERIMENT: Simplified viscosity - no motion state or support modulation.
+    // Just use base material viscosity to test if physics work without support concept.
+    double effective_viscosity = props.viscosity;
 
     // Viscous force tries to eliminate velocity differences.
     // Scale by viscosity strength (UI control) and fill ratio.

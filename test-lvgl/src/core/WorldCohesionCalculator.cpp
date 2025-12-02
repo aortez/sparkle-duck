@@ -70,55 +70,20 @@ WorldCohesionCalculator::CohesionForce WorldCohesionCalculator::calculateCohesio
         }
     }
 
-    // Use pre-computed directional support from support map.
-    bool has_vertical = cell.has_vertical_support;
-    bool has_horizontal = cell.has_any_support && !has_vertical;
+    // EXPERIMENT: Simplified cohesion - no support modulation.
+    // Test if full-strength cohesion + friction can create stable structures without explicit
+    // support.
 
-    double support_factor;
-
-    // Metal with sufficient metal neighbors provides full structural support.
-    if (metal_neighbors >= 2) {
-        // Metal network provides full support in all directions.
-        support_factor = 1.0;
-        spdlog::trace(
-            "Metal structural network support for {} at ({},{}) with {} metal neighbors",
-            getMaterialName(cell.material_type),
-            x,
-            y,
-            metal_neighbors);
-    }
-    else if (has_vertical) {
-        // Full cohesion with vertical support (load-bearing from below).
-        support_factor = 1.0;
-        spdlog::trace(
-            "Full vertical support for {} at ({},{})", getMaterialName(cell.material_type), x, y);
-    }
-    else if (has_horizontal) {
-        // Full cohesion with horizontal support (rigid lateral connections).
-        support_factor = 1.0;
-        spdlog::trace(
-            "Horizontal support only for {} at ({},{})", getMaterialName(cell.material_type), x, y);
-    }
-    else {
-        // Minimal cohesion without structural support.
-        support_factor = World::MIN_SUPPORT_FACTOR; // 0.05.
-        spdlog::trace(
-            "No structural support for {} at ({},{})", getMaterialName(cell.material_type), x, y);
-    }
-
-    // Resistance magnitude = cohesion × connection strength × own fill ratio × support factor.
-    double resistance = material_cohesion * connected_neighbors * cell.fill_ratio * support_factor;
+    // Resistance magnitude = cohesion × connection strength × own fill ratio.
+    // (Removed support_factor - let cohesion work at full strength always)
+    double resistance = material_cohesion * connected_neighbors * cell.fill_ratio;
 
     spdlog::trace(
-        "Cohesion calculation for {} at ({},{}): neighbors={}, has_vertical={}, has_horizontal={}, "
-        "support_factor={:.2f}, resistance={:.3f}",
+        "Cohesion calculation for {} at ({},{}): neighbors={}, resistance={:.3f}",
         getMaterialName(cell.material_type),
         x,
         y,
         connected_neighbors,
-        has_vertical,
-        has_horizontal,
-        support_factor,
         resistance);
 
     return { resistance, connected_neighbors };
@@ -243,7 +208,30 @@ WorldCohesionCalculator::COMCohesionForce WorldCohesionCalculator::calculateCOMC
         double centering_magnitude =
             props.cohesion * com_offset * cell.fill_ratio * connection_factor;
 
+        // EXPERIMENT: Removed support-based centering boost.
+        // Let natural cohesion handle centering without explicit support checks.
+
         centering_force = centering_direction * centering_magnitude * CENTERING_WEIGHT;
+    }
+
+    // EXPERIMENT: Removed support-based centering enforcement.
+    if (false && props.is_rigid) {
+        double current_centering = centering_force.magnitude();
+        if (current_centering < 10.0) {
+            // Supported rigid cells need strong centering to prevent drift.
+            double offset_sq = com.x * com.x + com.y * com.y;
+            if (offset_sq > 0.000001) {
+                double offset = std::sqrt(offset_sq);
+                Vector2d center_dir = com * (-1.0 / offset);
+                centering_force = center_dir * (offset * 50.0); // Strong pull to center!
+                spdlog::info(
+                    "STRONG CENTERING at ({},{}): offset={:.3f}, force magnitude={:.3f}",
+                    x,
+                    y,
+                    offset,
+                    centering_force.magnitude());
+            }
+        }
     }
 
     Vector2d final_force = centering_force;
@@ -301,19 +289,8 @@ WorldCohesionCalculator::COMCohesionForce WorldCohesionCalculator::calculateCOMC
         centering_force.y,
         total_force_magnitude);
 
-    // Calculate resistance magnitude (same as calculateCohesionForce).
-    double support_factor;
-    if (cell.has_vertical_support) {
-        support_factor = 1.0;
-    }
-    else if (cell.has_any_support) {
-        support_factor = 1.0;
-    }
-    else {
-        support_factor = World::MIN_SUPPORT_FACTOR;
-    }
-
-    const double resistance = props.cohesion * connection_count * cell.fill_ratio * support_factor;
+    // EXPERIMENT: Calculate resistance without support factor.
+    const double resistance = props.cohesion * connection_count * cell.fill_ratio;
 
     return { final_force,
              total_force_magnitude,
@@ -439,6 +416,25 @@ WorldCohesionCalculator::COMCohesionForce WorldCohesionCalculator::calculateCOMC
         centering_force = centering_direction * centering_magnitude * CENTERING_WEIGHT;
     }
 
+    // EXPERIMENT: Removed support-based centering enforcement (cached path).
+    if (false && props.is_rigid) {
+        double current_centering = centering_force.magnitude();
+        if (current_centering < 10.0) {
+            double offset_sq = com.x * com.x + com.y * com.y;
+            if (offset_sq > 0.000001) {
+                double offset = std::sqrt(offset_sq);
+                Vector2d center_dir = com * (-1.0 / offset);
+                centering_force = center_dir * (offset * 50.0);
+                spdlog::info(
+                    "STRONG CENTERING (cached) at ({},{}): offset={:.3f}, force={:.3f}",
+                    x,
+                    y,
+                    offset,
+                    centering_force.magnitude());
+            }
+        }
+    }
+
     // Combine forces with alignment check (matching non-cached version).
     Vector2d final_force = centering_force;
 
@@ -461,20 +457,8 @@ WorldCohesionCalculator::COMCohesionForce WorldCohesionCalculator::calculateCOMC
     const double total_force_magnitude =
         std::sqrt(final_force.x * final_force.x + final_force.y * final_force.y);
 
-    // Calculate resistance magnitude (same as calculateCohesionForce).
-    // Use pre-computed support from cell.
-    double support_factor;
-    if (cell.has_vertical_support) {
-        support_factor = 1.0;
-    }
-    else if (cell.has_any_support) {
-        support_factor = 1.0;
-    }
-    else {
-        support_factor = World::MIN_SUPPORT_FACTOR;
-    }
-
-    const double resistance = props.cohesion * connection_count * cell.fill_ratio * support_factor;
+    // EXPERIMENT: Calculate resistance without support factor (cached path).
+    const double resistance = props.cohesion * connection_count * cell.fill_ratio;
 
     return { final_force,
              total_force_magnitude,

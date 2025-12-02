@@ -29,10 +29,9 @@ protected:
         // Create 3x6 world for water equalization test.
         world = std::make_unique<World>(3, 6);
 
-        world->setWallsEnabled(false);
-        world->setLeftThrowEnabled(false);
-        world->setRightThrowEnabled(false);
-        world->setLowerRightQuadrantEnabled(false);
+        // Note: World() constructor now starts with a clean empty world.
+        // No boundary walls, no particles - scenarios handle setup.
+        world->setWallsEnabled(false); // Explicitly disable walls for this test.
     }
 
     void TearDown() override { world.reset(); }

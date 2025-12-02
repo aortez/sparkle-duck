@@ -16,11 +16,21 @@ using TreeId = uint32_t;
 
 constexpr TreeId INVALID_TREE_ID = 0;
 
+enum class HingeEnd {
+    NONE,   // Symmetric spring - both ends free to rotate.
+    CELL_A, // cell_a is the pivot point.
+    CELL_B  // cell_b is the pivot point.
+};
+
 struct Bone {
     Vector2i cell_a;
     Vector2i cell_b;
     double rest_distance;
     double stiffness;
+
+    // Hinge/motor properties for rotational control.
+    HingeEnd hinge_end = HingeEnd::NONE; // Which end is the pivot.
+    double rotational_damping = 0.0; // Rotation damping (0=none, +ve=passive, -ve=active motor).
 };
 
 double getBoneStiffness(MaterialType a, MaterialType b);
