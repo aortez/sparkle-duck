@@ -137,7 +137,7 @@ struct HttpServer::Impl {
         }
 
         function queryStatus(peer) {
-            var addr = peer.address || peer.host;
+            var addr = peer.host || peer.address;
 
             if (addr.indexOf('fe80::') === 0) {
                 logDebug('Skipping IPv6 link-local address: ' + addr);
@@ -153,47 +153,19 @@ struct HttpServer::Impl {
             }
             logDebug('Querying status for ' + addr + ':' + peer.port);
             var statusWs = new WebSocket('ws://' + addr + ':' + peer.port);
-            var statusMessageCount = 0;
 
             statusWs.onopen = function() {
-                logDebug('Connected to ' + peer.host + ', requesting JSON');
-                statusWs.send(JSON.stringify({ command: 'render_format_set', format: 1 }));
-                setTimeout(function() {
-                    logDebug('Sending status_get to ' + peer.host);
-                    statusWs.send(JSON.stringify({ command: 'status_get', id: Math.random() }));
-                }, 100);
+                logDebug('Sending status_get to ' + peer.host);
+                statusWs.send(JSON.stringify({ command: 'status_get', id: 1 }));
             };
             statusWs.onmessage = function(event) {
-                statusMessageCount++;
-                if (statusMessageCount === 1) {
-                    logDebug('Ignoring render_format_set response from ' + peer.host);
-                    return;
-                }
-                if (event.data instanceof Blob) {
-                    event.data.text().then(function(text) {
-                        try {
-                            var response = JSON.parse(text);
-                            if (response.value) {
-                                var stateSpan = document.getElementById('state-' + peer.host + '-' + peer.port);
-                                if (stateSpan) {
-                                    var state = 'Unknown';
-                                    if (response.value.scenario_id) {
-                                        state = 'Running (' + response.value.scenario_id + ', step ' + response.value.timestep + ')';
-                                    } else if (response.value.width !== undefined) {
-                                        state = 'Idle (ready)';
-                                    }
-                                    stateSpan.textContent = state;
-                                }
-                            }
-                        } catch (e) {
-                            console.error('Failed to parse status response:', e, text.substring(0, 100));
-                            logDebug('Status parse error: ' + e.message);
-                        }
-                        statusWs.close();
-                    });
-                } else {
+                var processMessage = function(text) {
                     try {
-                        var response = JSON.parse(event.data);
+                        var response = JSON.parse(text);
+                        // Only process messages with 'id' field (ignore WorldData broadcasts).
+                        if (!response.id) {
+                            return;
+                        }
                         if (response.value) {
                             var stateSpan = document.getElementById('state-' + peer.host + '-' + peer.port);
                             if (stateSpan) {
@@ -206,11 +178,16 @@ struct HttpServer::Impl {
                                 stateSpan.textContent = state;
                             }
                         }
+                        statusWs.close();
                     } catch (e) {
-                        console.error('Failed to parse status response:', e, event.data);
-                        logDebug('Status parse error: ' + e.message);
+                        // Ignore binary WorldData or malformed messages.
                     }
-                    statusWs.close();
+                };
+
+                if (event.data instanceof Blob) {
+                    event.data.text().then(processMessage);
+                } else {
+                    processMessage(event.data);
                 }
             };
         }
