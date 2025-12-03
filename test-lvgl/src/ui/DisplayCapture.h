@@ -28,14 +28,20 @@ struct ScreenshotData {
 std::optional<ScreenshotData> captureDisplayPixels(_lv_display_t* display);
 
 /**
- * @brief Encode ARGB8888 pixel data to PNG file.
+ * @brief Encode ARGB8888 pixel data to PNG bytes.
  * @param pixels ARGB8888 pixel data.
  * @param width Image width.
  * @param height Image height.
- * @param filepath Output PNG file path.
- * @return true if successful, false otherwise.
+ * @return PNG-encoded bytes, or empty vector on failure.
  */
-bool savePNG(const uint8_t* pixels, uint32_t width, uint32_t height, const std::string& filepath);
+std::vector<uint8_t> encodePNG(const uint8_t* pixels, uint32_t width, uint32_t height);
+
+/**
+ * @brief Encode binary data to base64 string.
+ * @param data Binary data to encode.
+ * @return Base64-encoded string.
+ */
+std::string base64Encode(const std::vector<uint8_t>& data);
 
 } // namespace Ui
 } // namespace DirtSim

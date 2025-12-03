@@ -11,20 +11,18 @@
 namespace DirtSim {
 namespace UiApi {
 
-namespace Screenshot {
+namespace ScreenGrab {
 
-DEFINE_API_NAME(Screenshot);
+DEFINE_API_NAME(ScreenGrab);
 
 struct Command {
-    std::string filepath; // Optional: if empty, use default name.
-
     API_COMMAND_NAME();
     nlohmann::json toJson() const;
     static Command fromJson(const nlohmann::json& j);
 };
 
 struct Okay {
-    std::string filepath; // Actual path where screenshot was saved.
+    std::string data; // Base64-encoded PNG data.
 
     API_COMMAND_NAME();
     nlohmann::json toJson() const;
@@ -33,6 +31,6 @@ struct Okay {
 using Response = Result<Okay, ApiError>;
 using Cwc = CommandWithCallback<Command, Response>;
 
-} // namespace Screenshot
+} // namespace ScreenGrab
 } // namespace UiApi
 } // namespace DirtSim

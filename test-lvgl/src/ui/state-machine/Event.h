@@ -9,7 +9,7 @@
 #include "api/MouseUp.h"
 #include "api/PixelRendererToggle.h"
 #include "api/RenderModeSelect.h"
-#include "api/Screenshot.h"
+#include "api/ScreenGrab.h"
 #include "api/SimPause.h"
 #include "api/SimRun.h"
 #include "api/SimStop.h"
@@ -136,7 +136,7 @@ using Event = std::variant<
     DirtSim::UiApi::MouseUp::Cwc,
     DirtSim::UiApi::PixelRendererToggle::Cwc,
     DirtSim::UiApi::RenderModeSelect::Cwc,
-    DirtSim::UiApi::Screenshot::Cwc,
+    DirtSim::UiApi::ScreenGrab::Cwc,
     DirtSim::UiApi::SimPause::Cwc,
     DirtSim::UiApi::SimRun::Cwc,
     DirtSim::UiApi::SimStop::Cwc,

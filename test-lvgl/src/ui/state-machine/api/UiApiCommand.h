@@ -9,7 +9,7 @@
 #include "MouseUp.h"
 #include "PixelRendererToggle.h"
 #include "RenderModeSelect.h"
-#include "Screenshot.h"
+#include "ScreenGrab.h"
 #include "SimPause.h"
 #include "SimRun.h"
 #include "SimStop.h"
@@ -32,7 +32,7 @@ using UiApiCommand = std::variant<
     UiApi::MouseUp::Command,
     UiApi::PixelRendererToggle::Command,
     UiApi::RenderModeSelect::Command,
-    UiApi::Screenshot::Command,
+    UiApi::ScreenGrab::Command,
     UiApi::SimPause::Command,
     UiApi::SimRun::Command,
     UiApi::SimStop::Command,

@@ -10,7 +10,8 @@ WebSocketServer::WebSocketServer(DirtSim::StateMachineInterface<Event>& stateMac
     // Create WebSocket server configuration.
     rtc::WebSocketServerConfiguration config;
     config.port = port;
-    config.enableTls = false; // No TLS for now.
+    config.enableTls = false;                // No TLS for now.
+    config.maxMessageSize = 2 * 1024 * 1024; // 2MB max message size (for base64 screenshots).
 
     // Create server.
     server_ = std::make_unique<rtc::WebSocketServer>(config);
@@ -82,9 +83,14 @@ void WebSocketServer::onMessage(std::shared_ptr<rtc::WebSocket> ws, const std::s
     auto cmdResult = deserializer_.deserialize(message);
     if (cmdResult.isError()) {
         spdlog::error("UI command deserialization failed: {}", cmdResult.errorValue().message);
-        // Send error response back immediately.
-        std::string errorJson = R"({"error": ")" + cmdResult.errorValue().message + R"("})";
-        ws->send(errorJson);
+        // Send error response back immediately with correlation ID.
+        nlohmann::json errorResponse;
+        if (correlationId) {
+            errorResponse["id"] = *correlationId;
+        }
+        errorResponse["success"] = false;
+        errorResponse["error"] = cmdResult.errorValue().message;
+        ws->send(errorResponse.dump());
         return;
     }
 
@@ -187,10 +193,10 @@ Event WebSocketServer::createCwcForCommand(
                 };
                 return cwc;
             }
-            else if constexpr (std::is_same_v<CommandType, UiApi::Screenshot::Command>) {
-                UiApi::Screenshot::Cwc cwc;
+            else if constexpr (std::is_same_v<CommandType, UiApi::ScreenGrab::Command>) {
+                UiApi::ScreenGrab::Cwc cwc;
                 cwc.command = cmd;
-                cwc.callback = [this, ws, correlationId](UiApi::Screenshot::Response&& response) {
+                cwc.callback = [this, ws, correlationId](UiApi::ScreenGrab::Response&& response) {
                     nlohmann::json json =
                         nlohmann::json::parse(serializer_.serialize(std::move(response)));
                     if (correlationId.has_value()) {

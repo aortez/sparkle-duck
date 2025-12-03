@@ -7,7 +7,7 @@
 #include "ui/state-machine/api/MouseMove.h"
 #include "ui/state-machine/api/MouseUp.h"
 #include "ui/state-machine/api/RenderModeSelect.h"
-#include "ui/state-machine/api/Screenshot.h"
+#include "ui/state-machine/api/ScreenGrab.h"
 #include "ui/state-machine/api/SimPause.h"
 #include "ui/state-machine/api/SimRun.h"
 #include "ui/state-machine/api/SimStop.h"
@@ -93,8 +93,8 @@ Result<UiApiCommand, ApiError> CommandDeserializerJson::deserialize(const std::s
             return Result<UiApiCommand, ApiError>::okay(
                 UiApi::RenderModeSelect::Command::fromJson(cmd));
         }
-        else if (commandName == "screenshot") {
-            return Result<UiApiCommand, ApiError>::okay(UiApi::Screenshot::Command::fromJson(cmd));
+        else if (commandName == "screen_grab") {
+            return Result<UiApiCommand, ApiError>::okay(UiApi::ScreenGrab::Command::fromJson(cmd));
         }
         else if (commandName == "sim_pause") {
             return Result<UiApiCommand, ApiError>::okay(UiApi::SimPause::Command::fromJson(cmd));

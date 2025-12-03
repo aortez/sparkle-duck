@@ -122,13 +122,10 @@ void StateMachine::handleEvent(const Event& event)
         return;
     }
 
-    // Handle Screenshot universally (works in all states).
-    if (std::holds_alternative<UiApi::Screenshot::Cwc>(event)) {
-        spdlog::info("Ui::StateMachine: Processing Screenshot command");
-        auto& cwc = std::get<UiApi::Screenshot::Cwc>(event);
-
-        std::string filepath =
-            cwc.command.filepath.empty() ? "screenshot.png" : cwc.command.filepath;
+    // Handle ScreenGrab universally (works in all states).
+    if (std::holds_alternative<UiApi::ScreenGrab::Cwc>(event)) {
+        spdlog::info("Ui::StateMachine: Processing ScreenGrab command");
+        auto& cwc = std::get<UiApi::ScreenGrab::Cwc>(event);
 
         // Capture display pixels.
         auto screenshotData = captureDisplayPixels(display);
@@ -136,7 +133,7 @@ void StateMachine::handleEvent(const Event& event)
             spdlog::error("Ui::StateMachine: Failed to capture display pixels");
             try {
                 cwc.sendResponse(
-                    UiApi::Screenshot::Response::error(ApiError("Failed to capture display")));
+                    UiApi::ScreenGrab::Response::error(ApiError("Failed to capture display")));
             }
             catch (const std::exception& e) {
                 spdlog::warn("Ui::StateMachine: Failed to send error response: {}", e.what());
@@ -144,14 +141,14 @@ void StateMachine::handleEvent(const Event& event)
             return;
         }
 
-        // Save to PNG file.
-        bool success = savePNG(
-            screenshotData->pixels.data(), screenshotData->width, screenshotData->height, filepath);
+        // Encode to PNG.
+        auto pngBytes =
+            encodePNG(screenshotData->pixels.data(), screenshotData->width, screenshotData->height);
 
-        if (!success) {
+        if (pngBytes.empty()) {
             try {
                 cwc.sendResponse(
-                    UiApi::Screenshot::Response::error(ApiError("Failed to save PNG")));
+                    UiApi::ScreenGrab::Response::error(ApiError("Failed to encode PNG")));
             }
             catch (const std::exception& e) {
                 spdlog::warn("Ui::StateMachine: Failed to send error response: {}", e.what());
@@ -159,14 +156,18 @@ void StateMachine::handleEvent(const Event& event)
             return;
         }
 
-        spdlog::info("Ui::StateMachine: Screenshot saved to {}", filepath);
+        // Encode to base64.
+        std::string base64Data = base64Encode(pngBytes);
+
+        spdlog::info(
+            "Ui::StateMachine: ScreenGrab encoded ({} bytes PNG, {} bytes base64)",
+            pngBytes.size(),
+            base64Data.size());
         try {
-            cwc.sendResponse(UiApi::Screenshot::Response::okay({ filepath }));
+            cwc.sendResponse(UiApi::ScreenGrab::Response::okay({ base64Data }));
         }
         catch (const std::exception& e) {
-            spdlog::warn(
-                "Ui::StateMachine: Failed to send response (screenshot saved anyway): {}",
-                e.what());
+            spdlog::warn("Ui::StateMachine: Failed to send response: {}", e.what());
         }
         return;
     }

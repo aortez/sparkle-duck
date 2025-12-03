@@ -106,7 +106,7 @@ std::string getExamplesHelp()
     // UI API examples.
     examples += "\nUI API Examples:\n";
     examples += "  cli ws://localhost:7070 draw_debug_toggle '{\"enabled\": true}'\n";
-    examples += "  cli ws://localhost:7070 screenshot\n";
+    examples += "  cli ws://localhost:7070 screen_grab\n";
 
     return examples;
 }

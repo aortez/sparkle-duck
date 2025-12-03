@@ -1,12 +1,13 @@
 #include "DisplayCapture.h"
+#include <array>
 #include <cstring>
 #include <lvgl/lvgl.h>
 #include <spdlog/spdlog.h>
 
 // C API for lodepng.
 extern "C" {
-unsigned lodepng_encode32_file(
-    const char* filename, const unsigned char* image, unsigned w, unsigned h);
+unsigned lodepng_encode32(
+    unsigned char** out, size_t* outsize, const unsigned char* image, unsigned w, unsigned h);
 const char* lodepng_error_text(unsigned code);
 }
 
@@ -63,7 +64,7 @@ std::optional<ScreenshotData> captureDisplayPixels(_lv_display_t* display)
     return data;
 }
 
-bool savePNG(const uint8_t* pixels, uint32_t width, uint32_t height, const std::string& filepath)
+std::vector<uint8_t> encodePNG(const uint8_t* pixels, uint32_t width, uint32_t height)
 {
     // Convert ARGB8888 to RGBA8888 for lodepng.
     size_t pixelCount = static_cast<size_t>(width) * height;
@@ -78,16 +79,66 @@ bool savePNG(const uint8_t* pixels, uint32_t width, uint32_t height, const std::
         rgbaPixels[i + 3] = pixels[i + 3]; // A (same position)
     }
 
-    unsigned error = lodepng_encode32_file(filepath.c_str(), rgbaPixels.data(), width, height);
+    unsigned char* pngData = nullptr;
+    size_t pngSize = 0;
+    unsigned error = lodepng_encode32(&pngData, &pngSize, rgbaPixels.data(), width, height);
 
     if (error) {
         spdlog::error(
             "DisplayCapture: PNG encoding failed: {} ({})", lodepng_error_text(error), error);
-        return false;
+        return {};
     }
 
-    spdlog::info("DisplayCapture: Saved PNG to {}", filepath);
-    return true;
+    // Copy to vector and free lodepng memory.
+    std::vector<uint8_t> result(pngData, pngData + pngSize);
+    free(pngData);
+
+    spdlog::info("DisplayCapture: Encoded PNG ({} bytes)", pngSize);
+    return result;
+}
+
+std::string base64Encode(const std::vector<uint8_t>& data)
+{
+    static const char base64_chars[] =
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+    std::string encoded;
+    encoded.reserve((data.size() + 2) / 3 * 4);
+
+    size_t i = 0;
+    uint8_t char_array_3[3];
+    uint8_t char_array_4[4];
+
+    for (size_t idx = 0; idx < data.size(); idx++) {
+        char_array_3[i++] = data[idx];
+        if (i == 3) {
+            char_array_4[0] = (char_array_3[0] & 0xfc) >> 2;
+            char_array_4[1] = ((char_array_3[0] & 0x03) << 4) + ((char_array_3[1] & 0xf0) >> 4);
+            char_array_4[2] = ((char_array_3[1] & 0x0f) << 2) + ((char_array_3[2] & 0xc0) >> 6);
+            char_array_4[3] = char_array_3[2] & 0x3f;
+
+            for (i = 0; i < 4; i++)
+                encoded += base64_chars[char_array_4[i]];
+            i = 0;
+        }
+    }
+
+    if (i) {
+        for (size_t j = i; j < 3; j++)
+            char_array_3[j] = '\0';
+
+        char_array_4[0] = (char_array_3[0] & 0xfc) >> 2;
+        char_array_4[1] = ((char_array_3[0] & 0x03) << 4) + ((char_array_3[1] & 0xf0) >> 4);
+        char_array_4[2] = ((char_array_3[1] & 0x0f) << 2) + ((char_array_3[2] & 0xc0) >> 6);
+
+        for (size_t j = 0; j < i + 1; j++)
+            encoded += base64_chars[char_array_4[j]];
+
+        while (i++ < 3)
+            encoded += '=';
+    }
+
+    return encoded;
 }
 
 } // namespace Ui

@@ -155,16 +155,6 @@ State::Any Paused::onEvent(const UiApi::MouseUp::Cwc& cwc, StateMachine& /*sm*/)
     return Paused{ std::move(worldData) };
 }
 
-State::Any Paused::onEvent(const UiApi::Screenshot::Cwc& cwc, StateMachine& /*sm*/)
-{
-    spdlog::info("Paused: Screenshot command received");
-
-    std::string filepath = cwc.command.filepath.empty() ? "screenshot.png" : cwc.command.filepath;
-    cwc.sendResponse(UiApi::Screenshot::Response::okay({ filepath }));
-
-    return Paused{ std::move(worldData) };
-}
-
 State::Any Paused::onEvent(const UiApi::SimRun::Cwc& cwc, StateMachine& /*sm*/)
 {
     spdlog::info("Paused: SimRun command received, resuming simulation");

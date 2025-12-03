@@ -301,7 +301,7 @@ add_library(sparkle-duck-ui-lib STATIC
     src/ui/state-machine/api/MouseUp.cpp
     src/ui/state-machine/api/PixelRendererToggle.cpp
     src/ui/state-machine/api/RenderModeSelect.cpp
-    src/ui/state-machine/api/Screenshot.cpp
+    src/ui/state-machine/api/ScreenGrab.cpp
     src/ui/state-machine/api/SimPause.cpp
     src/ui/state-machine/api/SimRun.cpp
     src/ui/state-machine/api/SimStop.cpp
