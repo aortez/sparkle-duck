@@ -16,13 +16,17 @@ namespace ScreenGrab {
 DEFINE_API_NAME(ScreenGrab);
 
 struct Command {
+    double scale = 1.0; // Resolution scale factor (0.25 = 4x smaller, 1.0 = full res).
+
     API_COMMAND_NAME();
     nlohmann::json toJson() const;
     static Command fromJson(const nlohmann::json& j);
 };
 
 struct Okay {
-    std::string data; // Base64-encoded PNG data.
+    std::string pixels; // Base64-encoded raw ARGB8888 pixel data.
+    uint32_t width;
+    uint32_t height;
 
     API_COMMAND_NAME();
     nlohmann::json toJson() const;

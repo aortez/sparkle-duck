@@ -14,7 +14,7 @@ const char* lodepng_error_text(unsigned code);
 namespace DirtSim {
 namespace Ui {
 
-std::optional<ScreenshotData> captureDisplayPixels(_lv_display_t* display)
+std::optional<ScreenshotData> captureDisplayPixels(_lv_display_t* display, double /*scale*/)
 {
     if (!display) {
         spdlog::error("DisplayCapture: Display is null");

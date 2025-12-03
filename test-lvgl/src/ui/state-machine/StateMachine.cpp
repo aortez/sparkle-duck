@@ -151,10 +151,12 @@ void StateMachine::handleEvent(const Event& event)
 
         lastScreenshot = now;
         spdlog::info(
-            "Ui::StateMachine: Processing ScreenGrab command ({}ms since last)", elapsed.count());
+            "Ui::StateMachine: Processing ScreenGrab command ({}ms since last, scale={})",
+            elapsed.count(),
+            cwc.command.scale);
 
         // Capture display pixels.
-        auto screenshotData = captureDisplayPixels(display);
+        auto screenshotData = captureDisplayPixels(display, cwc.command.scale);
         if (!screenshotData) {
             spdlog::error("Ui::StateMachine: Failed to capture display pixels");
             try {
@@ -167,30 +169,18 @@ void StateMachine::handleEvent(const Event& event)
             return;
         }
 
-        // Encode to PNG.
-        auto pngBytes =
-            encodePNG(screenshotData->pixels.data(), screenshotData->width, screenshotData->height);
-
-        if (pngBytes.empty()) {
-            try {
-                cwc.sendResponse(
-                    UiApi::ScreenGrab::Response::error(ApiError("Failed to encode PNG")));
-            }
-            catch (const std::exception& e) {
-                spdlog::warn("Ui::StateMachine: Failed to send error response: {}", e.what());
-            }
-            return;
-        }
-
-        // Encode to base64.
-        std::string base64Data = base64Encode(pngBytes);
+        // Encode raw pixels to base64 (no PNG compression).
+        std::string base64Pixels = base64Encode(screenshotData->pixels);
 
         spdlog::info(
-            "Ui::StateMachine: ScreenGrab encoded ({} bytes PNG, {} bytes base64)",
-            pngBytes.size(),
-            base64Data.size());
+            "Ui::StateMachine: ScreenGrab captured {}x{} ({} bytes raw, {} bytes base64)",
+            screenshotData->width,
+            screenshotData->height,
+            screenshotData->pixels.size(),
+            base64Pixels.size());
         try {
-            cwc.sendResponse(UiApi::ScreenGrab::Response::okay({ base64Data }));
+            cwc.sendResponse(UiApi::ScreenGrab::Response::okay(
+                { base64Pixels, screenshotData->width, screenshotData->height }));
         }
         catch (const std::exception& e) {
             spdlog::warn("Ui::StateMachine: Failed to send response: {}", e.what());

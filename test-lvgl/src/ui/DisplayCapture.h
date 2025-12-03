@@ -23,9 +23,10 @@ struct ScreenshotData {
 /**
  * @brief Capture entire LVGL display as raw pixel data.
  * @param display LVGL display to capture.
+ * @param scale Resolution scale factor (0.25 = 4x smaller, 1.0 = full res).
  * @return Pixel data in ARGB8888 format, or std::nullopt if capture failed.
  */
-std::optional<ScreenshotData> captureDisplayPixels(_lv_display_t* display);
+std::optional<ScreenshotData> captureDisplayPixels(_lv_display_t* display, double scale = 1.0);
 
 /**
  * @brief Encode ARGB8888 pixel data to PNG bytes.
