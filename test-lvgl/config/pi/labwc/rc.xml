@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+<!--
+  labwc configuration for Sparkle Duck on Raspberry Pi with HyperPixel display.
+
+  IMPORTANT: The touch deviceName includes an i2c address prefix that may vary
+  between devices. Check yours with: libinput list-devices | grep -A2 -i touch
+  Common prefixes: "13-005d", "14-005d", "15-005d"
+-->
+<openbox_config xmlns="http://openbox.org/3.4/rc">
+  <theme>
+    <font place="ActiveWindow">
+      <name>Nunito Sans</name>
+      <size>10</size>
+      <weight>Light</weight>
+      <slant>Normal</slant>
+    </font>
+    <font place="InactiveWindow">
+      <name>Nunito Sans</name>
+      <size>10</size>
+      <weight>Light</weight>
+      <slant>Normal</slant>
+    </font>
+    <name>PiXtrix</name>
+  </theme>
+  <!-- Map touch to display output so rotation transform is applied automatically. -->
+  <touch deviceName="13-005d Goodix Capacitive TouchScreen" mapToOutput="DPI-1" mouseEmulation="yes"/>
+</openbox_config>

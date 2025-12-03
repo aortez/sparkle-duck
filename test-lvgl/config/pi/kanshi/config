@@ -1,0 +1,12 @@
+# Kanshi display configuration for Sparkle Duck.
+# Automatically applies when matching outputs are detected.
+
+# HyperPixel 4.0 (480x800 native, rotated 90 degrees for landscape).
+profile {
+	output DPI-1 enable scale 1.000000 mode 480x800@60.061 position 0,0 transform 90
+}
+
+# HDMI monitor (for development/debugging).
+profile {
+	output HDMI-A-1 enable scale 1.000000 mode 1920x1080@60.000 position 0,0 transform normal
+}

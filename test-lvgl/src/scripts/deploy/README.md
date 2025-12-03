@@ -82,42 +82,55 @@ systemctl --user daemon-reload
 systemctl --user enable sparkle-duck.service
 ```
 
-### 6. labwc Autostart (for proper boot sequencing)
+### 6. Install Display and Touch Configuration
 
-The systemd service may start before the Wayland compositor is ready. To fix this, create a labwc autostart script that restarts the service once the compositor is up:
+Pre-made configuration files are provided in `config/pi/`. Run the install script on the Pi:
 
 ```bash
-mkdir -p ~/.config/labwc
-cat << 'EOF' > ~/.config/labwc/autostart
-# Start Sparkle Duck after compositor is ready
-systemctl --user restart sparkle-duck.service
-EOF
-chmod +x ~/.config/labwc/autostart
+cd /home/oldman/workspace/sparkle-duck/test-lvgl
+./config/pi/install.sh
 ```
 
-### 7. HyperPixel Touch Calibration (if using rotated display)
+This installs:
+- `labwc/rc.xml` - Touch-to-display mapping for proper rotation handling
+- `labwc/autostart` - Starts sparkle-duck after compositor is ready
+- `kanshi/config` - Display rotation (90° for landscape HyperPixel)
 
-If your HyperPixel display is rotated, touch input won't match by default. Create a udev rule to fix it:
+**Note:** The install script will warn you if your touch device name differs from the default. See step 7 if you need to customize.
 
-**For 90° CCW rotation (rotated left):**
+### 7. HyperPixel Touch Calibration (manual configuration)
+
+If your HyperPixel display is rotated (via kanshi or wlr-randr), touch input needs to be mapped to the display output so labwc can apply the same transform.
+
+**Step 1: Find the touch device name:**
 ```bash
-sudo tee /etc/udev/rules.d/99-hyperpixel-touch.rules << 'EOF'
-# HyperPixel touch rotation (90 degrees CCW / left to match display)
-ATTRS{name}=="Goodix Capacitive TouchScreen", ENV{LIBINPUT_CALIBRATION_MATRIX}="0 -1 1 1 0 0"
-EOF
-sudo udevadm control --reload-rules && sudo udevadm trigger
+libinput list-devices | grep -A2 -i touch
+# Look for the device name, e.g., "13-005d Goodix Capacitive TouchScreen"
+# The prefix (13-005d) is the i2c address and may vary between devices.
 ```
 
-**For 90° CW rotation (rotated right):**
+**Step 2: Configure labwc to map touch to display:**
+
+Edit `~/.config/labwc/rc.xml` and add a `<touch>` element with the exact device name:
+
+```xml
+<?xml version="1.0"?>
+<openbox_config xmlns="http://openbox.org/3.4/rc">
+  <theme>
+    <!-- ... existing theme config ... -->
+  </theme>
+  <touch deviceName="13-005d Goodix Capacitive TouchScreen" mapToOutput="DPI-1" mouseEmulation="yes"/>
+</openbox_config>
+```
+
+**Important:** The `deviceName` must match exactly what `libinput list-devices` reports.
+
+**Step 3: Reload labwc config:**
 ```bash
-sudo tee /etc/udev/rules.d/99-hyperpixel-touch.rules << 'EOF'
-# HyperPixel touch rotation (90 degrees CW / right to match display)
-ATTRS{name}=="Goodix Capacitive TouchScreen", ENV{LIBINPUT_CALIBRATION_MATRIX}="0 1 0 -1 0 1"
-EOF
-sudo udevadm control --reload-rules && sudo udevadm trigger
+pkill -HUP labwc
 ```
 
-Reboot for changes to take full effect.
+When touch is properly mapped to an output, labwc automatically applies the output's transform (rotation) to touch coordinates. No udev calibration matrix needed.
 
 ## Usage
 
@@ -219,6 +232,7 @@ systemctl --user restart sparkle-duck
 - Ensure labwc autostart is set up (see step 6)
 
 **Touch input doesn't match display rotation**
-- See step 7 for HyperPixel touch calibration
-- Check current rotation: `wlr-randr`
-- Verify touch device: `libinput list-devices | grep -A5 -i touch`
+- Check the touch device name: `libinput list-devices | grep -A2 -i touch`
+- Verify it matches exactly in `~/.config/labwc/rc.xml` (including any i2c address prefix like "13-005d")
+- Ensure `mapToOutput` matches your display: `wlr-randr` shows output names
+- See step 7 for full setup instructions
