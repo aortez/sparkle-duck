@@ -24,6 +24,33 @@
 ./build/bin/cli ws://localhost:8080 exit
 ```
 
+## Network Services
+
+### HTTP Dashboard (port 8081)
+
+The server provides a web dashboard at `http://localhost:8081/garden` for monitoring all Sparkle Duck instances on the network.
+
+**Features:**
+- Auto-discovers instances via mDNS/Avahi peer discovery
+- Shows real-time state for both server (physics) and UI
+- Refreshes every 5 seconds
+- Works across network (monitors remote Raspberry Pi instances)
+
+**Peer Discovery:**
+- PeerDiscovery service browses for `_sparkle-duck._tcp` mDNS services
+- Dashboard queries `peers_get` API to find all instances
+- Always includes localhost (8080 physics, 7070 UI) plus discovered remote peers
+- Displays hostname, port, role (physics/ui), and current state
+
+**State Display:**
+- Physics server: "Running (scenario, step N)" or "Idle (ready)"
+- UI: State machine state (StartMenu, SimRunning, Paused, etc.)
+
+**Implementation:**
+- HttpServer.cpp: Serves static HTML with embedded JavaScript
+- Uses WebSocket API for status queries with correlation ID filtering
+- Gracefully handles WorldData broadcasts from active simulations
+
 ## API Commands
 
 ### DSSM Server API (port 8080)
@@ -35,6 +62,8 @@
 | `cell_set` | Place material | `{x, y, material, fill}` |
 | `diagram_get` | Get emoji visualization | none |
 | `state_get` | Get complete world JSON | none |
+| `status_get` | Get server status (scenario, timestep, size) | none |
+| `peers_get` | Get discovered network peers | none |
 | `gravity_set` | Set gravity | `{gravity}` |
 | `reset` | Reset simulation | none |
 | `exit` | Shutdown server | none |
@@ -47,6 +76,8 @@
 |---------|-------------|------------|
 | `sim_run` | Start simulation (forwards to DSSM) | none |
 | `sim_pause` | Pause simulation | none |
+| `sim_stop` | Stop simulation and return to start menu | none |
+| `status_get` | Get UI state (state, connected, fps, display size) | none |
 | `screenshot` | Capture screenshot | `{filepath}` (optional) |
 | `mouse_down` | Mouse press event | `{pixelX, pixelY}` |
 | `mouse_move` | Mouse drag event | `{pixelX, pixelY}` |
@@ -131,9 +162,11 @@ src/
 │   ├── StateMachine.{h,cpp}      # State machine (Startup → Idle → SimRunning)
 │   ├── Event.h                   # Server events
 │   ├── states/                   # Server states (5 states)
-│   ├── api/                      # API commands (9 commands)
-│   ├── network/                  # WebSocketServer, serializers
-│   │   ├── WebSocketServer       # Broadcasts frame_ready notifications
+│   ├── api/                      # API commands (15+ commands)
+│   ├── network/                  # WebSocketServer, HttpServer, PeerDiscovery
+│   │   ├── WebSocketServer       # Broadcasts frame_ready notifications (port 8080)
+│   │   ├── HttpServer            # Web dashboard (port 8081/garden)
+│   │   ├── PeerDiscovery         # mDNS/Avahi service discovery
 │   │   └── CommandDeserializer   # JSON → Command
 │   └── scenarios/                # Scenario system
 │
@@ -159,14 +192,14 @@ src/
 ## Next Steps
 
 **Cleanup:**
-- Remove obsolete UIUpdateConsumer/SharedSimState
+- Remove obsolete UIUpdateConsumer/SharedSimState (if any remain)
 - Fix UI build (separate from server)
-- Implement WebSocket-based UI stuff
 
 **Features:**
+- ✅ mDNS service discovery (implemented via PeerDiscovery + HttpServer dashboard)
 - C++ remote test suite
 - WebRTC video streaming
-- mDNS service discovery
+- Server SimStop command (currently server stays in SimRunning, needs explicit stop)
 
 ## Historical Notes
 
