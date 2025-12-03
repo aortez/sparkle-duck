@@ -33,13 +33,14 @@ Every type of matter has the following properties:
 The simulation models:
 
     2d kinematics
-    pressure
+    pressure (hydrostatic and dynamic)
     density
     cohesion
     adhesion
     motion coherence
     static and kinetic friction
-    viscosity?  TODO update me
+    viscosity
+    air resistance
 
 ### Velocity
 The matter in each cell moves according to 2D kinematics.
@@ -145,11 +146,12 @@ Materials have a motion_sensitivity property (0.0-1.0) that determines how their
 **Motion Sensitivity Values**:
 - AIR: 0.0 (unaffected by motion)
 - WATER: 1.0 (fully affected by motion state)
-- SAND: 0.5 (moderately affected)
-- DIRT: 0.7 (significantly affected)
 - LEAF: 0.8 (highly affected)
+- SAND: 0.5 (moderately affected)
+- ROOT: 0.3 (moderately affected)
 - WOOD: 0.2 (slightly affected)
 - METAL: 0.1 (barely affected)
+- DIRT: 0.0 (unaffected)
 - WALL: 0.0 (unaffected)
 
 **Motion State Effects**:
@@ -204,6 +206,8 @@ The force opposes motion and scales quadratically with velocity, creating realis
 
 Friction provides velocity-dependent resistance that simulates the difference between static friction (resistance to start moving) and kinetic friction (resistance while moving). This creates realistic "stick-slip" behavior where materials resist initial movement but flow more freely once in motion.
 
+**Note:** Coulomb friction only applies to non-fluid materials. Fluids (WATER, AIR) are excluded from the friction calculator, as they use viscosity to model internal flow resistance rather than surface friction.
+
 ### Friction Properties
 
 Each material has four friction parameters:
@@ -232,29 +236,31 @@ return lerp(static_coefficient, kinetic_coefficient, smooth_t)
 
 - **METAL**: stick=0.01, width=0.02, static=1.5, kinetic=1.0 (very sticky, sharp breakaway)
 - **WOOD**: stick=0.02, width=0.03, static=1.3, kinetic=0.9 (sticky, moderate breakaway)
-- **DIRT**: stick=0.05, width=0.10, static=1.0, kinetic=0.5 (resists flow, avalanches when moving)
+- **DIRT**: stick=0.1, width=0.10, static=1.5, kinetic=0.5 (resists flow, avalanches when moving)
 - **SAND**: stick=0.04, width=0.08, static=0.6, kinetic=0.4 (light resistance, flows when disturbed)
 - **LEAF**: stick=0.03, width=0.06, static=0.5, kinetic=0.3 (light materials, easy to move)
-- **WATER**: stick=0.00, width=0.01, static=1.0, kinetic=1.0 (no static friction)
-- **AIR**: stick=0.00, width=0.01, static=1.0, kinetic=1.0 (no friction)
+- **WATER**: stick=0.0, width=0.001, static=0, kinetic=0 (fluids excluded from friction)
+- **AIR**: stick=0.0, width=0.01, static=1.0, kinetic=1.0 (fluids excluded from friction)
 - **WALL**: N/A (immobile)
 
 ### Integration with Forces
 
-Friction combines with viscosity and support to create total resistance:
+Friction is calculated as contact forces between adjacent non-fluid cells:
 
 ```
-// Calculate velocity-dependent friction
-velocity_magnitude = cell.velocity.magnitude()
-friction_coefficient = getFrictionTransition(velocity_magnitude, material)
+for each cardinal neighbor pair (cellA, cellB):
+  normal_force = pressure_difference + weight (for vertical contacts)
+  tangential_velocity = relative_velocity - normal_component
+  friction_coefficient = getFrictionTransition(tangential_speed, propsA, propsB)
 
-// Combine with viscosity and support
-effective_viscosity = base_viscosity * friction_coefficient
-total_damping = 1.0 + (effective_viscosity * fill_ratio * support_factor)
+  friction_force = friction_coefficient * normal_force * friction_strength
+  friction_direction = -tangential_velocity.normalize()
 
-// Apply to forces
-cell.velocity += net_driving_force / total_damping * deltaTime
+  cellA.addPendingForce(friction_force * friction_direction)
+  cellB.addPendingForce(-friction_force * friction_direction)
 ```
+
+Friction forces are accumulated during the friction calculation phase and applied alongside other forces (gravity, pressure, cohesion) during force resolution.
 
 ### Physical Behaviors
 
@@ -264,7 +270,7 @@ The friction system creates several realistic behaviors:
 2. **Breakaway Motion**: Once moving, resistance drops to kinetic friction level
 3. **Avalanche Effects**: Dirt/sand piles hold their shape until disturbed, then flow
 4. **Stick-Slip**: Materials alternate between sticking and slipping on surfaces
-5. **Support Dependency**: Friction only applies when material has structural support
+5. **Contact-Based**: Friction applies between adjacent non-fluid cells based on normal force (pressure + weight)
 
 ### Pressure Interaction (Future Enhancement)
 
@@ -304,8 +310,8 @@ Purpose: Simulates how different materials stick to each other (e.g., water adhe
 
 Each material has an adhesion value (0.0-1.0):
 AIR:   0.0  (no adhesion - always skipped)
-DIRT:  0.2  (moderate adhesion)
-WATER: 0.5  (high adhesion - sticks to surfaces)
+DIRT:  0.3  (moderate adhesion)
+WATER: 0.3  (moderate adhesion)
 WOOD:  0.3  (moderate adhesion)
 SAND:  0.1  (low adhesion - doesn't stick well)
 METAL: 0.1  (low adhesion)
@@ -401,11 +407,34 @@ Dynamic Pressure methods:
   - Hydrostatic-like pressure (weight of material at rest)
   - Dynamic pressure waves (from impacts and movement)    
 
+### Hydrostatic Pressure Calculation
+
+Hydrostatic pressure is calculated via column-based accumulation from top to bottom:
+
+```
+For each column (x):
+  accumulated_pressure = 0
+  For each cell (y, top to bottom):
+    cell.hydrostatic_pressure = accumulated_pressure
+
+    if (cell.is_fluid):
+      contributing_density = cell.effective_density
+      accumulated_pressure += contributing_density * gravity * slice_thickness
+    else:
+      contributing_density = 0  // Solids stop accumulation
+```
+
+**Key behavior:**
+- **Fluids** (WATER, AIR) contribute their own density and accumulate pressure downward
+- **Solids** (DIRT, METAL, etc.) receive pressure from fluids above (enabling buoyancy at interface) but do not propagate it further
+- This prevents the bug where a single water cell would create pressure through an entire dirt column below it
+- Hydrostatic pressure is strictly a fluid phenomenon — solids have internal stress (not currently modeled separately)
+
 ###  Pressure System Architecture
 
   1. Pressure Calculation Phase
 
-  - Hydrostatic Pressure: Calculated by accumulating weight from top to bottom
+  - Hydrostatic Pressure: Calculated by accumulating fluid weight from top to bottom (see above)
   - Dynamic Pressure: Created from blocked transfers (both virtual gravity and actual collisions)
 
   2. Force Application Phase
@@ -451,12 +480,12 @@ Dynamic Pressure methods:
   4. **Distance Scaling**: Diagonal neighbors weighted by 1/√2 for accurate distance modeling
 
   **Material Diffusion Properties** (from MaterialType.cpp):
-  - WATER: 0.8 (high diffusion - pressure spreads quickly)
+  - WATER: 0.9 (high diffusion - pressure spreads quickly)
+  - LEAF: 0.6 (moderate-high diffusion)
   - SAND: 0.3 (moderate diffusion)
-  - DIRT: 0.2 (low diffusion - pressure spreads slowly)
-  - WOOD: 0.1 (very low diffusion)
-  - METAL: 0.05 (minimal diffusion)
-  - LEAF: 0.4 (moderate diffusion)
+  - DIRT: 0.3 (moderate diffusion)
+  - WOOD: 0.15 (low diffusion)
+  - METAL: 0.1 (minimal diffusion)
   - WALL: 0.0 (no diffusion - acts as barrier)
   - AIR: 1.0 (maximum diffusion - no resistance)
 
@@ -598,6 +627,42 @@ Recent fixes enable proper pressure-driven flow:
 
 This enables U-tube equalization and other pressure-driven vertical flow.
 
+## Material Swaps
+
+When two cells attempt to exchange positions (typically lighter material rising through heavier, or vice versa), the swap system uses momentum and energy checks to determine if the swap should occur.
+
+### Swap Decision Process
+
+1. **Momentum Check** (direction-dependent):
+   - Horizontal: `from_momentum * penalty > to_resistance * threshold`
+   - Vertical: `(from_momentum + buoyancy) > to_resistance * threshold`
+
+2. **Energy Check**:
+   - Available energy (collision + buoyancy) must exceed swap cost + bond breaking cost
+   - Non-fluid swaps have higher energy cost (×10 default)
+
+### Path of Least Resistance
+
+To prevent unrealistic behavior (e.g., water "climbing" into cliff faces), the system checks if the displaced material has easier escape routes:
+
+```
+if (vertical_swap && target.is_fluid && target != AIR):
+  for each lateral neighbor of target:
+    if (neighbor.isEmpty()):
+      deny_swap  // Fluid should escape sideways
+    if (neighbor.pressure < target.pressure * 0.5):
+      deny_swap  // Lower pressure path available
+```
+
+This allows pressure to redirect fluids laterally when blocked, creating realistic flow around obstacles rather than penetration through solids.
+
+### Configurable Parameters
+
+- `horizontal_non_fluid_penalty` (0.1): Momentum multiplier for fluid→solid horizontal swaps
+- `horizontal_non_fluid_target_resistance` (5.0): Resistance multiplier for supported targets
+- `horizontal_flow_resistance_factor` (0.5): Global threshold multiplier
+- `non_fluid_energy_multiplier` (10.0): Energy cost multiplier for solid swaps
+
 ## Force Combination Logic
 
   The WorldB physics system uses continuous force integration with viscosity-based damping:
@@ -638,10 +703,10 @@ This enables U-tube equalization and other pressure-driven vertical flow.
   Material-Specific Behaviors
 
   - WATER: Low viscosity (0.01) → flows easily, quick pressure equilibration
+  - DIRT: Low viscosity (0.2) → granular flow with some cohesion
   - SAND: Moderate viscosity (0.3) → granular flow, forms natural slopes
-  - DIRT: Higher viscosity (0.5) → cohesive clumps, slower flow
-  - METAL: Very high viscosity (0.95) → essentially rigid, minimal flow
-  - WOOD: High viscosity (0.9) → maintains structure, deforms only under extreme force
+  - METAL: Very high viscosity (1.0) → essentially rigid, minimal flow
+  - WOOD: High viscosity (1.0) → maintains structure, deforms only under extreme force
 
   Key Design Principles
 
@@ -656,55 +721,29 @@ This enables U-tube equalization and other pressure-driven vertical flow.
 
 ## Implementation Status
 
-### Current State (As of pressure branch)
+### Current State
 
-The system currently implements all features described above **except** for the static/kinetic friction system. The current implementation uses only viscosity-based damping without velocity-dependent friction coefficients.
+All major physics systems are implemented:
 
-**What's implemented:**
-- Full viscosity system with material-specific values
-- Motion states and motion sensitivity
-- Support-based damping modulation
-- All other physics systems (cohesion, adhesion, pressure, etc.)
+**Implemented:**
+- ✅ Viscosity system with material-specific values and motion sensitivity
+- ✅ Coulomb friction (static/kinetic) with smooth transitions — applies to non-fluids only
+- ✅ Cohesion (COM-based attractive forces for same-material particles)
+- ✅ Adhesion (attractive forces between different materials)
+- ✅ Hydrostatic pressure (column-based, fluids only)
+- ✅ Dynamic pressure (from collisions and blocked transfers)
+- ✅ Pressure diffusion (material-specific propagation rates)
+- ✅ Air resistance (material-specific drag)
+- ✅ Swap logic with momentum and energy checks
+- ✅ Path-of-least-resistance swap filtering (prevents unrealistic cliff climbing)
 
-**What's missing:**
-- Static/kinetic friction coefficients in MaterialType
-- Velocity-dependent friction calculation
-- getFrictionTransition() function
-- Integration of friction with viscosity in force resolution
+**Known Limitations:**
+- Motion coherence detection (STATIC/FALLING states exist, SLIDING/TURBULENT not yet assigned)
+- Lithostatic pressure for dry solids (not currently modeled — only hydrostatic for fluids)
+- Support system toggleable but physics designed to work without it via pressure-based resistance
 
-### Implementation Plan
-
-1. **Update MaterialType.h/cpp**
-   - Add friction properties to MaterialProperties struct:
-     ```cpp
-     double static_friction_coefficient;
-     double kinetic_friction_coefficient;
-     double stick_velocity;
-     double friction_transition_width;
-     ```
-   - Update material definitions with friction values
-
-2. **Create Friction Calculator**
-   - Add method to MaterialType or create utility function:
-     ```cpp
-     double getFrictionCoefficient(double velocity_magnitude) const;
-     ```
-   - Implement smooth cubic transition function
-
-3. **Modify WorldB::resolveForces()**
-   - Calculate velocity magnitude for each cell
-   - Get friction coefficient from material
-   - Multiply base viscosity by friction coefficient
-   - Use combined value in damping calculation
-
-4. **Testing**
-   - Create visual test with slope at various angles
-   - Verify static materials stay in place
-   - Test breakaway behavior when force exceeds static friction
-   - Validate avalanche effects for granular materials
-   - Ensure WATER/AIR maintain no friction behavior
-
-5. **Future Enhancement**
-   - Add pressure-based stick velocity modification
-   - Consider temperature effects on friction
-   - Add surface-specific friction modifiers
+**Recent Changes:**
+- Friction now correctly excludes fluids (use viscosity instead)
+- Hydrostatic pressure stops at fluid/solid interface (no longer propagates through solids)
+- Horizontal swap parameters wired up (`horizontal_non_fluid_penalty`, `horizontal_non_fluid_target_resistance`)
+- Vertical swaps check if displaced fluid has lateral escape routes

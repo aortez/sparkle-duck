@@ -8,16 +8,16 @@ Command-line client for interacting with Sparkle Duck server and UI via WebSocke
 
 ```bash
 # 1. Launch everything (easiest way to get started)
-./build/bin/cli run-all
+./build-debug/bin/cli run-all
 
 # 2. In another terminal, send a command
-./build/bin/cli status_get ws://localhost:8080
+./build-debug/bin/cli status_get ws://localhost:8080
 
 # 3. See a visual snapshot
-./build/bin/cli diagram_get ws://localhost:8080
+./build-debug/bin/cli diagram_get ws://localhost:8080
 
 # 4. Clean up when done
-./build/bin/cli cleanup
+./build-debug/bin/cli cleanup
 ```
 
 That's it! Now read below for details...
@@ -42,24 +42,24 @@ Send commands to the server or UI:
 # Syntax: cli [command] [address] [params]
 
 # Basic command (no parameters)
-./build/bin/cli state_get ws://localhost:8080
+./build-debug/bin/cli state_get ws://localhost:8080
 
 # Command with JSON parameters
-./build/bin/cli sim_run ws://localhost:8080 '{"timestep": 0.016, "max_steps": 10}'
+./build-debug/bin/cli sim_run ws://localhost:8080 '{"timestep": 0.016, "max_steps": 10}'
 
 # Place material
-./build/bin/cli cell_set ws://localhost:8080 '{"x": 50, "y": 50, "material": "WATER", "fill": 1.0}'
+./build-debug/bin/cli cell_set ws://localhost:8080 '{"x": 50, "y": 50, "material": "WATER", "fill": 1.0}'
 
 # Get emoji visualization
-./build/bin/cli diagram_get ws://localhost:8080
+./build-debug/bin/cli diagram_get ws://localhost:8080
 
 # Control simulation
-./build/bin/cli sim_run ws://localhost:8080 '{"timestep": 0.016, "max_steps": 100}'
-./build/bin/cli reset ws://localhost:8080
-./build/bin/cli exit ws://localhost:8080
+./build-debug/bin/cli sim_run ws://localhost:8080 '{"timestep": 0.016, "max_steps": 100}'
+./build-debug/bin/cli reset ws://localhost:8080
+./build-debug/bin/cli exit ws://localhost:8080
 
 # Send commands to UI (port 7070)
-./build/bin/cli draw_debug_toggle ws://localhost:7070 '{"enabled": true}'
+./build-debug/bin/cli draw_debug_toggle ws://localhost:7070 '{"enabled": true}'
 ```
 
 ### Run-All Mode
@@ -68,7 +68,7 @@ Launch both server and UI with a single command:
 
 ```bash
 # Auto-detects display backend and launches both processes
-./build/bin/cli run-all
+./build-debug/bin/cli run-all
 ```
 
 **What it does**:
@@ -88,16 +88,17 @@ Automated performance testing with server auto-launch:
 
 ```bash
 # Basic benchmark (headless server, default: benchmark scenario, 120 steps)
-./build/bin/cli benchmark --steps 120
+# Use release build for accurate performance measurements!
+./build-release/bin/cli benchmark --steps 120
 
 # Different scenario
-./build/bin/cli benchmark --scenario sandbox --steps 120
+./build-release/bin/cli benchmark --scenario sandbox --steps 120
 
 # Custom world size (default: scenario default)
-./build/bin/cli benchmark --world-size 150 --steps 120
+./build-release/bin/cli benchmark --world-size 150 --steps 120
 
 # Full control: scenario, world size, and step count
-./build/bin/cli benchmark --scenario sandbox --world-size 150 --steps 1000
+./build-release/bin/cli benchmark --scenario sandbox --world-size 150 --steps 1000
 ```
 
 **Output**: Clean JSON results including:
@@ -129,11 +130,11 @@ Automated performance testing with server auto-launch:
 
 **Using for optimization testing:**
 ```bash
-# Baseline measurement
-./build/bin/cli benchmark --steps 1000 > baseline.json
+# Baseline measurement (use release build!)
+./build-release/bin/cli benchmark --steps 1000 > baseline.json
 
 # After optimization
-./build/bin/cli benchmark --steps 1000 > optimized.json
+./build-release/bin/cli benchmark --steps 1000 > optimized.json
 
 # Compare specific subsystems
 jq '.timer_stats.cohesion_calculation.avg_ms' baseline.json optimized.json
@@ -145,7 +146,7 @@ Find and gracefully shutdown rogue sparkle-duck processes:
 
 ```bash
 # Clean up all sparkle-duck processes
-./build/bin/cli cleanup
+./build-debug/bin/cli cleanup
 ```
 
 **Shutdown cascade** (tries each method in order):
@@ -169,7 +170,7 @@ Find and gracefully shutdown rogue sparkle-duck processes:
 Automated end-to-end testing:
 
 ```bash
-./build/bin/cli integration_test
+./build-debug/bin/cli integration_test
 ```
 
 **What it does**:
@@ -233,7 +234,7 @@ Automated end-to-end testing:
 
 Server not running? Launch it:
 ```bash
-./build/bin/cli run-all
+./build-debug/bin/cli run-all
 ```
 
 Or check what's running:
@@ -245,7 +246,7 @@ pgrep -fa sparkle-duck
 
 Clean up any rogue processes:
 ```bash
-./build/bin/cli cleanup
+./build-debug/bin/cli cleanup
 ```
 
 ### Cleanup seems slow or hangs
@@ -258,14 +259,14 @@ If `run-all` is running in another terminal, it monitors the UI and won't let th
 
 Increase timeout for slow operations:
 ```bash
-./build/bin/cli --timeout 10000 state_get ws://localhost:8080  # 10 second timeout
+./build-debug/bin/cli --timeout 10000 state_get ws://localhost:8080  # 10 second timeout
 ```
 
 ### Want to see what's happening?
 
 Use verbose mode to see WebSocket traffic:
 ```bash
-./build/bin/cli --verbose status_get ws://localhost:8080
+./build-debug/bin/cli --verbose status_get ws://localhost:8080
 ```
 
 ## Use Cases
@@ -273,11 +274,11 @@ Use verbose mode to see WebSocket traffic:
 ### CI/CD Integration
 
 ```bash
-# Performance regression testing
-./build/bin/cli benchmark --steps 120 > benchmark_results.json
+# Performance regression testing (use release build!)
+./build-release/bin/cli benchmark --steps 120 > benchmark_results.json
 
-# Sanity check
-./build/bin/cli integration_test || exit 1
+# Sanity check (debug build is fine)
+./build-debug/bin/cli integration_test || exit 1
 ```
 
 ### Scripted Testing
@@ -285,18 +286,18 @@ Use verbose mode to see WebSocket traffic:
 ```bash
 #!/bin/bash
 # Launch server and UI using CLI
-./build/bin/cli run-all &
+./build-debug/bin/cli run-all &
 
 # Wait for ready
 sleep 3
 
 # Run commands
-./build/bin/cli sim_run ws://localhost:8080 '{"timestep": 0.016, "max_steps": 100}'
-./build/bin/cli state_get ws://localhost:8080 > world_state.json
-./build/bin/cli diagram_get ws://localhost:8080
+./build-debug/bin/cli sim_run ws://localhost:8080 '{"timestep": 0.016, "max_steps": 100}'
+./build-debug/bin/cli state_get ws://localhost:8080 > world_state.json
+./build-debug/bin/cli diagram_get ws://localhost:8080
 
 # Cleanup (gracefully shuts down both server and UI)
-./build/bin/cli cleanup
+./build-debug/bin/cli cleanup
 ```
 
 ## Tips & Best Practices
@@ -307,10 +308,10 @@ StatusGet is lightweight (~15ms response time) compared to StateGet (full world 
 
 ```bash
 # Fast status check for polling
-./build/bin/cli status_get ws://localhost:8080 | jq '{timestep: .value.timestep}'
+./build-debug/bin/cli status_get ws://localhost:8080 | jq '{timestep: .value.timestep}'
 
 # Full world state (slower, use for detailed inspection)
-./build/bin/cli state_get ws://localhost:8080
+./build-debug/bin/cli state_get ws://localhost:8080
 ```
 
 ### Polling Pattern
@@ -318,10 +319,10 @@ StatusGet is lightweight (~15ms response time) compared to StateGet (full world 
 Wait for simulation to complete a certain number of steps:
 
 ```bash
-./build/bin/cli sim_run ws://localhost:8080 '{"max_steps": 100}'
+./build-debug/bin/cli sim_run ws://localhost:8080 '{"max_steps": 100}'
 
 while true; do
-    STEP=$(./build/bin/cli status_get ws://localhost:8080 | jq '.value.timestep')
+    STEP=$(./build-debug/bin/cli status_get ws://localhost:8080 | jq '.value.timestep')
     echo "Current step: $STEP"
     [ "$STEP" -ge 100 ] && break
     sleep 0.1
@@ -332,7 +333,7 @@ done
 
 ```bash
 # See WebSocket traffic and correlation IDs
-./build/bin/cli --verbose status_get ws://localhost:8080
+./build-debug/bin/cli --verbose status_get ws://localhost:8080
 
 # Shows:
 # - Connection establishment
@@ -345,7 +346,7 @@ done
 
 ```bash
 # Time individual commands
-time ./build/bin/cli status_get ws://localhost:8080
+time ./build-debug/bin/cli status_get ws://localhost:8080
 
 # Timestamp entire workflow
 ./workflow_script.sh 2>&1 | ts '[%H:%M:%.S]'
@@ -357,7 +358,7 @@ The cleanup command is robust and handles edge cases:
 
 ```bash
 # Gracefully shuts down ALL sparkle-duck processes
-./build/bin/cli cleanup
+./build-debug/bin/cli cleanup
 
 # Shows which method worked:
 # ✓ WebSocket API (most graceful)
@@ -372,7 +373,7 @@ Check the help to see what's available:
 
 ```bash
 # Always up-to-date with actual server/UI capabilities
-./build/bin/cli --help
+./build-debug/bin/cli --help
 
 # Server API Commands (18 total)
 # UI API Commands (10 total)

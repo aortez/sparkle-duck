@@ -24,10 +24,10 @@ struct PhysicsSettings {
     double friction_strength = 1.0;
     bool friction_enabled = true;
     double gravity = 9.81;
-    double horizontal_flow_resistance_factor = 0.5;
-    double horizontal_non_fluid_penalty = 0.1;
-    double horizontal_non_fluid_target_resistance = 5.0;
-    double non_fluid_energy_multiplier = 4.0;
+    double horizontal_flow_resistance_factor = 1;
+    double horizontal_non_fluid_penalty = 0.05;
+    double horizontal_non_fluid_target_resistance = 10.0;
+    double non_fluid_energy_multiplier = 10.0;
     double pressure_dynamic_strength = 1.0;
     bool pressure_dynamic_enabled = true;
     double pressure_hydrostatic_strength = 0.3;

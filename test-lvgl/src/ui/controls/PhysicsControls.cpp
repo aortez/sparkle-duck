@@ -388,7 +388,7 @@ std::vector<PhysicsControls::ColumnConfig> PhysicsControls::createColumnConfigs(
                         { .label = "Non-Fluid Energy Mult",
                           .type = ControlType::TOGGLE_SLIDER,
                           .rangeMin = 0,
-                          .rangeMax = 1000,
+                          .rangeMax = 10000,
                           .defaultValue = 400,
                           .valueScale = 0.01,
                           .valueFormat = "%.1f",

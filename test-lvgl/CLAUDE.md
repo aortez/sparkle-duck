@@ -117,8 +117,18 @@ make test ARGS='--gtest_filter=State*'
 
 ### Debugging and Logging
 
+#### Log Outputs
+- **Console**: INFO level and above (colored output)
+- **File**: DEBUG/TRACE level and above (`sparkle-duck.log`)
+
+#### Log Files
+- **File**: `sparkle-duck.log` main application and unit tests
+- **Location**: Same directory as executable
+- **Behavior**: File is truncated at startup for fresh logs each session
+
 #### Log Levels
-All applications support `--log-level` flag to control logging verbosity:
+
+**Setting log levels** via `--log-level` flag:
 ```bash
 # Server with debug logging
 ./build/bin/sparkle-duck-server --log-level debug -p 8080
@@ -133,6 +143,13 @@ All applications support `--log-level` flag to control logging verbosity:
 
 # Valid levels: trace, debug, info, warn, error, critical, off
 ```
+
+**What each level means:**
+- **INFO**: Important events (startup, world creation, user interactions)
+- **DEBUG**: Moderate frequency events (drag updates, timestep tracking)
+- **TRACE**: High-frequency per-frame events (pressure systems, physics details)
+
+You can troubleshoot behavior by examining the TRACE logs.
 
 #### Core Dumps for Crash Analysis
 When applications crash with segmentation faults, core dumps provide invaluable debugging information.
@@ -251,13 +268,14 @@ The CLI tool includes a benchmark mode for measuring physics performance:
 
 ```bash
 # Basic benchmark (headless server, 120 steps)
-./build/bin/cli benchmark --steps 120
+# Use release build for accurate performance!
+./build-release/bin/cli benchmark --steps 120
 
 # Simulate UI client load (realistic with frame_ready responses)
-./build/bin/cli benchmark --steps 120 --simulate-ui
+./build-release/bin/cli benchmark --steps 120 --simulate-ui
 
 # Different scenario
-./build/bin/cli benchmark --scenario dam_break --steps 120
+./build-release/bin/cli benchmark --scenario dam_break --steps 120
 ```
 
 ## Code Formatter
@@ -353,24 +371,12 @@ The app communicates with two WebSocket endpoints:
 ./build-debug/bin/cli state_get ws://dirtsim.local:8080
 ```
 
-## Logging
-
-### Log Outputs
-- **Console**: INFO level and above (colored output)
-- **File**: DEBUG/TRACE level and above (`sparkle-duck.log`)
-
-### Log Levels
-- **INFO**: Important events (startup, world creation, user interactions)
-- **DEBUG**: Moderate frequency events (drag updates, timestep tracking)
-- **TRACE**: High-frequency per-frame events (pressure systems, physics details)
-
-### Log Files
-- **File**: `sparkle-duck.log` main application
-- **File**: `sparkle-duck.log` unit tests
-- **Location**: Same directory as executable
-- **Behavior**: File is truncated at startup for fresh logs each session
-
-You can troubleshoot behavior by examining the TRACE logs.
+### Remote unit
+We're currently using a remote Raspberry PI 5, accessed via ssh at dirtsim.local.
+SSH config is already set up so just:
+```bash
+ssh dirtsim.local
+```
 
 ## References
 ### Lvgl reference:
@@ -493,6 +499,7 @@ to see if they work.
 - debug and release builds in different directories, then performance testing with release builds.
 - Add light tracing and illumination! (from top down)
 - Per-cell neighborhood cache: 64-bit bitmap in each Cell for instant neighbor queries (see design_docs/optimization-ideas.md Section 10).
+- Go to http://dirtsim.local and see a monitor page that shows all the dirt sims on the network.  The beginning of a web-based control panel!
 
 See design_docs/plant.md and design_docs/ai-integration-ideas.md for details.
 

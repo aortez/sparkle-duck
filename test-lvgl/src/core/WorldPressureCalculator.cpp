@@ -29,16 +29,11 @@ void WorldPressureCalculator::calculateHydrostaticPressure(World& world)
     const double hydrostatic_strength =
         world.getPhysicsSettings().pressure_hydrostatic_strength * HYDROSTATIC_MULTIPLIER;
 
-    // Compile-time switch for buoyancy calculation method.
-    // COLUMN_BASED (true): Fast, column-independent tracking of fluid environment.
-    // NEIGHBOR_BASED (false): More accurate, checks all neighbors for fluid density.
-    constexpr bool USE_COLUMN_BASED_BUOYANCY = true;
-
     // Process each column independently.
     for (uint32_t x = 0; x < data.width; ++x) {
-        // Top-down pressure accumulation with buoyancy support.
+        // Top-down pressure accumulation.
         double accumulated_pressure = 0.0;
-        double current_fluid_density = 0.001; // Start assuming air environment.
+        double current_fluid_density = 0.001; // Track surrounding fluid density.
 
         for (uint32_t y = 0; y < data.height; ++y) {
             Cell& cell = data.at(x, y);
@@ -63,17 +58,24 @@ void WorldPressureCalculator::calculateHydrostaticPressure(World& world)
             if (props.is_fluid) {
                 // Fluids contribute their own density.
                 contributing_density = cell.getEffectiveDensity();
-                current_fluid_density = contributing_density; // Update fluid environment tracker.
+                current_fluid_density = contributing_density; // Track for submerged solids.
             }
             else {
-                // Solids contribute surrounding fluid density (for proper buoyancy).
-                if constexpr (USE_COLUMN_BASED_BUOYANCY) {
-                    // Option C: Use current fluid environment (fast, column-independent).
+                // Solids: check if submerged (has fluid immediately below).
+                bool is_submerged = false;
+                if (y + 1 < data.height) {
+                    const Cell& below = data.at(x, y + 1);
+                    is_submerged = isMaterialFluid(below.material_type);
+                }
+
+                if (is_submerged) {
+                    // Submerged solid: act transparent to pressure (for correct buoyancy).
+                    // Use surrounding fluid density, not solid's own density.
                     contributing_density = current_fluid_density;
                 }
                 else {
-                    // Option A: Query all neighbors for fluid density (more accurate).
-                    contributing_density = getSurroundingFluidDensity(world, x, y);
+                    // Resting solid: stop hydrostatic accumulation.
+                    contributing_density = 0.0;
                 }
             }
 

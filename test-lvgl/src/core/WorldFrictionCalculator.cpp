@@ -87,8 +87,9 @@ void WorldFrictionCalculator::accumulateFrictionForces(World& world)
         for (uint32_t x = 0; x < width; ++x) {
             Cell& cellA = data.at(x, y);
 
-            // Skip empty cells and walls.
-            if (cellA.isEmpty() || cellA.isWall()) {
+            // Skip empty cells, walls, and fluids.
+            // Fluids don't have Coulomb friction - they have viscosity instead.
+            if (cellA.isEmpty() || cellA.isWall() || isMaterialFluid(cellA.material_type)) {
                 continue;
             }
 
@@ -112,8 +113,8 @@ void WorldFrictionCalculator::accumulateFrictionForces(World& world)
 
                     const Cell& cellB = data.at(nx, ny);
 
-                    // Skip if neighbor is empty or wall.
-                    if (cellB.isEmpty() || cellB.isWall()) {
+                    // Skip if neighbor is empty, wall, or fluid.
+                    if (cellB.isEmpty() || cellB.isWall() || isMaterialFluid(cellB.material_type)) {
                         continue;
                     }
 
@@ -197,8 +198,9 @@ std::vector<WorldFrictionCalculator::ContactInterface> WorldFrictionCalculator::
         for (uint32_t x = 0; x < width; ++x) {
             const Cell& cellA = getCellAt(world, x, y);
 
-            // Skip empty cells and walls.
-            if (cellA.isEmpty() || cellA.isWall()) {
+            // Skip empty cells, walls, and fluids.
+            // Fluids don't have Coulomb friction - they have viscosity instead.
+            if (cellA.isEmpty() || cellA.isWall() || isMaterialFluid(cellA.material_type)) {
                 continue;
             }
 
@@ -226,8 +228,8 @@ std::vector<WorldFrictionCalculator::ContactInterface> WorldFrictionCalculator::
 
                     const Cell& cellB = getCellAt(world, nx, ny);
 
-                    // Skip if neighbor is empty or wall.
-                    if (cellB.isEmpty() || cellB.isWall()) {
+                    // Skip if neighbor is empty, wall, or fluid.
+                    if (cellB.isEmpty() || cellB.isWall() || isMaterialFluid(cellB.material_type)) {
                         continue;
                     }
 

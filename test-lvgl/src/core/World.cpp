@@ -1044,7 +1044,8 @@ std::vector<MaterialMove> World::computeMaterialMoves(double deltaTime)
         for (uint32_t x = 0; x < data.width; ++x) {
             Cell& cell = data.at(x, y);
 
-            if (cell.isEmpty() || cell.isWall()) {
+            // Skip empty, wall, and air cells - they don't generate material moves.
+            if (cell.isEmpty() || cell.isWall() || cell.isAir()) {
                 continue;
             }
 

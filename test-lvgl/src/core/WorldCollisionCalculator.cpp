@@ -469,16 +469,6 @@ void WorldCollisionCalculator::handleElasticCollision(
         }
 
         fromCell.setCOM(fromCOM);
-
-        spdlog::warn(
-            "Elastic reflection: {} bounced off surface at ({},{}) with restitution {:.2f}, "
-            "COM adjusted to ({:.3f},{:.3f})",
-            getMaterialName(move.material),
-            move.fromX,
-            move.fromY,
-            move.restitution_coefficient,
-            fromCOM.x,
-            fromCOM.y);
     }
 
     // Minimal or no material transfer for elastic collisions.
@@ -782,21 +772,71 @@ bool WorldCollisionCalculator::shouldSwapMaterials(
         return false;
     }
 
+    // PATH OF LEAST RESISTANCE CHECK.
+    // When a vertical swap would displace a fluid (but not AIR), check if that
+    // fluid has easier lateral escape routes. If so, deny the swap and let
+    // pressure push the fluid sideways instead. This prevents the "cliff climbing"
+    // effect where dirt drops through water, pushing water up through solid.
+    // AIR is excluded because we want air pockets to fill in naturally.
+    const MaterialProperties& from_props = getMaterialProperties(fromCell.material_type);
+    if (direction.y != 0 && to_props.is_fluid && toCell.material_type != MaterialType::AIR) {
+        const WorldData& data = world.getData();
+        const uint32_t toX = fromX + direction.x;
+        const uint32_t toY = fromY + direction.y;
+
+        for (int dx : { -1, 1 }) {
+            int nx = static_cast<int>(toX) + dx;
+            if (nx < 0 || nx >= static_cast<int>(data.width)) {
+                continue;
+            }
+
+            const Cell& lateral = data.at(nx, toY);
+
+            // If the fluid being displaced has empty space beside it, deny swap.
+            // The fluid should escape sideways via pressure, not be pushed vertically.
+            if (lateral.isEmpty()) {
+                LoggingChannels::swap()->info(
+                    "Swap denied (path of least resistance): "
+                    "{} at ({},{}) can escape to empty lateral at ({},{})",
+                    getMaterialName(toCell.material_type),
+                    toX,
+                    toY,
+                    nx,
+                    toY);
+                return false;
+            }
+
+            // Lower pressure laterally means easier escape for the displaced fluid.
+            double lateral_pressure = lateral.hydrostatic_component + lateral.dynamic_component;
+            double target_pressure = toCell.hydrostatic_component + toCell.dynamic_component;
+            if (lateral_pressure < target_pressure * 0.5) {
+                LoggingChannels::swap()->info(
+                    "Swap denied (path of least resistance): "
+                    "{} at ({},{}) can escape to lower pressure ({:.2f} vs {:.2f}) at ({},{})",
+                    getMaterialName(toCell.material_type),
+                    toX,
+                    toY,
+                    lateral_pressure,
+                    target_pressure,
+                    nx,
+                    toY);
+                return false;
+            }
+        }
+    }
+
     // Check swap requirements based on direction.
+    const PhysicsSettings& settings = world.getPhysicsSettings();
     if (direction.y == 0) {
         // Horizontal swap: momentum-based displacement.
         // FROM cell needs enough momentum to push TO cell out of the way.
-
-        const MaterialProperties& from_props = getMaterialProperties(fromCell.material_type);
-
-        // FROM: momentum in direction of movement (mass × velocity).
         double from_mass = from_props.density * fromCell.fill_ratio;
         double from_velocity = std::abs(fromCell.velocity.x);
         double from_momentum = from_mass * from_velocity;
 
         // Fluids pushing solids sideways is harder - they flow around instead.
         if (from_props.is_fluid && !to_props.is_fluid) {
-            from_momentum *= 0.25;
+            from_momentum *= settings.horizontal_non_fluid_penalty;
         }
 
         // TO: resistance to being displaced.
@@ -806,7 +846,8 @@ bool WorldCollisionCalculator::shouldSwapMaterials(
         double cohesion_resistance = 1.0 + to_props.cohesion;
 
         // Supported materials are much harder to displace.
-        double support_factor = toCell.has_any_support ? 5.0 : 1.0;
+        double support_factor =
+            toCell.has_any_support ? settings.horizontal_non_fluid_target_resistance : 1.0;
 
         // Fluids are easier to displace than solids.
         double fluid_factor = 1; // to_props.is_fluid ? 0.2 : 1.0;
@@ -814,7 +855,7 @@ bool WorldCollisionCalculator::shouldSwapMaterials(
         double to_resistance = to_mass * cohesion_resistance * support_factor * fluid_factor;
 
         // Swap if momentum overcomes resistance.
-        const double threshold = world.getPhysicsSettings().horizontal_flow_resistance_factor;
+        const double threshold = settings.horizontal_flow_resistance_factor;
         const bool swap_ok = from_momentum > to_resistance * threshold;
 
         if (!swap_ok) {
@@ -848,9 +889,6 @@ bool WorldCollisionCalculator::shouldSwapMaterials(
     else {
         // Vertical swap: momentum-based with buoyancy assist.
         // Density must support the swap direction AND momentum must overcome resistance.
-        const MaterialProperties& from_props = getMaterialProperties(fromCell.material_type);
-
-        // Check density-based buoyancy direction.
         const double from_density = from_props.density;
         const double to_density = to_props.density;
         const bool density_ok = densitySupportsSwap(fromCell, toCell, direction);
@@ -916,9 +954,6 @@ bool WorldCollisionCalculator::shouldSwapMaterials(
     double cohesion_strength = calculateCohesionStrength(fromCell, world, fromX, fromY);
     double bond_breaking_cost =
         cohesion_strength * world.getPhysicsSettings().cohesion_resistance_factor;
-
-    // Get material properties for fluid checks.
-    const MaterialProperties& from_props = getMaterialProperties(fromCell.material_type);
 
     // Reduce bond cost for fluid interactions (fluids help separate materials).
     if (from_props.is_fluid || to_props.is_fluid) {
