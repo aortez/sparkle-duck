@@ -1,10 +1,9 @@
 #pragma once
 
-// TODO: Redesign this for new architecture.
-// Old version ran local physics simulation.
-// New version should request world state from server via WebSocket and render it.
+// Legacy file - disabled for client/server architecture.
+// Kept for reference only.
 
-#if 0 // Temporarily disabled - needs redesign for client/server architecture.
+#if 0 // Disabled - old local physics loop replaced by client/server architecture.
 
 #include "lvgl/lvgl.h"
 #include "lvgl/src/misc/lv_timer.h"

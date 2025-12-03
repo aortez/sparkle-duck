@@ -722,6 +722,10 @@ State::Any SimRunning::onEvent(const ResetSimulationCommand& /*cmd*/, StateMachi
 
     if (world && scenario) {
         scenario->reset(*world);
+
+        // Clear tree vision and organism bone data from WorldData.
+        world->getData().tree_vision.reset();
+        world->getData().bones.clear();
     }
 
     stepCount = 0;
