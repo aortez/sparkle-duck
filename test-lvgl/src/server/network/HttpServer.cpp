@@ -55,48 +55,33 @@ struct HttpServer::Impl {
         function discoverPeers() {
             logDebug('Discovering peers...');
             var ws = new WebSocket('ws://' + window.location.hostname + ':8080');
-            var messageCount = 0;
 
             ws.onopen = function() {
-                logDebug('Connected, requesting JSON format');
-                ws.send(JSON.stringify({ command: 'render_format_set', format: 1 }));
-                setTimeout(function() {
-                    logDebug('Sending peers_get');
-                    ws.send(JSON.stringify({ command: 'peers_get', id: 1 }));
-                }, 100);
+                logDebug('Sending peers_get');
+                ws.send(JSON.stringify({ command: 'peers_get', id: 1 }));
             };
 
             ws.onmessage = function(event) {
-                messageCount++;
-                if (messageCount === 1) {
-                    logDebug('Ignoring render_format_set response');
-                    return;
-                }
-                if (event.data instanceof Blob) {
-                    event.data.text().then(function(text) {
-                        logDebug('Received text (' + text.length + ' chars): ' + text.substring(0, 80));
-                        try {
-                            var response = JSON.parse(text);
-                            if (response.value && response.value.peers) {
-                                displayPeers(response.value.peers);
-                            }
-                        } catch (e) {
-                            console.error('Failed to parse peers response:', e, text.substring(0, 100));
-                            logDebug('Parse error: ' + e.message + ', text: ' + text.substring(0, 60));
-                        }
-                        ws.close();
-                    });
-                } else {
+                var processMessage = function(text) {
                     try {
-                        var response = JSON.parse(event.data);
+                        var response = JSON.parse(text);
+                        // Only process messages with 'id' field (ignore WorldData broadcasts).
+                        if (!response.id) {
+                            return;
+                        }
                         if (response.value && response.value.peers) {
                             displayPeers(response.value.peers);
                         }
+                        ws.close();
                     } catch (e) {
-                        console.error('Failed to parse peers response:', e, event.data);
-                        logDebug('Parse error: ' + e.message);
+                        // Ignore binary WorldData or malformed messages.
                     }
-                    ws.close();
+                };
+
+                if (event.data instanceof Blob) {
+                    event.data.text().then(processMessage);
+                } else {
+                    processMessage(event.data);
                 }
             };
 
@@ -130,9 +115,8 @@ struct HttpServer::Impl {
                     '<div class="peer-info">State: <span id="state-' + peer.host + '-' + peer.port + '">...</span></div>';
                 container.appendChild(div);
 
-                if (peer.role === 'physics') {
-                    queryStatus(peer);
-                }
+                // Query status for both physics and UI peers.
+                queryStatus(peer);
             }
         }
 
@@ -166,17 +150,22 @@ struct HttpServer::Impl {
                         if (!response.id) {
                             return;
                         }
-                        if (response.value) {
-                            var stateSpan = document.getElementById('state-' + peer.host + '-' + peer.port);
-                            if (stateSpan) {
-                                var state = 'Unknown';
+                        var stateSpan = document.getElementById('state-' + peer.host + '-' + peer.port);
+                        if (stateSpan) {
+                            var state = 'Unknown';
+                            // UI response format: has .state at top level.
+                            if (response.state) {
+                                state = response.state;
+                            }
+                            // Physics response format: has .value.scenario_id or .value.width.
+                            else if (response.value) {
                                 if (response.value.scenario_id) {
                                     state = 'Running (' + response.value.scenario_id + ', step ' + response.value.timestep + ')';
                                 } else if (response.value.width !== undefined) {
                                     state = 'Idle (ready)';
                                 }
-                                stateSpan.textContent = state;
                             }
+                            stateSpan.textContent = state;
                         }
                         statusWs.close();
                     } catch (e) {

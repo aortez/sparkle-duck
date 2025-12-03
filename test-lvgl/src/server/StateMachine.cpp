@@ -1,6 +1,7 @@
 #include "StateMachine.h"
 #include "Event.h"
 #include "EventProcessor.h"
+#include "api/PeersGet.h"
 #include "core/ScenarioConfig.h"
 #include "core/Timers.h"
 #include "core/World.h" // Must be first for complete type in variant.
@@ -252,21 +253,35 @@ void StateMachine::handleEvent(const Event& event)
                         }
                     }
                     else {
-                        spdlog::warn(
-                            "Server::StateMachine: State {} does not handle event {}",
-                            State::getCurrentStateName(pImpl->fsmState_),
-                            getEventName(Event{ evt }));
+                        // Handle state-independent read-only queries generically.
+                        if constexpr (std::is_same_v<
+                                          std::decay_t<decltype(evt)>,
+                                          Api::PeersGet::Cwc>) {
+                            spdlog::debug(
+                                "Server::StateMachine: Handling PeersGet generically (state: {})",
+                                State::getCurrentStateName(pImpl->fsmState_));
+                            auto peers = pImpl->peerDiscovery_.getPeers();
+                            Api::PeersGet::Okay response;
+                            response.peers = std::move(peers);
+                            evt.sendResponse(Api::PeersGet::Response::okay(std::move(response)));
+                        }
+                        else {
+                            spdlog::warn(
+                                "Server::StateMachine: State {} does not handle event {}",
+                                State::getCurrentStateName(pImpl->fsmState_),
+                                getEventName(Event{ evt }));
 
-                        // If this is an API command with sendResponse, send error.
-                        if constexpr (requires {
-                                          evt.sendResponse(std::declval<typename std::decay_t<
-                                                               decltype(evt)>::Response>());
-                                      }) {
-                            auto errorMsg = std::string("Command not supported in state: ")
-                                + State::getCurrentStateName(pImpl->fsmState_);
-                            using EventType = std::decay_t<decltype(evt)>;
-                            using ResponseType = typename EventType::Response;
-                            evt.sendResponse(ResponseType::error(ApiError(errorMsg)));
+                            // If this is an API command with sendResponse, send error.
+                            if constexpr (requires {
+                                              evt.sendResponse(std::declval<typename std::decay_t<
+                                                                   decltype(evt)>::Response>());
+                                          }) {
+                                auto errorMsg = std::string("Command not supported in state: ")
+                                    + State::getCurrentStateName(pImpl->fsmState_);
+                                using EventType = std::decay_t<decltype(evt)>;
+                                using ResponseType = typename EventType::Response;
+                                evt.sendResponse(ResponseType::error(ApiError(errorMsg)));
+                            }
                         }
                     }
                 },
