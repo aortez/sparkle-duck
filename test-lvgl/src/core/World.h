@@ -63,14 +63,6 @@ public:
     void applyPhysicsSettings(const PhysicsSettings& settings);
 
     // =================================================================
-    // SIMULATION CONTROL
-    // =================================================================
-
-    // NOTE: Use physicsSettings.timescale for physics, data.removed_mass,
-    // data.add_particles_enabled directly.
-    double getTotalMass() const;
-
-    // =================================================================
     // MATERIAL ADDITION
     // =================================================================
 
@@ -247,7 +239,6 @@ public:
     const PhysicsSettings& getPhysicsSettings() const;
 
     // WorldInterface hook implementations (rarely overridden - can be public).
-    void onPostResize();
     void onPreResize(uint32_t newWidth, uint32_t newHeight);
     bool shouldResize(uint32_t newWidth, uint32_t newHeight) const;
 
@@ -264,31 +255,20 @@ public:
     double air_resistance_strength_;
     MaterialType selected_material_;
 
-    // =================================================================
-    // INTERNAL IMPLEMENTATION (moved to Pimpl for reduced dependencies)
-    // =================================================================
+    struct Impl;
+    Pimpl<Impl> pImpl;
 
-    struct Impl;       // Forward declaration.
-    Pimpl<Impl> pImpl; // Pimpl containing calculators and internal state.
-
-    // Tree organism manager.
     std::unique_ptr<class TreeManager> tree_manager_;
 
     // Accessor for tree manager.
     class TreeManager& getTreeManager() { return *tree_manager_; }
     const class TreeManager& getTreeManager() const { return *tree_manager_; }
 
-    // Per-world random number generator for deterministic testing.
     std::unique_ptr<std::mt19937> rng_;
 
-    // Set RNG seed (for deterministic testing).
     void setRandomSeed(uint32_t seed);
 
 private:
-    // =================================================================
-    // INTERNAL PHYSICS METHODS (implementation details)
-    // =================================================================
-
     void applyGravity();
     void applySupportForces();
     void applyAirResistance();

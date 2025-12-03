@@ -1,4 +1,9 @@
 #include "WebSocketServer.h"
+
+#include "server/api/ApiError.h"
+#include "ui/state-machine/api/ScreenGrab.h"
+
+#include <chrono>
 #include <spdlog/spdlog.h>
 
 namespace DirtSim {
@@ -40,15 +45,31 @@ uint16_t WebSocketServer::getPort() const
     return server_ ? server_->port() : 0;
 }
 
+// Helper to safely send response through WebSocket (catches closed socket exceptions).
+static void safeSend(
+    std::shared_ptr<rtc::WebSocket> ws, const std::string& message, const std::string& cmdName)
+{
+    try {
+        ws->send(message);
+        spdlog::debug("UI WebSocketServer: {} response sent ({} bytes)", cmdName, message.size());
+    }
+    catch (const std::exception& e) {
+        spdlog::warn("UI WebSocketServer: Failed to send {} response: {}", cmdName, e.what());
+    }
+}
+
 void WebSocketServer::onClientConnected(std::shared_ptr<rtc::WebSocket> ws)
 {
     spdlog::info("UI WebSocket client connected");
 
+    // Per-client state for throttling expensive operations like screen_grab.
+    auto clientLastScreenshot = std::make_shared<std::chrono::steady_clock::time_point>();
+
     // Set up message handler for this client.
-    ws->onMessage([this, ws](std::variant<rtc::binary, rtc::string> data) {
+    ws->onMessage([this, ws, clientLastScreenshot](std::variant<rtc::binary, rtc::string> data) {
         if (std::holds_alternative<rtc::string>(data)) {
             std::string message = std::get<rtc::string>(data);
-            onMessage(ws, message);
+            onMessage(ws, message, clientLastScreenshot);
         }
         else {
             spdlog::warn("UI WebSocket received binary message (not supported)");
@@ -62,21 +83,55 @@ void WebSocketServer::onClientConnected(std::shared_ptr<rtc::WebSocket> ws)
     ws->onError([](std::string error) { spdlog::error("UI WebSocket error: {}", error); });
 }
 
-void WebSocketServer::onMessage(std::shared_ptr<rtc::WebSocket> ws, const std::string& message)
+void WebSocketServer::onMessage(
+    std::shared_ptr<rtc::WebSocket> ws,
+    const std::string& message,
+    std::shared_ptr<std::chrono::steady_clock::time_point> clientLastScreenshot)
 {
     spdlog::info("UI WebSocket received command: {}", message);
 
     // Extract correlation ID from incoming message.
     std::optional<uint64_t> correlationId;
+    std::string commandName;
     try {
         nlohmann::json json = nlohmann::json::parse(message);
         if (json.contains("id") && json["id"].is_number()) {
             correlationId = json["id"].get<uint64_t>();
             spdlog::debug("UI WebSocket: Correlation ID = {}", *correlationId);
         }
+        if (json.contains("command") && json["command"].is_string()) {
+            commandName = json["command"].get<std::string>();
+        }
     }
     catch (const std::exception& e) {
         spdlog::warn("UI WebSocket: Failed to extract correlation ID: {}", e.what());
+    }
+
+    // Per-client throttle for screen_grab (before queuing to state machine).
+    // This prevents dead socket requests from consuming the global throttle quota.
+    if (commandName == "screen_grab" && clientLastScreenshot) {
+        static constexpr std::chrono::milliseconds minInterval{ 1000 };
+        auto now = std::chrono::steady_clock::now();
+        auto elapsed =
+            std::chrono::duration_cast<std::chrono::milliseconds>(now - *clientLastScreenshot);
+
+        if (elapsed < minInterval) {
+            spdlog::info(
+                "UI WebSocketServer: screen_grab throttled for this client ({} ms since last, min "
+                "{}ms)",
+                elapsed.count(),
+                minInterval.count());
+            auto response = UiApi::ScreenGrab::Response::error(
+                ApiError("Screenshot throttled - try again later"));
+            nlohmann::json json = nlohmann::json::parse(serializer_.serialize(std::move(response)));
+            if (correlationId) {
+                json["id"] = *correlationId;
+            }
+            safeSend(ws, json.dump(), "screen_grab throttle");
+            return;
+        }
+        // Update per-client timestamp (will be updated again on successful capture).
+        *clientLastScreenshot = now;
     }
 
     // Deserialize JSON → Command.
@@ -124,7 +179,7 @@ Event WebSocketServer::createCwcForCommand(
                         if (correlationId.has_value()) {
                             json["id"] = correlationId.value();
                         }
-                        ws->send(json.dump());
+                        safeSend(ws, json.dump(), "Response");
                     };
                 return cwc;
             }
@@ -139,7 +194,7 @@ Event WebSocketServer::createCwcForCommand(
                         if (correlationId.has_value()) {
                             json["id"] = correlationId.value();
                         }
-                        ws->send(json.dump());
+                        safeSend(ws, json.dump(), "Response");
                     };
                 return cwc;
             }
@@ -152,7 +207,7 @@ Event WebSocketServer::createCwcForCommand(
                     if (correlationId.has_value()) {
                         json["id"] = correlationId.value();
                     }
-                    ws->send(json.dump());
+                    safeSend(ws, json.dump(), "Response");
                 };
                 return cwc;
             }
@@ -165,7 +220,7 @@ Event WebSocketServer::createCwcForCommand(
                     if (correlationId.has_value()) {
                         json["id"] = correlationId.value();
                     }
-                    ws->send(json.dump());
+                    safeSend(ws, json.dump(), "Response");
                 };
                 return cwc;
             }
@@ -178,7 +233,7 @@ Event WebSocketServer::createCwcForCommand(
                     if (correlationId.has_value()) {
                         json["id"] = correlationId.value();
                     }
-                    ws->send(json.dump());
+                    safeSend(ws, json.dump(), "Response");
                 };
                 return cwc;
             }
@@ -191,7 +246,7 @@ Event WebSocketServer::createCwcForCommand(
                     if (correlationId.has_value()) {
                         json["id"] = correlationId.value();
                     }
-                    ws->send(json.dump());
+                    safeSend(ws, json.dump(), "Response");
                 };
                 return cwc;
             }
@@ -208,7 +263,7 @@ Event WebSocketServer::createCwcForCommand(
                         spdlog::info(
                             "UI WebSocketServer: Sending ScreenGrab response ({} bytes)",
                             json.dump().size());
-                        ws->send(json.dump());
+                        safeSend(ws, json.dump(), "Response");
                         spdlog::info("UI WebSocketServer: ScreenGrab response sent successfully");
                     }
                     catch (const std::exception& e) {
@@ -227,7 +282,7 @@ Event WebSocketServer::createCwcForCommand(
                     if (correlationId.has_value()) {
                         json["id"] = correlationId.value();
                     }
-                    ws->send(json.dump());
+                    safeSend(ws, json.dump(), "Response");
                 };
                 return cwc;
             }
@@ -240,7 +295,7 @@ Event WebSocketServer::createCwcForCommand(
                     if (correlationId.has_value()) {
                         json["id"] = correlationId.value();
                     }
-                    ws->send(json.dump());
+                    safeSend(ws, json.dump(), "Response");
                 };
                 return cwc;
             }
@@ -253,7 +308,7 @@ Event WebSocketServer::createCwcForCommand(
                     if (correlationId.has_value()) {
                         json["id"] = correlationId.value();
                     }
-                    ws->send(json.dump());
+                    safeSend(ws, json.dump(), "Response");
                 };
                 return cwc;
             }
@@ -266,7 +321,7 @@ Event WebSocketServer::createCwcForCommand(
                     if (correlationId.has_value()) {
                         json["id"] = correlationId.value();
                     }
-                    ws->send(json.dump());
+                    safeSend(ws, json.dump(), "Response");
                 };
                 return cwc;
             }

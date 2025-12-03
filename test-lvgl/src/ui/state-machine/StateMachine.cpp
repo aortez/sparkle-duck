@@ -123,37 +123,12 @@ void StateMachine::handleEvent(const Event& event)
     }
 
     // Handle ScreenGrab universally (works in all states).
+    // Note: Throttling is handled per-client in WebSocketServer before queuing.
     if (std::holds_alternative<UiApi::ScreenGrab::Cwc>(event)) {
         auto& cwc = std::get<UiApi::ScreenGrab::Cwc>(event);
 
-        // Throttle screenshot requests (expensive operation).
-        static std::chrono::steady_clock::time_point lastScreenshot;
-        static constexpr std::chrono::milliseconds minScreenshotInterval{
-            1000
-        }; // Max 1 per second.
-        auto now = std::chrono::steady_clock::now();
-        auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastScreenshot);
-
-        if (elapsed < minScreenshotInterval) {
-            spdlog::info(
-                "Ui::StateMachine: ScreenGrab throttled ({} ms since last, min {}ms)",
-                elapsed.count(),
-                minScreenshotInterval.count());
-            try {
-                cwc.sendResponse(UiApi::ScreenGrab::Response::error(
-                    ApiError("Screenshot throttled - try again later")));
-            }
-            catch (const std::exception& e) {
-                spdlog::warn("Ui::StateMachine: Failed to send throttle response: {}", e.what());
-            }
-            return;
-        }
-
-        lastScreenshot = now;
         spdlog::info(
-            "Ui::StateMachine: Processing ScreenGrab command ({}ms since last, scale={})",
-            elapsed.count(),
-            cwc.command.scale);
+            "Ui::StateMachine: Processing ScreenGrab command (scale={})", cwc.command.scale);
 
         // Capture display pixels.
         auto screenshotData = captureDisplayPixels(display, cwc.command.scale);

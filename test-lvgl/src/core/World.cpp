@@ -464,7 +464,7 @@ void World::advanceTime(double deltaTimeSeconds)
         ScopeTimer dynamicTimer(pImpl->timers_, "dynamic_pressure");
         // Generate virtual gravity transfers to create pressure from gravity forces.
         // This allows dynamic pressure to model hydrostatic-like behavior.
-        pImpl->pressure_calculator_.generateVirtualGravityTransfers(*this, scaledDeltaTime);
+        // pImpl->pressure_calculator_.generateVirtualGravityTransfers(*this, scaledDeltaTime);
 
         pImpl->pressure_calculator_.processBlockedTransfers(
             *this, pImpl->pressure_calculator_.blocked_transfers_);
@@ -554,42 +554,7 @@ void World::resizeGrid(uint32_t newWidth, uint32_t newHeight)
     pImpl->data_.cells = std::move(interpolatedCells);
     pImpl->data_.debug_info.resize(newWidth * newHeight);
 
-    onPostResize();
-
     spdlog::info("World bilinear resize complete");
-}
-
-void World::onPostResize()
-{
-    // Note: Boundary walls are now managed by Scenarios.
-    // After resize, the scenario's setup() will be called to rebuild walls if needed.
-}
-
-// =================================================================.
-// WORLDB-SPECIFIC METHODS.
-// =================================================================.
-
-double World::getTotalMass() const
-{
-    double totalMass = 0.0;
-    int cellCount = 0;
-    int nonEmptyCells = 0;
-
-    for (const auto& cell : pImpl->data_.cells) {
-        double cellMass = cell.getMass();
-        totalMass += cellMass;
-        cellCount++;
-        if (cellMass > 0.0) {
-            nonEmptyCells++;
-        }
-    }
-
-    spdlog::info(
-        "DEBUGGING: World total mass={:.3f} from {} cells ({} non-empty)",
-        totalMass,
-        cellCount,
-        nonEmptyCells);
-    return totalMass;
 }
 
 // =================================================================.

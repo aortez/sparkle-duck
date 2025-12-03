@@ -4,6 +4,8 @@
 #include "ResponseSerializerJson.h"
 #include "core/StateMachineInterface.h"
 #include "ui/state-machine/Event.h"
+
+#include <chrono>
 #include <memory>
 #include <rtc/rtc.hpp>
 #include <string>
@@ -48,8 +50,12 @@ private:
      * @brief Handle incoming message from a client.
      * @param ws The WebSocket connection.
      * @param message The received message.
+     * @param clientLastScreenshot Per-client timestamp for screenshot throttling.
      */
-    void onMessage(std::shared_ptr<rtc::WebSocket> ws, const std::string& message);
+    void onMessage(
+        std::shared_ptr<rtc::WebSocket> ws,
+        const std::string& message,
+        std::shared_ptr<std::chrono::steady_clock::time_point> clientLastScreenshot);
 
     /**
      * @brief Wrap UiApiCommand in appropriate Cwc with response callback.

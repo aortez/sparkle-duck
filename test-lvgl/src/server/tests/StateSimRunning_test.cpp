@@ -120,11 +120,8 @@ TEST_F(StateSimRunningTest, AdvanceSimulation_StepsPhysicsAndDirtFalls)
         simRunning.world->getData().width,
         simRunning.world->getData().height);
     spdlog::info("TEST: Gravity: {}", simRunning.world->getPhysicsSettings().gravity);
-    spdlog::info("TEST: Total mass before adding dirt: {}", simRunning.world->getTotalMass());
 
     simRunning.world->getData().at(testX, testY).addDirt(1.0);
-
-    spdlog::info("TEST: Total mass after adding dirt: {}", simRunning.world->getTotalMass());
 
     // Verify initial state.
     const Cell& startCell = simRunning.world->getData().at(testX, testY);

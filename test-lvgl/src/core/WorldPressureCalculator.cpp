@@ -421,13 +421,12 @@ void WorldPressureCalculator::applyPressureDecay(World& world, double deltaTime)
 
 void WorldPressureCalculator::generateVirtualGravityTransfers(World& world, double deltaTime)
 {
-    // Cache data reference.
     WorldData& data = world.getData();
     const Vector2d gravity = Vector2d(0, world.getPhysicsSettings().gravity);
     const double gravity_magnitude = gravity.magnitude();
 
     if (gravity_magnitude < 0.0001) {
-        return; // No gravity, no virtual transfers.
+        return;
     }
 
     // Process all cells to generate virtual gravity transfers.
@@ -443,10 +442,11 @@ void WorldPressureCalculator::generateVirtualGravityTransfers(World& world, doub
             // Calculate virtual downward velocity from gravity.
             Vector2d gravity_velocity = gravity * deltaTime;
 
-            // Calculate virtual kinetic energy from gravitational acceleration.
-            double velocity_squared =
-                gravity_velocity.x * gravity_velocity.x + gravity_velocity.y * gravity_velocity.y;
-            double virtual_energy = 0.5 * cell.getEffectiveDensity() * velocity_squared;
+            // Calculate virtual force from gravity, scaled by deltaTime for pressure contribution.
+            // Using force-based approach (F = m*g) rather than kinetic energy (½mv²) for stability.
+            // This is linear in deltaTime, avoiding Δt² instability with variable timesteps.
+            double virtual_force = cell.getEffectiveDensity() * gravity_magnitude;
+            double virtual_energy = virtual_force * deltaTime;
 
             // Check if downward motion would be blocked.
             // For now, assume gravity points down (0, 1).

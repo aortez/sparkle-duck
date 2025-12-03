@@ -63,6 +63,7 @@ Implementation:
 - JSON output is in Result<okay,error> format for standardized parsing.
 
 ## Misc
+- don't use std::move unless required, just make a copy
 - designated initializers please
 - Exit early to reduce scope. It makes things easier to understand, due to less nesting and shorter variable lifespans.
 - Use RAII to manage cleanup.

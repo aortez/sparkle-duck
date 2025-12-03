@@ -14,18 +14,21 @@ const char* lodepng_error_text(unsigned code);
 namespace DirtSim {
 namespace Ui {
 
-std::optional<ScreenshotData> captureDisplayPixels(_lv_display_t* display, double /*scale*/)
+std::optional<ScreenshotData> captureDisplayPixels(_lv_display_t* display, double scale)
 {
     if (!display) {
         spdlog::error("DisplayCapture: Display is null");
         return std::nullopt;
     }
 
-    // Get display dimensions.
-    uint32_t width = lv_display_get_horizontal_resolution(display);
-    uint32_t height = lv_display_get_vertical_resolution(display);
+    // Clamp scale to reasonable range.
+    scale = std::max(0.1, std::min(1.0, scale));
 
-    if (width == 0 || height == 0) {
+    // Get display dimensions.
+    uint32_t fullWidth = lv_display_get_horizontal_resolution(display);
+    uint32_t fullHeight = lv_display_get_vertical_resolution(display);
+
+    if (fullWidth == 0 || fullHeight == 0) {
         spdlog::error("DisplayCapture: Display has zero dimensions");
         return std::nullopt;
     }
@@ -48,19 +51,48 @@ std::optional<ScreenshotData> captureDisplayPixels(_lv_display_t* display, doubl
     uint32_t bufWidth = drawBuf->header.w;
     uint32_t bufHeight = drawBuf->header.h;
     const uint8_t* bufData = static_cast<const uint8_t*>(drawBuf->data);
-    size_t bufSize = static_cast<size_t>(bufWidth) * bufHeight * 4; // ARGB8888 = 4 bytes/pixel
 
-    // Copy pixel data.
+    // Calculate scaled dimensions.
+    uint32_t scaledWidth = static_cast<uint32_t>(bufWidth * scale);
+    uint32_t scaledHeight = static_cast<uint32_t>(bufHeight * scale);
+
+    // Simple nearest-neighbor downsampling if scale < 1.0.
     ScreenshotData data;
-    data.width = bufWidth;
-    data.height = bufHeight;
-    data.pixels.resize(bufSize);
-    std::memcpy(data.pixels.data(), bufData, bufSize);
+    data.width = scaledWidth;
+    data.height = scaledHeight;
+    data.pixels.resize(static_cast<size_t>(scaledWidth) * scaledHeight * 4);
+
+    if (scale >= 0.99) {
+        // No scaling - direct copy.
+        std::memcpy(data.pixels.data(), bufData, data.pixels.size());
+    }
+    else {
+        // Downsample with nearest-neighbor.
+        for (uint32_t y = 0; y < scaledHeight; y++) {
+            for (uint32_t x = 0; x < scaledWidth; x++) {
+                uint32_t srcX = static_cast<uint32_t>(x / scale);
+                uint32_t srcY = static_cast<uint32_t>(y / scale);
+                size_t srcIdx = (srcY * bufWidth + srcX) * 4;
+                size_t dstIdx = (y * scaledWidth + x) * 4;
+                data.pixels[dstIdx + 0] = bufData[srcIdx + 0];
+                data.pixels[dstIdx + 1] = bufData[srcIdx + 1];
+                data.pixels[dstIdx + 2] = bufData[srcIdx + 2];
+                data.pixels[dstIdx + 3] = bufData[srcIdx + 3];
+            }
+        }
+    }
 
     // Free the draw buffer.
     lv_draw_buf_destroy(drawBuf);
 
-    spdlog::info("DisplayCapture: Captured {}x{} ({} bytes)", bufWidth, bufHeight, bufSize);
+    spdlog::info(
+        "DisplayCapture: Captured {}x{} -> {}x{} (scale={:.2f}, {} bytes)",
+        bufWidth,
+        bufHeight,
+        scaledWidth,
+        scaledHeight,
+        scale,
+        data.pixels.size());
     return data;
 }
 
