@@ -67,6 +67,21 @@ public:
      */
     PhysicsControls* getPhysicsControls() { return physicsControls_.get(); }
 
+    /**
+     * @brief Screenshot pixel data (ARGB8888 format).
+     */
+    struct ScreenshotData {
+        std::vector<uint8_t> pixels; // ARGB8888 pixel data.
+        uint32_t width;
+        uint32_t height;
+    };
+
+    /**
+     * @brief Capture screenshot as raw pixel data.
+     * @return Pixel data in ARGB8888 format, or std::nullopt if capture failed.
+     */
+    std::optional<ScreenshotData> captureScreenshotPixels();
+
 private:
     UiComponentManager* uiManager_;
     RenderMode renderMode_ = RenderMode::ADAPTIVE; // Persists across scenario changes.

@@ -435,6 +435,10 @@ State::Any SimRunning::onEvent(const Api::Reset::Cwc& cwc, StateMachine& /*dsm*/
     if (world && scenario) {
         // Reset scenario (clears world and reinitializes).
         scenario->reset(*world);
+
+        // Clear tree vision and organism bone data from WorldData.
+        world->getData().tree_vision.reset();
+        world->getData().bones.clear();
     }
 
     stepCount = 0;
