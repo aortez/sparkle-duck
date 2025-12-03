@@ -9,6 +9,7 @@
 #include "state-machine/network/WebSocketClient.h"
 #include "ui/UiComponentManager.h"
 #include "ui/ui_builders/LVGLBuilder.h"
+#include <cstring>
 #include <spdlog/spdlog.h>
 
 namespace DirtSim {
@@ -191,6 +192,36 @@ void SimPlayground::onScenarioChanged(lv_event_t* e)
     else {
         spdlog::warn("SimPlayground: WebSocket not connected, cannot switch scenario");
     }
+}
+
+std::optional<SimPlayground::ScreenshotData> SimPlayground::captureScreenshotPixels()
+{
+    if (!renderer_) {
+        spdlog::error("SimPlayground: Cannot capture screenshot, renderer not initialized");
+        return std::nullopt;
+    }
+
+    const uint8_t* buffer = renderer_->getCanvasBuffer();
+    uint32_t width = renderer_->getCanvasWidth();
+    uint32_t height = renderer_->getCanvasHeight();
+
+    if (!buffer || width == 0 || height == 0) {
+        spdlog::error("SimPlayground: Cannot capture screenshot, canvas not initialized");
+        return std::nullopt;
+    }
+
+    // Calculate buffer size (ARGB8888 = 4 bytes per pixel).
+    size_t bufferSize = static_cast<size_t>(width) * height * 4;
+
+    // Make a copy of the pixel data.
+    ScreenshotData data;
+    data.width = width;
+    data.height = height;
+    data.pixels.resize(bufferSize);
+    std::memcpy(data.pixels.data(), buffer, bufferSize);
+
+    spdlog::info("SimPlayground: Captured screenshot {}x{} ({} bytes)", width, height, bufferSize);
+    return data;
 }
 
 } // namespace Ui

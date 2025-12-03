@@ -23,6 +23,7 @@ public:
     void update(World& world, double deltaTime);
     TreeId plantSeed(World& world, uint32_t x, uint32_t y);
     void removeTree(TreeId id);
+    void clear();
 
     Tree* getTree(TreeId id);
     const Tree* getTree(TreeId id) const;

@@ -24,6 +24,18 @@ public:
         RenderMode mode = RenderMode::SHARP);
     void cleanup();
 
+    /**
+     * @brief Get canvas buffer data for screenshot capture.
+     * @return Pointer to canvas buffer, or nullptr if not initialized.
+     */
+    const uint8_t* getCanvasBuffer() const { return canvasBuffer_.data(); }
+
+    /**
+     * @brief Get canvas dimensions.
+     */
+    uint32_t getCanvasWidth() const { return canvasWidth_; }
+    uint32_t getCanvasHeight() const { return canvasHeight_; }
+
 private:
     // Single canvas for entire world grid
     lv_obj_t* worldCanvas_ = nullptr;

@@ -64,6 +64,13 @@ void TreeManager::removeTree(TreeId id)
     LoggingChannels::tree()->info("TreeManager: Removed tree {}", id);
 }
 
+void TreeManager::clear()
+{
+    LoggingChannels::tree()->info("TreeManager: Clearing all trees (count={})", trees_.size());
+    trees_.clear();
+    cell_to_tree_.clear();
+}
+
 Tree* TreeManager::getTree(TreeId id)
 {
     auto it = trees_.find(id);

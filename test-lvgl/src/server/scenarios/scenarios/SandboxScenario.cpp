@@ -2,6 +2,7 @@
 #include "core/PhysicsSettings.h"
 #include "core/World.h"
 #include "core/WorldData.h"
+#include "core/organisms/TreeManager.h"
 #include "server/scenarios/Scenario.h"
 #include "server/scenarios/ScenarioRegistry.h"
 #include "spdlog/spdlog.h"
@@ -117,12 +118,13 @@ void SandboxScenario::setup(World& world)
 {
     spdlog::info("SandboxScenario::setup - initializing world");
 
-    // Clear world first.
+    // Clear world first (cells and trees).
     for (uint32_t y = 0; y < world.getData().height; ++y) {
         for (uint32_t x = 0; x < world.getData().width; ++x) {
             world.getData().at(x, y) = Cell(); // Reset to empty cell.
         }
     }
+    world.getTreeManager().clear();
 
     // Create boundary walls.
     for (uint32_t x = 0; x < world.getData().width; ++x) {

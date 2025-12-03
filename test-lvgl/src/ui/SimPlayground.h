@@ -3,6 +3,8 @@
 #include "core/WorldData.h"
 #include "ui/rendering/RenderMode.h"
 #include <memory>
+#include <optional>
+#include <vector>
 
 // Forward declarations.
 typedef struct _lv_obj_t lv_obj_t;
