@@ -102,69 +102,11 @@ struct ResetSimulationCommand {
 };
 
 /**
- * @brief Resize world to new dimensions.
- */
-struct ResizeWorldCommand {
-    uint32_t width;
-    uint32_t height;
-    static constexpr const char* name() { return "ResizeWorldCommand"; }
-};
-
-/**
  * @brief Apply a scenario to the world.
  */
 struct ApplyScenarioCommand {
     std::string scenarioName;
     static constexpr const char* name() { return "ApplyScenarioCommand"; }
-};
-
-/**
- * @brief Save world to file.
- */
-struct SaveWorldCommand {
-    std::string filepath;
-    static constexpr const char* name() { return "SaveWorldCommand"; }
-};
-
-/**
- * @brief Load world from file.
- */
-struct LoadWorldCommand {
-    std::string filepath;
-    static constexpr const char* name() { return "LoadWorldCommand"; }
-};
-
-// =================================================================
-// ADVANCED FEATURES (Time Control & Special Operations)
-// =================================================================
-
-/**
- * @brief Step simulation backward by one timestep.
- */
-struct StepBackwardCommand {
-    static constexpr const char* name() { return "StepBackwardCommand"; }
-};
-
-/**
- * @brief Step simulation forward by one timestep.
- */
-struct StepForwardCommand {
-    static constexpr const char* name() { return "StepForwardCommand"; }
-};
-
-/**
- * @brief Toggle time reversal mode on/off.
- */
-struct ToggleTimeReversalCommand {
-    static constexpr const char* name() { return "ToggleTimeReversalCommand"; }
-};
-
-/**
- * @brief Set simulation timestep parameter.
- */
-struct SetTimestepCommand {
-    double timestep_value;
-    static constexpr const char* name() { return "SetTimestepCommand"; }
 };
 
 // =================================================================
@@ -415,13 +357,6 @@ public:
         StartSimulationCommand,
         ApplyScenarioCommand,
         ResetSimulationCommand,
-        ResizeWorldCommand,
-        SaveWorldCommand,
-        LoadWorldCommand,
-        StepBackwardCommand,
-        StepForwardCommand,
-        ToggleTimeReversalCommand,
-        SetTimestepCommand,
 
         // Mouse events.
         MouseDownEvent,

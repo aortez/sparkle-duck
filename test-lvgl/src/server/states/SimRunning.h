@@ -42,7 +42,6 @@ struct SimRunning {
     void tick(StateMachine& dsm);
 
     Any onEvent(const ApplyScenarioCommand& cmd, StateMachine& dsm);
-    Any onEvent(const ResizeWorldCommand& cmd, StateMachine& dsm);
     Any onEvent(const DirtSim::Api::CellGet::Cwc& cwc, StateMachine& dsm);
     Any onEvent(const DirtSim::Api::CellSet::Cwc& cwc, StateMachine& dsm);
     Any onEvent(const DirtSim::Api::DiagramGet::Cwc& cwc, StateMachine& dsm);
@@ -62,12 +61,6 @@ struct SimRunning {
     Any onEvent(const DirtSim::Api::StateGet::Cwc& cwc, StateMachine& dsm);
     Any onEvent(const PauseCommand& cmd, StateMachine& dsm);
     Any onEvent(const ResetSimulationCommand& cmd, StateMachine& dsm);
-    Any onEvent(const SaveWorldCommand& cmd, StateMachine& dsm);
-    Any onEvent(const StepBackwardCommand& cmd, StateMachine& dsm);
-    Any onEvent(const StepForwardCommand& cmd, StateMachine& dsm);
-    Any onEvent(const ToggleTimeReversalCommand& cmd, StateMachine& dsm);
-    Any onEvent(const LoadWorldCommand& cmd, StateMachine& dsm);
-    Any onEvent(const SetTimestepCommand& cmd, StateMachine& dsm);
     Any onEvent(const MouseDownEvent& evt, StateMachine& dsm);
     Any onEvent(const MouseMoveEvent& evt, StateMachine& dsm);
     Any onEvent(const MouseUpEvent& evt, StateMachine& dsm);

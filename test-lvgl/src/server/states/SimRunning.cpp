@@ -569,11 +569,8 @@ State::Any SimRunning::onEvent(const Api::PhysicsSettingsSet::Cwc& cwc, StateMac
 
     spdlog::info("PhysicsSettingsSet: Applying new physics settings");
 
-    // Update world's physics settings.
+    // Update world's physics settings (calculators read from this directly).
     world->getPhysicsSettings() = cwc.command.settings;
-
-    // TODO: Apply settings to World calculators (timescale, gravity, etc.).
-    // For now, just store them - actual application will be added next.
 
     cwc.sendResponse(Response::okay(std::monostate{}));
     return std::move(*this);
@@ -730,68 +727,6 @@ State::Any SimRunning::onEvent(const ResetSimulationCommand& /*cmd*/, StateMachi
     stepCount = 0;
 
     return std::move(*this); // Stay in SimRunning (move because unique_ptr).
-}
-
-State::Any SimRunning::onEvent(const SaveWorldCommand& /*cmd*/, StateMachine& /*dsm*/)
-{
-    spdlog::warn("SimRunning: SaveWorld not implemented yet");
-    // TODO: Implement world saving.
-    return std::move(*this);
-}
-
-State::Any SimRunning::onEvent(const StepBackwardCommand& /*cmd*/, StateMachine& /*dsm*/)
-{
-    spdlog::debug("SimRunning: Stepping simulation backward by one timestep");
-
-    if (!world) {
-        spdlog::warn("SimRunning: Cannot step backward - no world available");
-        return std::move(*this);
-    }
-
-    // TODO: Implement world->goBackward() method for time reversal.
-    spdlog::info("StepBackwardCommand: Time reversal not yet implemented");
-
-    return std::move(*this); // Stay in SimRunning (move because unique_ptr).
-}
-
-State::Any SimRunning::onEvent(const StepForwardCommand& /*cmd*/, StateMachine& /*dsm*/)
-{
-    if (!world) {
-        spdlog::warn("SimRunning: Cannot step forward - no world available");
-        return std::move(*this);
-    }
-
-    // TODO: Implement world->goForward() method for time reversal.
-    spdlog::info("SimRunning: Step forward requested");
-
-    return std::move(*this); // Stay in SimRunning (move because unique_ptr).
-}
-
-State::Any SimRunning::onEvent(const ToggleTimeReversalCommand& /*cmd*/, StateMachine& /*dsm*/)
-{
-    if (!world) {
-        spdlog::warn("SimRunning: Cannot toggle time reversal - no world available");
-        return std::move(*this);
-    }
-
-    // TODO: Implement world->toggleTimeReversal() method.
-    spdlog::info("SimRunning: Toggle time reversal requested");
-
-    return std::move(*this); // Stay in SimRunning (move because unique_ptr).
-}
-
-State::Any SimRunning::onEvent(const LoadWorldCommand& /*cmd*/, StateMachine& /*dsm*/)
-{
-    spdlog::warn("SimRunning: LoadWorld not implemented yet");
-    // TODO: Implement world loading.
-    return std::move(*this);
-}
-
-State::Any SimRunning::onEvent(const SetTimestepCommand& cmd, StateMachine& /*dsm*/)
-{
-    // TODO: Implement world->setTimestep() method when available.
-    spdlog::debug("SimRunning: Set timestep to {}", cmd.timestep_value);
-    return std::move(*this);
 }
 
 State::Any SimRunning::onEvent(const MouseDownEvent& /*evt*/, StateMachine& /*dsm*/)
