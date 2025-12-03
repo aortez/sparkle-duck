@@ -98,7 +98,9 @@ void WebSocketServer::onMessage(std::shared_ptr<rtc::WebSocket> ws, const std::s
     Event cwcEvent = createCwcForCommand(cmdResult.value(), ws, correlationId);
 
     // Queue to state machine.
+    spdlog::info("UI WebSocketServer: Queuing event to state machine");
     stateMachine_.queueEvent(cwcEvent);
+    spdlog::info("UI WebSocketServer: Event queued successfully");
 }
 
 Event WebSocketServer::createCwcForCommand(
@@ -197,12 +199,22 @@ Event WebSocketServer::createCwcForCommand(
                 UiApi::ScreenGrab::Cwc cwc;
                 cwc.command = cmd;
                 cwc.callback = [this, ws, correlationId](UiApi::ScreenGrab::Response&& response) {
-                    nlohmann::json json =
-                        nlohmann::json::parse(serializer_.serialize(std::move(response)));
-                    if (correlationId.has_value()) {
-                        json["id"] = correlationId.value();
+                    try {
+                        nlohmann::json json =
+                            nlohmann::json::parse(serializer_.serialize(std::move(response)));
+                        if (correlationId.has_value()) {
+                            json["id"] = correlationId.value();
+                        }
+                        spdlog::info(
+                            "UI WebSocketServer: Sending ScreenGrab response ({} bytes)",
+                            json.dump().size());
+                        ws->send(json.dump());
+                        spdlog::info("UI WebSocketServer: ScreenGrab response sent successfully");
                     }
-                    ws->send(json.dump());
+                    catch (const std::exception& e) {
+                        spdlog::warn(
+                            "UI WebSocketServer: Failed to send ScreenGrab response: {}", e.what());
+                    }
                 };
                 return cwc;
             }
