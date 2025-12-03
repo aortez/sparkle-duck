@@ -314,6 +314,7 @@ add_library(sparkle-duck-ui-lib STATIC
     src/ui/state-machine/network/WebSocketServer.cpp
 
     # UI components.
+    src/ui/DisplayCapture.cpp
     src/ui/UiComponentManager.cpp
     src/ui/SimPlayground.cpp
     src/ui/rendering/CellRenderer.cpp

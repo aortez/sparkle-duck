@@ -54,7 +54,6 @@ struct SimRunning {
     Any onEvent(const UiApi::MouseUp::Cwc& cwc, StateMachine& sm);
     Any onEvent(const UiApi::PixelRendererToggle::Cwc& cwc, StateMachine& sm);
     Any onEvent(const UiApi::RenderModeSelect::Cwc& cwc, StateMachine& sm);
-    Any onEvent(const UiApi::Screenshot::Cwc& cwc, StateMachine& sm);
     Any onEvent(const UiApi::SimPause::Cwc& cwc, StateMachine& sm);
     Any onEvent(const UiUpdateEvent& evt, StateMachine& sm);
 

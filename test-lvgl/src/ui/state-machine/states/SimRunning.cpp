@@ -9,13 +9,6 @@
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
 
-// C API for lodepng.
-extern "C" {
-unsigned lodepng_encode32_file(
-    const char* filename, const unsigned char* image, unsigned w, unsigned h);
-const char* lodepng_error_text(unsigned code);
-}
-
 namespace DirtSim {
 namespace Ui {
 namespace State {
@@ -170,56 +163,6 @@ State::Any SimRunning::onEvent(const UiApi::MouseUp::Cwc& cwc, StateMachine& /*s
     // TODO: Handle mouse release with running world.
 
     cwc.sendResponse(UiApi::MouseUp::Response::okay(std::monostate{}));
-    return std::move(*this);
-}
-
-State::Any SimRunning::onEvent(const UiApi::Screenshot::Cwc& cwc, StateMachine& /*sm*/)
-{
-    spdlog::info("SimRunning: Screenshot command received");
-
-    std::string filepath = cwc.command.filepath.empty() ? "screenshot.png" : cwc.command.filepath;
-
-    // Capture pixel data from renderer.
-    if (!playground_) {
-        spdlog::error("SimRunning: Cannot capture screenshot, playground not initialized");
-        cwc.sendResponse(
-            UiApi::Screenshot::Response::error(ApiError("Playground not initialized")));
-        return std::move(*this);
-    }
-
-    auto screenshotData = playground_->captureScreenshotPixels();
-    if (!screenshotData) {
-        spdlog::error("SimRunning: Failed to capture screenshot pixels");
-        cwc.sendResponse(UiApi::Screenshot::Response::error(ApiError("Failed to capture pixels")));
-        return std::move(*this);
-    }
-
-    // Encode to PNG and save to file.
-    // lodepng_encode32_file expects RGBA, but we have ARGB8888.
-    // Need to convert pixel format.
-    std::vector<uint8_t> rgbaPixels(screenshotData->pixels.size());
-    for (size_t i = 0; i < screenshotData->pixels.size(); i += 4) {
-        // ARGB8888 -> RGBA8888
-        rgbaPixels[i + 0] = screenshotData->pixels[i + 1]; // R
-        rgbaPixels[i + 1] = screenshotData->pixels[i + 2]; // G
-        rgbaPixels[i + 2] = screenshotData->pixels[i + 3]; // B
-        rgbaPixels[i + 3] = screenshotData->pixels[i + 0]; // A
-    }
-
-    unsigned error = lodepng_encode32_file(
-        filepath.c_str(), rgbaPixels.data(), screenshotData->width, screenshotData->height);
-
-    if (error) {
-        spdlog::error(
-            "SimRunning: Failed to encode PNG: {} ({})", lodepng_error_text(error), error);
-        cwc.sendResponse(UiApi::Screenshot::Response::error(
-            ApiError(std::string("PNG encoding failed: ") + lodepng_error_text(error))));
-        return std::move(*this);
-    }
-
-    spdlog::info("SimRunning: Screenshot saved to {}", filepath);
-    cwc.sendResponse(UiApi::Screenshot::Response::okay({ filepath }));
-
     return std::move(*this);
 }
 

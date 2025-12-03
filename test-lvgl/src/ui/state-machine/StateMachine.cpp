@@ -2,6 +2,7 @@
 #include "network/WebSocketClient.h"
 #include "network/WebSocketServer.h"
 #include "states/State.h"
+#include "ui/DisplayCapture.h"
 #include "ui/UiComponentManager.h"
 #include <chrono>
 #include <spdlog/spdlog.h>
@@ -118,6 +119,55 @@ void StateMachine::handleEvent(const Event& event)
 
         spdlog::debug("Ui::StateMachine: Sending StatusGet response (state={})", status.state);
         cwc.sendResponse(UiApi::StatusGet::Response::okay(std::move(status)));
+        return;
+    }
+
+    // Handle Screenshot universally (works in all states).
+    if (std::holds_alternative<UiApi::Screenshot::Cwc>(event)) {
+        spdlog::info("Ui::StateMachine: Processing Screenshot command");
+        auto& cwc = std::get<UiApi::Screenshot::Cwc>(event);
+
+        std::string filepath =
+            cwc.command.filepath.empty() ? "screenshot.png" : cwc.command.filepath;
+
+        // Capture display pixels.
+        auto screenshotData = captureDisplayPixels(display);
+        if (!screenshotData) {
+            spdlog::error("Ui::StateMachine: Failed to capture display pixels");
+            try {
+                cwc.sendResponse(
+                    UiApi::Screenshot::Response::error(ApiError("Failed to capture display")));
+            }
+            catch (const std::exception& e) {
+                spdlog::warn("Ui::StateMachine: Failed to send error response: {}", e.what());
+            }
+            return;
+        }
+
+        // Save to PNG file.
+        bool success = savePNG(
+            screenshotData->pixels.data(), screenshotData->width, screenshotData->height, filepath);
+
+        if (!success) {
+            try {
+                cwc.sendResponse(
+                    UiApi::Screenshot::Response::error(ApiError("Failed to save PNG")));
+            }
+            catch (const std::exception& e) {
+                spdlog::warn("Ui::StateMachine: Failed to send error response: {}", e.what());
+            }
+            return;
+        }
+
+        spdlog::info("Ui::StateMachine: Screenshot saved to {}", filepath);
+        try {
+            cwc.sendResponse(UiApi::Screenshot::Response::okay({ filepath }));
+        }
+        catch (const std::exception& e) {
+            spdlog::warn(
+                "Ui::StateMachine: Failed to send response (screenshot saved anyway): {}",
+                e.what());
+        }
         return;
     }
 
