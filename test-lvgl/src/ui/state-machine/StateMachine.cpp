@@ -138,21 +138,33 @@ void StateMachine::handleEvent(const Event& event)
                         }
                     }
                     else {
-                        spdlog::warn(
-                            "Ui::StateMachine: State {} does not handle event {}",
-                            State::getCurrentStateName(fsmState),
-                            getEventName(Event{ evt }));
+                        // Handle state-independent events generically.
+                        if constexpr (std::is_same_v<std::decay_t<decltype(evt)>, UiUpdateEvent>) {
+                            // UiUpdateEvent can arrive in any state (server keeps sending updates).
+                            // States that care (SimRunning) have specific handlers.
+                            // Other states (Paused, etc.) gracefully ignore without warning.
+                            spdlog::info(
+                                "Ui::StateMachine: Ignoring UiUpdateEvent in state {}",
+                                State::getCurrentStateName(fsmState));
+                            // Stay in current state - no transition.
+                        }
+                        else {
+                            spdlog::warn(
+                                "Ui::StateMachine: State {} does not handle event {}",
+                                State::getCurrentStateName(fsmState),
+                                getEventName(Event{ evt }));
 
-                        // If this is an API command with sendResponse, send error.
-                        if constexpr (requires {
-                                          evt.sendResponse(std::declval<typename std::decay_t<
-                                                               decltype(evt)>::Response>());
-                                      }) {
-                            auto errorMsg = std::string("Command not supported in state: ")
-                                + State::getCurrentStateName(fsmState);
-                            using EventType = std::decay_t<decltype(evt)>;
-                            using ResponseType = typename EventType::Response;
-                            evt.sendResponse(ResponseType::error(ApiError(errorMsg)));
+                            // If this is an API command with sendResponse, send error.
+                            if constexpr (requires {
+                                              evt.sendResponse(std::declval<typename std::decay_t<
+                                                                   decltype(evt)>::Response>());
+                                          }) {
+                                auto errorMsg = std::string("Command not supported in state: ")
+                                    + State::getCurrentStateName(fsmState);
+                                using EventType = std::decay_t<decltype(evt)>;
+                                using ResponseType = typename EventType::Response;
+                                evt.sendResponse(ResponseType::error(ApiError(errorMsg)));
+                            }
                         }
                     }
                 },

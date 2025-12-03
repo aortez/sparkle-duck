@@ -236,8 +236,6 @@ State::Any SimRunning::onEvent(const ApplyScenarioCommand& cmd, StateMachine& ds
         return std::move(*this);
     }
 
-    // TODO: Handle scenario-specific world resizing if needed.
-
     if (world) {
         // Populate WorldData with scenario metadata and config.
         world->getData().scenario_id = cmd.scenarioName;
@@ -248,14 +246,6 @@ State::Any SimRunning::onEvent(const ApplyScenarioCommand& cmd, StateMachine& ds
 
     return std::move(*this);
 }
-
-State::Any SimRunning::onEvent(const ResizeWorldCommand& cmd, StateMachine& /*dsm*/)
-{
-    spdlog::info("SimRunning: Resizing world to {}x{}", cmd.width, cmd.height);
-    // TODO: Implement world resizing (world->resize or recreate world).
-    return std::move(*this);
-}
-
 State::Any SimRunning::onEvent(const Api::CellGet::Cwc& cwc, StateMachine& /*dsm*/)
 {
     using Response = Api::CellGet::Response;

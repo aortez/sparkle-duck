@@ -95,16 +95,22 @@ struct HttpServer::Impl {
             var container = document.getElementById('peers');
             container.innerHTML = '';
 
-            if (peers.length === 0) {
-                status.textContent = 'No simulations found';
-                return;
+            // Always add localhost peers first (not advertised via mDNS).
+            var allPeers = [
+                { name: 'Local Physics Server', host: 'localhost', port: 8080, role: 'physics' },
+                { name: 'Local UI', host: 'localhost', port: 7070, role: 'ui' }
+            ];
+
+            // Add discovered remote peers.
+            for (var i = 0; i < peers.length; i++) {
+                allPeers.push(peers[i]);
             }
 
             var now = new Date().toLocaleTimeString();
-            status.textContent = 'Found ' + peers.length + ' simulation(s) (updated: ' + now + ')';
+            status.textContent = 'Found ' + allPeers.length + ' simulation(s) (updated: ' + now + ')';
 
-            for (var i = 0; i < peers.length; i++) {
-                var peer = peers[i];
+            for (var i = 0; i < allPeers.length; i++) {
+                var peer = allPeers[i];
                 var div = document.createElement('div');
                 div.className = 'peer';
                 div.id = 'peer-' + peer.host + '-' + peer.port;
