@@ -2,6 +2,7 @@
 #include "core/GridOfCells.h"
 #include "core/LoggingChannels.h"
 #include "core/Timers.h"
+#include "network/HttpServer.h"
 #include "network/WebSocketServer.h"
 #include <args.hxx>
 #include <csignal>
@@ -125,11 +126,16 @@ int main(int argc, char** argv)
     spdlog::info("WebSocket server listening on port {}", server.getPort());
     spdlog::info("Send commands to ws://localhost:{}", server.getPort());
 
+    // Create HTTP server for web dashboard.
+    Server::HttpServer httpServer(8081);
+    httpServer.start();
+
     // Run main event loop.
     // Note: mainLoopRun() will process events until shouldExit is set.
     stateMachine->mainLoopRun();
 
     // Cleanup.
+    httpServer.stop();
     server.stop();
     spdlog::info("Server shut down cleanly");
 

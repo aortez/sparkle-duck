@@ -7,6 +7,9 @@ Configuration files for running Sparkle Duck on a Raspberry Pi with HyperPixel d
 - `labwc/rc.xml` - Window manager config with touch-to-display mapping
 - `labwc/autostart` - Starts sparkle-duck service after compositor is ready
 - `kanshi/config` - Display configuration (rotation, resolution)
+- `sparkle-duck.desktop` - Desktop launcher
+- `icons/` - Application icons (128x128, 256x256)
+- `libfm/libfm.conf` - File manager settings (big icons, quick-exec)
 
 ## Installation
 

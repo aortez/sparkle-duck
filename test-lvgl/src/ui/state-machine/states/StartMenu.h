@@ -35,8 +35,10 @@ private:
     static void onDisplayResized(lv_event_t* e);
     static void onNextFractalClicked(lv_event_t* e);
     static void onQuitButtonClicked(lv_event_t* e);
+    static void onTouchEvent(lv_event_t* e);
 
     JuliaFractal* fractal_ = nullptr;       // Fractal background animation.
+    lv_obj_t* touchDebugLabel_ = nullptr;   // Touch coordinate debug display.
     lv_obj_t* infoPanel_ = nullptr;         // Bottom-left info panel container.
     lv_obj_t* infoLabel_ = nullptr;         // Fractal info label.
     lv_obj_t* nextFractalButton_ = nullptr; // Button to advance fractal.

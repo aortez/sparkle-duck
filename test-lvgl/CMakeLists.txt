@@ -46,6 +46,10 @@ FetchContent_MakeAvailable(msgpack)
 # Find Boost for msgpack variant support.
 find_package(Boost REQUIRED)
 
+# Find Avahi for mDNS peer discovery.
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(AVAHI REQUIRED avahi-client)
+
 # Find OpenMP for parallel physics calculations.
 find_package(OpenMP)
 if(OpenMP_CXX_FOUND)
@@ -212,6 +216,7 @@ add_library(sparkle-duck-server-lib STATIC
     src/server/api/DiagramGet.cpp
     src/server/api/Exit.cpp
     src/server/api/GravitySet.cpp
+    src/server/api/PeersGet.cpp
     src/server/api/PerfStatsGet.cpp
     src/server/api/PhysicsSettingsGet.cpp
     src/server/api/PhysicsSettingsSet.cpp
@@ -228,6 +233,8 @@ add_library(sparkle-duck-server-lib STATIC
 
     # Server network.
     src/server/network/CommandDeserializerJson.cpp
+    src/server/network/HttpServer.cpp
+    src/server/network/PeerDiscovery.cpp
     src/server/network/WebSocketServer.cpp
 
     # Scenarios.
@@ -263,8 +270,8 @@ add_library(sparkle-duck-server-lib STATIC
     src/core/organisms/TreeSensoryData.cpp
     src/core/organisms/brains/RuleBasedBrain.cpp
 )
-target_include_directories(sparkle-duck-server-lib PUBLIC ${CMAKE_SOURCE_DIR}/src ${zpp_bits_SOURCE_DIR})
-target_link_libraries(sparkle-duck-server-lib PUBLIC sparkle-duck-core datachannel-static)
+target_include_directories(sparkle-duck-server-lib PUBLIC ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/external ${zpp_bits_SOURCE_DIR} ${AVAHI_INCLUDE_DIRS})
+target_link_libraries(sparkle-duck-server-lib PUBLIC sparkle-duck-core datachannel-static ${AVAHI_LIBRARIES})
 target_compile_options(sparkle-duck-server-lib PRIVATE -Wall -Wextra -Werror)
 
 # Link OpenMP for parallel physics calculations (cohesion, adhesion loops).
@@ -285,6 +292,8 @@ add_library(sparkle-duck-ui-lib STATIC
     src/ui/state-machine/states/Startup.cpp
 
     # UI API commands.
+    src/ui/state-machine/api/DisplayStreamStart.cpp
+    src/ui/state-machine/api/DisplayStreamStop.cpp
     src/ui/state-machine/api/DrawDebugToggle.cpp
     src/ui/state-machine/api/Exit.cpp
     src/ui/state-machine/api/MouseDown.cpp
@@ -295,6 +304,7 @@ add_library(sparkle-duck-ui-lib STATIC
     src/ui/state-machine/api/Screenshot.cpp
     src/ui/state-machine/api/SimPause.cpp
     src/ui/state-machine/api/SimRun.cpp
+    src/ui/state-machine/api/SimStop.cpp
     src/ui/state-machine/api/StatusGet.cpp
 
     # UI network.
@@ -307,6 +317,8 @@ add_library(sparkle-duck-ui-lib STATIC
     src/ui/UiComponentManager.cpp
     src/ui/SimPlayground.cpp
     src/ui/rendering/CellRenderer.cpp
+    src/ui/rendering/DisplayStreamer.cpp
+    src/ui/rendering/FramebufferCapture.cpp
     src/ui/rendering/JuliaFractal.cpp
     src/ui/rendering/NeuralGridRenderer.cpp
     src/ui/rendering/RenderMode.cpp
@@ -316,7 +328,7 @@ add_library(sparkle-duck-ui-lib STATIC
     src/ui/controls/SandboxControls.cpp
     src/ui/ui_builders/LVGLBuilder.cpp
 )
-target_include_directories(sparkle-duck-ui-lib PUBLIC ${CMAKE_SOURCE_DIR}/src ${zpp_bits_SOURCE_DIR})
+target_include_directories(sparkle-duck-ui-lib PUBLIC ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/external ${zpp_bits_SOURCE_DIR})
 target_link_libraries(sparkle-duck-ui-lib PUBLIC sparkle-duck-core sparkle-duck-server-lib lvgl_linux lvgl)
 target_compile_options(sparkle-duck-ui-lib PRIVATE -Wall -Wextra -Werror)
 

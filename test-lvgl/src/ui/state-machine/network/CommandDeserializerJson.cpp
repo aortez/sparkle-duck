@@ -1,4 +1,6 @@
 #include "CommandDeserializerJson.h"
+#include "ui/state-machine/api/DisplayStreamStart.h"
+#include "ui/state-machine/api/DisplayStreamStop.h"
 #include "ui/state-machine/api/DrawDebugToggle.h"
 #include "ui/state-machine/api/Exit.h"
 #include "ui/state-machine/api/MouseDown.h"
@@ -8,6 +10,7 @@
 #include "ui/state-machine/api/Screenshot.h"
 #include "ui/state-machine/api/SimPause.h"
 #include "ui/state-machine/api/SimRun.h"
+#include "ui/state-machine/api/SimStop.h"
 #include "ui/state-machine/api/StatusGet.h"
 #include <cctype>
 #include <spdlog/spdlog.h>
@@ -62,7 +65,15 @@ Result<UiApiCommand, ApiError> CommandDeserializerJson::deserialize(const std::s
 
     // Dispatch to appropriate handler.
     try {
-        if (commandName == "draw_debug_toggle") {
+        if (commandName == "display_stream_start") {
+            return Result<UiApiCommand, ApiError>::okay(
+                UiApi::DisplayStreamStart::Command::fromJson(cmd));
+        }
+        else if (commandName == "display_stream_stop") {
+            return Result<UiApiCommand, ApiError>::okay(
+                UiApi::DisplayStreamStop::Command::fromJson(cmd));
+        }
+        else if (commandName == "draw_debug_toggle") {
             return Result<UiApiCommand, ApiError>::okay(
                 UiApi::DrawDebugToggle::Command::fromJson(cmd));
         }
@@ -90,6 +101,9 @@ Result<UiApiCommand, ApiError> CommandDeserializerJson::deserialize(const std::s
         }
         else if (commandName == "sim_run") {
             return Result<UiApiCommand, ApiError>::okay(UiApi::SimRun::Command::fromJson(cmd));
+        }
+        else if (commandName == "sim_stop") {
+            return Result<UiApiCommand, ApiError>::okay(UiApi::SimStop::Command::fromJson(cmd));
         }
         else if (commandName == "status_get") {
             return Result<UiApiCommand, ApiError>::okay(UiApi::StatusGet::Command::fromJson(cmd));

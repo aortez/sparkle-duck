@@ -37,7 +37,7 @@ std::vector<PhysicsControls::ColumnConfig> PhysicsControls::createColumnConfigs(
                         { .label = "Gravity",
                           .type = ControlType::TOGGLE_SLIDER,
                           .rangeMin = -5000,
-                          .rangeMax = 5000,
+                          .rangeMax = 50000,
                           .defaultValue = 981,
                           .valueScale = 0.01,
                           .valueFormat = "%.2f",

@@ -5,6 +5,7 @@
 #include "api/DiagramGet.h"
 #include "api/Exit.h"
 #include "api/GravitySet.h"
+#include "api/PeersGet.h"
 #include "api/PerfStatsGet.h"
 #include "api/PhysicsSettingsGet.h"
 #include "api/PhysicsSettingsSet.h"
@@ -466,6 +467,7 @@ public:
         DirtSim::Api::DiagramGet::Cwc,
         DirtSim::Api::Exit::Cwc,
         DirtSim::Api::GravitySet::Cwc,
+        DirtSim::Api::PeersGet::Cwc,
         DirtSim::Api::PerfStatsGet::Cwc,
         DirtSim::Api::PhysicsSettingsGet::Cwc,
         DirtSim::Api::PhysicsSettingsSet::Cwc,

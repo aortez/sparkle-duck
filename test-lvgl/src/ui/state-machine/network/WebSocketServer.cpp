@@ -105,7 +105,37 @@ Event WebSocketServer::createCwcForCommand(
             using CommandType = std::decay_t<decltype(cmd)>;
 
             // Create Cwc for each command type.
-            if constexpr (std::is_same_v<CommandType, UiApi::Exit::Command>) {
+            if constexpr (std::is_same_v<CommandType, UiApi::DisplayStreamStart::Command>) {
+                UiApi::DisplayStreamStart::Cwc cwc;
+                cwc.command = cmd;
+                cwc.command.ws = ws;
+                cwc.callback =
+                    [this, ws, correlationId](UiApi::DisplayStreamStart::Response&& response) {
+                        nlohmann::json json =
+                            nlohmann::json::parse(serializer_.serialize(std::move(response)));
+                        if (correlationId.has_value()) {
+                            json["id"] = correlationId.value();
+                        }
+                        ws->send(json.dump());
+                    };
+                return cwc;
+            }
+            else if constexpr (std::is_same_v<CommandType, UiApi::DisplayStreamStop::Command>) {
+                UiApi::DisplayStreamStop::Cwc cwc;
+                cwc.command = cmd;
+                cwc.command.ws = ws;
+                cwc.callback =
+                    [this, ws, correlationId](UiApi::DisplayStreamStop::Response&& response) {
+                        nlohmann::json json =
+                            nlohmann::json::parse(serializer_.serialize(std::move(response)));
+                        if (correlationId.has_value()) {
+                            json["id"] = correlationId.value();
+                        }
+                        ws->send(json.dump());
+                    };
+                return cwc;
+            }
+            else if constexpr (std::is_same_v<CommandType, UiApi::Exit::Command>) {
                 UiApi::Exit::Cwc cwc;
                 cwc.command = cmd;
                 cwc.callback = [this, ws, correlationId](UiApi::Exit::Response&& response) {
@@ -135,6 +165,19 @@ Event WebSocketServer::createCwcForCommand(
                 UiApi::SimPause::Cwc cwc;
                 cwc.command = cmd;
                 cwc.callback = [this, ws, correlationId](UiApi::SimPause::Response&& response) {
+                    nlohmann::json json =
+                        nlohmann::json::parse(serializer_.serialize(std::move(response)));
+                    if (correlationId.has_value()) {
+                        json["id"] = correlationId.value();
+                    }
+                    ws->send(json.dump());
+                };
+                return cwc;
+            }
+            else if constexpr (std::is_same_v<CommandType, UiApi::SimStop::Command>) {
+                UiApi::SimStop::Cwc cwc;
+                cwc.command = cmd;
+                cwc.callback = [this, ws, correlationId](UiApi::SimStop::Response&& response) {
                     nlohmann::json json =
                         nlohmann::json::parse(serializer_.serialize(std::move(response)));
                     if (correlationId.has_value()) {

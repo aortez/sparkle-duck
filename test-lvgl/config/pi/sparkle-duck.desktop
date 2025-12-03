@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Sparkle Duck
+Comment=Cell-based multi-material physics simulation
+Exec=/home/oldman/workspace/sparkle-duck/test-lvgl/build-debug/bin/cli run-all
+Icon=/home/oldman/.local/share/icons/sparkle-duck.png
+Terminal=false
+Categories=Science;Simulation;
+StartupNotify=true

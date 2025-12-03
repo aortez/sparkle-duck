@@ -6,6 +6,7 @@
 #include "DiagramGet.h"
 #include "Exit.h"
 #include "GravitySet.h"
+#include "PeersGet.h"
 #include "PerfStatsGet.h"
 #include "PhysicsSettingsGet.h"
 #include "PhysicsSettingsSet.h"
@@ -51,6 +52,7 @@ using ApiCommand = std::variant<
     Api::DiagramGet::Command,
     Api::Exit::Command,
     Api::GravitySet::Command,
+    Api::PeersGet::Command,
     Api::PerfStatsGet::Command,
     Api::PhysicsSettingsGet::Command,
     Api::PhysicsSettingsSet::Command,

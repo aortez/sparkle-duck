@@ -5,6 +5,7 @@
 #include "core/Timers.h"
 #include "core/World.h" // Must be first for complete type in variant.
 #include "core/WorldData.h"
+#include "network/PeerDiscovery.h"
 #include "scenarios/Scenario.h"
 #include "scenarios/ScenarioRegistry.h"
 #include "states/State.h"
@@ -25,6 +26,7 @@ struct StateMachine::Impl {
     EventProcessor eventProcessor_;
     ScenarioRegistry scenarioRegistry_;
     Timers timers_;
+    PeerDiscovery peerDiscovery_;
     State::Any fsmState_{ State::Startup{} };
     class WebSocketServer* wsServer_ = nullptr;
     std::shared_ptr<WorldData> cachedWorldData_;
@@ -38,10 +40,19 @@ StateMachine::StateMachine() : pImpl()
     spdlog::info(
         "Server::StateMachine initialized in headless mode in state: {}", getCurrentStateName());
     // Note: World will be created by SimRunning state when simulation starts.
+
+    // Start peer discovery for mDNS service browsing.
+    if (pImpl->peerDiscovery_.start()) {
+        spdlog::info("PeerDiscovery started successfully");
+    }
+    else {
+        spdlog::warn("PeerDiscovery failed to start (Avahi may not be available)");
+    }
 }
 
 StateMachine::~StateMachine()
 {
+    pImpl->peerDiscovery_.stop();
     spdlog::info("Server::StateMachine shutting down from state: {}", getCurrentStateName());
 }
 
@@ -104,6 +115,16 @@ Timers& StateMachine::getTimers()
 const Timers& StateMachine::getTimers() const
 {
     return pImpl->timers_;
+}
+
+PeerDiscovery& StateMachine::getPeerDiscovery()
+{
+    return pImpl->peerDiscovery_;
+}
+
+const PeerDiscovery& StateMachine::getPeerDiscovery() const
+{
+    return pImpl->peerDiscovery_;
 }
 
 void StateMachine::mainLoopRun()

@@ -2,6 +2,7 @@
 #include "core/Timers.h"
 #include "core/World.h"
 #include "server/StateMachine.h"
+#include "server/network/PeerDiscovery.h"
 #include "server/scenarios/ScenarioRegistry.h"
 #include <spdlog/spdlog.h>
 
@@ -106,6 +107,18 @@ State::Any Idle::onEvent(const Api::SimRun::Cwc& cwc, StateMachine& dsm)
 
     // Transition to SimRunning.
     return newState;
+}
+
+State::Any Idle::onEvent(const Api::PeersGet::Cwc& cwc, StateMachine& dsm)
+{
+    auto peers = dsm.getPeerDiscovery().getPeers();
+    spdlog::debug("Idle: PeersGet returning {} peers", peers.size());
+
+    Api::PeersGet::Okay response;
+    response.peers = std::move(peers);
+    cwc.sendResponse(Api::PeersGet::Response::okay(std::move(response)));
+
+    return Idle{};
 }
 
 } // namespace State

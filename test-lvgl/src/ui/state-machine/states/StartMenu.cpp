@@ -99,6 +99,23 @@ void StartMenu::onEnter(StateMachine& sm)
     lv_obj_center(quitLabel);
 
     spdlog::info("StartMenu: Created Quit button");
+
+    // Create touch debug label in top-right corner.
+    touchDebugLabel_ = lv_label_create(container);
+    lv_label_set_text(touchDebugLabel_, "Touch: ---, ---");
+    lv_obj_align(touchDebugLabel_, LV_ALIGN_TOP_RIGHT, -20, 20);
+    lv_obj_set_style_text_color(touchDebugLabel_, lv_color_hex(0x00FF00), 0);
+    lv_obj_set_style_text_font(touchDebugLabel_, &lv_font_montserrat_18, 0);
+    lv_obj_set_style_bg_opa(touchDebugLabel_, LV_OPA_70, 0);
+    lv_obj_set_style_bg_color(touchDebugLabel_, lv_color_hex(0x000000), 0);
+    lv_obj_set_style_pad_all(touchDebugLabel_, 8, 0);
+
+    // Add touch event handler to container to track all touches.
+    lv_obj_add_event_cb(container, onTouchEvent, LV_EVENT_PRESSING, touchDebugLabel_);
+    lv_obj_add_event_cb(container, onTouchEvent, LV_EVENT_PRESSED, touchDebugLabel_);
+    lv_obj_add_flag(container, LV_OBJ_FLAG_CLICKABLE);
+
+    spdlog::info("StartMenu: Created touch debug label");
 }
 
 void StartMenu::onExit(StateMachine& sm)
@@ -262,6 +279,26 @@ void StartMenu::onQuitButtonClicked(lv_event_t* e)
     UiApi::Exit::Cwc cwc;
     cwc.callback = [](auto&&) {}; // No response needed.
     sm->queueEvent(cwc);
+}
+
+void StartMenu::onTouchEvent(lv_event_t* e)
+{
+    auto* label = static_cast<lv_obj_t*>(lv_event_get_user_data(e));
+    if (!label) return;
+
+    // Get touch point from input device.
+    lv_indev_t* indev = lv_indev_active();
+    if (!indev) return;
+
+    lv_point_t point;
+    lv_indev_get_point(indev, &point);
+
+    // Update the debug label with coordinates.
+    char buf[64];
+    snprintf(buf, sizeof(buf), "Touch: %d, %d", point.x, point.y);
+    lv_label_set_text(label, buf);
+
+    spdlog::debug("Touch event at ({}, {})", point.x, point.y);
 }
 
 void StartMenu::onDisplayResized(lv_event_t* e)

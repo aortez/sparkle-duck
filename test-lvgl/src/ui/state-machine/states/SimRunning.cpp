@@ -3,6 +3,7 @@
 #include "ui/SimPlayground.h"
 #include "ui/UiComponentManager.h"
 #include "ui/controls/PhysicsControls.h"
+#include "ui/rendering/DisplayStreamer.h"
 #include "ui/state-machine/StateMachine.h"
 #include "ui/state-machine/network/WebSocketClient.h"
 #include <nlohmann/json.hpp>
@@ -22,6 +23,13 @@ void SimRunning::onEnter(StateMachine& sm)
             sm.getUiComponentManager(), sm.getWebSocketClient(), sm);
         spdlog::info("SimRunning: Created simulation playground");
     }
+
+    // Create display streamer for web clients.
+    if (!displayStreamer_) {
+        displayStreamer_ = std::make_unique<DisplayStreamer>();
+        displayStreamer_->setDisplay(sm.display);
+        spdlog::info("SimRunning: Created display streamer");
+    }
 }
 
 void SimRunning::onExit(StateMachine& /*sm*/)
@@ -36,6 +44,39 @@ State::Any SimRunning::onEvent(const ServerDisconnectedEvent& evt, StateMachine&
 
     // Lost connection - go back to Disconnected state (world is lost).
     return Disconnected{};
+}
+
+State::Any SimRunning::onEvent(const UiApi::DisplayStreamStart::Cwc& cwc, StateMachine& /*sm*/)
+{
+    if (displayStreamer_ && cwc.command.ws) {
+        displayStreamer_->addClient(cwc.command.ws, cwc.command.fps);
+        spdlog::info("SimRunning: Started display stream at {} FPS", cwc.command.fps);
+        cwc.sendResponse(
+            UiApi::DisplayStreamStart::Response::okay(UiApi::DisplayStreamStart::Okay{ true }));
+    }
+    else {
+        spdlog::error("SimRunning: DisplayStreamer not initialized or invalid WebSocket");
+        cwc.sendResponse(
+            UiApi::DisplayStreamStart::Response::error(ApiError("Display streamer not available")));
+    }
+
+    return std::move(*this);
+}
+
+State::Any SimRunning::onEvent(const UiApi::DisplayStreamStop::Cwc& cwc, StateMachine& /*sm*/)
+{
+    if (displayStreamer_ && cwc.command.ws) {
+        displayStreamer_->removeClient(cwc.command.ws);
+        spdlog::info("SimRunning: Stopped display stream");
+        cwc.sendResponse(
+            UiApi::DisplayStreamStop::Response::okay(UiApi::DisplayStreamStop::Okay{ true }));
+    }
+    else {
+        cwc.sendResponse(
+            UiApi::DisplayStreamStop::Response::error(ApiError("Display streamer not available")));
+    }
+
+    return std::move(*this);
 }
 
 State::Any SimRunning::onEvent(const UiApi::DrawDebugToggle::Cwc& cwc, StateMachine& sm)
@@ -295,6 +336,11 @@ State::Any SimRunning::onEvent(const UiUpdateEvent& evt, StateMachine& sm)
             worldData->width,
             worldData->height,
             worldData->timestep);
+    }
+
+    // Stream display to web clients if any are subscribed.
+    if (displayStreamer_ && displayStreamer_->hasClients()) {
+        displayStreamer_->tryCapture();
     }
 
     return std::move(*this);

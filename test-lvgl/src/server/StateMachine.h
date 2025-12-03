@@ -19,6 +19,7 @@ namespace Server {
 
 class Event;
 class EventProcessor;
+class PeerDiscovery;
 class WebSocketServer;
 struct QuitApplicationCommand;
 struct GetFPSCommand;
@@ -59,6 +60,9 @@ public:
 
     Timers& getTimers();
     const Timers& getTimers() const;
+
+    PeerDiscovery& getPeerDiscovery();
+    const PeerDiscovery& getPeerDiscovery() const;
 
     uint32_t defaultWidth = 28;
     uint32_t defaultHeight = 28;

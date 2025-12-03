@@ -14,7 +14,8 @@ const { values: args, positionals } = parseArgs({
     'ssh-key': { type: 'string', short: 'i', description: 'Path to SSH private key' },
     build: { type: 'boolean', short: 'b', default: true, description: 'Run build after sync' },
     restart: { type: 'boolean', short: 'r', default: true, description: 'Restart service after build' },
-    'build-type': { type: 'string', default: 'debug', description: 'Build type (debug/release)' },
+    'build-type': { type: 'string', default: 'release', description: 'Build type (debug/release)' },
+    debug: { type: 'boolean', short: 'd', default: false, description: 'Build debug instead of release' },
     'dry-run': { type: 'boolean', short: 'n', default: false, description: 'Show what would be done' },
     local: { type: 'boolean', short: 'l', default: false, description: 'Local deploy (skip rsync, run locally)' },
     help: { type: 'boolean', default: false },
@@ -34,14 +35,18 @@ Options:
   -i, --ssh-key <path>     SSH private key path
   -b, --build              Run build after sync (default: true)
   -r, --restart            Restart service after build (default: true)
-  --build-type <type>      Build type: debug or release (default: debug)
+  --build-type <type>      Build type: debug or release (default: release)
+  -d, --debug              Build debug instead of release (shortcut for --build-type debug)
   -n, --dry-run            Show commands without executing
   -l, --local              Local deploy (skip rsync, build and restart locally)
   --help                   Show this help
 
 Examples:
-  # Remote deploy
+  # Remote deploy (release build, default)
   ./deploy.mjs -h oldman@pi5 -p /home/oldman/workspace/sparkle-duck/test-lvgl
+
+  # Remote deploy with debug build
+  ./deploy.mjs -d -h oldman@pi5 -p /home/oldman/workspace/sparkle-duck/test-lvgl
 
   # Local deploy (on Pi itself)
   ./deploy.mjs --local
@@ -95,9 +100,21 @@ function sshArgs() {
   return sshOpts;
 }
 
+// Try to run a command, but don't fail if it errors (used for pause/resume).
+async function tryRun(cmd, cmdArgs, options = {}) {
+  try {
+    await run(cmd, cmdArgs, options);
+    return true;
+  } catch (err) {
+    console.log(`  (command failed, continuing: ${err.message})`);
+    return false;
+  }
+}
+
 async function main() {
   const { host, path, local } = args;
-  const buildType = args['build-type'];
+  // --debug flag overrides --build-type.
+  const buildType = args.debug ? 'debug' : args['build-type'];
 
   console.log('=== Sparkle Duck Deploy ===');
   if (local) {
@@ -109,7 +126,14 @@ async function main() {
   console.log(`Restart: ${args.restart ? 'yes' : 'no'}`);
 
   if (local) {
-    // Local deployment - no rsync needed
+    // Local deployment - no rsync needed.
+    const uiAddress = 'ws://localhost:7070';
+    const cliPath = './build-debug/bin/cli';
+
+    // Pause simulation before build (if running).
+    console.log('\n--- Pausing simulation ---');
+    const paused = await tryRun(cliPath, ['sim_pause', uiAddress]);
+
     if (args.build) {
       console.log('\n--- Building ---');
       await run('make', [buildType]);
@@ -121,9 +145,24 @@ async function main() {
       await run('sleep', ['1']);
       await run('systemctl', ['--user', 'status', 'sparkle-duck.service', '--no-pager']);
     }
+
+    // Resume simulation if we paused it.
+    if (paused) {
+      console.log('\n--- Resuming simulation ---');
+      await tryRun(cliPath, ['sim_run', uiAddress]);
+    }
   } else {
     // Remote deployment
-    // Step 1: Sync files with rsync
+    // Extract hostname from user@host format for WebSocket address.
+    const hostname = host.includes('@') ? host.split('@')[1] : host;
+    const uiAddress = `ws://${hostname}:7070`;
+
+    // Pause simulation before deploy (if running).
+    console.log('\n--- Pausing simulation ---');
+    const cliPath = './build-debug/bin/cli';
+    const paused = await tryRun(cliPath, ['sim_pause', uiAddress]);
+
+    // Step 1: Sync files with rsync.
     console.log('\n--- Syncing files ---');
     const rsyncArgs = [
       '-avz', '--delete',
@@ -138,18 +177,24 @@ async function main() {
     ];
     await run('rsync', rsyncArgs);
 
-    // Step 2: Build on remote (if requested)
+    // Step 2: Build on remote (if requested).
     if (args.build) {
       console.log('\n--- Building ---');
       const buildCmd = `cd ${path} && make ${buildType}`;
       await run('ssh', [...sshArgs(), host, buildCmd]);
     }
 
-    // Step 3: Restart service (if requested)
+    // Step 3: Restart service (if requested).
     if (args.restart) {
       console.log('\n--- Restarting service ---');
       const restartCmd = `systemctl --user restart sparkle-duck.service && sleep 1 && systemctl --user status sparkle-duck.service --no-pager`;
       await run('ssh', [...sshArgs(), host, restartCmd]);
+    }
+
+    // Resume simulation if we paused it.
+    if (paused) {
+      console.log('\n--- Resuming simulation ---');
+      await tryRun(cliPath, ['sim_run', uiAddress]);
     }
   }
 

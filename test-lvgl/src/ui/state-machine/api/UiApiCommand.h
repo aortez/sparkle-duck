@@ -1,5 +1,7 @@
 #pragma once
 
+#include "DisplayStreamStart.h"
+#include "DisplayStreamStop.h"
 #include "DrawDebugToggle.h"
 #include "Exit.h"
 #include "MouseDown.h"
@@ -10,6 +12,7 @@
 #include "Screenshot.h"
 #include "SimPause.h"
 #include "SimRun.h"
+#include "SimStop.h"
 #include "StatusGet.h"
 #include <variant>
 
@@ -20,6 +23,8 @@ namespace Ui {
  * @brief Variant containing all UI API command types.
  */
 using UiApiCommand = std::variant<
+    UiApi::DisplayStreamStart::Command,
+    UiApi::DisplayStreamStop::Command,
     UiApi::DrawDebugToggle::Command,
     UiApi::Exit::Command,
     UiApi::MouseDown::Command,
@@ -30,6 +35,7 @@ using UiApiCommand = std::variant<
     UiApi::Screenshot::Command,
     UiApi::SimPause::Command,
     UiApi::SimRun::Command,
+    UiApi::SimStop::Command,
     UiApi::StatusGet::Command>;
 
 } // namespace Ui

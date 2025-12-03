@@ -8,10 +8,10 @@
 namespace DirtSim {
 
 // Maximum velocity to prevent skipping cells.
-static constexpr double MAX_VELOCITY_PER_TIMESTEP = 100.0;
+static constexpr double MAX_VELOCITY_PER_TIMESTEP = 200.0;
 
 // Velocity above which damping kicks in.
-static constexpr double DAMPING_THRESHOLD_PER_TIMESTEP = 50.0;
+static constexpr double DAMPING_THRESHOLD_PER_TIMESTEP = 100.0;
 
 // Damping factor applied each timestep when above threshold.
 static constexpr double DAMPING_FACTOR_PER_TIMESTEP = 0.05;

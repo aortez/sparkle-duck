@@ -2,6 +2,7 @@
 
 #include "StateForward.h"
 #include "ui/SimPlayground.h"
+#include "ui/rendering/DisplayStreamer.h"
 #include "ui/state-machine/Event.h"
 #include <memory>
 
@@ -19,8 +20,9 @@ namespace State {
  * @brief Simulation running state - active display and interaction.
  */
 struct SimRunning {
-    std::unique_ptr<WorldData> worldData;       // Local copy of world data for rendering.
-    std::unique_ptr<SimPlayground> playground_; // Coordinates all UI components.
+    std::unique_ptr<WorldData> worldData;              // Local copy of world data for rendering.
+    std::unique_ptr<SimPlayground> playground_;        // Coordinates all UI components.
+    std::unique_ptr<DisplayStreamer> displayStreamer_; // Streams display to web clients.
 
     // UI-local draw mode toggles.
     bool debugDrawEnabled = false;
@@ -43,6 +45,8 @@ struct SimRunning {
 
     Any onEvent(const PhysicsSettingsReceivedEvent& evt, StateMachine& sm);
     Any onEvent(const ServerDisconnectedEvent& evt, StateMachine& sm);
+    Any onEvent(const UiApi::DisplayStreamStart::Cwc& cwc, StateMachine& sm);
+    Any onEvent(const UiApi::DisplayStreamStop::Cwc& cwc, StateMachine& sm);
     Any onEvent(const UiApi::DrawDebugToggle::Cwc& cwc, StateMachine& sm);
     Any onEvent(const UiApi::Exit::Cwc& cwc, StateMachine& sm);
     Any onEvent(const UiApi::MouseDown::Cwc& cwc, StateMachine& sm);

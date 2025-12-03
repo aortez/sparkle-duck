@@ -25,6 +25,8 @@ release:
 	@echo "Building release version..."
 	@cmake -B $(BUILD_RELEASE_DIR) -S . -DCMAKE_BUILD_TYPE=Release
 	@$(MAKE) -C $(BUILD_RELEASE_DIR) -j$(JOBS)
+
+release-verify: release
 	@echo "Running tests to verify build..."
 	@./$(BUILD_RELEASE_DIR)/$(BIN_DIR)/$(TEST_BINARY)
 
@@ -104,8 +106,9 @@ clean-cmake:
 
 help:
 	@echo "Available targets:"
-	@echo "  all          - Build release version (default)"
-	@echo "  release      - Build optimized release version with test verification"
+	@echo "  all            - Build release version (default)"
+	@echo "  release        - Build optimized release version"
+	@echo "  release-verify - Build release and run tests to verify"
 	@echo "  debug        - Build debug version with symbols and LOG_DEBUG"
 	@echo "  asan         - Build debug version with AddressSanitizer enabled"
 	@echo "  build-tests  - Build test binary without running tests"

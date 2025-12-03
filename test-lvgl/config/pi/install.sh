@@ -27,7 +27,25 @@ chmod +x ~/.config/labwc/autostart
 # Copy kanshi config.
 cp "$SCRIPT_DIR/kanshi/config" ~/.config/kanshi/
 
+# Install desktop icon.
+mkdir -p ~/.local/share/icons ~/Desktop ~/.config/libfm
+cp "$SCRIPT_DIR/icons/sparkle-duck-256.png" ~/.local/share/icons/sparkle-duck.png
+cp "$SCRIPT_DIR/sparkle-duck.desktop" ~/Desktop/
+chmod +x ~/Desktop/sparkle-duck.desktop
+
+# Install libfm config (big icons, quick-exec).
+cp "$SCRIPT_DIR/libfm/libfm.conf" ~/.config/libfm/
+
+# Restart PCManFM to apply icon settings.
+if pgrep -x pcmanfm > /dev/null; then
+    pkill pcmanfm
+    sleep 1
+    pcmanfm --desktop &
+    disown
+fi
+
 echo "Configuration installed."
+echo "Desktop icon added to ~/Desktop/"
 
 # Reload labwc if running.
 if pgrep -x labwc > /dev/null; then

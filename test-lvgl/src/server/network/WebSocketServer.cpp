@@ -19,6 +19,7 @@ WebSocketServer::WebSocketServer(DirtSim::StateMachineInterface<Event>& stateMac
     // Create WebSocket server configuration.
     rtc::WebSocketServerConfiguration config;
     config.port = port;
+    config.bindAddress = "0.0.0.0";           // Listen on all network interfaces.
     config.enableTls = false;                 // No TLS for now.
     config.maxMessageSize = 10 * 1024 * 1024; // 10MB limit for WorldData JSON.
 
@@ -196,6 +197,7 @@ REGISTER_API_NAMESPACE(CellSet)
 REGISTER_API_NAMESPACE(DiagramGet)
 REGISTER_API_NAMESPACE(Exit)
 REGISTER_API_NAMESPACE(GravitySet)
+REGISTER_API_NAMESPACE(PeersGet)
 REGISTER_API_NAMESPACE(PerfStatsGet)
 REGISTER_API_NAMESPACE(PhysicsSettingsGet)
 REGISTER_API_NAMESPACE(PhysicsSettingsSet)
