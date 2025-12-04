@@ -1,6 +1,6 @@
 #include "RunAllRunner.h"
 #include "SubprocessManager.h"
-#include "WebSocketClient.h"
+#include "core/network/WebSocketClient.h"
 #include "server/api/Exit.h"
 #include <chrono>
 #include <iostream>
@@ -14,7 +14,7 @@ namespace Client {
 Result<std::monostate, std::string> runAll(const std::string& serverPath, const std::string& uiPath)
 {
     SubprocessManager subprocessManager;
-    WebSocketClient client;
+    Network::WebSocketClient client;
 
     // Launch server.
     std::cout << "Launching DSSM server on port 8080..." << std::endl;
@@ -72,13 +72,16 @@ Result<std::monostate, std::string> runAll(const std::string& serverPath, const 
 
     // Connect to server and send shutdown command.
     std::cout << "Shutting down server..." << std::endl;
-    if (client.connect("ws://localhost:8080")) {
+    auto connectResult = client.connect("ws://localhost:8080");
+    if (connectResult.isValue()) {
         const DirtSim::Api::Exit::Command cmd{};
         nlohmann::json exitCmd = cmd.toJson();
         exitCmd["command"] = DirtSim::Api::Exit::Command::name();
-        client.send(exitCmd.dump());
-        std::cout << "Server shutdown command sent" << std::endl;
-        // Don't disconnect - let the server close the connection when it exits.
+        auto exitResult = client.sendJsonAndReceive(exitCmd.dump(), 2000);
+        if (exitResult.isValue()) {
+            std::cout << "Server acknowledged shutdown" << std::endl;
+        }
+        client.disconnect();
     }
     else {
         std::cout << "Server already stopped or unreachable" << std::endl;

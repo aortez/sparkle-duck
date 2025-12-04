@@ -62,13 +62,17 @@ void WebSocketServer::onClientConnected(std::shared_ptr<rtc::WebSocket> ws)
     // dashboards.
 
     // Set up message handler for this client.
+    // Handles both JSON (text frames) and binary (zpp_bits frames).
     ws->onMessage([this, ws](std::variant<rtc::binary, rtc::string> data) {
         if (std::holds_alternative<rtc::string>(data)) {
+            // Text frame = JSON protocol.
             std::string message = std::get<rtc::string>(data);
             onMessage(ws, message);
         }
         else {
-            spdlog::warn("WebSocket received binary message (not supported)");
+            // Binary frame = zpp_bits protocol.
+            const rtc::binary& binaryData = std::get<rtc::binary>(data);
+            onBinaryMessage(ws, binaryData);
         }
     });
 
@@ -594,6 +598,336 @@ RenderFormat WebSocketServer::getClientRenderFormat(std::shared_ptr<rtc::WebSock
         return it->second;
     }
     return RenderFormat::BASIC; // Default.
+}
+
+// =============================================================================
+// BINARY PROTOCOL SUPPORT
+// =============================================================================
+
+namespace {
+
+// Helper to deserialize a binary command payload based on message_type.
+// Returns ApiCommand variant or error.
+Result<ApiCommand, ApiError> deserializeBinaryCommand(const Network::MessageEnvelope& envelope)
+{
+    const std::string& type = envelope.message_type;
+
+    try {
+        // Dispatch based on message_type.
+        // Each branch deserializes the payload to the appropriate Command type.
+        if (type == "CellGet") {
+            auto cmd = Network::deserialize_payload<Api::CellGet::Command>(envelope.payload);
+            return Result<ApiCommand, ApiError>::okay(cmd);
+        }
+        if (type == "CellSet") {
+            auto cmd = Network::deserialize_payload<Api::CellSet::Command>(envelope.payload);
+            return Result<ApiCommand, ApiError>::okay(cmd);
+        }
+        if (type == "DiagramGet") {
+            auto cmd = Network::deserialize_payload<Api::DiagramGet::Command>(envelope.payload);
+            return Result<ApiCommand, ApiError>::okay(cmd);
+        }
+        if (type == "Exit") {
+            auto cmd = Network::deserialize_payload<Api::Exit::Command>(envelope.payload);
+            return Result<ApiCommand, ApiError>::okay(cmd);
+        }
+        if (type == "GravitySet") {
+            auto cmd = Network::deserialize_payload<Api::GravitySet::Command>(envelope.payload);
+            return Result<ApiCommand, ApiError>::okay(cmd);
+        }
+        if (type == "PeersGet") {
+            auto cmd = Network::deserialize_payload<Api::PeersGet::Command>(envelope.payload);
+            return Result<ApiCommand, ApiError>::okay(cmd);
+        }
+        if (type == "PerfStatsGet") {
+            auto cmd = Network::deserialize_payload<Api::PerfStatsGet::Command>(envelope.payload);
+            return Result<ApiCommand, ApiError>::okay(cmd);
+        }
+        if (type == "PhysicsSettingsGet") {
+            auto cmd =
+                Network::deserialize_payload<Api::PhysicsSettingsGet::Command>(envelope.payload);
+            return Result<ApiCommand, ApiError>::okay(cmd);
+        }
+        if (type == "PhysicsSettingsSet") {
+            auto cmd =
+                Network::deserialize_payload<Api::PhysicsSettingsSet::Command>(envelope.payload);
+            return Result<ApiCommand, ApiError>::okay(cmd);
+        }
+        if (type == "RenderFormatSet") {
+            auto cmd =
+                Network::deserialize_payload<Api::RenderFormatSet::Command>(envelope.payload);
+            return Result<ApiCommand, ApiError>::okay(cmd);
+        }
+        if (type == "Reset") {
+            auto cmd = Network::deserialize_payload<Api::Reset::Command>(envelope.payload);
+            return Result<ApiCommand, ApiError>::okay(cmd);
+        }
+        if (type == "ScenarioConfigSet") {
+            auto cmd =
+                Network::deserialize_payload<Api::ScenarioConfigSet::Command>(envelope.payload);
+            return Result<ApiCommand, ApiError>::okay(cmd);
+        }
+        if (type == "SeedAdd") {
+            auto cmd = Network::deserialize_payload<Api::SeedAdd::Command>(envelope.payload);
+            return Result<ApiCommand, ApiError>::okay(cmd);
+        }
+        if (type == "SimRun") {
+            auto cmd = Network::deserialize_payload<Api::SimRun::Command>(envelope.payload);
+            return Result<ApiCommand, ApiError>::okay(cmd);
+        }
+        if (type == "SpawnDirtBall") {
+            auto cmd = Network::deserialize_payload<Api::SpawnDirtBall::Command>(envelope.payload);
+            return Result<ApiCommand, ApiError>::okay(cmd);
+        }
+        if (type == "StateGet") {
+            auto cmd = Network::deserialize_payload<Api::StateGet::Command>(envelope.payload);
+            return Result<ApiCommand, ApiError>::okay(cmd);
+        }
+        if (type == "StatusGet") {
+            auto cmd = Network::deserialize_payload<Api::StatusGet::Command>(envelope.payload);
+            return Result<ApiCommand, ApiError>::okay(cmd);
+        }
+        if (type == "TimerStatsGet") {
+            auto cmd = Network::deserialize_payload<Api::TimerStatsGet::Command>(envelope.payload);
+            return Result<ApiCommand, ApiError>::okay(cmd);
+        }
+        if (type == "WorldResize") {
+            auto cmd = Network::deserialize_payload<Api::WorldResize::Command>(envelope.payload);
+            return Result<ApiCommand, ApiError>::okay(cmd);
+        }
+
+        return Result<ApiCommand, ApiError>::error(
+            ApiError{ "Unknown binary command type: " + type });
+    }
+    catch (const std::exception& e) {
+        return Result<ApiCommand, ApiError>::error(
+            ApiError{ std::string("Failed to deserialize binary command: ") + e.what() });
+    }
+}
+
+// Helper to send a binary error response.
+void sendBinaryError(
+    std::shared_ptr<rtc::WebSocket> ws,
+    uint64_t correlationId,
+    const std::string& commandName,
+    const std::string& errorMessage)
+{
+    // Create error result.
+    Result<std::monostate, ApiError> errorResult =
+        Result<std::monostate, ApiError>::error(ApiError{ errorMessage });
+
+    // Build response envelope.
+    auto envelope = Network::make_response_envelope(correlationId, commandName, errorResult);
+
+    // Serialize and send.
+    auto bytes = Network::serialize_envelope(envelope);
+    rtc::binary binaryMsg(bytes.begin(), bytes.end());
+    ws->send(binaryMsg);
+}
+
+// Binary response callback creator - parallel to makeStandardCwc but for binary protocol.
+template <typename Info>
+auto makeBinaryCwc(
+    [[maybe_unused]] WebSocketServer* self,
+    std::shared_ptr<rtc::WebSocket> ws,
+    const typename Info::CommandType& cmd,
+    uint64_t correlationId) -> typename Info::CwcType
+{
+    typename Info::CwcType cwc;
+    cwc.command = cmd;
+    cwc.callback = [ws, correlationId](typename Info::ResponseType&& response) {
+        // Build response envelope with serialized Result.
+        auto envelope = Network::make_response_envelope(
+            correlationId, std::string(Info::CommandType::name()), response);
+
+        // Serialize envelope to bytes.
+        auto bytes = Network::serialize_envelope(envelope);
+
+        // Send as binary.
+        rtc::binary binaryMsg(bytes.begin(), bytes.end());
+
+        spdlog::info("{}: Sending binary response ({} bytes)", Info::name, bytes.size());
+        ws->send(binaryMsg);
+    };
+    return cwc;
+}
+
+} // anonymous namespace
+
+void WebSocketServer::onBinaryMessage(std::shared_ptr<rtc::WebSocket> ws, const rtc::binary& data)
+{
+    spdlog::info("WebSocket received binary command ({} bytes)", data.size());
+
+    // Convert rtc::binary to std::vector<std::byte>.
+    std::vector<std::byte> bytes(data.size());
+    std::memcpy(bytes.data(), data.data(), data.size());
+
+    // Deserialize envelope.
+    Network::MessageEnvelope envelope;
+    try {
+        envelope = Network::deserialize_envelope(bytes);
+    }
+    catch (const std::exception& e) {
+        spdlog::error("Failed to deserialize binary envelope: {}", e.what());
+        // Can't send error response without correlation ID.
+        return;
+    }
+
+    spdlog::info(
+        "Binary command: type='{}', id={}, payload={} bytes",
+        envelope.message_type,
+        envelope.id,
+        envelope.payload.size());
+
+    // Deserialize command from envelope.
+    auto cmdResult = deserializeBinaryCommand(envelope);
+    if (cmdResult.isError()) {
+        spdlog::error("Binary command deserialization failed: {}", cmdResult.errorValue().message);
+        sendBinaryError(ws, envelope.id, envelope.message_type, cmdResult.errorValue().message);
+        return;
+    }
+
+    // Handle immediate commands (same as JSON path, but with binary response).
+    if (std::holds_alternative<Api::StateGet::Command>(cmdResult.value())) {
+        handleStateGetImmediateBinary(ws, envelope.id);
+        return;
+    }
+
+    if (std::holds_alternative<Api::StatusGet::Command>(cmdResult.value())) {
+        handleStatusGetImmediateBinary(ws, envelope.id);
+        return;
+    }
+
+    if (std::holds_alternative<Api::RenderFormatSet::Command>(cmdResult.value())) {
+        handleRenderFormatSetImmediateBinary(
+            ws, std::get<Api::RenderFormatSet::Command>(cmdResult.value()), envelope.id);
+        return;
+    }
+
+    // Queue other commands with binary response callback.
+    Event cwcEvent = createCwcForCommandBinary(cmdResult.value(), ws, envelope.id);
+    stateMachine_.queueEvent(cwcEvent);
+}
+
+Event WebSocketServer::createCwcForCommandBinary(
+    const ApiCommand& command, std::shared_ptr<rtc::WebSocket> ws, uint64_t correlationId)
+{
+    // Generic visitor that works for ALL command types.
+    return std::visit(
+        [this, ws, correlationId](auto&& cmd) -> Event {
+            using CommandType = std::decay_t<decltype(cmd)>;
+            using Info = ApiInfo<CommandType>;
+
+            return makeBinaryCwc<Info>(this, ws, cmd, correlationId);
+        },
+        command);
+}
+
+// =============================================================================
+// BINARY IMMEDIATE HANDLERS
+// =============================================================================
+
+void WebSocketServer::handleStateGetImmediateBinary(
+    std::shared_ptr<rtc::WebSocket> ws, uint64_t correlationId)
+{
+    auto& dsm = static_cast<StateMachine&>(stateMachine_);
+    auto& timers = dsm.getTimers();
+
+    timers.startTimer("state_get_immediate_binary_total");
+
+    auto cachedPtr = dsm.getCachedWorldData();
+    if (!cachedPtr) {
+        spdlog::warn("WebSocketServer: state_get binary immediate - no cached data available");
+        sendBinaryError(ws, correlationId, "state_get", "No world data available");
+        timers.stopTimer("state_get_immediate_binary_total");
+        return;
+    }
+
+    // Build success response.
+    Api::StateGet::Okay okay;
+    okay.worldData = *cachedPtr;
+    Api::StateGet::Response response = Api::StateGet::Response::okay(std::move(okay));
+
+    // Build response envelope.
+    timers.startTimer("serialize_worlddata_binary");
+    auto envelope = Network::make_response_envelope(correlationId, "state_get", response);
+    auto bytes = Network::serialize_envelope(envelope);
+    timers.stopTimer("serialize_worlddata_binary");
+
+    // Send as binary.
+    rtc::binary binaryMsg(bytes.begin(), bytes.end());
+
+    spdlog::debug(
+        "StateGet: Sending binary response with ID {} ({} bytes)", correlationId, bytes.size());
+
+    timers.startTimer("network_send");
+    ws->send(binaryMsg);
+    timers.stopTimer("network_send");
+
+    timers.stopTimer("state_get_immediate_binary_total");
+}
+
+void WebSocketServer::handleStatusGetImmediateBinary(
+    std::shared_ptr<rtc::WebSocket> ws, uint64_t correlationId)
+{
+    auto& dsm = static_cast<StateMachine&>(stateMachine_);
+
+    auto cachedPtr = dsm.getCachedWorldData();
+    if (!cachedPtr) {
+        spdlog::warn("WebSocketServer: status_get binary immediate - no cached data available");
+        sendBinaryError(ws, correlationId, "status_get", "No world data available");
+        return;
+    }
+
+    // Build lightweight status from cached data.
+    Api::StatusGet::Okay okay;
+    okay.timestep = cachedPtr->timestep;
+    okay.scenario_id = cachedPtr->scenario_id;
+    okay.width = cachedPtr->width;
+    okay.height = cachedPtr->height;
+
+    Api::StatusGet::Response response = Api::StatusGet::Response::okay(std::move(okay));
+
+    // Build response envelope.
+    auto envelope = Network::make_response_envelope(correlationId, "status_get", response);
+    auto bytes = Network::serialize_envelope(envelope);
+
+    // Send as binary.
+    rtc::binary binaryMsg(bytes.begin(), bytes.end());
+
+    spdlog::info("StatusGet: Sending binary response ({} bytes)", bytes.size());
+    ws->send(binaryMsg);
+}
+
+void WebSocketServer::handleRenderFormatSetImmediateBinary(
+    std::shared_ptr<rtc::WebSocket> ws,
+    const Api::RenderFormatSet::Command& cmd,
+    uint64_t correlationId)
+{
+    spdlog::info(
+        "RenderFormatSet (binary): Setting format to {}",
+        cmd.format == RenderFormat::BASIC ? "BASIC" : "DEBUG");
+
+    // Set the render format for this client.
+    setClientRenderFormat(ws, cmd.format);
+
+    // Create success response.
+    Api::RenderFormatSet::Okay okay;
+    okay.active_format = cmd.format;
+    okay.message = std::string("Render format set to ")
+        + (cmd.format == RenderFormat::BASIC ? "BASIC" : "DEBUG");
+
+    Api::RenderFormatSet::Response response = Api::RenderFormatSet::Response::okay(std::move(okay));
+
+    // Build response envelope.
+    auto envelope = Network::make_response_envelope(correlationId, "render_format_set", response);
+    auto bytes = Network::serialize_envelope(envelope);
+
+    // Send as binary.
+    rtc::binary binaryMsg(bytes.begin(), bytes.end());
+
+    spdlog::info("RenderFormatSet: Sending binary response ({} bytes)", bytes.size());
+    ws->send(binaryMsg);
 }
 
 } // namespace Server

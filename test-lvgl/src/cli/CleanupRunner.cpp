@@ -1,5 +1,5 @@
 #include "CleanupRunner.h"
-#include "WebSocketClient.h"
+#include "core/network/WebSocketClient.h"
 #include <chrono>
 #include <filesystem>
 #include <fstream>
@@ -186,16 +186,20 @@ bool CleanupRunner::isProcessRunning(int pid)
 bool CleanupRunner::tryWebSocketShutdown(int pid, const std::string& url, int maxWaitMs)
 {
     try {
-        WebSocketClient client;
+        Network::WebSocketClient client;
 
         // Try to connect (short timeout).
-        if (!client.connect(url)) {
+        auto connectResult = client.connect(url, 2000);
+        if (connectResult.isError()) {
             return false;
         }
 
-        // Send Exit command.
+        // Send Exit command (fire-and-forget for potentially stuck processes).
         nlohmann::json exitCmd = { { "command", "Exit" } };
-        client.send(exitCmd.dump());
+        auto sendResult = client.sendText(exitCmd.dump());
+        if (sendResult.isError()) {
+            spdlog::debug("Failed to send exit command: {}", sendResult.errorValue());
+        }
 
         // Disconnect immediately (don't wait for response).
         client.disconnect();

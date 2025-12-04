@@ -1,6 +1,6 @@
 #include "IntegrationTest.h"
 #include "SubprocessManager.h"
-#include "WebSocketClient.h"
+#include "core/network/WebSocketClient.h"
 #include "server/api/Exit.h"
 #include <chrono>
 #include <iostream>
@@ -20,7 +20,7 @@ IntegrationTest::~IntegrationTest()
 int IntegrationTest::run(const std::string& serverPath, const std::string& uiPath)
 {
     SubprocessManager subprocessManager;
-    WebSocketClient client;
+    Network::WebSocketClient client;
 
     // Launch server.
     std::cout << "Launching server..." << std::endl;
@@ -51,8 +51,10 @@ int IntegrationTest::run(const std::string& serverPath, const std::string& uiPat
     std::cout << "UI is ready" << std::endl;
 
     // Connect to server.
-    if (!client.connect("ws://localhost:8080")) {
-        std::cerr << "Error: Failed to connect to server" << std::endl;
+    auto connectResult = client.connect("ws://localhost:8080");
+    if (connectResult.isError()) {
+        std::cerr << "Error: Failed to connect to server: " << connectResult.errorValue()
+                  << std::endl;
         return 1;
     }
 
@@ -61,9 +63,10 @@ int IntegrationTest::run(const std::string& serverPath, const std::string& uiPat
     nlohmann::json simRunCmd = { { "command", "sim_run" },
                                  { "timestep", 0.016 },
                                  { "max_steps", 1 } };
-    std::string response = client.sendAndReceive(simRunCmd.dump(), 5000);
-    if (response.empty()) {
-        std::cerr << "Error: Failed to start simulation" << std::endl;
+    auto simResult = client.sendJsonAndReceive(simRunCmd.dump(), 5000);
+    if (simResult.isError()) {
+        std::cerr << "Error: Failed to start simulation: " << simResult.errorValue().message
+                  << std::endl;
         return 1;
     }
     std::cout << "Simulation started" << std::endl;
@@ -72,12 +75,15 @@ int IntegrationTest::run(const std::string& serverPath, const std::string& uiPat
     std::cout << "Waiting for simulation to complete..." << std::endl;
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
-    // Send exit to server.
+    // Send exit to server and wait for acknowledgment.
     std::cout << "Shutting down server..." << std::endl;
     const DirtSim::Api::Exit::Command cmd{};
     nlohmann::json exitCmd = cmd.toJson();
     exitCmd["command"] = DirtSim::Api::Exit::Command::name();
-    client.send(exitCmd.dump());
+    auto exitResult = client.sendJsonAndReceive(exitCmd.dump(), 2000);
+    if (exitResult.isValue()) {
+        std::cout << "Server acknowledged shutdown" << std::endl;
+    }
     client.disconnect();
 
     // Wait for server to exit gracefully.

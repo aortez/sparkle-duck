@@ -194,9 +194,12 @@ add_library(sparkle-duck-core STATIC
 
     # Grid cache layer.
     src/core/GridOfCells.cpp
+
+    # Network layer.
+    src/core/network/WebSocketClient.cpp
 )
 target_include_directories(sparkle-duck-core PUBLIC ${CMAKE_SOURCE_DIR}/src ${zpp_bits_SOURCE_DIR})
-target_link_libraries(sparkle-duck-core PUBLIC nlohmann_json::nlohmann_json msgpack-cxx spdlog::spdlog)
+target_link_libraries(sparkle-duck-core PUBLIC nlohmann_json::nlohmann_json msgpack-cxx spdlog::spdlog datachannel-static)
 target_compile_options(sparkle-duck-core PRIVATE -Wall -Wextra -Werror)
 
 # Server library - physics engine and server logic.
@@ -388,7 +391,6 @@ add_executable(cli
     src/cli/IntegrationTest.cpp
     src/cli/RunAllRunner.cpp
     src/cli/SubprocessManager.cpp
-    src/cli/WebSocketClient.cpp
 )
 target_link_libraries(cli PRIVATE sparkle-duck-server-lib datachannel-static pthread)
 target_include_directories(cli PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/external/args ${zpp_bits_SOURCE_DIR})

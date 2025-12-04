@@ -5,6 +5,7 @@
 #include "core/RenderMessage.h"
 #include "core/StateMachineInterface.h"
 #include "core/WorldData.h"
+#include "core/network/BinaryProtocol.h"
 #include "server/Event.h"
 #include <algorithm>
 #include <map>
@@ -93,14 +94,21 @@ private:
     void onClientConnected(std::shared_ptr<rtc::WebSocket> ws);
 
     /**
-     * @brief Handle incoming message from a client.
+     * @brief Handle incoming text message from a client (JSON protocol).
      * @param ws The WebSocket connection.
      * @param message The received message.
      */
     void onMessage(std::shared_ptr<rtc::WebSocket> ws, const std::string& message);
 
     /**
-     * @brief Wrap ApiCommand in appropriate Cwc with response callback.
+     * @brief Handle incoming binary message from a client (zpp_bits protocol).
+     * @param ws The WebSocket connection.
+     * @param data The received binary data.
+     */
+    void onBinaryMessage(std::shared_ptr<rtc::WebSocket> ws, const rtc::binary& data);
+
+    /**
+     * @brief Wrap ApiCommand in appropriate Cwc with JSON response callback.
      * @param command The command to wrap.
      * @param ws The WebSocket connection for sending response.
      * @param correlationId Optional correlation ID from request.
@@ -110,6 +118,16 @@ private:
         const ApiCommand& command,
         std::shared_ptr<rtc::WebSocket> ws,
         std::optional<uint64_t> correlationId);
+
+    /**
+     * @brief Wrap ApiCommand in appropriate Cwc with binary response callback.
+     * @param command The command to wrap.
+     * @param ws The WebSocket connection for sending response.
+     * @param correlationId Correlation ID from request envelope.
+     * @return Event variant containing the Cwc.
+     */
+    Event createCwcForCommandBinary(
+        const ApiCommand& command, std::shared_ptr<rtc::WebSocket> ws, uint64_t correlationId);
 
     /**
      * @brief Handle state_get immediately without queuing (low latency path).
@@ -137,6 +155,35 @@ private:
         std::shared_ptr<rtc::WebSocket> ws,
         const Api::RenderFormatSet::Command& cmd,
         std::optional<uint64_t> correlationId);
+
+    // =========================================================================
+    // Binary protocol immediate handlers.
+    // =========================================================================
+
+    /**
+     * @brief Handle state_get immediately with binary response.
+     * @param ws The WebSocket connection for sending response.
+     * @param correlationId Correlation ID from request envelope.
+     */
+    void handleStateGetImmediateBinary(std::shared_ptr<rtc::WebSocket> ws, uint64_t correlationId);
+
+    /**
+     * @brief Handle status_get immediately with binary response.
+     * @param ws The WebSocket connection for sending response.
+     * @param correlationId Correlation ID from request envelope.
+     */
+    void handleStatusGetImmediateBinary(std::shared_ptr<rtc::WebSocket> ws, uint64_t correlationId);
+
+    /**
+     * @brief Handle render_format_set immediately with binary response.
+     * @param ws The WebSocket connection for sending response.
+     * @param cmd The render format set command.
+     * @param correlationId Correlation ID from request envelope.
+     */
+    void handleRenderFormatSetImmediateBinary(
+        std::shared_ptr<rtc::WebSocket> ws,
+        const Api::RenderFormatSet::Command& cmd,
+        uint64_t correlationId);
 };
 
 } // namespace Server

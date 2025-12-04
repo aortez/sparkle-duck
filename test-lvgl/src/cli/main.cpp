@@ -3,8 +3,9 @@
 #include "CommandRegistry.h"
 #include "IntegrationTest.h"
 #include "RunAllRunner.h"
-#include "WebSocketClient.h"
 #include "core/ReflectSerializer.h"
+#include "core/network/WebSocketClient.h"
+#include "server/api/StatusGet.h"
 #include <args.hxx>
 #include <filesystem>
 #include <iostream>
@@ -58,6 +59,7 @@ static const std::vector<CliCommandInfo> CLI_COMMANDS = {
     { "cleanup", "Clean up rogue sparkle-duck processes" },
     { "integration_test", "Run integration test (launches server + UI)" },
     { "run-all", "Launch server + UI and monitor (exits when UI closes)" },
+    { "test_binary", "Test binary protocol with type-safe StatusGet command" },
 };
 
 std::string getCommandListHelp()
@@ -351,6 +353,67 @@ int main(int argc, char** argv)
         return 0;
     }
 
+    // Handle test_binary command - tests binary protocol with type-safe StatusGet.
+    if (commandName == "test_binary") {
+        if (!address) {
+            std::cerr << "Error: address is required for test_binary command\n\n";
+            std::cerr << "Usage: cli test_binary ws://localhost:8080\n";
+            return 1;
+        }
+
+        std::cerr << "Testing binary protocol with StatusGet command..." << std::endl;
+
+        // Create client in binary mode.
+        Network::WebSocketClient client;
+        client.setProtocol(Network::Protocol::BINARY);
+
+        // Connect.
+        auto connectResult = client.connect(args::get(address), 5000);
+        if (connectResult.isError()) {
+            std::cerr << "Failed to connect: " << connectResult.errorValue() << std::endl;
+            return 1;
+        }
+
+        std::cerr << "Connected using BINARY protocol" << std::endl;
+
+        // Build binary envelope manually.
+        Api::StatusGet::Command cmd{}; // Empty command.
+        uint64_t id = 1;
+        auto envelope = Network::make_command_envelope(id, cmd);
+
+        std::cerr << "Sending StatusGet via binary MessageEnvelope..." << std::endl;
+
+        // Send and receive binary.
+        auto envResult = client.sendBinaryAndReceive(envelope, 5000);
+        if (envResult.isError()) {
+            std::cerr << "Binary send/receive failed: " << envResult.errorValue() << std::endl;
+            return 1;
+        }
+
+        std::cerr << "Received binary response, extracting result..." << std::endl;
+
+        // Extract typed result from envelope.
+        auto result = Network::extract_result<Api::StatusGet::Okay, ApiError>(envResult.value());
+        if (result.isError()) {
+            std::cerr << "Command failed: " << result.errorValue().message << std::endl;
+            return 1;
+        }
+
+        // Success! Output result as JSON to stdout (machine-readable).
+        const auto& status = result.value();
+        nlohmann::json output = ReflectSerializer::to_json(status);
+        std::cout << output.dump(2) << std::endl;
+
+        // Human-readable success message to stderr.
+        std::cerr << "✓ Binary protocol test PASSED" << std::endl;
+        std::cerr << "  Scenario: " << status.scenario_id << std::endl;
+        std::cerr << "  Grid: " << status.width << "x" << status.height << std::endl;
+        std::cerr << "  Timestep: " << status.timestep << std::endl;
+
+        client.disconnect();
+        return 0;
+    }
+
     // Normal command mode - require address.
     if (!address) {
         std::cerr << "Error: address is required for non-benchmark commands\n\n";
@@ -360,25 +423,32 @@ int main(int argc, char** argv)
 
     int timeoutMs = timeout ? args::get(timeout) : 5000;
 
-    // Build command JSON.
+    // Build command JSON (CLI uses JSON format for dynamic command dispatch).
     std::string commandJson = buildCommand(args::get(command), params ? args::get(params) : "");
     if (commandJson.empty()) {
         return 1;
     }
 
-    // Connect to server.
-    Client::WebSocketClient client;
-    if (!client.connect(args::get(address))) {
-        std::cerr << "Failed to connect to " << args::get(address) << std::endl;
+    // Connect to server using new general WebSocketClient.
+    Network::WebSocketClient client;
+
+    auto connectResult = client.connect(args::get(address), timeoutMs);
+    if (connectResult.isError()) {
+        std::cerr << "Failed to connect to " << args::get(address) << ": "
+                  << connectResult.errorValue() << std::endl;
         return 1;
     }
 
-    // Send command and receive response.
-    std::string response = client.sendAndReceive(commandJson, timeoutMs);
-    if (response.empty()) {
-        std::cerr << "Failed to receive response" << std::endl;
+    // Send command and receive response using JSON protocol.
+    // (Binary support for dynamic dispatch coming in future iteration).
+    auto responseResult = client.sendJsonAndReceive(commandJson, timeoutMs);
+    if (responseResult.isError()) {
+        std::cerr << "Failed to receive response: " << responseResult.errorValue().message
+                  << std::endl;
         return 1;
     }
+
+    std::string response = responseResult.value();
 
     // Special handling for diagram_get - extract and display just the diagram.
     if (commandName == "diagram_get") {
