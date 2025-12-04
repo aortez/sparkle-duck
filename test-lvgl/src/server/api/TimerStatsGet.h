@@ -7,6 +7,7 @@
 #include <nlohmann/json.hpp>
 #include <string>
 #include <unordered_map>
+#include <zpp_bits.h>
 
 namespace DirtSim {
 namespace Api {
@@ -18,12 +19,16 @@ struct Command {
     API_COMMAND_NAME();
     nlohmann::json toJson() const;
     static Command fromJson(const nlohmann::json& j);
+
+    using serialize = zpp::bits::members<0>;
 };
 
 struct TimerEntry {
     double total_ms = 0.0;
     double avg_ms = 0.0;
     uint32_t calls = 0;
+
+    using serialize = zpp::bits::members<3>;
 };
 
 struct Okay {
@@ -32,6 +37,8 @@ struct Okay {
 
     API_COMMAND_NAME();
     nlohmann::json toJson() const;
+
+    using serialize = zpp::bits::members<1>;
 };
 
 using OkayType = Okay;

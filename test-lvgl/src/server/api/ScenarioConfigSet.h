@@ -6,6 +6,7 @@
 #include "core/Result.h"
 #include "core/ScenarioConfig.h"
 #include <string>
+#include <zpp_bits.h>
 
 namespace DirtSim {
 namespace Api {
@@ -22,6 +23,8 @@ struct Command {
     API_COMMAND_NAME();
     nlohmann::json toJson() const;
     static Command fromJson(const nlohmann::json& j);
+
+    using serialize = zpp::bits::members<1>;
 };
 
 /**
@@ -32,6 +35,8 @@ struct Okay {
 
     API_COMMAND_NAME();
     nlohmann::json toJson() const;
+
+    using serialize = zpp::bits::members<1>;
 };
 
 using OkayType = Okay;
