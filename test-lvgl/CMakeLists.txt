@@ -400,6 +400,7 @@ target_compile_options(cli PRIVATE -Wall -Wextra -Werror)
 add_executable(sparkle-duck-tests
     src/server/tests/StateIdle_test.cpp
     src/server/tests/StateSimRunning_test.cpp
+    src/tests/BinaryProtocol_test.cpp
     src/tests/BresenhamLine_test.cpp
     src/tests/Buoyancy_test.cpp
     src/tests/CacheCorrectness_test.cpp

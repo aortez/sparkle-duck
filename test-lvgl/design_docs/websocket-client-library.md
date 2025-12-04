@@ -204,27 +204,15 @@ private:
 
 ## Migration Plan
 
-### Phase 1: Create General Library
-1. Create `src/core/network/WebSocketClient.{h,cpp}` with general implementation
-2. Extract common code from UI and CLI clients
-3. Implement type-safe `sendAndReceive<CommandT>`
-4. Write unit tests
+See **Migration Phases** in the "Binary Protocol: All-in on zpp_bits" section below for the detailed plan.
 
-### Phase 2: Migrate CLI Client
-1. Replace `src/cli/WebSocketClient` with `Network::WebSocketClient`
-2. Update all CLI call sites
-3. Test CLI tools (benchmark, integration tests, manual commands)
-
-### Phase 3: Migrate UI Client
-1. Create `UiWebSocketClient` wrapper that adds EventSink integration
-2. Replace `src/ui/state-machine/network/WebSocketClient` with wrapper
-3. Update all UI call sites
-4. Test UI interactions
-
-### Phase 4: Cleanup
-1. Remove old client implementations
-2. Update documentation
-3. Consider adding similar general WebSocketServer library
+**Summary:**
+1. **Phase 1a:** Define `MessageEnvelope` struct and test serialization.
+2. **Phase 1b:** Add dual-format support to server (JSON + binary).
+3. **Phase 2:** Create general `WebSocketClient` with binary support.
+4. **Phase 3:** Migrate CLI to binary protocol.
+5. **Phase 4:** Migrate UI client.
+6. **Phase 5:** Optional cleanup of JSON path.
 
 ## Benefits
 
@@ -235,13 +223,214 @@ private:
 5. **Consistency**: Same API across all components
 6. **Maintainability**: Bug fixes and improvements benefit all clients
 
+## Binary Protocol: All-in on zpp_bits
+
+### Motivation
+
+We've evolved through several serialization formats:
+1. **JSON** - Universal, human-readable, but verbose and slow for large data.
+2. **MessagePack** - More compact, but still too slow for frame data.
+3. **zpp_bits** - Blazing fast, zero-copy, compile-time reflection. Currently used for RenderMessages.
+
+**Decision:** Go all-in on zpp_bits for command/response as well as world data.
+
+**Rationale:**
+- **Performance**: zpp_bits is significantly faster than JSON/MessagePack.
+- **Consistency**: One serialization format everywhere simplifies code and mental model.
+- **CLI as universal interface**: External tools can use CLI to send commands; they don't need to speak binary directly.
+- **Existing infrastructure**: Command structs are aggregates that zpp_bits handles automatically.
+
+### Binary Protocol Design
+
+#### Envelope Struct
+
+A single unified envelope for both commands and responses:
+
+```cpp
+// src/core/network/BinaryProtocol.h
+
+namespace DirtSim {
+namespace Network {
+
+/// Unified message envelope for binary protocol.
+/// Works for both commands (client→server) and responses (server→client).
+struct MessageEnvelope {
+    uint64_t id;                      // Correlation ID for request/response matching.
+    std::string message_type;         // Message type ("state_get", "state_get_response", etc.).
+    std::vector<std::byte> payload;   // zpp_bits serialized content.
+};
+
+} // namespace Network
+} // namespace DirtSim
+```
+
+**For commands:**
+- `message_type` = command name (e.g., "state_get", "sim_run")
+- `payload` = zpp_bits serialized `Command` struct
+
+**For responses:**
+- `message_type` = command name + "_response" (e.g., "state_get_response")
+- `payload` = zpp_bits serialized `Result<OkayType, ApiError>`
+
+The `Result` type already encodes success/failure, so no separate `is_error` flag needed.
+
+#### Wire Format
+
+WebSocket frame types determine the protocol:
+- **Text frame** → JSON protocol (legacy, for backward compatibility).
+- **Binary frame** → zpp_bits protocol (new, preferred).
+
+This enables a smooth dual-format transition period.
+
+#### Message Flow
+
+```
+Client                                      Server
+──────                                      ──────
+Command struct
+    │
+    ▼
+serialize Command to payload (zpp_bits)
+    │
+    ▼
+MessageEnvelope{id, "state_get", payload}
+    │
+    ▼
+serialize envelope (zpp_bits)
+    │
+    ▼
+send as binary frame ─────────────────────► receive binary frame
+                                                │
+                                                ▼
+                                           deserialize envelope (zpp_bits)
+                                                │
+                                                ▼
+                                           route by message_type
+                                                │
+                                                ▼
+                                           deserialize payload to Command type
+                                                │
+                                                ▼
+                                           execute handler → Result<OkayType, ApiError>
+                                                │
+                                                ▼
+                                           serialize Result to payload (zpp_bits)
+                                                │
+                                                ▼
+                                           MessageEnvelope{id, "state_get_response", payload}
+                                                │
+                                                ▼
+receive binary frame ◄───────────────────── send as binary frame
+    │
+    ▼
+deserialize envelope (zpp_bits)
+    │
+    ▼
+deserialize payload to Result<OkayType, ApiError>
+    │
+    ▼
+return Result to caller
+```
+
+### Dual-Format Migration Strategy
+
+The key insight: **nothing breaks during migration**. Server learns to speak both protocols, then clients migrate one at a time.
+
+```
+┌─────────────────────────────────────┐
+│            Server                    │
+│  ┌─────────────────────────────┐    │
+│  │     Message Handler         │    │
+│  │  ┌───────────┬───────────┐  │    │
+│  │  │ Text Frame│Binary Frame│ │    │
+│  │  │  (JSON)   │ (zpp_bits) │ │    │
+│  │  └─────┬─────┴─────┬─────┘  │    │
+│  │        │           │        │    │
+│  │        ▼           ▼        │    │
+│  │   JSON Handler  Binary      │    │
+│  │   (existing)    Handler     │    │
+│  │                 (new)       │    │
+│  └─────────────────────────────┘    │
+│                                      │
+│  Response in SAME FORMAT as request  │
+└─────────────────────────────────────┘
+          ▲                 ▲
+          │                 │
+     JSON │                 │ Binary
+          │                 │
+   ┌──────┴──┐         ┌────┴────┐
+   │Old Client│         │New Client│
+   │  (JSON)  │         │(zpp_bits)│
+   └──────────┘         └──────────┘
+```
+
+### Migration Phases
+
+#### Phase 1a: Define Binary Protocol (no behavior change)
+- Create `src/core/network/BinaryProtocol.h` with unified `MessageEnvelope` struct.
+- Add zpp_bits serialization support.
+- Unit tests for envelope serialization roundtrip.
+- Unit tests for `Result<T, ApiError>` serialization roundtrip.
+
+#### Phase 1b: Server Dual-Format Support (backward compatible)
+- Modify server message handler to detect frame type.
+- Text frame → existing JSON path (unchanged).
+- Binary frame → new zpp_bits path.
+- Response uses same format as request.
+- All existing tests pass (they use JSON).
+- Add new tests for binary path.
+
+#### Phase 2: General WebSocketClient Library
+- Create `src/core/network/WebSocketClient.{h,cpp}`.
+- Support both JSON and binary protocols.
+- Add `sendCommand<T>` with format selection (default: binary).
+- Result<> return types for proper error handling.
+- Correlation ID support for multiplexed requests.
+
+#### Phase 3: Migrate CLI Client
+- Replace `src/cli/WebSocketClient` with `Network::WebSocketClient`.
+- CLI uses binary protocol by default.
+- Add `--json` flag for debugging (sends JSON instead).
+- Test all CLI commands work with binary protocol.
+
+#### Phase 4: Migrate UI Client
+- Create thin `UiWebSocketClient` wrapper.
+- Adds EventSink integration for RenderMessage routing.
+- Uses binary protocol for commands.
+- Test UI interactions.
+
+#### Phase 5: Cleanup (optional)
+- Consider removing JSON command path from server.
+- Or keep it for debugging/external tool compatibility.
+- Update documentation.
+
+### CLI as Universal Interface
+
+External tools that need to communicate with the system can use CLI:
+
+```bash
+# CLI handles binary protocol internally, presents JSON to user.
+./cli state_get ws://localhost:8080
+# Output: {"worldData": {...}}
+
+# Or pipe JSON in.
+echo '{"scenario_id": "sandbox"}' | ./cli sim_run ws://localhost:8080
+```
+
+This keeps the binary protocol as an internal optimization while maintaining a human-friendly interface.
+
+## Resolved Questions
+
+1. **Header-only vs compiled?** Template methods (sendCommand<T>) in header, blocking logic in .cpp.
+2. **Binary message routing?** Callbacks let each client decide how to handle binary data.
+3. **Namespace?** `DirtSim::Network` - it's specifically about networking.
+4. **Serialization format?** zpp_bits for everything (commands and world data).
+
 ## Open Questions
 
-1. Should the general client be header-only (template-heavy) or compiled?
-2. How to handle binary message routing (some clients want it, some don't)?
-3. Should we also generalize WebSocketServer?
-4. Namespace: `DirtSim::Network` or `DirtSim::Core`?
-5. Do we need async (non-blocking) send with futures/callbacks?
+1. Should we also generalize WebSocketServer with the same dual-format support?
+2. Do we need async (non-blocking) send with futures/callbacks?
+3. Should CLI keep a `--json` debug mode, or is that unnecessary complexity?
 
 ## Implementation Notes
 
