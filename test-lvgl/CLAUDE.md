@@ -492,7 +492,7 @@ be active if a tree is around.
 - mass as a gravity source!  allan.pizza but in a grid!!!
 - quad-tree or quantization or other spatial optimization applied to the grid?
 - cli send/receive any command/response automatically.
-- FIX: WebSocketClient::sendCommand is fire-and-forget (returns bool). This is not acceptable for most purposes - we want to fail fast if something doesn't work. sendCommand should block until the response is received and return Result<ResponseT, Error>. Consider sendAndReceive pattern or async with callback. See existing sendAndReceive() for reference.
+- FIX: WebSocketClient duplication and type safety - We have two separate WebSocketClient implementations (UI and CLI) with duplicated code and poor error handling (bool/string returns). Create a general-purpose WebSocketClient library that all components can use, with type-safe Result<OkayType, Error> returns. See design_docs/websocket-client-library.md for full design.
 - Review CLI and CLAUDE README/md files for accuracy and gross omission.  Test things
 to see if they work.
 - Instrument build to figure out which parts take the longest.
