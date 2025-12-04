@@ -608,6 +608,9 @@ namespace {
 
 // Helper to deserialize a binary command payload based on message_type.
 // Returns ApiCommand variant or error.
+// Suppress false positive -Wmaybe-uninitialized with GCC + -O3 optimizations.
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 Result<ApiCommand, ApiError> deserializeBinaryCommand(const Network::MessageEnvelope& envelope)
 {
     const std::string& type = envelope.message_type;
@@ -704,6 +707,7 @@ Result<ApiCommand, ApiError> deserializeBinaryCommand(const Network::MessageEnve
             ApiError{ std::string("Failed to deserialize binary command: ") + e.what() });
     }
 }
+#pragma GCC diagnostic pop
 
 // Helper to send a binary error response.
 void sendBinaryError(
