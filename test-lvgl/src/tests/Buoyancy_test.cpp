@@ -69,7 +69,7 @@ protected:
     void calculatePressure()
     {
         WorldPressureCalculator calculator;
-        calculator.calculateHydrostaticPressure(*world);
+        calculator.injectGravityPressure(*world, 0.016);
     }
 
     std::unique_ptr<World> world;
@@ -574,10 +574,8 @@ TEST_P(ParameterizedBuoyancyTest, MaterialBuoyancyBehavior)
                 cell.com.y,
                 cell.fill_ratio);
             spdlog::info(
-                "    Pressure: total={:.3f} (hydro={:.3f}, dyn={:.3f}), gradient=({:.3f},{:.3f})",
+                "    Pressure: total={:.3f}, gradient=({:.3f},{:.3f})",
                 cell.pressure,
-                cell.hydrostatic_component,
-                cell.dynamic_component,
                 cell.pressure_gradient.x,
                 cell.pressure_gradient.y);
             spdlog::info(
@@ -1136,14 +1134,14 @@ TEST_F(BuoyancyTest, DirtSinksThroughWater)
             const Cell& dirt_cell = world->getData().at(0, current_dirt_y);
             spdlog::info(
                 "  Step {}: dirt at y={}, vel=({:.3f},{:.3f}), com=({:.3f},{:.3f}), "
-                "dyn_press={:.2f}",
+                "pressure={:.2f}",
                 i,
                 current_dirt_y,
                 dirt_cell.velocity.x,
                 dirt_cell.velocity.y,
                 dirt_cell.com.x,
                 dirt_cell.com.y,
-                dirt_cell.dynamic_component);
+                dirt_cell.pressure);
 
             // Check expected forces.
             const MaterialProperties& dirt_props = getMaterialProperties(MaterialType::DIRT);

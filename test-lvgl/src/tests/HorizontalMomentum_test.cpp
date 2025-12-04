@@ -154,11 +154,7 @@ TEST_F(HorizontalMomentumTest, DirtMaintainsHorizontalVelocity)
                             cell.pending_force.y,
                             cell.pressure_gradient.x,
                             cell.pressure_gradient.y);
-                        spdlog::info(
-                            "    pressure={:.3f} (hydro={:.3f}, dynamic={:.3f})",
-                            cell.pressure,
-                            cell.hydrostatic_component,
-                            cell.dynamic_component);
+                        spdlog::info("    pressure={:.3f}", cell.pressure);
                         spdlog::info(
                             "    support: any={}, vertical={}",
                             cell.has_any_support,

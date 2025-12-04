@@ -12,7 +12,7 @@ namespace DirtSim {
  * Automatically serializable via ReflectSerializer.
  */
 struct PhysicsSettings {
-    double adhesion_strength = 5.0;
+    double adhesion_strength = 2.0;
     bool adhesion_enabled = true;
     double air_resistance = 0.1;
     double buoyancy_energy_scale = 1.0;
@@ -23,18 +23,16 @@ struct PhysicsSettings {
     double fluid_lubrication_factor = 0.5;
     double friction_strength = 1.0;
     bool friction_enabled = true;
-    double gravity = 9.81;
+    double gravity = 30;
     double horizontal_flow_resistance_factor = 1;
     double horizontal_non_fluid_penalty = 0.05;
     double horizontal_non_fluid_target_resistance = 10.0;
     double non_fluid_energy_multiplier = 10.0;
-    double pressure_dynamic_strength = 1.0;
+    double pressure_dynamic_strength = 0.3;
     bool pressure_dynamic_enabled = true;
-    double pressure_hydrostatic_strength = 0.3;
+    double pressure_hydrostatic_strength = 1.0;
     bool pressure_hydrostatic_enabled = true;
-    double pressure_injection_strength = 1.0;
     double pressure_scale = 1.0;
-    bool pressure_use_incremental = false;
     double pressure_diffusion_strength = 5.0;
     bool swap_enabled = true;
     double timescale = 1.0;

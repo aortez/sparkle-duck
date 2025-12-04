@@ -807,8 +807,8 @@ bool WorldCollisionCalculator::shouldSwapMaterials(
             }
 
             // Lower pressure laterally means easier escape for the displaced fluid.
-            double lateral_pressure = lateral.hydrostatic_component + lateral.dynamic_component;
-            double target_pressure = toCell.hydrostatic_component + toCell.dynamic_component;
+            double lateral_pressure = lateral.pressure;
+            double target_pressure = toCell.pressure;
             if (lateral_pressure < target_pressure * 0.5) {
                 LoggingChannels::swap()->info(
                     "Swap denied (path of least resistance): "

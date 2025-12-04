@@ -301,8 +301,8 @@ double WorldFrictionCalculator::calculateNormalForce(
 
     // Source 1: Pressure difference across interface.
     // Higher pressure in A pushes against B.
-    double pressureA = cellA.hydrostatic_component + cellA.dynamic_component;
-    double pressureB = cellB.hydrostatic_component + cellB.dynamic_component;
+    double pressureA = cellA.pressure;
+    double pressureB = cellB.pressure;
     double pressure_difference = pressureA - pressureB;
 
     if (pressure_difference > 0.0) {

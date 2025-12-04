@@ -435,15 +435,10 @@ void World::advanceTime(double deltaTimeSeconds)
     //     tree_manager_->computeOrganismSupport(*this);
     // }
 
-    // Inject or calculate hydrostatic pressure.
+    // Inject hydrostatic pressure from gravity.
     if (pImpl->physicsSettings_.pressure_hydrostatic_strength > 0.0) {
         ScopeTimer hydroTimer(pImpl->timers_, "hydrostatic_pressure");
-        if (pImpl->physicsSettings_.pressure_use_incremental) {
-            pImpl->pressure_calculator_.injectGravityPressure(*this, scaledDeltaTime);
-        }
-        else {
-            pImpl->pressure_calculator_.calculateHydrostaticPressure(*this);
-        }
+        pImpl->pressure_calculator_.injectGravityPressure(*this, scaledDeltaTime);
     }
 
     // Add dynamic pressure from last frame's collisions.
@@ -1190,9 +1185,8 @@ void World::processMaterialMoves()
 
         // Apply any pressure from excess that couldn't transfer.
         if (move.pressure_from_excess > 0.0) {
-            // If target is a wall, pressure reflects back to source.
             if (toCell.material_type == MaterialType::WALL) {
-                fromCell.setDynamicPressure(fromCell.dynamic_component + move.pressure_from_excess);
+                fromCell.pressure += move.pressure_from_excess;
 
                 spdlog::debug(
                     "Wall blocked transfer: source cell({},{}) pressure increased by {:.3f}",
@@ -1201,8 +1195,7 @@ void World::processMaterialMoves()
                     move.pressure_from_excess);
             }
             else {
-                // Normal materials receive the pressure.
-                toCell.setDynamicPressure(toCell.dynamic_component + move.pressure_from_excess);
+                toCell.pressure += move.pressure_from_excess;
 
                 spdlog::debug(
                     "Applied pressure from excess: cell({},{}) pressure increased by {:.3f}",

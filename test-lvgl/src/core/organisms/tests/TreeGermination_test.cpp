@@ -702,9 +702,7 @@ TEST_F(TreeGerminationTest, DebugWoodFalling)
             std::cout << "  organism_id: " << wood0.organism_id << "\n";
             std::cout << "  com: (" << wood0.com.x << ", " << wood0.com.y << ")\n";
             std::cout << "  velocity: (" << wood0.velocity.x << ", " << wood0.velocity.y << ")\n";
-            std::cout << "  pressure: " << wood0.pressure
-                      << " (hydro: " << wood0.hydrostatic_component
-                      << ", dyn: " << wood0.dynamic_component << ")\n";
+            std::cout << "  pressure: " << wood0.pressure << "\n";
             std::cout << "  pressure_gradient: (" << wood0.pressure_gradient.x << ", "
                       << wood0.pressure_gradient.y << ")\n";
             std::cout << "  pending_force: (" << wood0.pending_force.x << ", "
@@ -719,9 +717,7 @@ TEST_F(TreeGerminationTest, DebugWoodFalling)
             std::cout << "  organism_id: " << wood1.organism_id << "\n";
             std::cout << "  com: (" << wood1.com.x << ", " << wood1.com.y << ")\n";
             std::cout << "  velocity: (" << wood1.velocity.x << ", " << wood1.velocity.y << ")\n";
-            std::cout << "  pressure: " << wood1.pressure
-                      << " (hydro: " << wood1.hydrostatic_component
-                      << ", dyn: " << wood1.dynamic_component << ")\n";
+            std::cout << "  pressure: " << wood1.pressure << "\n";
             std::cout << "  pressure_gradient: (" << wood1.pressure_gradient.x << ", "
                       << wood1.pressure_gradient.y << ")\n";
             std::cout << "  pending_force: (" << wood1.pending_force.x << ", "

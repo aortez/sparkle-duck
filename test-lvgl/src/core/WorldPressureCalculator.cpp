@@ -10,82 +10,6 @@
 
 using namespace DirtSim;
 
-void WorldPressureCalculator::calculateHydrostaticPressure(World& world)
-{
-    // Skip if hydrostatic pressure is disabled.
-    if (world.getPhysicsSettings().pressure_hydrostatic_strength <= 0) {
-        return;
-    }
-
-    // Cache data reference.
-    WorldData& data = world.getData();
-    const Vector2d gravity = Vector2d(0, world.getPhysicsSettings().gravity);
-    const double gravity_magnitude = gravity.magnitude();
-
-    if (gravity_magnitude < 0.0001) {
-        return; // No gravity, no hydrostatic pressure.
-    }
-
-    const double hydrostatic_strength =
-        world.getPhysicsSettings().pressure_hydrostatic_strength * HYDROSTATIC_MULTIPLIER;
-
-    // Process each column independently.
-    for (uint32_t x = 0; x < data.width; ++x) {
-        // Top-down pressure accumulation.
-        double accumulated_pressure = 0.0;
-        double current_fluid_density = 0.001; // Track surrounding fluid density.
-
-        for (uint32_t y = 0; y < data.height; ++y) {
-            Cell& cell = data.at(x, y);
-
-            if (cell.isEmpty()) {
-                // Empty cells: reset accumulation, no pressure.
-                accumulated_pressure = 0.0;
-                current_fluid_density = 0.001; // Reset to air.
-                continue;
-            }
-
-            // All non-empty cells receive accumulated pressure.
-            // This enables buoyancy for floating objects (no support required).
-            double current_pressure = cell.pressure;
-            cell.pressure = current_pressure + accumulated_pressure;
-            cell.setHydrostaticPressure(accumulated_pressure);
-
-            // Determine density contribution for accumulation (buoyancy calculation).
-            double contributing_density;
-            const MaterialProperties& props = getMaterialProperties(cell.material_type);
-
-            if (props.is_fluid) {
-                // Fluids contribute their own density.
-                contributing_density = cell.getEffectiveDensity();
-                current_fluid_density = contributing_density; // Track for submerged solids.
-            }
-            else {
-                // Solids: check if submerged (has fluid immediately below).
-                bool is_submerged = false;
-                if (y + 1 < data.height) {
-                    const Cell& below = data.at(x, y + 1);
-                    is_submerged = isMaterialFluid(below.material_type);
-                }
-
-                if (is_submerged) {
-                    // Submerged solid: act transparent to pressure (for correct buoyancy).
-                    // Use surrounding fluid density, not solid's own density.
-                    contributing_density = current_fluid_density;
-                }
-                else {
-                    // Resting solid: stop hydrostatic accumulation.
-                    contributing_density = 0.0;
-                }
-            }
-
-            // Accumulate pressure for next cell below.
-            accumulated_pressure +=
-                contributing_density * gravity_magnitude * SLICE_THICKNESS * hydrostatic_strength;
-        }
-    }
-}
-
 void WorldPressureCalculator::injectGravityPressure(World& world, double deltaTime)
 {
     WorldData& data = world.getData();
@@ -96,7 +20,7 @@ void WorldPressureCalculator::injectGravityPressure(World& world, double deltaTi
         return;
     }
 
-    const double injection_strength = settings.pressure_injection_strength;
+    const double hydrostatic_strength = settings.pressure_hydrostatic_strength;
 
     // Each cell pushes its weight onto the cell below.
     // Process top-to-bottom so pressure accumulates naturally.
@@ -121,12 +45,9 @@ void WorldPressureCalculator::injectGravityPressure(World& world, double deltaTi
 
             // Inject pressure: weight = density * gravity.
             double weight = cell.getEffectiveDensity() * gravity_magnitude;
-            double pressure_contribution = weight * injection_strength * deltaTime;
+            double pressure_contribution = weight * hydrostatic_strength * deltaTime;
 
-            // Add to the cell below's unified pressure directly.
             below.pressure += pressure_contribution;
-            // Track in hydrostatic_component for visualization.
-            below.hydrostatic_component += pressure_contribution;
         }
     }
 }
@@ -169,21 +90,13 @@ void WorldPressureCalculator::processBlockedTransfers(
                     double reflected_energy = transfer.energy * material_weight * dynamic_strength
                         * reflection_coefficient;
 
-                    // Add to unified pressure for persistence.
-                    double current_unified_pressure = source_cell.pressure;
-                    double new_unified_pressure = current_unified_pressure + reflected_energy;
-                    source_cell.pressure = new_unified_pressure;
-
-                    // Update dynamic component for visualization.
-                    double current_dynamic = source_cell.dynamic_component;
-                    source_cell.setDynamicPressure(current_dynamic + reflected_energy);
+                    source_cell.pressure += reflected_energy;
 
                     spdlog::debug(
                         "Blocked transfer from ({},{}) to WALL at ({},{}): amount={:.3f}, "
                         "energy={:.3f}, "
                         "reflecting to SOURCE cell with material={}, weight={:.2f}, "
-                        "reflection_coeff={:.2f}, "
-                        "current_pressure={:.6f}, new_pressure={:.6f}",
+                        "reflection_coeff={:.2f}",
                         transfer.fromX,
                         transfer.fromY,
                         transfer.toX,
@@ -192,9 +105,7 @@ void WorldPressureCalculator::processBlockedTransfers(
                         transfer.energy,
                         getMaterialName(source_cell.material_type),
                         material_weight,
-                        reflection_coefficient,
-                        current_unified_pressure,
-                        new_unified_pressure);
+                        reflection_coefficient);
                 }
                 continue;
             }
@@ -218,28 +129,18 @@ void WorldPressureCalculator::processBlockedTransfers(
         double blocked_energy = transfer.energy;
 
         if (apply_to_target) {
-            // Apply pressure to target cell.
             Cell& target_cell = data.at(transfer.toX, transfer.toY);
 
-            // Get material-specific dynamic weight.
             double material_weight =
                 getMaterialProperties(target_cell.material_type).dynamic_weight;
             double dynamic_strength = world.getPhysicsSettings().pressure_dynamic_strength;
             double weighted_energy = blocked_energy * material_weight * dynamic_strength;
 
-            // Add to unified pressure for persistence.
-            double current_unified_pressure = target_cell.pressure;
-            double new_unified_pressure = current_unified_pressure + weighted_energy;
-            target_cell.pressure = new_unified_pressure;
-
-            // Update dynamic component for visualization.
-            double current_dynamic = target_cell.dynamic_component;
-            target_cell.setDynamicPressure(current_dynamic + weighted_energy);
+            target_cell.pressure += weighted_energy;
 
             spdlog::debug(
                 "Blocked transfer from ({},{}) to ({},{}): amount={:.3f}, energy={:.3f}, "
-                "applying to TARGET cell with material={}, weight={:.2f}, current_pressure={:.6f}, "
-                "new_pressure={:.6f}",
+                "applying to TARGET cell with material={}, weight={:.2f}",
                 transfer.fromX,
                 transfer.fromY,
                 transfer.toX,
@@ -247,9 +148,7 @@ void WorldPressureCalculator::processBlockedTransfers(
                 transfer.transfer_amount,
                 blocked_energy,
                 getMaterialName(target_cell.material_type),
-                material_weight,
-                current_unified_pressure,
-                new_unified_pressure);
+                material_weight);
         }
     }
 }
@@ -425,27 +324,13 @@ Vector2d WorldPressureCalculator::calculateGravityGradient(
 void WorldPressureCalculator::applyPressureDecay(World& world, double deltaTime)
 {
     WorldData& data = world.getData();
-    const PhysicsSettings& settings = world.getPhysicsSettings();
-    const bool use_incremental = settings.pressure_use_incremental;
 
     for (uint32_t y = 0; y < data.height; ++y) {
         for (uint32_t x = 0; x < data.width; ++x) {
             Cell& cell = data.at(x, y);
 
-            if (use_incremental) {
-                // Unified mode: decay pressure directly, preserve diffusion effects.
-                if (cell.pressure > MIN_PRESSURE_THRESHOLD) {
-                    cell.pressure *= (1.0 - DYNAMIC_DECAY_RATE * deltaTime);
-                }
-            }
-            else {
-                // Column-based mode: decay dynamic component, recalculate total.
-                double dynamic = cell.dynamic_component;
-                if (dynamic > MIN_PRESSURE_THRESHOLD) {
-                    double new_dynamic = dynamic * (1.0 - DYNAMIC_DECAY_RATE * deltaTime);
-                    cell.setDynamicPressure(new_dynamic);
-                    cell.pressure = cell.hydrostatic_component + new_dynamic;
-                }
+            if (cell.pressure > MIN_PRESSURE_THRESHOLD) {
+                cell.pressure *= (1.0 - DYNAMIC_DECAY_RATE * deltaTime);
             }
 
             // Update pressure gradient for visualization.
@@ -657,13 +542,7 @@ void WorldPressureCalculator::applyPressureDiffusion(World& world, double deltaT
     }
 
     // Compile-time switch for 4 vs 8 neighbor diffusion.
-    // 8-neighbor diffusion includes diagonal neighbors for smoother pressure propagation.
-    // 4-neighbor diffusion is faster but may show more grid artifacts.
-    constexpr bool USE_8_NEIGHBORS = true; // Set to false for 4-neighbor diffusion.
-
-    // In incremental mode, empty cells act as pressure sinks (pressure = 0).
-    // This allows pressure to "escape" at boundaries, creating natural gradients.
-    const bool empty_cells_are_sinks = settings.pressure_use_incremental;
+    constexpr bool USE_8_NEIGHBORS = true;
 
     // Apply neighbor diffusion.
     for (uint32_t y = 0; y < height; ++y) {
@@ -712,16 +591,10 @@ void WorldPressureCalculator::applyPressureDiffusion(World& world, double deltaT
                             neighbor_pressure = current_pressure;
                             neighbor_diffusion = diffusion_rate;
                         }
-                        // Empty cells: sinks in incremental mode, no-flux otherwise.
+                        // Empty cells act as pressure sinks.
                         else if (neighbor.isEmpty()) {
-                            if (empty_cells_are_sinks) {
-                                neighbor_pressure = 0.0;
-                                neighbor_diffusion = diffusion_rate;
-                            }
-                            else {
-                                neighbor_pressure = current_pressure;
-                                neighbor_diffusion = diffusion_rate;
-                            }
+                            neighbor_pressure = 0.0;
+                            neighbor_diffusion = diffusion_rate;
                         }
                         // Normal material cells.
                         else {
@@ -775,16 +648,10 @@ void WorldPressureCalculator::applyPressureDiffusion(World& world, double deltaT
                             neighbor_pressure = current_pressure;
                             neighbor_diffusion = diffusion_rate;
                         }
-                        // Empty cells: sinks in incremental mode, no-flux otherwise.
+                        // Empty cells act as pressure sinks.
                         else if (neighbor.isEmpty()) {
-                            if (empty_cells_are_sinks) {
-                                neighbor_pressure = 0.0;
-                                neighbor_diffusion = diffusion_rate;
-                            }
-                            else {
-                                neighbor_pressure = current_pressure;
-                                neighbor_diffusion = diffusion_rate;
-                            }
+                            neighbor_pressure = 0.0;
+                            neighbor_diffusion = diffusion_rate;
                         }
                         // Normal material cells.
                         else {
@@ -834,27 +701,7 @@ void WorldPressureCalculator::applyPressureDiffusion(World& world, double deltaT
         for (uint32_t x = 0; x < width; ++x) {
             size_t idx = y * width + x;
             Cell& cell = data.at(x, y);
-            double old_pressure = cell.pressure;
-            double new_unified_pressure = new_pressure[idx];
-
-            if (empty_cells_are_sinks) {
-                // Incremental mode: apply diffusion directly to unified pressure.
-                cell.pressure = std::max(0.0, new_unified_pressure);
-                // Update hydrostatic_component to track the diffused value.
-                double pressure_change = new_unified_pressure - old_pressure;
-                cell.hydrostatic_component =
-                    std::max(0.0, cell.hydrostatic_component + pressure_change);
-            }
-            else {
-                // Column-based mode: diffusion only affects dynamic component.
-                // Hydrostatic pressure is recalculated from geometry each frame.
-                double pressure_change = new_unified_pressure - old_pressure;
-                double new_dynamic = cell.dynamic_component + pressure_change;
-                new_dynamic = std::max(0.0, new_dynamic);
-
-                cell.dynamic_component = new_dynamic;
-                cell.pressure = cell.hydrostatic_component + new_dynamic;
-            }
+            cell.pressure = std::max(0.0, new_pressure[idx]);
         }
     }
 }

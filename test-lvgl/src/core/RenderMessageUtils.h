@@ -61,12 +61,11 @@ inline DebugCell packDebugCell(const Cell& cell)
     result.velocity_y =
         static_cast<int16_t>(std::clamp(cell.velocity.y * velocity_scale, -32767.0, 32767.0));
 
-    // Pressure: [0, 1000] → [0, 65535].
+    // Pressure: [0, 1000] → [0, 65535]. Unified pressure goes to hydro, dynamic is deprecated.
     constexpr double pressure_scale = 65535.0 / 1000.0;
-    result.pressure_hydro = static_cast<uint16_t>(
-        std::clamp(cell.hydrostatic_component * pressure_scale, 0.0, 65535.0));
-    result.pressure_dynamic =
-        static_cast<uint16_t>(std::clamp(cell.dynamic_component * pressure_scale, 0.0, 65535.0));
+    result.pressure_hydro =
+        static_cast<uint16_t>(std::clamp(cell.pressure * pressure_scale, 0.0, 65535.0));
+    result.pressure_dynamic = 0;
 
     // Pressure gradient: stored as float directly.
     result.pressure_gradient.x = static_cast<float>(cell.pressure_gradient.x);

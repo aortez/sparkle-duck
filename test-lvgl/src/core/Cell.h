@@ -44,9 +44,6 @@ struct Cell {
 
     // Unified pressure system.
     double pressure = 0.0;
-    double hydrostatic_component = 0.0;
-    double dynamic_component = 0.0;
-
     Vector2d pressure_gradient = {};
 
     // Physics force accumulation.
@@ -88,10 +85,7 @@ struct Cell {
     void setCOM(const Vector2d& com);
     void setCOM(double x, double y);
 
-    // Helpers with logic for pressure component management.
-    void setHydrostaticPressure(double p);
-    void setDynamicPressure(double p);
-    void addDynamicPressure(double p);
+    // Clear pressure to zero.
     void clearPressure();
 
     // =================================================================

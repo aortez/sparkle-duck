@@ -24,8 +24,6 @@ void Cell::setFillRatio(double ratio)
 
         // Clear pressure values when converting to air.
         pressure = 0.0;
-        hydrostatic_component = 0.0;
-        dynamic_component = 0.0;
         pressure_gradient = Vector2d{ 0.0, 0.0 };
     }
 }
@@ -223,8 +221,6 @@ void Cell::clear()
 
     // Clear all pressure values when cell becomes empty.
     pressure = 0.0;
-    hydrostatic_component = 0.0;
-    dynamic_component = 0.0;
     pressure_gradient = Vector2d{ 0.0, 0.0 };
 }
 
@@ -486,39 +482,14 @@ void Cell::setCOM(double x, double y)
     setCOM(Vector2d{ x, y });
 }
 
-void Cell::setHydrostaticPressure(double p)
-{
-    hydrostatic_component = p;
-    updateUnifiedPressure();
-}
-
-void Cell::setDynamicPressure(double p)
-{
-    dynamic_component = p;
-    updateUnifiedPressure();
-}
-
-void Cell::addDynamicPressure(double p)
-{
-    dynamic_component += p;
-    updateUnifiedPressure();
-}
-
 void Cell::clearPressure()
 {
     pressure = 0.0;
-    hydrostatic_component = 0.0;
-    dynamic_component = 0.0;
 }
 
 double Cell::getCapacity() const
 {
     return 1.0 - fill_ratio;
-}
-
-void Cell::updateUnifiedPressure()
-{
-    pressure = hydrostatic_component + dynamic_component;
 }
 
 // =================================================================
