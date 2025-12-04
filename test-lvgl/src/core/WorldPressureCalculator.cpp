@@ -541,33 +541,39 @@ void WorldPressureCalculator::applyPressureDiffusion(World& world, double deltaT
         }
     }
 
-    // Compile-time switch for 4 vs 8 neighbor diffusion.
     constexpr bool USE_8_NEIGHBORS = true;
+    const int num_iterations = std::max(1, settings.pressure_diffusion_iterations);
 
-    // Apply neighbor diffusion.
-    for (uint32_t y = 0; y < height; ++y) {
-        for (uint32_t x = 0; x < width; ++x) {
-            size_t idx = y * width + x;
-            const Cell& cell = data.at(x, y);
+    for (int iteration = 0; iteration < num_iterations; ++iteration) {
+        std::vector<double> temp_pressure = new_pressure;
 
-            // Skip empty cells and walls.
-            if (cell.isEmpty() || cell.material_type == MaterialType::WALL) {
-                continue;
-            }
+        for (uint32_t y = 0; y < height; ++y) {
+            for (uint32_t x = 0; x < width; ++x) {
+                size_t idx = y * width + x;
+                const Cell& cell = data.at(x, y);
 
-            // Get material diffusion coefficient.
-            const MaterialProperties& props = getMaterialProperties(cell.material_type);
-            double diffusion_rate = props.pressure_diffusion * settings.pressure_diffusion_strength;
+                // Skip empty cells and walls.
+                if (cell.isEmpty() || cell.material_type == MaterialType::WALL) {
+                    continue;
+                }
 
-            // Calculate pressure flux with neighbors.
-            double pressure_flux = 0.0;
-            const double current_pressure = cell.pressure;
+                // Get material diffusion coefficient.
+                const MaterialProperties& props = getMaterialProperties(cell.material_type);
+                double diffusion_rate =
+                    props.pressure_diffusion * settings.pressure_diffusion_strength;
 
-            if constexpr (USE_8_NEIGHBORS) {
-                // Check all 8 neighbors (including diagonals).
-                const int dx[] = { -1, 0, 1, -1, 1, -1, 0, 1 };
-                const int dy[] = { -1, -1, -1, 0, 0, 1, 1, 1 };
-                constexpr int num_neighbors = 8;
+                // Define neighbor offsets based on mode.
+                constexpr int dx_8[] = { -1, 0, 1, -1, 1, -1, 0, 1 };
+                constexpr int dy_8[] = { -1, -1, -1, 0, 0, 1, 1, 1 };
+                constexpr int dx_4[] = { 0, 0, 1, -1 };
+                constexpr int dy_4[] = { -1, 1, 0, 0 };
+
+                const int* dx = USE_8_NEIGHBORS ? dx_8 : dx_4;
+                const int* dy = USE_8_NEIGHBORS ? dy_8 : dy_4;
+                const int num_neighbors = USE_8_NEIGHBORS ? 8 : 4;
+
+                double pressure_flux = 0.0;
+                const double current_pressure = temp_pressure[idx];
 
                 for (int i = 0; i < num_neighbors; ++i) {
                     int nx = static_cast<int>(x) + dx[i];
@@ -576,86 +582,25 @@ void WorldPressureCalculator::applyPressureDiffusion(World& world, double deltaT
                     double neighbor_pressure;
                     double neighbor_diffusion;
 
-                    // Handle out-of-bounds with ghost cell method.
                     if (nx < 0 || nx >= static_cast<int>(width) || ny < 0
                         || ny >= static_cast<int>(height)) {
-                        // Ghost cell: same pressure as current cell (no-flux boundary).
                         neighbor_pressure = current_pressure;
-                        neighbor_diffusion = diffusion_rate; // Same material properties.
+                        neighbor_diffusion = diffusion_rate;
                     }
                     else {
                         const Cell& neighbor = data.at(nx, ny);
 
-                        // Walls act as no-flux boundaries (ghost cell method).
                         if (neighbor.material_type == MaterialType::WALL) {
                             neighbor_pressure = current_pressure;
                             neighbor_diffusion = diffusion_rate;
                         }
-                        // Empty cells act as pressure sinks.
                         else if (neighbor.isEmpty()) {
-                            neighbor_pressure = 0.0;
-                            neighbor_diffusion = diffusion_rate;
-                        }
-                        // Normal material cells.
-                        else {
-                            neighbor_pressure = neighbor.pressure;
-                            neighbor_diffusion =
-                                getMaterialProperties(neighbor.material_type).pressure_diffusion;
-                        }
-                    }
-
-                    // Pressure flows from high to low.
-                    double pressure_diff = neighbor_pressure - current_pressure;
-
-                    // Harmonic mean handles material boundaries correctly.
-                    double interface_diffusion = 2.0 * diffusion_rate * neighbor_diffusion
-                        / (diffusion_rate + neighbor_diffusion + 1e-10);
-
-                    // For diagonal neighbors, scale by 1/sqrt(2) to account for distance.
-                    if (dx[i] != 0 && dy[i] != 0) {
-                        interface_diffusion *= 0.707107; // 1/sqrt(2)
-                    }
-
-                    // Accumulate flux.
-                    pressure_flux += interface_diffusion * pressure_diff;
-                }
-            }
-            else {
-                // Check 4 cardinal neighbors only (N, S, E, W).
-                const int dx[] = { 0, 0, 1, -1 };
-                const int dy[] = { -1, 1, 0, 0 };
-                constexpr int num_neighbors = 4;
-
-                for (int i = 0; i < num_neighbors; ++i) {
-                    int nx = static_cast<int>(x) + dx[i];
-                    int ny = static_cast<int>(y) + dy[i];
-
-                    double neighbor_pressure;
-                    double neighbor_diffusion;
-
-                    // Handle out-of-bounds with ghost cell method.
-                    if (nx < 0 || nx >= static_cast<int>(width) || ny < 0
-                        || ny >= static_cast<int>(height)) {
-                        // Ghost cell: same pressure as current cell (no-flux boundary).
-                        neighbor_pressure = current_pressure;
-                        neighbor_diffusion = diffusion_rate; // Same material properties.
-                    }
-                    else {
-                        const Cell& neighbor = data.at(nx, ny);
-
-                        // Walls act as no-flux boundaries (ghost cell method).
-                        if (neighbor.material_type == MaterialType::WALL) {
                             neighbor_pressure = current_pressure;
                             neighbor_diffusion = diffusion_rate;
                         }
-                        // Empty cells act as pressure sinks.
-                        else if (neighbor.isEmpty()) {
-                            neighbor_pressure = 0.0;
-                            neighbor_diffusion = diffusion_rate;
-                        }
-                        // Normal material cells.
                         else {
-                            neighbor_pressure = neighbor.pressure;
+                            size_t neighbor_idx = ny * width + nx;
+                            neighbor_pressure = temp_pressure[neighbor_idx];
                             neighbor_diffusion =
                                 getMaterialProperties(neighbor.material_type).pressure_diffusion;
                         }
@@ -663,35 +608,27 @@ void WorldPressureCalculator::applyPressureDiffusion(World& world, double deltaT
 
                     double pressure_diff = neighbor_pressure - current_pressure;
 
-                    // Harmonic mean handles material boundaries correctly.
                     double interface_diffusion = 2.0 * diffusion_rate * neighbor_diffusion
                         / (diffusion_rate + neighbor_diffusion + 1e-10);
 
-                    // Accumulate flux.
+                    if (USE_8_NEIGHBORS && dx[i] != 0 && dy[i] != 0) {
+                        interface_diffusion *= 0.707107;
+                    }
+
                     pressure_flux += interface_diffusion * pressure_diff;
                 }
-            }
 
-            // Update pressure with diffusion flux.
-            // Scale by deltaTime for frame-rate independence.
-            // Apply stability limiter to prevent numerical instability.
-            double pressure_change = pressure_flux * deltaTime;
+                // Update pressure with diffusion flux.
+                // Scale by deltaTime for frame-rate independence.
+                // Apply stability limiter to prevent numerical instability.
+                double pressure_change = pressure_flux * deltaTime;
 
-            // Limit maximum pressure change per timestep to prevent explosions.
-            // This ensures CFL stability for explicit diffusion scheme.
-            // Use 50% of current pressure OR a minimum value, whichever is larger.
-            // The minimum allows zero-pressure cells to receive pressure from neighbors.
-            constexpr double MIN_PRESSURE_CHANGE = 0.5;
-            double max_change = std::max(current_pressure * 0.5, MIN_PRESSURE_CHANGE);
-            if (std::abs(pressure_change) > max_change) {
-                pressure_change = std::copysign(max_change, pressure_change);
-            }
+                new_pressure[idx] = current_pressure + pressure_change;
 
-            new_pressure[idx] = current_pressure + pressure_change;
-
-            // Ensure pressure doesn't go negative.
-            if (new_pressure[idx] < 0.0) {
-                new_pressure[idx] = 0.0;
+                // Ensure pressure doesn't go negative.
+                if (new_pressure[idx] < 0.0) {
+                    new_pressure[idx] = 0.0;
+                }
             }
         }
     }

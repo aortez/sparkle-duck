@@ -159,6 +159,26 @@ std::vector<PhysicsControls::ColumnConfig> PhysicsControls::createColumnConfigs(
                               [](const PhysicsSettings& s) {
                                   return s.pressure_diffusion_strength > 0.0;
                               } },
+                        { .label = "Diffusion Iters",
+                          .type = ControlType::TOGGLE_SLIDER,
+                          .rangeMin = 1,
+                          .rangeMax = 5,
+                          .defaultValue = 1,
+                          .valueScale = 1.0,
+                          .valueFormat = "%.0f",
+                          .initiallyEnabled = true,
+                          .valueSetter =
+                              [](PhysicsSettings& s, double v) {
+                                  s.pressure_diffusion_iterations = static_cast<int>(v);
+                              },
+                          .valueGetter =
+                              [](const PhysicsSettings& s) {
+                                  return static_cast<double>(s.pressure_diffusion_iterations);
+                              },
+                          .enableSetter = []([[maybe_unused]] PhysicsSettings& s,
+                                             [[maybe_unused]] bool e) {},
+                          .enableGetter =
+                              []([[maybe_unused]] const PhysicsSettings& s) { return true; } },
                         { .label = "Scale",
                           .type = ControlType::TOGGLE_SLIDER,
                           .rangeMin = 0,
@@ -261,8 +281,10 @@ std::vector<PhysicsControls::ColumnConfig> PhysicsControls::createColumnConfigs(
                           .valueScale = 1.0,
                           .valueFormat = "%.0f",
                           .initiallyEnabled = true,
-                          .valueSetter = [](PhysicsSettings& s,
-                                            double v) { s.cohesion_resistance_factor = v; },
+                          .valueSetter =
+                              [](PhysicsSettings& s, double v) {
+                                  s.cohesion_resistance_factor = v;
+                              },
                           .valueGetter =
                               [](const PhysicsSettings& s) { return s.cohesion_resistance_factor; },
                           .enableSetter =
