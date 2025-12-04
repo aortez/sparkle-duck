@@ -95,7 +95,35 @@ std::vector<PhysicsControls::ColumnConfig> PhysicsControls::createColumnConfigs(
                               [](const PhysicsSettings& s) { return s.swap_enabled; } } } },
         // Column 2: Pressure.
         { .title = "Pressure",
-          .controls = { { .label = "Hydrostatic",
+          .controls = { { .label = "Incremental Mode",
+                          .type = ControlType::SWITCH_ONLY,
+                          .enableSetter = [](PhysicsSettings& s,
+                                             bool e) { s.pressure_use_incremental = e; },
+                          .enableGetter =
+                              [](const PhysicsSettings& s) { return s.pressure_use_incremental; } },
+                        { .label = "Injection",
+                          .type = ControlType::TOGGLE_SLIDER,
+                          .rangeMin = 0,
+                          .rangeMax = 500,
+                          .defaultValue = 100,
+                          .valueScale = 0.01,
+                          .valueFormat = "%.2f",
+                          .initiallyEnabled = true,
+                          .valueSetter = [](PhysicsSettings& s,
+                                            double v) { s.pressure_injection_strength = v; },
+                          .valueGetter =
+                              [](const PhysicsSettings& s) {
+                                  return s.pressure_injection_strength;
+                              },
+                          .enableSetter =
+                              [](PhysicsSettings& s, bool e) {
+                                  if (!e) s.pressure_injection_strength = 0.0;
+                              },
+                          .enableGetter =
+                              [](const PhysicsSettings& s) {
+                                  return s.pressure_injection_strength > 0.0;
+                              } },
+                        { .label = "Hydrostatic",
                           .type = ControlType::TOGGLE_SLIDER,
                           .rangeMin = 0,
                           .rangeMax = 300,
@@ -261,8 +289,10 @@ std::vector<PhysicsControls::ColumnConfig> PhysicsControls::createColumnConfigs(
                           .valueScale = 1.0,
                           .valueFormat = "%.0f",
                           .initiallyEnabled = true,
-                          .valueSetter = [](PhysicsSettings& s,
-                                            double v) { s.cohesion_resistance_factor = v; },
+                          .valueSetter =
+                              [](PhysicsSettings& s, double v) {
+                                  s.cohesion_resistance_factor = v;
+                              },
                           .valueGetter =
                               [](const PhysicsSettings& s) { return s.cohesion_resistance_factor; },
                           .enableSetter =

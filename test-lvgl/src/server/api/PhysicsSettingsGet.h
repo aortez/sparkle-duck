@@ -26,7 +26,8 @@ struct Okay {
     nlohmann::json toJson() const;
 };
 
-using Response = Result<Okay, ApiError>;
+using OkayType = Okay;
+using Response = Result<OkayType, ApiError>;
 using Cwc = CommandWithCallback<Command, Response>;
 
 } // namespace PhysicsSettingsGet

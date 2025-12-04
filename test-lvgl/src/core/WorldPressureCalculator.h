@@ -55,6 +55,8 @@ public:
      */
     void calculateHydrostaticPressure(World& world);
 
+    void injectGravityPressure(World& world, double deltaTime);
+
     /**
      * @brief Queue a blocked transfer for dynamic pressure accumulation.
      * @param transfer BlockedTransfer data including source, target, and energy.

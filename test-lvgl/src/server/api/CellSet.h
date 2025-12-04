@@ -26,7 +26,8 @@ struct Command {
     static Command fromJson(const nlohmann::json& j);
 };
 
-using Response = Result<std::monostate, ApiError>;
+using OkayType = std::monostate;
+using Response = Result<OkayType, ApiError>;
 using Cwc = CommandWithCallback<Command, Response>;
 
 } // namespace CellSet

@@ -435,14 +435,38 @@ void World::advanceTime(double deltaTimeSeconds)
     //     tree_manager_->computeOrganismSupport(*this);
     // }
 
-    // Calculate hydrostatic pressure based on current material positions.
-    // This must happen before force resolution so buoyancy forces are immediate.
+    // Inject or calculate hydrostatic pressure.
     if (pImpl->physicsSettings_.pressure_hydrostatic_strength > 0.0) {
         ScopeTimer hydroTimer(pImpl->timers_, "hydrostatic_pressure");
-        pImpl->pressure_calculator_.calculateHydrostaticPressure(*this);
+        if (pImpl->physicsSettings_.pressure_use_incremental) {
+            pImpl->pressure_calculator_.injectGravityPressure(*this, scaledDeltaTime);
+        }
+        else {
+            pImpl->pressure_calculator_.calculateHydrostaticPressure(*this);
+        }
     }
 
-    // Accumulate and apply all forces based on resistance.
+    // Add dynamic pressure from last frame's collisions.
+    if (pImpl->physicsSettings_.pressure_dynamic_strength > 0.0) {
+        ScopeTimer dynamicTimer(pImpl->timers_, "dynamic_pressure");
+        pImpl->pressure_calculator_.processBlockedTransfers(
+            *this, pImpl->pressure_calculator_.blocked_transfers_);
+        pImpl->pressure_calculator_.blocked_transfers_.clear();
+    }
+
+    // Diffuse all pressure together before applying forces.
+    if (pImpl->physicsSettings_.pressure_diffusion_strength > 0.0) {
+        ScopeTimer diffusionTimer(pImpl->timers_, "pressure_diffusion");
+        pImpl->pressure_calculator_.applyPressureDiffusion(*this, scaledDeltaTime);
+    }
+
+    // Decay dynamic pressure.
+    {
+        ScopeTimer decayTimer(pImpl->timers_, "pressure_decay");
+        pImpl->pressure_calculator_.applyPressureDecay(*this, scaledDeltaTime);
+    }
+
+    // Apply forces using the diffused pressure field.
     resolveForces(scaledDeltaTime, grid);
 
     {
@@ -455,33 +479,8 @@ void World::advanceTime(double deltaTimeSeconds)
         updateTransfers(scaledDeltaTime);
     }
 
-    // Process queued material moves - this detects NEW blocked transfers.
+    // Process material moves - detects collisions for next frame's dynamic pressure.
     processMaterialMoves();
-
-    // Process any blocked transfers that were queued during processMaterialMoves.
-    // This generates dynamic pressure from collisions.
-    if (pImpl->physicsSettings_.pressure_dynamic_strength > 0.0) {
-        ScopeTimer dynamicTimer(pImpl->timers_, "dynamic_pressure");
-        // Generate virtual gravity transfers to create pressure from gravity forces.
-        // This allows dynamic pressure to model hydrostatic-like behavior.
-        // pImpl->pressure_calculator_.generateVirtualGravityTransfers(*this, scaledDeltaTime);
-
-        pImpl->pressure_calculator_.processBlockedTransfers(
-            *this, pImpl->pressure_calculator_.blocked_transfers_);
-        pImpl->pressure_calculator_.blocked_transfers_.clear();
-    }
-
-    // Apply pressure diffusion before decay.
-    if (pImpl->physicsSettings_.pressure_diffusion_strength > 0.0) {
-        ScopeTimer diffusionTimer(pImpl->timers_, "pressure_diffusion");
-        pImpl->pressure_calculator_.applyPressureDiffusion(*this, scaledDeltaTime);
-    }
-
-    // Apply pressure decay after material moves.
-    {
-        ScopeTimer decayTimer(pImpl->timers_, "pressure_decay");
-        pImpl->pressure_calculator_.applyPressureDecay(*this, scaledDeltaTime);
-    }
 
     // Update tree organisms after physics is complete.
     if (tree_manager_) {

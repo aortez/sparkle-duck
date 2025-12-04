@@ -35,7 +35,8 @@ struct Okay {
     nlohmann::json toJson() const;
 };
 
-using Response = Result<Okay, DirtSim::ApiError>;
+using OkayType = Okay;
+using Response = Result<OkayType, DirtSim::ApiError>;
 using Cwc = CommandWithCallback<Command, Response>;
 
 } // namespace DisplayStreamStart

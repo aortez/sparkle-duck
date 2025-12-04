@@ -29,7 +29,8 @@ struct Okay {
     static Okay fromJson(const nlohmann::json& j);
 };
 
-using Response = Result<Okay, ApiError>;
+using OkayType = Okay;
+using Response = Result<OkayType, ApiError>;
 using Cwc = CommandWithCallback<Command, Response>;
 
 } // namespace PixelRendererToggle

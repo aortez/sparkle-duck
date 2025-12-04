@@ -86,6 +86,51 @@ void WorldPressureCalculator::calculateHydrostaticPressure(World& world)
     }
 }
 
+void WorldPressureCalculator::injectGravityPressure(World& world, double deltaTime)
+{
+    WorldData& data = world.getData();
+    const PhysicsSettings& settings = world.getPhysicsSettings();
+    const double gravity_magnitude = std::abs(settings.gravity);
+
+    if (gravity_magnitude < 0.0001) {
+        return;
+    }
+
+    const double injection_strength = settings.pressure_injection_strength;
+
+    // Each cell pushes its weight onto the cell below.
+    // Process top-to-bottom so pressure accumulates naturally.
+    for (uint32_t x = 0; x < data.width; ++x) {
+        for (uint32_t y = 0; y < data.height - 1; ++y) {
+            Cell& cell = data.at(x, y);
+
+            if (cell.isEmpty() || cell.isWall()) {
+                continue;
+            }
+
+            // Only fluids contribute to pressure injection.
+            const MaterialProperties& props = getMaterialProperties(cell.material_type);
+            if (!props.is_fluid) {
+                continue;
+            }
+
+            Cell& below = data.at(x, y + 1);
+            if (below.isWall()) {
+                continue;
+            }
+
+            // Inject pressure: weight = density * gravity.
+            double weight = cell.getEffectiveDensity() * gravity_magnitude;
+            double pressure_contribution = weight * injection_strength * deltaTime;
+
+            // Add to the cell below's unified pressure directly.
+            below.pressure += pressure_contribution;
+            // Track in hydrostatic_component for visualization.
+            below.hydrostatic_component += pressure_contribution;
+        }
+    }
+}
+
 void WorldPressureCalculator::queueBlockedTransfer(const BlockedTransfer& transfer)
 {
     blocked_transfers_.push_back(transfer);
@@ -379,34 +424,34 @@ Vector2d WorldPressureCalculator::calculateGravityGradient(
 
 void WorldPressureCalculator::applyPressureDecay(World& world, double deltaTime)
 {
-    // Cache world data reference to avoid repeated pImpl dereferences.
-    WorldData& data = world.getData(); // Cached
+    WorldData& data = world.getData();
+    const PhysicsSettings& settings = world.getPhysicsSettings();
+    const bool use_incremental = settings.pressure_use_incremental;
 
-    // Apply decay to dynamic pressure only (not hydrostatic).
-    // Hydrostatic pressure is recalculated each frame based on material positions,
-    // so it doesn't need decay. Only dynamic pressure from collisions should dissipate.
     for (uint32_t y = 0; y < data.height; ++y) {
         for (uint32_t x = 0; x < data.width; ++x) {
             Cell& cell = data.at(x, y);
 
-            // Only decay the dynamic component.
-            double dynamic = cell.dynamic_component;
-            if (dynamic > MIN_PRESSURE_THRESHOLD) {
-                double new_dynamic = dynamic * (1.0 - DYNAMIC_DECAY_RATE * deltaTime);
-                cell.setDynamicPressure(new_dynamic);
-
-                // Recalculate total pressure as hydrostatic + decayed dynamic.
-                double total = cell.hydrostatic_component + new_dynamic;
-                cell.pressure = total;
+            if (use_incremental) {
+                // Unified mode: decay pressure directly, preserve diffusion effects.
+                if (cell.pressure > MIN_PRESSURE_THRESHOLD) {
+                    cell.pressure *= (1.0 - DYNAMIC_DECAY_RATE * deltaTime);
+                }
+            }
+            else {
+                // Column-based mode: decay dynamic component, recalculate total.
+                double dynamic = cell.dynamic_component;
+                if (dynamic > MIN_PRESSURE_THRESHOLD) {
+                    double new_dynamic = dynamic * (1.0 - DYNAMIC_DECAY_RATE * deltaTime);
+                    cell.setDynamicPressure(new_dynamic);
+                    cell.pressure = cell.hydrostatic_component + new_dynamic;
+                }
             }
 
             // Update pressure gradient for visualization.
-            // This allows us to see pressure forces at the beginning of the next frame.
             if (cell.fill_ratio >= MIN_MATTER_THRESHOLD && !cell.isWall()) {
-                double total_pressure = cell.pressure;
-                if (total_pressure >= MIN_PRESSURE_THRESHOLD) {
-                    Vector2d gradient = calculatePressureGradient(world, x, y);
-                    cell.pressure_gradient = gradient;
+                if (cell.pressure >= MIN_PRESSURE_THRESHOLD) {
+                    cell.pressure_gradient = calculatePressureGradient(world, x, y);
                 }
                 else {
                     cell.pressure_gradient = Vector2d{ 0.0, 0.0 };
@@ -616,6 +661,10 @@ void WorldPressureCalculator::applyPressureDiffusion(World& world, double deltaT
     // 4-neighbor diffusion is faster but may show more grid artifacts.
     constexpr bool USE_8_NEIGHBORS = true; // Set to false for 4-neighbor diffusion.
 
+    // In incremental mode, empty cells act as pressure sinks (pressure = 0).
+    // This allows pressure to "escape" at boundaries, creating natural gradients.
+    const bool empty_cells_are_sinks = settings.pressure_use_incremental;
+
     // Apply neighbor diffusion.
     for (uint32_t y = 0; y < height; ++y) {
         for (uint32_t x = 0; x < width; ++x) {
@@ -663,10 +712,16 @@ void WorldPressureCalculator::applyPressureDiffusion(World& world, double deltaT
                             neighbor_pressure = current_pressure;
                             neighbor_diffusion = diffusion_rate;
                         }
-                        // Empty cells are no-flux boundaries (pressure stays in fluid).
+                        // Empty cells: sinks in incremental mode, no-flux otherwise.
                         else if (neighbor.isEmpty()) {
-                            neighbor_pressure = current_pressure;
-                            neighbor_diffusion = diffusion_rate;
+                            if (empty_cells_are_sinks) {
+                                neighbor_pressure = 0.0;
+                                neighbor_diffusion = diffusion_rate;
+                            }
+                            else {
+                                neighbor_pressure = current_pressure;
+                                neighbor_diffusion = diffusion_rate;
+                            }
                         }
                         // Normal material cells.
                         else {
@@ -720,10 +775,16 @@ void WorldPressureCalculator::applyPressureDiffusion(World& world, double deltaT
                             neighbor_pressure = current_pressure;
                             neighbor_diffusion = diffusion_rate;
                         }
-                        // Empty cells are no-flux boundaries (pressure stays in fluid).
+                        // Empty cells: sinks in incremental mode, no-flux otherwise.
                         else if (neighbor.isEmpty()) {
-                            neighbor_pressure = current_pressure;
-                            neighbor_diffusion = diffusion_rate;
+                            if (empty_cells_are_sinks) {
+                                neighbor_pressure = 0.0;
+                                neighbor_diffusion = diffusion_rate;
+                            }
+                            else {
+                                neighbor_pressure = current_pressure;
+                                neighbor_diffusion = diffusion_rate;
+                            }
                         }
                         // Normal material cells.
                         else {
@@ -776,14 +837,24 @@ void WorldPressureCalculator::applyPressureDiffusion(World& world, double deltaT
             double old_pressure = cell.pressure;
             double new_unified_pressure = new_pressure[idx];
 
-            // Diffusion only affects dynamic component (transient waves).
-            // Hydrostatic pressure is recalculated from geometry each frame.
-            double pressure_change = new_unified_pressure - old_pressure;
-            double new_dynamic = cell.dynamic_component + pressure_change;
-            new_dynamic = std::max(0.0, new_dynamic); // Can't go negative.
+            if (empty_cells_are_sinks) {
+                // Incremental mode: apply diffusion directly to unified pressure.
+                cell.pressure = std::max(0.0, new_unified_pressure);
+                // Update hydrostatic_component to track the diffused value.
+                double pressure_change = new_unified_pressure - old_pressure;
+                cell.hydrostatic_component =
+                    std::max(0.0, cell.hydrostatic_component + pressure_change);
+            }
+            else {
+                // Column-based mode: diffusion only affects dynamic component.
+                // Hydrostatic pressure is recalculated from geometry each frame.
+                double pressure_change = new_unified_pressure - old_pressure;
+                double new_dynamic = cell.dynamic_component + pressure_change;
+                new_dynamic = std::max(0.0, new_dynamic);
 
-            cell.dynamic_component = new_dynamic;
-            cell.pressure = cell.hydrostatic_component + new_dynamic;
+                cell.dynamic_component = new_dynamic;
+                cell.pressure = cell.hydrostatic_component + new_dynamic;
+            }
         }
     }
 }
