@@ -17,6 +17,16 @@ void SimRunning::onEnter(StateMachine& sm)
 {
     spdlog::info("SimRunning: Simulation is running, displaying world updates");
 
+    // Subscribe to render messages from the server.
+    if (sm.getWebSocketClient()) {
+        Api::RenderFormatSet::Command cmd;
+        cmd.format = debugDrawEnabled ? RenderFormat::DEBUG : RenderFormat::BASIC;
+        sm.getWebSocketClient()->sendCommand(cmd);
+        spdlog::info(
+            "SimRunning: Subscribed to render messages (format={})",
+            debugDrawEnabled ? "DEBUG" : "BASIC");
+    }
+
     // Create playground if not already created.
     if (!playground_) {
         playground_ = std::make_unique<SimPlayground>(

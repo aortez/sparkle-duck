@@ -470,6 +470,7 @@ Can be found here:
 **Known Limitations:**
 - No energy regeneration (trees deplete and stop)
 - No MATURE stage transition
+- **TEMPORARY FIX: LVGL Wayland driver patched** - Modified `lvgl/src/drivers/wayland/lv_wayland.c` to add 100ms timeout to poll() in flush wait callback. This prevents infinite blocking when window is on inactive virtual desktop, but it's a patch to the external LVGL library. Need to find a solution that doesn't require modifying the submodule, or submit patch upstream to LVGL project
 
 **Next Steps:**
 - Fix growth topology (extend from tree edges for realistic branching)
@@ -491,7 +492,8 @@ be active if a tree is around.
 - mass as a gravity source!  allan.pizza but in a grid!!!
 - quad-tree or quantization or other spatial optimization applied to the grid?
 - cli send/receive any command/response automatically.
-- Review CLI and CAUDE README/md files for accuracy and gross omission  Test things
+- FIX: WebSocketClient::sendCommand is fire-and-forget (returns bool). This is not acceptable for most purposes - we want to fail fast if something doesn't work. sendCommand should block until the response is received and return Result<ResponseT, Error>. Consider sendAndReceive pattern or async with callback. See existing sendAndReceive() for reference.
+- Review CLI and CLAUDE README/md files for accuracy and gross omission.  Test things
 to see if they work.
 - Instrument build to figure out which parts take the longest.
 - debug and release builds in different directories, then performance testing with release builds.

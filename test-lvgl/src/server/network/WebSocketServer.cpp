@@ -57,8 +57,9 @@ void WebSocketServer::onClientConnected(std::shared_ptr<rtc::WebSocket> ws)
     // Add to connected clients list.
     connectedClients_.push_back(ws);
 
-    // Initialize render format to BASIC (default).
-    clientRenderFormats_[ws] = RenderFormat::BASIC;
+    // Note: Clients must explicitly subscribe to render messages via render_format_set.
+    // Not auto-subscribing saves CPU (packing/serializing) for control-only clients like
+    // dashboards.
 
     // Set up message handler for this client.
     ws->onMessage([this, ws](std::variant<rtc::binary, rtc::string> data) {
@@ -524,8 +525,14 @@ void WebSocketServer::broadcastRenderMessage(const World& world)
 {
     const WorldData& data = world.getData();
 
+    // Only send to clients that have explicitly subscribed via render_format_set.
+    if (clientRenderFormats_.empty()) {
+        return;
+    }
+
     spdlog::trace(
-        "WebSocketServer: Broadcasting RenderMessage to {} clients", connectedClients_.size());
+        "WebSocketServer: Broadcasting RenderMessage to {} subscribed clients",
+        clientRenderFormats_.size());
 
     // Extract bones from all organisms.
     std::vector<BoneData> bones;
@@ -539,12 +546,10 @@ void WebSocketServer::broadcastRenderMessage(const World& world)
         }
     }
 
-    // Pack and send to each client with their requested format.
-    for (auto& ws : connectedClients_) {
+    // Pack and send to each subscribed client with their requested format.
+    for (const auto& [ws, format] : clientRenderFormats_) {
         if (ws && ws->isOpen()) {
             try {
-                // Get client's render format (defaults to BASIC).
-                RenderFormat format = getClientRenderFormat(ws);
 
                 // Pack WorldData into RenderMessage with client's format.
                 RenderMessage msg = RenderMessageUtils::packRenderMessage(data, format);
