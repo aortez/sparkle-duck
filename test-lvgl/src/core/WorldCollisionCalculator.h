@@ -6,6 +6,7 @@
 #include "Vector2i.h"
 #include "WorldCalculatorBase.h"
 #include "WorldCohesionCalculator.h"
+#include <random>
 #include <vector>
 
 namespace DirtSim {
@@ -152,6 +153,23 @@ public:
      * @param move Material move data.
      */
     void handleFragmentation(World& world, Cell& fromCell, Cell& toCell, const MaterialMove& move);
+
+    /**
+     * @brief Handle water fragmentation (splash) on high-energy impact.
+     *
+     * When water collides with high enough energy, it fragments into 1-3 pieces
+     * that spray outward in a 90-degree arc centered on the reflection direction.
+     * This creates realistic splash behavior for water hitting surfaces.
+     *
+     * @param world World providing access to grid, cells, and settings.
+     * @param fromCell Source cell containing water.
+     * @param toCell Target cell that was hit.
+     * @param move Material move data with collision info.
+     * @param rng Random number generator for probability rolls.
+     * @return True if fragmentation occurred, false if normal collision should proceed.
+     */
+    bool handleWaterFragmentation(
+        World& world, Cell& fromCell, Cell& toCell, const MaterialMove& move, std::mt19937& rng);
 
     /**
      * @brief Handle material absorption (e.g., water into dirt).

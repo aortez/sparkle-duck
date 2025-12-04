@@ -11,6 +11,7 @@
 #include "spdlog/spdlog.h"
 #include <algorithm>
 #include <cmath>
+#include <map>
 
 using namespace DirtSim;
 
@@ -522,27 +523,8 @@ void WorldCollisionCalculator::handleInelasticCollision(
     // Check for blocked transfer and queue for dynamic pressure accumulation.
     double transfer_deficit = transfer_amount - actual_transfer;
 
-    // Debug logging to understand what's happening.
-    spdlog::debug(
-        "Inelastic collision transfer attempt: requested_amount={:.6f}, "
-        "actual_transfer={:.6f}, deficit={:.6f}",
-        transfer_amount,
-        actual_transfer,
-        transfer_deficit);
-    spdlog::debug(
-        "Dynamic pressure enabled: {}, deficit > threshold: {} (threshold={:.6f})",
-        world.getPhysicsSettings().pressure_dynamic_strength > 0,
-        transfer_deficit > MIN_MATTER_THRESHOLD,
-        MIN_MATTER_THRESHOLD);
-
     if (transfer_deficit > MIN_MATTER_THRESHOLD
         && world.getPhysicsSettings().pressure_dynamic_strength > 0) {
-        spdlog::debug(
-            "🚫 Inelastic collision blocked transfer: requested={:.3f}, transferred={:.3f}, "
-            "deficit={:.3f}",
-            transfer_amount,
-            actual_transfer,
-            transfer_deficit);
 
         // Queue blocked transfer for dynamic pressure accumulation.
         // Calculate energy with proper mass consideration.
@@ -567,13 +549,6 @@ void WorldCollisionCalculator::handleInelasticCollision(
                                                              fromCell.velocity,
                                                              energy });
     }
-
-    spdlog::trace(
-        "Inelastic collision: {} at ({},{}) with material transfer {:.3f}, momentum conserved",
-        getMaterialName(move.material),
-        move.fromX,
-        move.fromY,
-        actual_transfer);
 }
 
 void WorldCollisionCalculator::handleFragmentation(
@@ -608,6 +583,252 @@ void WorldCollisionCalculator::handleAbsorption(
         // Default to regular transfer.
         handleTransferMove(world, fromCell, toCell, move);
     }
+}
+
+bool WorldCollisionCalculator::handleWaterFragmentation(
+    World& world, Cell& fromCell, Cell& toCell, const MaterialMove& move, std::mt19937& rng)
+{
+    const PhysicsSettings& settings = world.getPhysicsSettings();
+
+    // Only fragment water.
+    if (fromCell.material_type != MaterialType::WATER) {
+        return false;
+    }
+
+    // Check if fragmentation is enabled.
+    if (!settings.fragmentation_enabled) {
+        return false;
+    }
+
+    // Check energy threshold.
+    if (move.collision_energy < settings.fragmentation_threshold) {
+        return false;
+    }
+
+    // Calculate fragmentation probability: linear ramp from threshold to full_threshold.
+    double probability = (move.collision_energy - settings.fragmentation_threshold)
+        / (settings.fragmentation_full_threshold - settings.fragmentation_threshold);
+    probability = std::clamp(probability, 0.0, 1.0);
+
+    // Roll dice.
+    std::uniform_real_distribution<double> prob_dist(0.0, 1.0);
+    if (prob_dist(rng) > probability) {
+        return false; // No fragmentation this time.
+    }
+
+    // Determine number of fragments (1, 2, or 3) based on energy.
+    // Higher energy = more fragments.
+    int num_frags = 1;
+    if (move.collision_energy > settings.fragmentation_full_threshold * 1.5) {
+        num_frags = 3;
+    }
+    else if (move.collision_energy > settings.fragmentation_full_threshold) {
+        num_frags = 2;
+    }
+
+    // 1 frag means normal collision behavior, no fragmentation.
+    if (num_frags == 1) {
+        return false;
+    }
+
+    // Calculate reflection direction (negate normal component).
+    Vector2d surface_normal = move.boundary_normal.normalize();
+    auto v_comp = decomposeVelocity(move.momentum, surface_normal);
+    Vector2d reflection_dir = (v_comp.tangential - v_comp.normal).normalize();
+
+    // If reflection direction is zero, use surface normal pointing away.
+    if (reflection_dir.magnitude() < 0.01) {
+        reflection_dir = surface_normal * -1.0;
+    }
+
+    // Calculate frag angles in 90-degree arc centered on reflection direction.
+    // 2 frags: ±45° from center
+    // 3 frags: -30°, 0°, +30° from center
+    std::vector<double> frag_angles;
+    if (num_frags == 2) {
+        frag_angles = { -M_PI / 4.0, M_PI / 4.0 }; // ±45°
+    }
+    else {
+        frag_angles = { -M_PI / 6.0, 0.0, M_PI / 6.0 }; // -30°, 0°, +30°
+    }
+
+    // Calculate base angle of reflection direction.
+    double base_angle = std::atan2(reflection_dir.y, reflection_dir.x);
+
+    // Map each frag angle to a neighbor cell direction.
+    struct FragTarget {
+        Vector2i offset;
+        Vector2d velocity;
+        double amount;
+    };
+    std::vector<FragTarget> frag_targets;
+
+    double frag_amount_each =
+        (fromCell.fill_ratio * settings.fragmentation_spray_fraction) / num_frags;
+    double frag_speed = move.momentum.magnitude() * 0.7; // Fragments get 70% of original speed.
+
+    for (double angle_offset : frag_angles) {
+        double frag_angle = base_angle + angle_offset;
+
+        // Convert angle to unit vector.
+        Vector2d frag_dir(std::cos(frag_angle), std::sin(frag_angle));
+
+        // Map to nearest of 8 neighbor directions.
+        // Neighbors are at angles: 0, 45, 90, 135, 180, 225, 270, 315 degrees.
+        int best_dx = 0, best_dy = 0;
+        double best_dot = -2.0;
+
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dy = -1; dy <= 1; dy++) {
+                if (dx == 0 && dy == 0) continue;
+
+                Vector2d neighbor_dir(dx, dy);
+                neighbor_dir = neighbor_dir.normalize();
+                double dot = frag_dir.dot(neighbor_dir);
+
+                if (dot > best_dot) {
+                    best_dot = dot;
+                    best_dx = dx;
+                    best_dy = dy;
+                }
+            }
+        }
+
+        Vector2i offset(best_dx, best_dy);
+        Vector2d velocity = frag_dir * frag_speed;
+
+        frag_targets.push_back({ offset, velocity, frag_amount_each });
+    }
+
+    // Merge fragments going to the same cell.
+    std::map<std::pair<int, int>, FragTarget> merged_targets;
+    for (const auto& frag : frag_targets) {
+        auto key = std::make_pair(frag.offset.x, frag.offset.y);
+        auto it = merged_targets.find(key);
+        if (it != merged_targets.end()) {
+            // Average velocities, sum amounts.
+            double total_amount = it->second.amount + frag.amount;
+            it->second.velocity =
+                (it->second.velocity * it->second.amount + frag.velocity * frag.amount)
+                / total_amount;
+            it->second.amount = total_amount;
+        }
+        else {
+            merged_targets[key] = frag;
+        }
+    }
+
+    // Try to place fragments in destination cells.
+    const WorldData& data = world.getData();
+    double total_sprayed = 0.0;
+
+    for (auto& [key, frag] : merged_targets) {
+        int target_x = static_cast<int>(move.fromX) + frag.offset.x;
+        int target_y = static_cast<int>(move.fromY) + frag.offset.y;
+
+        // Skip if out of bounds.
+        if (target_x < 0 || target_x >= static_cast<int>(data.width) || target_y < 0
+            || target_y >= static_cast<int>(data.height)) {
+            continue;
+        }
+
+        // Skip if this is the cell we collided with.
+        if (target_x == static_cast<int>(move.toX) && target_y == static_cast<int>(move.toY)) {
+            continue;
+        }
+
+        Cell& target = world.getData().at(target_x, target_y);
+
+        // Check capacity.
+        double capacity = target.getCapacity();
+        if (capacity < MIN_MATTER_THRESHOLD) {
+            continue; // No room.
+        }
+
+        // Transfer what fits.
+        double to_transfer = std::min(frag.amount, capacity);
+        to_transfer = std::min(to_transfer, fromCell.fill_ratio - MIN_MATTER_THRESHOLD);
+
+        constexpr double MIN_VISIBLE_FRAGMENT = 0.01;
+        if (to_transfer < MIN_VISIBLE_FRAGMENT) {
+            continue;
+        }
+
+        // Place the fragment at the edge of the destination cell, facing inward.
+        // COM should be at the edge nearest the source cell.
+        Vector2d landing_com(-frag.offset.x * 0.9, -frag.offset.y * 0.9);
+
+        // Add material to target cell.
+        if (target.isEmpty()) {
+            target.material_type = MaterialType::WATER;
+            target.fill_ratio = to_transfer;
+            target.setCOM(landing_com);
+            target.velocity = frag.velocity;
+        }
+        else if (target.material_type == MaterialType::WATER) {
+            // Merge with existing water.
+            double old_mass = target.fill_ratio;
+            double new_mass = to_transfer;
+            double total_mass = old_mass + new_mass;
+
+            target.velocity = (target.velocity * old_mass + frag.velocity * new_mass) / total_mass;
+            target.setCOM((target.com * old_mass + landing_com * new_mass) / total_mass);
+            target.fill_ratio += to_transfer;
+        }
+        else {
+            // Different material - skip this target.
+            continue;
+        }
+
+        // Remove from source.
+        fromCell.fill_ratio -= to_transfer;
+        total_sprayed += to_transfer;
+
+        spdlog::debug(
+            "Water fragmentation: sprayed {:.3f} from ({},{}) to ({},{}) with velocity "
+            "({:.2f},{:.2f})",
+            to_transfer,
+            move.fromX,
+            move.fromY,
+            target_x,
+            target_y,
+            frag.velocity.x,
+            frag.velocity.y);
+    }
+
+    // If nothing sprayed, fragmentation failed.
+    if (total_sprayed < MIN_MATTER_THRESHOLD) {
+        return false;
+    }
+
+    // Handle the remaining material in fromCell - apply inelastic reflection.
+    if (fromCell.fill_ratio > MIN_MATTER_THRESHOLD) {
+        double inelastic_restitution = move.restitution_coefficient * INELASTIC_RESTITUTION_FACTOR;
+        Vector2d v_normal_reflected = v_comp.normal * (-inelastic_restitution);
+        fromCell.velocity = v_comp.tangential + v_normal_reflected;
+
+        // Transfer momentum to target cell.
+        if (move.target_mass > 0.0 && !toCell.isEmpty()) {
+            Vector2d momentum_transferred =
+                v_comp.normal * (1.0 + inelastic_restitution) * move.material_mass;
+            Vector2d target_velocity_change = momentum_transferred / move.target_mass;
+            toCell.velocity = toCell.velocity + target_velocity_change;
+        }
+    }
+    else {
+        // Source cell is now empty.
+        fromCell.clear();
+    }
+
+    spdlog::info(
+        "Water fragmentation: {} frags, sprayed {:.3f} total from ({},{}), {:.3f} remaining",
+        num_frags,
+        total_sprayed,
+        move.fromX,
+        move.fromY,
+        fromCell.fill_ratio);
+
+    return true;
 }
 
 void WorldCollisionCalculator::handleFloatingParticleCollision(

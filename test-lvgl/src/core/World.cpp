@@ -1279,7 +1279,12 @@ void World::processMaterialMoves()
                 break;
             case CollisionType::INELASTIC_COLLISION:
                 num_inelastic++;
-                collision_calc.handleInelasticCollision(*this, fromCell, toCell, move);
+                // Try water fragmentation first - if it handles the collision, skip normal
+                // inelastic.
+                if (!collision_calc.handleWaterFragmentation(
+                        *this, fromCell, toCell, move, *rng_)) {
+                    collision_calc.handleInelasticCollision(*this, fromCell, toCell, move);
+                }
                 break;
             case CollisionType::FRAGMENTATION:
                 collision_calc.handleFragmentation(*this, fromCell, toCell, move);

@@ -426,6 +426,70 @@ std::vector<PhysicsControls::ColumnConfig> PhysicsControls::createColumnConfigs(
                           .enableSetter = []([[maybe_unused]] PhysicsSettings& s,
                                              [[maybe_unused]] bool e) {},
                           .enableGetter =
+                              []([[maybe_unused]] const PhysicsSettings& s) { return true; } } } },
+        // Column 6: Frag (Water fragmentation parameters).
+        { .title = "Frag",
+          .controls = { { .label = "Enabled",
+                          .type = ControlType::SWITCH_ONLY,
+                          .enableSetter = [](PhysicsSettings& s,
+                                             bool e) { s.fragmentation_enabled = e; },
+                          .enableGetter =
+                              [](const PhysicsSettings& s) { return s.fragmentation_enabled; } },
+                        { .label = "Threshold",
+                          .type = ControlType::TOGGLE_SLIDER,
+                          .rangeMin = 0,
+                          .rangeMax = 500,
+                          .defaultValue = 50,
+                          .valueScale = 0.1,
+                          .valueFormat = "%.1f",
+                          .initiallyEnabled = true,
+                          .valueSetter =
+                              [](PhysicsSettings& s, double v) { s.fragmentation_threshold = v; },
+                          .valueGetter =
+                              [](const PhysicsSettings& s) { return s.fragmentation_threshold; },
+                          .enableSetter = []([[maybe_unused]] PhysicsSettings& s,
+                                             [[maybe_unused]] bool e) {},
+                          .enableGetter =
+                              []([[maybe_unused]] const PhysicsSettings& s) { return true; } },
+                        { .label = "Full Threshold",
+                          .type = ControlType::TOGGLE_SLIDER,
+                          .rangeMin = 0,
+                          .rangeMax = 1000,
+                          .defaultValue = 100,
+                          .valueScale = 0.1,
+                          .valueFormat = "%.1f",
+                          .initiallyEnabled = true,
+                          .valueSetter =
+                              [](PhysicsSettings& s, double v) {
+                                  s.fragmentation_full_threshold = v;
+                              },
+                          .valueGetter =
+                              [](const PhysicsSettings& s) {
+                                  return s.fragmentation_full_threshold;
+                              },
+                          .enableSetter = []([[maybe_unused]] PhysicsSettings& s,
+                                             [[maybe_unused]] bool e) {},
+                          .enableGetter =
+                              []([[maybe_unused]] const PhysicsSettings& s) { return true; } },
+                        { .label = "Spray Fraction",
+                          .type = ControlType::TOGGLE_SLIDER,
+                          .rangeMin = 0,
+                          .rangeMax = 100,
+                          .defaultValue = 40,
+                          .valueScale = 0.01,
+                          .valueFormat = "%.2f",
+                          .initiallyEnabled = true,
+                          .valueSetter =
+                              [](PhysicsSettings& s, double v) {
+                                  s.fragmentation_spray_fraction = v;
+                              },
+                          .valueGetter =
+                              [](const PhysicsSettings& s) {
+                                  return s.fragmentation_spray_fraction;
+                              },
+                          .enableSetter = []([[maybe_unused]] PhysicsSettings& s,
+                                             [[maybe_unused]] bool e) {},
+                          .enableGetter =
                               []([[maybe_unused]] const PhysicsSettings& s) { return true; } } } }
     };
 }
@@ -462,7 +526,9 @@ PhysicsControls::PhysicsControls(lv_obj_t* container, WebSocketClient* wsClient)
             // Create Forces panel inside parent column.
             column = createCollapsibleColumnInContainer(forces_parent_column, columnConfig.title);
         }
-        else if ((title == "Swap Tuning" || title == "Swap2") && forces_parent_column) {
+        else if (
+            (title == "Swap Tuning" || title == "Swap2" || title == "Frag")
+            && forces_parent_column) {
             // Create panels inside same parent column.
             column = createCollapsibleColumnInContainer(forces_parent_column, columnConfig.title);
         }
@@ -522,7 +588,8 @@ lv_obj_t* PhysicsControls::createCollapsibleColumn(const char* title)
     // Collapse swap-related panels by default.
     const std::string title_str(title);
     const bool should_expand =
-        (title_str != "Forces" && title_str != "Swap Tuning" && title_str != "Swap2");
+        (title_str != "Forces" && title_str != "Swap Tuning" && title_str != "Swap2"
+         && title_str != "Frag");
 
     lv_obj_t* panel = LVGLBuilder::collapsiblePanel(container_)
                           .title(title)
@@ -549,7 +616,8 @@ lv_obj_t* PhysicsControls::createCollapsibleColumnInContainer(lv_obj_t* parent, 
     // Collapse swap-related panels by default.
     const std::string title_str(title);
     const bool should_expand =
-        (title_str != "Forces" && title_str != "Swap Tuning" && title_str != "Swap2");
+        (title_str != "Forces" && title_str != "Swap Tuning" && title_str != "Swap2"
+         && title_str != "Frag");
 
     lv_obj_t* panel = LVGLBuilder::collapsiblePanel(parent)
                           .title(title)
