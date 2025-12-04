@@ -138,10 +138,15 @@ std::vector<std::byte> serialize_payload(const T& payload)
 template <typename T>
 T deserialize_payload(const std::vector<std::byte>& data)
 {
+    // Suppress false positive -Wmaybe-uninitialized with GCC + -O3.
+    // zpp_bits initializes the payload, but the compiler can't prove it.
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
     T payload;
     zpp::bits::in in(data);
     in(payload).or_throw();
     return payload;
+#pragma GCC diagnostic pop
 }
 
 /**
