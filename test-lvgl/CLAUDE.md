@@ -62,6 +62,9 @@ make -C build-debug -j12
 # CLI integration test (quick, verifies ui, server, and cli).
 ./build-debug/bin/cli integration_test
 
+# Test binary protocol (type-safe StatusGet via zpp_bits).
+./build-debug/bin/cli test_binary ws://localhost:8080
+
 # Clean up all sparkle-duck processes.
 ./build-debug/bin/cli cleanup
 
@@ -492,7 +495,7 @@ be active if a tree is around.
 - mass as a gravity source!  allan.pizza but in a grid!!!
 - quad-tree or quantization or other spatial optimization applied to the grid?
 - cli send/receive any command/response automatically.
-- FIX: WebSocketClient duplication and type safety - We have two separate WebSocketClient implementations (UI and CLI) with duplicated code and poor error handling (bool/string returns). Create a general-purpose WebSocketClient library that all components can use, with type-safe Result<OkayType, Error> returns. See design_docs/websocket-client-library.md for full design.
+- ✅ DONE: WebSocketClient library - General-purpose binary protocol client in `src/core/network/`. CLI migrated, all commands support zpp_bits. **Remaining:** UI client still uses old pattern (should migrate), JSON protocol uses snake_case names (binary uses CamelCase - should unify). See design_docs/websocket-client-library.md for status and technical debt notes.
 - Review CLI and CLAUDE README/md files for accuracy and gross omission.  Test things
 to see if they work.
 - Instrument build to figure out which parts take the longest.

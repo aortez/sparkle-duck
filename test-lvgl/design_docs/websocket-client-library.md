@@ -1,8 +1,37 @@
 # WebSocket Client Library Design
 
-## Current State
+## ✅ IMPLEMENTATION STATUS (2025-12-03)
 
-We currently have **two separate** WebSocketClient implementations:
+**COMPLETE:** Binary protocol migration (Phases 1-3)
+
+### What's Working
+- ✅ Binary protocol foundation (MessageEnvelope, SerializableResult, zpp_bits)
+- ✅ Server dual-format support (auto-detects JSON vs binary frames)
+- ✅ General WebSocketClient library in `src/core/network/`
+- ✅ CLI fully migrated to new client (old client removed)
+- ✅ All 18 command types support zpp_bits serialization
+- ✅ Binary protocol tested end-to-end (`cli test_binary` command)
+- ✅ Result<> error handling throughout
+- ✅ CamelCase command names in binary path (e.g., "StatusGet")
+
+### What's Left (Optional)
+- ⏳ **UI client migration** - Still uses old JSON-only WebSocketClient pattern
+- ⏳ **JSON path removal** - Could simplify by going binary-only (or keep for debugging)
+- ⏳ **Performance benchmarking** - Compare binary vs JSON speeds
+- ⏳ **JSON protocol naming** - Still uses snake_case ("status_get"), could unify to CamelCase
+
+### Known Shortcuts / Technical Debt
+1. **Inconsistent command naming:** Binary uses CamelCase ("StatusGet"), JSON uses snake_case ("status_get"). Should unify to CamelCase everywhere.
+2. **Template design limitation:** `sendCommand<T>()` template expects `CommandT::OkayType`, but it's actually in the namespace. Works via manual envelope building for now.
+3. **UI client not migrated:** Still uses old pattern with poor error handling. Should migrate to `Network::WebSocketClient`.
+4. **No performance data:** Haven't benchmarked binary vs JSON to quantify the speedup.
+5. **JSON path still exists:** Dual-format adds code complexity. Could remove JSON path once confident in binary stability.
+
+---
+
+## Original Problem Statement
+
+We previously had **two separate** WebSocketClient implementations:
 
 1. **UI WebSocketClient** (`src/ui/state-machine/network/WebSocketClient.{h,cpp}`)
    - Wraps `rtc::WebSocket` from libdatachannel
