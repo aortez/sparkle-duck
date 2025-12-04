@@ -1072,28 +1072,42 @@ void WorldCollisionCalculator::swapCounterMovingMaterials(
     const MaterialType from_type = fromCell.material_type;
     const MaterialType to_type = toCell.material_type;
 
-    // Calculate swap cost.
-    // Note: getEffectiveDensity() already includes fill_ratio, so don't multiply again.
-    const double target_mass = toCell.getEffectiveDensity();
-    const double swap_cost = 0.5 * target_mass * 1.0;
+    // AIR swaps preserve momentum - no real collision occurred.
+    // Moving through air should not cost energy (air resistance handled elsewhere).
+    const bool involves_air = (from_type == MaterialType::AIR || to_type == MaterialType::AIR);
 
-    // Calculate remaining energy after swap.
-    // Energy is only lost proportional to work done (swap_cost).
-    const double remaining_energy = std::max(0.0, move.collision_energy - swap_cost);
+    Vector2d new_velocity;
+    double swap_cost = 0.0;
+    double remaining_energy = 0.0;
 
-    // Get mass of moving material (fromCell -> toCell).
-    const double moving_mass = fromCell.getEffectiveDensity();
-
-    // Calculate new velocity magnitude for moving material after energy deduction.
-    double velocity_magnitude_new = 0.0;
-    if (moving_mass > 1e-6 && remaining_energy > 0.0) {
-        velocity_magnitude_new = std::sqrt(2.0 * remaining_energy / moving_mass);
+    if (involves_air) {
+        // Preserve full momentum when swapping with air.
+        new_velocity = move.momentum;
     }
+    else {
+        // Calculate swap cost for real material-material swaps.
+        // Note: getEffectiveDensity() already includes fill_ratio, so don't multiply again.
+        const double target_mass = toCell.getEffectiveDensity();
+        swap_cost = 0.5 * target_mass * 1.0;
 
-    // Preserve velocity direction, but reduce magnitude.
-    Vector2d velocity_direction =
-        move.momentum.magnitude() > 1e-6 ? move.momentum.normalize() : Vector2d(0.0, 0.0);
-    Vector2d new_velocity = velocity_direction * velocity_magnitude_new;
+        // Calculate remaining energy after swap.
+        // Energy is only lost proportional to work done (swap_cost).
+        remaining_energy = std::max(0.0, move.collision_energy - swap_cost);
+
+        // Get mass of moving material (fromCell -> toCell).
+        const double moving_mass = fromCell.getEffectiveDensity();
+
+        // Calculate new velocity magnitude for moving material after energy deduction.
+        double velocity_magnitude_new = 0.0;
+        if (moving_mass > 1e-6 && remaining_energy > 0.0) {
+            velocity_magnitude_new = std::sqrt(2.0 * remaining_energy / moving_mass);
+        }
+
+        // Preserve velocity direction, but reduce magnitude.
+        Vector2d velocity_direction =
+            move.momentum.magnitude() > 1e-6 ? move.momentum.normalize() : Vector2d(0.0, 0.0);
+        new_velocity = velocity_direction * velocity_magnitude_new;
+    }
 
     // Swap material types and fill ratios (conserve mass).
     MaterialType temp_type = fromCell.material_type;
@@ -1120,14 +1134,13 @@ void WorldCollisionCalculator::swapCounterMovingMaterials(
     fromCell.velocity = Vector2d(0.0, 0.0);
 
     // Log with full details, INFO for non-air swaps, DEBUG for air swaps.
-    const bool involves_air = (from_type == MaterialType::AIR || to_type == MaterialType::AIR);
     const char* direction_str =
         direction.y > 0 ? "DOWN" : (direction.y < 0 ? "UP" : (direction.x > 0 ? "RIGHT" : "LEFT"));
 
     if (involves_air) {
         LoggingChannels::swap()->debug(
-            "SWAP: {} <-> {} at ({},{}) <-> ({},{}) Dir:({},{}) {} | Energy: {:.3f} - {:.3f} = "
-            "{:.3f} | Vel: {:.3f} -> {:.3f} | landing_com: ({:.2f},{:.2f})",
+            "SWAP: {} <-> {} at ({},{}) <-> ({},{}) Dir:({},{}) {} | Vel: {:.3f} -> {:.3f} "
+            "(air swap, momentum preserved) | landing_com: ({:.2f},{:.2f})",
             getMaterialName(from_type),
             getMaterialName(to_type),
             move.fromX,
@@ -1137,11 +1150,8 @@ void WorldCollisionCalculator::swapCounterMovingMaterials(
             direction.x,
             direction.y,
             direction_str,
-            move.collision_energy,
-            swap_cost,
-            remaining_energy,
             move.momentum.magnitude(),
-            velocity_magnitude_new,
+            new_velocity.magnitude(),
             landing_com.x,
             landing_com.y);
     }
@@ -1162,7 +1172,7 @@ void WorldCollisionCalculator::swapCounterMovingMaterials(
             swap_cost,
             remaining_energy,
             move.momentum.magnitude(),
-            velocity_magnitude_new,
+            new_velocity.magnitude(),
             landing_com.x,
             landing_com.y);
     }
