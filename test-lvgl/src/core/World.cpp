@@ -65,7 +65,10 @@ struct World::Impl {
     mutable Timers timers_;
 
     // Constructor.
-    Impl() { timers_.startTimer("total_simulation"); }
+    Impl() : physicsSettings_(getDefaultPhysicsSettings())
+    {
+        timers_.startTimer("total_simulation");
+    }
 
     // Destructor.
     ~Impl() { timers_.stopTimer("total_simulation"); }

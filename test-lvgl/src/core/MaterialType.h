@@ -34,11 +34,11 @@ struct MaterialProperties {
     double cohesion;                     // Internal binding strength (affects flow).
     double adhesion;                     // Binding strength to other materials.
     double air_resistance;               // Air drag coefficient [0.0-1.0].
-    double hydrostatic_weight;           // Hydrostatic pressure sensitivity [0.0-1.0].
+    double hydrostatic_weight;           // Hydrostatic pressure response [0.0-1.0].
+    double pressure_injection_weight;    // Hydrostatic pressure contribution [0.0-1.0].
     double dynamic_weight;               // Dynamic pressure sensitivity [0.0-1.0].
     double pressure_diffusion;           // Pressure propagation rate [0.0-1.0].
     double viscosity;                    // Flow resistance [0.0-1.0].
-    double motion_sensitivity;           // How much motion state affects viscosity [0.0-1.0].
     double static_friction_coefficient;  // Resistance multiplier when at rest (typically 1.0-1.5).
     double kinetic_friction_coefficient; // Resistance multiplier when moving (typically 0.4-1.0).
     double stick_velocity; // Velocity below which full static friction applies (0.0-0.05).

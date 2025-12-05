@@ -1,4 +1,5 @@
 #include "core/Cell.h"
+#include "core/GridOfCells.h"
 #include "core/LoggingChannels.h"
 #include "core/MaterialType.h"
 #include "core/PhysicsSettings.h"
@@ -20,18 +21,8 @@ class WaterEqualizationTest : public ::testing::Test {
 protected:
     void SetUp() override
     {
-        // Initialize logging channels.
-        LoggingChannels::initialize(spdlog::level::info, spdlog::level::debug);
-
-        // Suppress swap logging noise (not relevant for pressure flow analysis).
-        LoggingChannels::swap()->set_level(spdlog::level::off);
-
         // Create 3x6 world for water equalization test.
         world = std::make_unique<World>(3, 6);
-
-        // Note: World() constructor now starts with a clean empty world.
-        // No boundary walls, no particles - scenarios handle setup.
-        world->setWallsEnabled(false); // Explicitly disable walls for this test.
     }
 
     void TearDown() override { world.reset(); }
@@ -136,17 +127,21 @@ TEST_F(WaterEqualizationTest, WaterFlowsThroughOpening)
     for (int step = 0; step < num_steps; ++step) {
         world->advanceTime(deltaTime);
 
-        // Log progress every 100 steps.
-        if (step % 100 == 0) {
+        // Log progress every 100 steps (and every 10 steps from 190-310 to catch velocity flip).
+        bool should_log = (step % 100 == 0) || (step >= 190 && step <= 310 && step % 10 == 0);
+
+        if (should_log) {
             uint32_t left = countWaterInColumn(0);
             uint32_t right = countWaterInColumn(2);
             spdlog::info("Step {}: Left: {}, Right: {}", step, left, right);
 
-            // Log detailed state of bottom row after it settles.
+            // Log detailed state of bottom row.
             if (step >= 100) {
                 const Cell& cell_0_5 = world->getData().at(0, 5);
                 const Cell& cell_1_5 = world->getData().at(1, 5);
                 const Cell& cell_2_5 = world->getData().at(2, 5);
+                const CellDebug& debug_2_5 = world->getGrid().debugAt(2, 5);
+
                 spdlog::info(
                     "  Cell(0,5): pressure={:.3f}, gradient=({:.3f},{:.3f})",
                     cell_0_5.pressure,
@@ -158,12 +153,37 @@ TEST_F(WaterEqualizationTest, WaterFlowsThroughOpening)
                     cell_1_5.pressure_gradient.x,
                     cell_1_5.pressure_gradient.y);
                 spdlog::info(
-                    "  Cell(2,5): pressure={:.3f}, gradient=({:.3f},{:.3f}), vel=({:.3f},{:.3f})",
+                    "  Step {}: WATER at (2,5), vel=({:.3f},{:.3f}), com=({:.3f},{:.3f}), "
+                    "fill={:.3f}",
+                    step,
+                    cell_2_5.velocity.x,
+                    cell_2_5.velocity.y,
+                    cell_2_5.com.x,
+                    cell_2_5.com.y,
+                    cell_2_5.fill_ratio);
+                spdlog::info(
+                    "    Pressure: total={:.3f}, gradient=({:.3f},{:.3f})",
                     cell_2_5.pressure,
                     cell_2_5.pressure_gradient.x,
-                    cell_2_5.pressure_gradient.y,
-                    cell_2_5.velocity.x,
-                    cell_2_5.velocity.y);
+                    cell_2_5.pressure_gradient.y);
+                spdlog::info(
+                    "    Forces: viscous=({:.3f},{:.3f}), adhesion=({:.3f},{:.3f}), "
+                    "cohesion=({:.3f},{:.3f}), friction=({:.3f},{:.3f}), pending=({:.3f},{:.3f})",
+                    debug_2_5.accumulated_viscous_force.x,
+                    debug_2_5.accumulated_viscous_force.y,
+                    debug_2_5.accumulated_adhesion_force.x,
+                    debug_2_5.accumulated_adhesion_force.y,
+                    debug_2_5.accumulated_com_cohesion_force.x,
+                    debug_2_5.accumulated_com_cohesion_force.y,
+                    debug_2_5.accumulated_friction_force.x,
+                    debug_2_5.accumulated_friction_force.y,
+                    cell_2_5.pending_force.x,
+                    cell_2_5.pending_force.y);
+                spdlog::info(
+                    "    Support: any={}, vertical={}, friction_coeff={:.3f}",
+                    cell_2_5.has_any_support,
+                    cell_2_5.has_vertical_support,
+                    debug_2_5.cached_friction_coefficient);
             }
         }
     }

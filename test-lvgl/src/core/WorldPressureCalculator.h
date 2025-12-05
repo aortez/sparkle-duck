@@ -42,7 +42,6 @@ public:
     static constexpr double SLICE_THICKNESS = 1.0;
     static constexpr double HYDROSTATIC_MULTIPLIER = 1.0;
     static constexpr double DYNAMIC_MULTIPLIER = 1;
-    static constexpr double DYNAMIC_DECAY_RATE = 0.2;
     static constexpr double MIN_PRESSURE_THRESHOLD = 0.001; // Ignore pressures below this.
 
     void injectGravityPressure(World& world, double deltaTime);

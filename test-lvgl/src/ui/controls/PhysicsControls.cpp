@@ -407,7 +407,7 @@ std::vector<PhysicsControls::ColumnConfig> PhysicsControls::createColumnConfigs(
                                              [[maybe_unused]] bool e) {},
                           .enableGetter =
                               []([[maybe_unused]] const PhysicsSettings& s) { return true; } },
-                        { .label = "Non-Fluid Energy Mult",
+                        { .label = "Horiz Non-Fluid Energy",
                           .type = ControlType::TOGGLE_SLIDER,
                           .rangeMin = 0,
                           .rangeMax = 10000,
@@ -417,11 +417,11 @@ std::vector<PhysicsControls::ColumnConfig> PhysicsControls::createColumnConfigs(
                           .initiallyEnabled = true,
                           .valueSetter =
                               [](PhysicsSettings& s, double v) {
-                                  s.non_fluid_energy_multiplier = v;
+                                  s.horizontal_non_fluid_energy_multiplier = v;
                               },
                           .valueGetter =
                               [](const PhysicsSettings& s) {
-                                  return s.non_fluid_energy_multiplier;
+                                  return s.horizontal_non_fluid_energy_multiplier;
                               },
                           .enableSetter = []([[maybe_unused]] PhysicsSettings& s,
                                              [[maybe_unused]] bool e) {},

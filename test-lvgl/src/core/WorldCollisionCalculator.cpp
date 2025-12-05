@@ -1282,9 +1282,10 @@ bool WorldCollisionCalculator::shouldSwapMaterials(
     const double SWAP_COST_SCALAR = 1;
     double swap_cost = SWAP_COST_SCALAR * 0.5 * target_mass * 1.0; // KE = 0.5 * m * v^2, v = 1.0
 
-    // Non-fluids require more energy to displace (both source and target).
-    if (!from_props.is_fluid || !to_props.is_fluid) {
-        swap_cost *= world.getPhysicsSettings().non_fluid_energy_multiplier;
+    // Horizontal non-fluid swaps require more energy (prevents dirt from flowing sideways too
+    // easily). Vertical swaps (buoyancy) should NOT be penalized - density difference drives those.
+    if (direction.y == 0 && (!from_props.is_fluid || !to_props.is_fluid)) {
+        swap_cost *= world.getPhysicsSettings().horizontal_non_fluid_energy_multiplier;
     }
 
     // Total cost includes base swap cost + bond breaking cost.

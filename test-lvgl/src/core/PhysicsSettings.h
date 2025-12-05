@@ -10,41 +10,53 @@ namespace DirtSim {
  *
  * Centralized settings for all physics simulation parameters.
  * Automatically serializable via ReflectSerializer.
+ *
+ * Use getDefaultPhysicsSettings() to get default values.
+ * Default values are in PhysicsSettings.cpp to reduce recompilation.
  */
 struct PhysicsSettings {
-    double adhesion_strength = 2.0;
-    bool adhesion_enabled = true;
-    double air_resistance = 0.1;
-    double buoyancy_energy_scale = 1.0;
-    double cohesion_resistance_factor = 25.0;
-    double cohesion_strength = 10.0;
-    bool cohesion_enabled = true;
-    double elasticity = 0.8;
-    double fluid_lubrication_factor = 0.5;
-    bool fragmentation_enabled = true;
-    double fragmentation_threshold = 5.0;       // Minimum energy for fragmentation chance.
-    double fragmentation_full_threshold = 10.0; // Energy for 100% fragmentation.
-    double fragmentation_spray_fraction = 0.4;  // Fraction of fill_ratio that sprays out.
-    double friction_strength = 1.0;
-    bool friction_enabled = true;
-    double gravity = 9.81;
-    double horizontal_flow_resistance_factor = 1;
-    double horizontal_non_fluid_penalty = 0.05;
-    double horizontal_non_fluid_target_resistance = 10.0;
-    double non_fluid_energy_multiplier = 10.0;
-    double pressure_dynamic_strength = 0.3;
-    bool pressure_dynamic_enabled = true;
-    double pressure_hydrostatic_strength = 1.0;
-    bool pressure_hydrostatic_enabled = true;
-    double pressure_scale = 1.0;
-    double pressure_diffusion_strength = 5.0;
-    int pressure_diffusion_iterations = 2;
-    double pressure_decay_rate = 0.1; // Decay rate per second (0.0 = no decay, 1.0 = 100%/sec).
-    bool swap_enabled = true;
-    double timescale = 1.0;
-    double viscosity_strength = 1.0;
-    bool viscosity_enabled = true;
+    double adhesion_strength;
+    bool adhesion_enabled;
+    double air_resistance;
+    double buoyancy_energy_scale;
+    double cohesion_resistance_factor;
+    double cohesion_strength;
+    bool cohesion_enabled;
+    double elasticity;
+    double fluid_lubrication_factor;
+    bool fragmentation_enabled;
+    double fragmentation_threshold;      // Minimum energy for fragmentation chance.
+    double fragmentation_full_threshold; // Energy for 100% fragmentation.
+    double fragmentation_spray_fraction; // Fraction of fill_ratio that sprays out.
+    double friction_strength;
+    bool friction_enabled;
+    double gravity;
+    double horizontal_flow_resistance_factor;
+    double horizontal_non_fluid_penalty;
+    double horizontal_non_fluid_target_resistance;
+    double horizontal_non_fluid_energy_multiplier; // Energy cost multiplier for horizontal
+                                                   // non-fluid swaps.
+    double pressure_dynamic_strength;
+    bool pressure_dynamic_enabled;
+    double pressure_hydrostatic_strength;
+    bool pressure_hydrostatic_enabled;
+    double pressure_scale;
+    double pressure_diffusion_strength;
+    int pressure_diffusion_iterations;
+    double pressure_decay_rate; // Decay rate per second (0.0 = no decay, 1.0 = 100%/sec).
+    bool swap_enabled;
+    double timescale;
+    double viscosity_strength;
+    bool viscosity_enabled;
 };
+
+/**
+ * @brief Get default physics settings.
+ *
+ * Returns a PhysicsSettings struct with sensible defaults.
+ * Defined in PhysicsSettings.cpp to reduce recompilation when tweaking values.
+ */
+PhysicsSettings getDefaultPhysicsSettings();
 
 /**
  * ADL functions for automatic JSON conversion.

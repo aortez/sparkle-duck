@@ -10,6 +10,11 @@
 
 using namespace DirtSim;
 
+// Treat AIR as a no-flux boundary for pressure diffusion.
+// When true, pressure doesn't leak into AIR cells (sealed boundaries).
+// When false, AIR participates in diffusion like any other material.
+static constexpr bool TREAT_AIR_AS_BOUNDARY = false;
+
 void WorldPressureCalculator::injectGravityPressure(World& world, double deltaTime)
 {
     WorldData& data = world.getData();
@@ -32,9 +37,12 @@ void WorldPressureCalculator::injectGravityPressure(World& world, double deltaTi
                 continue;
             }
 
-            // Only fluids contribute to pressure injection.
+            // All materials contribute to pressure based on pressure_injection_weight.
+            // This creates correct buoyancy gradients for lighter materials in heavier fluids.
             const MaterialProperties& props = getMaterialProperties(cell.material_type);
-            if (!props.is_fluid) {
+
+            // Skip if material doesn't inject pressure (e.g., WALL).
+            if (props.pressure_injection_weight <= 0.0) {
                 continue;
             }
 
@@ -43,9 +51,10 @@ void WorldPressureCalculator::injectGravityPressure(World& world, double deltaTi
                 continue;
             }
 
-            // Inject pressure: weight = density * gravity.
+            // Inject pressure: weight = density * gravity * injection_weight.
             double weight = cell.getEffectiveDensity() * gravity_magnitude;
-            double pressure_contribution = weight * hydrostatic_strength * deltaTime;
+            double pressure_contribution =
+                weight * props.pressure_injection_weight * hydrostatic_strength * deltaTime;
 
             below.pressure += pressure_contribution;
         }
@@ -324,13 +333,14 @@ Vector2d WorldPressureCalculator::calculateGravityGradient(
 void WorldPressureCalculator::applyPressureDecay(World& world, double deltaTime)
 {
     WorldData& data = world.getData();
+    const PhysicsSettings& settings = world.getPhysicsSettings();
 
     for (uint32_t y = 0; y < data.height; ++y) {
         for (uint32_t x = 0; x < data.width; ++x) {
             Cell& cell = data.at(x, y);
 
             if (cell.pressure > MIN_PRESSURE_THRESHOLD) {
-                cell.pressure *= (1.0 - DYNAMIC_DECAY_RATE * deltaTime);
+                cell.pressure *= (1.0 - settings.pressure_decay_rate * deltaTime);
             }
 
             // Update pressure gradient for visualization.
@@ -595,6 +605,12 @@ void WorldPressureCalculator::applyPressureDiffusion(World& world, double deltaT
                             neighbor_diffusion = diffusion_rate;
                         }
                         else if (neighbor.isEmpty()) {
+                            neighbor_pressure = current_pressure;
+                            neighbor_diffusion = diffusion_rate;
+                        }
+                        else if (
+                            TREAT_AIR_AS_BOUNDARY && neighbor.material_type == MaterialType::AIR) {
+                            // Treat AIR as no-flux boundary (pressure sealed in).
                             neighbor_pressure = current_pressure;
                             neighbor_diffusion = diffusion_rate;
                         }
