@@ -390,11 +390,12 @@ add_executable(cli
     src/cli/main.cpp
     src/cli/BenchmarkRunner.cpp
     src/cli/CleanupRunner.cpp
+    src/cli/CommandDispatcher.cpp
     src/cli/IntegrationTest.cpp
     src/cli/RunAllRunner.cpp
     src/cli/SubprocessManager.cpp
 )
-target_link_libraries(cli PRIVATE sparkle-duck-server-lib datachannel-static pthread)
+target_link_libraries(cli PRIVATE sparkle-duck-server-lib sparkle-duck-ui-lib datachannel-static pthread)
 target_include_directories(cli PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/external/args ${zpp_bits_SOURCE_DIR})
 
 # Enable warnings and treat them as errors for CLI executable.

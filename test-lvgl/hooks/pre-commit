@@ -49,10 +49,10 @@ if [ "$SKIP_TESTS" != "1" ]; then
 
     # Run CLI integration test (quick smoke test of server + UI).
     echo "Running integration test..."
-    if ! ./build/bin/cli integration_test >/dev/null 2>&1; then
+    if ! ./build-debug/bin/cli integration_test >/dev/null 2>&1; then
         echo ""
         echo "❌ Integration test failed! Commit blocked."
-        echo "To see details: ./build/bin/cli integration_test"
+        echo "To see details: ./build-debug/bin/cli integration_test"
         echo "To skip tests: SKIP_TESTS=1 git commit"
         exit 1
     fi

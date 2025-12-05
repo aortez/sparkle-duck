@@ -1,5 +1,6 @@
 #include "BenchmarkRunner.h"
 #include "CleanupRunner.h"
+#include "CommandDispatcher.h"
 #include "CommandRegistry.h"
 #include "IntegrationTest.h"
 #include "RunAllRunner.h"
@@ -151,6 +152,8 @@ int main(int argc, char** argv)
     args::Flag verbose(parser, "verbose", "Enable debug logging", { 'v', "verbose" });
     args::ValueFlag<int> timeout(
         parser, "timeout", "Response timeout in milliseconds (default: 5000)", { 't', "timeout" });
+    args::ValueFlag<std::string> addressOverride(
+        parser, "address", "Override default WebSocket URL", { "address" });
 
     // Benchmark-specific flags.
     args::ValueFlag<int> benchSteps(
@@ -172,9 +175,8 @@ int main(int argc, char** argv)
         "Benchmark: Run twice to compare cached vs non-cached performance",
         { "compare-cache" });
 
+    args::Positional<std::string> target(parser, "target", "Target component: 'server' or 'ui'");
     args::Positional<std::string> command(parser, "command", getCommandListHelp());
-    args::Positional<std::string> address(
-        parser, "address", "WebSocket URL (e.g., ws://localhost:8080) - not needed for benchmark");
     args::Positional<std::string> params(
         parser, "params", "Optional JSON object with command parameters");
 
@@ -191,13 +193,6 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    // Validate required arguments.
-    if (!command) {
-        std::cerr << "Error: command is required\n\n";
-        std::cerr << parser;
-        return 1;
-    }
-
     // Configure logging.
     if (verbose) {
         spdlog::set_level(spdlog::level::debug);
@@ -206,10 +201,17 @@ int main(int argc, char** argv)
         spdlog::set_level(spdlog::level::err);
     }
 
-    std::string commandName = args::get(command);
+    // Require target argument.
+    if (!target) {
+        std::cerr << "Error: target is required ('server', 'ui', 'benchmark', etc.)\n\n";
+        std::cerr << parser;
+        return 1;
+    }
 
-    // Handle benchmark command (auto-launches server).
-    if (commandName == "benchmark") {
+    std::string targetName = args::get(target);
+
+    // Handle special CLI commands (benchmark, run-all, etc.).
+    if (targetName == "benchmark") {
         // Set log level to error for clean JSON output (unless --verbose).
         if (!verbose) {
             spdlog::set_level(spdlog::level::err);
@@ -292,7 +294,7 @@ int main(int argc, char** argv)
     }
 
     // Handle cleanup command (find and kill rogue processes).
-    if (commandName == "cleanup") {
+    if (targetName == "cleanup") {
         // Always show cleanup output (unless explicitly verbose).
         if (!verbose) {
             spdlog::set_level(spdlog::level::info);
@@ -304,7 +306,7 @@ int main(int argc, char** argv)
     }
 
     // Handle integration_test command (auto-launches server and UI).
-    if (commandName == "integration_test") {
+    if (targetName == "integration_test") {
         // Find server and UI binaries (assume they're in same directory as CLI).
         std::filesystem::path exePath = std::filesystem::read_symlink("/proc/self/exe");
         std::filesystem::path binDir = exePath.parent_path();
@@ -327,7 +329,7 @@ int main(int argc, char** argv)
     }
 
     // Handle run-all command (launches server and UI, monitors until UI exits).
-    if (commandName == "run-all") {
+    if (targetName == "run-all") {
         // Find server and UI binaries (assume they're in same directory as CLI).
         std::filesystem::path exePath = std::filesystem::read_symlink("/proc/self/exe");
         std::filesystem::path binDir = exePath.parent_path();
@@ -354,10 +356,18 @@ int main(int argc, char** argv)
     }
 
     // Handle test_binary command - tests binary protocol with type-safe StatusGet.
-    if (commandName == "test_binary") {
-        if (!address) {
+    if (targetName == "test_binary") {
+        // Get address from override or use command as address for backward compatibility.
+        std::string testAddress;
+        if (addressOverride) {
+            testAddress = args::get(addressOverride);
+        }
+        else if (command) {
+            testAddress = args::get(command);
+        }
+        else {
             std::cerr << "Error: address is required for test_binary command\n\n";
-            std::cerr << "Usage: cli test_binary ws://localhost:8080\n";
+            std::cerr << "Usage: cli test_binary --address ws://localhost:8080\n";
             return 1;
         }
 
@@ -368,7 +378,7 @@ int main(int argc, char** argv)
         client.setProtocol(Network::Protocol::BINARY);
 
         // Connect.
-        auto connectResult = client.connect(args::get(address), 5000);
+        auto connectResult = client.connect(testAddress, 5000);
         if (connectResult.isError()) {
             std::cerr << "Failed to connect: " << connectResult.errorValue() << std::endl;
             return 1;
@@ -414,44 +424,76 @@ int main(int argc, char** argv)
         return 0;
     }
 
-    // Normal command mode - require address.
-    if (!address) {
-        std::cerr << "Error: address is required for non-benchmark commands\n\n";
+    // Handle server/ui targets - normal command mode.
+    if (targetName != "server" && targetName != "ui") {
+        std::cerr << "Error: unknown target '" << targetName << "'\n";
+        std::cerr << "Valid targets: server, ui, benchmark, cleanup, integration_test, run-all, "
+                     "test_binary\n\n";
         std::cerr << parser;
         return 1;
     }
 
+    // Require command argument for server/ui targets.
+    if (!command) {
+        std::cerr << "Error: command is required for " << targetName << " target\n\n";
+        std::cerr << parser;
+        return 1;
+    }
+
+    std::string commandName = args::get(command);
+
+    // Determine address (override or default).
+    std::string address;
+    if (addressOverride) {
+        address = args::get(addressOverride);
+    }
+    else {
+        // Default addresses based on target.
+        if (targetName == "server") {
+            address = "ws://localhost:8080";
+        }
+        else if (targetName == "ui") {
+            address = "ws://localhost:7070";
+        }
+    }
+
     int timeoutMs = timeout ? args::get(timeout) : 5000;
 
-    // Build command JSON (CLI uses JSON format for dynamic command dispatch).
-    std::string commandJson = buildCommand(args::get(command), params ? args::get(params) : "");
-    if (commandJson.empty()) {
-        return 1;
+    // Parse command body (if provided).
+    nlohmann::json bodyJson;
+    if (params) {
+        try {
+            bodyJson = nlohmann::json::parse(args::get(params));
+        }
+        catch (const nlohmann::json::parse_error& e) {
+            std::cerr << "Error parsing JSON parameters: " << e.what() << std::endl;
+            return 1;
+        }
     }
 
-    // Connect to server using new general WebSocketClient.
+    // Connect to target using WebSocketClient.
     Network::WebSocketClient client;
 
-    auto connectResult = client.connect(args::get(address), timeoutMs);
+    auto connectResult = client.connect(address, timeoutMs);
     if (connectResult.isError()) {
-        std::cerr << "Failed to connect to " << args::get(address) << ": "
-                  << connectResult.errorValue() << std::endl;
+        std::cerr << "Failed to connect to " << address << ": " << connectResult.errorValue()
+                  << std::endl;
         return 1;
     }
 
-    // Send command and receive response using JSON protocol.
-    // (Binary support for dynamic dispatch coming in future iteration).
-    auto responseResult = client.sendJsonAndReceive(commandJson, timeoutMs);
+    // Dispatch command using type-safe dispatcher.
+    Client::CommandDispatcher dispatcher;
+    auto responseResult = dispatcher.dispatch(client, commandName, bodyJson);
     if (responseResult.isError()) {
-        std::cerr << "Failed to receive response: " << responseResult.errorValue().message
+        std::cerr << "Failed to execute command: " << responseResult.errorValue().message
                   << std::endl;
         return 1;
     }
 
     std::string response = responseResult.value();
 
-    // Special handling for diagram_get - extract and display just the diagram.
-    if (commandName == "diagram_get") {
+    // Special handling for DiagramGet - extract and display just the diagram.
+    if (commandName == "DiagramGet") {
         try {
             nlohmann::json responseJson = nlohmann::json::parse(response);
             spdlog::debug("Parsed response JSON: {}", responseJson.dump(2));
