@@ -148,9 +148,13 @@ void WebSocketServer::onMessage(std::shared_ptr<rtc::WebSocket> ws, const std::s
     auto cmdResult = deserializer_.deserialize(message);
     if (cmdResult.isError()) {
         spdlog::error("Command deserialization failed: {}", cmdResult.errorValue().message);
-        // Send error response back immediately.
-        std::string errorJson = R"({"error": ")" + cmdResult.errorValue().message + R"("})";
-        ws->send(errorJson);
+        // Send error response back immediately with correlation ID.
+        nlohmann::json errorJson;
+        errorJson["error"] = cmdResult.errorValue().message;
+        if (correlationId.has_value()) {
+            errorJson["id"] = correlationId.value();
+        }
+        ws->send(errorJson.dump());
         return;
     }
 
@@ -162,6 +166,11 @@ void WebSocketServer::onMessage(std::shared_ptr<rtc::WebSocket> ws, const std::s
 
     if (std::holds_alternative<Api::StatusGet::Command>(cmdResult.value())) {
         handleStatusGetImmediate(ws, correlationId);
+        return;
+    }
+
+    if (std::holds_alternative<Api::RenderFormatGet::Command>(cmdResult.value())) {
+        handleRenderFormatGetImmediate(ws, correlationId);
         return;
     }
 
@@ -206,6 +215,7 @@ REGISTER_API_NAMESPACE(PeersGet)
 REGISTER_API_NAMESPACE(PerfStatsGet)
 REGISTER_API_NAMESPACE(PhysicsSettingsGet)
 REGISTER_API_NAMESPACE(PhysicsSettingsSet)
+REGISTER_API_NAMESPACE(RenderFormatGet)
 REGISTER_API_NAMESPACE(RenderFormatSet)
 REGISTER_API_NAMESPACE(Reset)
 REGISTER_API_NAMESPACE(ScenarioConfigSet)
@@ -525,6 +535,34 @@ void WebSocketServer::handleRenderFormatSetImmediate(
     ws->send(jsonResponse);
 }
 
+void WebSocketServer::handleRenderFormatGetImmediate(
+    std::shared_ptr<rtc::WebSocket> ws, std::optional<uint64_t> correlationId)
+{
+    // Get the current render format for this client.
+    RenderFormat format = getClientRenderFormat(ws);
+
+    spdlog::info(
+        "RenderFormatGet: Current format is {}", format == RenderFormat::BASIC ? "BASIC" : "DEBUG");
+
+    // Create success response.
+    Api::RenderFormatGet::Okay okay;
+    okay.active_format = format;
+
+    // Serialize to JSON.
+    nlohmann::json responseJson;
+    responseJson["value"] = okay.toJson();
+
+    // Inject correlation ID if present.
+    if (correlationId.has_value()) {
+        responseJson["id"] = correlationId.value();
+    }
+
+    std::string jsonResponse = responseJson.dump();
+
+    spdlog::info("RenderFormatGet: Sending response ({} bytes)", jsonResponse.size());
+    ws->send(jsonResponse);
+}
+
 void WebSocketServer::broadcastRenderMessage(const World& world)
 {
     const WorldData& data = world.getData();
@@ -654,6 +692,11 @@ Result<ApiCommand, ApiError> deserializeBinaryCommand(const Network::MessageEnve
         if (type == "PhysicsSettingsSet") {
             auto cmd =
                 Network::deserialize_payload<Api::PhysicsSettingsSet::Command>(envelope.payload);
+            return Result<ApiCommand, ApiError>::okay(cmd);
+        }
+        if (type == "RenderFormatGet") {
+            auto cmd =
+                Network::deserialize_payload<Api::RenderFormatGet::Command>(envelope.payload);
             return Result<ApiCommand, ApiError>::okay(cmd);
         }
         if (type == "RenderFormatSet") {
@@ -802,6 +845,11 @@ void WebSocketServer::onBinaryMessage(std::shared_ptr<rtc::WebSocket> ws, const 
         return;
     }
 
+    if (std::holds_alternative<Api::RenderFormatGet::Command>(cmdResult.value())) {
+        handleRenderFormatGetImmediateBinary(ws, envelope.id);
+        return;
+    }
+
     if (std::holds_alternative<Api::RenderFormatSet::Command>(cmdResult.value())) {
         handleRenderFormatSetImmediateBinary(
             ws, std::get<Api::RenderFormatSet::Command>(cmdResult.value()), envelope.id);
@@ -931,6 +979,33 @@ void WebSocketServer::handleRenderFormatSetImmediateBinary(
     rtc::binary binaryMsg(bytes.begin(), bytes.end());
 
     spdlog::info("RenderFormatSet: Sending binary response ({} bytes)", bytes.size());
+    ws->send(binaryMsg);
+}
+
+void WebSocketServer::handleRenderFormatGetImmediateBinary(
+    std::shared_ptr<rtc::WebSocket> ws, uint64_t correlationId)
+{
+    // Get the current render format for this client.
+    RenderFormat format = getClientRenderFormat(ws);
+
+    spdlog::info(
+        "RenderFormatGet (binary): Current format is {}",
+        format == RenderFormat::BASIC ? "BASIC" : "DEBUG");
+
+    // Create success response.
+    Api::RenderFormatGet::Okay okay;
+    okay.active_format = format;
+
+    Api::RenderFormatGet::Response response = Api::RenderFormatGet::Response::okay(std::move(okay));
+
+    // Build response envelope.
+    auto envelope = Network::make_response_envelope(correlationId, "render_format_get", response);
+    auto bytes = Network::serialize_envelope(envelope);
+
+    // Send as binary.
+    rtc::binary binaryMsg(bytes.begin(), bytes.end());
+
+    spdlog::info("RenderFormatGet: Sending binary response ({} bytes)", bytes.size());
     ws->send(binaryMsg);
 }
 

@@ -146,6 +146,14 @@ private:
         std::shared_ptr<rtc::WebSocket> ws, std::optional<uint64_t> correlationId);
 
     /**
+     * @brief Handle render_format_get immediately without queuing.
+     * @param ws The WebSocket connection for sending response.
+     * @param correlationId Optional correlation ID from request.
+     */
+    void handleRenderFormatGetImmediate(
+        std::shared_ptr<rtc::WebSocket> ws, std::optional<uint64_t> correlationId);
+
+    /**
      * @brief Handle render_format_set immediately without queuing.
      * @param ws The WebSocket connection for sending response.
      * @param cmd The render format set command.
@@ -173,6 +181,14 @@ private:
      * @param correlationId Correlation ID from request envelope.
      */
     void handleStatusGetImmediateBinary(std::shared_ptr<rtc::WebSocket> ws, uint64_t correlationId);
+
+    /**
+     * @brief Handle render_format_get immediately with binary response.
+     * @param ws The WebSocket connection for sending response.
+     * @param correlationId Correlation ID from request envelope.
+     */
+    void handleRenderFormatGetImmediateBinary(
+        std::shared_ptr<rtc::WebSocket> ws, uint64_t correlationId);
 
     /**
      * @brief Handle render_format_set immediately with binary response.

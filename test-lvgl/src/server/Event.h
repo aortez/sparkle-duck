@@ -9,6 +9,7 @@
 #include "api/PerfStatsGet.h"
 #include "api/PhysicsSettingsGet.h"
 #include "api/PhysicsSettingsSet.h"
+#include "api/RenderFormatGet.h"
 #include "api/RenderFormatSet.h"
 #include "api/Reset.h"
 #include "api/ScenarioConfigSet.h"
@@ -406,6 +407,7 @@ public:
         DirtSim::Api::PerfStatsGet::Cwc,
         DirtSim::Api::PhysicsSettingsGet::Cwc,
         DirtSim::Api::PhysicsSettingsSet::Cwc,
+        DirtSim::Api::RenderFormatGet::Cwc,
         DirtSim::Api::RenderFormatSet::Cwc,
         DirtSim::Api::Reset::Cwc,
         DirtSim::Api::ScenarioConfigSet::Cwc,

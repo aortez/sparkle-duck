@@ -8,6 +8,7 @@
 #include "server/api/PerfStatsGet.h"
 #include "server/api/PhysicsSettingsGet.h"
 #include "server/api/PhysicsSettingsSet.h"
+#include "server/api/RenderFormatGet.h"
 #include "server/api/RenderFormatSet.h"
 #include "server/api/Reset.h"
 #include "server/api/ScenarioConfigSet.h"
@@ -97,6 +98,9 @@ Result<ApiCommand, ApiError> CommandDeserializerJson::deserialize(const std::str
         else if (commandName == "physics_settings_set") {
             return Result<ApiCommand, ApiError>::okay(
                 Api::PhysicsSettingsSet::Command::fromJson(cmd));
+        }
+        else if (commandName == "render_format_get") {
+            return Result<ApiCommand, ApiError>::okay(Api::RenderFormatGet::Command::fromJson(cmd));
         }
         else if (commandName == "render_format_set") {
             return Result<ApiCommand, ApiError>::okay(Api::RenderFormatSet::Command::fromJson(cmd));
