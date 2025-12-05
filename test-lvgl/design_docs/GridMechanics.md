@@ -139,33 +139,6 @@ Key behaviors:
 - Natural pressure equilibration without oscillations
 - Smooth transitions between static and flowing states
 
-### Motion State Integration
-
-Materials have a motion_sensitivity property (0.0-1.0) that determines how their viscosity is affected by motion state:
-
-**Motion Sensitivity Values**:
-- AIR: 0.0 (unaffected by motion)
-- WATER: 1.0 (fully affected by motion state)
-- LEAF: 0.8 (highly affected)
-- SAND: 0.5 (moderately affected)
-- ROOT: 0.3 (moderately affected)
-- WOOD: 0.2 (slightly affected)
-- METAL: 0.1 (barely affected)
-- DIRT: 0.0 (unaffected)
-- WALL: 0.0 (unaffected)
-
-**Motion State Effects**:
-When in different motion states, materials experience reduced viscosity:
-- STATIC: 100% of base viscosity (no reduction)
-- SLIDING: 50% of base viscosity
-- FALLING: 30% of base viscosity
-- TURBULENT: 10% of base viscosity
-
-The actual viscosity multiplier is interpolated based on motion_sensitivity:
-`effective_multiplier = 1.0 - sensitivity * (1.0 - state_multiplier)`
-
-This allows rigid materials like METAL to maintain high viscosity even when falling, while fluids like WATER flow freely in all motion states.
-
 ## Air Resistance
 
 Air resistance is a material-specific property that provides velocity-dependent damping. Unlike viscosity (which is internal flow resistance), air resistance models drag from the surrounding medium.

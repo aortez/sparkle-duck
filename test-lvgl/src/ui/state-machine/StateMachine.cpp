@@ -1,4 +1,5 @@
 #include "StateMachine.h"
+#include "core/network/WebSocketService.h"
 #include "network/WebSocketClient.h"
 #include "network/WebSocketServer.h"
 #include "states/State.h"
@@ -14,19 +15,46 @@ StateMachine::StateMachine(_lv_display_t* disp, uint16_t wsPort) : display(disp)
 {
     spdlog::info("Ui::StateMachine initialized in state: {}", getCurrentStateName());
 
-    // Create WebSocket server for accepting remote commands.
+    // Create OLD WebSocket server for accepting remote commands.
     wsServer_ = std::make_unique<WebSocketServer>(*this, wsPort);
     wsServer_->start();
     spdlog::info("Ui::StateMachine: WebSocket server listening on port {}", wsPort);
 
-    // Create WebSocket client for connecting to DSSM server.
+    // Create OLD WebSocket client for connecting to DSSM server.
     wsClient_ = std::make_unique<WebSocketClient>();
     wsClient_->setEventSink(this); // StateMachine implements EventSink.
     spdlog::info("Ui::StateMachine: WebSocket client created (not yet connected)");
 
+    // Create NEW unified WebSocketService (will replace both above).
+    wsService_ = std::make_unique<Network::WebSocketService>();
+    setupWebSocketService();
+    spdlog::info("Ui::StateMachine: WebSocketService initialized");
+
     // Create UI manager for LVGL screen/container management.
     uiManager_ = std::make_unique<UiComponentManager>(disp);
     spdlog::info("Ui::StateMachine: UiComponentManager created");
+}
+
+void StateMachine::setupWebSocketService()
+{
+    spdlog::info("Ui::StateMachine: Setting up WebSocketService command handlers...");
+
+    // Register handlers for UI commands that come from CLI (port 7070).
+    // All UI commands are queued to the state machine for processing.
+    wsService_->registerHandler<UiApi::SimRun::Cwc>(
+        [this](UiApi::SimRun::Cwc cwc) { queueEvent(cwc); });
+    wsService_->registerHandler<UiApi::SimPause::Cwc>(
+        [this](UiApi::SimPause::Cwc cwc) { queueEvent(cwc); });
+    wsService_->registerHandler<UiApi::SimStop::Cwc>(
+        [this](UiApi::SimStop::Cwc cwc) { queueEvent(cwc); });
+    wsService_->registerHandler<UiApi::StatusGet::Cwc>(
+        [this](UiApi::StatusGet::Cwc cwc) { queueEvent(cwc); });
+
+    // TODO: Register remaining UI commands (ScreenGrab, DrawDebugToggle, etc.).
+    // TODO: Setup client-side connection to server (port 8080).
+    // TODO: Setup RenderMessage binary callback for world updates.
+
+    spdlog::info("Ui::StateMachine: WebSocketService handlers registered");
 }
 
 StateMachine::~StateMachine()

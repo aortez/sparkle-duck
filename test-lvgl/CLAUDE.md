@@ -71,10 +71,10 @@ make -C build-debug -j12
 # Run benchmark and output results to file (use release build for accurate performance!).
 ./build-release/bin/cli benchmark > benchmark.json && cat benchmark.json | jq .server_fps
 
-# Sending commands to server and ui (syntax: cli [command] [address] [params]).
-./build-debug/bin/cli state_get ws://localhost:8080
-./build-debug/bin/cli sim_run ws://localhost:8080 '{"timestep": 0.016, "max_steps": 1}'
-./build-debug/bin/cli diagram_get ws://localhost:8080
+# Sending commands (new fluent syntax: cli [target] [command] [params]).
+./build-debug/bin/cli server StateGet
+./build-debug/bin/cli server SimRun '{"timestep": 0.016, "max_steps": 1}'
+./build-debug/bin/cli server DiagramGet
 
 # Run headless DSSM server (Dirt Sim State Machine).
 ./build-debug/bin/sparkle-duck-server -p 8080 -s 1000
@@ -356,24 +356,24 @@ The app communicates with two WebSocket endpoints:
 
 **Check if service is running:**
 ```bash
-./build-debug/bin/cli status_get ws://dirtsim.local:7070
+./build-debug/bin/cli ui StatusGet --address ws://dirtsim.local:7070
 # Returns: {"state":"StartMenu","connected_to_server":true,"fps":0.0,...}
 ```
 
 **Shutdown the remote service:**
 ```bash
-./build-debug/bin/cli exit ws://dirtsim.local:7070
+./build-debug/bin/cli ui Exit --address ws://dirtsim.local:7070
 # Returns: {"success":true}
 ```
 
 **Important:** To start a simulation remotely, send commands to the **UI** (port 7070), not the server:
 ```bash
 # Start simulation (UI coordinates with server)
-./build-debug/bin/cli sim_run ws://dirtsim.local:7070 '{"scenario_id": "sandbox"}'
+./build-debug/bin/cli ui SimRun '{"scenario_id": "sandbox"}' --address ws://dirtsim.local:7070
 
 # Query world state (server)
-./build-debug/bin/cli diagram_get ws://dirtsim.local:8080
-./build-debug/bin/cli state_get ws://dirtsim.local:8080
+./build-debug/bin/cli server DiagramGet --address ws://dirtsim.local:8080
+./build-debug/bin/cli server StateGet --address ws://dirtsim.local:8080
 ```
 
 ### Remote unit
@@ -482,11 +482,7 @@ Can be found here:
 - Performance testing and optimization
 
 Awesome Ideas to do soon:
-- Bones - could we give organisms bones to help old cells together?
-- Swapping behavior - don't swap down if there is an opening to the side, instead displace!!!
 - WorldEventGenerator methods should be moved into the Scenarios.
-- FIX: After resetting, the tree visualization is still showing, it should Only
-be active if a tree is around.
 - Add label to tree's view saying which layer it is from.
 - Centralize labels on tree's view to one side (top or bottom).
 - Implement fragmentation on high energy impacts (see WorldCollisionCalculator).
@@ -499,10 +495,10 @@ be active if a tree is around.
 - Review CLI and CLAUDE README/md files for accuracy and gross omission.  Test things
 to see if they work.
 - Instrument build to figure out which parts take the longest.
-- debug and release builds in different directories, then performance testing with release builds.
 - Add light tracing and illumination! (from top down)
 - Per-cell neighborhood cache: 64-bit bitmap in each Cell for instant neighbor queries (see design_docs/optimization-ideas.md Section 10).
 - Go to http://dirtsim.local and see a monitor page that shows all the dirt sims on the network.  The beginning of a web-based control panel!
+- on start menu, q to quit, enter to start?
 
 See design_docs/plant.md and design_docs/ai-integration-ideas.md for details.
 

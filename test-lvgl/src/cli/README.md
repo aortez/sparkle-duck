@@ -11,10 +11,10 @@ Command-line client for interacting with Sparkle Duck server and UI via WebSocke
 ./build-debug/bin/cli run-all
 
 # 2. In another terminal, send a command
-./build-debug/bin/cli status_get ws://localhost:8080
+./build-debug/bin/cli server StatusGet
 
 # 3. See a visual snapshot
-./build-debug/bin/cli diagram_get ws://localhost:8080
+./build-debug/bin/cli server DiagramGet
 
 # 4. Clean up when done
 ./build-debug/bin/cli cleanup
@@ -39,27 +39,32 @@ The CLI provides five modes of operation:
 Send commands to the server or UI:
 
 ```bash
-# Syntax: cli [command] [address] [params]
+# New fluent syntax: cli [target] [command] [params]
+# Targets: 'server' (port 8080) or 'ui' (port 7070)
 
-# Basic command (no parameters)
-./build-debug/bin/cli state_get ws://localhost:8080
+# Basic commands (no parameters)
+./build-debug/bin/cli server StateGet
+./build-debug/bin/cli server StatusGet
+./build-debug/bin/cli ui StatusGet
 
-# Command with JSON parameters
-./build-debug/bin/cli sim_run ws://localhost:8080 '{"timestep": 0.016, "max_steps": 10}'
-
-# Place material
-./build-debug/bin/cli cell_set ws://localhost:8080 '{"x": 50, "y": 50, "material": "WATER", "fill": 1.0}'
+# Commands with JSON parameters
+./build-debug/bin/cli server SimRun '{"timestep": 0.016, "max_steps": 10}'
+./build-debug/bin/cli server CellSet '{"x": 50, "y": 50, "material": "WATER", "fill": 1.0}'
 
 # Get emoji visualization
-./build-debug/bin/cli diagram_get ws://localhost:8080
+./build-debug/bin/cli server DiagramGet
 
 # Control simulation
-./build-debug/bin/cli sim_run ws://localhost:8080 '{"timestep": 0.016, "max_steps": 100}'
-./build-debug/bin/cli reset ws://localhost:8080
-./build-debug/bin/cli exit ws://localhost:8080
+./build-debug/bin/cli server Reset
+./build-debug/bin/cli server Exit
 
-# Send commands to UI (port 7070)
-./build-debug/bin/cli draw_debug_toggle ws://localhost:7070 '{"enabled": true}'
+# UI commands
+./build-debug/bin/cli ui SimPause
+./build-debug/bin/cli ui SimStop
+
+# Remote connections (override default addresses)
+./build-debug/bin/cli server StateGet --address ws://dirtsim.local:8080
+./build-debug/bin/cli ui StatusGet --address ws://dirtsim.local:7070
 ```
 
 ### Run-All Mode

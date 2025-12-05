@@ -2,6 +2,7 @@
 #include "core/GridOfCells.h"
 #include "core/LoggingChannels.h"
 #include "core/Timers.h"
+#include "core/network/WebSocketService.h"
 #include "network/HttpServer.h"
 #include "network/WebSocketServer.h"
 #include <args.hxx>
@@ -116,15 +117,21 @@ int main(int argc, char** argv)
     std::signal(SIGINT, signalHandler);
     std::signal(SIGTERM, signalHandler);
 
-    // Create WebSocket server.
-    Server::WebSocketServer server(*stateMachine, port);
-    server.start();
+    // Create WebSocket service (unified client + server).
+    DirtSim::Network::WebSocketService service;
 
-    // Give state machine access to server for broadcasting.
-    stateMachine->setWebSocketServer(&server);
+    // Setup command handlers via state machine (also stores pointer).
+    stateMachine->setupWebSocketService(service);
 
-    spdlog::info("WebSocket server listening on port {}", server.getPort());
-    spdlog::info("Send commands to ws://localhost:{}", server.getPort());
+    // Start listening for connections.
+    auto listenResult = service.listen(port);
+    if (listenResult.isError()) {
+        spdlog::error("Failed to start WebSocket service: {}", listenResult.errorValue());
+        return 1;
+    }
+
+    spdlog::info("WebSocket service listening on port {}", port);
+    spdlog::info("Send commands to ws://localhost:{}", port);
 
     // Create HTTP server for web dashboard.
     Server::HttpServer httpServer(8081);
@@ -136,7 +143,7 @@ int main(int argc, char** argv)
 
     // Cleanup.
     httpServer.stop();
-    server.stop();
+    service.stopListening();
     spdlog::info("Server shut down cleanly");
 
     // Print timer statistics if requested.

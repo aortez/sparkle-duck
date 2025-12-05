@@ -1,8 +1,11 @@
 #include "State.h"
 #include "core/Cell.h"
+#include "core/RenderMessage.h"
+#include "core/RenderMessageUtils.h"
 #include "core/Timers.h"
 #include "core/World.h" // Must be before State.h for complete type.
 #include "core/WorldFrictionCalculator.h"
+#include "core/network/WebSocketService.h"
 #include "core/organisms/TreeManager.h"
 #include "server/StateMachine.h"
 #include "server/network/WebSocketServer.h"
@@ -181,14 +184,36 @@ void SimRunning::tick(StateMachine& dsm)
     spdlog::debug("SimRunning: Advanced simulation, total step {})", stepCount);
 
     // Send frame to UI clients after every physics update.
-    // UI frame dropping handles overflow if rendering can't keep up.
-    if (dsm.getWebSocketServer()) {
+    // Broadcast render messages to connected clients.
+    if (dsm.getWebSocketService() || dsm.getWebSocketServer()) {
         auto& timers = dsm.getTimers();
 
-        // Broadcast RenderMessage to all clients (per-client format).
+        // Broadcast RenderMessage to all clients.
         auto broadcastStart = std::chrono::steady_clock::now();
         timers.startTimer("broadcast_render_message");
-        dsm.getWebSocketServer()->broadcastRenderMessage(*world);
+
+        if (dsm.getWebSocketService()) {
+            spdlog::info(
+                "SimRunning: Broadcasting via WebSocketService to {} clients",
+                dsm.getWebSocketService()->isListening() ? "listening" : "not listening");
+            // Pack WorldData into RenderMessage (simplified - BASIC format).
+            const WorldData& data = world->getData();
+            RenderMessage renderMsg =
+                RenderMessageUtils::packRenderMessage(data, RenderFormat::BASIC);
+
+            // Serialize with zpp_bits.
+            std::vector<std::byte> bytes;
+            zpp::bits::out out(bytes);
+            out(renderMsg).or_throw();
+
+            // Broadcast via WebSocketService.
+            dsm.getWebSocketService()->broadcastBinary(bytes);
+        }
+        else if (dsm.getWebSocketServer()) {
+            // Fall back to old server.
+            dsm.getWebSocketServer()->broadcastRenderMessage(*world);
+        }
+
         timers.stopTimer("broadcast_render_message");
         auto broadcastEnd = std::chrono::steady_clock::now();
         auto broadcastMs =

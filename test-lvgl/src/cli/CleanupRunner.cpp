@@ -1,5 +1,5 @@
 #include "CleanupRunner.h"
-#include "core/network/WebSocketClient.h"
+#include "core/network/WebSocketService.h"
 #include <chrono>
 #include <filesystem>
 #include <fstream>
@@ -186,7 +186,7 @@ bool CleanupRunner::isProcessRunning(int pid)
 bool CleanupRunner::tryWebSocketShutdown(int pid, const std::string& url, int maxWaitMs)
 {
     try {
-        Network::WebSocketClient client;
+        Network::WebSocketService client;
 
         // Try to connect (short timeout).
         auto connectResult = client.connect(url, 2000);

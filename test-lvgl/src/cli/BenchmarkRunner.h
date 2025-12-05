@@ -1,7 +1,7 @@
 #pragma once
 
 #include "SubprocessManager.h"
-#include "core/network/WebSocketClient.h"
+#include "core/network/WebSocketService.h"
 #include "server/api/TimerStatsGet.h"
 
 #include <nlohmann/json.hpp>
@@ -62,7 +62,7 @@ public:
 
 private:
     SubprocessManager subprocessManager_;
-    Network::WebSocketClient client_;
+    Network::WebSocketService client_;
 
     bool waitForCompletion(uint32_t targetSteps, int timeoutSec);
 

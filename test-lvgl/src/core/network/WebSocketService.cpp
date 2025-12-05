@@ -1,4 +1,4 @@
-#include "WebSocketClient.h"
+#include "WebSocketService.h"
 #include <chrono>
 #include <cstring>
 #include <spdlog/spdlog.h>
@@ -7,20 +7,21 @@
 namespace DirtSim {
 namespace Network {
 
-WebSocketClient::WebSocketClient()
+WebSocketService::WebSocketService()
 {
-    spdlog::debug("WebSocketClient created");
+    spdlog::debug("WebSocketService created");
 }
 
-WebSocketClient::~WebSocketClient()
+WebSocketService::~WebSocketService()
 {
     disconnect();
+    stopListening();
 }
 
-Result<std::monostate, std::string> WebSocketClient::connect(const std::string& url, int timeoutMs)
+Result<std::monostate, std::string> WebSocketService::connect(const std::string& url, int timeoutMs)
 {
     try {
-        spdlog::debug("WebSocketClient: Connecting to {}", url);
+        spdlog::debug("WebSocketService: Connecting to {}", url);
 
         // Reset connection state.
         connectionFailed_ = false;
@@ -37,7 +38,7 @@ Result<std::monostate, std::string> WebSocketClient::connect(const std::string& 
             if (std::holds_alternative<rtc::string>(data)) {
                 // JSON text message.
                 std::string message = std::get<rtc::string>(data);
-                spdlog::debug("WebSocketClient: Received text ({} bytes)", message.size());
+                spdlog::debug("WebSocketService: Received text ({} bytes)", message.size());
 
                 // Extract correlation ID.
                 std::optional<uint64_t> correlationId;
@@ -71,7 +72,7 @@ Result<std::monostate, std::string> WebSocketClient::connect(const std::string& 
             else {
                 // Binary message.
                 const auto& binaryData = std::get<rtc::binary>(data);
-                spdlog::debug("WebSocketClient: Received binary ({} bytes)", binaryData.size());
+                spdlog::debug("WebSocketService: Received binary ({} bytes)", binaryData.size());
 
                 // Convert to std::vector<std::byte>.
                 std::vector<std::byte> bytes(binaryData.size());
@@ -108,7 +109,7 @@ Result<std::monostate, std::string> WebSocketClient::connect(const std::string& 
 
         // Set up open handler.
         ws_->onOpen([this]() {
-            spdlog::debug("WebSocketClient: Connection opened");
+            spdlog::debug("WebSocketService: Connection opened");
             if (connectedCallback_) {
                 connectedCallback_();
             }
@@ -116,7 +117,7 @@ Result<std::monostate, std::string> WebSocketClient::connect(const std::string& 
 
         // Set up close handler.
         ws_->onClosed([this]() {
-            spdlog::debug("WebSocketClient: Connection closed");
+            spdlog::debug("WebSocketService: Connection closed");
             connectionFailed_ = true;
             if (disconnectedCallback_) {
                 disconnectedCallback_();
@@ -125,7 +126,7 @@ Result<std::monostate, std::string> WebSocketClient::connect(const std::string& 
 
         // Set up error handler.
         ws_->onError([this](std::string error) {
-            spdlog::error("WebSocketClient error: {}", error);
+            spdlog::error("WebSocketService error: {}", error);
             connectionFailed_ = true;
             if (errorCallback_) {
                 errorCallback_(error);
@@ -150,7 +151,7 @@ Result<std::monostate, std::string> WebSocketClient::connect(const std::string& 
             return Result<std::monostate, std::string>::error("Connection failed");
         }
 
-        spdlog::info("WebSocketClient: Connected to {}", url);
+        spdlog::info("WebSocketService: Connected to {}", url);
         return Result<std::monostate, std::string>::okay(std::monostate{});
     }
     catch (const std::exception& e) {
@@ -159,7 +160,7 @@ Result<std::monostate, std::string> WebSocketClient::connect(const std::string& 
     }
 }
 
-void WebSocketClient::disconnect()
+void WebSocketService::disconnect()
 {
     if (ws_) {
         if (ws_->isOpen()) {
@@ -169,12 +170,12 @@ void WebSocketClient::disconnect()
     }
 }
 
-bool WebSocketClient::isConnected() const
+bool WebSocketService::isConnected() const
 {
     return ws_ && ws_->isOpen();
 }
 
-Result<std::monostate, std::string> WebSocketClient::sendText(const std::string& message)
+Result<std::monostate, std::string> WebSocketService::sendText(const std::string& message)
 {
     if (!isConnected()) {
         return Result<std::monostate, std::string>::error("Not connected");
@@ -189,7 +190,7 @@ Result<std::monostate, std::string> WebSocketClient::sendText(const std::string&
     }
 }
 
-Result<std::monostate, std::string> WebSocketClient::sendBinary(const std::vector<std::byte>& data)
+Result<std::monostate, std::string> WebSocketService::sendBinary(const std::vector<std::byte>& data)
 {
     if (!isConnected()) {
         return Result<std::monostate, std::string>::error("Not connected");
@@ -205,7 +206,7 @@ Result<std::monostate, std::string> WebSocketClient::sendBinary(const std::vecto
     }
 }
 
-Result<MessageEnvelope, std::string> WebSocketClient::sendBinaryAndReceive(
+Result<MessageEnvelope, std::string> WebSocketService::sendBinaryAndReceive(
     const MessageEnvelope& envelope, int timeoutMs)
 {
     if (!isConnected()) {
@@ -227,7 +228,7 @@ Result<MessageEnvelope, std::string> WebSocketClient::sendBinaryAndReceive(
         rtc::binary binaryMsg(bytes.begin(), bytes.end());
 
         spdlog::debug(
-            "WebSocketClient: Sending binary (id={}, type={}, {} bytes)",
+            "WebSocketService: Sending binary (id={}, type={}, {} bytes)",
             id,
             envelope.message_type,
             bytes.size());
@@ -266,7 +267,7 @@ Result<MessageEnvelope, std::string> WebSocketClient::sendBinaryAndReceive(
         MessageEnvelope responseEnvelope = deserialize_envelope(bytes);
 
         spdlog::debug(
-            "WebSocketClient: Received binary response (id={}, type={}, {} bytes)",
+            "WebSocketService: Received binary response (id={}, type={}, {} bytes)",
             responseEnvelope.id,
             responseEnvelope.message_type,
             bytes.size());
@@ -279,7 +280,7 @@ Result<MessageEnvelope, std::string> WebSocketClient::sendBinaryAndReceive(
     }
 }
 
-Result<std::string, ApiError> WebSocketClient::sendJsonAndReceive(
+Result<std::string, ApiError> WebSocketService::sendJsonAndReceive(
     const std::string& message, int timeoutMs)
 {
     if (!isConnected()) {
@@ -309,7 +310,7 @@ Result<std::string, ApiError> WebSocketClient::sendJsonAndReceive(
     }
 
     // Send.
-    spdlog::debug("WebSocketClient: Sending JSON (id={}): {}", id, messageWithId);
+    spdlog::debug("WebSocketService: Sending JSON (id={}): {}", id, messageWithId);
     try {
         ws_->send(messageWithId);
     }
@@ -341,11 +342,150 @@ Result<std::string, ApiError> WebSocketClient::sendJsonAndReceive(
     }
 
     spdlog::debug(
-        "WebSocketClient: Received JSON response (id={}, {} bytes)",
+        "WebSocketService: Received JSON response (id={}, {} bytes)",
         id,
         std::get<std::string>(pending->response).size());
 
     return Result<std::string, ApiError>::okay(std::get<std::string>(pending->response));
+}
+
+// =============================================================================
+// Server-side methods (listening for connections).
+// =============================================================================
+
+Result<std::monostate, std::string> WebSocketService::listen(uint16_t port)
+{
+    try {
+        spdlog::info("WebSocketService: Starting server on port {}", port);
+
+        // Create WebSocket server configuration.
+        rtc::WebSocketServerConfiguration config;
+        config.port = port;
+        config.bindAddress = "0.0.0.0";           // Listen on all interfaces.
+        config.enableTls = false;                 // No TLS for now.
+        config.maxMessageSize = 10 * 1024 * 1024; // 10MB limit.
+
+        // Create server.
+        server_ = std::make_unique<rtc::WebSocketServer>(config);
+
+        // Set up client connection handler.
+        server_->onClient([this](std::shared_ptr<rtc::WebSocket> ws) { onClientConnected(ws); });
+
+        spdlog::info("WebSocketService: Server started on port {}", port);
+        return Result<std::monostate, std::string>::okay(std::monostate{});
+    }
+    catch (const std::exception& e) {
+        return Result<std::monostate, std::string>::error(
+            std::string("Failed to start server: ") + e.what());
+    }
+}
+
+void WebSocketService::stopListening()
+{
+    if (server_) {
+        server_->stop();
+        server_.reset();
+        spdlog::info("WebSocketService: Server stopped");
+    }
+}
+
+bool WebSocketService::isListening() const
+{
+    return server_ != nullptr;
+}
+
+void WebSocketService::broadcastBinary(const std::vector<std::byte>& data)
+{
+    if (connectedClients_.empty()) {
+        return;
+    }
+
+    // Convert to rtc::binary.
+    rtc::binary binaryMsg(data.begin(), data.end());
+
+    spdlog::trace(
+        "WebSocketService: Broadcasting binary ({} bytes) to {} clients",
+        data.size(),
+        connectedClients_.size());
+
+    // Send to all connected clients.
+    for (auto& ws : connectedClients_) {
+        if (ws && ws->isOpen()) {
+            try {
+                ws->send(binaryMsg);
+            }
+            catch (const std::exception& e) {
+                spdlog::error("WebSocketService: Broadcast failed for client: {}", e.what());
+            }
+        }
+    }
+}
+
+void WebSocketService::onClientConnected(std::shared_ptr<rtc::WebSocket> ws)
+{
+    spdlog::info("WebSocketService: Client connected");
+    connectedClients_.push_back(ws);
+
+    // Set up message handler for this client.
+    ws->onMessage([this, ws](std::variant<rtc::binary, rtc::string> data) {
+        if (std::holds_alternative<rtc::binary>(data)) {
+            // Binary message - route to command handlers.
+            const rtc::binary& binaryData = std::get<rtc::binary>(data);
+            onClientMessage(ws, binaryData);
+        }
+        else {
+            // Text/JSON message - not supported (binary-only).
+            spdlog::warn("WebSocketService: Received text message (binary-only mode, ignoring)");
+        }
+    });
+
+    // Set up close handler.
+    ws->onClosed([this, ws]() {
+        spdlog::info("WebSocketService: Client disconnected");
+        connectedClients_.erase(
+            std::remove(connectedClients_.begin(), connectedClients_.end(), ws),
+            connectedClients_.end());
+    });
+
+    // Set up error handler.
+    ws->onError(
+        [](std::string error) { spdlog::error("WebSocketService: Client error: {}", error); });
+}
+
+void WebSocketService::onClientMessage(std::shared_ptr<rtc::WebSocket> ws, const rtc::binary& data)
+{
+    spdlog::debug("WebSocketService: Received binary message ({} bytes)", data.size());
+
+    // Convert to std::vector<std::byte>.
+    std::vector<std::byte> bytes(data.size());
+    std::memcpy(bytes.data(), data.data(), data.size());
+
+    // Deserialize envelope.
+    MessageEnvelope envelope;
+    try {
+        envelope = deserialize_envelope(bytes);
+    }
+    catch (const std::exception& e) {
+        spdlog::error("WebSocketService: Failed to deserialize envelope: {}", e.what());
+        return;
+    }
+
+    spdlog::debug(
+        "WebSocketService: Command '{}', id={}, payload={} bytes",
+        envelope.message_type,
+        envelope.id,
+        envelope.payload.size());
+
+    // Look up handler.
+    auto it = commandHandlers_.find(envelope.message_type);
+    if (it == commandHandlers_.end()) {
+        spdlog::warn("WebSocketService: No handler for command '{}'", envelope.message_type);
+        // TODO: Send error response.
+        return;
+    }
+
+    // Call handler.
+    it->second(envelope.payload, ws, envelope.id);
 }
 
 } // namespace Network

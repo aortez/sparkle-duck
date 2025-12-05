@@ -1,4 +1,6 @@
 #include "State.h"
+#include "core/network/BinaryProtocol.h"
+#include "core/network/WebSocketService.h"
 #include "server/api/SimRun.h"
 #include "ui/UiComponentManager.h"
 #include "ui/rendering/JuliaFractal.h"
@@ -149,11 +151,11 @@ void StartMenu::onStartButtonClicked(lv_event_t* e)
         lv_obj_get_user_data(static_cast<lv_obj_t*>(lv_event_get_target(e))));
     if (!sm) return;
 
-    spdlog::info("StartMenu: Start button clicked, sending sim_run to DSSM");
+    spdlog::info("StartMenu: Start button clicked, sending sim_run to DSSM via binary protocol");
 
-    // Send sim_run command and wait for response.
-    auto* wsClient = sm->getWebSocketClient();
-    if (wsClient && wsClient->isConnected()) {
+    // Send sim_run command using WebSocketService (binary protocol).
+    auto* wsService = sm->getWebSocketService();
+    if (wsService && wsService->isConnected()) {
         const DirtSim::Api::SimRun::Command cmd{
             .timestep = 0.016,
             .max_steps = -1,
@@ -161,21 +163,30 @@ void StartMenu::onStartButtonClicked(lv_event_t* e)
             .max_frame_ms = 16 // Cap at 60 FPS for UI visualization.
         };
 
-        nlohmann::json json = cmd.toJson();
-        json["command"] = DirtSim::Api::SimRun::Command::name();
-        std::string response = wsClient->sendAndReceive(json.dump(), 1000);
+        // Build and send binary envelope.
+        auto envelope = DirtSim::Network::make_command_envelope(1, cmd);
+        auto result = wsService->sendBinaryAndReceive(envelope, 1000);
 
-        if (response.empty()) {
-            spdlog::error("StartMenu: No response from sim_run");
+        if (result.isError()) {
+            spdlog::error("StartMenu: SimRun failed: {}", result.errorValue());
             return;
         }
 
-        // Parse response to check if server is now running.
+        // Deserialize binary response.
         try {
-            nlohmann::json responseJson = nlohmann::json::parse(response);
-            if (responseJson.contains("value") && responseJson["value"]["running"] == true) {
+            const auto& responseEnvelope = result.value();
+            auto response =
+                DirtSim::Network::extract_result<DirtSim::Api::SimRun::Okay, DirtSim::ApiError>(
+                    responseEnvelope);
+
+            if (response.isError()) {
+                spdlog::error("StartMenu: SimRun error: {}", response.errorValue().message);
+                return;
+            }
+
+            // Check if server is now running.
+            if (response.value().running) {
                 spdlog::info("StartMenu: Server confirmed running, transitioning to SimRunning");
-                // Queue transition event.
                 sm->queueEvent(ServerRunningConfirmedEvent{});
             }
             else {
@@ -347,25 +358,27 @@ State::Any StartMenu::onEvent(const UiApi::SimRun::Cwc& cwc, StateMachine& sm)
 {
     spdlog::info("StartMenu: SimRun command received");
 
-    // Get WebSocket client to send command to DSSM.
-    auto* wsClient = sm.getWebSocketClient();
-    if (!wsClient || !wsClient->isConnected()) {
+    // Get WebSocketService to send command to DSSM (binary protocol).
+    auto* wsService = sm.getWebSocketService();
+    if (!wsService || !wsService->isConnected()) {
         spdlog::error("StartMenu: Not connected to DSSM server");
         cwc.sendResponse(UiApi::SimRun::Response::error(ApiError("Not connected to DSSM server")));
         return StartMenu{};
     }
 
-    // Send sim_run command to DSSM server.
+    // Send sim_run command to DSSM server via binary protocol.
     const DirtSim::Api::SimRun::Command cmd{
         .timestep = 0.016,
         .max_steps = -1,
         .scenario_id = "sandbox",
         .max_frame_ms = 16 // Cap at 60 FPS for UI visualization.
     };
-    bool sent = wsClient->sendCommand(cmd);
 
-    if (!sent) {
-        spdlog::error("StartMenu: Failed to send sim_run to DSSM");
+    auto envelope = DirtSim::Network::make_command_envelope(1, cmd);
+    auto result = wsService->sendBinaryAndReceive(envelope, 1000);
+
+    if (result.isError()) {
+        spdlog::error("StartMenu: Failed to send sim_run: {}", result.errorValue());
         cwc.sendResponse(
             UiApi::SimRun::Response::error(ApiError("Failed to send command to DSSM")));
         return StartMenu{};

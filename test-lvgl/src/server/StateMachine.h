@@ -15,6 +15,10 @@ class ScenarioRegistry;
 namespace DirtSim {
 struct WorldData;
 
+namespace Network {
+class WebSocketService;
+}
+
 namespace Server {
 
 class Event;
@@ -51,6 +55,15 @@ public:
 
     class WebSocketServer* getWebSocketServer();
     void setWebSocketServer(class WebSocketServer* server);
+
+    Network::WebSocketService* getWebSocketService();
+    void setWebSocketService(Network::WebSocketService* service);
+
+    /**
+     * @brief Setup WebSocketService with command handlers.
+     * @param service The WebSocketService to configure (must outlive StateMachine).
+     */
+    void setupWebSocketService(Network::WebSocketService& service);
 
     void updateCachedWorldData(const WorldData& data);
     std::shared_ptr<WorldData> getCachedWorldData() const;

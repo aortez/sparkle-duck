@@ -1,7 +1,9 @@
 #include "IntegrationTest.h"
 #include "SubprocessManager.h"
-#include "core/network/WebSocketClient.h"
+#include "core/network/BinaryProtocol.h"
+#include "core/network/WebSocketService.h"
 #include "server/api/Exit.h"
+#include "server/api/SimRun.h"
 #include <chrono>
 #include <iostream>
 #include <nlohmann/json.hpp>
@@ -20,7 +22,7 @@ IntegrationTest::~IntegrationTest()
 int IntegrationTest::run(const std::string& serverPath, const std::string& uiPath)
 {
     SubprocessManager subprocessManager;
-    Network::WebSocketClient client;
+    Network::WebSocketService client;
 
     // Launch server.
     std::cout << "Launching server..." << std::endl;
@@ -60,13 +62,11 @@ int IntegrationTest::run(const std::string& serverPath, const std::string& uiPat
 
     // Start simulation (creates World and transitions to SimRunning).
     std::cout << "Starting simulation..." << std::endl;
-    nlohmann::json simRunCmd = { { "command", "sim_run" },
-                                 { "timestep", 0.016 },
-                                 { "max_steps", 1 } };
-    auto simResult = client.sendJsonAndReceive(simRunCmd.dump(), 5000);
+    const DirtSim::Api::SimRun::Command simCmd{ .timestep = 0.016, .max_steps = 1 };
+    auto simEnvelope = DirtSim::Network::make_command_envelope(1, simCmd);
+    auto simResult = client.sendBinaryAndReceive(simEnvelope, 5000);
     if (simResult.isError()) {
-        std::cerr << "Error: Failed to start simulation: " << simResult.errorValue().message
-                  << std::endl;
+        std::cerr << "Error: Failed to start simulation: " << simResult.errorValue() << std::endl;
         return 1;
     }
     std::cout << "Simulation started" << std::endl;
@@ -77,10 +77,9 @@ int IntegrationTest::run(const std::string& serverPath, const std::string& uiPat
 
     // Send exit to server and wait for acknowledgment.
     std::cout << "Shutting down server..." << std::endl;
-    const DirtSim::Api::Exit::Command cmd{};
-    nlohmann::json exitCmd = cmd.toJson();
-    exitCmd["command"] = DirtSim::Api::Exit::Command::name();
-    auto exitResult = client.sendJsonAndReceive(exitCmd.dump(), 2000);
+    const DirtSim::Api::Exit::Command exitCmd{};
+    auto exitEnvelope = DirtSim::Network::make_command_envelope(2, exitCmd);
+    auto exitResult = client.sendBinaryAndReceive(exitEnvelope, 2000);
     if (exitResult.isValue()) {
         std::cout << "Server acknowledged shutdown" << std::endl;
     }

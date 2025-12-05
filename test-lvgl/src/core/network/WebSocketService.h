@@ -1,6 +1,7 @@
 #pragma once
 
 #include "BinaryProtocol.h"
+#include "core/CommandWithCallback.h"
 #include "core/Result.h"
 #include "core/Timers.h"
 #include "server/api/ApiCommand.h"
@@ -12,10 +13,14 @@
 #include <memory>
 #include <mutex>
 #include <rtc/rtc.hpp>
+#include <spdlog/spdlog.h>
 #include <string>
 #include <variant>
 
 namespace DirtSim {
+
+class World; // Forward declaration.
+
 namespace Network {
 
 /**
@@ -27,30 +32,33 @@ enum class Protocol {
 };
 
 /**
- * @brief General-purpose WebSocket client with type-safe command/response handling.
+ * @brief Unified WebSocket service supporting both client and server roles.
  *
- * Supports both binary (zpp_bits) and JSON protocols. Binary is default for
- * performance; JSON can be used for debugging.
+ * Can simultaneously act as:
+ * - Client: Connect to remote endpoints, send commands, receive responses
+ * - Server: Listen for connections, handle incoming commands via registered handlers
+ *
+ * Supports binary (zpp_bits) protocol by default. JSON available for debugging/CLI.
  *
  * Features:
  * - Result<> return types for proper error handling
- * - Type-safe sendCommand<T> template
+ * - Type-safe command templates with automatic name derivation
  * - Correlation ID support for multiplexed requests
- * - Proper blocking with condition variables
+ * - Template-based handler registration (server side)
  * - Async callbacks for unsolicited messages
  */
-class WebSocketClient {
+class WebSocketService {
 public:
     using MessageCallback = std::function<void(const std::string&)>;
     using BinaryCallback = std::function<void(const std::vector<std::byte>&)>;
     using ConnectionCallback = std::function<void()>;
     using ErrorCallback = std::function<void(const std::string&)>;
 
-    WebSocketClient();
-    ~WebSocketClient();
+    WebSocketService();
+    ~WebSocketService();
 
-    WebSocketClient(const WebSocketClient&) = delete;
-    WebSocketClient& operator=(const WebSocketClient&) = delete;
+    WebSocketService(const WebSocketService&) = delete;
+    WebSocketService& operator=(const WebSocketService&) = delete;
 
     Result<std::monostate, std::string> connect(const std::string& url, int timeoutMs = 5000);
 
@@ -126,6 +134,100 @@ public:
     void onError(ErrorCallback callback) { errorCallback_ = callback; }
 
     // =========================================================================
+    // Server-side methods (listening for connections).
+    // =========================================================================
+
+    /**
+     * @brief Start listening for incoming WebSocket connections.
+     *
+     * @param port Port to listen on.
+     * @return Result with success or error message.
+     */
+    Result<std::monostate, std::string> listen(uint16_t port);
+
+    /**
+     * @brief Stop listening for connections.
+     */
+    void stopListening();
+
+    /**
+     * @brief Check if server is currently listening.
+     */
+    bool isListening() const;
+
+    /**
+     * @brief Broadcast binary message to all connected clients.
+     * @param data Binary data to send.
+     */
+    void broadcastBinary(const std::vector<std::byte>& data);
+
+    /**
+     * @brief Register a typed command handler (server-side).
+     *
+     * Handler receives CommandWithCallback and calls sendResponse() when done.
+     * Supports both immediate (synchronous) and queued (asynchronous) handlers.
+     *
+     * @tparam CwcT The CommandWithCallback type (e.g., Api::StateGet::Cwc).
+     * @param handler Function that receives CWC and eventually calls sendResponse().
+     *
+     * Example:
+     *   service.registerHandler<Api::StateGet::Cwc>([](Api::StateGet::Cwc cwc) {
+     *       // Immediate response
+     *       cwc.sendResponse(Api::StateGet::Response::okay(getState()));
+     *   });
+     *
+     *   service.registerHandler<Api::SimRun::Cwc>([sm](Api::SimRun::Cwc cwc) {
+     *       // Queue to state machine, respond later
+     *       sm->queueEvent(cwc);  // State machine calls sendResponse() when done
+     *   });
+     */
+    template <typename CwcT>
+    void registerHandler(std::function<void(CwcT)> handler)
+    {
+        using CommandT = typename CwcT::Command;
+        using ResponseT = typename CwcT::Response;
+
+        std::string cmdName(CommandT::name());
+        spdlog::debug("WebSocketService: Registering handler for '{}'", cmdName);
+
+        // Wrap typed handler in generic handler that handles serialization.
+        commandHandlers_[cmdName] = [handler, cmdName](
+                                        const std::vector<std::byte>& payload,
+                                        std::shared_ptr<rtc::WebSocket> ws,
+                                        uint64_t correlationId) {
+            // Deserialize payload → typed command.
+            CommandT cmd;
+            try {
+                cmd = Network::deserialize_payload<CommandT>(payload);
+            }
+            catch (const std::exception& e) {
+                spdlog::error("Failed to deserialize {}: {}", cmdName, e.what());
+                // TODO: Send error response.
+                return;
+            }
+
+            // Build CWC with callback that sends response.
+            CwcT cwc;
+            cwc.command = cmd;
+            cwc.callback = [ws, correlationId, cmdName](ResponseT&& response) {
+                // Serialize response → envelope → binary.
+                auto envelope =
+                    Network::make_response_envelope(correlationId, std::string(cmdName), response);
+                auto bytes = Network::serialize_envelope(envelope);
+
+                // Send binary response.
+                rtc::binary binaryMsg(bytes.begin(), bytes.end());
+                spdlog::debug(
+                    "WebSocketService: Sending {} response ({} bytes)", cmdName, bytes.size());
+                ws->send(binaryMsg);
+            };
+
+            // Call handler - it will call cwc.sendResponse() or cwc.callback() when ready.
+            handler(std::move(cwc));
+        };
+    }
+
+    // =========================================================================
     // Instrumentation.
     // =========================================================================
 
@@ -168,6 +270,22 @@ private:
     ConnectionCallback disconnectedCallback_;
     ErrorCallback errorCallback_;
 
+    // =========================================================================
+    // Server-side state (listening for connections).
+    // =========================================================================
+
+    using CommandHandler = std::function<void(
+        const std::vector<std::byte>& payload,
+        std::shared_ptr<rtc::WebSocket> ws,
+        uint64_t correlationId)>;
+
+    std::unique_ptr<rtc::WebSocketServer> server_;
+    std::map<std::string, CommandHandler> commandHandlers_;
+    std::vector<std::shared_ptr<rtc::WebSocket>> connectedClients_;
+
+    void onClientConnected(std::shared_ptr<rtc::WebSocket> ws);
+    void onClientMessage(std::shared_ptr<rtc::WebSocket> ws, const rtc::binary& data);
+
     // Instrumentation.
     Timers timers_;
 };
@@ -177,7 +295,7 @@ private:
 // =============================================================================
 
 template <ApiCommandType CommandT>
-Result<typename CommandT::OkayType, std::string> WebSocketClient::sendCommandBinary(
+Result<typename CommandT::OkayType, std::string> WebSocketService::sendCommandBinary(
     const CommandT& cmd, int timeoutMs)
 {
     // Build command envelope.
@@ -217,7 +335,7 @@ Result<typename CommandT::OkayType, std::string> WebSocketClient::sendCommandBin
 }
 
 template <ApiCommandType CommandT>
-Result<typename CommandT::OkayType, std::string> WebSocketClient::sendCommandJson(
+Result<typename CommandT::OkayType, std::string> WebSocketService::sendCommandJson(
     const CommandT& cmd, int timeoutMs)
 {
     // Build JSON message.

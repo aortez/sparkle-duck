@@ -878,7 +878,7 @@ bool WorldCollisionCalculator::handleWaterFragmentation(
         toCell.velocity = toCell.velocity + target_velocity_change;
     }
 
-    spdlog::info(
+    spdlog::debug(
         "Water fragmentation: {} frags, FROM({},{}) sprayed {:.3f} remaining {:.3f}, TO({},{}) "
         "sprayed {:.3f} remaining {:.3f}",
         num_frags,
@@ -893,49 +893,6 @@ bool WorldCollisionCalculator::handleWaterFragmentation(
 
     return true;
 }
-
-void WorldCollisionCalculator::handleFloatingParticleCollision(
-    World& world, int cellX, int cellY, const Cell& floating_particle, Cell& targetCell)
-{
-    (void)world; // Unused for now.
-    Vector2d particleVelocity = floating_particle.velocity;
-
-    spdlog::info(
-        "Floating particle {} collided with {} at cell ({},{}) with velocity ({:.2f},{:.2f})",
-        getMaterialName(floating_particle.material_type),
-        getMaterialName(targetCell.material_type),
-        cellX,
-        cellY,
-        particleVelocity.x,
-        particleVelocity.y);
-
-    // TODO: Implement collision response based on material properties.
-    // - Elastic collisions for METAL vs METAL.
-    // - Splash effects for WATER collisions.
-    // - Fragmentation for brittle materials.
-    // - Momentum transfer based on mass ratios.
-
-    // For now, simple momentum transfer.
-    Vector2d currentVelocity = targetCell.velocity;
-    double floatingMass = floating_particle.getMass();
-    double targetMass = targetCell.getMass();
-
-    if (targetMass > MIN_MATTER_THRESHOLD) {
-        // Inelastic collision with momentum conservation.
-        Vector2d combinedMomentum = particleVelocity * floatingMass + currentVelocity * targetMass;
-        Vector2d newVelocity = combinedMomentum / (floatingMass + targetMass);
-        targetCell.velocity = newVelocity;
-
-        spdlog::debug(
-            "Applied collision momentum: new velocity ({:.2f},{:.2f})",
-            newVelocity.x,
-            newVelocity.y);
-    }
-}
-
-// =================================================================
-// BOUNDARY REFLECTIONS.
-// =================================================================
 
 void WorldCollisionCalculator::applyBoundaryReflection(Cell& cell, const Vector2i& direction)
 {
@@ -1204,7 +1161,7 @@ bool WorldCollisionCalculator::shouldSwapMaterials(
         const bool swap_ok = effective_momentum > to_resistance * threshold;
 
         if (!swap_ok) {
-            LoggingChannels::swap()->warn(
+            LoggingChannels::swap()->info(
                 "Vertical swap DENIED: {} -> {} at ({},{}) -> ({},{}) | momentum: {:.3f} (mass: "
                 "{:.3f}, "
                 "vel: {:.3f}, buoyancy: {:.3f}) | resistance: {:.3f} (mass: {:.3f}, cohesion: "
@@ -1231,7 +1188,7 @@ bool WorldCollisionCalculator::shouldSwapMaterials(
         }
         // Log vertical swap approval details.
         if (toCell.material_type != MaterialType::AIR) {
-            LoggingChannels::swap()->warn(
+            LoggingChannels::swap()->info(
                 "Vertical swap OK: {} -> {} at ({},{}) -> ({},{}) | momentum: {:.3f} (mass: "
                 "{:.3f}, "
                 "vel: {:.3f}, buoyancy: {:.3f}) | resistance: {:.3f} (mass: {:.3f}, cohesion: "

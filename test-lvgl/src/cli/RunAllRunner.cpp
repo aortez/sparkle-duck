@@ -1,6 +1,6 @@
 #include "RunAllRunner.h"
 #include "SubprocessManager.h"
-#include "core/network/WebSocketClient.h"
+#include "core/network/WebSocketService.h"
 #include "server/api/Exit.h"
 #include <chrono>
 #include <iostream>
@@ -14,7 +14,7 @@ namespace Client {
 Result<std::monostate, std::string> runAll(const std::string& serverPath, const std::string& uiPath)
 {
     SubprocessManager subprocessManager;
-    Network::WebSocketClient client;
+    Network::WebSocketService client;
 
     // Launch server.
     std::cout << "Launching DSSM server on port 8080..." << std::endl;

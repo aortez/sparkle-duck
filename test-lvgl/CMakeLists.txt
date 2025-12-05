@@ -197,7 +197,7 @@ add_library(sparkle-duck-core STATIC
     src/core/GridOfCells.cpp
 
     # Network layer.
-    src/core/network/WebSocketClient.cpp
+    src/core/network/WebSocketService.cpp
 )
 target_include_directories(sparkle-duck-core PUBLIC ${CMAKE_SOURCE_DIR}/src ${zpp_bits_SOURCE_DIR})
 target_link_libraries(sparkle-duck-core PUBLIC nlohmann_json::nlohmann_json msgpack-cxx spdlog::spdlog datachannel-static)

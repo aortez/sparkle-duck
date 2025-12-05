@@ -1,5 +1,5 @@
 #include "SubprocessManager.h"
-#include "core/network/WebSocketClient.h"
+#include "core/network/WebSocketService.h"
 #include <chrono>
 #include <fcntl.h>
 #include <filesystem>
@@ -163,7 +163,7 @@ bool SubprocessManager::isServerRunning() const
 bool SubprocessManager::tryConnect(const std::string& url)
 {
     try {
-        Network::WebSocketClient client;
+        Network::WebSocketService client;
         auto result = client.connect(url, 1000);
         if (result.isError()) {
             return false;

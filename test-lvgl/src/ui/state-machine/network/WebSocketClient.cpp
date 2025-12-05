@@ -49,18 +49,19 @@ bool WebSocketClient::connect(const std::string& url)
 
         // Set up message handler (handles both JSON string and MessagePack binary).
         ws_->onMessage([this](std::variant<rtc::binary, rtc::string> data) {
+            spdlog::info("UI WebSocketClient: onMessage callback fired!");
             std::string message;
 
             if (std::holds_alternative<rtc::string>(data)) {
                 // JSON string message.
                 message = std::get<rtc::string>(data);
-                spdlog::debug(
+                spdlog::info(
                     "UI WebSocketClient: Received JSON message (length: {})", message.length());
             }
             else if (std::holds_alternative<rtc::binary>(data)) {
                 // zpp_bits binary message - unpack RenderMessage.
                 const auto& binaryData = std::get<rtc::binary>(data);
-                spdlog::debug(
+                spdlog::info(
                     "UI WebSocketClient: Received binary message ({} bytes)", binaryData.size());
 
                 try {

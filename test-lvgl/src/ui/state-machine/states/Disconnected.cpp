@@ -1,9 +1,15 @@
 #include "State.h"
+#include "core/RenderMessage.h"
+#include "core/RenderMessageUtils.h"
+#include "core/WorldData.h"
+#include "core/api/UiUpdateEvent.h"
+#include "core/network/WebSocketService.h"
 #include "ui/state-machine/StateMachine.h"
 #include "ui/state-machine/network/MessageParser.h"
 #include "ui/state-machine/network/WebSocketClient.h"
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
+#include <zpp_bits.h>
 
 namespace DirtSim {
 namespace Ui {
@@ -80,12 +86,85 @@ State::Any Disconnected::onEvent(const ConnectToServerCommand& cmd, StateMachine
         }
     });
 
-    // Initiate connection.
-    std::string url = "ws://" + cmd.host + ":" + std::to_string(cmd.port);
-    bool success = wsClient->connect(url);
+    // Connect using WebSocketService (unified client for commands AND RenderMessages).
+    auto* wsService = sm.getWebSocketService();
+    if (wsService) {
+        // Setup callbacks BEFORE connecting (connection may complete immediately for localhost).
+        wsService->onConnected([&sm]() {
+            spdlog::info("WebSocketService: Connected to server");
+            sm.queueEvent(ServerConnectedEvent{});
+        });
 
-    if (!success) {
-        spdlog::error("Disconnected: Failed to initiate connection to {}", url);
+        wsService->onDisconnected([&sm]() {
+            spdlog::warn("WebSocketService: Disconnected from server");
+            sm.queueEvent(ServerDisconnectedEvent{ "Connection closed" });
+        });
+
+        wsService->onError([&sm](const std::string& error) {
+            spdlog::error("WebSocketService: Connection error: {}", error);
+            sm.queueEvent(ServerDisconnectedEvent{ error });
+        });
+
+        // Setup binary callback for RenderMessages.
+        wsService->onBinary([&sm](const std::vector<std::byte>& bytes) {
+            spdlog::info(
+                "WebSocketService: Received binary RenderMessage ({} bytes)", bytes.size());
+
+            try {
+                // Deserialize RenderMessage.
+                RenderMessage renderMsg;
+                zpp::bits::in in(bytes);
+                in(renderMsg).or_throw();
+
+                // Reconstruct WorldData from RenderMessage.
+                WorldData worldData;
+                worldData.width = renderMsg.width;
+                worldData.height = renderMsg.height;
+                worldData.timestep = renderMsg.timestep;
+                worldData.fps_server = renderMsg.fps_server;
+                worldData.scenario_id = renderMsg.scenario_id;
+                worldData.scenario_config = renderMsg.scenario_config;
+
+                // Unpack cells (simplified - assume BASIC format for now).
+                size_t numCells = renderMsg.width * renderMsg.height;
+                worldData.cells.resize(numCells);
+                const BasicCell* basicCells =
+                    reinterpret_cast<const BasicCell*>(renderMsg.payload.data());
+                for (size_t i = 0; i < numCells; ++i) {
+                    MaterialType material;
+                    double fill_ratio;
+                    RenderMessageUtils::unpackBasicCell(basicCells[i], material, fill_ratio);
+                    worldData.cells[i].material_type = material;
+                    worldData.cells[i].fill_ratio = fill_ratio;
+                }
+
+                // Create UiUpdateEvent and queue to EventSink.
+                auto now = std::chrono::steady_clock::now();
+                UiUpdateEvent evt{ .sequenceNum = 0,
+                                   .worldData = std::move(worldData),
+                                   .fps = 0,
+                                   .stepCount = static_cast<uint64_t>(renderMsg.timestep),
+                                   .isPaused = false,
+                                   .timestamp = now };
+
+                sm.queueEvent(evt);
+                spdlog::info("WebSocketService: Queued UiUpdateEvent (step {})", evt.stepCount);
+            }
+            catch (const std::exception& e) {
+                spdlog::error("WebSocketService: Failed to process RenderMessage: {}", e.what());
+            }
+        });
+
+        // NOW connect (after callbacks are registered).
+        std::string url = "ws://" + cmd.host + ":" + std::to_string(cmd.port);
+        auto connectResult = wsService->connect(url);
+        if (connectResult.isError()) {
+            spdlog::error(
+                "Disconnected: WebSocketService connection failed: {}", connectResult.errorValue());
+            return Disconnected{};
+        }
+
+        spdlog::info("Disconnected: WebSocketService connecting to {}", url);
     }
 
     // Stay in Disconnected state - will transition to StartMenu on ServerConnectedEvent.

@@ -211,17 +211,6 @@ public:
      */
     void handleAbsorption(World& world, Cell& fromCell, Cell& toCell, const MaterialMove& move);
 
-    /**
-     * @brief Handle floating particle collision response.
-     * @param world World providing access to grid and cells.
-     * @param cellX Target cell X coordinate.
-     * @param cellY Target cell Y coordinate.
-     * @param floating_particle The floating particle.
-     * @param targetCell Target cell to modify.
-     */
-    void handleFloatingParticleCollision(
-        World& world, int cellX, int cellY, const Cell& floating_particle, Cell& targetCell);
-
     // ===== BOUNDARY REFLECTIONS =====
 
     /**

@@ -6,6 +6,7 @@
 #include "core/Timers.h"
 #include "core/World.h" // Must be first for complete type in variant.
 #include "core/WorldData.h"
+#include "core/network/WebSocketService.h"
 #include "network/PeerDiscovery.h"
 #include "scenarios/Scenario.h"
 #include "scenarios/ScenarioRegistry.h"
@@ -30,6 +31,7 @@ struct StateMachine::Impl {
     PeerDiscovery peerDiscovery_;
     State::Any fsmState_{ State::Startup{} };
     class WebSocketServer* wsServer_ = nullptr;
+    Network::WebSocketService* wsService_ = nullptr;
     std::shared_ptr<WorldData> cachedWorldData_;
     mutable std::mutex cachedWorldDataMutex_;
 
@@ -84,6 +86,106 @@ WebSocketServer* StateMachine::getWebSocketServer()
 void StateMachine::setWebSocketServer(WebSocketServer* server)
 {
     pImpl->wsServer_ = server;
+}
+
+Network::WebSocketService* StateMachine::getWebSocketService()
+{
+    return pImpl->wsService_;
+}
+
+void StateMachine::setWebSocketService(Network::WebSocketService* service)
+{
+    pImpl->wsService_ = service;
+}
+
+void StateMachine::setupWebSocketService(Network::WebSocketService& service)
+{
+    spdlog::info("StateMachine: Setting up WebSocketService command handlers...");
+
+    // Store pointer for later access (broadcasting, etc.).
+    setWebSocketService(&service);
+
+    // =========================================================================
+    // Immediate handlers - respond right away without queuing.
+    // =========================================================================
+
+    // StateGet - return cached world data.
+    service.registerHandler<Api::StateGet::Cwc>([this](Api::StateGet::Cwc cwc) {
+        auto cachedPtr = getCachedWorldData();
+        if (!cachedPtr) {
+            cwc.sendResponse(Api::StateGet::Response::error(ApiError{ "No world data available" }));
+            return;
+        }
+
+        Api::StateGet::Okay okay;
+        okay.worldData = *cachedPtr;
+        cwc.sendResponse(Api::StateGet::Response::okay(std::move(okay)));
+    });
+
+    // StatusGet - return lightweight status from cached data.
+    service.registerHandler<Api::StatusGet::Cwc>([this](Api::StatusGet::Cwc cwc) {
+        auto cachedPtr = getCachedWorldData();
+        if (!cachedPtr) {
+            cwc.sendResponse(
+                Api::StatusGet::Response::error(ApiError{ "No world data available" }));
+            return;
+        }
+
+        Api::StatusGet::Okay status;
+        status.timestep = cachedPtr->timestep;
+        status.scenario_id = cachedPtr->scenario_id;
+        status.width = cachedPtr->width;
+        status.height = cachedPtr->height;
+        cwc.sendResponse(Api::StatusGet::Response::okay(std::move(status)));
+    });
+
+    // RenderFormatGet - return default format (TODO: track per-client).
+    service.registerHandler<Api::RenderFormatGet::Cwc>([](Api::RenderFormatGet::Cwc cwc) {
+        Api::RenderFormatGet::Okay okay;
+        okay.active_format = RenderFormat::BASIC; // Default for now.
+        cwc.sendResponse(Api::RenderFormatGet::Response::okay(std::move(okay)));
+    });
+
+    // RenderFormatSet - accept but don't track yet (TODO: per-client tracking).
+    service.registerHandler<Api::RenderFormatSet::Cwc>([](Api::RenderFormatSet::Cwc cwc) {
+        // Just acknowledge for now.
+        Api::RenderFormatSet::Okay okay;
+        okay.active_format = RenderFormat::BASIC;
+        okay.message = "Format acknowledged (tracking not implemented yet)";
+        cwc.sendResponse(Api::RenderFormatSet::Response::okay(std::move(okay)));
+    });
+
+    // =========================================================================
+    // Queued handlers - queue to state machine for processing.
+    // =========================================================================
+
+    // All queued commands follow the same pattern: queue CWC to state machine.
+    // State machine routes to current state's onEvent() handler.
+
+    service.registerHandler<Api::CellGet::Cwc>([this](Api::CellGet::Cwc cwc) { queueEvent(cwc); });
+    service.registerHandler<Api::CellSet::Cwc>([this](Api::CellSet::Cwc cwc) { queueEvent(cwc); });
+    service.registerHandler<Api::DiagramGet::Cwc>(
+        [this](Api::DiagramGet::Cwc cwc) { queueEvent(cwc); });
+    service.registerHandler<Api::Exit::Cwc>([this](Api::Exit::Cwc cwc) { queueEvent(cwc); });
+    service.registerHandler<Api::GravitySet::Cwc>(
+        [this](Api::GravitySet::Cwc cwc) { queueEvent(cwc); });
+    service.registerHandler<Api::PerfStatsGet::Cwc>(
+        [this](Api::PerfStatsGet::Cwc cwc) { queueEvent(cwc); });
+    service.registerHandler<Api::PhysicsSettingsGet::Cwc>(
+        [this](Api::PhysicsSettingsGet::Cwc cwc) { queueEvent(cwc); });
+    service.registerHandler<Api::PhysicsSettingsSet::Cwc>(
+        [this](Api::PhysicsSettingsSet::Cwc cwc) { queueEvent(cwc); });
+    service.registerHandler<Api::Reset::Cwc>([this](Api::Reset::Cwc cwc) { queueEvent(cwc); });
+    service.registerHandler<Api::ScenarioConfigSet::Cwc>(
+        [this](Api::ScenarioConfigSet::Cwc cwc) { queueEvent(cwc); });
+    service.registerHandler<Api::SeedAdd::Cwc>([this](Api::SeedAdd::Cwc cwc) { queueEvent(cwc); });
+    service.registerHandler<Api::SimRun::Cwc>([this](Api::SimRun::Cwc cwc) { queueEvent(cwc); });
+    service.registerHandler<Api::SpawnDirtBall::Cwc>(
+        [this](Api::SpawnDirtBall::Cwc cwc) { queueEvent(cwc); });
+    service.registerHandler<Api::WorldResize::Cwc>(
+        [this](Api::WorldResize::Cwc cwc) { queueEvent(cwc); });
+
+    spdlog::info("StateMachine: WebSocketService handlers registered");
 }
 
 void StateMachine::updateCachedWorldData(const WorldData& data)

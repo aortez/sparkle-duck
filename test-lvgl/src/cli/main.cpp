@@ -5,7 +5,7 @@
 #include "IntegrationTest.h"
 #include "RunAllRunner.h"
 #include "core/ReflectSerializer.h"
-#include "core/network/WebSocketClient.h"
+#include "core/network/WebSocketService.h"
 #include "server/api/StatusGet.h"
 #include <args.hxx>
 #include <filesystem>
@@ -374,7 +374,7 @@ int main(int argc, char** argv)
         std::cerr << "Testing binary protocol with StatusGet command..." << std::endl;
 
         // Create client in binary mode.
-        Network::WebSocketClient client;
+        Network::WebSocketService client;
         client.setProtocol(Network::Protocol::BINARY);
 
         // Connect.
@@ -472,7 +472,7 @@ int main(int argc, char** argv)
     }
 
     // Connect to target using WebSocketClient.
-    Network::WebSocketClient client;
+    Network::WebSocketService client;
 
     auto connectResult = client.connect(address, timeoutMs);
     if (connectResult.isError()) {

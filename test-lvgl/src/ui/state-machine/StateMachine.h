@@ -15,6 +15,11 @@ struct _lv_display_t;
 
 // Forward declarations for network and UI components.
 namespace DirtSim {
+
+namespace Network {
+class WebSocketService;
+}
+
 namespace Ui {
 class UiComponentManager;
 class WebSocketServer;
@@ -46,17 +51,32 @@ public:
     EventProcessor eventProcessor;
 
     // WebSocket connections.
-    std::unique_ptr<WebSocketServer> wsServer_; // Server for accepting remote commands.
-    std::unique_ptr<WebSocketClient> wsClient_; // Client for connecting to DSSM server.
+    std::unique_ptr<WebSocketServer> wsServer_; // Server for accepting remote commands (OLD).
+    std::unique_ptr<WebSocketClient> wsClient_; // Client for connecting to DSSM server (OLD).
+    std::unique_ptr<Network::WebSocketService>
+        wsService_; // NEW: Unified service (client + server).
 
     // UI management.
     std::unique_ptr<UiComponentManager> uiManager_; // LVGL screen and container management.
 
     /**
-     * @brief Get WebSocket client for DSSM connection.
+     * @brief Get WebSocket client for DSSM connection (OLD).
      * @return Pointer to WebSocket client (non-owning).
      */
     WebSocketClient* getWebSocketClient() { return wsClient_.get(); }
+
+    /**
+     * @brief Get WebSocketService (NEW unified client + server).
+     * @return Pointer to WebSocketService (non-owning).
+     */
+    Network::WebSocketService* getWebSocketService() { return wsService_.get(); }
+
+    /**
+     * @brief Setup WebSocketService for UI operation.
+     *
+     * Configures both client role (connect to server) and server role (listen for CLI).
+     */
+    void setupWebSocketService();
 
     /**
      * @brief Get UI manager for LVGL screen/container access.

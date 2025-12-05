@@ -1,31 +1,46 @@
 # WebSocket Client Library Design
 
-## ✅ IMPLEMENTATION STATUS (2025-12-03)
+## ✅ IMPLEMENTATION STATUS (2025-12-05)
 
-**COMPLETE:** Binary protocol migration (Phases 1-3)
+**COMPLETE:** WebSocketService unified architecture - MAJOR REFACTOR!
 
-### What's Working
-- ✅ Binary protocol foundation (MessageEnvelope, SerializableResult, zpp_bits)
-- ✅ Server dual-format support (auto-detects JSON vs binary frames)
-- ✅ General WebSocketClient library in `src/core/network/`
-- ✅ CLI fully migrated to new client (old client removed)
-- ✅ All 18 command types support zpp_bits serialization
-- ✅ Binary protocol tested end-to-end (`cli test_binary` command)
-- ✅ Result<> error handling throughout
-- ✅ CamelCase command names in binary path (e.g., "StatusGet")
+### 🌱 What's Working (2025-12-05)
 
-### What's Left (Optional)
-- ⏳ **UI client migration** - Still uses old JSON-only WebSocketClient pattern
-- ⏳ **JSON path removal** - Could simplify by going binary-only (or keep for debugging)
-- ⏳ **Performance benchmarking** - Compare binary vs JSON speeds
-- ⏳ **JSON protocol naming** - Still uses snake_case ("status_get"), could unify to CamelCase
+**WebSocketService (Network::WebSocketService)**
+- ✅ Renamed from WebSocketClient to WebSocketService
+- ✅ Unified client + server roles in single class
+- ✅ Binary-only protocol (JSON removed from internal communication)
+- ✅ `listen(port)` - Server-side listening
+- ✅ `registerHandler<CwcT>(handler)` - Type-safe command handler registration
+- ✅ `broadcastBinary(data)` - Broadcast to all connected clients
+- ✅ CommandWithCallback integration for async handlers
 
-### Known Shortcuts / Technical Debt
-1. **Inconsistent command naming:** Binary uses CamelCase ("StatusGet"), JSON uses snake_case ("status_get"). Should unify to CamelCase everywhere.
-2. **Template design limitation:** `sendCommand<T>()` template expects `CommandT::OkayType`, but it's actually in the namespace. Works via manual envelope building for now.
-3. **UI client not migrated:** Still uses old pattern with poor error handling. Should migrate to `Network::WebSocketClient`.
-4. **No performance data:** Haven't benchmarked binary vs JSON to quantify the speedup.
-5. **JSON path still exists:** Dual-format adds code complexity. Could remove JSON path once confident in binary stability.
+**Server Migration (Server::StateMachine)**
+- ✅ All 20 API commands registered in `setupWebSocketService()`
+- ✅ Immediate handlers: StateGet, StatusGet, RenderFormatGet, RenderFormatSet
+- ✅ Queued handlers: All others queue to state machine
+- ✅ RenderMessage broadcasting working
+- ✅ Old Server::WebSocketServer unused (ready for deletion)
+
+**CLI Refactor (Client::CommandDispatcher)**
+- ✅ Type-safe dispatcher using template metaprogramming
+- ✅ Auto-registers commands with response deserializers
+- ✅ Fluent syntax: `cli server StatusGet`, `cli ui SimPause`
+- ✅ Default addresses (no more typing URLs!)
+- ✅ Binary protocol with full response data display
+- ✅ CamelCase command names everywhere
+
+**UI Migration (In Progress)**
+- ✅ UI sends binary commands to server (SimRun, etc.)
+- ✅ UI receives RenderMessages via WebSocketService
+- ✅ Single connection (replaces dual client/server)
+- ✅ Rendering works, simulation runs
+- ⏳ Old Ui::WebSocketClient still present (ready for removal)
+
+### Known Issues
+1. **libdatachannel buffering:** RenderMessages arrive in bursts with ~2 second initial delay. Messages buffer in libdatachannel WebSocket and deliver all at once instead of streaming. System works but rendering startup is delayed. Need to investigate rtc::WebSocketConfiguration settings.
+2. **Response serialization:** Some commands (PeersGet, TimerStatsGet) have complex response types that ReflectSerializer can't auto-serialize. Need custom toJson() implementations.
+3. **Old code cleanup:** Ui::WebSocketClient, Ui::WebSocketServer, and Server::WebSocketServer still in codebase but unused. Ready for deletion.
 
 ---
 
