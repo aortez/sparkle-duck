@@ -13,6 +13,7 @@ namespace DirtSim {
 
 class Cell;
 class World;
+struct PhysicsSettings;
 
 /**
  * @brief Stack-based container for boundary crossings (max 4 directions).
@@ -155,15 +156,46 @@ public:
     void handleFragmentation(World& world, Cell& fromCell, Cell& toCell, const MaterialMove& move);
 
     /**
+     * @brief Generate and place fragments from a single cell.
+     *
+     * Helper function that creates fragments in a 90-degree arc around the reflection
+     * direction and places them in neighboring cells. Used by handleWaterFragmentation
+     * to fragment both cells in a collision.
+     *
+     * @param world World providing access to grid and settings.
+     * @param sourceCell Cell to fragment.
+     * @param sourceX Source cell X coordinate.
+     * @param sourceY Source cell Y coordinate.
+     * @param avoidX X coordinate of cell to avoid (collision partner).
+     * @param avoidY Y coordinate of cell to avoid (collision partner).
+     * @param reflection_direction Direction to spray fragments.
+     * @param frag_speed Speed of fragment particles.
+     * @param num_frags Number of fragments to create (2 or 3).
+     * @param settings Physics settings.
+     * @return Total amount of material successfully sprayed out.
+     */
+    double fragmentSingleCell(
+        World& world,
+        Cell& sourceCell,
+        uint32_t sourceX,
+        uint32_t sourceY,
+        uint32_t avoidX,
+        uint32_t avoidY,
+        const Vector2d& reflection_direction,
+        double frag_speed,
+        int num_frags,
+        const PhysicsSettings& settings);
+
+    /**
      * @brief Handle water fragmentation (splash) on high-energy impact.
      *
-     * When water collides with high enough energy, it fragments into 1-3 pieces
-     * that spray outward in a 90-degree arc centered on the reflection direction.
-     * This creates realistic splash behavior for water hitting surfaces.
+     * When water collides with high enough energy, both cells fragment into 1-3 pieces
+     * that spray outward in a 90-degree arc centered on their reflection directions.
+     * This creates realistic mutual splash behavior when water hits water.
      *
      * @param world World providing access to grid, cells, and settings.
-     * @param fromCell Source cell containing water.
-     * @param toCell Target cell that was hit.
+     * @param fromCell Source cell (may be water).
+     * @param toCell Target cell (may be water).
      * @param move Material move data with collision info.
      * @param rng Random number generator for probability rolls.
      * @return True if fragmentation occurred, false if normal collision should proceed.

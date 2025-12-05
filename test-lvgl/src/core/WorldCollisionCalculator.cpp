@@ -585,62 +585,27 @@ void WorldCollisionCalculator::handleAbsorption(
     }
 }
 
-bool WorldCollisionCalculator::handleWaterFragmentation(
-    World& world, Cell& fromCell, Cell& toCell, const MaterialMove& move, std::mt19937& rng)
+// Helper struct for fragment placement.
+struct FragTarget {
+    Vector2i offset;
+    Vector2d velocity;
+    double amount;
+};
+
+// Helper function to generate and place fragments from a single cell.
+// Returns the total amount of material that was successfully sprayed out.
+double WorldCollisionCalculator::fragmentSingleCell(
+    World& world,
+    Cell& sourceCell,
+    uint32_t sourceX,
+    uint32_t sourceY,
+    uint32_t avoidX,
+    uint32_t avoidY,
+    const Vector2d& reflection_direction,
+    double frag_speed,
+    int num_frags,
+    const PhysicsSettings& settings)
 {
-    const PhysicsSettings& settings = world.getPhysicsSettings();
-
-    // Only fragment water.
-    if (fromCell.material_type != MaterialType::WATER) {
-        return false;
-    }
-
-    // Check if fragmentation is enabled.
-    if (!settings.fragmentation_enabled) {
-        return false;
-    }
-
-    // Check energy threshold.
-    if (move.collision_energy < settings.fragmentation_threshold) {
-        return false;
-    }
-
-    // Calculate fragmentation probability: linear ramp from threshold to full_threshold.
-    double probability = (move.collision_energy - settings.fragmentation_threshold)
-        / (settings.fragmentation_full_threshold - settings.fragmentation_threshold);
-    probability = std::clamp(probability, 0.0, 1.0);
-
-    // Roll dice.
-    std::uniform_real_distribution<double> prob_dist(0.0, 1.0);
-    if (prob_dist(rng) > probability) {
-        return false; // No fragmentation this time.
-    }
-
-    // Determine number of fragments (1, 2, or 3) based on energy.
-    // Higher energy = more fragments.
-    int num_frags = 1;
-    if (move.collision_energy > settings.fragmentation_full_threshold * 1.5) {
-        num_frags = 3;
-    }
-    else if (move.collision_energy > settings.fragmentation_full_threshold) {
-        num_frags = 2;
-    }
-
-    // 1 frag means normal collision behavior, no fragmentation.
-    if (num_frags == 1) {
-        return false;
-    }
-
-    // Calculate reflection direction (negate normal component).
-    Vector2d surface_normal = move.boundary_normal.normalize();
-    auto v_comp = decomposeVelocity(move.momentum, surface_normal);
-    Vector2d reflection_dir = (v_comp.tangential - v_comp.normal).normalize();
-
-    // If reflection direction is zero, use surface normal pointing away.
-    if (reflection_dir.magnitude() < 0.01) {
-        reflection_dir = surface_normal * -1.0;
-    }
-
     // Calculate frag angles in 90-degree arc centered on reflection direction.
     // 2 frags: ±45° from center
     // 3 frags: -30°, 0°, +30° from center
@@ -653,19 +618,11 @@ bool WorldCollisionCalculator::handleWaterFragmentation(
     }
 
     // Calculate base angle of reflection direction.
-    double base_angle = std::atan2(reflection_dir.y, reflection_dir.x);
+    double base_angle = std::atan2(reflection_direction.y, reflection_direction.x);
 
-    // Map each frag angle to a neighbor cell direction.
-    struct FragTarget {
-        Vector2i offset;
-        Vector2d velocity;
-        double amount;
-    };
     std::vector<FragTarget> frag_targets;
-
     double frag_amount_each =
-        (fromCell.fill_ratio * settings.fragmentation_spray_fraction) / num_frags;
-    double frag_speed = move.momentum.magnitude() * 0.7; // Fragments get 70% of original speed.
+        (sourceCell.fill_ratio * settings.fragmentation_spray_fraction) / num_frags;
 
     for (double angle_offset : frag_angles) {
         double frag_angle = base_angle + angle_offset;
@@ -723,8 +680,8 @@ bool WorldCollisionCalculator::handleWaterFragmentation(
     double total_sprayed = 0.0;
 
     for (auto& [key, frag] : merged_targets) {
-        int target_x = static_cast<int>(move.fromX) + frag.offset.x;
-        int target_y = static_cast<int>(move.fromY) + frag.offset.y;
+        int target_x = static_cast<int>(sourceX) + frag.offset.x;
+        int target_y = static_cast<int>(sourceY) + frag.offset.y;
 
         // Skip if out of bounds.
         if (target_x < 0 || target_x >= static_cast<int>(data.width) || target_y < 0
@@ -732,8 +689,8 @@ bool WorldCollisionCalculator::handleWaterFragmentation(
             continue;
         }
 
-        // Skip if this is the cell we collided with.
-        if (target_x == static_cast<int>(move.toX) && target_y == static_cast<int>(move.toY)) {
+        // Skip if this is the cell we're avoiding (the collision partner).
+        if (target_x == static_cast<int>(avoidX) && target_y == static_cast<int>(avoidY)) {
             continue;
         }
 
@@ -747,7 +704,7 @@ bool WorldCollisionCalculator::handleWaterFragmentation(
 
         // Transfer what fits.
         double to_transfer = std::min(frag.amount, capacity);
-        to_transfer = std::min(to_transfer, fromCell.fill_ratio - MIN_MATTER_THRESHOLD);
+        to_transfer = std::min(to_transfer, sourceCell.fill_ratio - MIN_MATTER_THRESHOLD);
 
         constexpr double MIN_VISIBLE_FRAGMENT = 0.01;
         if (to_transfer < MIN_VISIBLE_FRAGMENT) {
@@ -781,52 +738,158 @@ bool WorldCollisionCalculator::handleWaterFragmentation(
         }
 
         // Remove from source.
-        fromCell.fill_ratio -= to_transfer;
+        sourceCell.fill_ratio -= to_transfer;
         total_sprayed += to_transfer;
 
         spdlog::debug(
-            "Water fragmentation: sprayed {:.3f} from ({},{}) to ({},{}) with velocity "
-            "({:.2f},{:.2f})",
+            "Fragment spray: {:.3f} from ({},{}) to ({},{}) with velocity ({:.2f},{:.2f})",
             to_transfer,
-            move.fromX,
-            move.fromY,
+            sourceX,
+            sourceY,
             target_x,
             target_y,
             frag.velocity.x,
             frag.velocity.y);
     }
 
-    // If nothing sprayed, fragmentation failed.
-    if (total_sprayed < MIN_MATTER_THRESHOLD) {
+    return total_sprayed;
+}
+
+bool WorldCollisionCalculator::handleWaterFragmentation(
+    World& world, Cell& fromCell, Cell& toCell, const MaterialMove& move, std::mt19937& rng)
+{
+    const PhysicsSettings& settings = world.getPhysicsSettings();
+
+    // Check if fragmentation is enabled.
+    if (!settings.fragmentation_enabled) {
         return false;
     }
 
-    // Handle the remaining material in fromCell - apply inelastic reflection.
-    if (fromCell.fill_ratio > MIN_MATTER_THRESHOLD) {
-        double inelastic_restitution = move.restitution_coefficient * INELASTIC_RESTITUTION_FACTOR;
+    // Check energy threshold.
+    if (move.collision_energy < settings.fragmentation_threshold) {
+        return false;
+    }
+
+    // At least one cell must be water to fragment.
+    const bool from_is_water = (fromCell.material_type == MaterialType::WATER);
+    const bool to_is_water = (toCell.material_type == MaterialType::WATER);
+
+    if (!from_is_water && !to_is_water) {
+        return false;
+    }
+
+    // Calculate fragmentation probability: linear ramp from threshold to full_threshold.
+    double probability = (move.collision_energy - settings.fragmentation_threshold)
+        / (settings.fragmentation_full_threshold - settings.fragmentation_threshold);
+    probability = std::clamp(probability, 0.0, 1.0);
+
+    // Roll dice.
+    std::uniform_real_distribution<double> prob_dist(0.0, 1.0);
+    if (prob_dist(rng) > probability) {
+        return false; // No fragmentation this time.
+    }
+
+    // Determine number of fragments (1, 2, or 3) based on energy.
+    // Higher energy = more fragments.
+    int num_frags = 1;
+    if (move.collision_energy > settings.fragmentation_full_threshold * 1.5) {
+        num_frags = 3;
+    }
+    else if (move.collision_energy > settings.fragmentation_full_threshold) {
+        num_frags = 2;
+    }
+
+    // 1 frag means normal collision behavior, no fragmentation.
+    if (num_frags == 1) {
+        return false;
+    }
+
+    // Calculate reflection directions for both cells.
+    Vector2d surface_normal = move.boundary_normal.normalize();
+    auto v_comp = decomposeVelocity(move.momentum, surface_normal);
+
+    // FROM cell reflects away from TO cell (negate normal).
+    Vector2d from_reflection_dir = (v_comp.tangential - v_comp.normal).normalize();
+    if (from_reflection_dir.magnitude() < 0.01) {
+        from_reflection_dir = surface_normal * -1.0;
+    }
+
+    // TO cell reflects away from FROM cell (use normal as-is).
+    Vector2d to_reflection_dir = (v_comp.tangential + v_comp.normal).normalize();
+    if (to_reflection_dir.magnitude() < 0.01) {
+        to_reflection_dir = surface_normal;
+    }
+
+    double frag_speed = move.momentum.magnitude() * 0.7; // Fragments get 70% of original speed.
+
+    // Fragment FROM cell if it's water.
+    double from_sprayed = 0.0;
+    if (from_is_water) {
+        from_sprayed = fragmentSingleCell(
+            world,
+            fromCell,
+            move.fromX,
+            move.fromY,
+            move.toX,
+            move.toY,
+            from_reflection_dir,
+            frag_speed,
+            num_frags,
+            settings);
+    }
+
+    // Fragment TO cell if it's water (mutual fragmentation!).
+    double to_sprayed = 0.0;
+    if (to_is_water) {
+        to_sprayed = fragmentSingleCell(
+            world,
+            toCell,
+            move.toX,
+            move.toY,
+            move.fromX,
+            move.fromY,
+            to_reflection_dir,
+            frag_speed,
+            num_frags,
+            settings);
+    }
+
+    // If nothing sprayed from either cell, fragmentation failed.
+    if (from_sprayed < MIN_MATTER_THRESHOLD && to_sprayed < MIN_MATTER_THRESHOLD) {
+        return false;
+    }
+
+    // Handle remaining material in both cells with inelastic reflection.
+    double inelastic_restitution = move.restitution_coefficient * INELASTIC_RESTITUTION_FACTOR;
+
+    if (from_is_water && fromCell.fill_ratio > MIN_MATTER_THRESHOLD) {
         Vector2d v_normal_reflected = v_comp.normal * (-inelastic_restitution);
         fromCell.velocity = v_comp.tangential + v_normal_reflected;
-
-        // Transfer momentum to target cell.
-        if (move.target_mass > 0.0 && !toCell.isEmpty()) {
-            Vector2d momentum_transferred =
-                v_comp.normal * (1.0 + inelastic_restitution) * move.material_mass;
-            Vector2d target_velocity_change = momentum_transferred / move.target_mass;
-            toCell.velocity = toCell.velocity + target_velocity_change;
-        }
     }
-    else {
-        // Source cell is now empty.
+    else if (from_is_water) {
         fromCell.clear();
     }
 
+    // Transfer momentum between cells.
+    if (move.target_mass > 0.0 && !toCell.isEmpty() && from_is_water) {
+        Vector2d momentum_transferred =
+            v_comp.normal * (1.0 + inelastic_restitution) * move.material_mass;
+        Vector2d target_velocity_change = momentum_transferred / move.target_mass;
+        toCell.velocity = toCell.velocity + target_velocity_change;
+    }
+
     spdlog::info(
-        "Water fragmentation: {} frags, sprayed {:.3f} total from ({},{}), {:.3f} remaining",
+        "Water fragmentation: {} frags, FROM({},{}) sprayed {:.3f} remaining {:.3f}, TO({},{}) "
+        "sprayed {:.3f} remaining {:.3f}",
         num_frags,
-        total_sprayed,
         move.fromX,
         move.fromY,
-        fromCell.fill_ratio);
+        from_sprayed,
+        fromCell.fill_ratio,
+        move.toX,
+        move.toY,
+        to_sprayed,
+        toCell.fill_ratio);
 
     return true;
 }
@@ -1141,33 +1204,56 @@ bool WorldCollisionCalculator::shouldSwapMaterials(
         const bool swap_ok = effective_momentum > to_resistance * threshold;
 
         if (!swap_ok) {
+            LoggingChannels::swap()->warn(
+                "Vertical swap DENIED: {} -> {} at ({},{}) -> ({},{}) | momentum: {:.3f} (mass: "
+                "{:.3f}, "
+                "vel: {:.3f}, buoyancy: {:.3f}) | resistance: {:.3f} (mass: {:.3f}, cohesion: "
+                "{:.3f}, "
+                "support: {:.1f}) | threshold: {:.3f} | dir.y: {} ({})",
+                getMaterialName(fromCell.material_type),
+                getMaterialName(toCell.material_type),
+                fromX,
+                fromY,
+                fromX + direction.x,
+                fromY + direction.y,
+                effective_momentum,
+                from_mass,
+                from_velocity,
+                buoyancy_boost,
+                to_resistance,
+                to_mass,
+                to_props.cohesion,
+                support_factor,
+                to_resistance * threshold,
+                direction.y,
+                direction.y > 0 ? "DOWN" : "UP");
             return false;
         }
         // Log vertical swap approval details.
         if (toCell.material_type != MaterialType::AIR) {
-            // LoggingChannels::swap()->warn(
-            //     "Vertical swap OK: {} -> {} at ({},{}) -> ({},{}) | momentum: {:.3f} (mass: "
-            //     "{:.3f}, "
-            //     "vel: {:.3f}, buoyancy: {:.3f}) | resistance: {:.3f} (mass: {:.3f}, cohesion: "
-            //     "{:.3f}, "
-            //     "support: {:.1f}) | threshold: {:.3f} | dir.y: {} ({})",
-            //     getMaterialName(fromCell.material_type),
-            //     getMaterialName(toCell.material_type),
-            //     fromX,
-            //     fromY,
-            //     fromX + direction.x,
-            //     fromY + direction.y,
-            //     effective_momentum,
-            //     from_mass,
-            //     from_velocity,
-            //     buoyancy_boost,
-            //     to_resistance,
-            //     to_mass,
-            //     to_props.cohesion,
-            //     support_factor,
-            //     to_resistance * threshold,
-            //     direction.y,
-            //     direction.y > 0 ? "DOWN" : "UP");
+            LoggingChannels::swap()->warn(
+                "Vertical swap OK: {} -> {} at ({},{}) -> ({},{}) | momentum: {:.3f} (mass: "
+                "{:.3f}, "
+                "vel: {:.3f}, buoyancy: {:.3f}) | resistance: {:.3f} (mass: {:.3f}, cohesion: "
+                "{:.3f}, "
+                "support: {:.1f}) | threshold: {:.3f} | dir.y: {} ({})",
+                getMaterialName(fromCell.material_type),
+                getMaterialName(toCell.material_type),
+                fromX,
+                fromY,
+                fromX + direction.x,
+                fromY + direction.y,
+                effective_momentum,
+                from_mass,
+                from_velocity,
+                buoyancy_boost,
+                to_resistance,
+                to_mass,
+                to_props.cohesion,
+                support_factor,
+                to_resistance * threshold,
+                direction.y,
+                direction.y > 0 ? "DOWN" : "UP");
         }
     }
 

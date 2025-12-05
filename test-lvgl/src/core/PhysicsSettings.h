@@ -39,6 +39,7 @@ struct PhysicsSettings {
     double pressure_scale = 1.0;
     double pressure_diffusion_strength = 5.0;
     int pressure_diffusion_iterations = 2;
+    double pressure_decay_rate = 0.1; // Decay rate per second (0.0 = no decay, 1.0 = 100%/sec).
     bool swap_enabled = true;
     double timescale = 1.0;
     double viscosity_strength = 1.0;
